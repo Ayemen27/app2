@@ -1,149 +1,221 @@
-import { pgTable, text, timestamp, integer, boolean, jsonb, serial, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, boolean, jsonb, serial, decimal, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
+import { sql } from "drizzle-orm";
 
-// نموذج تسجيل الأخطاء
-export const errorLogs = pgTable("error_logs", {
+// نموذج المشاريع
+export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
-  errorType: text("error_type").notNull(), // critical, warning, info
-  errorCode: text("error_code"), // HTTP codes, build codes, etc
-  title: text("title").notNull(),
+  name: text("name").notNull(),
   description: text("description"),
-  stackTrace: text("stack_trace"),
-  source: text("source").notNull(), // netlify, frontend, backend, build
-  status: text("status").default("active"), // active, resolved, investigating
-  severity: integer("severity").default(1), // 1-5 severity levels
-  metadata: jsonb("metadata"), // Additional error context
-  occurredAt: timestamp("occurred_at").defaultNow().notNull(),
-  resolvedAt: timestamp("resolved_at"),
-  resolvedBy: text("resolved_by"),
-  resolution: text("resolution"),
+  status: text("status").default("active"), // active, completed, on_hold, cancelled
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  budget: decimal("budget", { precision: 12, scale: 2 }),
+  location: text("location"),
+  clientName: text("client_name"),
+  clientPhone: text("client_phone"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// نموذج العمال
+export const workers = pgTable("workers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  phone: text("phone"),
+  type: text("type").notNull(), // carpenter, electrician, plumber, etc.
+  dailyWage: decimal("daily_wage", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").default("active"), // active, inactive
+  hiredDate: timestamp("hired_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// نموذج حضور العمال
+export const workerAttendance = pgTable("worker_attendance", {
+  id: serial("id").primaryKey(),
+  workerId: integer("worker_id").references(() => workers.id).notNull(),
+  projectId: integer("project_id").references(() => projects.id).notNull(),
+  attendanceDate: timestamp("attendance_date").notNull(),
+  hoursWorked: decimal("hours_worked", { precision: 4, scale: 2 }).default("8.00"),
+  overtime: decimal("overtime", { precision: 4, scale: 2 }).default("0.00"),
+  dailyWage: decimal("daily_wage", { precision: 10, scale: 2 }).notNull(),
+  overtimeRate: decimal("overtime_rate", { precision: 10, scale: 2 }).default("0.00"),
+  totalPay: decimal("total_pay", { precision: 10, scale: 2 }).notNull(),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// نموذج سجلات البناء
-export const buildLogs = pgTable("build_logs", {
+// نموذج المصروفات اليومية
+export const dailyExpenses = pgTable("daily_expenses", {
   id: serial("id").primaryKey(),
-  buildId: text("build_id").notNull(),
-  status: text("status").notNull(), // success, failed, in_progress, cancelled
-  startTime: timestamp("start_time").notNull(),
-  endTime: timestamp("end_time"),
-  duration: integer("duration"), // in seconds
-  buildSize: decimal("build_size"), // in MB
-  logContent: text("log_content"),
-  errorDetails: jsonb("error_details"),
-  environment: text("environment").default("production"),
-  branch: text("branch").default("main"),
-  commitHash: text("commit_hash"),
-  deployUrl: text("deploy_url"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-// نموذج مقاييس النظام
-export const systemMetrics = pgTable("system_metrics", {
-  id: serial("id").primaryKey(),
-  metricType: text("metric_type").notNull(), // build_success_rate, avg_build_time, app_size, uptime
-  value: decimal("value").notNull(),
-  unit: text("unit"), // percentage, seconds, MB, hours
-  recordedAt: timestamp("recorded_at").defaultNow().notNull(),
-  metadata: jsonb("metadata"),
-});
-
-// نموذج التوصيات والإجراءات
-export const recommendations = pgTable("recommendations", {
-  id: serial("id").primaryKey(),
-  errorLogId: integer("error_log_id").references(() => errorLogs.id),
-  title: text("title").notNull(),
+  projectId: integer("project_id").references(() => projects.id).notNull(),
+  expenseDate: timestamp("expense_date").notNull(),
+  category: text("category").notNull(), // materials, labor, equipment, transportation, other
   description: text("description").notNull(),
-  actionType: text("action_type").notNull(), // auto_fix, manual_fix, configuration, monitoring
-  priority: integer("priority").default(3), // 1-5 priority levels
-  status: text("status").default("pending"), // pending, applied, failed, dismissed
-  autoFixScript: text("auto_fix_script"),
-  manualSteps: jsonb("manual_steps"), // Array of manual steps
-  estimatedTime: integer("estimated_time"), // in minutes
-  appliedAt: timestamp("applied_at"),
-  appliedBy: text("applied_by"),
-  result: text("result"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  receiptNumber: text("receipt_number"),
+  supplierName: text("supplier_name"),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// نموذج حالة النظام المباشرة
-export const systemStatus = pgTable("system_status", {
+// نموذج شراء المواد
+export const materialPurchases = pgTable("material_purchases", {
   id: serial("id").primaryKey(),
-  service: text("service").notNull(), // netlify_build, frontend, api_functions, database
-  status: text("status").notNull(), // operational, degraded, down, maintenance
-  lastChecked: timestamp("last_checked").defaultNow().notNull(),
-  responseTime: integer("response_time"), // in milliseconds
-  uptime: decimal("uptime"), // percentage
-  metadata: jsonb("metadata"),
+  projectId: integer("project_id").references(() => projects.id).notNull(),
+  purchaseDate: timestamp("purchase_date").notNull(),
+  materialName: text("material_name").notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
+  unit: text("unit").notNull(), // meter, kg, piece, box, etc.
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  supplierName: text("supplier_name"),
+  receiptNumber: text("receipt_number"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// نموذج المعدات
+export const equipment = pgTable("equipment", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  serialNumber: text("serial_number"),
+  category: text("category").notNull(),
+  purchaseDate: timestamp("purchase_date"),
+  purchasePrice: decimal("purchase_price", { precision: 10, scale: 2 }),
+  currentValue: decimal("current_value", { precision: 10, scale: 2 }),
+  status: text("status").default("available"), // available, in_use, maintenance, retired
+  location: text("location"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// نموذج بيانات الإكمال التلقائي
+export const autocompleteData = pgTable("autocomplete_data", {
+  id: serial("id").primaryKey(),
+  category: text("category").notNull(), // worker_types, material_names, suppliers, etc.
+  value: text("value").notNull(),
+  frequency: integer("frequency").default(1),
+  lastUsed: timestamp("last_used").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Insert and Select Schemas
-export const insertErrorLogSchema = createInsertSchema(errorLogs).omit({
+export const insertProjectSchema = createInsertSchema(projects).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWorkerSchema = createInsertSchema(workers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertBuildLogSchema = createInsertSchema(buildLogs).omit({
+export const insertDailyExpenseSchema = createInsertSchema(dailyExpenses).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertSystemMetricSchema = createInsertSchema(systemMetrics).omit({
-  id: true,
-  recordedAt: true,
-});
-
-export const insertRecommendationSchema = createInsertSchema(recommendations).omit({
+export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertSystemStatusSchema = createInsertSchema(systemStatus).omit({
+export const insertEquipmentSchema = createInsertSchema(equipment).omit({
   id: true,
-  lastChecked: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAutocompleteDataSchema = createInsertSchema(autocompleteData).omit({
+  id: true,
+  createdAt: true,
+  lastUsed: true,
 });
 
 // Types
-export type ErrorLog = typeof errorLogs.$inferSelect;
-export type InsertErrorLog = z.infer<typeof insertErrorLogSchema>;
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
 
-export type BuildLog = typeof buildLogs.$inferSelect;
-export type InsertBuildLog = z.infer<typeof insertBuildLogSchema>;
+export type Worker = typeof workers.$inferSelect;
+export type InsertWorker = z.infer<typeof insertWorkerSchema>;
 
-export type SystemMetric = typeof systemMetrics.$inferSelect;
-export type InsertSystemMetric = z.infer<typeof insertSystemMetricSchema>;
+export type WorkerAttendance = typeof workerAttendance.$inferSelect;
+export type InsertWorkerAttendance = z.infer<typeof insertWorkerAttendanceSchema>;
 
-export type Recommendation = typeof recommendations.$inferSelect;
-export type InsertRecommendation = z.infer<typeof insertRecommendationSchema>;
+export type DailyExpense = typeof dailyExpenses.$inferSelect;
+export type InsertDailyExpense = z.infer<typeof insertDailyExpenseSchema>;
 
-export type SystemStatus = typeof systemStatus.$inferSelect;
-export type InsertSystemStatus = z.infer<typeof insertSystemStatusSchema>;
+export type MaterialPurchase = typeof materialPurchases.$inferSelect;
+export type InsertMaterialPurchase = z.infer<typeof insertMaterialPurchaseSchema>;
+
+export type Equipment = typeof equipment.$inferSelect;
+export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
+
+export type AutocompleteData = typeof autocompleteData.$inferSelect;
+export type InsertAutocompleteData = z.infer<typeof insertAutocompleteDataSchema>;
 
 // Enums for type safety
-export const ERROR_TYPES = {
-  CRITICAL: "critical",
-  WARNING: "warning", 
-  INFO: "info"
+export const PROJECT_STATUS = {
+  ACTIVE: "active",
+  COMPLETED: "completed",
+  ON_HOLD: "on_hold",
+  CANCELLED: "cancelled",
 } as const;
 
-export const BUILD_STATUSES = {
-  SUCCESS: "success",
-  FAILED: "failed",
-  IN_PROGRESS: "in_progress",
-  CANCELLED: "cancelled"
+export const WORKER_STATUS = {
+  ACTIVE: "active",
+  INACTIVE: "inactive",
 } as const;
 
-export const SERVICE_STATUSES = {
-  OPERATIONAL: "operational",
-  DEGRADED: "degraded",
-  DOWN: "down",
-  MAINTENANCE: "maintenance"
+export const EQUIPMENT_STATUS = {
+  AVAILABLE: "available",
+  IN_USE: "in_use",
+  MAINTENANCE: "maintenance",
+  RETIRED: "retired",
 } as const;
 
-export const ACTION_TYPES = {
-  AUTO_FIX: "auto_fix",
-  MANUAL_FIX: "manual_fix",
-  CONFIGURATION: "configuration",
-  MONITORING: "monitoring"
+export const EXPENSE_CATEGORIES = {
+  MATERIALS: "materials",
+  LABOR: "labor",
+  EQUIPMENT: "equipment",
+  TRANSPORTATION: "transportation",
+  OTHER: "other",
 } as const;
+
+// Helper types for dashboard
+export interface DailyExpenseSummary {
+  date: string;
+  totalAmount: number;
+  expenseCount: number;
+  categories: {
+    [key: string]: number;
+  };
+}
+
+export interface ProjectStats {
+  totalWorkers: string;
+  totalExpenses: number;
+  totalIncome: number;
+  currentBalance: number;
+  activeWorkers: string;
+  completedDays: string;
+  materialPurchases: string;
+  lastActivity: string;
+}
+
+export interface ProjectWithStats extends Project {
+  stats: ProjectStats;
+}

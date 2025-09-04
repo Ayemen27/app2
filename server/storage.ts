@@ -1,264 +1,368 @@
 import type { 
   ErrorLog, 
   InsertErrorLog,
-  DiagnosticCheck,
-  InsertDiagnosticCheck,
-  SystemMetrics,
-  InsertSystemMetrics,
-  AlertSettings,
-  InsertAlertSettings,
-  DeploymentInfo
+  BuildLog,
+  InsertBuildLog,
+  SystemMetric,
+  InsertSystemMetric,
+  Recommendation,
+  InsertRecommendation,
+  SystemStatus,
+  InsertSystemStatus
 } from "@shared/schema";
 
 export interface IStorage {
-  // Error Logs
-  getErrorLogs(limit?: number, timeFilter?: string): Promise<ErrorLog[]>;
-  createErrorLog(errorLog: InsertErrorLog): Promise<ErrorLog>;
-  updateErrorLogStatus(id: string, status: 'active' | 'processing' | 'resolved'): Promise<ErrorLog>;
-  getError502Count(timeRange?: string): Promise<number>;
+  // Error Logs operations
+  getErrorLogs(filters?: { type?: string; status?: string; limit?: number }): Promise<ErrorLog[]>;
+  createErrorLog(data: InsertErrorLog): Promise<ErrorLog>;
+  updateErrorLog(id: number, data: Partial<ErrorLog>): Promise<ErrorLog>;
+  resolveErrorLog(id: number, resolution: string, resolvedBy: string): Promise<ErrorLog>;
   
-  // Diagnostic Checks
-  getDiagnosticChecks(): Promise<DiagnosticCheck[]>;
-  createDiagnosticCheck(check: InsertDiagnosticCheck): Promise<DiagnosticCheck>;
-  updateDiagnosticCheck(id: string, status: DiagnosticCheck['status'], result?: string, duration?: number): Promise<DiagnosticCheck>;
+  // Build Logs operations  
+  getBuildLogs(limit?: number): Promise<BuildLog[]>;
+  createBuildLog(data: InsertBuildLog): Promise<BuildLog>;
+  updateBuildLog(id: number, data: Partial<BuildLog>): Promise<BuildLog>;
+  getLatestBuild(): Promise<BuildLog | null>;
   
-  // System Metrics
-  getLatestSystemMetrics(): Promise<SystemMetrics | null>;
-  createSystemMetrics(metrics: InsertSystemMetrics): Promise<SystemMetrics>;
-  getSystemMetricsHistory(timeRange?: string): Promise<SystemMetrics[]>;
+  // System Metrics operations
+  getSystemMetrics(type?: string, limit?: number): Promise<SystemMetric[]>;
+  createSystemMetric(data: InsertSystemMetric): Promise<SystemMetric>;
+  getBuildSuccessRate(days?: number): Promise<number>;
+  getAverageBuildTime(days?: number): Promise<number>;
   
-  // Alert Settings
-  getAlertSettings(): Promise<AlertSettings | null>;
-  updateAlertSettings(settings: Partial<InsertAlertSettings>): Promise<AlertSettings>;
+  // Recommendations operations
+  getRecommendations(status?: string): Promise<Recommendation[]>;
+  createRecommendation(data: InsertRecommendation): Promise<Recommendation>;
+  updateRecommendation(id: number, data: Partial<Recommendation>): Promise<Recommendation>;
+  applyRecommendation(id: number, appliedBy: string): Promise<Recommendation>;
   
-  // Deployment Info
-  getDeploymentInfo(): Promise<DeploymentInfo | null>;
-  updateDeploymentInfo(info: Partial<DeploymentInfo>): Promise<DeploymentInfo>;
+  // System Status operations
+  getSystemStatus(): Promise<SystemStatus[]>;
+  updateSystemStatus(service: string, data: Partial<SystemStatus>): Promise<SystemStatus>;
+  
+  // Analytics and Dashboard data
+  getDashboardData(): Promise<{
+    errorSummary: { critical: number; warnings: number; info: number };
+    buildMetrics: { successRate: number; avgBuildTime: number; appSize: number };
+    systemHealth: { services: SystemStatus[] };
+    recentErrors: ErrorLog[];
+    activeRecommendations: Recommendation[];
+  }>;
 }
 
+// In-Memory Implementation for development
 class MemStorage implements IStorage {
   private errorLogs: ErrorLog[] = [];
-  private diagnosticChecks: DiagnosticCheck[] = [];
-  private systemMetrics: SystemMetrics[] = [];
-  private alertSettings: AlertSettings | null = null;
-  private deploymentInfo: DeploymentInfo | null = null;
+  private buildLogs: BuildLog[] = [];
+  private systemMetrics: SystemMetric[] = [];
+  private recommendations: Recommendation[] = [];
+  private systemStatus: SystemStatus[] = [];
+  private idCounters = {
+    errorLogs: 1,
+    buildLogs: 1,
+    systemMetrics: 1,
+    recommendations: 1,
+    systemStatus: 1,
+  };
 
   constructor() {
-    this.initializeDefaultData();
+    this.initializeData();
   }
 
-  private initializeDefaultData() {
-    // Initialize with default alert settings
-    this.alertSettings = {
-      id: "default-settings",
-      emailAlerts: true,
-      smsAlerts: false,
-      slackAlerts: true,
-      alertThreshold: 5,
-      updatedAt: new Date().toISOString(),
-    };
+  private initializeData() {
+    // Initialize with critical 502 error from Netlify
+    this.errorLogs.push({
+      id: this.idCounters.errorLogs++,
+      errorType: "critical",
+      errorCode: "502",
+      title: "خطأ حرج: فشل في البناء - 502 Error",
+      description: "تم اكتشاف خطأ في عملية البناء على Netlify. السبب الرئيسي: عدم وجود vite في بيئة الإنتاج",
+      stackTrace: "ERROR: sh: 1: vite: not found\nBUILD: Command failed with exit code 127",
+      source: "netlify",
+      status: "active",
+      severity: 5,
+      metadata: {
+        buildId: "build_001",
+        environment: "production",
+        nodeEnv: "production"
+      },
+      occurredAt: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago
+      resolvedAt: null,
+      resolvedBy: null,
+      resolution: null,
+      createdAt: new Date(Date.now() - 1000 * 60 * 15)
+    });
 
-    // Initialize deployment info
-    this.deploymentInfo = {
-      id: "deployment-info",
-      lastDeploy: "2 ساعات",
+    // Initialize build logs
+    this.buildLogs.push({
+      id: this.idCounters.buildLogs++,
+      buildId: "build_001",
+      status: "failed",
+      startTime: new Date(Date.now() - 1000 * 60 * 16),
+      endTime: new Date(Date.now() - 1000 * 60 * 15),
+      duration: 33,
+      buildSize: 610.9,
+      logContent: `12:46:33 AM: $ npm run build
+12:46:33 AM: > rest-express@1.0.0 build  
+12:46:33 AM: > vite build && esbuild server/index.ts...
+12:46:33 AM: sh: 1: vite: not found
+12:46:33 AM: Command failed with exit code 127`,
+      errorDetails: {
+        command: "vite build",
+        exitCode: 127,
+        error: "sh: 1: vite: not found"
+      },
+      environment: "production",
       branch: "main",
-      buildId: "abc123def",
-      region: "us-east-1",
-      status: "deployed",
-      updatedAt: new Date().toISOString(),
-    };
+      commitHash: "abc123def456",
+      deployUrl: null,
+      createdAt: new Date(Date.now() - 1000 * 60 * 15)
+    });
 
-    // Initialize system metrics
-    const currentMetrics: SystemMetrics = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      serviceStatus: "متاحة",
-      uptime: 99.8,
-      error502Count: 23,
-      responseTime: 234,
-      activeRequests: 1247,
-      requestsPerSecond: 47.2,
-      cpuUsage: 23,
-      memoryUsage: 67,
-    };
-    this.systemMetrics.push(currentMetrics);
+    // Initialize system status
+    const services = [
+      { service: "netlify_build", status: "down", responseTime: null, uptime: 67 },
+      { service: "frontend", status: "degraded", responseTime: 2500, uptime: 78 },
+      { service: "api_functions", status: "operational", responseTime: 150, uptime: 99.9 },
+      { service: "database", status: "operational", responseTime: 45, uptime: 100 }
+    ];
+
+    services.forEach(({ service, status, responseTime, uptime }) => {
+      this.systemStatus.push({
+        id: this.idCounters.systemStatus++,
+        service,
+        status,
+        lastChecked: new Date(),
+        responseTime,
+        uptime,
+        metadata: {}
+      });
+    });
+
+    // Initialize recommendations
+    this.recommendations.push({
+      id: this.idCounters.recommendations++,
+      errorLogId: 1,
+      title: "إصلاح package.json",
+      description: "نقل vite من devDependencies إلى dependencies لضمان توفره في بيئة الإنتاج",
+      actionType: "auto_fix",
+      priority: 1,
+      status: "pending",
+      autoFixScript: `{
+        "script": "move-vite-to-dependencies",
+        "changes": {
+          "from": "devDependencies",
+          "to": "dependencies",
+          "package": "vite"
+        }
+      }`,
+      manualSteps: [
+        "افتح ملف package.json",
+        "انقل 'vite' من 'devDependencies' إلى 'dependencies'",
+        "قم بحفظ الملف",
+        "ادفع التغييرات إلى المستودع"
+      ],
+      estimatedTime: 5,
+      appliedAt: null,
+      appliedBy: null,
+      result: null,
+      createdAt: new Date()
+    });
   }
 
-  // Error Logs Methods
-  async getErrorLogs(limit = 50, timeFilter = '24h'): Promise<ErrorLog[]> {
-    const cutoffTime = new Date();
-    switch (timeFilter) {
-      case '1h':
-        cutoffTime.setHours(cutoffTime.getHours() - 1);
-        break;
-      case '24h':
-        cutoffTime.setDate(cutoffTime.getDate() - 1);
-        break;
-      case '7d':
-        cutoffTime.setDate(cutoffTime.getDate() - 7);
-        break;
+  async getErrorLogs(filters?: { type?: string; status?: string; limit?: number }): Promise<ErrorLog[]> {
+    let filtered = [...this.errorLogs];
+    
+    if (filters?.type) {
+      filtered = filtered.filter(log => log.errorType === filters.type);
     }
+    if (filters?.status) {
+      filtered = filtered.filter(log => log.status === filters.status);
+    }
+    if (filters?.limit) {
+      filtered = filtered.slice(0, filters.limit);
+    }
+    
+    return filtered.sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+  }
 
-    return this.errorLogs
-      .filter(log => new Date(log.timestamp) >= cutoffTime)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  async createErrorLog(data: InsertErrorLog): Promise<ErrorLog> {
+    const errorLog: ErrorLog = {
+      id: this.idCounters.errorLogs++,
+      ...data,
+      occurredAt: data.occurredAt || new Date(),
+      createdAt: new Date()
+    };
+    this.errorLogs.push(errorLog);
+    return errorLog;
+  }
+
+  async updateErrorLog(id: number, data: Partial<ErrorLog>): Promise<ErrorLog> {
+    const index = this.errorLogs.findIndex(log => log.id === id);
+    if (index === -1) throw new Error("Error log not found");
+    
+    this.errorLogs[index] = { ...this.errorLogs[index], ...data };
+    return this.errorLogs[index];
+  }
+
+  async resolveErrorLog(id: number, resolution: string, resolvedBy: string): Promise<ErrorLog> {
+    return this.updateErrorLog(id, {
+      status: "resolved",
+      resolution,
+      resolvedBy,
+      resolvedAt: new Date()
+    });
+  }
+
+  async getBuildLogs(limit = 10): Promise<BuildLog[]> {
+    return [...this.buildLogs]
+      .sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
       .slice(0, limit);
   }
 
-  async createErrorLog(errorLog: InsertErrorLog): Promise<ErrorLog> {
-    const newLog: ErrorLog = {
-      ...errorLog,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
+  async createBuildLog(data: InsertBuildLog): Promise<BuildLog> {
+    const buildLog: BuildLog = {
+      id: this.idCounters.buildLogs++,
+      ...data,
+      createdAt: new Date()
     };
-    this.errorLogs.push(newLog);
-    return newLog;
+    this.buildLogs.push(buildLog);
+    return buildLog;
   }
 
-  async updateErrorLogStatus(id: string, status: 'active' | 'processing' | 'resolved'): Promise<ErrorLog> {
-    const logIndex = this.errorLogs.findIndex(log => log.id === id);
-    if (logIndex === -1) {
-      throw new Error('Error log not found');
+  async updateBuildLog(id: number, data: Partial<BuildLog>): Promise<BuildLog> {
+    const index = this.buildLogs.findIndex(log => log.id === id);
+    if (index === -1) throw new Error("Build log not found");
+    
+    this.buildLogs[index] = { ...this.buildLogs[index], ...data };
+    return this.buildLogs[index];
+  }
+
+  async getLatestBuild(): Promise<BuildLog | null> {
+    if (this.buildLogs.length === 0) return null;
+    return [...this.buildLogs].sort((a, b) => b.startTime.getTime() - a.startTime.getTime())[0];
+  }
+
+  async getSystemMetrics(type?: string, limit = 50): Promise<SystemMetric[]> {
+    let filtered = [...this.systemMetrics];
+    
+    if (type) {
+      filtered = filtered.filter(metric => metric.metricType === type);
     }
     
-    this.errorLogs[logIndex].status = status;
-    return this.errorLogs[logIndex];
+    return filtered
+      .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime())
+      .slice(0, limit);
   }
 
-  async getError502Count(timeRange = '24h'): Promise<number> {
-    const logs = await this.getErrorLogs(1000, timeRange);
-    return logs.filter(log => log.statusCode === 502).length;
+  async createSystemMetric(data: InsertSystemMetric): Promise<SystemMetric> {
+    const metric: SystemMetric = {
+      id: this.idCounters.systemMetrics++,
+      ...data,
+      recordedAt: new Date()
+    };
+    this.systemMetrics.push(metric);
+    return metric;
   }
 
-  // Diagnostic Checks Methods
-  async getDiagnosticChecks(): Promise<DiagnosticCheck[]> {
-    return this.diagnosticChecks.sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  async getBuildSuccessRate(days = 7): Promise<number> {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const recentBuilds = this.buildLogs.filter(build => build.startTime >= since);
+    
+    if (recentBuilds.length === 0) return 0;
+    
+    const successfulBuilds = recentBuilds.filter(build => build.status === "success").length;
+    return (successfulBuilds / recentBuilds.length) * 100;
+  }
+
+  async getAverageBuildTime(days = 7): Promise<number> {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const recentBuilds = this.buildLogs.filter(build => 
+      build.startTime >= since && build.duration !== null
     );
+    
+    if (recentBuilds.length === 0) return 0;
+    
+    const totalDuration = recentBuilds.reduce((sum, build) => sum + (build.duration || 0), 0);
+    return totalDuration / recentBuilds.length;
   }
 
-  async createDiagnosticCheck(check: InsertDiagnosticCheck): Promise<DiagnosticCheck> {
-    const newCheck: DiagnosticCheck = {
-      ...check,
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-    };
-    this.diagnosticChecks.push(newCheck);
-    return newCheck;
-  }
-
-  async updateDiagnosticCheck(
-    id: string, 
-    status: DiagnosticCheck['status'], 
-    result?: string, 
-    duration?: number
-  ): Promise<DiagnosticCheck> {
-    const checkIndex = this.diagnosticChecks.findIndex(check => check.id === id);
-    if (checkIndex === -1) {
-      throw new Error('Diagnostic check not found');
+  async getRecommendations(status?: string): Promise<Recommendation[]> {
+    let filtered = [...this.recommendations];
+    
+    if (status) {
+      filtered = filtered.filter(rec => rec.status === status);
     }
     
-    this.diagnosticChecks[checkIndex].status = status;
-    if (result !== undefined) this.diagnosticChecks[checkIndex].result = result;
-    if (duration !== undefined) this.diagnosticChecks[checkIndex].duration = duration;
-    
-    return this.diagnosticChecks[checkIndex];
+    return filtered.sort((a, b) => a.priority - b.priority);
   }
 
-  // System Metrics Methods
-  async getLatestSystemMetrics(): Promise<SystemMetrics | null> {
-    if (this.systemMetrics.length === 0) return null;
-    return this.systemMetrics[this.systemMetrics.length - 1];
-  }
-
-  async createSystemMetrics(metrics: InsertSystemMetrics): Promise<SystemMetrics> {
-    const newMetrics: SystemMetrics = {
-      ...metrics,
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
+  async createRecommendation(data: InsertRecommendation): Promise<Recommendation> {
+    const recommendation: Recommendation = {
+      id: this.idCounters.recommendations++,
+      ...data,
+      createdAt: new Date()
     };
-    this.systemMetrics.push(newMetrics);
+    this.recommendations.push(recommendation);
+    return recommendation;
+  }
+
+  async updateRecommendation(id: number, data: Partial<Recommendation>): Promise<Recommendation> {
+    const index = this.recommendations.findIndex(rec => rec.id === id);
+    if (index === -1) throw new Error("Recommendation not found");
     
-    // Keep only last 1000 entries
-    if (this.systemMetrics.length > 1000) {
-      this.systemMetrics = this.systemMetrics.slice(-1000);
-    }
+    this.recommendations[index] = { ...this.recommendations[index], ...data };
+    return this.recommendations[index];
+  }
+
+  async applyRecommendation(id: number, appliedBy: string): Promise<Recommendation> {
+    return this.updateRecommendation(id, {
+      status: "applied",
+      appliedBy,
+      appliedAt: new Date(),
+      result: "تم تطبيق الإصلاح بنجاح"
+    });
+  }
+
+  async getSystemStatus(): Promise<SystemStatus[]> {
+    return [...this.systemStatus];
+  }
+
+  async updateSystemStatus(service: string, data: Partial<SystemStatus>): Promise<SystemStatus> {
+    const index = this.systemStatus.findIndex(status => status.service === service);
+    if (index === -1) throw new Error("System status not found");
     
-    return newMetrics;
+    this.systemStatus[index] = { ...this.systemStatus[index], ...data, lastChecked: new Date() };
+    return this.systemStatus[index];
   }
 
-  async getSystemMetricsHistory(timeRange = '24h'): Promise<SystemMetrics[]> {
-    const cutoffTime = new Date();
-    switch (timeRange) {
-      case '1h':
-        cutoffTime.setHours(cutoffTime.getHours() - 1);
-        break;
-      case '24h':
-        cutoffTime.setDate(cutoffTime.getDate() - 1);
-        break;
-      case '7d':
-        cutoffTime.setDate(cutoffTime.getDate() - 7);
-        break;
-    }
+  async getDashboardData() {
+    const errorLogs = await this.getErrorLogs({ limit: 100 });
+    const recommendations = await this.getRecommendations("pending");
+    const systemStatus = await this.getSystemStatus();
+    const buildSuccessRate = await this.getBuildSuccessRate();
+    const avgBuildTime = await this.getAverageBuildTime();
+    const latestBuild = await this.getLatestBuild();
 
-    return this.systemMetrics
-      .filter(metrics => new Date(metrics.timestamp) >= cutoffTime)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }
-
-  // Alert Settings Methods
-  async getAlertSettings(): Promise<AlertSettings | null> {
-    return this.alertSettings;
-  }
-
-  async updateAlertSettings(settings: Partial<InsertAlertSettings>): Promise<AlertSettings> {
-    if (!this.alertSettings) {
-      this.alertSettings = {
-        id: "default-settings",
-        emailAlerts: true,
-        smsAlerts: false,
-        slackAlerts: true,
-        alertThreshold: 5,
-        updatedAt: new Date().toISOString(),
-      };
-    }
-
-    this.alertSettings = {
-      ...this.alertSettings,
-      ...settings,
-      updatedAt: new Date().toISOString(),
+    return {
+      errorSummary: {
+        critical: errorLogs.filter(e => e.errorType === "critical" && e.status === "active").length,
+        warnings: errorLogs.filter(e => e.errorType === "warning" && e.status === "active").length,
+        info: errorLogs.filter(e => e.errorType === "info" && e.status === "active").length
+      },
+      buildMetrics: {
+        successRate: buildSuccessRate,
+        avgBuildTime: avgBuildTime,
+        appSize: latestBuild?.buildSize || 0
+      },
+      systemHealth: {
+        services: systemStatus
+      },
+      recentErrors: errorLogs.slice(0, 5),
+      activeRecommendations: recommendations.slice(0, 5)
     };
-
-    return this.alertSettings;
-  }
-
-  // Deployment Info Methods
-  async getDeploymentInfo(): Promise<DeploymentInfo | null> {
-    return this.deploymentInfo;
-  }
-
-  async updateDeploymentInfo(info: Partial<DeploymentInfo>): Promise<DeploymentInfo> {
-    if (!this.deploymentInfo) {
-      this.deploymentInfo = {
-        id: "deployment-info",
-        lastDeploy: "غير محدد",
-        branch: "main",
-        buildId: "غير محدد",
-        region: "us-east-1",
-        status: "unknown",
-        updatedAt: new Date().toISOString(),
-      };
-    }
-
-    this.deploymentInfo = {
-      ...this.deploymentInfo,
-      ...info,
-      updatedAt: new Date().toISOString(),
-    };
-
-    return this.deploymentInfo;
   }
 }
 
-export const storage: IStorage = new MemStorage();
+const storage = new MemStorage();
+export default storage;

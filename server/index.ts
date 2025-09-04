@@ -1,19 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { setupAdvancedErrorTracking, errorTrackingMiddleware } from "./middleware/error-tracking";
-import { advancedErrorTracker } from "./services/advanced-error-tracker";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-
-// تفعيل نظام تتبع الأخطاء المتقدم
-app.use(setupAdvancedErrorTracking());
-
-// إظهار رسالة ترحيب بالنظام
-console.log('🚀 نظام التتبع المتقدم للأخطاء نشط - Advanced Error Tracking System Active');
-console.log('🎯 مخصص لتشخيص أخطاء 502 على Netlify - Specialized for 502 errors on Netlify');
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -48,8 +39,13 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // استخدام middleware تتبع الأخطاء المتقدم
-  app.use(errorTrackingMiddleware());
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+
+    res.status(status).json({ message });
+    throw err;
+  });
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route

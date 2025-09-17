@@ -122,8 +122,67 @@ async function main() {
   
   log(`📊 الحالة الحالية:`, colors.yellow);
   log(`   - عدد الجداول الموجودة: ${initialTableCount}`, colors.yellow);
-  log(`   - الجداول: ${initialTables.join(', ')}`, colors.yellow);
+  log(`   - الجداول: ${initialTables.slice(0, 5).join(', ')}${initialTables.length > 5 ? '...' : ''}`, colors.yellow);
 
   // 3. إنشاء هجرة جديدة
   log('\n🔨 الخطوة 1: إنشاء هجرة جديدة...', colors.bright);
   const generateResult = await runCommand('npx', ['drizzle-kit', 'generate']);
+  
+  if (!generateResult.success) {
+    log('❌ فشل في إنشاء الهجرة', colors.red);
+    log('💡 تحقق من:');
+    log('   - صحة ملف drizzle.config.ts');
+    log('   - صحة ملف shared/schema.ts');
+    log('   - وجود تغييرات في المخطط');
+    process.exit(1);
+  }
+
+  // 4. دفع التغييرات إلى قاعدة البيانات
+  log('\n🚀 الخطوة 2: دفع التغييرات إلى قاعدة البيانات...', colors.bright);
+  const pushResult = await runCommand('npx', ['drizzle-kit', 'push']);
+  
+  if (!pushResult.success) {
+    log('❌ فشل في دفع التغييرات', colors.red);
+    log('💡 تحقق من:');
+    log('   - أذونات قاعدة البيانات');
+    log('   - صحة الاتصال');
+    log('   - تعارض في المخطط');
+    process.exit(1);
+  }
+
+  // 5. التحقق من النتائج
+  log('\n🔍 الخطوة 3: التحقق من النتائج...', colors.bright);
+  const finalTableCount = await getTableCount();
+  const finalTables = await listExistingTables();
+  
+  log(`📈 النتائج النهائية:`, colors.green);
+  log(`   - عدد الجداول قبل: ${initialTableCount}`, colors.green);
+  log(`   - عدد الجداول بعد: ${finalTableCount}`, colors.green);
+  log(`   - التغيير: ${finalTableCount - initialTableCount > 0 ? '+' : ''}${finalTableCount - initialTableCount}`, colors.green);
+
+  if (finalTableCount !== initialTableCount) {
+    log(`\n📋 الجداول الجديدة:`, colors.cyan);
+    const newTables = finalTables.filter(table => !initialTables.includes(table));
+    newTables.forEach(table => log(`   + ${table}`, colors.cyan));
+  }
+
+  // 6. تشغيل فحص نهائي
+  log('\n🏥 الخطوة 4: فحص صحة قاعدة البيانات...', colors.bright);
+  try {
+    await runCommand('npx', ['tsx', 'check-database.ts']);
+    log('✅ فحص صحة قاعدة البيانات مكتمل', colors.green);
+  } catch (error) {
+    log('⚠️ تحذير: لم يتم تشغيل فحص صحة قاعدة البيانات', colors.yellow);
+  }
+
+  log('\n🎉 تمت العملية بنجاح!', colors.bright);
+  log('=' .repeat(60), colors.cyan);
+  process.exit(0);
+}
+
+// تشغيل الدالة الرئيسية مع التعامل مع الأخطاء
+main().catch((error) => {
+  log(`❌ خطأ فادح: ${error.message}`, colors.red);
+  console.error(error);
+  process.exit(1);
+});

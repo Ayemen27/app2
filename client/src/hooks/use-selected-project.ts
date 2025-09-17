@@ -1,9 +1,22 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, createContext, useContext } from "react";
 
 const SELECTED_PROJECT_KEY = "construction-app-selected-project";
 const SELECTED_PROJECT_NAME_KEY = "construction-app-selected-project-name";
 
-export function useSelectedProject() {
+// Create context for selected project
+interface SelectedProjectContextType {
+  selectedProjectId: string;
+  selectedProjectName: string;
+  isLoading: boolean;
+  projects: any[];
+  selectProject: (projectId: string, projectName?: string) => void;
+  clearProject: () => void;
+  hasStoredProject: () => boolean;
+}
+
+const SelectedProjectContext = createContext<SelectedProjectContextType | undefined>(undefined);
+
+function useSelectedProjectState() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedProjectName, setSelectedProjectName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
@@ -86,4 +99,24 @@ export function useSelectedProject() {
     hasStoredProject,
     projects,
   };
+}
+
+// Provider component
+export function SelectedProjectProvider({ children }: { children: React.ReactNode }) {
+  const selectedProjectState = useSelectedProjectState();
+  
+  return React.createElement(
+    SelectedProjectContext.Provider,
+    { value: selectedProjectState },
+    children
+  );
+}
+
+// Hook to use the context
+export function useSelectedProject() {
+  const context = useContext(SelectedProjectContext);
+  if (!context) {
+    throw new Error('useSelectedProject must be used within a SelectedProjectProvider');
+  }
+  return context;
 }

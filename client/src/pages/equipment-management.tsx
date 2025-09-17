@@ -1455,3 +1455,6 @@ export function EquipmentManagement() {
     </div>
   );
 }
+
+// Add default export
+export default EquipmentManagement;

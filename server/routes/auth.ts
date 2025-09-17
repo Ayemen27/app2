@@ -60,6 +60,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 // استيراد middleware من ملف منفصل
+
 import { requireAuth, requirePermission, requireRole } from '../middleware/auth';
 
 // دالة مساعدة للحصول على معلومات الطلب
@@ -101,7 +102,7 @@ router.post('/login', async (req, res) => {
       ...requestInfo
     });
 
-    const statusCode = result.success ? 200 : 
+    const statusCode = result.success ? 200 :
                       result.requireMFA || result.requireVerification ? 202 : 401;
 
     res.status(statusCode).json(result);
@@ -187,7 +188,7 @@ router.post('/verify-email', async (req, res) => {
 router.post('/refresh', async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    
+
     if (!refreshToken) {
       return res.status(400).json({
         success: false,

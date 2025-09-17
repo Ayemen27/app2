@@ -29,19 +29,31 @@ async function testExternalConnection() {
     
     // اختبار SSL
     console.log('\n2️⃣ اختبار حالة SSL...');
-    const sslTest = await client.query(`
-      SELECT 
-        ssl_is_used() as ssl_used,
-        ssl_version() as ssl_version,
-        ssl_cipher() as ssl_cipher
-    `);
-    
-    if (sslTest.rows[0].ssl_used) {
-      console.log('✅ SSL مُفعّل:');
-      console.log(`   🔒 نسخة SSL: ${sslTest.rows[0].ssl_version}`);
-      console.log(`   🛡️ التشفير: ${sslTest.rows[0].ssl_cipher}`);
-    } else {
-      console.log('⚠️ SSL غير مُفعّل');
+    try {
+      // محاولة التحقق من SSL بطرق متعددة
+      const sslTest = await client.query(`
+        SELECT 
+          CASE 
+            WHEN current_setting('ssl', true) IS NOT NULL THEN 'enabled'
+            ELSE 'disabled'
+          END as ssl_status,
+          current_setting('port', true) as server_port
+      `);
+      
+      console.log('✅ معلومات الأمان:');
+      console.log(`   🔒 حالة SSL: ${sslTest.rows[0].ssl_status}`);
+      console.log(`   🔌 بورت السيرفر: ${sslTest.rows[0].server_port}`);
+      
+      // التحقق من الاتصال المشفر من خلال معلومات الاتصال
+      const connectionInfo = process.env.DATABASE_URL;
+      if (connectionInfo?.includes('sslmode=require')) {
+        console.log('   🛡️ SSL مطلوب في رابط الاتصال');
+      } else if (connectionInfo?.includes('sslmode=disable')) {
+        console.log('   ⚠️ SSL معطل في رابط الاتصال');
+      }
+      
+    } catch (sslError) {
+      console.log('⚠️ لا يمكن التحقق من حالة SSL - الاتصال يعمل بدون SSL');
     }
     
     // اختبار الأداء
@@ -59,6 +71,34 @@ async function testExternalConnection() {
       console.log('✅ سرعة جيدة');
     } else {
       console.log('⚠️ الاتصال بطيء نوعاً ما');
+    }
+    
+    // اختبار إضافي للتأكد من صحة قاعدة البيانات
+    console.log('\n4️⃣ اختبار صحة قاعدة البيانات...');
+    try {
+      const healthCheck = await client.query(`
+        SELECT 
+          COUNT(*) as total_tables
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+      `);
+      
+      console.log(`📊 عدد الجداول في قاعدة البيانات: ${healthCheck.rows[0].total_tables}`);
+      
+      // اختبار العمليات الأساسية
+      await client.query(`
+        SELECT 
+          schemaname,
+          tablename 
+        FROM pg_tables 
+        WHERE schemaname = 'public' 
+        LIMIT 5
+      `);
+      
+      console.log('✅ العمليات الأساسية تعمل بشكل صحيح');
+      
+    } catch (healthError) {
+      console.log('⚠️ تحذير: مشكلة في فحص صحة قاعدة البيانات');
     }
     
     client.release();

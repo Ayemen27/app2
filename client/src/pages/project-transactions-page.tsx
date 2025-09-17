@@ -49,7 +49,7 @@ export default function ProjectTransactionsPage() {
     queryKey: ['/api/projects'],
     queryFn: async () => {
       try {
-        const response = await apiRequest('/api/projects', 'GET');
+        const response = await apiRequest('GET', '/api/projects');
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as Project[];
         }
@@ -66,7 +66,7 @@ export default function ProjectTransactionsPage() {
     queryKey: ['/api/projects', selectedProjectId, 'stats'],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/stats`, 'GET');
+        const response = await apiRequest('GET', `/api/projects/${selectedProjectId}/stats`);
         return response && response.data ? response.data : response;
       } catch (error) {
         console.error('Error fetching project stats:', error);
@@ -81,7 +81,7 @@ export default function ProjectTransactionsPage() {
     queryKey: ['/api/projects', selectedProjectId, 'fund-transfers'],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/fund-transfers`, 'GET');
+        const response = await apiRequest('GET', `/api/projects/${selectedProjectId}/fund-transfers`);
         if (response && response.data && Array.isArray(response.data)) {
           return response.data;
         }
@@ -99,7 +99,7 @@ export default function ProjectTransactionsPage() {
     queryKey: ['/api/projects', selectedProjectId, 'worker-attendance'],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/worker-attendance`, 'GET');
+        const response = await apiRequest('GET', `/api/projects/${selectedProjectId}/worker-attendance`);
         if (response && response.data && Array.isArray(response.data)) {
           return response.data;
         }
@@ -117,7 +117,7 @@ export default function ProjectTransactionsPage() {
     queryKey: ['/api/projects', selectedProjectId, 'material-purchases'],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/material-purchases`, 'GET');
+        const response = await apiRequest('GET', `/api/projects/${selectedProjectId}/material-purchases`);
         if (response && response.data && Array.isArray(response.data)) {
           return response.data;
         }
@@ -135,7 +135,7 @@ export default function ProjectTransactionsPage() {
     queryKey: ['/api/projects', selectedProjectId, 'transportation-expenses'],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/transportation-expenses`, 'GET');
+        const response = await apiRequest('GET', `/api/projects/${selectedProjectId}/transportation-expenses`);
         if (response && response.data && Array.isArray(response.data)) {
           return response.data;
         }

@@ -2,9 +2,9 @@ import { db } from './db';
 import { sql } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 
-// ⚠️ تحذير صارم: هذا الملف للتحقق من قاعدة بيانات Supabase السحابية فقط
+// ⚠️ تحذير صارم: هذا الملف للتحقق من قاعدة بيانات VSP Server فقط
 // ⛔ ممنوع منعاً باتاً إنشاء أو استخدام قاعدة بيانات محلية
-// ✅ التطبيق يعتمد كلياً على قاعدة بيانات Supabase PostgreSQL السحابية
+// ✅ التطبيق يعتمد كلياً على قاعدة بيانات PostgreSQL في VSP Server
 
 interface DatabaseCheckResult {
   success: boolean;
@@ -15,25 +15,26 @@ interface DatabaseCheckResult {
 class DatabaseManager {
   
   /**
-   * فحص الاتصال بقاعدة بيانات Supabase السحابية
+   * فحص الاتصال بقاعدة بيانات VSP Server
    */
   async checkConnection(): Promise<DatabaseCheckResult> {
     try {
-      console.log('🔍 جاري فحص الاتصال بقاعدة بيانات Supabase...');
+      console.log('🔍 جاري فحص الاتصال بقاعدة بيانات VSP Server...');
       
-      const result = await db.execute(sql`SELECT 1 as test`);
+      const result = await db.execute(sql`SELECT 1 as test, version() as db_version, current_database() as db_name`);
       
-      console.log('✅ تم الاتصال بقاعدة بيانات Supabase بنجاح');
+      console.log('✅ تم الاتصال بقاعدة بيانات VSP Server بنجاح');
+      console.log('📊 معلومات قاعدة البيانات:', result.rows?.[0]);
       return {
         success: true,
-        message: 'الاتصال بقاعدة بيانات Supabase ناجح',
+        message: 'الاتصال بقاعدة بيانات VSP Server ناجح',
         details: result
       };
     } catch (error) {
-      console.error('❌ فشل الاتصال بقاعدة بيانات Supabase:', error);
+      console.error('❌ فشل الاتصال بقاعدة بيانات VSP Server:', error);
       return {
         success: false,
-        message: 'فشل الاتصال بقاعدة بيانات Supabase',
+        message: 'فشل الاتصال بقاعدة بيانات VSP Server',
         details: error
       };
     }

@@ -19,7 +19,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <SelectedProjectProvider>
         <FloatingButtonProvider>
-          <div className="min-h-screen bg-background text-foreground gradient-bg" dir="rtl">
+          <div className="min-h-screen bg-background text-foreground" dir="rtl">
             <Route path="/" component={Dashboard} />
             <Route path="/dashboard" component={Dashboard} />
             <Route path="/projects" component={Projects} />

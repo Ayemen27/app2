@@ -44,27 +44,22 @@ function createDatabaseUrl(): string {
 
 const connectionString = createDatabaseUrl();
 
-// تكوين اتصال قاعدة البيانات مع إعدادات خاصة بـ VSP Server
-// إعدادات محسنة للاتصال بقاعدة بيانات VSP مع دعم الشهادات ذاتية التوقيع
+// تكوين اتصال قاعدة البيانات مع إعدادات محسنة
 const isLocalConnection = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
-const isVSPConnection = connectionString.includes('helium') || process.env.VSP_SERVER === 'true';
 
 export const pool = new Pool({ 
   connectionString,
-  // إعدادات SSL محسنة للاتصال بـ VSP Server
+  // إعدادات SSL محسنة - إيقاف SSL للاتصالات المحلية أو المشاكل الشائعة
   ssl: isLocalConnection ? false : {
-    rejectUnauthorized: false,
-    requestCert: false,
-    agent: false,
-    // إعدادات خاصة بـ VSP
-    checkServerIdentity: () => undefined,
-    secureProtocol: 'TLSv1_2_method'
+    rejectUnauthorized: false
   },
-  // إعدادات إضافية للاتصال المستقر
-  max: 20,
+  // إعدادات الاتصال المحسنة
+  max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-  // إعادة المحاولة في حالة انقطاع الاتصال
-  keepAlive: true
+  connectionTimeoutMillis: 15000,
+  keepAlive: true,
+  // إعدادات إضافية لتحسين الاستقرار
+  statement_timeout: 30000,
+  query_timeout: 30000
 });
 export const db = drizzle({ client: pool, schema });

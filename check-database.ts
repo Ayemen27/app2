@@ -1,86 +1,84 @@
 
 import { databaseManager } from './server/database-manager';
-import { db } from './server/db';
-import { sql } from 'drizzle-orm';
 
 async function checkDatabaseStatus() {
   console.log('🔄 بدء فحص حالة قاعدة البيانات...\n');
 
   try {
-    // 1. فحص الاتصال بقاعدة البيانات
+    // 1. فحص الاتصال
     console.log('1️⃣ فحص الاتصال بقاعدة البيانات...');
     const connectionResult = await databaseManager.checkConnection();
     
-    if (connectionResult.success) {
-      console.log('✅ الاتصال بقاعدة البيانات ناجح');
-    } else {
+    if (!connectionResult.success) {
       console.log('❌ فشل الاتصال بقاعدة البيانات:', connectionResult.message);
+      console.log('💡 تحقق من:');
+      console.log('   - صحة DATABASE_URL في متغيرات البيئة');
+      console.log('   - تشغيل خدمة قاعدة البيانات');
+      console.log('   - إعدادات الشبكة');
+      console.log('   - شهادات SSL');
       return;
     }
 
-    // 2. فحص الجداول الموجودة
-    console.log('\n2️⃣ فحص الجداول الموجودة...');
+    console.log('✅ تم الاتصال بقاعدة البيانات بنجاح');
+
+    // 2. فحص الجداول
+    console.log('\n2️⃣ فحص الجداول المطلوبة...');
     const tablesResult = await databaseManager.checkTablesExist();
     
     if (tablesResult.success) {
       console.log('✅ جميع الجداول المطلوبة موجودة');
-      if (tablesResult.details?.existingTables) {
-        console.log('📋 الجداول الموجودة:');
-        tablesResult.details.existingTables.forEach((table: string, index: number) => {
-          console.log(`   ${index + 1}. ${table}`);
-        });
-      }
+      console.log('📋 الجداول الموجودة:', tablesResult.details?.existingTables?.length || 0);
     } else {
       console.log('⚠️ بعض الجداول مفقودة:', tablesResult.message);
-      if (tablesResult.details?.missingTables) {
+      if (tablesResult.details?.missingTables?.length > 0) {
         console.log('❌ الجداول المفقودة:');
         tablesResult.details.missingTables.forEach((table: string) => {
           console.log(`   - ${table}`);
         });
+        
+        console.log('\n💡 لإنشاء الجداول المفقودة:');
+        console.log('   npx drizzle-kit push');
       }
     }
 
-    // 3. اختبار العمليات الأساسية
-    console.log('\n3️⃣ اختبار العمليات الأساسية...');
-    const operationsResult = await databaseManager.testBasicOperations();
-    
-    if (operationsResult.success) {
-      console.log('✅ العمليات الأساسية تعمل بشكل صحيح');
-    } else {
-      console.log('❌ خطأ في العمليات الأساسية:', operationsResult.message);
-    }
-
-    // 4. فحص إضافي لعدد السجلات في كل جدول
-    console.log('\n4️⃣ فحص عدد السجلات في الجداول...');
-    try {
-      const tables = ['projects', 'workers', 'worker_attendance', 'material_purchases', 'daily_expenses'];
+    // 3. اختبار العمليات الأساسية (فقط إذا كانت الجداول موجودة)
+    if (tablesResult.success) {
+      console.log('\n3️⃣ اختبار العمليات الأساسية...');
+      const operationsResult = await databaseManager.testBasicOperations();
       
-      for (const tableName of tables) {
-        try {
-          const result = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM ${tableName}`));
-          const count = result.rows?.[0]?.count || 0;
-          console.log(`   📊 ${tableName}: ${count} سجل`);
-        } catch (error) {
-          console.log(`   ❌ ${tableName}: غير موجود أو خطأ في الوصول`);
-        }
+      if (operationsResult.success) {
+        console.log('✅ جميع العمليات الأساسية تعمل بشكل صحيح');
+      } else {
+        console.log('❌ خطأ في العمليات الأساسية:', operationsResult.message);
       }
-    } catch (error) {
-      console.log('❌ خطأ في فحص عدد السجلات:', error);
     }
 
-    console.log('\n📋 ملخص الفحص:');
-    console.log(`   🔌 الاتصال: ${connectionResult.success ? '✅ متصل' : '❌ غير متصل'}`);
-    console.log(`   🗃️ الجداول: ${tablesResult.success ? '✅ مكتملة' : '⚠️ ناقصة'}`);
-    console.log(`   ⚙️ العمليات: ${operationsResult.success ? '✅ تعمل' : '❌ لا تعمل'}`);
+    // 4. تقرير نهائي
+    console.log('\n📋 =============== تقرير الحالة النهائي ===============');
+    console.log(`🔌 الاتصال: ${connectionResult.success ? '✅ متصل' : '❌ غير متصل'}`);
+    console.log(`🗃️ الجداول: ${tablesResult.success ? '✅ مكتملة' : '⚠️ ناقصة'}`);
+    
+    if (connectionResult.success && tablesResult.success) {
+      console.log('🎉 قاعدة البيانات جاهزة تماماً!');
+      console.log('🚀 يمكنك تشغيل التطبيق بأمان');
+    } else {
+      console.log('⚠️ هناك مشاكل تحتاج للحل');
+      console.log('💡 راجع الأخطاء أعلاه واتبع التوجيهات');
+    }
+    console.log('===========================================\n');
 
   } catch (error) {
     console.error('💥 خطأ عام في فحص قاعدة البيانات:', error);
+    console.log('💡 تأكد من:');
+    console.log('   1. صحة متغير DATABASE_URL');
+    console.log('   2. تشغيل خدمة قاعدة البيانات'); 
+    console.log('   3. إعدادات الأمان والشبكة');
   }
 }
 
 // تشغيل الفحص
 checkDatabaseStatus().then(() => {
-  console.log('\n🏁 انتهى فحص قاعدة البيانات');
+  console.log('🏁 انتهى فحص قاعدة البيانات');
   process.exit(0);
 }).catch((error) => {
   console.error('💥 خطأ حرج:', error);

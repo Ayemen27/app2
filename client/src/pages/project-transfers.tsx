@@ -203,7 +203,7 @@ export default function ProjectTransfers() {
 
   // دالة لجلب اسم المشروع
   const getProjectName = (projectId: string) => {
-    const project = projects.find((p: Project) => p.id === projectId);
+    const project = projects.find((p: Project) => p.id.toString() === projectId);
     return project?.name || "غير محدد";
   };
 
@@ -268,7 +268,7 @@ export default function ProjectTransfers() {
             title="العمليات الصادرة"
             value={transferStats.outgoingTransfers.toString()}
             icon={TrendingUp}
-            color="orange"
+            color="yellow"
           />
           <StatsCard
             title="العمليات الواردة"
@@ -307,7 +307,7 @@ export default function ProjectTransfers() {
                             </SelectTrigger>
                             <SelectContent>
                               {projects.map((project: Project) => (
-                                <SelectItem key={project.id} value={project.id}>
+                                <SelectItem key={project.id} value={project.id.toString()}>
                                   {project.name}
                                 </SelectItem>
                               ))}
@@ -337,7 +337,7 @@ export default function ProjectTransfers() {
                             </SelectTrigger>
                             <SelectContent>
                               {projects.map((project: Project) => (
-                                <SelectItem key={project.id} value={project.id}>
+                                <SelectItem key={project.id} value={project.id.toString()}>
                                   {project.name}
                                 </SelectItem>
                               ))}
@@ -528,7 +528,7 @@ export default function ProjectTransfers() {
                           
                           <div className="flex items-center justify-between mt-1">
                             <span className="text-xs text-gray-500">
-                              ID: {transfer.id.slice(0, 8)}
+                              ID: {transfer.id.toString().slice(0, 8)}
                             </span>
                             
                             {/* أزرار العمليات */}
@@ -546,7 +546,7 @@ export default function ProjectTransfers() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDelete(
-                                  transfer.id, 
+                                  transfer.id.toString(), 
                                   getProjectName(transfer.fromProjectId), 
                                   getProjectName(transfer.toProjectId)
                                 )}

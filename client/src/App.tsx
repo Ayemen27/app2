@@ -12,8 +12,8 @@ import DailyExpenses from "@/pages/daily-expenses";
 import MaterialPurchase from "@/pages/material-purchase";
 import Reports from "@/pages/reports";
 
-import ProjectTransfers from "@/pages/ProjectTransfers";
-import ProjectTransactionsPage from "@/pages/ProjectTransactionsSimple";
+import ProjectTransfers from "@/pages/project-transfers";
+import ProjectTransactionsPage from "@/pages/project-transactions-simple";
 
 import ProjectsPage from "@/pages/projects";
 import WorkersPage from "@/pages/workers";
@@ -21,15 +21,14 @@ import WorkerAccountsPage from "@/pages/worker-accounts";
 import SuppliersProPage from "@/pages/suppliers-professional";
 import SupplierAccountsPage from "@/pages/supplier-accounts";
 import AutocompleteAdminPage from "@/pages/autocomplete-admin";
-import ToolsManagementPage from "@/pages/tools-management";
-import ApprovalsPage from "@/pages/approvals";
-import FinanceDashboard from "@/pages/finance-dashboard";
-import SystemGuide from "@/pages/system-guide";
+import EquipmentManagementPage from "@/pages/equipment-management";
 
 import Header from "@/components/layout/header";
 import BottomNavigation from "@/components/layout/bottom-navigation";
 import FloatingAddButton from "@/components/layout/floating-add-button";
 import { FloatingButtonProvider } from "@/components/layout/floating-button-context";
+import { AuthProvider } from "@/components/AuthProvider";
+import { SelectedProjectProvider } from "@/hooks/use-selected-project";
 
 function Router() {
   return (
@@ -50,11 +49,8 @@ function Router() {
       <Route path="/project-transactions" component={ProjectTransactionsPage} />
       <Route path="/autocomplete-admin" component={AutocompleteAdminPage} />
 
-      <Route path="/tools" component={ToolsManagementPage} />
-      <Route path="/tools-management" component={ToolsManagementPage} />
-      <Route path="/approvals" component={ApprovalsPage} />
-      <Route path="/finance" component={FinanceDashboard} />
-      <Route path="/system-guide" component={SystemGuide} />
+      <Route path="/tools" component={EquipmentManagementPage} />
+      <Route path="/equipment-management" component={EquipmentManagementPage} />
       <Route path="/reports" component={Reports} />
 
       <Route component={NotFound} />
@@ -65,19 +61,23 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <FloatingButtonProvider>
-          <div className="min-h-screen bg-background text-foreground" dir="rtl">
-            <Header />
-            <main className="pb-20">
-              <Router />
-            </main>
-            <BottomNavigation />
-            <FloatingAddButton />
-            <Toaster />
-          </div>
-        </FloatingButtonProvider>
-      </TooltipProvider>
+      <AuthProvider>
+        <SelectedProjectProvider>
+          <TooltipProvider>
+            <FloatingButtonProvider>
+              <div className="min-h-screen bg-background text-foreground" dir="rtl">
+                <Header />
+                <main className="pb-20">
+                  <Router />
+                </main>
+                <BottomNavigation />
+                <FloatingAddButton />
+                <Toaster />
+              </div>
+            </FloatingButtonProvider>
+          </TooltipProvider>
+        </SelectedProjectProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

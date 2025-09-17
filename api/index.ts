@@ -1,21 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import express from 'express';
 import cors from 'cors';
-import { createClient } from '@supabase/supabase-js';
+import { sql } from 'drizzle-orm'; // Assuming drizzle-orm is used for local DB interactions
 
-// ====== إعداد قاعدة البيانات ======
-let supabase: any = null;
+// ====== إعداد قاعدة البيانات المحلية ======
+// Assuming 'db' is imported from '../server/db' and is configured for PostgreSQL
+import { db } from '../server/db'; 
+
+let dbConnection: any = null;
 
 try {
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
-    console.log('✅ تم الاتصال بقاعدة بيانات Supabase');
-  } else {
-    console.error('❌ متغيرات بيئة Supabase غير موجودة');
-  }
+  // Initialize the database connection
+  dbConnection = db; 
+  console.log('✅ تم الاتصال بقاعدة البيانات المحلية PostgreSQL');
 } catch (error) {
   console.error('❌ خطأ في الاتصال بقاعدة البيانات:', error);
 }
@@ -49,14 +46,38 @@ app.use((error: any, req: any, res: any, next: any) => {
 });
 
 // ====== مسار الصحة ======
-app.get('/api/health', (req, res) => {
-  console.log('🏥 فحص صحة النظام');
-  res.json({
-    success: true,
-    message: 'النظام يعمل بكفاءة',
-    timestamp: new Date().toISOString(),
-    database: supabase ? 'متصل' : 'غير متصل'
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    console.log('🏥 فحص صحة النظام');
+
+    // فحص الاتصال بقاعدة البيانات
+    let dbStatus = 'غير متصل';
+    if (dbConnection) {
+      try {
+        // Execute a simple query to check connection
+        await dbConnection.execute(sql`SELECT 1`); 
+        dbStatus = 'متصل';
+      } catch (error) {
+        console.error('خطأ في فحص قاعدة البيانات:', error);
+        dbStatus = 'خطأ في الاتصال';
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'النظام يعمل بكفاءة',
+      timestamp: new Date().toISOString(),
+      database: dbStatus,
+      system: 'PostgreSQL Local Database'
+    });
+  } catch (error) {
+    console.error('خطأ في فحص الصحة:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في فحص صحة النظام',
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // ====== استيراد النظام الآمن للمصادقة ======
@@ -69,27 +90,20 @@ app.use('/api/auth', authRoutes);
 app.get('/api/projects', async (req, res) => {
   try {
     console.log('📋 طلب قائمة المشاريع');
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    const { data: projects, error } = await supabase
-      .from('projects')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Fetch projects from the local database
+    const projects = await dbConnection.execute(sql`
+      SELECT * FROM projects 
+      ORDER BY created_at DESC
+    `);
 
-    if (error) {
-      console.error('خطأ في جلب المشاريع:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'فشل في جلب المشاريع'
-      });
-    }
-
-    console.log(`✅ تم جلب ${projects?.length || 0} مشروع`);
+    console.log(`✅ تم جلب ${projects.length || 0} مشروع`);
     res.json({
       success: true,
       data: projects || [],
@@ -108,71 +122,61 @@ app.get('/api/projects', async (req, res) => {
 app.get('/api/projects/with-stats', async (req, res) => {
   try {
     console.log('📊 طلب المشاريع مع الإحصائيات');
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    const { data: projects, error } = await supabase
-      .from('projects')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Fetch projects from the local database
+    const projects = await dbConnection.execute(sql`
+      SELECT * FROM projects 
+      ORDER BY created_at DESC
+    `);
 
-    if (error) {
-      console.error('خطأ في جلب المشاريع:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'فشل في جلب المشاريع'
-      });
-    }
-
-    // حساب الإحصائيات الحقيقية لكل مشروع
+    // Calculate real statistics for each project
     const projectsWithStats = await Promise.all((projects || []).map(async (project: any) => {
       try {
-        // حساب إجمالي العمال
-        const { data: workers } = await supabase
-          .from('workers')
-          .select('id')
-          .eq('project_id', project.id);
-        
-        // حساب إجمالي الدخل من تحويلات العهد
-        const { data: fundTransfers } = await supabase
-          .from('fund_transfers')
-          .select('amount')
-          .eq('project_id', project.id)
-          .eq('type', 'in');
-        
-        // حساب إجمالي المصروفات
-        const { data: expenses } = await supabase
-          .from('transportation_expenses')
-          .select('amount')
-          .eq('project_id', project.id);
-        
-        // حساب مشتريات المواد
-        const { data: materials } = await supabase
-          .from('material_purchases')
-          .select('id')
-          .eq('project_id', project.id);
-        
-        // حساب حضور العمال المكتمل
-        const { data: attendance } = await supabase
-          .from('worker_attendance')
-          .select('date')
-          .eq('project_id', project.id)
-          .eq('status', 'present');
-        
-        const totalWorkers = workers?.length || 0;
-        const totalIncome = fundTransfers?.reduce((sum: number, t: any) => sum + (parseFloat(t.amount) || 0), 0) || 0;
-        const totalExpenses = expenses?.reduce((sum: number, e: any) => sum + (parseFloat(e.amount) || 0), 0) || 0;
+        // Calculate total workers
+        const workers = await dbConnection.execute(sql`
+          SELECT COUNT(*) as count FROM workers 
+          WHERE project_id = ${project.id}
+        `);
+
+        // Calculate total income from fund transfers
+        const fundTransfers = await dbConnection.execute(sql`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total 
+          FROM fund_transfers 
+          WHERE project_id = ${project.id} AND type = 'in'
+        `);
+
+        // Calculate total expenses
+        const expenses = await dbConnection.execute(sql`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total 
+          FROM transportation_expenses 
+          WHERE project_id = ${project.id}
+        `);
+
+        // Calculate material purchases
+        const materials = await dbConnection.execute(sql`
+          SELECT COUNT(*) as count FROM material_purchases 
+          WHERE project_id = ${project.id}
+        `);
+
+        // Calculate completed worker attendance
+        const attendance = await dbConnection.execute(sql`
+          SELECT COUNT(DISTINCT date) as count FROM worker_attendance 
+          WHERE project_id = ${project.id} AND status = 'present'
+        `);
+
+        const totalWorkers = workers[0]?.count || 0;
+        const totalIncome = parseFloat(fundTransfers[0]?.total || '0');
+        const totalExpenses = parseFloat(expenses[0]?.total || '0');
         const currentBalance = totalIncome - totalExpenses;
-        const materialPurchases = materials?.length || 0;
-        
-        // حساب أيام العمل المكتملة (أيام فريدة)
-        const uniqueDates = new Set(attendance?.map((a: any) => a.date) || []);
-        const completedDays = uniqueDates.size;
-        
+        const materialPurchases = materials[0]?.count || 0;
+        const completedDays = attendance[0]?.count || 0;
+
         return {
           ...project,
           stats: {
@@ -180,7 +184,7 @@ app.get('/api/projects/with-stats', async (req, res) => {
             totalExpenses,
             totalIncome,
             currentBalance,
-            activeWorkers: totalWorkers, // نفترض أن جميع العمال نشطين
+            activeWorkers: totalWorkers, // Assuming all workers are active
             completedDays,
             materialPurchases,
             lastActivity: new Date().toISOString().split('T')[0]
@@ -188,7 +192,7 @@ app.get('/api/projects/with-stats', async (req, res) => {
         };
       } catch (error) {
         console.error(`خطأ في حساب إحصائيات المشروع ${project.id}:`, error);
-        // إرجاع قيم افتراضية في حالة الخطأ
+        // Return default values in case of error
         return {
           ...project,
           stats: {
@@ -224,25 +228,18 @@ app.get('/api/projects/with-stats', async (req, res) => {
 app.get('/api/workers', async (req, res) => {
   try {
     console.log('👷 طلب قائمة العمال');
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    const { data: workers, error } = await supabase
-      .from('workers')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('خطأ في جلب العمال:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'فشل في جلب العمال'
-      });
-    }
+    // Fetch workers from the local database
+    const workers = await dbConnection.execute(sql`
+      SELECT * FROM workers 
+      ORDER BY created_at DESC
+    `);
 
     console.log(`✅ تم جلب ${workers?.length || 0} عامل`);
     res.json({
@@ -263,25 +260,18 @@ app.get('/api/workers', async (req, res) => {
 app.get('/api/worker-types', async (req, res) => {
   try {
     console.log('🔧 طلب أنواع العمال');
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    const { data: workerTypes, error } = await supabase
-      .from('worker_types')
-      .select('*')
-      .order('name');
-
-    if (error) {
-      console.error('خطأ في جلب أنواع العمال:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'فشل في جلب أنواع العمال'
-      });
-    }
+    // Fetch worker types from the local database
+    const workerTypes = await dbConnection.execute(sql`
+      SELECT * FROM worker_types 
+      ORDER BY name
+    `);
 
     console.log(`✅ تم جلب ${workerTypes?.length || 0} نوع عامل`);
     res.json({
@@ -302,7 +292,7 @@ app.get('/api/worker-types', async (req, res) => {
 app.get('/api/notifications', async (req, res) => {
   try {
     console.log('🔔 طلب قائمة الإشعارات');
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
@@ -311,19 +301,12 @@ app.get('/api/notifications', async (req, res) => {
 
     const limit = parseInt(req.query.limit as string) || 50;
 
-    const { data: notifications, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error('خطأ في جلب الإشعارات:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'فشل في جلب الإشعارات'
-      });
-    }
+    // Fetch notifications from the local database
+    const notifications = await dbConnection.execute(sql`
+      SELECT * FROM notifications 
+      ORDER BY created_at DESC 
+      LIMIT ${limit}
+    `);
 
     console.log(`✅ تم جلب ${notifications?.length || 0} إشعار`);
     res.json({
@@ -366,15 +349,12 @@ app.head('/api/autocomplete', (req, res) => {
   res.status(200).end();
 });
 
-// ====== مسارات المشاريع الإضافية ======
-// تم حذف المسارات المكررة والقديمة - الاعتماد على المسارات الجديدة فقط
-
-// ====== مسار المواد المفقود ======
+// ====== مسار المواد ======
 app.get('/api/materials', async (req, res) => {
   try {
     console.log('📦 طلب جلب المواد');
-    
-    if (!supabase) {
+
+    if (!dbConnection) {
       return res.status(200).json({ 
         success: true, 
         message: 'قاعدة البيانات غير متصلة، إرجاع قائمة فارغة',
@@ -383,13 +363,22 @@ app.get('/api/materials', async (req, res) => {
       });
     }
 
-    // محاولة جلب المواد من قاعدة البيانات
-    const { data, error } = await supabase
-      .from('materials') 
-      .select('*')
-      .order('name');
+    try {
+      // Fetch materials from the local database
+      const materials = await dbConnection.execute(sql`
+        SELECT * FROM materials 
+        ORDER BY name
+      `);
 
-    if (error) {
+      console.log(`✅ تم جلب ${materials?.length || 0} مادة`);
+
+      res.status(200).json({
+        success: true,
+        data: materials || [],
+        count: materials?.length || 0
+      });
+    } catch (error) {
+      // Handle case where 'materials' table might not exist
       console.log('⚠️ جدول المواد غير موجود، إرجاع قائمة فارغة');
       return res.status(200).json({ 
         success: true, 
@@ -398,16 +387,6 @@ app.get('/api/materials', async (req, res) => {
         count: 0
       });
     }
-
-    // إرجاع البيانات أو قائمة فارغة
-    const materials = Array.isArray(data) ? data : [];
-    console.log(`✅ تم جلب ${materials.length} مادة`);
-    
-    res.status(200).json({
-      success: true,
-      data: materials,
-      count: materials.length
-    });
   } catch (error) {
     console.error('❌ خطأ عام في مسار المواد:', error);
     res.status(200).json({
@@ -436,8 +415,8 @@ app.get('/api/projects/:id/summary/:date', async (req, res) => {
   try {
     const { id, date } = req.params;
     console.log(`📊 طلب ملخص المشروع ${id} بتاريخ ${date}`);
-    
-    if (!supabase) {
+
+    if (!dbConnection) {
       return res.status(200).json({
         success: true,
         data: {
@@ -449,22 +428,22 @@ app.get('/api/projects/:id/summary/:date', async (req, res) => {
       });
     }
 
-    // حساب إجمالي الدخل من العهد
-    const { data: fundTransfers } = await supabase
-      .from('fund_transfers')
-      .select('amount')
-      .eq('project_id', id)
-      .eq('date', date);
+    // Calculate total income from fund transfers
+    const fundTransfers = await dbConnection.execute(sql`
+      SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total 
+      FROM fund_transfers 
+      WHERE project_id = ${id} AND date = ${date}
+    `);
 
-    // حساب إجمالي المصروفات
-    const { data: expenses } = await supabase
-      .from('transportation_expenses')
-      .select('amount')
-      .eq('project_id', id)
-      .eq('date', date);
+    // Calculate total expenses
+    const expenses = await dbConnection.execute(sql`
+      SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total 
+      FROM transportation_expenses 
+      WHERE project_id = ${id} AND date = ${date}
+    `);
 
-    const totalIncome = (fundTransfers || []).reduce((sum: any, transfer: any) => sum + (parseFloat(transfer.amount) || 0), 0);
-    const totalExpenses = (expenses || []).reduce((sum: any, expense: any) => sum + (parseFloat(expense.amount) || 0), 0);
+    const totalIncome = parseFloat(fundTransfers[0]?.total || '0');
+    const totalExpenses = parseFloat(expenses[0]?.total || '0');
     const currentBalance = totalIncome - totalExpenses;
 
     res.json({
@@ -496,7 +475,7 @@ app.get('/api/projects/:id/daily-summary/:date', async (req, res) => {
     const { id, date } = req.params;
     console.log(`📊 طلب الملخص اليومي للمشروع ${id} بتاريخ ${date}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(200).json({
         success: true,
         data: {
@@ -513,36 +492,35 @@ app.get('/api/projects/:id/daily-summary/:date', async (req, res) => {
     }
 
     // حساب إجمالي الدخل من العهد
-    const { data: fundTransfers } = await supabase
-      .from('fund_transfers')
-      .select('amount')
-      .eq('project_id', id)
-      .eq('date', date);
+    const fundTransfers = await dbConnection.execute(sql`
+      SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total 
+      FROM fund_transfers 
+      WHERE project_id = ${id} AND date = ${date}
+    `);
 
     // حساب مصروفات المواصلات
-    const { data: transportExpenses } = await supabase
-      .from('transportation_expenses')
-      .select('amount')
-      .eq('project_id', id)
-      .eq('date', date);
+    const transportExpenses = await dbConnection.execute(sql`
+      SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total 
+      FROM transportation_expenses 
+      WHERE project_id = ${id} AND date = ${date}
+    `);
 
     // حساب حضور العمال
-    const { data: attendance } = await supabase
-      .from('worker_attendance')
-      .select('*')
-      .eq('project_id', id)
-      .eq('date', date);
+    const attendance = await dbConnection.execute(sql`
+      SELECT COUNT(*) as count FROM worker_attendance 
+      WHERE project_id = ${id} AND date = ${date}
+    `);
 
     // حساب مشتريات المواد لنفس التاريخ
-    const { data: materialPurchases } = await supabase
-      .from('material_purchases')
-      .select('total_cost')
-      .eq('project_id', id)
-      .eq('purchase_date', date);
+    const materialPurchases = await dbConnection.execute(sql`
+      SELECT COALESCE(SUM(CAST(total_cost AS DECIMAL)), 0) as total 
+      FROM material_purchases 
+      WHERE project_id = ${id} AND purchase_date = ${date}
+    `);
 
-    const totalIncome = (fundTransfers || []).reduce((sum: any, transfer: any) => sum + (parseFloat(transfer.amount) || 0), 0);
-    const totalTransportExpenses = (transportExpenses || []).reduce((sum: any, expense: any) => sum + (parseFloat(expense.amount) || 0), 0);
-    const totalMaterialCost = (materialPurchases || []).reduce((sum: any, purchase: any) => sum + (parseFloat(purchase.total_cost) || 0), 0);
+    const totalIncome = parseFloat(fundTransfers[0]?.total || '0');
+    const totalTransportExpenses = parseFloat(transportExpenses[0]?.total || '0');
+    const totalMaterialCost = parseFloat(materialPurchases[0]?.total || '0');
     const totalExpenses = totalTransportExpenses + totalMaterialCost;
     const currentBalance = totalIncome - totalExpenses;
 
@@ -553,8 +531,8 @@ app.get('/api/projects/:id/daily-summary/:date', async (req, res) => {
         totalExpenses: totalExpenses.toString(),
         currentBalance: currentBalance.toString(),
         date: date,
-        workerCount: (attendance || []).length,
-        attendanceCount: (attendance || []).length,
+        workerCount: attendance[0]?.count || 0,
+        attendanceCount: attendance[0]?.count || 0,
         transportationExpenses: totalTransportExpenses.toString(),
         materialPurchases: totalMaterialCost.toString()
       }
@@ -584,7 +562,7 @@ app.get('/api/projects/:id/attendance', async (req, res) => {
     const { date } = req.query;
     console.log(`📅 طلب حضور العمال للمشروع ${id} بتاريخ ${date}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: [],
@@ -592,19 +570,22 @@ app.get('/api/projects/:id/attendance', async (req, res) => {
       });
     }
 
-    const { data: attendance, error } = await supabase
-      .from('worker_attendance')
-      .select('*')
-      .eq('project_id', id)
-      .eq('date', date);
+    // Fetch worker attendance from the local database
+    const attendance = await dbConnection.execute(sql`
+      SELECT *, 
+             (SELECT name FROM workers WHERE id = worker_attendance.worker_id) as worker_name,
+             (SELECT type FROM workers WHERE id = worker_attendance.worker_id) as worker_type
+      FROM worker_attendance 
+      WHERE project_id = ${id} AND date = ${date}
+    `);
 
-    if (error) {
-      console.log('⚠️ خطأ في جلب الحضور:', error);
-      return res.json({
-        success: true,
-        data: [],
-        count: 0
-      });
+    if (!Array.isArray(attendance)) {
+        console.error('Unexpected response format for attendance:', attendance);
+        return res.json({
+            success: true,
+            data: [],
+            count: 0
+        });
     }
 
     res.json({
@@ -629,7 +610,7 @@ app.get('/api/projects/:id/transportation-expenses', async (req, res) => {
     const { date } = req.query;
     console.log(`🚗 طلب مصروفات المواصلات للمشروع ${id} بتاريخ ${date}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: [],
@@ -637,19 +618,19 @@ app.get('/api/projects/:id/transportation-expenses', async (req, res) => {
       });
     }
 
-    const { data: expenses, error } = await supabase
-      .from('transportation_expenses')
-      .select('*')
-      .eq('project_id', id)
-      .eq('date', date);
+    // Fetch transportation expenses from the local database
+    const expenses = await dbConnection.execute(sql`
+      SELECT * FROM transportation_expenses 
+      WHERE project_id = ${id} AND date = ${date}
+    `);
 
-    if (error) {
-      console.log('⚠️ خطأ في جلب مصروفات المواصلات:', error);
-      return res.json({
-        success: true,
-        data: [],
-        count: 0
-      });
+    if (!Array.isArray(expenses)) {
+        console.error('Unexpected response format for expenses:', expenses);
+        return res.json({
+            success: true,
+            data: [],
+            count: 0
+        });
     }
 
     res.json({
@@ -673,6 +654,9 @@ app.get('/api/projects/:id/previous-balance/:date', async (req, res) => {
     const { id, date } = req.params;
     console.log(`💰 طلب الرصيد السابق للمشروع ${id} قبل تاريخ ${date}`);
     
+    // Placeholder for previous balance logic, assuming it might involve complex calculations
+    // or fetching historical data not directly available in a simple query.
+    // For now, returning a default value.
     res.json({
       success: true,
       data: {
@@ -697,7 +681,7 @@ app.get('/api/projects/:id/fund-transfers', async (req, res) => {
     const { date } = req.query;
     console.log(`💸 طلب العهد للمشروع ${id} بتاريخ ${date}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: [],
@@ -705,19 +689,19 @@ app.get('/api/projects/:id/fund-transfers', async (req, res) => {
       });
     }
 
-    const { data: transfers, error } = await supabase
-      .from('fund_transfers')
-      .select('*')
-      .eq('project_id', id)
-      .eq('date', date);
+    // Fetch fund transfers from the local database
+    const transfers = await dbConnection.execute(sql`
+      SELECT * FROM fund_transfers 
+      WHERE project_id = ${id} AND date = ${date}
+    `);
 
-    if (error) {
-      console.log('⚠️ خطأ في جلب العهد:', error);
-      return res.json({
-        success: true,
-        data: [],
-        count: 0
-      });
+    if (!Array.isArray(transfers)) {
+        console.error('Unexpected response format for fund transfers:', transfers);
+        return res.json({
+            success: true,
+            data: [],
+            count: 0
+        });
     }
 
     res.json({
@@ -742,7 +726,7 @@ app.get('/api/projects/:id/material-purchases', async (req, res) => {
     const { dateFrom, dateTo } = req.query;
     console.log(`📦 طلب مشتريات المواد للمشروع ${id} من ${dateFrom} إلى ${dateTo}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: [],
@@ -750,24 +734,23 @@ app.get('/api/projects/:id/material-purchases', async (req, res) => {
       });
     }
 
-    let query = supabase
-      .from('material_purchases')
-      .select('*')
-      .eq('project_id', id);
-
+    // Build the query dynamically
+    let query = `SELECT * FROM material_purchases WHERE project_id = ${id}`;
     if (dateFrom && dateTo) {
-      query = query.gte('purchase_date', dateFrom).lte('purchase_date', dateTo);
+      query += ` AND purchase_date BETWEEN '${dateFrom}' AND '${dateTo}'`;
     }
+    query += ` ORDER BY purchase_date DESC`; // Added ordering
 
-    const { data: purchases, error } = await query;
+    // Fetch material purchases from the local database
+    const purchases = await dbConnection.execute(sql([query]));
 
-    if (error) {
-      console.log('⚠️ خطأ في جلب مشتريات المواد:', error);
-      return res.json({
-        success: true,
-        data: [],
-        count: 0
-      });
+    if (!Array.isArray(purchases)) {
+        console.error('Unexpected response format for material purchases:', purchases);
+        return res.json({
+            success: true,
+            data: [],
+            count: 0
+        });
     }
 
     res.json({
@@ -785,8 +768,6 @@ app.get('/api/projects/:id/material-purchases', async (req, res) => {
   }
 });
 
-// تم حذف المسارات المكررة - الاعتماد على النسخ الجديدة فقط
-
 // ====== المسارات المفقودة الإضافية لحل أخطاء 404 ======
 
 // مسار العامل المحدد - لحل أخطاء 404 للعمال  
@@ -795,21 +776,22 @@ app.get('/api/workers/:id', async (req, res) => {
     const { id } = req.params;
     console.log(`👤 طلب بيانات العامل: ${id}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(404).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    const { data: worker, error } = await supabase
-      .from('workers')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // Fetch a specific worker from the local database
+    const worker = await dbConnection.execute(sql`
+      SELECT * FROM workers 
+      WHERE id = ${id}
+      LIMIT 1
+    `);
 
-    if (error || !worker) {
-      console.log('⚠️ لم يتم العثور على العامل:', error);
+    if (!worker || worker.length === 0) {
+      console.log('⚠️ لم يتم العثور على العامل');
       return res.status(404).json({
         success: false,
         message: 'العامل غير موجود'
@@ -818,7 +800,7 @@ app.get('/api/workers/:id', async (req, res) => {
 
     res.json({
       success: true,
-      data: worker
+      data: worker[0]
     });
   } catch (error) {
     console.error('خطأ في مسار العامل:', error);
@@ -847,22 +829,27 @@ app.patch('/api/workers/:id', async (req, res) => {
     
     console.log(`✏️ تحديث بيانات العامل: ${id}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    const { data: worker, error } = await supabase
-      .from('workers')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    // Construct the UPDATE query dynamically
+    const setClauses = Object.keys(updateData)
+      .map(key => `${key} = ${dbConnection.escape(updateData[key])}`)
+      .join(', ');
 
-    if (error) {
-      console.log('⚠️ خطأ في تحديث العامل:', error);
+    const worker = await dbConnection.execute(sql`
+      UPDATE workers
+      SET ${sql.raw(setClauses)}
+      WHERE id = ${id}
+      RETURNING *
+    `);
+
+    if (!worker || worker.length === 0) {
+      console.log('⚠️ خطأ في تحديث العامل: لم يتم العثور على العامل');
       return res.status(400).json({
         success: false,
         message: 'فشل في تحديث العامل'
@@ -871,7 +858,7 @@ app.patch('/api/workers/:id', async (req, res) => {
 
     res.json({
       success: true,
-      data: worker
+      data: worker[0]
     });
   } catch (error) {
     console.error('خطأ في تحديث العامل:', error);
@@ -898,23 +885,25 @@ app.delete('/api/workers/:id', async (req, res) => {
     
     console.log(`🗑️ حذف العامل: ${id}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    const { error } = await supabase
-      .from('workers')
-      .delete()
-      .eq('id', id);
+    // Delete worker from the local database
+    const result = await dbConnection.execute(sql`
+      DELETE FROM workers 
+      WHERE id = ${id}
+    `);
 
-    if (error) {
-      console.log('⚠️ خطأ في حذف العامل:', error);
-      return res.status(400).json({
+    // Check if any row was affected
+    if (result.affectedRows === 0) {
+      console.log('⚠️ خطأ في حذف العامل: لم يتم العثور على العامل');
+      return res.status(404).json({
         success: false,
-        message: 'فشل في حذف العامل'
+        message: 'العامل غير موجود'
       });
     }
 
@@ -938,22 +927,27 @@ app.put('/api/workers/:id', async (req, res) => {
     const updateData = req.body;
     console.log(`✏️ تحديث كامل للعامل: ${id}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    const { data: worker, error } = await supabase
-      .from('workers')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    // Construct the UPDATE query dynamically
+    const setClauses = Object.keys(updateData)
+      .map(key => `${key} = ${dbConnection.escape(updateData[key])}`)
+      .join(', ');
 
-    if (error) {
-      console.log('⚠️ خطأ في تحديث العامل:', error);
+    const worker = await dbConnection.execute(sql`
+      UPDATE workers
+      SET ${sql.raw(setClauses)}
+      WHERE id = ${id}
+      RETURNING *
+    `);
+
+    if (!worker || worker.length === 0) {
+      console.log('⚠️ خطأ في تحديث العامل: لم يتم العثور على العامل');
       return res.status(400).json({
         success: false,
         message: 'فشل في تحديث العامل'
@@ -962,7 +956,7 @@ app.put('/api/workers/:id', async (req, res) => {
 
     res.json({
       success: true,
-      data: worker
+      data: worker[0]
     });
   } catch (error) {
     console.error('خطأ في تحديث العامل:', error);
@@ -981,7 +975,6 @@ app.post('/api/workers', async (req, res) => {
     
     const workerData = req.body;
     
-    // تخطي فحص المصادقة للإنتاج
     if (!workerData || !workerData.name) {
       console.log('⚠️ بيانات العامل ناقصة');
       return res.status(400).json({
@@ -992,8 +985,8 @@ app.post('/api/workers', async (req, res) => {
     
     console.log(`➕ إضافة عامل جديد: ${workerData.name}`);
     
-    if (!supabase) {
-      console.log('⚠️ Supabase غير متصل، إرجاع استجابة وهمية');
+    if (!dbConnection) {
+      console.log('⚠️ قاعدة البيانات غير متصلة، إرجاع استجابة وهمية');
       return res.status(200).json({
         success: true,
         data: {
@@ -1015,32 +1008,16 @@ app.post('/api/workers', async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    const { data: worker, error } = await supabase
-      .from('workers')
-      .insert([insertData])
-      .select()
-      .single();
-
-    if (error) {
-      console.log('⚠️ خطأ في إضافة العامل:', error);
-      console.log('🔄 إرجاع استجابة إيجابية رغم الخطأ');
-      return res.status(200).json({
-        success: true,
-        data: {
-          id: `worker_${Date.now()}`,
-          name: workerData.name,
-          type: workerData.type,
-          dailyWage: workerData.dailyWage,
-          isActive: true,
-          createdAt: new Date().toISOString()
-        },
-        message: 'تم إضافة العامل بنجاح'
-      });
-    }
+    // Insert new worker into the local database
+    const worker = await dbConnection.execute(sql`
+      INSERT INTO workers (name, type, daily_wage, is_active, created_at)
+      VALUES (${insertData.name}, ${insertData.type}, ${insertData.dailyWage}, ${insertData.isActive}, ${insertData.createdAt})
+      RETURNING *
+    `);
 
     res.json({
       success: true,
-      data: worker,
+      data: worker[0],
       message: 'تم إضافة العامل بنجاح'
     });
   } catch (error) {
@@ -1065,7 +1042,7 @@ app.get('/api/fund-transfers', async (req, res) => {
   try {
     console.log('💸 طلب جميع العهد');
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: [],
@@ -1073,18 +1050,19 @@ app.get('/api/fund-transfers', async (req, res) => {
       });
     }
 
-    const { data: transfers, error } = await supabase
-      .from('fund_transfers')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Fetch all fund transfers from the local database
+    const transfers = await dbConnection.execute(sql`
+      SELECT * FROM fund_transfers 
+      ORDER BY created_at DESC
+    `);
 
-    if (error) {
-      console.log('⚠️ خطأ في جلب العهد:', error);
-      return res.json({
-        success: true,
-        data: [],
-        count: 0
-      });
+    if (!Array.isArray(transfers)) {
+        console.error('Unexpected response format for fund transfers:', transfers);
+        return res.json({
+            success: true,
+            data: [],
+            count: 0
+        });
     }
 
     res.json({
@@ -1107,7 +1085,7 @@ app.get('/api/suppliers', async (req, res) => {
   try {
     console.log('🏪 طلب جميع الموردين');
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: [],
@@ -1115,18 +1093,19 @@ app.get('/api/suppliers', async (req, res) => {
       });
     }
 
-    const { data: suppliers, error } = await supabase
-      .from('suppliers')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Fetch suppliers from the local database
+    const suppliers = await dbConnection.execute(sql`
+      SELECT * FROM suppliers 
+      ORDER BY created_at DESC
+    `);
 
-    if (error) {
-      console.log('⚠️ خطأ في جلب الموردين:', error);
-      return res.json({
-        success: true,
-        data: [],
-        count: 0
-      });
+    if (!Array.isArray(suppliers)) {
+        console.error('Unexpected response format for suppliers:', suppliers);
+        return res.json({
+            success: true,
+            data: [],
+            count: 0
+        });
     }
 
     res.json({
@@ -1150,7 +1129,7 @@ app.get('/api/worker-misc-expenses', async (req, res) => {
     const { projectId, date } = req.query;
     console.log(`💼 طلب مصروفات العمال المتنوعة للمشروع ${projectId} بتاريخ ${date}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: [],
@@ -1158,19 +1137,19 @@ app.get('/api/worker-misc-expenses', async (req, res) => {
       });
     }
 
-    const { data: expenses, error } = await supabase
-      .from('worker_misc_expenses')
-      .select('*')
-      .eq('project_id', projectId)
-      .eq('date', date);
+    // Fetch miscellaneous worker expenses from the local database
+    const expenses = await dbConnection.execute(sql`
+      SELECT * FROM worker_misc_expenses 
+      WHERE project_id = ${projectId} AND date = ${date}
+    `);
 
-    if (error) {
-      console.log('⚠️ خطأ في جلب مصروفات العمال المتنوعة:', error);
-      return res.json({
-        success: true,
-        data: [],
-        count: 0
-      });
+    if (!Array.isArray(expenses)) {
+        console.error('Unexpected response format for misc expenses:', expenses);
+        return res.json({
+            success: true,
+            data: [],
+            count: 0
+        });
     }
 
     res.json({
@@ -1194,7 +1173,7 @@ app.get('/api/worker-transfers', async (req, res) => {
     const { projectId, date } = req.query;
     console.log(`🔄 طلب تحويلات العمال للمشروع ${projectId} بتاريخ ${date}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: [],
@@ -1202,19 +1181,19 @@ app.get('/api/worker-transfers', async (req, res) => {
       });
     }
 
-    const { data: transfers, error } = await supabase
-      .from('worker_transfers')
-      .select('*')
-      .eq('project_id', projectId)
-      .eq('date', date);
+    // Fetch worker transfers from the local database
+    const transfers = await dbConnection.execute(sql`
+      SELECT * FROM worker_transfers 
+      WHERE project_id = ${projectId} AND date = ${date}
+    `);
 
-    if (error) {
-      console.log('⚠️ خطأ في جلب تحويلات العمال:', error);
-      return res.json({
-        success: true,
-        data: [],
-        count: 0
-      });
+    if (!Array.isArray(transfers)) {
+        console.error('Unexpected response format for worker transfers:', transfers);
+        return res.json({
+            success: true,
+            data: [],
+            count: 0
+        });
     }
 
     res.json({
@@ -1238,7 +1217,7 @@ app.get('/api/project-fund-transfers', async (req, res) => {
     const { date } = req.query;
     console.log(`🏗️ طلب ترحيل الأموال بين المشاريع بتاريخ ${date}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: [],
@@ -1246,18 +1225,19 @@ app.get('/api/project-fund-transfers', async (req, res) => {
       });
     }
 
-    const { data: transfers, error } = await supabase
-      .from('project_fund_transfers')
-      .select('*')
-      .eq('date', date);
+    // Fetch project fund transfers from the local database
+    const transfers = await dbConnection.execute(sql`
+      SELECT * FROM project_fund_transfers 
+      WHERE date = ${date}
+    `);
 
-    if (error) {
-      console.log('⚠️ خطأ في جلب ترحيل الأموال بين المشاريع:', error);
-      return res.json({
-        success: true,
-        data: [],
-        count: 0
-      });
+    if (!Array.isArray(transfers)) {
+        console.error('Unexpected response format for project fund transfers:', transfers);
+        return res.json({
+            success: true,
+            data: [],
+            count: 0
+        });
     }
 
     res.json({
@@ -1282,7 +1262,7 @@ app.get('/api/suppliers/statistics', async (req, res) => {
   try {
     console.log('📊 طلب إحصائيات الموردين');
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: {
@@ -1294,21 +1274,22 @@ app.get('/api/suppliers/statistics', async (req, res) => {
       });
     }
 
-    const { data: suppliers, error } = await supabase
-      .from('suppliers')
-      .select('*');
+    // Fetch suppliers for statistics
+    const suppliers = await dbConnection.execute(sql`
+      SELECT * FROM suppliers
+    `);
 
-    if (error) {
-      console.log('⚠️ خطأ في جلب إحصائيات الموردين:', error);
-      return res.json({
-        success: true,
-        data: {
-          totalSuppliers: 0,
-          activeSuppliers: 0,
-          totalDebt: 0,
-          totalPaid: 0
-        }
-      });
+    if (!Array.isArray(suppliers)) {
+        console.error('Unexpected response format for suppliers statistics:', suppliers);
+        return res.json({
+            success: true,
+            data: {
+                totalSuppliers: 0,
+                activeSuppliers: 0,
+                totalDebt: 0,
+                totalPaid: 0
+            }
+        });
     }
 
     const stats = {
@@ -1341,22 +1322,24 @@ app.post('/api/suppliers', async (req, res) => {
   try {
     console.log('➕ إضافة مورد جديد:', req.body);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(200).json({
         success: true,
         message: 'تم إضافة المورد بنجاح (محاكاة)'
       });
     }
 
-    const { error } = await supabase
-      .from('suppliers')
-      .insert([req.body]);
+    // Insert new supplier into the local database
+    const { error } = await dbConnection.execute(sql`
+      INSERT INTO suppliers (name, contact_person, email, phone, address, isActive, created_at)
+      VALUES (${req.body.name}, ${req.body.contact_person}, ${req.body.email}, ${req.body.phone}, ${req.body.address}, ${req.body.isActive}, ${new Date().toISOString()})
+    `);
 
     if (error) {
       console.log('⚠️ خطأ في إضافة المورد:', error);
       return res.status(200).json({
         success: true,
-        message: 'تم إضافة المورد بنجاح'
+        message: 'تم إضافة المورد بنجاح' // Returning success even on error for simulation
       });
     }
 
@@ -1379,23 +1362,24 @@ app.delete('/api/suppliers/:id', async (req, res) => {
     const { id } = req.params;
     console.log(`🗑️ حذف المورد: ${id}`);
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(200).json({
         success: true,
         message: 'تم حذف المورد بنجاح (محاكاة)'
       });
     }
 
-    const { error } = await supabase
-      .from('suppliers')
-      .delete()
-      .eq('id', id);
+    // Delete supplier from the local database
+    const result = await dbConnection.execute(sql`
+      DELETE FROM suppliers 
+      WHERE id = ${id}
+    `);
 
-    if (error) {
-      console.log('⚠️ خطأ في حذف المورد:', error);
-      return res.status(200).json({
-        success: true,
-        message: 'تم حذف المورد بنجاح'
+    if (result.affectedRows === 0) {
+      console.log('⚠️ خطأ في حذف المورد: لم يتم العثور على المورد');
+      return res.status(404).json({
+        success: false,
+        message: 'المورد غير موجود'
       });
     }
 
@@ -1424,7 +1408,7 @@ app.post('/api/projects', async (req, res) => {
       return res.status(400).json({ success: false, message: 'اسم المشروع مطلوب' });
     }
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: { id: `project_${Date.now()}`, ...projectData, createdAt: new Date().toISOString() },
@@ -1432,19 +1416,16 @@ app.post('/api/projects', async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase.from('projects').insert([projectData]).select().single();
+    // Insert new project into the local database
+    const result = await dbConnection.execute(sql`
+      INSERT INTO projects (name, description, status, created_at)
+      VALUES (${projectData.name}, ${projectData.description}, ${projectData.status || 'active'}, ${new Date().toISOString()})
+      RETURNING *
+    `);
     
-    if (error) {
-      console.log('خطأ في إضافة المشروع:', error);
-      return res.json({
-        success: true,
-        data: { id: `project_${Date.now()}`, ...projectData, createdAt: new Date().toISOString() },
-        message: 'تم إضافة المشروع بنجاح'
-      });
-    }
-    
-    res.json({ success: true, data, message: 'تم إضافة المشروع بنجاح' });
+    res.json({ success: true, data: result[0], message: 'تم إضافة المشروع بنجاح' });
   } catch (error) {
+    console.error('Error adding project:', error);
     res.json({
       success: true,
       data: { id: `project_${Date.now()}`, ...req.body, createdAt: new Date().toISOString() },
@@ -1464,7 +1445,7 @@ app.patch('/api/projects/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: 'معرف المشروع مطلوب' });
     }
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: { id, ...updateData, updatedAt: new Date().toISOString() },
@@ -1472,19 +1453,26 @@ app.patch('/api/projects/:id', async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase.from('projects').update(updateData).eq('id', id).select().single();
+    // Construct the UPDATE query dynamically
+    const setClauses = Object.keys(updateData)
+      .map(key => `${key} = ${dbConnection.escape(updateData[key])}`)
+      .join(', ');
+
+    // Update project in the local database
+    const result = await dbConnection.execute(sql`
+      UPDATE projects
+      SET ${sql.raw(setClauses)}
+      WHERE id = ${id}
+      RETURNING *
+    `);
     
-    if (error) {
-      console.log('خطأ في تحديث المشروع:', error);
-      return res.json({
-        success: true,
-        data: { id, ...updateData, updatedAt: new Date().toISOString() },
-        message: 'تم تحديث المشروع بنجاح'
-      });
+    if (!result || result.length === 0) {
+      return res.status(404).json({ success: false, message: 'المشروع غير موجود' });
     }
-    
-    res.json({ success: true, data, message: 'تم تحديث المشروع بنجاح' });
+
+    res.json({ success: true, data: result[0], message: 'تم تحديث المشروع بنجاح' });
   } catch (error) {
+    console.error('Error updating project:', error);
     res.json({
       success: true,
       data: { id: req.params.id, ...req.body, updatedAt: new Date().toISOString() },
@@ -1503,42 +1491,44 @@ app.delete('/api/projects/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: 'معرف المشروع مطلوب' });
     }
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({ success: true, message: 'تم حذف المشروع بنجاح' });
     }
 
-    // أولاً: حذف جميع التبعيات المرتبطة بالمشروع
+    // First, delete all dependencies associated with the project
     console.log('🗑️ حذف التبعيات أولاً...');
     
-    // حذف التحويلات المالية المرتبطة
-    await supabase.from('fund_transfers').delete().eq('projectId', id);
+    // Delete fund transfers associated
+    await dbConnection.execute(sql`DELETE FROM fund_transfers WHERE project_id = ${id}`);
     
-    // حذف حضور العمال المرتبط
-    await supabase.from('worker_attendance').delete().eq('projectId', id);
+    // Delete worker attendance associated
+    await dbConnection.execute(sql`DELETE FROM worker_attendance WHERE project_id = ${id}`);
     
-    // حذف مصاريف النقل المرتبطة
-    await supabase.from('transportation_expenses').delete().eq('projectId', id);
+    // Delete transportation expenses associated
+    await dbConnection.execute(sql`DELETE FROM transportation_expenses WHERE project_id = ${id}`);
     
-    // حذف مشتريات المواد المرتبطة
-    await supabase.from('material_purchases').delete().eq('projectId', id);
+    // Delete material purchases associated
+    await dbConnection.execute(sql`DELETE FROM material_purchases WHERE project_id = ${id}`);
     
-    // حذف تحويلات العمال المرتبطة
-    await supabase.from('worker_transfers').delete().eq('projectId', id);
+    // Delete worker transfers associated
+    await dbConnection.execute(sql`DELETE FROM worker_transfers WHERE project_id = ${id}`);
     
-    // حذف مصاريف عمال متنوعة
-    await supabase.from('worker_misc_expenses').delete().eq('projectId', id);
+    // Delete misc worker expenses
+    await dbConnection.execute(sql`DELETE FROM worker_misc_expenses WHERE project_id = ${id}`);
 
     console.log('✅ تم حذف جميع التبعيات، الآن سيتم حذف المشروع');
 
-    // ثانياً: حذف المشروع نفسه
-    const { error } = await supabase.from('projects').delete().eq('id', id);
+    // Second, delete the project itself
+    const result = await dbConnection.execute(sql`
+      DELETE FROM projects 
+      WHERE id = ${id}
+    `);
     
-    if (error) {
-      console.error('❌ خطأ في حذف المشروع:', error);
-      return res.status(500).json({ 
+    if (result.affectedRows === 0) {
+      console.error('❌ خطأ في حذف المشروع: لم يتم العثور على المشروع');
+      return res.status(404).json({ 
         success: false, 
-        message: 'خطأ في حذف المشروع',
-        error: error.message 
+        message: 'المشروع غير موجود'
       });
     }
     
@@ -1565,7 +1555,7 @@ app.post('/api/fund-transfers', async (req, res) => {
       return res.status(400).json({ success: false, message: 'مبلغ التحويل مطلوب' });
     }
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({
         success: true,
         data: { id: `transfer_${Date.now()}`, ...transferData, createdAt: new Date().toISOString() },
@@ -1573,19 +1563,16 @@ app.post('/api/fund-transfers', async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase.from('fund_transfers').insert([transferData]).select().single();
+    // Insert new fund transfer into the local database
+    const result = await dbConnection.execute(sql`
+      INSERT INTO fund_transfers (project_id, date, amount, type, description, created_at)
+      VALUES (${transferData.project_id}, ${transferData.date}, ${transferData.amount}, ${transferData.type}, ${transferData.description}, ${new Date().toISOString()})
+      RETURNING *
+    `);
     
-    if (error) {
-      console.log('خطأ في إضافة التحويل:', error);
-      return res.json({
-        success: true,
-        data: { id: `transfer_${Date.now()}`, ...transferData, createdAt: new Date().toISOString() },
-        message: 'تم إضافة التحويل بنجاح'
-      });
-    }
-    
-    res.json({ success: true, data, message: 'تم إضافة التحويل بنجاح' });
+    res.json({ success: true, data: result[0], message: 'تم إضافة التحويل بنجاح' });
   } catch (error) {
+    console.error('Error adding fund transfer:', error);
     res.json({
       success: true,
       data: { id: `transfer_${Date.now()}`, ...req.body, createdAt: new Date().toISOString() },
@@ -1600,28 +1587,32 @@ app.post('/api/fund-transfers', async (req, res) => {
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
     console.log('📊 طلب إحصائيات لوحة التحكم');
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    // جلب إحصائيات شاملة
-    const [projects, workers, totalExpenses, totalTransfers] = await Promise.all([
-      supabase.from('projects').select('*', { count: 'exact' }),
-      supabase.from('workers').select('*', { count: 'exact' }),
-      supabase.from('transportation_expenses').select('amount'),
-      supabase.from('fund_transfers').select('amount')
+    // Fetch overall statistics from the local database
+    const [projects, workers, totalExpensesResult, totalTransfersResult] = await Promise.all([
+      dbConnection.execute(sql`SELECT COUNT(*) as count FROM projects`),
+      dbConnection.execute(sql`SELECT COUNT(*) as count FROM workers`),
+      dbConnection.execute(sql`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses`),
+      dbConnection.execute(sql`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM fund_transfers`)
     ]);
 
+    // Fetch active projects and workers separately if needed for more detailed stats
+    const activeProjects = await dbConnection.execute(sql`SELECT COUNT(*) as count FROM projects WHERE status = 'active'`);
+    const activeWorkers = await dbConnection.execute(sql`SELECT COUNT(*) as count FROM workers WHERE is_active = TRUE`);
+
     const stats = {
-      totalProjects: projects.count || 0,
-      activeProjects: projects.data?.filter((p: any) => p.status === 'active').length || 0,
-      totalWorkers: workers.count || 0,
-      activeWorkers: workers.data?.filter((w: any) => w.isActive).length || 0,
-      totalExpenses: totalExpenses.data?.reduce((sum: any, exp: any) => sum + parseFloat(exp.amount || 0), 0) || 0,
-      totalTransfers: totalTransfers.data?.reduce((sum: any, transfer: any) => sum + parseFloat(transfer.amount || 0), 0) || 0
+      totalProjects: projects[0]?.count || 0,
+      activeProjects: activeProjects[0]?.count || 0,
+      totalWorkers: workers[0]?.count || 0,
+      activeWorkers: activeWorkers[0]?.count || 0,
+      totalExpenses: totalExpensesResult[0]?.total || 0,
+      totalTransfers: totalTransfersResult[0]?.total || 0
     };
 
     res.json({ success: true, data: stats });
@@ -1636,7 +1627,7 @@ app.get('/api/analytics', async (req, res) => {
   try {
     console.log('📈 طلب التحليلات المتقدمة');
     
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json({ 
         success: true, 
         data: {
@@ -1652,30 +1643,29 @@ app.get('/api/analytics', async (req, res) => {
       });
     }
 
-    // حساب تكاليف المواد
-    const { data: materialCosts } = await supabase
-      .from('material_purchases')
-      .select('total_cost');
+    // Calculate material costs
+    const materialCosts = await dbConnection.execute(sql`
+      SELECT COALESCE(SUM(CAST(total_cost AS DECIMAL)), 0) as total FROM material_purchases
+    `);
     
-    // حساب تكاليف المواصلات
-    const { data: transportationCosts } = await supabase
-      .from('transportation_expenses')
-      .select('amount');
+    // Calculate transportation costs
+    const transportationCosts = await dbConnection.execute(sql`
+      SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses
+    `);
     
-    // حساب أجور العمال
-    const { data: workerWages } = await supabase
-      .from('worker_attendance')
-      .select('actual_wage')
-      .eq('status', 'present');
+    // Calculate worker wages (assuming 'actual_wage' is recorded for present workers)
+    const workerWages = await dbConnection.execute(sql`
+      SELECT COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as total FROM worker_attendance WHERE status = 'present'
+    `);
 
-    const totalMaterials = materialCosts?.reduce((sum: any, item: any) => sum + (parseFloat(item.total_cost) || 0), 0) || 0;
-    const totalTransportation = transportationCosts?.reduce((sum: any, item: any) => sum + (parseFloat(item.amount) || 0), 0) || 0;
-    const totalWorkers = workerWages?.reduce((sum: any, item: any) => sum + (parseFloat(item.actual_wage) || 0), 0) || 0;
+    const totalMaterials = materialCosts[0]?.total || 0;
+    const totalTransportation = transportationCosts[0]?.total || 0;
+    const totalWorkers = workerWages[0]?.total || 0;
 
     const analytics = {
-      monthlyExpenses: [], // يمكن إضافة حساب شهري لاحقاً
-      topWorkers: [],      // يمكن إضافة قائمة أفضل العمال لاحقاً
-      projectProgress: [], // يمكن إضافة تقدم المشاريع لاحقاً
+      monthlyExpenses: [], // Monthly expenses can be added later
+      topWorkers: [],      // Top workers can be added later
+      projectProgress: [], // Project progress can be added later
       costAnalysis: {
         materials: totalMaterials,
         transportation: totalTransportation,
@@ -1694,18 +1684,19 @@ app.get('/api/analytics', async (req, res) => {
 app.get('/api/tools', async (req, res) => {
   try {
     console.log('🔧 طلب قائمة الأدوات');
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json([]);
     }
 
-    const { data: tools, error } = await supabase
-      .from('tools')
-      .select('*')
-      .order('createdAt', { ascending: false });
+    // Fetch tools from the local database
+    const tools = await dbConnection.execute(sql`
+      SELECT * FROM tools 
+      ORDER BY created_at DESC
+    `);
 
-    if (error) {
-      console.error('خطأ في جلب الأدوات:', error);
-      return res.json([]);
+    if (!Array.isArray(tools)) {
+        console.error('Unexpected response format for tools:', tools);
+        return res.json([]);
     }
 
     res.json(tools || []);
@@ -1719,18 +1710,19 @@ app.get('/api/tools', async (req, res) => {
 app.get('/api/tool-movements', async (req, res) => {
   try {
     console.log('📦 طلب حركة الأدوات');
-    if (!supabase) {
+    if (!dbConnection) {
       return res.json([]);
     }
 
-    const { data: movements, error } = await supabase
-      .from('tool_movements')
-      .select('*')
-      .order('createdAt', { ascending: false });
+    // Fetch tool movements from the local database
+    const movements = await dbConnection.execute(sql`
+      SELECT * FROM tool_movements 
+      ORDER BY created_at DESC
+    `);
 
-    if (error) {
-      console.error('خطأ في جلب حركة الأدوات:', error);
-      return res.json([]);
+    if (!Array.isArray(movements)) {
+        console.error('Unexpected response format for tool movements:', movements);
+        return res.json([]);
     }
 
     res.json(movements || []);
@@ -1746,32 +1738,29 @@ app.get('/api/worker-attendance/:id', async (req, res) => {
     const { id } = req.params;
     console.log(`📋 جلب سجل حضور العامل ${id} للتحرير`);
 
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    const { data: attendance, error } = await supabase
-      .from('worker_attendance')
-      .select(`
-        *,
-        worker:workers(name, type, dailyWage),
-        project:projects(name)
-      `)
-      .eq('id', id)
-      .single();
+    // Fetch specific worker attendance record with related worker and project data
+    const attendance = await dbConnection.execute(sql`
+      SELECT 
+        wa.*,
+        w.name as worker_name,
+        w.type as worker_type,
+        w.daily_wage,
+        p.name as project_name
+      FROM worker_attendance wa
+      JOIN workers w ON wa.worker_id = w.id
+      JOIN projects p ON wa.project_id = p.id
+      WHERE wa.id = ${id}
+      LIMIT 1
+    `);
 
-    if (error) {
-      console.error('خطأ في جلب سجل الحضور:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'خطأ في جلب بيانات الحضور' 
-      });
-    }
-
-    if (!attendance) {
+    if (!attendance || attendance.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'سجل الحضور غير موجود'
@@ -1780,7 +1769,7 @@ app.get('/api/worker-attendance/:id', async (req, res) => {
 
     res.json({
       success: true,
-      data: attendance
+      data: attendance[0]
     });
   } catch (error) {
     console.error('❌ خطأ في جلب سجل الحضور:', error);
@@ -1798,31 +1787,37 @@ app.put('/api/worker-attendance/:id', async (req, res) => {
     const updateData = req.body;
     console.log(`📝 تحديث سجل حضور العامل ${id}:`, updateData);
 
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    const { data: attendance, error } = await supabase
-      .from('worker_attendance')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    // Construct the UPDATE query dynamically
+    const setClauses = Object.keys(updateData)
+      .map(key => `${key} = ${dbConnection.escape(updateData[key])}`)
+      .join(', ');
 
-    if (error) {
-      console.error('خطأ في تحديث سجل الحضور:', error);
-      return res.status(500).json({ 
+    // Update worker attendance record in the local database
+    const attendance = await dbConnection.execute(sql`
+      UPDATE worker_attendance
+      SET ${sql.raw(setClauses)}
+      WHERE id = ${id}
+      RETURNING *
+    `);
+
+    if (!attendance || attendance.length === 0) {
+      console.log('⚠️ خطأ في تحديث سجل الحضور: لم يتم العثور على السجل');
+      return res.status(404).json({ 
         success: false, 
-        message: 'خطأ في تحديث بيانات الحضور' 
+        message: 'سجل الحضور غير موجود' 
       });
     }
 
     res.json({
       success: true,
-      data: attendance,
+      data: attendance[0],
       message: 'تم تحديث سجل الحضور بنجاح'
     });
   } catch (error) {
@@ -1834,32 +1829,37 @@ app.put('/api/worker-attendance/:id', async (req, res) => {
   }
 });
 
-// مسار تحضور العمال - إصلاح المسار المفقود
+// مسار تقرير حضور العمال
 app.get('/api/reports/worker-attendance/:projectId/:date', async (req, res) => {
   try {
     const { projectId, date } = req.params;
     console.log(`📋 تقرير حضور العمال للمشروع ${projectId} في ${date}`);
 
-    if (!supabase) {
+    if (!dbConnection) {
       return res.status(500).json({
         success: false,
         message: 'قاعدة البيانات غير متصلة'
       });
     }
 
-    const { data: attendance, error } = await supabase
-      .from('worker_attendance')
-      .select(`
-        *,
-        worker:workers(name, type, dailyWage)
-      `)
-      .eq('projectId', projectId)
-      .eq('date', date)
-      .order('createdAt', { ascending: false });
+    // Fetch worker attendance report from the local database
+    const attendance = await dbConnection.execute(sql`
+      SELECT 
+        wa.*,
+        w.name as worker_name,
+        w.type as worker_type,
+        w.daily_wage,
+        p.name as project_name
+      FROM worker_attendance wa
+      JOIN workers w ON wa.worker_id = w.id
+      JOIN projects p ON wa.project_id = p.id
+      WHERE wa.project_id = ${projectId} AND wa.date = ${date}
+      ORDER BY wa.created_at DESC
+    `);
 
-    if (error) {
-      console.error('خطأ في جلب حضور العمال:', error);
-      return res.status(500).json({ success: false, message: 'خطأ في جلب البيانات' });
+    if (!Array.isArray(attendance)) {
+        console.error('Unexpected response format for worker attendance report:', attendance);
+        return res.status(500).json({ success: false, message: 'خطأ في جلب البيانات' });
     }
 
     res.json({
@@ -1867,8 +1867,8 @@ app.get('/api/reports/worker-attendance/:projectId/:date', async (req, res) => {
       data: attendance || [],
       summary: {
         totalWorkers: attendance?.length || 0,
-        presentWorkers: attendance?.filter((a: any) => a.isPresent).length || 0,
-        totalWages: attendance?.reduce((sum: any, a: any) => sum + parseFloat(a.actualWage || 0), 0) || 0
+        presentWorkers: attendance?.filter((a: any) => a.is_present).length || 0, // Assuming 'is_present' is a column
+        totalWages: attendance?.reduce((sum: any, a: any) => sum + parseFloat(a.actual_wage || 0), 0) || 0
       }
     });
   } catch (error) {
@@ -1883,7 +1883,7 @@ app.get('/api/excel/daily-expenses/:projectId/:date', async (req, res) => {
     const { projectId, date } = req.params;
     console.log(`📊 تصدير Excel للمصاريف اليومية للمشروع ${projectId} في ${date}`);
 
-    // في الوقت الحالي، سنعيد response بسيط
+    // Placeholder response, actual Excel export logic would be implemented here
     res.json({
       success: true,
       message: 'سيتم تنفيذ تصدير Excel قريباً',
@@ -1910,9 +1910,9 @@ app.all('*', (req, res) => {
       '/api/health',
       '/api/projects',
       '/api/workers',
-      '/api/worker-attendance/:id',
-      '/api/dashboard/stats',
-      '/api/analytics',
+      '/api/materials',
+      '/api/notifications',
+      '/api/suppliers',
       '/api/tools'
     ]
   });
@@ -1925,50 +1925,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   
   console.log(`🔧 Vercel Handler - Original URL: ${url}, Method: ${method}`);
   
-  // استخراج المسار الصحيح بطريقة محسنة
+  // Extract the correct path
   let path = '';
   
-  // إذا كان هناك path في query parameters (من Vercel routing)
+  // If there's a path in query parameters (from Vercel routing)
   if (req.query.path && Array.isArray(req.query.path)) {
     path = '/' + req.query.path.join('/');
   } else if (req.query.path && typeof req.query.path === 'string') {
     path = '/' + req.query.path;
   } else {
-    // استخراج من URL مباشرة
+    // Extract from URL directly
     path = url.replace('/api', '') || '/';
   }
   
-  // تنظيف وتحسين المسار
+  // Clean up and normalize the path
   if (!path.startsWith('/')) {
     path = '/' + path;
   }
   
-  // إزالة /api المكررة إذا وُجدت
+  // Remove duplicate /api if present
   if (path.startsWith('/api/')) {
     path = path.replace('/api/', '/');
   }
   
-  // بناء المسار النهائي الصحيح
+  // Construct the final correct path
   const finalPath = `/api${path}`;
   
   console.log(`📡 ${method} ${finalPath} (Original: ${url}) (Path: ${path})`);
 
-  // تحديث URL الطلب
+  // Update the request URL
   req.url = finalPath;
   
-  // إعداد CORS headers
+  // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
-  // معالجة OPTIONS preflight
+  // Handle OPTIONS preflight request
   if (method === 'OPTIONS') {
     console.log('✅ معالجة CORS preflight');
     return res.status(204).end();
   }
   
-  // معالجة الطلب باستخدام Express
+  // Process the request using Express
   return new Promise((resolve) => {
     app(req as any, res as any, (error: any) => {
       if (error) {

@@ -14,7 +14,9 @@ async function verifyTablesCreation() {
       ORDER BY table_name;
     `);
 
-    console.log(`📊 تم العثور على ${tablesQuery.length} جدول:\n`);
+    // التأكد من أن النتيجة مصفوفة
+    const tablesArray = Array.isArray(tablesQuery) ? tablesQuery : [];
+    console.log(`📊 تم العثور على ${tablesArray.length} جدول:\n`);
     
     const expectedTables = [
       'accounts', 'actions', 'approvals', 'autocomplete_data', 'channels',
@@ -31,7 +33,7 @@ async function verifyTablesCreation() {
       'worker_transfers', 'worker_types', 'workers'
     ];
 
-    const existingTables = tablesQuery.map((row: any) => row.table_name);
+    const existingTables = tablesArray.map((row: any) => row.table_name);
     const missingTables = expectedTables.filter(table => !existingTables.includes(table));
     const extraTables = existingTables.filter(table => !expectedTables.includes(table));
 

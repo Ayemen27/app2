@@ -54,7 +54,7 @@ function setupSSLConfig() {
   const connectionString = createDatabaseUrl();
   const isLocalConnection = connectionString.includes('localhost') || 
                            connectionString.includes('127.0.0.1') ||
-                           connectionString.includes('@helium/');
+                           connectionString.includes('@app2data/');
   
   if (isLocalConnection) {
     console.log('🔓 اتصال محلي - تعطيل فحص شهادة SSL');

@@ -52,12 +52,12 @@ export default function AutocompleteAdminPage() {
   // جلب الإحصائيات
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['autocomplete-admin', 'stats'],
-    queryFn: () => apiRequest('/api/autocomplete-admin/stats', 'GET') as Promise<AutocompleteStats>,
+    queryFn: () => apiRequest('GET', '/api/autocomplete-admin/stats') as Promise<AutocompleteStats>,
   });
 
   // تنظيف البيانات القديمة
   const cleanupMutation = useMutation({
-    mutationFn: () => apiRequest('/api/autocomplete-admin/cleanup', 'POST'),
+    mutationFn: () => apiRequest('POST', '/api/autocomplete-admin/cleanup'),
     onSuccess: (result: any) => {
       toast({
         title: "تم التنظيف بنجاح",
@@ -77,7 +77,7 @@ export default function AutocompleteAdminPage() {
   // تطبيق حدود الفئات
   const enforceLimitsMutation = useMutation({
     mutationFn: (category?: string) => 
-      apiRequest('/api/autocomplete-admin/enforce-limits', 'POST', { category }),
+      apiRequest('POST', '/api/autocomplete-admin/enforce-limits', { category }),
     onSuccess: (result: any) => {
       toast({
         title: "تم تطبيق الحدود بنجاح",
@@ -96,7 +96,7 @@ export default function AutocompleteAdminPage() {
 
   // صيانة شاملة
   const maintenanceMutation = useMutation({
-    mutationFn: () => apiRequest('/api/autocomplete-admin/maintenance', 'POST'),
+    mutationFn: () => apiRequest('POST', '/api/autocomplete-admin/maintenance'),
     onSuccess: (result: MaintenanceResult) => {
       toast({
         title: "اكتملت الصيانة الشاملة",

@@ -103,7 +103,7 @@ export default function WorkerAccountsPage() {
     if (!value || value.trim().length < 2) return;
     
     try {
-      await apiRequest('/api/autocomplete', 'POST', {
+      await apiRequest('POST', '/api/autocomplete', {
         category: field,
         value: value.trim(),
         usageCount: 1
@@ -178,7 +178,7 @@ export default function WorkerAccountsPage() {
       await saveAllTransferAutocompleteValues();
       
       // تنفيذ العملية الأساسية
-      return apiRequest('/api/worker-transfers', 'POST', data);
+      return apiRequest('POST', '/api/worker-transfers', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/worker-transfers'] });
@@ -220,7 +220,7 @@ export default function WorkerAccountsPage() {
       // حفظ جميع قيم الإكمال التلقائي قبل العملية الأساسية
       await saveAllTransferAutocompleteValues();
       
-      return apiRequest(`/api/worker-transfers/${data.id}`, 'PATCH', data.updates);
+      return apiRequest('PATCH', `/api/worker-transfers/${data.id}`, data.updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/worker-transfers'] });
@@ -260,7 +260,7 @@ export default function WorkerAccountsPage() {
   // Delete transfer mutation
   const deleteTransferMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/worker-transfers/${id}`, 'DELETE');
+      return apiRequest('DELETE', `/api/worker-transfers/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/worker-transfers'] });

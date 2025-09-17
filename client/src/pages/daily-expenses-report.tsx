@@ -35,7 +35,7 @@ export default function DailyExpensesReport() {
         ...(dateTo && { dateTo }),
         ...(categoryFilter && categoryFilter !== "all" && { category: categoryFilter })
       });
-      return apiRequest(`/api/daily-expenses-report?${params}`, "GET");
+      return apiRequest("GET", `/api/daily-expenses-report?${params}`);
     },
     enabled: !!selectedProjectId
   });

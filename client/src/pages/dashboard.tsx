@@ -91,7 +91,7 @@ export default function Dashboard() {
     queryFn: async () => {
       try {
         console.log('🔄 [Dashboard] جلب المشاريع مع الإحصائيات...');
-        const response = await apiRequest("/api/projects/with-stats", "GET");
+        const response = await apiRequest("GET", "/api/projects/with-stats");
         console.log('📊 [Dashboard] استجابة المشاريع:', response);
         
         // معالجة هيكل الاستجابة المتعددة

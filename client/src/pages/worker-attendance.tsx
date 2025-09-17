@@ -71,7 +71,7 @@ export default function WorkerAttendance() {
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
-      await apiRequest("/api/autocomplete", "POST", { 
+      await apiRequest("POST", "/api/autocomplete", { 
         category, 
         value: value.trim() 
       });
@@ -86,7 +86,7 @@ export default function WorkerAttendance() {
     queryKey: ["/api/projects", selectedProjectId, "attendance", selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/attendance?date=${selectedDate}`, "GET");
+        const response = await apiRequest("GET", `/api/projects/${selectedProjectId}/attendance?date=${selectedDate}`);
         // معالجة الهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data;
@@ -105,7 +105,7 @@ export default function WorkerAttendance() {
     queryKey: ["/api/worker-attendance", editId],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/worker-attendance/${editId}`, "GET");
+        const response = await apiRequest("GET", `/api/worker-attendance/${editId}`);
         // معالجة الهيكل المتداخل للاستجابة
         if (response && response.data) {
           return response.data;
@@ -138,7 +138,7 @@ export default function WorkerAttendance() {
 
   // Delete Attendance Mutation
   const deleteAttendanceMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/worker-attendance/${id}`, "DELETE"),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/worker-attendance/${id}`),
     onSuccess: () => {
       toast({
         title: "تم الحذف",
@@ -193,7 +193,7 @@ export default function WorkerAttendance() {
       
       // تنفيذ العملية الأساسية
       const promises = attendanceRecords.map(record =>
-        apiRequest("/api/worker-attendance", "POST", record)
+        apiRequest("POST", "/api/worker-attendance", record)
       );
       await Promise.all(promises);
       return attendanceRecords;

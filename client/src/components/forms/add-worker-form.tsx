@@ -47,7 +47,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
-      await apiRequest("/api/autocomplete", "POST", { 
+      await apiRequest("POST", "/api/autocomplete", { 
         category, 
         value: value.trim() 
       });
@@ -71,9 +71,9 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       ]);
       
       if (worker) {
-        return apiRequest(`/api/workers/${worker.id}`, "PUT", data);
+        return apiRequest("PUT", `/api/workers/${worker.id}`, data);
       } else {
-        return apiRequest("/api/workers", "POST", data);
+        return apiRequest("POST", "/api/workers", data);
       }
     },
     onSuccess: async (newWorker, variables) => {
@@ -118,7 +118,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       // حفظ قيمة نوع العامل الجديد في autocomplete قبل العملية الأساسية
       await saveAutocompleteValue('workerTypes', data.name);
       
-      return apiRequest("/api/worker-types", "POST", data);
+      return apiRequest("POST", "/api/worker-types", data);
     },
     onSuccess: async (newType, variables) => {
       // تحديث كاش autocomplete

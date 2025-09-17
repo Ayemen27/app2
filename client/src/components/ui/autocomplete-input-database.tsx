@@ -37,14 +37,14 @@ export function AutocompleteInput({
   // جلب البيانات من قاعدة البيانات
   const { data: autocompleteData = [], isLoading } = useQuery({
     queryKey: ['autocomplete', category],
-    queryFn: () => apiRequest(`/api/autocomplete/${category}`, 'GET') as Promise<AutocompleteData[]>,
+    queryFn: () => apiRequest('GET', `/api/autocomplete/${category}`) as Promise<AutocompleteData[]>,
     enabled: !!category,
   });
 
   // حفظ البيانات في قاعدة البيانات
   const saveDataMutation = useMutation({
     mutationFn: (data: { category: string; value: string; usageCount?: number }) =>
-      apiRequest('/api/autocomplete', 'POST', data),
+      apiRequest('POST', '/api/autocomplete', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autocomplete', category] });
       // إعادة تحديث البيانات فوراً
@@ -58,7 +58,7 @@ export function AutocompleteInput({
   // حذف البيانات من قاعدة البيانات
   const removeDataMutation = useMutation({
     mutationFn: ({ category, value }: { category: string; value: string }) =>
-      apiRequest(`/api/autocomplete/${category}/${encodeURIComponent(value)}`, 'DELETE'),
+      apiRequest('DELETE', `/api/autocomplete/${category}/${encodeURIComponent(value)}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autocomplete', category] });
     },

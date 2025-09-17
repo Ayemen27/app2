@@ -80,7 +80,7 @@ export default function WorkersUnifiedReports() {
         projectId: selectedProjectId,
         includeInactive: filters.includeInactive.toString()
       });
-      return apiRequest(`/api/workers?${params}`, "GET");
+      return apiRequest("GET", `/api/workers?${params}`);
     },
     enabled: !!selectedProjectId
   });
@@ -88,7 +88,7 @@ export default function WorkersUnifiedReports() {
   // جلب أنواع العمال المتاحة
   const { data: workerTypes = [] } = useQuery({
     queryKey: ["/api/worker-types"],
-    queryFn: () => apiRequest("/api/worker-types", "GET")
+    queryFn: () => apiRequest("GET", "/api/worker-types")
   });
 
   // جلب بيانات التقرير الموحد
@@ -113,7 +113,7 @@ export default function WorkersUnifiedReports() {
         params.append('workerTypes', filters.workerTypes.join(','));
       }
       
-      return apiRequest(`/api/workers-unified-report?${params}`, "GET");
+      return apiRequest("GET", `/api/workers-unified-report?${params}`);
     },
     enabled: !!selectedProjectId
   });
@@ -152,7 +152,7 @@ export default function WorkersUnifiedReports() {
 
     setIsGenerating(true);
     try {
-      const response = await apiRequest("/api/export-workers-unified-report", "POST", {
+      const response = await apiRequest("POST", "/api/export-workers-unified-report", {
         projectId: selectedProjectId,
         filters,
         format

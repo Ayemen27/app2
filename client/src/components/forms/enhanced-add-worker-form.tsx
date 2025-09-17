@@ -27,7 +27,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
-      await apiRequest("/api/autocomplete", "POST", { 
+      await apiRequest("POST", "/api/autocomplete", { 
         category, 
         value: value.trim() 
       });
@@ -40,7 +40,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
   // جلب أنواع العمال المتاحة
   const { data: workerTypes = [], isLoading: loadingTypes } = useQuery<WorkerType[]>({
     queryKey: ["/api/worker-types"],
-    queryFn: () => apiRequest("/api/worker-types", "GET"),
+    queryFn: () => apiRequest("GET", "/api/worker-types"),
   });
 
   const addWorkerMutation = useMutation({
@@ -51,7 +51,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
         saveAutocompleteValue('workerTypes', data.type)
       ]);
       
-      return apiRequest("/api/workers", "POST", data);
+      return apiRequest("POST", "/api/workers", data);
     },
     onSuccess: async (newWorker, variables) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
@@ -87,7 +87,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
   });
 
   const addWorkerTypeMutation = useMutation({
-    mutationFn: (data: InsertWorkerType) => apiRequest("/api/worker-types", "POST", data),
+    mutationFn: (data: InsertWorkerType) => apiRequest("POST", "/api/worker-types", data),
     onSuccess: (newWorkerType: WorkerType) => {
       toast({
         title: "تم الحفظ",

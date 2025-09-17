@@ -22,7 +22,7 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
-      await apiRequest("/api/autocomplete", "POST", { 
+      await apiRequest("POST", "/api/autocomplete", { 
         category, 
         value: value.trim() 
       });
@@ -37,7 +37,7 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
       // حفظ اسم المشروع في autocomplete_data قبل العملية الأساسية
       await saveAutocompleteValue('projectNames', data.name);
       
-      return apiRequest("/api/projects", "POST", data);
+      return apiRequest("POST", "/api/projects", data);
     },
     onSuccess: async () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة

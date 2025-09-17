@@ -46,7 +46,7 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
 
   const transferMutation = useMutation({
     mutationFn: (data: TransferFormData) => 
-      apiRequest(`/api/equipment/${equipment?.id}/transfer`, "POST", data),
+      apiRequest("POST", `/api/equipment/${equipment?.id}/transfer`, data),
     onSuccess: () => {
       // إعادة تحميل جميع البيانات المتعلقة بالمعدات
       queryClient.invalidateQueries({ 

@@ -91,7 +91,7 @@ export default function Reports() {
     queryKey: ["/api/projects"],
     queryFn: async () => {
       try {
-        const response = await apiRequest('/api/projects', 'GET');
+        const response = await apiRequest('GET', '/api/projects');
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as Project[];
         }
@@ -107,7 +107,7 @@ export default function Reports() {
     queryKey: ["/api/workers"],
     queryFn: async () => {
       try {
-        const response = await apiRequest('/api/workers', 'GET');
+        const response = await apiRequest('GET', '/api/workers');
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as Worker[];
         }
@@ -123,7 +123,7 @@ export default function Reports() {
     queryKey: ["/api/projects/with-stats"],
     queryFn: async () => {
       try {
-        const response = await apiRequest('/api/projects/with-stats', 'GET');
+        const response = await apiRequest('GET', '/api/projects/with-stats');
         if (response && response.data && Array.isArray(response.data)) {
           return response.data;
         }

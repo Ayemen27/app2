@@ -45,7 +45,7 @@ export default function UnifiedWorkerReports() {
   // جلب قائمة العمال
   const { data: workers = [] } = useQuery({
     queryKey: ["/api/workers", selectedProjectId],
-    queryFn: () => selectedProjectId ? apiRequest(`/api/workers?projectId=${selectedProjectId}`, "GET") : [],
+    queryFn: () => selectedProjectId ? apiRequest("GET", `/api/workers?projectId=${selectedProjectId}`) : [],
     enabled: !!selectedProjectId
   });
 
@@ -65,7 +65,7 @@ export default function UnifiedWorkerReports() {
         params.append('workerId', selectedWorkerId);
       }
       
-      return apiRequest(`/api/unified-worker-reports?${params}`, "GET");
+      return apiRequest("GET", `/api/unified-worker-reports?${params}`);
     },
     enabled: !!selectedProjectId
   });
@@ -114,7 +114,7 @@ export default function UnifiedWorkerReports() {
     }
 
     try {
-      const response = await apiRequest("/api/export-unified-worker-report", "POST", {
+      const response = await apiRequest("POST", "/api/export-unified-worker-report", {
         projectId: selectedProjectId,
         workerId: selectedWorkerId,
         dateFrom,

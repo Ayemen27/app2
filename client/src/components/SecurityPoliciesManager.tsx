@@ -78,7 +78,7 @@ export const SecurityPoliciesManager: React.FC = () => {
   // تنفيذ اقتراح
   const implementSuggestionMutation = useMutation({
     mutationFn: (suggestionId: string) => 
-      apiRequest(`/api/security-policy-suggestions/${suggestionId}/implement`, 'POST'),
+      apiRequest('POST', `/api/security-policy-suggestions/${suggestionId}/implement`),
     onSuccess: () => {
       toast({
         title: "تم تنفيذ الاقتراح",

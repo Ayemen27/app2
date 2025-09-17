@@ -46,7 +46,7 @@ export default function ProjectTransfers() {
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
-      await apiRequest("/api/autocomplete", "POST", { 
+      await apiRequest("POST", "/api/autocomplete", { 
         category, 
         value: value.trim() 
       });
@@ -76,9 +76,9 @@ export default function ProjectTransfers() {
       ]);
       
       if (editingTransfer) {
-        return apiRequest(`/api/project-fund-transfers/${editingTransfer.id}`, "PUT", data);
+        return apiRequest("PUT", `/api/project-fund-transfers/${editingTransfer.id}`, data);
       }
-      return apiRequest("/api/project-fund-transfers", "POST", data);
+      return apiRequest("POST", "/api/project-fund-transfers", data);
     },
     onSuccess: async (newTransfer, variables) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
@@ -131,7 +131,7 @@ export default function ProjectTransfers() {
   // حذف عملية ترحيل
   const deleteTransferMutation = useMutation({
     mutationFn: (transferId: string) =>
-      apiRequest(`/api/project-fund-transfers/${transferId}`, "DELETE"),
+      apiRequest("DELETE", `/api/project-fund-transfers/${transferId}`),
     onSuccess: (_, transferId) => {
       // حذف فوري من القائمة
       queryClient.setQueryData(["/api/project-fund-transfers"], (oldData: any[]) => {

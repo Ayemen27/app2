@@ -52,7 +52,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
     if (!value || value.trim().length < 2) return;
     
     try {
-      await apiRequest('/api/autocomplete', 'POST', {
+      await apiRequest('POST', '/api/autocomplete', {
         category: field,
         value: value.trim()
       });
@@ -65,7 +65,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
     queryKey: ["/api/worker-misc-expenses", projectId, selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/worker-misc-expenses?projectId=${projectId}&date=${selectedDate}`, "GET");
+        const response = await apiRequest("GET", `/api/worker-misc-expenses?projectId=${projectId}&date=${selectedDate}`);
         // معالجة الهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as WorkerMiscExpense[];
@@ -81,7 +81,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
 
   const createMiscExpenseMutation = useMutation({
     mutationFn: (data: { amount: string; description: string; projectId: string; date: string }) =>
-      apiRequest("/api/worker-misc-expenses", "POST", data),
+      apiRequest("POST", "/api/worker-misc-expenses", data),
     onSuccess: async () => {
       // حفظ قيم الإكمال التلقائي
       if (miscDescription) await saveAutocompleteValue('workerMiscDescriptions', miscDescription);
@@ -106,7 +106,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
 
   const updateMiscExpenseMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<WorkerMiscExpense> }) =>
-      apiRequest(`/api/worker-misc-expenses/${id}`, "PUT", data),
+      apiRequest("PUT", `/api/worker-misc-expenses/${id}`, data),
     onSuccess: async () => {
       // حفظ قيم الإكمال التلقائي
       if (miscDescription) await saveAutocompleteValue('workerMiscDescriptions', miscDescription);
@@ -129,7 +129,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   });
 
   const deleteMiscExpenseMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/worker-misc-expenses/${id}`, "DELETE"),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/worker-misc-expenses/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/worker-misc-expenses"] });
       toast({

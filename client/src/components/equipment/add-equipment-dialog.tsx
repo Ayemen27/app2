@@ -104,9 +104,9 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
   const saveMutation = useMutation({
     mutationFn: (data: EquipmentFormData) => {
       if (isEditing && equipment?.id) {
-        return apiRequest(`/api/equipment/${equipment.id}`, "PUT", data);
+        return apiRequest("PUT", `/api/equipment/${equipment.id}`, data);
       } else {
-        return apiRequest("/api/equipment", "POST", data);
+        return apiRequest("POST", "/api/equipment", data);
       }
     },
     onSuccess: () => {

@@ -37,7 +37,7 @@ export default function ExcelStyleDailyExpenses() {
         total: 0
       };
       
-      return apiRequest("GET", `/api/daily-expenses-excel?projectId=${selectedProjectId}&date=${selectedDate}`);
+      return apiRequest(`/api/daily-expenses-excel?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
     },
     enabled: !!selectedProjectId
   });

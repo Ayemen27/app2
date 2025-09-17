@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChartGantt, Building2, Star, CheckCircle2, Clock, FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Project } from "@shared/schema";
-import { apiRequest } from "@/lib/api"; // تأكد من استيراد apiRequest
+import { apiRequest } from "@/lib/queryClient";
 
 interface ProjectSelectorProps {
   selectedProjectId?: string;

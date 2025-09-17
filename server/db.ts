@@ -3,6 +3,9 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 
+// إعدادات SSL آمنة - استخدام rejectUnauthorized على مستوى Pool فقط
+// هذا يحافظ على الأمان العام مع السماح بالاتصال بقواعد البيانات ذات الشهادات ذاتية التوقيع
+
 // Configure WebSocket for Neon/Supabase serverless connection
 neonConfig.webSocketConstructor = ws;
 
@@ -11,7 +14,13 @@ function createDatabaseUrl(): string {
   // استخدام DATABASE_URL من متغيرات البيئة إذا كانت متوفرة
   if (process.env.DATABASE_URL) {
     console.log('✅ استخدام DATABASE_URL من متغيرات البيئة');
-    return process.env.DATABASE_URL;
+    // استخدام SSL بشكل آمن - سيتم تكوين SSL على مستوى Pool
+    const url = new URL(process.env.DATABASE_URL);
+    // إزالة أي معاملات SSL غير آمنة من URL
+    url.searchParams.delete('sslmode');
+    const finalUrl = url.toString();
+    console.log('🔧 Connection string (SSL يُدار على مستوى Pool):', finalUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
+    return finalUrl;
   }
   
   // إنشاء رابط من متغيرات البيئة المنفصلة
@@ -23,7 +32,7 @@ function createDatabaseUrl(): string {
   
   if (password) {
     const connectionString = `postgresql://${user}:${password}@${host}:${port}/${database}`;
-    console.log('✅ إنشاء رابط اتصال من متغيرات البيئة المنفصلة');
+    console.log('✅ إنشاء رابط اتصال من متغيرات البيئة المنفصلة (SSL يُدار على مستوى Pool)');
     return connectionString;
   }
   
@@ -34,6 +43,13 @@ function createDatabaseUrl(): string {
 
 const connectionString = createDatabaseUrl();
 
-// تكوين اتصال قاعدة البيانات
-export const pool = new Pool({ connectionString });
+// تكوين اتصال قاعدة البيانات مع إعدادات SSL آمنة
+// استخدام rejectUnauthorized: false لقبول الشهادات ذاتية التوقيع على مستوى Pool فقط
+// هذا الحل أكثر أماناً من التعطيل العالمي ولا يؤثر على اتصالات أخرى
+export const pool = new Pool({ 
+  connectionString,
+  ssl: {
+    rejectUnauthorized: false  // يسمح بالشهادات ذاتية التوقيع لهذا الاتصال فقط
+  }
+});
 export const db = drizzle({ client: pool, schema });

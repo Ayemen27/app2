@@ -227,7 +227,7 @@ export default function Dashboard() {
       // حفظ قيم أنواع العمال في autocomplete_data
       await saveAutocompleteValue('workerTypes', data.name);
       
-      return apiRequest("/api/worker-types", "POST", data);
+      return apiRequest("POST", "/api/worker-types", data);
     },
     onSuccess: (newType) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة

@@ -6,6 +6,29 @@ import * as schema from "@shared/schema";
 
 // إنشاء رابط قاعدة البيانات من متغيرات البيئة
 function createDatabaseUrl(): string {
+  // الأولوية للقاعدة الخارجية المحددة من المستخدم
+  if (process.env.EXTERNAL_DB_HOST) {
+    console.log('🌐 استخدام قاعدة البيانات الخارجية');
+    const host = process.env.EXTERNAL_DB_HOST;
+    const port = process.env.EXTERNAL_DB_PORT || '5432';
+    const user = process.env.EXTERNAL_DB_USER;
+    const password = process.env.EXTERNAL_DB_PASSWORD;
+    const database = process.env.EXTERNAL_DB_NAME;
+    
+    if (user && password && database) {
+      // تنظيف البيانات من المسافات الإضافية
+      const cleanUser = user.trim();
+      const cleanPassword = password.trim();
+      const cleanDatabase = database.trim();
+      const cleanHost = host.trim();
+      
+      const connectionString = `postgresql://${cleanUser}:${cleanPassword}@${cleanHost}:${port}/${cleanDatabase}`;
+      console.log('🔧 Connection string:', connectionString.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
+      return connectionString;
+    }
+    console.error('❌ بيانات القاعدة الخارجية غير مكتملة');
+  }
+
   // استخدام DATABASE_URL من متغيرات البيئة إذا كانت متوفرة
   if (process.env.DATABASE_URL) {
     console.log('✅ استخدام DATABASE_URL من متغيرات البيئة');
@@ -96,12 +119,12 @@ export const db = drizzle(pool, { schema });
   try {
     const client = await pool.connect();
     const res = await client.query('SELECT version(), current_database(), current_user');
-    console.log('✅ نجح الاتصال بقاعدة البيانات VSP Server');
+    console.log('✅ نجح الاتصال بقاعدة البيانات app2data');
     console.log('📊 إصدار PostgreSQL:', res.rows[0].version?.split(' ')[0] || 'غير معروف');
     console.log('🗃️ قاعدة البيانات:', res.rows[0].current_database);
     console.log('👤 المستخدم:', res.rows[0].current_user);
     client.release();
   } catch (err) {
-    console.error('❌ فشل الاتصال بقاعدة بيانات VSP Server:', err);
+    console.error('❌ فشل الاتصال بقاعدة بيانات app2data:', err);
   }
 })();

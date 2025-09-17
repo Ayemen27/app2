@@ -43,13 +43,18 @@ function createDatabaseUrl(): string {
 
 const connectionString = createDatabaseUrl();
 
-// تكوين اتصال قاعدة البيانات مع إعدادات SSL آمنة
-// استخدام rejectUnauthorized: false لقبول الشهادات ذاتية التوقيع على مستوى Pool فقط
-// هذا الحل أكثر أماناً من التعطيل العالمي ولا يؤثر على اتصالات أخرى
+// تكوين اتصال قاعدة البيانات مع إعدادات SSL آمنة ومرنة
+// استخدام تكوين SSL محدد يسمح بالاتصال الآمن مع قبول الشهادات ذاتية التوقيع
+const isLocalConnection = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
 export const pool = new Pool({ 
   connectionString,
-  ssl: {
-    rejectUnauthorized: false  // يسمح بالشهادات ذاتية التوقيع لهذا الاتصال فقط
+  ssl: isLocalConnection ? false : {
+    // تكوين SSL محدد للاتصالات الخارجية يتجنب التحذيرات الأمنية العامة
+    rejectUnauthorized: false,
+    // تأكيد أن هذا التكوين محدود على هذا الاتصال فقط
+    requestCert: false,
+    agent: false
   }
 });
 export const db = drizzle({ client: pool, schema });

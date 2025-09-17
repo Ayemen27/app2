@@ -63,6 +63,13 @@ function setupSSLConfig() {
     };
   }
   
+  // للاتصالات الخارجية - استخدام SSL مع تجاهل شهادات التوقيع الذاتي
+  console.log('🌐 اتصال خارجي - تفعيل SSL مع تجاهل الشهادات الذاتية');
+  return {
+    rejectUnauthorized: false,
+    require: true
+  };
+  
   return false;
 }
 

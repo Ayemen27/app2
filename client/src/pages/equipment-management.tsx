@@ -122,7 +122,7 @@ export function EquipmentManagement() {
   // Mutation للحذف
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/equipment/${id}`);
+      return await apiRequest(`/api/equipment/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 
@@ -1455,6 +1455,3 @@ export function EquipmentManagement() {
     </div>
   );
 }
-
-// Add default export
-export default EquipmentManagement;

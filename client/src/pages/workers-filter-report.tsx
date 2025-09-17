@@ -77,14 +77,14 @@ export default function WorkersFilterReport() {
   // جلب قائمة العمال
   const { data: allWorkers = [] } = useQuery({
     queryKey: ["/api/workers", selectedProjectId],
-    queryFn: () => selectedProjectId ? apiRequest("GET", `/api/workers?projectId=${selectedProjectId}`) : [],
+    queryFn: () => selectedProjectId ? apiRequest(`/api/workers?projectId=${selectedProjectId}`, "GET") : [],
     enabled: !!selectedProjectId
   });
 
   // جلب أنواع العمال
   const { data: workerTypes = [] } = useQuery({
     queryKey: ["/api/worker-types"],
-    queryFn: () => apiRequest("GET", "/api/worker-types")
+    queryFn: () => apiRequest("/api/worker-types", "GET")
   });
 
   // جلب البيانات المفلترة
@@ -132,7 +132,7 @@ export default function WorkersFilterReport() {
         params.append('hasDebt', filters.hasDebt.toString());
       }
       
-      return apiRequest("GET", `/api/workers-filter-report?${params}`);
+      return apiRequest(`/api/workers-filter-report?${params}`, "GET");
     },
     enabled: !!selectedProjectId
   });
@@ -174,7 +174,7 @@ export default function WorkersFilterReport() {
     }
 
     try {
-      const response = await apiRequest("POST", "/api/export-workers-filter-report", {
+      const response = await apiRequest("/api/export-workers-filter-report", "POST", {
         projectId: selectedProjectId,
         workerIds: selectedWorkers,
         filters,

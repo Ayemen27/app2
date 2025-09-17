@@ -50,7 +50,7 @@ export default function AddSupplierForm({
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
-      await apiRequest("POST", "/api/autocomplete", { 
+      await apiRequest("/api/autocomplete", "POST", { 
         category, 
         value: value.trim() 
       });
@@ -72,9 +72,9 @@ export default function AddSupplierForm({
       ]);
 
       if (supplier) {
-        return apiRequest("PUT", `/api/suppliers/${supplier.id}`, data);
+        return apiRequest(`/api/suppliers/${supplier.id}`, "PUT", data);
       } else {
-        return apiRequest("POST", "/api/suppliers", data);
+        return apiRequest("/api/suppliers", "POST", data);
       }
     },
     onSuccess: async (data) => {

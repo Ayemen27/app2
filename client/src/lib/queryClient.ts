@@ -2,36 +2,133 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    let errorMessage = "حدث خطأ غير متوقع";
+    
+    try {
+      const errorData = await res.json();
+      errorMessage = errorData.message || errorMessage;
+    } catch (jsonError) {
+      // إذا فشل تحليل JSON، استخدم رسائل افتراضية حسب status code
+      if (res.status === 400) {
+        errorMessage = "البيانات المدخلة غير صحيحة";
+      } else if (res.status === 404) {
+        errorMessage = "العنصر المطلوب غير موجود";
+      } else if (res.status === 500) {
+        errorMessage = "حدث خطأ في الخادم";
+      } else {
+        errorMessage = "حدث خطأ في الاتصال";
+      }
+    }
+    
+    throw new Error(errorMessage);
+  }
+}
+
+// دالة تجديد التوكن
+async function refreshAuthToken(): Promise<boolean> {
+  try {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      return false;
+    }
+
+    const response = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.tokens) {
+        localStorage.setItem('accessToken', data.tokens.accessToken);
+        localStorage.setItem('refreshToken', data.tokens.refreshToken);
+        return true;
+      }
+    }
+
+    // إذا فشل التجديد، امسح البيانات
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    return false;
+  } catch (error) {
+    console.error('خطأ في تجديد التوكن:', error);
+    return false;
   }
 }
 
 export async function apiRequest(
-  method: string,
   url: string,
+  method: string,
   data?: unknown | undefined,
 ): Promise<any> {
-  console.log(`🔄 API Request: ${method} ${url}`, data ? { data } : '');
-  
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  // إضافة timeout 30 ثانية للطلبات
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-  await throwIfResNotOk(res);
-  
-  // Try to parse JSON, return the response object if successful
+  async function makeRequest(retryCount = 0): Promise<any> {
+    try {
+      // جمع headers مع Authorization إذا كان متوفراً
+      const headers: Record<string, string> = {};
+      if (data) {
+        headers["Content-Type"] = "application/json";
+      }
+      
+      // إضافة رمز المصادقة إذا كان متوفراً
+      const accessToken = localStorage.getItem('accessToken');
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+        credentials: "include",
+        signal: controller.signal,
+      });
+
+      // التعامل مع خطأ 401 (انتهاء صلاحية التوكن)
+      if (res.status === 401 && retryCount === 0) {
+        console.log('🔄 محاولة تجديد التوكن...');
+        const refreshed = await refreshAuthToken();
+        if (refreshed) {
+          console.log('✅ تم تجديد التوكن، محاولة الطلب مرة أخرى...');
+          return makeRequest(1); // إعادة المحاولة مرة واحدة فقط
+        } else {
+          console.log('❌ فشل في تجديد التوكن');
+          // إعادة توجيه لصفحة تسجيل الدخول
+          window.location.href = '/login';
+          throw new Error('انتهت جلسة المصادقة، يرجى تسجيل الدخول مرة أخرى');
+        }
+      }
+
+      await throwIfResNotOk(res);
+      
+      // إذا كانت استجابة DELETE فارغة، لا نحاول تحليل JSON
+      if (method === "DELETE" && res.status === 204) {
+        return {};
+      }
+      
+      return await res.json();
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('انتهت مهلة الطلب، يرجى المحاولة مرة أخرى');
+      }
+      throw error;
+    }
+  }
+
   try {
-    const jsonData = await res.json();
-    console.log(`✅ API Response: ${method} ${url}`, jsonData);
-    return jsonData;
+    const result = await makeRequest();
+    clearTimeout(timeoutId);
+    return result;
   } catch (error) {
-    // If JSON parsing fails, return the response itself
-    console.log(`✅ API Response (non-JSON): ${method} ${url}`);
-    return res;
+    clearTimeout(timeoutId);
+    throw error;
   }
 }
 
@@ -41,16 +138,82 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
-      credentials: "include",
-    });
+    
+    async function makeQueryRequest(retryCount = 0): Promise<any> {
+      // إعداد headers مع Authorization
+      const headers: Record<string, string> = {};
+      const accessToken = localStorage.getItem('accessToken');
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+      const res = await fetch(queryKey.join("/") as string, {
+        headers,
+        credentials: "include",
+      });
+
+      // التعامل مع خطأ 401
+      if (res.status === 401) {
+        if (unauthorizedBehavior === "returnNull") {
+          return null as any;
+        }
+        
+        // محاولة تجديد التوكن إذا كانت المحاولة الأولى
+        if (retryCount === 0) {
+          console.log('🔄 محاولة تجديد التوكن في query...');
+          const refreshed = await refreshAuthToken();
+          if (refreshed) {
+            console.log('✅ تم تجديد التوكن، إعادة تشغيل query...');
+            return makeQueryRequest(1);
+          }
+        }
+        
+        // إذا فشل التجديد أو كانت محاولة ثانية
+        window.location.href = '/login';
+        throw new Error('انتهت جلسة المصادقة، يرجى تسجيل الدخول مرة أخرى');
+      }
+
+      await throwIfResNotOk(res);
+      const data = await res.json();
+      
+      // تسجيل مبسط في بيئة التطوير فقط
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📊 ${queryKey[0]} - تم استلام البيانات بنجاح`);
+      }
+      
+      // حماية إضافية من مشاكل البيانات وإستخراج البيانات الفعلية
+      if (data && typeof data === 'object') {
+        // إذا كانت البيانات في الشكل { success, data, count } (شكل Vercel API)
+        if (data.success !== undefined && data.data !== undefined) {
+          
+          // التأكد من أن data.data مصفوفة
+          if (data.data !== null && !Array.isArray(data.data)) {
+            console.warn('🚨 [QueryClient] تحذير: data.data ليست مصفوفة، تحويل إلى مصفوفة فارغة');
+            console.warn('🔍 نوع البيانات الحالي:', typeof data.data, data.data);
+            return [];
+          }
+          
+          // إرجاع البيانات الفعلية (المصفوفة)
+          return data.data || [];
+        }
+        
+        // إذا كانت البيانات مصفوفة مباشرة (شكل Replit)
+        if (Array.isArray(data)) {
+          return data;
+        }
+        
+        // حماية إضافية - إذا كانت data.data موجودة ولكن success غير محدد
+        if (data.data !== undefined && data.data !== null && !Array.isArray(data.data)) {
+          console.warn('🚨 [QueryClient] تحذير: data.data ليست مصفوفة، تحويل إلى مصفوفة فارغة');
+          console.warn('🔍 نوع البيانات الحالي:', typeof data.data, data.data);
+          data.data = [];
+        }
+      }
+      
+      return data;
     }
 
-    await throwIfResNotOk(res);
-    return await res.json();
+    return makeQueryRequest();
   };
 
 export const queryClient = new QueryClient({
@@ -58,12 +221,13 @@ export const queryClient = new QueryClient({
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      refetchOnWindowFocus: false, // تقليل إعادة التحميل
+      staleTime: 1000 * 60 * 15, // 15 دقيقة للتخزين المؤقت
+      retry: 1, // محاولة واحدة إضافية عند الفشل
+      refetchOnReconnect: false, // منع إعادة التحميل عند الاتصال
     },
     mutations: {
-      retry: false,
+      retry: 1, // تقليل المحاولات
     },
   },
 });

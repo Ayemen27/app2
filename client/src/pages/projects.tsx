@@ -160,7 +160,7 @@ export default function ProjectsPage() {
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
-      await apiRequest("POST", "/api/autocomplete", { 
+      await apiRequest("/api/autocomplete", "POST", { 
         category, 
         value: value.trim() 
       });
@@ -251,7 +251,7 @@ export default function ProjectsPage() {
   // Create project mutation
   const createProjectMutation = useMutation({
     mutationFn: (data: InsertProject) =>
-      apiRequest("POST", "/api/projects", data),
+      apiRequest("/api/projects", "POST", data),
     onSuccess: async (data, variables) => {
       // حفظ اسم المشروع في autocomplete_data
       await saveAutocompleteValue('projectNames', variables.name);
@@ -278,7 +278,7 @@ export default function ProjectsPage() {
   // Update project mutation
   const updateProjectMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: InsertProject }) =>
-      apiRequest("PATCH", `/api/projects/${id}`, data),
+      apiRequest(`/api/projects/${id}`, "PATCH", data),
     onSuccess: async (result, variables) => {
       // حفظ اسم المشروع في autocomplete_data
       await saveAutocompleteValue('projectNames', variables.data.name);
@@ -306,7 +306,7 @@ export default function ProjectsPage() {
   // Delete project mutation
   const deleteProjectMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest("DELETE", `/api/projects/${id}`),
+      apiRequest(`/api/projects/${id}`, "DELETE"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });

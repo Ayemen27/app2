@@ -1,22 +1,9 @@
-import React, { useState, useEffect, useCallback, createContext, useContext } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const SELECTED_PROJECT_KEY = "construction-app-selected-project";
 const SELECTED_PROJECT_NAME_KEY = "construction-app-selected-project-name";
 
-// Create context for selected project
-interface SelectedProjectContextType {
-  selectedProjectId: string;
-  selectedProjectName: string;
-  isLoading: boolean;
-  projects: any[];
-  selectProject: (projectId: string, projectName?: string) => void;
-  clearProject: () => void;
-  hasStoredProject: () => boolean;
-}
-
-const SelectedProjectContext = createContext<SelectedProjectContextType | undefined>(undefined);
-
-function useSelectedProjectState() {
+export function useSelectedProject() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedProjectName, setSelectedProjectName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
@@ -81,10 +68,10 @@ function useSelectedProjectState() {
   }, [selectProject]);
 
   // دالة للتحقق من وجود مشروع محفوظ
-  const hasStoredProject = useCallback((): boolean => {
+  const hasStoredProject = useCallback(() => {
     try {
       const storedId = localStorage.getItem(SELECTED_PROJECT_KEY);
-      return Boolean(storedId && storedId !== "undefined" && storedId !== "null");
+      return storedId && storedId !== "undefined" && storedId !== "null";
     } catch {
       return false;
     }
@@ -99,24 +86,4 @@ function useSelectedProjectState() {
     hasStoredProject,
     projects,
   };
-}
-
-// Provider component
-export function SelectedProjectProvider({ children }: { children: React.ReactNode }) {
-  const selectedProjectState = useSelectedProjectState();
-  
-  return React.createElement(
-    SelectedProjectContext.Provider,
-    { value: selectedProjectState },
-    children
-  );
-}
-
-// Hook to use the context
-export function useSelectedProject() {
-  const context = useContext(SelectedProjectContext);
-  if (!context) {
-    throw new Error('useSelectedProject must be used within a SelectedProjectProvider');
-  }
-  return context;
 }

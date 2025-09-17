@@ -123,7 +123,7 @@ function DailyExpensesContent() {
         return;
       }
       
-      await apiRequest('POST', '/api/autocomplete', {
+      await apiRequest('/api/autocomplete', 'POST', {
         category: field,
         value: value.trim(),
         usageCount: 1
@@ -175,7 +175,7 @@ function DailyExpensesContent() {
     queryFn: async () => {
       try {
         console.log('🔄 [DailyExpenses] جلب قائمة العمال...');
-        const response = await apiRequest("GET", "/api/workers");
+        const response = await apiRequest("/api/workers", "GET");
         console.log('📊 [DailyExpenses] استجابة العمال:', response);
         
         // معالجة هيكل الاستجابة المتعددة
@@ -215,7 +215,7 @@ function DailyExpensesContent() {
     queryFn: async () => {
       try {
         console.log('🔄 [DailyExpenses] جلب قائمة المشاريع...');
-        const response = await apiRequest("GET", "/api/projects");
+        const response = await apiRequest("/api/projects", "GET");
         console.log('📊 [DailyExpenses] استجابة المشاريع:', response);
         
         // معالجة هيكل الاستجابة المتعددة
@@ -252,7 +252,7 @@ function DailyExpensesContent() {
     queryKey: ["/api/projects", selectedProjectId, "attendance", selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/projects/${selectedProjectId}/attendance?date=${selectedDate}`);
+        const response = await apiRequest(`/api/projects/${selectedProjectId}/attendance?date=${selectedDate}`, "GET");
         // معالجة آمنة للهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as WorkerAttendance[];
@@ -273,7 +273,7 @@ function DailyExpensesContent() {
     queryKey: ["/api/projects", selectedProjectId, "transportation-expenses", selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/projects/${selectedProjectId}/transportation-expenses?date=${selectedDate}`);
+        const response = await apiRequest(`/api/projects/${selectedProjectId}/transportation-expenses?date=${selectedDate}`, "GET");
         // معالجة آمنة للهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as TransportationExpense[];
@@ -294,7 +294,7 @@ function DailyExpensesContent() {
     queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/projects/${selectedProjectId}/material-purchases?dateFrom=${selectedDate}&dateTo=${selectedDate}`);
+        const response = await apiRequest(`/api/projects/${selectedProjectId}/material-purchases?dateFrom=${selectedDate}&dateTo=${selectedDate}`, "GET");
         console.log("Material purchases response:", response);
         // معالجة آمنة للهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
@@ -317,7 +317,7 @@ function DailyExpensesContent() {
     queryKey: ["/api/materials"],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", "/api/materials");
+        const response = await apiRequest("/api/materials", "GET");
         // التأكد من أن النتيجة مصفوفة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data;
@@ -337,7 +337,7 @@ function DailyExpensesContent() {
     queryKey: ["/api/worker-transfers", selectedProjectId, selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/worker-transfers?projectId=${selectedProjectId}&date=${selectedDate}`);
+        const response = await apiRequest(`/api/worker-transfers?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
         // معالجة آمنة للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as WorkerTransfer[];
@@ -355,7 +355,7 @@ function DailyExpensesContent() {
     queryKey: ["/api/worker-misc-expenses", selectedProjectId, selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/api/worker-misc-expenses?projectId=${selectedProjectId}&date=${selectedDate}`);
+        const response = await apiRequest(`/api/worker-misc-expenses?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
         // معالجة آمنة للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data;

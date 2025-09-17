@@ -46,7 +46,7 @@ export default function ProjectTransfers() {
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
-      await apiRequest("POST", "/api/autocomplete", { 
+      await apiRequest("/api/autocomplete", "POST", { 
         category, 
         value: value.trim() 
       });
@@ -76,9 +76,9 @@ export default function ProjectTransfers() {
       ]);
       
       if (editingTransfer) {
-        return apiRequest("PUT", `/api/project-fund-transfers/${editingTransfer.id}`, data);
+        return apiRequest(`/api/project-fund-transfers/${editingTransfer.id}`, "PUT", data);
       }
-      return apiRequest("POST", "/api/project-fund-transfers", data);
+      return apiRequest("/api/project-fund-transfers", "POST", data);
     },
     onSuccess: async (newTransfer, variables) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
@@ -131,7 +131,7 @@ export default function ProjectTransfers() {
   // حذف عملية ترحيل
   const deleteTransferMutation = useMutation({
     mutationFn: (transferId: string) =>
-      apiRequest("DELETE", `/api/project-fund-transfers/${transferId}`),
+      apiRequest(`/api/project-fund-transfers/${transferId}`, "DELETE"),
     onSuccess: (_, transferId) => {
       // حذف فوري من القائمة
       queryClient.setQueryData(["/api/project-fund-transfers"], (oldData: any[]) => {
@@ -203,7 +203,7 @@ export default function ProjectTransfers() {
 
   // دالة لجلب اسم المشروع
   const getProjectName = (projectId: string) => {
-    const project = projects.find((p: Project) => p.id.toString() === projectId);
+    const project = projects.find((p: Project) => p.id === projectId);
     return project?.name || "غير محدد";
   };
 
@@ -268,7 +268,7 @@ export default function ProjectTransfers() {
             title="العمليات الصادرة"
             value={transferStats.outgoingTransfers.toString()}
             icon={TrendingUp}
-            color="yellow"
+            color="orange"
           />
           <StatsCard
             title="العمليات الواردة"
@@ -307,7 +307,7 @@ export default function ProjectTransfers() {
                             </SelectTrigger>
                             <SelectContent>
                               {projects.map((project: Project) => (
-                                <SelectItem key={project.id} value={project.id.toString()}>
+                                <SelectItem key={project.id} value={project.id}>
                                   {project.name}
                                 </SelectItem>
                               ))}
@@ -337,7 +337,7 @@ export default function ProjectTransfers() {
                             </SelectTrigger>
                             <SelectContent>
                               {projects.map((project: Project) => (
-                                <SelectItem key={project.id} value={project.id.toString()}>
+                                <SelectItem key={project.id} value={project.id}>
                                   {project.name}
                                 </SelectItem>
                               ))}
@@ -528,7 +528,7 @@ export default function ProjectTransfers() {
                           
                           <div className="flex items-center justify-between mt-1">
                             <span className="text-xs text-gray-500">
-                              ID: {transfer.id.toString().slice(0, 8)}
+                              ID: {transfer.id.slice(0, 8)}
                             </span>
                             
                             {/* أزرار العمليات */}
@@ -546,7 +546,7 @@ export default function ProjectTransfers() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDelete(
-                                  transfer.id.toString(), 
+                                  transfer.id, 
                                   getProjectName(transfer.fromProjectId), 
                                   getProjectName(transfer.toProjectId)
                                 )}

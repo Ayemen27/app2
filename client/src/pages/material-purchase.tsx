@@ -80,7 +80,7 @@ export default function MaterialPurchase() {
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
-      await apiRequest("POST", "/api/autocomplete", { 
+      await apiRequest("/api/autocomplete", "POST", { 
         category, 
         value: value.trim() 
       });

@@ -226,7 +226,7 @@ const DatabaseTableManager = () => {
   // تنفيذ عمليات RLS
   const rlsToggleMutation = useMutation({
     mutationFn: async ({ tableName, enable }: { tableName: string; enable: boolean }) => {
-      return apiRequest('POST', '/api/db-admin/toggle-rls', { tableName, enable });
+      return apiRequest('/api/db-admin/toggle-rls', 'POST', { tableName, enable });
     },
     onSuccess: (data, { tableName, enable }) => {
       toast({
@@ -740,7 +740,7 @@ export default function AISystemDashboard() {
   // وظائف النظام المتقدم
   const verifyResultsMutation = useMutation({
     mutationFn: (recommendationIds?: string[]) => 
-      apiRequest('POST', '/api/ai-system/verify-results', { recommendationIds }),
+      apiRequest('/api/ai-system/verify-results', 'POST', { recommendationIds }),
     onSuccess: (data) => {
       setVerificationResults(data);
       toast({
@@ -758,7 +758,7 @@ export default function AISystemDashboard() {
   });
 
   const createBackupMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/ai-system/backup'),
+    mutationFn: () => apiRequest('/api/ai-system/backup', 'POST'),
     onSuccess: (data) => {
       toast({
         title: "تم إنشاء النسخة الاحتياطية",
@@ -784,7 +784,7 @@ export default function AISystemDashboard() {
   // متحكم في تشغيل/إيقاف النظام
   const systemToggleMutation = useMutation({
     mutationFn: async (action: 'start' | 'stop') => {
-      return apiRequest('POST', '/api/ai-system/toggle', { action });
+      return apiRequest('/api/ai-system/toggle', 'POST', { action });
     },
     onSuccess: (data) => {
       setIsSystemRunning(data.status === 'running');
@@ -808,7 +808,7 @@ export default function AISystemDashboard() {
   const executeRecommendationMutation = useMutation({
     mutationFn: async (recommendationId: string) => {
       setExecutingRecommendation(recommendationId);
-      return apiRequest('POST', '/api/ai-system/execute-recommendation', { recommendationId });
+      return apiRequest('/api/ai-system/execute-recommendation', 'POST', { recommendationId });
     },
     onSuccess: (data, recommendationId) => {
       toast({

@@ -5,7 +5,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChartGantt, Building2, Star, CheckCircle2, Clock, FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Project } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
 
 interface ProjectSelectorProps {
   selectedProjectId?: string;
@@ -27,42 +26,60 @@ export default function ProjectSelector({
     queryFn: async () => {
       try {
         console.log('🔄 [ProjectSelector] جلب قائمة المشاريع...');
-        const response = await apiRequest("GET", "/api/projects/with-stats");
-        console.log('📊 [ProjectSelector] استجابة المشاريع:', response);
-
-        // معالجة هيكل الاستجابة المختلفة
+        const response = await fetch('/api/projects');
+        
+        if (!response.ok) {
+          console.error('❌ [ProjectSelector] خطأ HTTP:', response.status, response.statusText);
+          throw new Error(`فشل في جلب المشاريع: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📊 [ProjectSelector] استجابة المشاريع:', data);
+        
+        // معالجة هيكل الاستجابة المتعددة
         let projects = [];
-        if (response && typeof response === 'object') {
+        if (data && typeof data === 'object') {
           // إذا كانت في شكل {success, data, count}
-          if (response.success !== undefined && response.data !== undefined) {
-            projects = Array.isArray(response.data) ? response.data : [];
-            console.log('✅ [ProjectSelector] استخراج البيانات من response.data');
+          if (data.success !== undefined && data.data !== undefined) {
+            projects = Array.isArray(data.data) ? data.data : [];
+            console.log('✅ [ProjectSelector] استخراج البيانات من data.data');
           }
           // إذا كانت مصفوفة مباشرة
-          else if (Array.isArray(response)) {
-            projects = response;
-            console.log('✅ [ProjectSelector] استخدام الاستجابة كمصفوفة مباشرة');
+          else if (Array.isArray(data)) {
+            projects = data;
+            console.log('✅ [ProjectSelector] استخدام المصفوفة مباشرة');
           }
-          // إذا كان كائن واحد، حوله لمصفوفة
-          else if (response.id) {
-            projects = [response];
+          // إذا كان كائن واحد
+          else if (data.id) {
+            projects = [data];
             console.log('✅ [ProjectSelector] تحويل كائن واحد لمصفوفة');
           }
+          else {
+            console.warn('⚠️ [ProjectSelector] هيكل غير متوقع:', data);
+          }
         }
-
+        
+        // التأكد من أن المشاريع مصفوفة صحيحة
+        if (!Array.isArray(projects)) {
+          console.warn('⚠️ [ProjectSelector] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
+          projects = [];
+        }
+        
         console.log(`✅ [ProjectSelector] تم جلب ${projects.length} مشروع بنجاح`);
         return projects as Project[];
       } catch (error) {
         console.error('❌ [ProjectSelector] خطأ في جلب المشاريع:', error);
+        // إرجاع مصفوفة فارغة لتجنب كسر المكون
         return [] as Project[];
       }
     },
     staleTime: 300000, // 5 دقائق
+    retry: 2, // محاولتين إضافيتين
     refetchOnWindowFocus: false, // تقليل الطلبات غير الضرورية
   });
 
   const selectedProject = Array.isArray(projects) ? projects.find(p => p.id === selectedProjectId) : undefined;
-
+  
   // دالة معالجة تغيير المشروع مع تمرير اسم المشروع
   const handleProjectChange = (projectId: string) => {
     const project = Array.isArray(projects) ? projects.find(p => p.id === projectId) : undefined;
@@ -100,7 +117,7 @@ export default function ProjectSelector({
       <Card className={`mb-6 border-0 shadow-2xl bg-gradient-to-br from-white via-blue-50 to-indigo-50 overflow-hidden project-selector-premium project-selector-card transition-all duration-500 ${className}`}>
         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-full -translate-y-16 translate-x-16"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-indigo-500/10 to-blue-500/10 rounded-full translate-y-12 -translate-x-12"></div>
-
+        
         {showHeader && (
           <CardHeader className="pb-3 relative">
             <div className="flex items-center justify-between">
@@ -122,7 +139,7 @@ export default function ProjectSelector({
             </div>
           </CardHeader>
         )}
-
+        
         <CardContent className="p-6 pt-2 relative">
           <div className="space-y-4">
             <Select value={selectedProjectId} onValueChange={handleProjectChange} disabled={isLoading}>

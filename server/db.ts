@@ -24,20 +24,21 @@ function createDatabaseUrl(): string {
   }
   
   // إنشاء رابط من متغيرات البيئة المنفصلة
-  const host = process.env.POSTGRES_HOST || 'localhost';
+  const host = process.env.POSTGRES_HOST;
   const port = process.env.POSTGRES_PORT || '5432';
-  const user = process.env.POSTGRES_USER || 'app2data';
+  const user = process.env.POSTGRES_USER;
   const password = process.env.POSTGRES_PASSWORD;
-  const database = process.env.POSTGRES_DB || 'app2data';
+  const database = process.env.POSTGRES_DB;
   
-  if (password) {
+  if (host && user && password && database) {
     const connectionString = `postgresql://${user}:${password}@${host}:${port}/${database}`;
     console.log('✅ إنشاء رابط اتصال من متغيرات البيئة المنفصلة (SSL يُدار على مستوى Pool)');
     return connectionString;
   }
   
   console.error('❌ لم يتم العثور على بيانات الاتصال بقاعدة البيانات');
-  console.error('⚠️ يرجى تعيين DATABASE_URL أو متغيرات POSTGRES_*');
+  console.error('⚠️ يرجى تعيين DATABASE_URL أو جميع متغيرات POSTGRES_*');
+  console.error('⚠️ المتغيرات المطلوبة: POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB');
   throw new Error('بيانات الاتصال بقاعدة البيانات مفقودة');
 }
 

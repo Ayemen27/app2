@@ -116,7 +116,12 @@ async function getDatabaseSchema(): Promise<Record<string, Record<string, Databa
   
   // استخدام نفس التكوين المضمون من التطبيق الرئيسي
   neonConfig.webSocketConstructor = ws;
-  const SUPABASE_DATABASE_URL = "postgresql://postgres.wibtasmyusxfqxxqekks:Ay**--772283228@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+  const SUPABASE_DATABASE_URL = process.env.DATABASE_URL;
+  
+  if (!SUPABASE_DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is required');
+  }
+  
   const pool = new Pool({ connectionString: SUPABASE_DATABASE_URL });
   
   try {

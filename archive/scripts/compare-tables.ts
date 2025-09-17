@@ -5,7 +5,7 @@ import { neonConfig } from '@neondatabase/serverless';
 // Configure WebSocket for Neon/Supabase connection
 neonConfig.webSocketConstructor = ws;
 
-const SUPABASE_DATABASE_URL = "postgresql://postgres.wibtasmyusxfqxxqekks:Ay**--772283228@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+const SUPABASE_DATABASE_URL = process.env.DATABASE_URL || "postgresql://localhost:5432/postgres";
 
 // النظام الحالي للجداول حسب المخطط المحدث (بدون Tools)
 const SCHEMA_TABLES = [

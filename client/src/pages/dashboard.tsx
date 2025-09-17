@@ -76,7 +76,7 @@ export default function Dashboard() {
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
-      await apiRequest("/api/autocomplete", "POST", { 
+      await apiRequest("POST", "/api/autocomplete", { 
         category, 
         value: value.trim() 
       });
@@ -91,7 +91,7 @@ export default function Dashboard() {
     queryFn: async () => {
       try {
         console.log('🔄 [Dashboard] جلب المشاريع مع الإحصائيات...');
-        const response = await apiRequest("/api/projects/with-stats", "GET");
+        const response = await apiRequest("GET", "/api/projects/with-stats");
         console.log('📊 [Dashboard] استجابة المشاريع:', response);
         
         // معالجة هيكل الاستجابة المتعددة
@@ -144,7 +144,7 @@ export default function Dashboard() {
     queryKey: ["/api/worker-types"],
     queryFn: async () => {
       try {
-        const response = await apiRequest("/api/worker-types", "GET");
+        const response = await apiRequest("GET", "/api/worker-types");
         // معالجة الهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as WorkerType[];
@@ -166,7 +166,7 @@ export default function Dashboard() {
         saveAutocompleteValue('workerTypes', data.type)
       ]);
       
-      return apiRequest("/api/workers", "POST", data);
+      return apiRequest("POST", "/api/workers", data);
     },
     onSuccess: () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
@@ -197,7 +197,7 @@ export default function Dashboard() {
         saveAutocompleteValue('projectDescriptions', data.description)
       ]);
       
-      return apiRequest("/api/projects", "POST", data);
+      return apiRequest("POST", "/api/projects", data);
     },
     onSuccess: () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
@@ -227,7 +227,7 @@ export default function Dashboard() {
       // حفظ قيم أنواع العمال في autocomplete_data
       await saveAutocompleteValue('workerTypes', data.name);
       
-      return apiRequest("/api/worker-types", "POST", data);
+      return apiRequest("POST", "/api/worker-types", data);
     },
     onSuccess: (newType) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة

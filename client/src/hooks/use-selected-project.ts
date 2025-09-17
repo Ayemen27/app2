@@ -81,10 +81,10 @@ function useSelectedProjectState() {
   }, [selectProject]);
 
   // دالة للتحقق من وجود مشروع محفوظ
-  const hasStoredProject = useCallback(() => {
+  const hasStoredProject = useCallback((): boolean => {
     try {
       const storedId = localStorage.getItem(SELECTED_PROJECT_KEY);
-      return storedId && storedId !== "undefined" && storedId !== "null";
+      return Boolean(storedId && storedId !== "undefined" && storedId !== "null");
     } catch {
       return false;
     }

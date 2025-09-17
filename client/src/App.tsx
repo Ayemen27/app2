@@ -1,5 +1,6 @@
 import { Route } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import Dashboard from "@/pages/dashboard";
 import Projects from "@/pages/projects";
@@ -12,20 +13,6 @@ import Reports from "@/pages/reports";
 import NotFound from "@/pages/not-found";
 import { FloatingButtonProvider } from "@/components/layout/floating-button-context";
 import { SelectedProjectProvider } from "@/hooks/use-selected-project";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      retry: (failureCount, error) => {
-        if (error instanceof Error && error.message.includes('404')) {
-          return false;
-        }
-        return failureCount < 3;
-      },
-    },
-  },
-});
 
 export default function App() {
   return (

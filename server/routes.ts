@@ -1,12 +1,36 @@
 import type { Express } from "express";
 import type { Server } from "http";
 import { createServer } from "http";
+import { db } from "./db";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });
+  });
+
+  // Database connection verification endpoint
+  app.get("/api/db/info", async (req, res) => {
+    try {
+      const result = await db.execute(`
+        SELECT 
+          current_database() as database_name, 
+          current_user as username,
+          version() as version_info
+      `);
+      res.json({ 
+        success: true, 
+        database: result.rows[0],
+        message: "Connected to Supabase app2data successfully" 
+      });
+    } catch (error: any) {
+      res.status(500).json({ 
+        success: false, 
+        error: error.message,
+        message: "Database connection failed" 
+      });
+    }
   });
 
   // Basic API routes for construction project management

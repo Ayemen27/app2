@@ -79,10 +79,22 @@ export class DatabaseSecurityGuard {
    */
   static monitorEnvironmentVariables(): void {
     const FORBIDDEN_ENV_VARS = [
-      'DATABASE_URL', 'PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE',
-      'NEON_DATABASE_URL', 'POSTGRES_URL', 'DB_URL'
+      'PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE',
+      'NEON_DATABASE_URL', 'DB_URL'
     ];
 
+    // ✅ فحص ذكي لـ DATABASE_URL - نحتفظ بها إذا كانت تشير لـ Supabase الصحيح
+    if (process.env.DATABASE_URL) {
+      try {
+        this.validateDatabaseConnection(process.env.DATABASE_URL);
+        console.log('✅ DATABASE_URL صحيحة وتشير لـ Supabase app2data - سيتم الاحتفاظ بها');
+      } catch (error) {
+        console.warn('⚠️ DATABASE_URL تحتوي على رابط غير آمن - سيتم حذفها');
+        delete process.env.DATABASE_URL;
+      }
+    }
+
+    // فحص باقي المتغيرات المحظورة
     const detectedVars = FORBIDDEN_ENV_VARS.filter(varName => 
       process.env[varName] && process.env[varName] !== ''
     );

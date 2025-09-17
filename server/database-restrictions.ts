@@ -32,15 +32,10 @@ export class DatabaseRestrictionGuard {
   ];
 
   private static readonly FORBIDDEN_ENV_PATTERNS = [
-    /DATABASE_URL.*localhost/i,
-    /DATABASE_URL.*127\.0\.0\.1/i,
-    /DATABASE_URL.*5432/i,
-    /DATABASE_URL.*postgres:\/\/.*@localhost/i,
     /PGHOST.*localhost/i,
     /PGHOST.*127\.0\.0\.1/i,
     /PGPORT.*5432/i,
     /NEON_DATABASE_URL/i,
-    /POSTGRES_URL.*localhost/i,
     /DB_URL.*localhost/i,
     /RAILWAY_.*DATABASE/i,
     /HEROKU_POSTGRESQL/i,

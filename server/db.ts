@@ -22,7 +22,7 @@ function createDatabaseUrl(): string {
     // في بيئة الإنتاج المحلية، حاول تحميل متغيرات البيئة من النظام الذكي
     if (!process.env.VERCEL) {
       // في Replit production mode، استخدم القيمة الثابتة المعروفة
-      return "postgresql://postgres.wibtasmyusxfqxxqekks:Ay**--772283228@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+      return "postgresql://postgres.wibtasmyusxfqxxqekks:Ay**--772283228@aws-0-us-east-1.pooler.supabase.com:6543/app2data";
     }
     
     // في بيئة Vercel، حاول استخدام متغيرات Supabase إذا كانت متوفرة
@@ -32,15 +32,15 @@ function createDatabaseUrl(): string {
     if (supabaseUrl && serviceKey) {
       // تحويل URL لتنسيق PostgreSQL
       const projectRef = supabaseUrl.replace('https://', '').replace('.supabase.co', '');
-      return `postgresql://postgres.${projectRef}:${serviceKey}@aws-0-us-east-1.pooler.supabase.com:6543/postgres`;
+      return `postgresql://postgres.${projectRef}:${serviceKey}@aws-0-us-east-1.pooler.supabase.com:6543/app2data`;
     }
     
     // استخدام القيمة الثابتة كبديل إذا لم تكن متغيرات البيئة متوفرة
     console.log('⚠️ لم يتم العثور على متغيرات Supabase، استخدام القيمة الثابتة...');
-    return "postgresql://postgres.wibtasmyusxfqxxqekks:Ay**--772283228@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+    return "postgresql://postgres.wibtasmyusxfqxxqekks:Ay**--772283228@aws-0-us-east-1.pooler.supabase.com:6543/app2data";
   } else {
     // في بيئة التطوير، استخدم القيمة الثابتة المعروفة
-    return "postgresql://postgres.wibtasmyusxfqxxqekks:Ay**--772283228@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+    return "postgresql://postgres.wibtasmyusxfqxxqekks:Ay**--772283228@aws-0-us-east-1.pooler.supabase.com:6543/app2data";
   }
 }
 

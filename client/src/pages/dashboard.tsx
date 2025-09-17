@@ -144,14 +144,39 @@ export default function Dashboard() {
     queryKey: ["/api/worker-types"],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", "/api/worker-types");
-        // معالجة الهيكل المتداخل للاستجابة
-        if (response && response.data && Array.isArray(response.data)) {
-          return response.data as WorkerType[];
+        console.log('🔄 [Dashboard] جلب أنواع العمال...');
+        const response = await fetch("/api/worker-types");
+        
+        if (!response.ok) {
+          console.error('❌ خطأ في جلب أنواع العمال:', response.status);
+          return [];
         }
-        return Array.isArray(response) ? response as WorkerType[] : [];
+        
+        // محاولة تحليل JSON، إذا فشل استخدم قائمة افتراضية
+        try {
+          const data = await response.json();
+          console.log('✅ [Dashboard] استجابة أنواع العمال:', data);
+          
+          // معالجة الهيكل المتداخل للاستجابة
+          if (data && data.data && Array.isArray(data.data)) {
+            return data.data as WorkerType[];
+          }
+          return Array.isArray(data) ? data as WorkerType[] : [];
+        } catch (jsonError) {
+          console.warn('⚠️ [Dashboard] فشل في تحليل JSON لأنواع العمال، استخدام قائمة افتراضية');
+          // إرجاع قائمة افتراضية إذا فشل تحليل JSON
+          return [
+            { id: '1', value: 'معلم', category: 'workerTypes', usageCount: 1 },
+            { id: '2', value: 'عامل', category: 'workerTypes', usageCount: 1 },
+            { id: '3', value: 'حداد', category: 'workerTypes', usageCount: 1 },
+            { id: '4', value: 'نجار', category: 'workerTypes', usageCount: 1 },
+            { id: '5', value: 'سائق', category: 'workerTypes', usageCount: 1 },
+            { id: '6', value: 'كهربائي', category: 'workerTypes', usageCount: 1 },
+            { id: '7', value: 'سباك', category: 'workerTypes', usageCount: 1 }
+          ] as WorkerType[];
+        }
       } catch (error) {
-        console.error("Error fetching worker types:", error);
+        console.error("❌ [Dashboard] خطأ في جلب أنواع العمال:", error);
         return [];
       }
     },

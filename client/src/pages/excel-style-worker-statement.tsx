@@ -44,14 +44,14 @@ export default function ExcelStyleWorkerStatement() {
   // جلب معلومات المشروع
   const { data: selectedProject } = useQuery({
     queryKey: ["/api/projects", selectedProjectId],
-    queryFn: () => selectedProjectId ? apiRequest(`/api/projects/${selectedProjectId}`, "GET") : null,
+    queryFn: () => selectedProjectId ? apiRequest("GET", `/api/projects/${selectedProjectId}`) : null,
     enabled: !!selectedProjectId
   });
 
   // جلب قائمة العمال
   const { data: workers = [] } = useQuery({
     queryKey: ["/api/workers", selectedProjectId],
-    queryFn: () => selectedProjectId ? apiRequest(`/api/workers?projectId=${selectedProjectId}`, "GET") : [],
+    queryFn: () => selectedProjectId ? apiRequest("GET", `/api/workers?projectId=${selectedProjectId}`) : [],
     enabled: !!selectedProjectId
   });
 
@@ -66,7 +66,7 @@ export default function ExcelStyleWorkerStatement() {
         ...(dateFrom && { dateFrom }),
         ...(dateTo && { dateTo })
       });
-      return apiRequest(`/api/worker-statement-excel?${params}`, "GET");
+      return apiRequest("GET", `/api/worker-statement-excel?${params}`);
     },
     enabled: !!selectedProjectId && !!selectedWorkerId
   });

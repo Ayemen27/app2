@@ -76,7 +76,7 @@ export default function SupplierAccountsPage() {
     queryKey: ["/api/projects"],
     queryFn: async () => {
       try {
-        const response = await apiRequest("/api/projects", "GET");
+        const response = await apiRequest("GET", "/api/projects");
         // معالجة الهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as Project[];
@@ -94,7 +94,7 @@ export default function SupplierAccountsPage() {
     queryKey: ["/api/suppliers"],
     queryFn: async () => {
       try {
-        const response = await apiRequest("/api/suppliers", "GET");
+        const response = await apiRequest("GET", "/api/suppliers");
         // معالجة الهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as Supplier[];

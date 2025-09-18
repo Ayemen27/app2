@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { smartSecretsManager } from "./services/SmartSecretsManager";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات app2data
 import authRoutes from './routes/auth.js';
 
@@ -39,6 +40,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // ✅ تهيئة نظام المفاتيح السرية أولاً
+  console.log('🔐 بدء تهيئة نظام المفاتيح السرية...');
+  await smartSecretsManager.initializeOnStartup();
+  
   const server = await registerRoutes(app);
 
   app.use('/api/auth', authRoutes);

@@ -139,7 +139,7 @@ async function main() {
 
   // 4. دفع التغييرات إلى قاعدة البيانات
   log('\n🚀 الخطوة 2: دفع التغييرات إلى قاعدة البيانات...', colors.bright);
-  const pushResult = await runCommand('npx', ['drizzle-kit', 'push']);
+  const pushResult = await runCommand('npx', ['drizzle-kit', 'push', '--force']);
   
   if (!pushResult.success) {
     log('❌ فشل في دفع التغييرات', colors.red);

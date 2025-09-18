@@ -34,52 +34,25 @@ export default function SupabaseBackupSystem() {
 
   // جلب قائمة الجداول المتاحة للنسخ الاحتياطي
   const { data: tablesData, isLoading: tablesLoading } = useQuery({
-    queryKey: ["/api/backup/tables"],
-    queryFn: async () => {
-      const response = await fetch("/api/backup/tables");
-      if (!response.ok) throw new Error("فشل في جلب قائمة الجداول");
-      return response.json();
-    }
+    queryKey: ["/api/backup/tables"]
   });
 
   // جلب معلومات الجدول من Supabase
   const { data: tableInfo, isLoading: infoLoading } = useQuery({
     queryKey: ["/api/backup/table", selectedTable, "info"],
-    queryFn: async () => {
-      if (!selectedTable) return null;
-      const response = await fetch(`/api/backup/table/${selectedTable}/info`);
-      if (!response.ok) throw new Error("فشل في جلب معلومات الجدول من Supabase");
-      return response.json();
-    },
     enabled: !!selectedTable
   });
 
-  // معاينة بيانات الجدول من Supabase
+  // معاينة بيانات الجدول من Supabase  
   const { data: tableData, isLoading: dataLoading, refetch: refetchData } = useQuery({
-    queryKey: ["/api/backup/table", selectedTable, "preview", previewLimit, previewOffset],
-    queryFn: async () => {
-      if (!selectedTable) return null;
-      const params = new URLSearchParams({
-        limit: previewLimit.toString(),
-        offset: previewOffset.toString()
-      });
-      const response = await fetch(`/api/backup/table/${selectedTable}/preview?${params}`);
-      if (!response.ok) throw new Error("فشل في معاينة البيانات");
-      return response.json();
-    },
+    queryKey: ["/api/backup/table", selectedTable, "preview", `?limit=${previewLimit}&offset=${previewOffset}`],
     enabled: !!selectedTable
   });
 
   // نسخ احتياطي للجدول من Supabase
   const backupMutation = useMutation({
     mutationFn: async ({ tableName, batchSize }: { tableName: string; batchSize: number }) => {
-      const response = await fetch(`/api/backup/table/${tableName}/backup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ batchSize })
-      });
-      if (!response.ok) throw new Error("فشل في النسخ الاحتياطي");
-      return response.json();
+      return await apiRequest(`/api/backup/table/${tableName}/backup`, "POST", { batchSize });
     },
     onSuccess: (data: any) => {
       toast({
@@ -100,13 +73,7 @@ export default function SupabaseBackupSystem() {
   // نسخة احتياطية شاملة لجميع الجداول
   const fullBackupMutation = useMutation({
     mutationFn: async ({ batchSize }: { batchSize: number }) => {
-      const response = await fetch(`/api/backup/full-backup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ batchSize })
-      });
-      if (!response.ok) throw new Error("فشل في النسخ الاحتياطي الشامل");
-      return response.json();
+      return await apiRequest(`/api/backup/full-backup`, "POST", { batchSize });
     },
     onSuccess: (data: any) => {
       const summary = data.data.summary;

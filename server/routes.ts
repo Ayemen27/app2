@@ -5,6 +5,40 @@ import { db } from "./db";
 import { SecureDataFetcher } from "./services/secure-data-fetcher";
 import { requireAuth, requireRole } from "./middleware/auth";
 
+// TypeScript interfaces for migration endpoints
+interface TableInfo {
+  name: string;
+  displayName: string;
+  rows: number;
+  category: string;
+  lastAnalyzed: string | null;
+}
+
+interface CriticalTable {
+  name: string;
+  rows: number;
+  displayName: string;
+}
+
+interface EmptyTable {
+  name: string;
+  displayName: string;
+}
+
+interface GeneralStats {
+  totalTables: number;
+  totalEstimatedRows: number;
+  tablesList: TableInfo[];
+  lastUpdated: string;
+  databaseStatus: string;
+  databaseSize: string;
+  oldestRecord: string | null;
+  newestRecord: string | null;
+  criticalTables: CriticalTable[];
+  emptyTables: EmptyTable[];
+  error?: string; // optional error property
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Health check endpoint
@@ -396,6 +430,296 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==================== API endpoints للهجرة المتقدمة من Supabase ====================
+
+  // فحص حالة الاتصال بقاعدة البيانات القديمة (Supabase) 
+  app.get("/api/migration/connection-status", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      console.log('🔍 فحص حالة الاتصال بقاعدة البيانات القديمة...');
+      
+      // استيراد قاعدة البيانات القديمة
+      const { getOldDbClient } = await import('./old-db');
+      
+      let connectionStatus = {
+        connected: false,
+        database: '',
+        user: '',
+        version: '',
+        host: '',
+        port: '',
+        ssl: false,
+        responseTime: 0,
+        error: null
+      };
+
+      const startTime = Date.now();
+      
+      try {
+        // محاولة الاتصال بقاعدة البيانات القديمة
+        const client = await getOldDbClient();
+        
+        // تنفيذ استعلام بسيط للتحقق من الاتصال
+        const result = await client.query(`
+          SELECT 
+            current_database() as database_name,
+            current_user as username,
+            version() as version_info,
+            inet_server_addr() as host,
+            inet_server_port() as port
+        `);
+        
+        const responseTime = Date.now() - startTime;
+        
+        await client.end();
+        
+        connectionStatus = {
+          connected: true,
+          database: result.rows[0]?.database_name || 'غير محدد',
+          user: result.rows[0]?.username || 'غير محدد',
+          version: result.rows[0]?.version_info?.split(' ')[0] || 'PostgreSQL',
+          host: result.rows[0]?.host || 'مخفي لأسباب أمنية',
+          port: result.rows[0]?.port || 'مخفي لأسباب أمنية',
+          ssl: true, // Supabase دائماً يستخدم SSL
+          responseTime: responseTime,
+          error: null
+        };
+
+        console.log(`✅ نجح الاتصال بقاعدة البيانات القديمة في ${responseTime}ms`);
+
+      } catch (dbError: any) {
+        const responseTime = Date.now() - startTime;
+        console.error('❌ فشل الاتصال بقاعدة البيانات القديمة:', dbError.message);
+        
+        connectionStatus = {
+          connected: false,
+          database: 'غير متاح',
+          user: 'غير متاح',
+          version: 'غير متاح',
+          host: 'غير متاح',
+          port: 'غير متاح',
+          ssl: false,
+          responseTime: responseTime,
+          error: dbError.message
+        };
+      }
+
+      res.json({
+        success: connectionStatus.connected,
+        data: connectionStatus,
+        message: connectionStatus.connected 
+          ? `الاتصال بقاعدة البيانات القديمة نجح في ${connectionStatus.responseTime}ms`
+          : `فشل الاتصال بقاعدة البيانات القديمة: ${connectionStatus.error}`
+      });
+
+    } catch (error: any) {
+      console.error('❌ خطأ في فحص حالة الاتصال:', error);
+      res.status(500).json({
+        success: false,
+        data: {
+          connected: false,
+          error: error.message
+        },
+        error: error.message,
+        message: "فشل في فحص حالة الاتصال بقاعدة البيانات القديمة"
+      });
+    }
+  });
+
+  // جلب الإحصائيات العامة من قاعدة البيانات القديمة (Supabase)
+  app.get("/api/migration/general-stats", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      console.log('📊 جلب الإحصائيات العامة من قاعدة البيانات القديمة...');
+      
+      // استيراد قاعدة البيانات القديمة
+      const { getOldDbClient } = await import('./old-db');
+      
+      let generalStats: GeneralStats = {
+        totalTables: 0,
+        totalEstimatedRows: 0,
+        tablesList: [],
+        lastUpdated: new Date().toISOString(),
+        databaseStatus: 'unknown',
+        databaseSize: 'غير محدد',
+        oldestRecord: null,
+        newestRecord: null,
+        criticalTables: [],
+        emptyTables: []
+      };
+
+      try {
+        const client = await getOldDbClient();
+        
+        // جلب قائمة الجداول مع عدد الصفوف
+        const tablesQuery = await client.query(`
+          SELECT 
+            schemaname,
+            tablename,
+            n_tup_ins as inserts,
+            n_tup_upd as updates,
+            n_tup_del as deletes,
+            n_live_tup as live_rows,
+            n_dead_tup as dead_rows,
+            last_vacuum,
+            last_autovacuum,
+            last_analyze,
+            last_autoanalyze
+          FROM pg_stat_user_tables 
+          WHERE schemaname = 'public'
+          ORDER BY n_live_tup DESC
+        `);
+
+        // جلب حجم قاعدة البيانات
+        const dbSizeQuery = await client.query(`
+          SELECT pg_size_pretty(pg_database_size(current_database())) as database_size
+        `);
+
+        // جلب معلومات عامة عن قاعدة البيانات
+        const dbInfoQuery = await client.query(`
+          SELECT 
+            current_database() as db_name,
+            current_user as current_user,
+            version() as version,
+            now() as current_timestamp
+        `);
+
+        await client.end();
+
+        // معالجة النتائج
+        const tables = tablesQuery.rows || [];
+        const totalRows = tables.reduce((sum: number, table: any) => sum + parseInt(table.live_rows || 0), 0);
+        
+        // تحديد الجداول الحرجة (بأكثر من 1000 صف)
+        const criticalTables = tables
+          .filter((table: any) => parseInt(table.live_rows || 0) > 1000)
+          .map((table: any) => ({
+            name: table.tablename,
+            rows: parseInt(table.live_rows || 0),
+            displayName: getTableDisplayName(table.tablename)
+          }));
+
+        // تحديد الجداول الفارغة
+        const emptyTables = tables
+          .filter((table: any) => parseInt(table.live_rows || 0) === 0)
+          .map((table: any) => ({
+            name: table.tablename,
+            displayName: getTableDisplayName(table.tablename)
+          }));
+
+        // العثور على أقدم وأحدث السجلات من بعض الجداول الرئيسية
+        let oldestRecord = null;
+        let newestRecord = null;
+
+        try {
+          // محاولة العثور على التواريخ من جداول مختلفة
+          const dateSearchTables = ['projects', 'users', 'daily_expenses', 'workers'];
+          const dateSearchClient = await getOldDbClient();
+          
+          for (const tableName of dateSearchTables) {
+            try {
+              // البحث عن أعمدة التاريخ الشائعة
+              const dateColumnsQuery = await dateSearchClient.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = $1 
+                AND (column_name ILIKE '%created%' OR column_name ILIKE '%date%' OR column_name ILIKE '%time%')
+                AND data_type IN ('timestamp', 'timestamptz', 'date')
+                LIMIT 1
+              `, [tableName]);
+              
+              if (dateColumnsQuery.rows.length > 0) {
+                const dateColumn = dateColumnsQuery.rows[0].column_name;
+                
+                const minMaxQuery = await dateSearchClient.query(`
+                  SELECT 
+                    MIN(${dateColumn}) as oldest,
+                    MAX(${dateColumn}) as newest,
+                    COUNT(*) as record_count
+                  FROM "${tableName}"
+                  WHERE ${dateColumn} IS NOT NULL
+                `);
+                
+                if (minMaxQuery.rows[0] && minMaxQuery.rows[0].record_count > 0) {
+                  if (!oldestRecord || new Date(minMaxQuery.rows[0].oldest) < new Date(oldestRecord)) {
+                    oldestRecord = minMaxQuery.rows[0].oldest;
+                  }
+                  if (!newestRecord || new Date(minMaxQuery.rows[0].newest) > new Date(newestRecord)) {
+                    newestRecord = minMaxQuery.rows[0].newest;
+                  }
+                }
+              }
+            } catch (tableError) {
+              // تجاهل أخطاء الجداول الفردية
+              console.log(`تجاهل الجدول ${tableName} في بحث التواريخ`);
+            }
+          }
+          
+          await dateSearchClient.end();
+        } catch (dateError) {
+          console.log('تعذر العثور على تواريخ السجلات:', dateError);
+        }
+
+        generalStats = {
+          totalTables: tables.length,
+          totalEstimatedRows: totalRows,
+          tablesList: tables.map((table: any) => ({
+            name: table.tablename,
+            displayName: getTableDisplayName(table.tablename),
+            rows: parseInt(table.live_rows || 0),
+            category: getTableCategory(table.tablename),
+            lastAnalyzed: table.last_analyze || table.last_autoanalyze
+          })),
+          lastUpdated: dbInfoQuery.rows[0]?.current_timestamp || new Date().toISOString(),
+          databaseStatus: 'healthy',
+          databaseSize: dbSizeQuery.rows[0]?.database_size || 'غير محدد',
+          oldestRecord: oldestRecord,
+          newestRecord: newestRecord,
+          criticalTables: criticalTables.slice(0, 10), // أول 10 جداول
+          emptyTables: emptyTables
+        };
+
+        console.log(`✅ تم جلب إحصائيات ${tables.length} جدول بإجمالي ${totalRows} صف`);
+
+      } catch (dbError: any) {
+        console.error('❌ خطأ في جلب الإحصائيات من قاعدة البيانات القديمة:', dbError);
+        
+        // في حالة فشل الاتصال، استخدم إحصائيات افتراضية
+        generalStats = {
+          totalTables: 0,
+          totalEstimatedRows: 0,
+          tablesList: [],
+          lastUpdated: new Date().toISOString(),
+          databaseStatus: 'error',
+          databaseSize: 'غير متاح',
+          oldestRecord: null,
+          newestRecord: null,
+          criticalTables: [],
+          emptyTables: [],
+          error: dbError.message
+        };
+      }
+
+      res.json({
+        success: generalStats.databaseStatus !== 'error',
+        data: generalStats,
+        message: generalStats.databaseStatus === 'error' 
+          ? `فشل في جلب الإحصائيات: ${generalStats.error}`
+          : `تم جلب الإحصائيات العامة بنجاح: ${generalStats.totalTables} جدول، ${generalStats.totalEstimatedRows} صف`
+      });
+
+    } catch (error: any) {
+      console.error('❌ خطأ في جلب الإحصائيات العامة:', error);
+      res.status(500).json({
+        success: false,
+        data: {
+          totalTables: 0,
+          totalEstimatedRows: 0,
+          databaseStatus: 'error',
+          error: error.message
+        },
+        error: error.message,
+        message: "فشل في جلب الإحصائيات العامة من قاعدة البيانات القديمة"
+      });
+    }
+  });
 
   // جلب قائمة الجداول المتاحة للهجرة
   app.get("/api/migration/tables", requireAuth, requireRole('admin'), async (req, res) => {

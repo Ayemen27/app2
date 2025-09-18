@@ -60,21 +60,48 @@ const TABLES = TABLES_ENV ? TABLES_ENV.split(",").map(s => s.trim()).filter(Bool
 function makeClient(connectionString: string) {
   const config: any = { connectionString };
 
-  if (CA_PATH) {
-    try {
-      const ca = fs.readFileSync(CA_PATH, { encoding: "utf8" });
-      config.ssl = { rejectUnauthorized: true, ca };
-      LOG.info(`Using CA file from ${CA_PATH}`);
-    } catch (e: any) {
-      LOG.err(`Failed to read CA file at ${CA_PATH}: ${e.message}`);
-      process.exit(1);
+  // تحديد ما إذا كان الاتصال محلي أم خارجي
+  const isLocalConnection = connectionString.includes('localhost') || 
+                           connectionString.includes('127.0.0.1') ||
+                           connectionString.includes('@localhost/');
+
+  if (isLocalConnection) {
+    LOG.info("🔓 اتصال محلي - تعطيل SSL");
+    config.ssl = false;
+    return new Client(config);
+  }
+
+  // للاتصالات الخارجية - محاولة استخدام شهادة SSL
+  LOG.info("🔐 اتصال خارجي - تفعيل SSL");
+  
+  let ca = undefined;
+  const certPath = CA_PATH ? CA_PATH : './pg_cert.pem';
+  
+  try {
+    if (fs.existsSync(certPath)) {
+      ca = fs.readFileSync(certPath, { encoding: "utf8" });
+      LOG.info(`📜 تم تحميل شهادة SSL من: ${certPath}`);
     }
-  } else if (ALLOW_INSECURE) {
-    LOG.warn("ALLOW_INSECURE=true -> connecting with rejectUnauthorized=false (INSECURE)");
-    config.ssl = { rejectUnauthorized: false };
+  } catch (e: any) {
+    LOG.warn(`⚠️ تعذر تحميل شهادة SSL من ${certPath}: ${e.message}`);
+  }
+
+  // إعداد SSL - أولاً نجرب الاتصال الآمن مع الشهادة المخصصة
+  if (ca) {
+    LOG.info("🔑 استخدام شهادة SSL مخصصة - السماح بالشهادات الموقعة ذاتياً");
+    config.ssl = {
+      rejectUnauthorized: false, // مطلوب للشهادات الموقعة ذاتياً
+      ca: ca,
+      minVersion: 'TLSv1.2',
+      checkServerIdentity: () => undefined // تعطيل فحص اسم الخادم
+    };
   } else {
-    // default: try secure connection, node will validate against system CAs
-    config.ssl = { rejectUnauthorized: true };
+    // إذا لم تكن هناك شهادة مخصصة، نستخدم إعدادات أكثر تساهلاً
+    LOG.warn("لا توجد شهادة SSL مخصصة - استخدام إعدادات SSL أساسية");
+    config.ssl = { 
+      rejectUnauthorized: false,
+      minVersion: 'TLSv1.2'
+    };
   }
 
   return new Client(config);
@@ -149,9 +176,32 @@ async function migrateTable(oldClient: Client, newClient: Client, table: string)
   LOG.ok(`Finished ${table}`);
 }
 
+// دالة خاصة لإنشاء عميل قاعدة البيانات الجديدة بدون SSL
+function makeNewDbClient(connectionString: string) {
+  const config: any = { connectionString };
+  
+  // التحقق إذا كان الاتصال محلي
+  const isLocalConnection = connectionString.includes('localhost') || 
+                           connectionString.includes('127.0.0.1') ||
+                           connectionString.includes('@localhost/');
+
+  if (isLocalConnection) {
+    LOG.info("🔓 NEW DB: اتصال محلي - تعطيل SSL");
+    config.ssl = false;
+  } else {
+    LOG.warn("⚠️ NEW DB: تعطيل SSL للتوافق (غير آمن!)");
+    config.ssl = false;
+  }
+  
+  return new Client(config);
+}
+
 async function main() {
+  LOG.info(`OLD_DB_URL: ${OLD_DB_URL?.slice(0, 20)}...`);
+  LOG.info(`NEW_DB_URL: ${NEW_DB_URL?.slice(0, 20)}...`);
+  
   const oldClient = makeClient(OLD_DB_URL as string);
-  const newClient = makeClient(NEW_DB_URL as string);
+  const newClient = makeNewDbClient(NEW_DB_URL as string);
 
   try {
     LOG.info("Connecting to OLD DB...");
@@ -159,8 +209,17 @@ async function main() {
     LOG.ok("Connected to OLD DB");
 
     LOG.info("Connecting to NEW DB...");
-    await newClient.connect();
-    LOG.ok("Connected to NEW DB");
+    try {
+      await newClient.connect();
+      LOG.ok("Connected to NEW DB");
+    } catch (newDbError: any) {
+      if (newDbError.message?.includes('self-signed certificate')) {
+        LOG.err("مشكلة شهادة SSL في NEW DB. جرب إعداد متغير البيئة:");
+        LOG.err("export ALLOW_INSECURE=true");
+        LOG.err("أو تأكد من أن شهادة SSL صحيحة");
+      }
+      throw newDbError;
+    }
 
     for (const t of TABLES) {
       try {

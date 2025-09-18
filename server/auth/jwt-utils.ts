@@ -18,8 +18,8 @@ if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
 }
 
 export const JWT_CONFIG = {
-  accessTokenSecret: process.env.JWT_ACCESS_SECRET,
-  refreshTokenSecret: process.env.JWT_REFRESH_SECRET,
+  accessTokenSecret: process.env.JWT_ACCESS_SECRET as string,
+  refreshTokenSecret: process.env.JWT_REFRESH_SECRET as string,
   accessTokenExpiry: '15m', // 15 دقيقة
   refreshTokenExpiry: '30d', // 30 يوم
   issuer: 'construction-management-app',
@@ -57,7 +57,7 @@ export function generateAccessToken(payload: { userId: string; email: string; ro
     { 
       expiresIn: JWT_CONFIG.accessTokenExpiry,
       issuer: JWT_CONFIG.issuer
-    }
+    } as jwt.SignOptions
   );
 }
 
@@ -71,7 +71,7 @@ export function generateRefreshToken(payload: { userId: string; email: string })
     { 
       expiresIn: JWT_CONFIG.refreshTokenExpiry,
       issuer: JWT_CONFIG.issuer
-    }
+    } as jwt.SignOptions
   );
 }
 
@@ -100,12 +100,12 @@ export async function generateTokenPair(
   const accessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
     expiresIn: JWT_CONFIG.accessTokenExpiry,
     issuer: JWT_CONFIG.issuer
-  });
+  } as jwt.SignOptions);
   
   const refreshToken = jwt.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
     expiresIn: JWT_CONFIG.refreshTokenExpiry,
     issuer: JWT_CONFIG.issuer
-  });
+  } as jwt.SignOptions);
 
   // إنشاء hash للرموز للحفظ الآمن
   const accessTokenHash = hashToken(accessToken);
@@ -282,7 +282,106 @@ export async function verifyRefreshToken(token: string): Promise<any | null> {
 /**
  * تجديد Access Token باستخدام Refresh Token مع تدوير الرموز
  */
-export async function refreshAccessToken(refreshToken: string): Promise<TokenPair | null> {
+/**
+ * تجديد Access Token مبسط للتطوير (أسرع وأقل عمليات قاعدة بيانات)
+ */
+async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | null> {
+  const startTime = Date.now();
+  console.log('🔄 [JWT-DEV] بدء تجديد مبسط للتطوير...');
+
+  try {
+    // فك تشفير refresh token
+    const payload = jwt.verify(refreshToken, JWT_CONFIG.refreshTokenSecret, {
+      issuer: JWT_CONFIG.issuer,
+    }) as JWTPayload;
+
+    if (payload.type !== 'refresh') {
+      console.log('❌ [JWT-DEV] نوع رمز خاطئ:', payload.type);
+      return null;
+    }
+
+    // استعلام مدمج واحد للمستخدم والجلسة
+    const refreshTokenHash = hashToken(refreshToken);
+    const userWithSession = await db
+      .select({
+        user: users,
+        session: authUserSessions
+      })
+      .from(users)
+      .leftJoin(authUserSessions, and(
+        eq(authUserSessions.userId, users.id),
+        eq(authUserSessions.refreshTokenHash, refreshTokenHash),
+        eq(authUserSessions.isRevoked, false),
+        gte(authUserSessions.expiresAt, new Date())
+      ))
+      .where(eq(users.id, payload.userId))
+      .limit(1);
+
+    if (userWithSession.length === 0 || !userWithSession[0].user || !userWithSession[0].user.isActive) {
+      console.log('❌ [JWT-DEV] مستخدم غير موجود أو غير نشط');
+      return null;
+    }
+
+    if (!userWithSession[0].session) {
+      console.log('❌ [JWT-DEV] جلسة غير موجودة أو منتهية');
+      return null;
+    }
+
+    const user = userWithSession[0].user;
+    const session = userWithSession[0].session;
+
+    // إنشاء رموز جديدة - بدون تدوير معقد في التطوير
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 15 * 60 * 1000); // 15 دقيقة
+    const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 يوم
+
+    // استخدام نفس sessionId لتجنب تعقيدات التدوير في التطوير
+    const accessPayload = { userId: payload.userId, email: user.email, role: user.role, sessionId: payload.sessionId, type: 'access' as const };
+    const refreshPayload = { userId: payload.userId, email: user.email, sessionId: payload.sessionId, type: 'refresh' as const };
+
+    const newAccessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
+      expiresIn: JWT_CONFIG.accessTokenExpiry,
+      issuer: JWT_CONFIG.issuer
+    } as jwt.SignOptions);
+    
+    const newRefreshToken = jwt.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
+      expiresIn: JWT_CONFIG.refreshTokenExpiry,
+      issuer: JWT_CONFIG.issuer
+    } as jwt.SignOptions);
+
+    // تحديث بسيط للنشاط الأخير فقط (بدون تدوير hashes في التطوير)
+    await db
+      .update(authUserSessions)
+      .set({
+        lastActivity: new Date(),
+      })
+      .where(eq(authUserSessions.id, session.id));
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [JWT-DEV] تجديد مبسط مكتمل في ${duration}ms`);
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      sessionId: payload.sessionId,
+      expiresAt,
+      refreshExpiresAt,
+    };
+
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error(`❌ [JWT-DEV] خطأ في التجديد بعد ${duration}ms:`, error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+/**
+ * تجديد Access Token باستخدام Refresh Token (النسخة الكاملة للإنتاج)
+ */
+async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair | null> {
+  const startTime = Date.now();
+  console.log('🔄 [JWT-PROD] بدء تجديد كامل للإنتاج...');
+
   try {
     // فك تشفير refresh token
     const payload = jwt.verify(refreshToken, JWT_CONFIG.refreshTokenSecret, {
@@ -337,12 +436,12 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenPai
     const newAccessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
       expiresIn: JWT_CONFIG.accessTokenExpiry,
       issuer: JWT_CONFIG.issuer
-    });
+    } as jwt.SignOptions);
     
     const newRefreshToken = jwt.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
       expiresIn: JWT_CONFIG.refreshTokenExpiry,
       issuer: JWT_CONFIG.issuer
-    });
+    } as jwt.SignOptions);
 
     // إنشاء hash للرموز الجديدة
     const newAccessTokenHash = hashToken(newAccessToken);
@@ -360,7 +459,8 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenPai
       })
       .where(eq(authUserSessions.id, session[0].id));
 
-    console.log('✅ [JWT] تم تدوير الرموز بنجاح:', { 
+    const duration = Date.now() - startTime;
+    console.log(`✅ [JWT-PROD] تم تدوير الرموز بنجاح في ${duration}ms:`, { 
       userId: payload.userId, 
       oldSessionId: session[0].sessionToken?.substring(0, 8) + '...',
       newSessionId: newSessionId.substring(0, 8) + '...'
@@ -375,8 +475,22 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenPai
     };
 
   } catch (error) {
-    console.error('خطأ في تجديد الرمز');
+    const duration = Date.now() - startTime;
+    console.error(`❌ [JWT-PROD] خطأ في تجديد الرمز بعد ${duration}ms`);
     return null;
+  }
+}
+
+/**
+ * تجديد Access Token - يختار النسخة المناسبة حسب البيئة
+ */
+export async function refreshAccessToken(refreshToken: string): Promise<TokenPair | null> {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  if (isDevelopment) {
+    return await refreshAccessTokenDev(refreshToken);
+  } else {
+    return await refreshAccessTokenProd(refreshToken);
   }
 }
 

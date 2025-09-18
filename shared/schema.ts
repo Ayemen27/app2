@@ -47,6 +47,7 @@ export const authUserSessions = pgTable("auth_user_sessions", {
   accessTokenHash: text("access_token_hash"),
   isRevoked: boolean("is_revoked").default(false).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  revokedReason: varchar("revoked_reason"),
 });
 
 // Projects table

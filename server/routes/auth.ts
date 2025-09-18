@@ -369,28 +369,59 @@ router.post('/verify-email', async (req, res) => {
 });
 
 /**
- * تجديد الرمز المميز
+ * تجديد الرمز المميز مع logging محسن ومعالجة شاملة للأخطاء
  * POST /api/auth/refresh
  */
 router.post('/refresh', async (req, res) => {
+  const startTime = Date.now();
+  const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+  const userAgent = req.headers['user-agent']?.substring(0, 100) || 'unknown';
+  
+  console.log('🔄 [API/refresh] بدء طلب تجديد رمز:', {
+    ip: clientIP,
+    userAgent: userAgent.substring(0, 50) + '...',
+    timestamp: new Date().toISOString()
+  });
+
   try {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
+      const duration = Date.now() - startTime;
+      console.log(`❌ [API/refresh] رمز التجديد مفقود بعد ${duration}ms`);
       return res.status(400).json({
         success: false,
-        message: 'رمز التجديد مطلوب'
+        message: 'رمز التجديد مطلوب',
+        code: 'MISSING_REFRESH_TOKEN'
       });
     }
+
+    // تسجيل معلومات basic عن الرمز (بدون كشف التفاصيل الحساسة)
+    const tokenPreview = refreshToken.substring(0, 20) + '...' + refreshToken.slice(-10);
+    console.log(`🔍 [API/refresh] معالجة رمز: ${tokenPreview}`);
 
     const result = await refreshAccessToken(refreshToken);
+    const duration = Date.now() - startTime;
 
     if (!result) {
+      console.log(`❌ [API/refresh] فشل تجديد الرمز بعد ${duration}ms - رمز غير صالح أو منتهي`, {
+        ip: clientIP,
+        tokenPreview,
+        duration
+      });
       return res.status(401).json({
         success: false,
-        message: 'رمز التجديد غير صالح'
+        message: 'رمز التجديد غير صالح أو منتهي الصلاحية',
+        code: 'INVALID_REFRESH_TOKEN'
       });
     }
+
+    console.log(`✅ [API/refresh] نجح تجديد الرمز بعد ${duration}ms`, {
+      ip: clientIP,
+      newTokenPreview: result.accessToken.substring(0, 20) + '...',
+      expiresIn: Math.round((result.expiresAt.getTime() - Date.now()) / 1000 / 60) + ' دقيقة',
+      duration
+    });
 
     res.json({
       success: true,
@@ -398,14 +429,50 @@ router.post('/refresh', async (req, res) => {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         expiresAt: result.expiresAt,
+      },
+      metadata: {
+        refreshedAt: new Date().toISOString(),
+        expiresIn: Math.round((result.expiresAt.getTime() - Date.now()) / 1000),
+        processingTime: duration
       }
     });
 
   } catch (error) {
-    console.error('خطأ في API تجديد الرمز:', error);
+    const duration = Date.now() - startTime;
+    
+    // معالجة مختلفة لأنواع الأخطاء المختلفة
+    if (error instanceof Error) {
+      console.error(`💥 [API/refresh] خطأ في تجديد الرمز بعد ${duration}ms:`, {
+        message: error.message,
+        name: error.name,
+        ip: clientIP,
+        duration,
+        stack: error.stack?.split('\n').slice(0, 3).join('\n') // أول 3 سطور من stack trace
+      });
+
+      // تحديد نوع الخطأ وإرسال رد مناسب
+      if (error.message.includes('jwt') || error.message.includes('token')) {
+        return res.status(401).json({
+          success: false,
+          message: 'رمز التجديد غير صالح',
+          code: 'TOKEN_ERROR'
+        });
+      } else if (error.message.includes('database') || error.message.includes('connection')) {
+        return res.status(503).json({
+          success: false,
+          message: 'مشكلة مؤقتة في الخدمة، يرجى المحاولة لاحقاً',
+          code: 'SERVICE_UNAVAILABLE'
+        });
+      }
+    } else {
+      console.error(`💥 [API/refresh] خطأ غير معروف بعد ${duration}ms:`, error);
+    }
+
     res.status(500).json({
       success: false,
-      message: 'حدث خطأ داخلي في الخادم'
+      message: 'حدث خطأ داخلي في الخادم',
+      code: 'INTERNAL_ERROR',
+      processingTime: duration
     });
   }
 });

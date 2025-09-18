@@ -8,21 +8,15 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required. Please set it in your environment variables");
 }
 
-// التحقق من وجود شهادة SSL في متغيرات البيئة
-if (!process.env.PGSSLROOTCERT) {
-  console.error("❌ PGSSLROOTCERT غير موجود في متغيرات البيئة");
-  throw new Error("PGSSLROOTCERT is required. Please set it in your environment variables");
-}
-
-// استخراج شهادة SSL من المتغير وحفظها مؤقتًا
-const sslCertPath = path.join(process.cwd(), "pg_cert.pem");
-fs.writeFileSync(sslCertPath, process.env.PGSSLROOTCERT.replace(/\\n/g, "\n"));
+// تجاهل شهادة SSL للتبسيط
+console.log("⚠️ تجاهل تحقق SSL للتبسيط");
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 // استخراج معلومات الاتصال
 const databaseUrl = process.env.DATABASE_URL;
 console.log("🔧 استخدام قاعدة البيانات:", databaseUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
 
-// إعداد SSL بناءً على الشهادة
+// إعداد SSL مبسط
 function getSSLConfig() {
   const url = databaseUrl.toLowerCase();
 
@@ -31,11 +25,10 @@ function getSSLConfig() {
     return false;
   }
 
-  // اتصال خارجي باستخدام الشهادة من .env
+  // اتصال خارجي مع تجاهل مشاكل SSL
   return {
     rejectUnauthorized: false,
-    checkServerIdentity: () => undefined,
-    ca: fs.readFileSync(sslCertPath).toString()
+    checkServerIdentity: () => undefined
   };
 }
 

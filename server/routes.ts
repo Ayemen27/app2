@@ -436,60 +436,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('🔍 فحص حالة الاتصال بقاعدة البيانات القديمة...');
       
-      // استيراد قاعدة البيانات القديمة
-      const { getOldDbClient } = await import('./old-db');
+      // استيراد قاعدة البيانات القديمة والتحقق من التوفر
+      const { isOldDatabaseAvailable, testOldDatabaseConnection } = await import('./old-db');
       
-      let connectionStatus = {
-        connected: false,
-        database: '',
-        user: '',
-        version: '',
-        host: '',
-        port: '',
-        ssl: false,
-        responseTime: 0,
-        error: null
-      };
-
-      const startTime = Date.now();
-      
-      try {
-        // محاولة الاتصال بقاعدة البيانات القديمة
-        const client = await getOldDbClient();
+      // التحقق المسبق من إعدادات قاعدة البيانات
+      if (!isOldDatabaseAvailable()) {
+        console.warn('⚠️ قاعدة البيانات القديمة غير مُكوّنة أو غير متاحة');
         
-        // تنفيذ استعلام بسيط للتحقق من الاتصال
-        const result = await client.query(`
-          SELECT 
-            current_database() as database_name,
-            current_user as username,
-            version() as version_info,
-            inet_server_addr() as host,
-            inet_server_port() as port
-        `);
-        
-        const responseTime = Date.now() - startTime;
-        
-        await client.end();
-        
-        connectionStatus = {
-          connected: true,
-          database: result.rows[0]?.database_name || 'غير محدد',
-          user: result.rows[0]?.username || 'غير محدد',
-          version: result.rows[0]?.version_info?.split(' ')[0] || 'PostgreSQL',
-          host: result.rows[0]?.host || 'مخفي لأسباب أمنية',
-          port: result.rows[0]?.port || 'مخفي لأسباب أمنية',
-          ssl: true, // Supabase دائماً يستخدم SSL
-          responseTime: responseTime,
-          error: null
+        const connectionStatus = {
+          connected: false,
+          database: 'غير مُكوّنة',
+          user: 'غير مُكوّنة', 
+          version: 'غير معروف',
+          host: 'غير مُكوّنة',
+          port: 'غير مُكوّنة',
+          ssl: false,
+          responseTime: 0,
+          error: 'قاعدة البيانات القديمة غير مُكوّنة في متغيرات البيئة (OLD_DB_URL مفقود أو غير صحيح)',
+          configStatus: 'missing_config'
         };
-
-        console.log(`✅ نجح الاتصال بقاعدة البيانات القديمة في ${responseTime}ms`);
-
-      } catch (dbError: any) {
-        const responseTime = Date.now() - startTime;
-        console.error('❌ فشل الاتصال بقاعدة البيانات القديمة:', dbError.message);
         
-        connectionStatus = {
+        return res.json({
+          success: false,
+          data: connectionStatus,
+          message: 'قاعدة البيانات القديمة غير مُكوّنة. يرجى التحقق من إعدادات OLD_DB_URL في متغيرات البيئة.',
+          userFriendlyMessage: 'قاعدة البيانات القديمة غير متصلة حالياً. النظام يعمل بالبيانات المحلية فقط.'
+        });
+      }
+      
+      // اختبار الاتصال مع الدالة المحسّنة
+      const connectionTest = await testOldDatabaseConnection();
+      
+      if (connectionTest.success) {
+        console.log('✅ نجح الاتصال بقاعدة البيانات القديمة');
+        
+        const connectionStatus = {
+          connected: true,
+          database: connectionTest.details?.database || 'متصل',
+          user: connectionTest.details?.user || 'مخفي لأسباب أمنية',
+          version: connectionTest.details?.version || 'PostgreSQL',
+          host: connectionTest.details?.host || 'مخفي لأسباب أمنية',
+          port: connectionTest.details?.port || 'مخفي لأسباب أمنية',
+          ssl: true,
+          responseTime: connectionTest.details?.responseTime || 0,
+          error: null,
+          configStatus: 'configured'
+        };
+        
+        res.json({
+          success: true,
+          data: connectionStatus,
+          message: connectionTest.message,
+          userFriendlyMessage: 'قاعدة البيانات القديمة متصلة بنجاح ومتاحة للهجرة.'
+        });
+      } else {
+        console.error('❌ فشل الاتصال بقاعدة البيانات القديمة:', connectionTest.message);
+        
+        // تحليل نوع الخطأ لرسالة أفضل للمستخدم
+        let userFriendlyMessage = 'قاعدة البيانات القديمة غير متاحة حالياً.';
+        let configStatus = 'connection_failed';
+        
+        if (connectionTest.message.includes('ENOTFOUND')) {
+          userFriendlyMessage = 'عنوان قاعدة البيانات القديمة غير صحيح أو الخادم غير متاح.';
+          configStatus = 'dns_failed';
+        } else if (connectionTest.message.includes('ECONNREFUSED')) {
+          userFriendlyMessage = 'تم رفض الاتصال بقاعدة البيانات القديمة. يرجى التحقق من الإعدادات.';
+          configStatus = 'connection_refused';
+        } else if (connectionTest.message.includes('timeout')) {
+          userFriendlyMessage = 'انتهت مهلة الاتصال بقاعدة البيانات القديمة.';
+          configStatus = 'timeout';
+        }
+        
+        const connectionStatus = {
           connected: false,
           database: 'غير متاح',
           user: 'غير متاح',
@@ -497,29 +515,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           host: 'غير متاح',
           port: 'غير متاح',
           ssl: false,
-          responseTime: responseTime,
-          error: dbError.message
+          responseTime: 0,
+          error: connectionTest.message,
+          configStatus: configStatus
         };
+        
+        res.json({
+          success: false,
+          data: connectionStatus,
+          message: connectionTest.message,
+          userFriendlyMessage: userFriendlyMessage
+        });
       }
 
-      res.json({
-        success: connectionStatus.connected,
-        data: connectionStatus,
-        message: connectionStatus.connected 
-          ? `الاتصال بقاعدة البيانات القديمة نجح في ${connectionStatus.responseTime}ms`
-          : `فشل الاتصال بقاعدة البيانات القديمة: ${connectionStatus.error}`
-      });
-
     } catch (error: any) {
-      console.error('❌ خطأ في فحص حالة الاتصال:', error);
+      console.error('❌ خطأ عام في فحص حالة الاتصال:', error);
       res.status(500).json({
         success: false,
         data: {
           connected: false,
-          error: error.message
+          error: error.message,
+          configStatus: 'system_error'
         },
         error: error.message,
-        message: "فشل في فحص حالة الاتصال بقاعدة البيانات القديمة"
+        message: "فشل في فحص حالة الاتصال بقاعدة البيانات القديمة",
+        userFriendlyMessage: 'حدث خطأ تقني أثناء فحص حالة الاتصال. يرجى المحاولة مرة أخرى.'
       });
     }
   });
@@ -529,8 +549,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('📊 جلب الإحصائيات العامة من قاعدة البيانات القديمة...');
       
-      // استيراد قاعدة البيانات القديمة
-      const { getOldDbClient } = await import('./old-db');
+      // استيراد قاعدة البيانات القديمة والتحقق من التوفر
+      const { isOldDatabaseAvailable, getOldDbClient } = await import('./old-db');
       
       let generalStats: GeneralStats = {
         totalTables: 0,
@@ -544,9 +564,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         criticalTables: [],
         emptyTables: []
       };
+      
+      // التحقق المسبق من إعدادات قاعدة البيانات
+      if (!isOldDatabaseAvailable()) {
+        console.warn('⚠️ قاعدة البيانات القديمة غير مُكوّنة، سيتم استخدام بيانات افتراضية');
+        
+        generalStats = {
+          totalTables: 0,
+          totalEstimatedRows: 0,
+          tablesList: [],
+          lastUpdated: new Date().toISOString(),
+          databaseStatus: 'not_configured',
+          databaseSize: 'غير مُكوّنة',
+          oldestRecord: null,
+          newestRecord: null,
+          criticalTables: [],
+          emptyTables: [],
+          error: 'قاعدة البيانات القديمة غير مُكوّنة في متغيرات البيئة'
+        };
+        
+        return res.json({
+          success: false,
+          data: generalStats,
+          message: 'قاعدة البيانات القديمة غير مُكوّنة. الإحصائيات غير متاحة.',
+          userFriendlyMessage: 'لا توجد بيانات للهجرة حالياً. النظام يعمل بالبيانات المحلية فقط.'
+        });
+      }
 
       try {
-        const client = await getOldDbClient();
+        const client = await getOldDbClient(1); // محاولة واحدة فقط لتوفير الوقت
         
         // جلب قائمة الجداول مع عدد الصفوف
         const tablesQuery = await client.query(`
@@ -681,42 +727,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (dbError: any) {
         console.error('❌ خطأ في جلب الإحصائيات من قاعدة البيانات القديمة:', dbError);
         
-        // في حالة فشل الاتصال، استخدم إحصائيات افتراضية
+        // تحليل نوع الخطأ لحالة أفضل
+        let databaseStatus = 'error';
+        let userFriendlyMessage = 'فشل في الاتصال بقاعدة البيانات القديمة.';
+        
+        if (dbError.message.includes('ENOTFOUND')) {
+          databaseStatus = 'unreachable';
+          userFriendlyMessage = 'قاعدة البيانات القديمة غير قابلة للوصول حالياً.';
+        } else if (dbError.message.includes('ECONNREFUSED')) {
+          databaseStatus = 'connection_refused';
+          userFriendlyMessage = 'تم رفض الاتصال بقاعدة البيانات القديمة.';
+        } else if (dbError.message.includes('timeout')) {
+          databaseStatus = 'timeout';
+          userFriendlyMessage = 'انتهت مهلة الاتصال بقاعدة البيانات القديمة.';
+        }
+        
+        // في حالة فشل الاتصال، استخدم إحصائيات افتراضية مع تفاصيل أفضل
         generalStats = {
           totalTables: 0,
           totalEstimatedRows: 0,
           tablesList: [],
           lastUpdated: new Date().toISOString(),
-          databaseStatus: 'error',
+          databaseStatus: databaseStatus,
           databaseSize: 'غير متاح',
           oldestRecord: null,
           newestRecord: null,
           criticalTables: [],
           emptyTables: [],
-          error: dbError.message
+          error: dbError.message,
+          userFriendlyMessage: userFriendlyMessage
         };
       }
 
+      const isSuccess = !['error', 'not_configured', 'unreachable', 'connection_refused', 'timeout'].includes(generalStats.databaseStatus);
+      
       res.json({
-        success: generalStats.databaseStatus !== 'error',
+        success: isSuccess,
         data: generalStats,
-        message: generalStats.databaseStatus === 'error' 
-          ? `فشل في جلب الإحصائيات: ${generalStats.error}`
-          : `تم جلب الإحصائيات العامة بنجاح: ${generalStats.totalTables} جدول، ${generalStats.totalEstimatedRows} صف`
+        message: isSuccess 
+          ? `تم جلب الإحصائيات العامة بنجاح: ${generalStats.totalTables} جدول، ${generalStats.totalEstimatedRows} صف`
+          : `فشل في جلب الإحصائيات: ${generalStats.error}`,
+        userFriendlyMessage: generalStats.userFriendlyMessage || (
+          isSuccess 
+            ? `البيانات متاحة للهجرة: ${generalStats.totalTables} جدول بإجمالي ${generalStats.totalEstimatedRows.toLocaleString()} صف`
+            : 'الإحصائيات غير متاحة حالياً. النظام يعمل بالبيانات المحلية فقط.'
+        )
       });
 
     } catch (error: any) {
-      console.error('❌ خطأ في جلب الإحصائيات العامة:', error);
+      console.error('❌ خطأ عام في جلب الإحصائيات العامة:', error);
       res.status(500).json({
         success: false,
         data: {
           totalTables: 0,
           totalEstimatedRows: 0,
-          databaseStatus: 'error',
+          tablesList: [],
+          lastUpdated: new Date().toISOString(),
+          databaseStatus: 'system_error',
+          databaseSize: 'غير متاح',
+          oldestRecord: null,
+          newestRecord: null,
+          criticalTables: [],
+          emptyTables: [],
           error: error.message
         },
         error: error.message,
-        message: "فشل في جلب الإحصائيات العامة من قاعدة البيانات القديمة"
+        message: "فشل في جلب الإحصائيات العامة من قاعدة البيانات القديمة",
+        userFriendlyMessage: 'حدث خطأ تقني أثناء جلب الإحصائيات. يرجى المحاولة مرة أخرى.'
       });
     }
   });
@@ -724,61 +801,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // جلب قائمة الجداول المتاحة للهجرة
   app.get("/api/migration/tables", requireAuth, requireRole('admin'), async (req, res) => {
     try {
-      // استيراد قاعدة البيانات القديمة
-      const { oldDb, getOldDbClient } = await import('./old-db');
+      // استيراد قاعدة البيانات القديمة والتحقق من التوفر
+      const { isOldDatabaseAvailable, getOldDbClient } = await import('./old-db');
+      
+      // قائمة افتراضية للجداول (موحدة لسهولة الصيانة)
+      const defaultTables = [
+        "account_balances", "accounts", "actions", "approvals", "autocomplete_data", "channels",
+        "daily_expense_summaries", "daily_expenses", "equipment", "finance_events", "finance_payments",
+        "fund_transfers", "journals", "maintenance_schedules", "maintenance_tasks", "material_purchases",
+        "materials", "messages", "notification_read_states", "print_settings", "project_fund_transfers",
+        "projects", "report_templates", "supplier_payments", "suppliers", "system_events", "system_notifications",
+        "tool_categories", "tool_cost_tracking", "tool_maintenance_logs", "tool_movements", "tool_notifications",
+        "tool_purchase_items", "tool_reservations", "tool_stock", "tool_usage_analytics", "tools",
+        "transaction_lines", "transactions", "users", "worker_attendance", "workers"
+      ];
       
       let tablesWithInfo: any[] = [];
+      let dataSource = 'default'; // 'database' | 'default'
+      let connectionMessage = '';
       
-      try {
-        // الحصول على قائمة الجداول مع timeout wrapper
-        const client = await getOldDbClient(1); // محاولة واحدة فقط لتوفير الوقت
+      // التحقق المسبق من إعدادات قاعدة البيانات
+      if (!isOldDatabaseAvailable()) {
+        console.warn('⚠️ قاعدة البيانات القديمة غير مُكوّنة، استخدام قائمة افتراضية');
         
-        // استعلام مع timeout wrapper مرن باستخدام Promise.race
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Query timeout after 20 seconds')), 20000);
-        });
-        
-        const queryPromise = client.query(`
-          SELECT table_name
-          FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_type = 'BASE TABLE'
-          ORDER BY table_name
-          LIMIT 100
-        `);
-        
-        const tablesQuery = await Promise.race([queryPromise, timeoutPromise]);
-        
-        // إطلاق الاتصال للـ pool بدلاً من إغلاقه
-        await client.end();
-        
-        if (tablesQuery.rows && tablesQuery.rows.length > 0) {
-          tablesWithInfo = tablesQuery.rows.map((row: any) => ({
-            name: row.table_name,
-            displayName: getTableDisplayName(row.table_name),
-            category: getTableCategory(row.table_name),
-            estimatedRows: 0, // سيتم تحديثها لاحقاً
-            status: 'ready',
-            priority: getTablePriority(row.table_name),
-            columnCount: 0 // لا نحسبها الآن لتوفير الوقت
-          }));
-        }
-        
-      } catch (dbError: any) {
-        console.error('❌ خطأ في الاتصال بقاعدة البيانات القديمة:', dbError);
-        
-        // في حالة فشل الاتصال، استخدم قائمة افتراضية
-        const defaultTables = [
-          "account_balances", "accounts", "actions", "approvals", "autocomplete_data", "channels",
-          "daily_expense_summaries", "daily_expenses", "equipment", "finance_events", "finance_payments",
-          "fund_transfers", "journals", "maintenance_schedules", "maintenance_tasks", "material_purchases",
-          "materials", "messages", "notification_read_states", "print_settings", "project_fund_transfers",
-          "projects", "report_templates", "supplier_payments", "suppliers", "system_events", "system_notifications",
-          "tool_categories", "tool_cost_tracking", "tool_maintenance_logs", "tool_movements", "tool_notifications",
-          "tool_purchase_items", "tool_reservations", "tool_stock", "tool_usage_analytics", "tools",
-          "transaction_lines", "transactions", "users", "worker_attendance", "workers"
-        ];
-
         tablesWithInfo = defaultTables.map(tableName => ({
           name: tableName,
           displayName: getTableDisplayName(tableName),
@@ -788,19 +833,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
           priority: getTablePriority(tableName),
           columnCount: 0
         }));
+        
+        dataSource = 'default';
+        connectionMessage = 'قاعدة البيانات القديمة غير مُكوّنة - تم استخدام قائمة افتراضية';
+      } else {
+        try {
+          // محاولة الاتصال وجلب قائمة الجداول
+          const client = await getOldDbClient(1); // محاولة واحدة فقط لتوفير الوقت
+          
+          // استعلام مع timeout wrapper مرن باستخدام Promise.race
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Query timeout after 15 seconds')), 15000);
+          });
+          
+          const queryPromise = client.query(`
+            SELECT table_name
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_type = 'BASE TABLE'
+            ORDER BY table_name
+            LIMIT 100
+          `);
+          
+          const tablesQuery = await Promise.race([queryPromise, timeoutPromise]);
+          
+          // إطلاق الاتصال للـ pool بدلاً من إغلاقه
+          await client.end();
+          
+          if (tablesQuery.rows && tablesQuery.rows.length > 0) {
+            tablesWithInfo = tablesQuery.rows.map((row: any) => ({
+              name: row.table_name,
+              displayName: getTableDisplayName(row.table_name),
+              category: getTableCategory(row.table_name),
+              estimatedRows: 0, // سيتم تحديثها لاحقاً
+              status: 'ready',
+              priority: getTablePriority(row.table_name),
+              columnCount: 0 // لا نحسبها الآن لتوفير الوقت
+            }));
+            
+            dataSource = 'database';
+            connectionMessage = `تم جلب ${tablesQuery.rows.length} جدول من قاعدة البيانات القديمة`;
+          } else {
+            // لا توجد جداول في قاعدة البيانات، استخدم افتراضية
+            tablesWithInfo = defaultTables.map(tableName => ({
+              name: tableName,
+              displayName: getTableDisplayName(tableName),
+              category: getTableCategory(tableName),
+              estimatedRows: 0,
+              status: 'ready',
+              priority: getTablePriority(tableName),
+              columnCount: 0
+            }));
+            
+            dataSource = 'default';
+            connectionMessage = 'قاعدة البيانات القديمة فارغة - تم استخدام قائمة افتراضية';
+          }
+          
+        } catch (dbError: any) {
+          console.error('❌ خطأ في الاتصال بقاعدة البيانات القديمة:', dbError);
+          
+          // في حالة فشل الاتصال، استخدم قائمة افتراضية مع رسالة واضحة
+          tablesWithInfo = defaultTables.map(tableName => ({
+            name: tableName,
+            displayName: getTableDisplayName(tableName),
+            category: getTableCategory(tableName),
+            estimatedRows: 0,
+            status: 'ready',
+            priority: getTablePriority(tableName),
+            columnCount: 0
+          }));
+          
+          dataSource = 'default';
+          
+          // تحليل نوع الخطأ لرسالة أفضل
+          if (dbError.message.includes('ENOTFOUND')) {
+            connectionMessage = 'قاعدة البيانات القديمة غير قابلة للوصول - تم استخدام قائمة افتراضية';
+          } else if (dbError.message.includes('ECONNREFUSED')) {
+            connectionMessage = 'تم رفض الاتصال بقاعدة البيانات القديمة - تم استخدام قائمة افتراضية';
+          } else if (dbError.message.includes('timeout')) {
+            connectionMessage = 'انتهت مهلة الاتصال بقاعدة البيانات القديمة - تم استخدام قائمة افتراضية';
+          } else {
+            connectionMessage = `فشل الاتصال بقاعدة البيانات القديمة - تم استخدام قائمة افتراضية`;
+          }
+        }
       }
 
       res.json({
         success: true,
         data: tablesWithInfo,
-        message: `تم العثور على ${tablesWithInfo.length} جدول متاح للهجرة من قاعدة البيانات القديمة`
+        message: `تم العثور على ${tablesWithInfo.length} جدول متاح للهجرة`,
+        dataSource: dataSource,
+        connectionMessage: connectionMessage,
+        userFriendlyMessage: dataSource === 'database' 
+          ? `توفر ${tablesWithInfo.length} جدول للهجرة من قاعدة البيانات القديمة`
+          : `يوجد ${tablesWithInfo.length} جدول متاح للهجرة (بيانات محلية). قاعدة البيانات القديمة غير متصلة حالياً.`
       });
     } catch (error: any) {
-      console.error('❌ خطأ في جلب قائمة الجداول:', error);
+      console.error('❌ خطأ عام في جلب قائمة الجداول:', error);
       res.status(500).json({
         success: false,
         error: error.message,
-        message: "فشل في جلب قائمة الجداول للهجرة"
+        message: "فشل في جلب قائمة الجداول للهجرة",
+        userFriendlyMessage: 'حدث خطأ تقني أثناء جلب قائمة الجداول. يرجى المحاولة مرة أخرى.'
       });
     }
   });

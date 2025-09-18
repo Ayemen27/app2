@@ -84,6 +84,30 @@ interface MigrationStatus {
   estimatedCompletion: string;
 }
 
+// تعريف أنواع البيانات للإحصائيات العامة
+interface GeneralStats {
+  estimatedDataSize?: number | string;
+  totalTables?: number;
+  totalRecords?: number;
+  databaseSize?: string;
+  lastUpdated?: string;
+  [key: string]: any;
+}
+
+// تعريف أنواع البيانات لحالة الاتصال
+interface ConnectionStatus {
+  connected?: boolean;
+  database?: string;
+  user?: string;
+  version?: string;
+  host?: string;
+  port?: string | number;
+  ssl?: boolean;
+  responseTime?: number;
+  error?: string;
+  [key: string]: any;
+}
+
 export default function DataMigrationPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -107,13 +131,13 @@ export default function DataMigrationPage() {
   });
 
   // جلب إحصائيات شاملة
-  const { data: generalStats, refetch: refetchGeneralStats } = useQuery({
+  const { data: generalStats, refetch: refetchGeneralStats } = useQuery<GeneralStats>({
     queryKey: ['/api/migration/general-stats'],
     refetchInterval: 60000, // تحديث كل دقيقة
   });
 
   // فحص حالة الاتصال بقاعدة البيانات المصدر
-  const { data: connectionStatus, refetch: refetchConnection } = useQuery({
+  const { data: connectionStatus, refetch: refetchConnection } = useQuery<ConnectionStatus>({
     queryKey: ['/api/migration/connection-status'],
     refetchInterval: 30000,
   });
@@ -216,8 +240,20 @@ export default function DataMigrationPage() {
       sum + (table.actualRows || table.estimatedRows), 0
     );
     
-    const estimatedDataSize = (generalStats?.estimatedDataSize || 
-      Math.round(totalRecords * 0.001 * 100) / 100) + ' MB';
+    // التحقق الآمن من وجود البيانات في generalStats
+    let estimatedDataSize: string;
+    
+    if (generalStats && typeof generalStats.estimatedDataSize !== 'undefined') {
+      // إذا كانت البيانات متوفرة من API
+      if (typeof generalStats.estimatedDataSize === 'number') {
+        estimatedDataSize = generalStats.estimatedDataSize.toFixed(2) + ' MB';
+      } else {
+        estimatedDataSize = String(generalStats.estimatedDataSize);
+      }
+    } else {
+      // حساب تقديري إذا لم تكن البيانات متوفرة من API
+      estimatedDataSize = (Math.round(totalRecords * 0.001 * 100) / 100) + ' MB';
+    }
       
     return {
       totalTables: tablesData?.length || 0,
@@ -226,7 +262,10 @@ export default function DataMigrationPage() {
       completedTables: (tablesData || []).filter((t: MigrationTable) => t.status === 'completed').length,
       totalRecords,
       estimatedDataSize,
-      isConnected: connectionStatus?.connected || false
+      // التحقق الآمن من حالة الاتصال
+      isConnected: connectionStatus && typeof connectionStatus.connected === 'boolean' 
+        ? connectionStatus.connected 
+        : false
     };
   };
   

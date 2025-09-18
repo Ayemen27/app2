@@ -7,10 +7,9 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { eq, and, lt, or, ne } from 'drizzle-orm';
 import { db } from '../db.js';
-import { users } from '../../shared/schema.js';
+import { users, authUserSessions } from '../../shared/schema.js';
 
-// ملاحظة: نظام الجلسات معطل مؤقتاً لعدم وجود authUserSessions table
-// سيتم استخدام JWT stateless حتى يتم إنشاء table الجلسات
+// ملاحظة: تم تفعيل نظام الجلسات مع جدول authUserSessions
 
 // إعدادات JWT
 const JWT_CONFIG = {

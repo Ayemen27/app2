@@ -269,23 +269,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // تسجيل الخروج
   const logout = async () => {
     try {
+      console.log('🚪 [AuthProvider.logout] بدء عملية تسجيل الخروج...');
+      
       const accessToken = localStorage.getItem('accessToken');
       if (accessToken) {
-        await fetch('/api/auth/logout', {
+        console.log('📤 [AuthProvider.logout] إرسال طلب logout للخادم...');
+        const response = await fetch('/api/auth/logout', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
           },
         });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ [AuthProvider.logout] استجابة logout من الخادم:', result);
+        } else {
+          console.warn('⚠️ [AuthProvider.logout] فشل في logout من الخادم، سنتابع التنظيف المحلي');
+        }
+      } else {
+        console.log('ℹ️ [AuthProvider.logout] لا يوجد access token، التنظيف المحلي فقط');
       }
     } catch (error) {
-      console.error('خطأ في تسجيل الخروج:', error);
+      console.error('❌ [AuthProvider.logout] خطأ في تسجيل الخروج:', error);
+      console.warn('⚠️ [AuthProvider.logout] سنتابع التنظيف المحلي رغم الخطأ');
     } finally {
+      console.log('🧹 [AuthProvider.logout] بدء التنظيف المحلي...');
+      
+      // تنظيف الحالة والتخزين المحلي
       setUser(null);
+      console.log('✅ [AuthProvider.logout] تم مسح بيانات المستخدم من الحالة');
+      
       localStorage.removeItem('user');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      console.log('✅ [AuthProvider.logout] تم مسح جميع البيانات من localStorage');
+      
       queryClient.clear();
+      console.log('✅ [AuthProvider.logout] تم مسح cache');
+      
+      console.log('🎉 [AuthProvider.logout] اكتمل تسجيل الخروج بنجاح');
     }
   };
 

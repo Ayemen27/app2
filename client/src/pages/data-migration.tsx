@@ -84,13 +84,13 @@ export default function DataMigrationPage() {
   const [currentMigrationId, setCurrentMigrationId] = useState<string | null>(null);
 
   // جلب قائمة الجداول المتاحة
-  const { data: tablesData, isLoading: tablesLoading, refetch: refetchTables } = useQuery({
+  const { data: tablesData, isLoading: tablesLoading, refetch: refetchTables } = useQuery<MigrationTable[]>({
     queryKey: ['/api/migration/tables'],
     refetchInterval: 30000, // تحديث كل 30 ثانية
   });
 
   // جلب حالة الهجرة الحالية
-  const { data: migrationStatus, refetch: refetchStatus } = useQuery({
+  const { data: migrationStatus, refetch: refetchStatus } = useQuery<MigrationStatus>({
     queryKey: ['/api/migration/status', currentMigrationId],
     enabled: !!currentMigrationId,
     refetchInterval: 2000, // تحديث كل ثانيتين
@@ -98,10 +98,7 @@ export default function DataMigrationPage() {
 
   // Mutations للعمليات
   const startMigrationMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('/api/migration/transfer', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    }),
+    mutationFn: (data: any) => apiRequest('/api/migration/transfer', 'POST', data),
     onSuccess: (data) => {
       setCurrentMigrationId(data.data.id);
       setActiveTab("progress");
@@ -120,9 +117,7 @@ export default function DataMigrationPage() {
   });
 
   const stopMigrationMutation = useMutation({
-    mutationFn: (jobId: string) => apiRequest(`/api/migration/stop/${jobId}`, {
-      method: 'POST'
-    }),
+    mutationFn: (jobId: string) => apiRequest(`/api/migration/stop/${jobId}`, 'POST'),
     onSuccess: () => {
       setCurrentMigrationId(null);
       refetchStatus();
@@ -134,7 +129,7 @@ export default function DataMigrationPage() {
   });
 
   // تصفية الجداول
-  const filteredTables = (tablesData?.data || []).filter((table: MigrationTable) => {
+  const filteredTables = (tablesData || []).filter((table: MigrationTable) => {
     const matchesSearch = table.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          table.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === "all" || table.category === categoryFilter;
@@ -142,7 +137,7 @@ export default function DataMigrationPage() {
   });
 
   // الحصول على فئات الجداول الفريدة
-  const categories = [...new Set((tablesData?.data || []).map((t: MigrationTable) => t.category))];
+  const categories = Array.from(new Set((tablesData || []).map((t: MigrationTable) => t.category)));
 
   // اختيار/إلغاء اختيار جدول
   const toggleTableSelection = (tableName: string) => {
@@ -188,10 +183,10 @@ export default function DataMigrationPage() {
 
   // حساب الإحصائيات
   const stats = {
-    totalTables: tablesData?.data?.length || 0,
+    totalTables: tablesData?.length || 0,
     selectedTables: selectedTables.length,
-    readyTables: (tablesData?.data || []).filter((t: MigrationTable) => t.status === 'ready').length,
-    completedTables: (tablesData?.data || []).filter((t: MigrationTable) => t.status === 'completed').length
+    readyTables: (tablesData || []).filter((t: MigrationTable) => t.status === 'ready').length,
+    completedTables: (tablesData || []).filter((t: MigrationTable) => t.status === 'completed').length
   };
 
   return (
@@ -315,8 +310,8 @@ export default function DataMigrationPage() {
                     data-testid="select-category-filter"
                   >
                     <option value="all">جميع الفئات</option>
-                    {categories.map(category => (
-                      <option key={category} value={category}>
+                    {categories.map((category, index) => (
+                      <option key={`category-${index}`} value={category}>
                         {category}
                       </option>
                     ))}
@@ -539,7 +534,7 @@ export default function DataMigrationPage() {
         <TabsContent value="progress" className="space-y-4">
           {currentMigrationId ? (
             <MigrationProgressDisplay 
-              migrationStatus={migrationStatus?.data}
+              migrationStatus={migrationStatus}
               onRefresh={() => refetchStatus()}
             />
           ) : (

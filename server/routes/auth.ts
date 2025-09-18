@@ -81,37 +81,101 @@ function getRequestInfo(req: any) {
  */
 router.post('/login', async (req, res) => {
   try {
-    const validation = loginSchema.safeParse(req.body);
-    if (!validation.success) {
+    console.log('🔑 [Auth] طلب تسجيل دخول جديد:', { email: req.body?.email, hasPassword: !!req.body?.password });
+
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      console.log('❌ [Auth] بيانات ناقصة:', { email: !!email, password: !!password });
       return res.status(400).json({
         success: false,
-        message: 'بيانات غير صالحة',
-        errors: validation.error.errors
+        message: "البريد الإلكتروني وكلمة المرور مطلوبان"
       });
     }
 
-    const { email, password, totpCode } = validation.data;
-    const requestInfo = getRequestInfo(req);
+    console.log('🔍 [Auth] البحث عن المستخدم:', email.toLowerCase());
 
-    // استخدام نظام المصادقة الحقيقي
-    console.log('🔐 استدعاء loginUser للمستخدم:', email);
-    const result = await loginUser({
-      email,
-      password,
-      totpCode,
-      ...requestInfo
+    // البحث عن المستخدم
+    const user = await db.query.users.findFirst({
+      where: eq(users.email, email.toLowerCase())
     });
 
-    const statusCode = result.success ? 200 :
-                      result.requireMFA || result.requireVerification ? 202 : 401;
+    if (!user) {
+      console.log('❌ [Auth] المستخدم غير موجود:', email);
+      return res.status(401).json({
+        success: false,
+        message: "بيانات تسجيل الدخول غير صحيحة"
+      });
+    }
 
-    res.status(statusCode).json(result);
+    console.log('✅ [Auth] تم العثور على المستخدم:', { id: user.id, email: user.email, isActive: user.isActive });
+
+    // التحقق من كلمة المرور
+    const isValidPassword = await verifyPassword(password, user.password);
+    console.log('🔐 [Auth] نتيجة التحقق من كلمة المرور:', isValidPassword);
+
+    if (!isValidPassword) {
+      console.log('❌ [Auth] كلمة المرور غير صحيحة');
+      return res.status(401).json({
+        success: false,
+        message: "بيانات تسجيل الدخول غير صحيحة"
+      });
+    }
+
+    // التحقق من حالة المستخدم
+    if (!user.isActive) {
+      console.log('❌ [Auth] الحساب معطل');
+      return res.status(403).json({
+        success: false,
+        message: "الحساب معطل، يرجى الاتصال بالمدير"
+      });
+    }
+
+    console.log('🎯 [Auth] إنشاء التوكينات...');
+
+    // إنشاء التوكينات
+    const accessToken = generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role
+    });
+
+    const refreshToken = generateRefreshToken({
+      userId: user.id,
+      email: user.email
+    });
+
+    console.log('📝 [Auth] تحديث آخر تسجيل دخول...');
+
+    // تحديث آخر تسجيل دخول
+    await db.update(users)
+      .set({ lastLogin: new Date() })
+      .where(eq(users.id, user.id));
+
+    console.log('✅ [Auth] تم تسجيل الدخول بنجاح');
+
+    res.status(200).json({
+      success: true,
+      message: "تم تسجيل الدخول بنجاح",
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role
+        },
+        accessToken,
+        refreshToken
+      }
+    });
 
   } catch (error) {
-    console.error('خطأ في API تسجيل الدخول:', error);
+    console.error("❌ [Auth] خطأ في تسجيل الدخول:", error);
     res.status(500).json({
       success: false,
-      message: 'حدث خطأ داخلي في الخادم'
+      message: "حدث خطأ في الخادم، يرجى المحاولة لاحقاً",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

@@ -3,8 +3,8 @@ import { sql } from 'drizzle-orm';
 import { writeFileSync } from 'fs';
 
 /**
- * محلل أداء قاعدة البيانات - خاص بـ Supabase
- * Database Performance Analyzer for Supabase
+ * محلل أداء قاعدة البيانات
+ * Database Performance Analyzer
  */
 
 export class PerformanceAnalyzer {
@@ -206,8 +206,8 @@ export class PerformanceAnalyzer {
       
       const report = {
         timestamp: new Date().toISOString(),
-        analyzer: 'Supabase Performance Analyzer',
-        database: 'PostgreSQL (Supabase)',
+        analyzer: 'Database Performance Analyzer',
+        database: 'PostgreSQL (app2data)',
         
         summary: analysis.summary,
         

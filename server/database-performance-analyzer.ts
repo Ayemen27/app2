@@ -49,7 +49,7 @@ export class DatabasePerformanceAnalyzer {
       const connectionIssues = await this.checkConnectionPool();
       if (connectionIssues) {
         issues.push('مشكلة في تجمع الاتصالات (Connection Pool)');
-        recommendations.push('تحسين إعدادات Connection Pool في Supabase');
+        recommendations.push('تحسين إعدادات Connection Pool في قاعدة البيانات');
       }
 
       const performanceMetrics = {

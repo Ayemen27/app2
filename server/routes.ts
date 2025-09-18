@@ -24,7 +24,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         success: true, 
         database: result.rows[0],
-        message: "Connected to Supabase app2data successfully" 
+        message: "متصل بقاعدة بيانات app2data بنجاح" 
       });
     } catch (error: any) {
       res.status(500).json({ 
@@ -61,7 +61,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!externalUrl) {
         return res.status(400).json({
           success: false,
-          error: "لم يتم تكوين اتصال قاعدة البيانات الخارجية (Supabase)"
+          error: "لم يتم تكوين اتصال قاعدة البيانات الخارجية"
         });
       }
 
@@ -72,10 +72,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         data: tableInfo,
-        message: `معلومات الجدول ${tableName} من Supabase`
+        message: `معلومات الجدول ${tableName} من قاعدة البيانات الخارجية`
       });
     } catch (error: any) {
-      console.error("خطأ في جلب معلومات الجدول من Supabase:", error);
+      console.error("خطأ في جلب معلومات الجدول من قاعدة البيانات الخارجية:", error);
       res.status(500).json({
         success: false,
         error: error.message
@@ -93,7 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!externalUrl) {
         return res.status(400).json({
           success: false,
-          error: "لم يتم تكوين اتصال قاعدة البيانات الخارجية (Supabase)"
+          error: "لم يتم تكوين اتصال قاعدة البيانات الخارجية"
         });
       }
 
@@ -114,10 +114,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         data: data,
         count: data.length,
-        message: `معاينة البيانات من ${tableName} (Supabase)`
+        message: `معاينة البيانات من ${tableName} (قاعدة البيانات الخارجية)`
       });
     } catch (error: any) {
-      console.error("خطأ في معاينة البيانات من Supabase:", error);
+      console.error("خطأ في معاينة البيانات من قاعدة البيانات الخارجية:", error);
       res.status(500).json({
         success: false,
         error: error.message
@@ -125,7 +125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // خدمة النسخ الاحتياطي الكاملة من Supabase إلى قاعدة البيانات الجديدة (محمية للإداريين)
+  // خدمة النسخ الاحتياطي الكاملة من قاعدة البيانات الخارجية إلى قاعدة البيانات المحلية (محمية للإداريين)
   app.post("/api/backup/table/:tableName/backup", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { tableName } = req.params;
@@ -135,11 +135,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!externalUrl) {
         return res.status(400).json({
           success: false,
-          error: "لم يتم تكوين اتصال قاعدة البيانات الخارجية (Supabase)"
+          error: "لم يتم تكوين اتصال قاعدة البيانات الخارجية"
         });
       }
 
-      console.log(`🚀 بدء عملية النسخ الاحتياطي للجدول ${tableName} من Supabase...`);
+      console.log(`🚀 بدء عملية النسخ الاحتياطي للجدول ${tableName} من قاعدة البيانات الخارجية...`);
 
       const fetcher = new SecureDataFetcher(externalUrl);
       const result = await fetcher.syncTableData(tableName, Math.min(batchSize, 200)); // حد أقصى للأمان
@@ -148,7 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: result.success,
         data: result,
-        message: `نسخ احتياطي للجدول ${tableName}: ${result.synced} صف تم جلبه من Supabase، ${result.savedLocally} صف تم حفظه محلياً، ${result.errors} أخطاء`
+        message: `نسخ احتياطي للجدول ${tableName}: ${result.synced} صف تم جلبه من قاعدة البيانات الخارجية، ${result.savedLocally} صف تم حفظه محلياً، ${result.errors} أخطاء`
       });
     } catch (error: any) {
       console.error("خطأ في النسخ الاحتياطي:", error);
@@ -159,14 +159,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // قائمة الجداول المتاحة للنسخ الاحتياطي من Supabase (محمية للإداريين)
+  // قائمة الجداول المتاحة للنسخ الاحتياطي من قاعدة البيانات الخارجية (محمية للإداريين)
   app.get("/api/backup/tables", requireAuth, requireRole('admin'), (req, res) => {
     const availableTables = SecureDataFetcher.getAllowedTables();
     
     res.json({
       success: true,
       data: Array.from(availableTables),
-      message: "قائمة الجداول المتاحة للنسخ الاحتياطي من Supabase"
+      message: "قائمة الجداول المتاحة للنسخ الاحتياطي من قاعدة البيانات الخارجية"
     });
   });
 
@@ -179,7 +179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!externalUrl) {
         return res.status(400).json({
           success: false,
-          error: "لم يتم تكوين اتصال قاعدة البيانات الخارجية (Supabase)"
+          error: "لم يتم تكوين اتصال قاعدة البيانات الخارجية"
         });
       }
 

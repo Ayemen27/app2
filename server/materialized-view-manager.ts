@@ -259,7 +259,7 @@ export class MaterializedViewManager {
       }
 
       if (dailyView || statsView) {
-        recommendations.push('جدولة تحديث تلقائي عبر Supabase Cron موصى بها');
+        recommendations.push('جدولة تحديث تلقائي موصى بها');
       }
 
       return {

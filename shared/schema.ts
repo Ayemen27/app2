@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -21,14 +21,32 @@ export const users = pgTable("users", {
 export const authUserSessions = pgTable("auth_user_sessions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
-  sessionId: text("session_id").notNull().unique(),
-  refreshToken: text("refresh_token"),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  lastUsed: timestamp("last_used").defaultNow(),
+  sessionToken: varchar("session_token"),
+  deviceFingerprint: varchar("device_fingerprint"),
   userAgent: text("user_agent"),
-  ipAddress: text("ip_address"),
-  isActive: boolean("is_active").default(true).notNull(),
+  ipAddress: inet("ip_address"),
+  locationData: jsonb("location_data"),
+  isTrustedDevice: boolean("is_trusted_device").default(false).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  lastActivity: timestamp("last_activity").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deviceId: varchar("device_id"),
+  deviceName: varchar("device_name"),
+  browserName: varchar("browser_name"),
+  browserVersion: varchar("browser_version"),
+  osName: varchar("os_name"),
+  osVersion: varchar("os_version"),
+  country: varchar("country"),
+  city: varchar("city"),
+  timezone: varchar("timezone"),
+  loginMethod: varchar("login_method"),
+  securityFlags: jsonb("security_flags"),
+  deviceType: varchar("device_type"),
+  refreshTokenHash: text("refresh_token_hash"),
+  accessTokenHash: text("access_token_hash"),
+  isRevoked: boolean("is_revoked").default(false).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
 });
 
 // Projects table
@@ -389,7 +407,8 @@ export type InsertProjectFundTransfer = z.infer<typeof insertProjectFundTransfer
 export const insertAuthUserSessionSchema = createInsertSchema(authUserSessions).omit({
   id: true,
   createdAt: true,
-  lastUsed: true,
+  updatedAt: true,
+  lastActivity: true,
 });
 
 export type AuthUserSession = typeof authUserSessions.$inferSelect;

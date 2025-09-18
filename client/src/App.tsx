@@ -267,6 +267,14 @@ function Router() {
         </AdminRoute>
       </Route>
 
+      <Route path="/smart-data-fetcher">
+        <AdminRoute>
+          <AuthLayout>
+            <SupabaseBackupSystem />
+          </AuthLayout>
+        </AdminRoute>
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
   );

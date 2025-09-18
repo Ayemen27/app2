@@ -19,44 +19,29 @@ function createDatabaseUrl(): string {
 
 // إعداد SSL للاتصال المحلي
 function setupSSLConfig() {
-  const sslCertPath = '/etc/ssl/certs/pgsql.crt';
-  
-  // فحص وجود الشهادة المحلية
-  if (fs.existsSync(sslCertPath)) {
-    try {
-      const caCert = fs.readFileSync(sslCertPath, 'utf-8');
-      console.log('🔒 استخدام شهادة SSL محلية:', sslCertPath);
-      return {
-        rejectUnauthorized: false,
-        ca: caCert
-      };
-    } catch (error) {
-      console.warn('⚠️ خطأ في قراءة شهادة SSL:', error);
-      return false;
-    }
-  }
+  const connectionString = createDatabaseUrl();
   
   // التحقق من البيئة المحلية
-  const connectionString = createDatabaseUrl();
   const isLocalConnection = connectionString.includes('localhost') || 
                            connectionString.includes('127.0.0.1') ||
                            connectionString.includes('@localhost/');
   
   if (isLocalConnection) {
-    console.log('🔓 اتصال محلي - تعطيل فحص شهادة SSL');
-    return {
-      rejectUnauthorized: false
-    };
+    console.log('🔓 اتصال محلي - تعطيل SSL');
+    return false;
   }
   
-  // للاتصالات الخارجية - استخدام SSL مع تجاهل شهادات التوقيع الذاتي
-  console.log('🌐 اتصال خارجي - تفعيل SSL مع تجاهل الشهادات الذاتية');
+  // للاتصالات الخارجية - استخدام SSL مع تجاهل جميع مشاكل الشهادات
+  console.log('🌐 اتصال خارجي - تفعيل SSL مع تجاهل مشاكل الشهادات');
   return {
-    rejectUnauthorized: false
+    rejectUnauthorized: false,
+    checkServerIdentity: () => undefined,
+    secureProtocol: 'TLSv1_2_method'
   };
-  
-  return false;
 }
+
+// تعيين متغير البيئة لتجاهل مشاكل SSL
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const connectionString = createDatabaseUrl();
 const sslConfig = setupSSLConfig();

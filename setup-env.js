@@ -4,11 +4,13 @@
  * يتأكد من وجود جميع المتغيرات المطلوبة في ملف .env
  */
 
-const fs = require('fs');
-const crypto = require('crypto');
-const path = require('path');
+import fs from 'fs';
+import crypto from 'crypto';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const envPath = path.join(process.cwd(), '.env');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.join(__dirname, '.env');
 
 // المتغيرات المطلوبة مع قيمها
 const requiredEnvVars = {

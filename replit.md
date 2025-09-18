@@ -38,7 +38,7 @@ A comprehensive construction project management system designed for the Middle E
 - **Data Synchronization**: Direct connection to the same Supabase database, ensuring real-time synchronization with the web application.
 
 ### Secret Key Management System
-- **Functionality**: Automatically checks for and adds missing required secret keys (JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, ENCRYPTION_KEY, SUPABASE_SERVICE_ROLE_KEY) at server startup, ensuring secure values are always present.
+- **Functionality**: Automatically checks for and adds missing required secret keys (JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, ENCRYPTION_KEY, DATABASE_URL) at server startup, ensuring secure values are always present for app2data database connection.
 
 ### General Improvements
 - **API Robustness**: Enhanced error handling with `try-catch`, `Array.isArray()` checks, support for multiple API response structures, and optimized performance with `staleTime`, `retry`, and `refetchInterval`.
@@ -47,10 +47,10 @@ A comprehensive construction project management system designed for the Middle E
 - **Code Quality**: Achieved zero LSP diagnostics and perfect TypeScript compliance across the codebase.
 
 ## External Dependencies
-- **Database**: Supabase PostgreSQL
+- **Database**: app2data PostgreSQL
 - **Frontend Libraries**: React.js, TypeScript, Tailwind CSS, shadcn/ui, React Query (@tanstack/react-query), Wouter, React Hook Form, Zod
 - **Backend Libraries**: Express.js, TypeScript, Drizzle ORM, jsonwebtoken, bcrypt
-- **Mobile Libraries**: React Native, Expo SDK, @supabase/supabase-js, @react-native-async-storage/async-storage, speakeasy
+- **Mobile Libraries**: React Native, Expo SDK, @react-native-async-storage/async-storage, speakeasy
 - **Export Libraries**: ExcelJS, jsPDF
 - **Build Tools**: Vite (web), EAS Build (mobile)
 - **Security & Utilities**: crypto (Node.js built-in), dotenv

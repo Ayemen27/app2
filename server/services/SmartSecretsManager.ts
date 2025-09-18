@@ -41,22 +41,10 @@ export class SmartSecretsManager {
       length: 128
     },
     {
-      name: 'SUPABASE_URL',
-      description: 'رابط قاعدة بيانات Supabase',
+      name: 'DATABASE_URL',
+      description: 'رابط قاعدة بيانات app2data',
       generateSecure: false,
-      defaultValue: 'https://your-project.supabase.co'
-    },
-    {
-      name: 'SUPABASE_ANON_KEY',
-      description: 'مفتاح Supabase العام',
-      generateSecure: false,
-      defaultValue: 'your-anon-key'
-    },
-    {
-      name: 'SUPABASE_SERVICE_ROLE_KEY',
-      description: 'مفتاح Supabase الخدمي',
-      generateSecure: false,
-      defaultValue: 'your-service-role-key'
+      defaultValue: 'postgresql://user:pass@host:5432/app2data'
     }
   ];
 
@@ -219,14 +207,14 @@ export class SmartSecretsManager {
         if (secretConfig.generateSecure) {
           value = this.generateSecureKey(secretConfig.length || 64);
           console.log(`🔐 تم إنشاء مفتاح آمن جديد: ${secretName}`);
-        } else if (secretConfig.defaultValue && secretConfig.name.includes('SUPABASE')) {
-          // للمتغيرات Supabase، تحقق من وجود قيم حقيقية في .env أولاً
-          if (envFileVars[secretName] && !envFileVars[secretName].includes('your-')) {
+        } else if (secretConfig.defaultValue && secretConfig.name.includes('DATABASE')) {
+          // للمتغيرات قاعدة البيانات، تحقق من وجود قيم حقيقية في .env أولاً
+          if (envFileVars[secretName] && !envFileVars[secretName].includes('user:pass')) {
             value = envFileVars[secretName];
             console.log(`📋 تم استخدام القيمة الموجودة: ${secretName}`);
           } else {
-            console.log(`⚠️ تحذير: ${secretName} يحتاج قيمة حقيقية من Supabase`);
-            console.log(`💡 قم بنسخ القيمة الصحيحة من لوحة تحكم Supabase`);
+            console.log(`⚠️ تحذير: ${secretName} يحتاج قيمة حقيقية لقاعدة بيانات app2data`);
+            console.log(`💡 قم بإعداد رابط قاعدة البيانات الصحيح`);
             value = secretConfig.defaultValue;
           }
         } else if (secretConfig.defaultValue) {
@@ -395,7 +383,7 @@ export class SmartSecretsManager {
    */
   private validateProductionEnvironment(): boolean {
     const requiredForProduction = [
-      'SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
+      'DATABASE_URL', 
       'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'ENCRYPTION_KEY'
     ];
     
@@ -411,7 +399,7 @@ export class SmartSecretsManager {
       return true;
     } else {
       console.error(`❌ متغيرات مفقودة في بيئة الإنتاج: ${missing.join(', ')}`);
-      console.error('💡 تأكد من تكامل Supabase مع Vercel وإعدادات المتغيرات البيئية');
+      console.error('💡 تأكد من إعدادات قاعدة البيانات app2data والمتغيرات البيئية');
       return false;
     }
   }
@@ -422,15 +410,10 @@ export const smartSecretsManager = SmartSecretsManager.getInstance();
 
 // إضافة دالة مساعدة للحصول على رابط قاعدة البيانات
 export function getDatabaseUrl(): string {
-  // في بيئة الإنتاج، استخدم SUPABASE_URL المدمجة
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
-    const url = process.env.SUPABASE_URL;
-    if (!url) {
-      throw new Error('SUPABASE_URL غير موجودة في متغيرات البيئة');
-    }
-    return url.replace('https://', 'postgresql://postgres:').replace('.supabase.co', '.supabase.co:6543/postgres');
+  // استخدام قاعدة البيانات app2data
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('DATABASE_URL غير موجودة في متغيرات البيئة');
   }
-  
-  // في بيئة التطوير، استخدم القيم من .env
-  return process.env.SUPABASE_URL || 'https://wibtasmyusxfqxxqekks.supabase.co';
+  return url;
 }

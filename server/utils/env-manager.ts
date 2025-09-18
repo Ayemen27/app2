@@ -45,22 +45,10 @@ class EnvironmentManager {
       generator: () => crypto.randomBytes(32).toString('hex')
     },
     {
-      key: 'SUPABASE_URL',
-      description: 'رابط قاعدة بيانات Supabase',
-      required: false,
-      defaultValue: process.env.DATABASE_URL ? 'auto-detected-from-database' : undefined
-    },
-    {
-      key: 'SUPABASE_ANON_KEY',
-      description: 'مفتاح Supabase العام',
-      required: false,
-      defaultValue: process.env.DATABASE_URL ? 'auto-detected-from-database' : undefined
-    },
-    {
-      key: 'SUPABASE_SERVICE_ROLE_KEY',
-      description: 'مفتاح Supabase الخدمي',
-      required: false,
-      defaultValue: process.env.DATABASE_URL ? 'auto-detected-from-database' : undefined
+      key: 'DATABASE_URL',
+      description: 'رابط قاعدة بيانات app2data',
+      required: true,
+      defaultValue: 'postgresql://user:password@host:5432/app2data'
     },
     {
       key: 'NODE_ENV',

@@ -193,10 +193,18 @@ export const getQueryFn: <T>(options: {
       
       // حماية إضافية من مشاكل البيانات وإستخراج البيانات الفعلية
       if (data && typeof data === 'object') {
+        // للتحقق من endpoints الهجرة التي تُرجع objects
+        const isMigrationEndpoint = typeof queryKey[0] === 'string' && queryKey[0].includes('migration');
+        
         // إذا كانت البيانات في الشكل { success, data, count } (شكل Vercel API)
         if (data.success !== undefined && data.data !== undefined) {
           
-          // التأكد من أن data.data مصفوفة
+          // لنقاط النهاية الخاصة بالهجرة، نُرجع البيانات كما هي
+          if (isMigrationEndpoint) {
+            return data.data; // إرجاع البيانات كما هي (object أو array)
+          }
+          
+          // للبقية، التأكد من أن data.data مصفوفة
           if (data.data !== null && !Array.isArray(data.data)) {
             console.warn('🚨 [QueryClient] تحذير: data.data ليست مصفوفة، تحويل إلى مصفوفة فارغة');
             console.warn('🔍 نوع البيانات الحالي:', typeof data.data, data.data);
@@ -212,8 +220,8 @@ export const getQueryFn: <T>(options: {
           return data;
         }
         
-        // حماية إضافية - إذا كانت data.data موجودة ولكن success غير محدد
-        if (data.data !== undefined && data.data !== null && !Array.isArray(data.data)) {
+        // حماية إضافية - لكن للهجرة نحتفظ بالكائنات
+        if (!isMigrationEndpoint && data.data !== undefined && data.data !== null && !Array.isArray(data.data)) {
           console.warn('🚨 [QueryClient] تحذير: data.data ليست مصفوفة، تحويل إلى مصفوفة فارغة');
           console.warn('🔍 نوع البيانات الحالي:', typeof data.data, data.data);
           data.data = [];

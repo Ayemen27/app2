@@ -137,17 +137,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error(data.message || 'فشل تسجيل الدخول');
       }
 
+      // استخراج بيانات المستخدم بشكل صحيح
+      const userData = data.data?.user || data.user;
+      const tokenData = data.data?.accessToken || data.tokens?.accessToken || data.accessToken;
+      const refreshTokenData = data.data?.refreshToken || data.tokens?.refreshToken || data.refreshToken;
+
+      console.log('🔍 [AuthProvider.login] فحص البيانات المستخرجة:', { 
+        userData: !!userData, 
+        hasToken: !!tokenData,
+        userDetails: userData ? { id: userData.id, email: userData.email } : 'none'
+      });
+
+      if (!userData || !tokenData) {
+        console.error('❌ [AuthProvider.login] بيانات غير مكتملة:', { userData, hasToken: !!tokenData });
+        throw new Error('بيانات تسجيل الدخول غير مكتملة من الخادم');
+      }
+
       // حفظ بيانات المستخدم
       const user = {
-        id: data.user?.id || data.data?.user?.id,
-        email: data.user?.email || data.data?.user?.email,
-        name: data.user?.name || data.data?.user?.name || `${data.data?.user?.firstName || ''} ${data.data?.user?.lastName || ''}`.trim(),
-        role: data.user?.role || data.data?.user?.role,
+        id: userData.id,
+        email: userData.email,
+        name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.email,
+        role: userData.role || 'admin',
       };
 
-      const token = data.tokens?.accessToken || data.data?.accessToken;
+      const token = tokenData;
 
-      console.log('🔍 [AuthProvider.login] فحص البيانات المستلمة:', { 
+      console.log('🔍 [AuthProvider.login] فحص البيانات النهائية:', { 
         userId: user.id, 
         userEmail: user.email, 
         userName: user.name, 
@@ -156,19 +172,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         tokenPreview: token ? token.substring(0, 20) + '...' : 'none'
       });
 
-      if (!user.id || !token) {
-        console.error('❌ [AuthProvider.login] بيانات غير مكتملة:', { user, hasToken: !!token });
-        throw new Error('بيانات تسجيل الدخول غير مكتملة');
-      }
-
+      // حفظ المستخدم أولاً
+      console.log('👤 [AuthProvider.login] حفظ بيانات المستخدم...');
       setUser(user);
       localStorage.setItem('user', JSON.stringify(user));
 
-      // معالجة كلاً من tokens.accessToken و token (للتوافق مع Vercel)
-      if (token) {
-        console.log('💾 [AuthProvider.login] حفظ الرمز المميز');
-        localStorage.setItem('accessToken', token);
-        localStorage.setItem('refreshToken', data.tokens?.refreshToken || data.data?.refreshToken || '');
+      // حفظ التوكينات
+      console.log('🔐 [AuthProvider.login] حفظ الرموز المميزة...');
+      localStorage.setItem('accessToken', token);
+      if (refreshTokenData) {
+        localStorage.setItem('refreshToken', refreshTokenData);
       }
 
       console.log('🔄 [AuthProvider.login] تحديث cache queries');

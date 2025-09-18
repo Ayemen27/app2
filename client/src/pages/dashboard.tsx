@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -497,6 +497,9 @@ export default function Dashboard() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>إضافة عامل جديد</DialogTitle>
+            <DialogDescription>
+              أدخل بيانات العامل الجديد لإضافته إلى النظام
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -553,6 +556,9 @@ export default function Dashboard() {
                   <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                       <DialogTitle>إضافة نوع عامل جديد</DialogTitle>
+                      <DialogDescription>
+                        أدخل اسم نوع العامل الجديد ليتم حفظه في قاعدة البيانات
+                      </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
@@ -658,6 +664,9 @@ export default function Dashboard() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>إضافة مشروع جديد</DialogTitle>
+            <DialogDescription>
+              أدخل بيانات المشروع الجديد لإضافته إلى النظام
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>

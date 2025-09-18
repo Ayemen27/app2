@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -72,9 +72,11 @@ export function EquipmentMovementHistoryDialog({
             </div>
             <div className="flex-1">
               <div className="text-blue-900">سجل حركة المعدة</div>
-              <div className="text-sm font-normal text-blue-600 mt-1">{equipment?.name}</div>
             </div>
           </DialogTitle>
+          <DialogDescription className="text-sm font-normal text-blue-600 mt-1">
+            {equipment?.name} - عرض سجل التحويلات والحركات
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 mt-4 px-1">

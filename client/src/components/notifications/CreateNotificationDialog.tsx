@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { 
   Dialog, 
   DialogContent, 
+  DialogDescription,
   DialogHeader, 
   DialogTitle 
 } from "@/components/ui/dialog";
@@ -247,7 +248,9 @@ export function CreateNotificationDialog({
             </div>
             <div>
               <DialogTitle className="text-xl font-bold">إنشاء إشعار جديد</DialogTitle>
-              <p className="text-blue-100 text-sm mt-1">إرسال إشعارات مخصصة للمستخدمين</p>
+              <DialogDescription className="text-blue-100 text-sm mt-1">
+                إرسال إشعارات مخصصة للمستخدمين
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>

@@ -131,7 +131,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('📨 [AuthProvider.login] استجابة تسجيل الدخول:', response.status);
 
       const data = await response.json();
-      console.log('📦 [AuthProvider.login] بيانات الاستجابة الكاملة:', JSON.stringify(data, null, 2));
+      // ازالة تسجيل البيانات الحساسة - لا نطبع الرموز بشكل كامل
+      console.log('📦 [AuthProvider.login] تم استلام بيانات تسجيل الدخول بنجاح');
       console.log('📦 [AuthProvider.login] تفاصيل البيانات:', {
         success: data.success,
         hasData: !!data.data,
@@ -248,15 +249,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error('❌ [AuthProvider.login] خطأ في تسجيل الدخول:', error);
       console.error('❌ [AuthProvider.login] تفاصيل الخطأ:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : 'UnknownError'
       });
       
       // رمي خطأ واضح للمستخدم
-      if (error.message && error.message.includes('غير مكتملة')) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage && errorMessage.includes('غير مكتملة')) {
         throw error;
-      } else if (error.message && error.message.includes('مفقود')) {
+      } else if (errorMessage && errorMessage.includes('مفقود')) {
         throw error;
       } else {
         throw new Error('حدث خطأ أثناء تسجيل الدخول، يرجى المحاولة مرة أخرى');

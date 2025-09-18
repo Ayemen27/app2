@@ -3,7 +3,6 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال Supabase app2data
 import authRoutes from './routes/auth.js';
-import routes from './routes.js';
 
 const app = express();
 app.use(express.json());
@@ -42,7 +41,6 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use('/api', routes);
   app.use('/api/auth', authRoutes);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

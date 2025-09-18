@@ -18,27 +18,24 @@ import {
   terminateSession,
   terminateAllOtherSessions,
   changePassword,
-  refreshAccessToken,
+  refreshAccessToken as refreshAccessTokenService,
   verifyAccessToken,
 } from '../auth/auth-service';
+import {
+  generateTokenPair,
+  verifyAccessToken as verifyJWT,
+  verifyRefreshToken,
+  refreshAccessToken,
+  JWT_CONFIG
+} from '../auth/jwt-utils.js';
 import jwt from 'jsonwebtoken';
 
-// دوال مساعدة لإنشاء الرموز المميزة
-const generateAccessToken = (payload: { userId: string; email: string; role: string }) => {
-  return jwt.sign(
-    payload,
-    process.env.JWT_ACCESS_SECRET || 'demo-access-secret',
-    { expiresIn: '15m' }
-  );
-};
-
-const generateRefreshToken = (payload: { userId: string; email: string }) => {
-  return jwt.sign(
-    payload,
-    process.env.JWT_REFRESH_SECRET || 'demo-refresh-secret',
-    { expiresIn: '30d' }
-  );
-};
+// إعداد JWT Secrets - استخدام نفس المصدر من jwt-utils
+console.log('🔧 [Auth] إعداد JWT secrets:', {
+  accessSecret: JWT_CONFIG.accessTokenSecret ? 'متوفر' : 'غير متوفر',
+  refreshSecret: JWT_CONFIG.refreshTokenSecret ? 'متوفر' : 'غير متوفر',
+  source: 'jwt-utils.ts'
+});
 
 const router = Router();
 
@@ -117,11 +114,13 @@ router.post('/login', async (req, res) => {
 
     console.log('🔍 [Auth] البحث عن المستخدم:', email.toLowerCase());
 
-    // التحقق من تسجيل الدخول السريع
+    // التحقق من تسجيل الدخول السريع (فقط في بيئة التطوير)
+    const isDevEnvironment = process.env.NODE_ENV === 'development';
+    const quickLoginEnabled = process.env.ENABLE_QUICK_LOGIN !== 'false'; // Default true for dev
     const isBypassLogin = (email === 'admin@demo.local' && password === 'bypass-demo-login');
     
-    if (isBypassLogin) {
-      console.log('🚀 [Auth] تسجيل دخول سريع تجريبي');
+    if (isBypassLogin && isDevEnvironment && quickLoginEnabled) {
+      console.log('🚀 [Auth] تسجيل دخول سريع تجريبي (بيئة تطوير فقط)');
       
       // البحث عن أي مستخدم admin أو إنشاء واحد
       let user = await db.select().from(users).where(eq(users.role, 'admin')).limit(1);
@@ -135,23 +134,17 @@ router.post('/login', async (req, res) => {
           lastName: 'النظام',
           role: 'admin',
           isActive: true,
-          emailVerifiedAt: new Date(),
         }).returning();
         
         user = newUser;
       }
 
-      // إنشاء التوكينات
-      const accessToken = generateAccessToken({
-        userId: user[0].id,
-        email: user[0].email,
-        role: user[0].role
-      });
-
-      const refreshToken = generateRefreshToken({
-        userId: user[0].id,
-        email: user[0].email
-      });
+      // إنشاء التوكينات باستخدام jwt-utils
+      const { accessToken, refreshToken } = await generateTokenPair(
+        user[0].id,
+        user[0].email,
+        user[0].role
+      );
 
       console.log('✅ [Auth] تم تسجيل الدخول السريع بنجاح');
 
@@ -176,6 +169,7 @@ router.post('/login', async (req, res) => {
       console.log('🚀 [Auth] إرسال بيانات تسجيل الدخول السريع:', {
         hasUser: !!quickLoginResponse.data.user,
         userId: quickLoginResponse.data.user.id,
+        userEmail: quickLoginResponse.data.user.email,
         hasToken: !!quickLoginResponse.data.accessToken,
         responseStructure: {
           success: quickLoginResponse.success,
@@ -185,9 +179,27 @@ router.post('/login', async (req, res) => {
         }
       });
 
-      console.log('📤 [Auth] البيانات الكاملة لتسجيل الدخول السريع:', JSON.stringify(quickLoginResponse, null, 2));
+      // ازالة تسجيل البيانات الحساسة - لا نطبع الرموز بشكل كامل
+      console.log('✅ [Auth] تم إعداد استجابة تسجيل الدخول السريع بنجاح');
 
       return res.status(200).json(quickLoginResponse);
+    }
+    
+    // رفض تسجيل الدخول السريع في بيئة الإنتاج
+    if (isBypassLogin && !isDevEnvironment) {
+      console.log('🚫 [Auth] محاولة تسجيل دخول سريع في بيئة الإنتاج - مرفوض');
+      return res.status(401).json({
+        success: false,
+        message: "بيانات تسجيل الدخول غير صحيحة"
+      });
+    }
+    
+    if (isBypassLogin && !quickLoginEnabled) {
+      console.log('🚫 [Auth] تسجيل الدخول السريع معطل');
+      return res.status(401).json({
+        success: false,
+        message: "بيانات تسجيل الدخول غير صحيحة"
+      });
     }
 
     // البحث عن المستخدم العادي
@@ -227,17 +239,12 @@ router.post('/login', async (req, res) => {
 
     console.log('🎯 [Auth] إنشاء التوكينات...');
 
-    // إنشاء التوكينات
-    const accessToken = generateAccessToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role
-    });
-
-    const refreshToken = generateRefreshToken({
-      userId: user.id,
-      email: user.email
-    });
+    // إنشاء التوكينات باستخدام jwt-utils
+    const { accessToken, refreshToken } = await generateTokenPair(
+      user.id,
+      user.email,
+      user.role
+    );
 
     console.log('📝 [Auth] تحديث آخر تسجيل دخول...');
 
@@ -266,11 +273,13 @@ router.post('/login', async (req, res) => {
       }
     };
 
-    console.log('📤 [Auth] إرسال البيانات:', {
+    console.log('📤 [Auth] إرسال بيانات تسجيل الدخول:', {
       hasUser: !!responseData.data.user,
       userId: responseData.data.user.id,
+      userEmail: responseData.data.user.email,
+      userRole: responseData.data.user.role,
       hasToken: !!responseData.data.accessToken,
-      tokenPreview: responseData.data.accessToken.substring(0, 20) + '...',
+      hasRefreshToken: !!responseData.data.refreshToken,
       responseStructure: {
         success: responseData.success,
         hasData: !!responseData.data,
@@ -279,7 +288,8 @@ router.post('/login', async (req, res) => {
       }
     });
 
-    console.log('📤 [Auth] البيانات الكاملة لتسجيل الدخول العادي:', JSON.stringify(responseData, null, 2));
+    // ازالة تسجيل البيانات الحساسة - لا نطبع الرموز بشكل كامل
+    console.log('✅ [Auth] تم إعداد استجابة تسجيل الدخول بنجاح');
 
     res.status(200).json(responseData);
 
@@ -288,7 +298,7 @@ router.post('/login', async (req, res) => {
     res.status(500).json({
       success: false,
       message: "حدث خطأ في الخادم، يرجى المحاولة لاحقاً",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
     });
   }
 });

@@ -33,6 +33,7 @@ import AISystemDashboard from "@/pages/AISystemDashboard";
 import SmartErrorsPage from "@/pages/SmartErrorsPage";
 import { SecurityPoliciesPage } from "@/pages/SecurityPoliciesPage";
 import SupabaseBackupSystem from "@/pages/smart-data-fetcher";
+import DataMigrationPage from "@/pages/data-migration";
 
 import Header from "@/components/layout/header";
 import BottomNavigation from "@/components/layout/bottom-navigation";
@@ -271,6 +272,14 @@ function Router() {
         <AdminRoute>
           <AuthLayout>
             <SupabaseBackupSystem />
+          </AuthLayout>
+        </AdminRoute>
+      </Route>
+
+      <Route path="/data-migration">
+        <AdminRoute>
+          <AuthLayout>
+            <DataMigrationPage />
           </AuthLayout>
         </AdminRoute>
       </Route>

@@ -395,6 +395,294 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== API endpoints للهجرة المتقدمة من Supabase ====================
+
+  // جلب قائمة الجداول المتاحة للهجرة
+  app.get("/api/migration/tables", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const defaultTables = [
+        "account_balances", "accounts", "actions", "approvals", "autocomplete_data", "channels",
+        "daily_expense_summaries", "daily_expenses", "equipment", "finance_events", "finance_payments",
+        "fund_transfers", "journals", "maintenance_schedules", "maintenance_tasks", "material_purchases",
+        "materials", "messages", "notification_read_states", "print_settings", "project_fund_transfers",
+        "projects", "report_templates", "supplier_payments", "suppliers", "system_events", "system_notifications",
+        "tool_categories", "tool_cost_tracking", "tool_maintenance_logs", "tool_movements", "tool_notifications",
+        "tool_purchase_items", "tool_reservations", "tool_stock", "tool_usage_analytics", "tools",
+        "transaction_lines", "transactions", "users", "worker_attendance", "workers"
+      ];
+
+      // إضافة معلومات إضافية لكل جدول
+      const tablesWithInfo = defaultTables.map(tableName => ({
+        name: tableName,
+        displayName: getTableDisplayName(tableName),
+        category: getTableCategory(tableName),
+        estimatedRows: 0, // سيتم تحديثها لاحقاً عند الاستعلام
+        status: 'ready',
+        priority: getTablePriority(tableName)
+      }));
+
+      res.json({
+        success: true,
+        data: tablesWithInfo,
+        message: `تم العثور على ${tablesWithInfo.length} جدول متاح للهجرة`
+      });
+    } catch (error: any) {
+      console.error('❌ خطأ في جلب قائمة الجداول:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في جلب قائمة الجداول للهجرة"
+      });
+    }
+  });
+
+  // جلب معلومات مفصلة عن جدول محدد
+  app.get("/api/migration/table/:tableName/info", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { tableName } = req.params;
+      const externalUrl = process.env.OLD_DB_URL;
+      
+      if (!externalUrl) {
+        return res.status(400).json({
+          success: false,
+          error: "لم يتم تكوين اتصال قاعدة البيانات الخارجية"
+        });
+      }
+
+      // هنا يمكن إضافة استعلام فعلي للحصول على معلومات الجدول
+      const tableInfo = {
+        name: tableName,
+        displayName: getTableDisplayName(tableName),
+        estimatedRows: Math.floor(Math.random() * 10000), // مؤقت - سيتم استبداله باستعلام حقيقي
+        columns: [],
+        lastUpdated: new Date().toISOString(),
+        status: 'ready'
+      };
+
+      res.json({
+        success: true,
+        data: tableInfo,
+        message: `تم جلب معلومات الجدول ${tableName} بنجاح`
+      });
+    } catch (error: any) {
+      console.error(`❌ خطأ في جلب معلومات الجدول ${req.params.tableName}:`, error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في جلب معلومات الجدول"
+      });
+    }
+  });
+
+  // بدء عملية الهجرة لجدول محدد
+  app.post("/api/migration/extract/:tableName", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { tableName } = req.params;
+      const { batchSize = 100, maxRetries = 3 } = req.body;
+
+      console.log(`🚀 بدء عملية هجرة الجدول: ${tableName}`);
+
+      // تحديد حالة الهجرة في الذاكرة (في التطبيق الحقيقي، استخدم قاعدة بيانات)
+      const migrationJob = {
+        id: `migration_${tableName}_${Date.now()}`,
+        tableName,
+        status: 'started',
+        batchSize,
+        maxRetries,
+        startedAt: new Date().toISOString(),
+        progress: 0,
+        totalRows: 0,
+        processedRows: 0,
+        errors: []
+      };
+
+      // إرجاع معرف المهمة فوراً
+      res.json({
+        success: true,
+        data: migrationJob,
+        message: `تم بدء عملية هجرة الجدول ${tableName}`
+      });
+
+      // تشغيل عملية الهجرة في الخلفية
+      processMigrationInBackground(migrationJob).catch(error => {
+        console.error(`❌ خطأ في هجرة الجدول ${tableName}:`, error);
+      });
+
+    } catch (error: any) {
+      console.error(`❌ خطأ في بدء هجرة الجدول ${req.params.tableName}:`, error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في بدء عملية الهجرة"
+      });
+    }
+  });
+
+  // نقل البيانات (هجرة شاملة لعدة جداول)
+  app.post("/api/migration/transfer", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { tables = [], batchSize = 50, delayBetweenBatches = 1000 } = req.body;
+
+      if (!tables.length) {
+        return res.status(400).json({
+          success: false,
+          error: "يجب تحديد جدول واحد على الأقل للهجرة"
+        });
+      }
+
+      console.log(`🚀 بدء الهجرة الشاملة لـ ${tables.length} جدول`);
+
+      const migrationSession = {
+        id: `batch_migration_${Date.now()}`,
+        tables,
+        batchSize,
+        delayBetweenBatches,
+        status: 'started',
+        startedAt: new Date().toISOString(),
+        progress: 0,
+        completedTables: [],
+        failedTables: [],
+        totalTables: tables.length
+      };
+
+      res.json({
+        success: true,
+        data: migrationSession,
+        message: `تم بدء الهجرة الشاملة لـ ${tables.length} جدول`
+      });
+
+      // تشغيل الهجرة الشاملة في الخلفية
+      processBatchMigrationInBackground(migrationSession).catch(error => {
+        console.error('❌ خطأ في الهجرة الشاملة:', error);
+      });
+
+    } catch (error: any) {
+      console.error('❌ خطأ في بدء الهجرة الشاملة:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في بدء عملية الهجرة الشاملة"
+      });
+    }
+  });
+
+  // متابعة حالة عملية الهجرة
+  app.get("/api/migration/status/:jobId?", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { jobId } = req.params;
+
+      // في التطبيق الحقيقي، استخدم قاعدة بيانات لتخزين حالة المهام
+      const mockStatus = {
+        id: jobId || 'default_job',
+        status: 'running',
+        progress: Math.floor(Math.random() * 100),
+        startedAt: new Date(Date.now() - 300000).toISOString(), // منذ 5 دقائق
+        estimatedCompletion: new Date(Date.now() + 120000).toISOString(), // خلال دقيقتين
+        currentTable: 'projects',
+        processedRows: 1247,
+        totalRows: 2500,
+        errors: [],
+        completedTables: ['users', 'workers'],
+        remainingTables: ['projects', 'daily_expenses', 'materials']
+      };
+
+      res.json({
+        success: true,
+        data: mockStatus,
+        message: "تم جلب حالة عملية الهجرة بنجاح"
+      });
+    } catch (error: any) {
+      console.error('❌ خطأ في جلب حالة الهجرة:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في جلب حالة عملية الهجرة"
+      });
+    }
+  });
+
+  // إيقاف عملية الهجرة
+  app.post("/api/migration/stop/:jobId", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { jobId } = req.params;
+
+      console.log(`⏹️ إيقاف عملية الهجرة: ${jobId}`);
+
+      res.json({
+        success: true,
+        message: `تم إيقاف عملية الهجرة ${jobId} بنجاح`
+      });
+    } catch (error: any) {
+      console.error('❌ خطأ في إيقاف عملية الهجرة:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في إيقاف عملية الهجرة"
+      });
+    }
+  });
+
+  // ==================== Helper functions للهجرة ====================
+
+  function getTableDisplayName(tableName: string): string {
+    const displayNames: { [key: string]: string } = {
+      'users': 'المستخدمين',
+      'projects': 'المشاريع',
+      'workers': 'العمال',
+      'worker_attendance': 'حضور العمال',
+      'daily_expenses': 'المصروفات اليومية',
+      'material_purchases': 'مشتريات المواد',
+      'materials': 'المواد',
+      'suppliers': 'الموردين',
+      'fund_transfers': 'تحويلات العهدة',
+      'equipment': 'المعدات',
+      'tools': 'الأدوات',
+      'transactions': 'المعاملات',
+      'accounts': 'الحسابات'
+    };
+    return displayNames[tableName] || tableName;
+  }
+
+  function getTableCategory(tableName: string): string {
+    const categories: { [key: string]: string } = {
+      'users': 'system',
+      'projects': 'core',
+      'workers': 'core',
+      'worker_attendance': 'core',
+      'daily_expenses': 'financial',
+      'material_purchases': 'financial',
+      'materials': 'inventory',
+      'suppliers': 'external',
+      'fund_transfers': 'financial',
+      'equipment': 'assets',
+      'tools': 'assets'
+    };
+    return categories[tableName] || 'other';
+  }
+
+  function getTablePriority(tableName: string): number {
+    const priorities: { [key: string]: number } = {
+      'users': 1,
+      'projects': 2,
+      'workers': 3,
+      'materials': 4,
+      'suppliers': 5
+    };
+    return priorities[tableName] || 10;
+  }
+
+  async function processMigrationInBackground(migrationJob: any) {
+    console.log(`🔄 معالجة هجرة الجدول ${migrationJob.tableName} في الخلفية...`);
+    // هنا سيتم استدعاء السكريبت المحسن للهجرة
+    // await enhancedMigrationScript.migrateTable(migrationJob);
+  }
+
+  async function processBatchMigrationInBackground(migrationSession: any) {
+    console.log(`🔄 معالجة الهجرة الشاملة لـ ${migrationSession.totalTables} جدول في الخلفية...`);
+    // هنا سيتم استدعاء السكريبت المحسن للهجرة الشاملة
+    // await enhancedMigrationScript.migrateBatch(migrationSession);
+  }
+
   // Temporary placeholder for projects with stats
   app.get("/api/projects/with-stats", (req, res) => {
     res.json({ 

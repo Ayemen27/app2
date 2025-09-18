@@ -56,7 +56,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/backup/table/:tableName/info", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { tableName } = req.params;
-      const externalUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DB_URL;
+      const externalUrl = process.env.OLD_DB_URL;
       
       if (!externalUrl) {
         return res.status(400).json({
@@ -88,7 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { tableName } = req.params;
       const { limit = 50, offset = 0, orderBy, orderDirection } = req.query;
-      const externalUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DB_URL;
+      const externalUrl = process.env.OLD_DB_URL;
       
       if (!externalUrl) {
         return res.status(400).json({
@@ -130,7 +130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { tableName } = req.params;
       const { batchSize = 100 } = req.body;
-      const externalUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DB_URL;
+      const externalUrl = process.env.OLD_DB_URL;
       
       if (!externalUrl) {
         return res.status(400).json({
@@ -174,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/backup/full-backup", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { batchSize = 100 } = req.body;
-      const externalUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DB_URL;
+      const externalUrl = process.env.OLD_DB_URL;
       
       if (!externalUrl) {
         return res.status(400).json({

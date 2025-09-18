@@ -3,7 +3,7 @@ import { Client as PgClient } from "pg";
 import dotenv from "dotenv";
 
 // تحميل متغيرات البيئة
-dotenv.config();
+dotenv.config({ path: '.env.migration' });
 
 // 🎯 ألوان للتسجيل
 const colors = {
@@ -153,8 +153,37 @@ async function migrateTable(tableName: string): Promise<void> {
       nullable: col.is_nullable === 'YES'
     }));
 
+    // فحص البنية أولاً
+    log(`🔍 فحص بنية الجدول ${tableName}...`, colors.blue);
+    const schemaResult = await oldDb.query(`
+      SELECT column_name, data_type, is_nullable 
+      FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = $1
+      ORDER BY ordinal_position
+    `, [tableName]);
+    
+    if (schemaResult.rows.length === 0) {
+      log(`❌ الجدول ${tableName} غير موجود أو لا يحتوي على أعمدة`, colors.red);
+      stats.failed++;
+      return;
+    }
+    
+    log(`📋 الجدول ${tableName} يحتوي على ${schemaResult.rows.length} عمود`, colors.cyan);
+
     // استخراج البيانات من الجدول القديم
-    const res = await oldDb.query(`SELECT * FROM ${tableName} ORDER BY created_at ASC`);
+    let res;
+    try {
+      // محاولة مع ترتيب created_at إذا كان موجود
+      const hasCreatedAt = schemaResult.rows.some(col => col.column_name === 'created_at');
+      const orderBy = hasCreatedAt ? 'ORDER BY created_at ASC' : '';
+      
+      res = await oldDb.query(`SELECT * FROM ${tableName} ${orderBy}`);
+    } catch (error) {
+      // إذا فشل، جرب بدون ترتيب
+      log(`⚠️ فشل في الاستعلام المرتب، محاولة بدون ترتيب...`, colors.yellow);
+      res = await oldDb.query(`SELECT * FROM ${tableName}`);
+    }
+    
     const rows = res.rows;
 
     if (rows.length === 0) {
@@ -259,17 +288,48 @@ async function main() {
   log('🚀 بدء عملية ترحيل البيانات من Supabase...', colors.bright);
   log('=' .repeat(60), colors.cyan);
 
+  // التحقق من متغيرات البيئة أولاً
+  log('🔍 فحص متغيرات البيئة...', colors.blue);
+  
+  if (!process.env.SUPABASE_DATABASE_URL) {
+    log('❌ متغير SUPABASE_DATABASE_URL غير موجود!', colors.red);
+    log('💡 تأكد من وجود ملف .env.migration مع الرابط الصحيح', colors.yellow);
+    return;
+  }
+  
+  if (!process.env.DATABASE_URL) {
+    log('❌ متغير DATABASE_URL غير موجود!', colors.red);
+    log('💡 تأكد من وجود ملف .env مع رابط قاعدة البيانات الجديدة', colors.yellow);
+    return;
+  }
+
+  // عرض معلومات الاتصال (مع إخفاء كلمات المرور)
+  const oldUrl = process.env.SUPABASE_DATABASE_URL;
+  const newUrl = process.env.DATABASE_URL;
+  
+  log(`📡 رابط Supabase: ${oldUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`, colors.cyan);
+  log(`📡 رابط قاعدة البيانات الجديدة: ${newUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`, colors.cyan);
+
   try {
     // اختبار الاتصالات
     log('🔗 اختبار الاتصال بقاعدة البيانات القديمة...', colors.blue);
     await oldDb.connect();
-    const oldVersion = await oldDb.query('SELECT version()');
-    log(`✅ نجح الاتصال بقاعدة البيانات القديمة`, colors.green);
+    
+    // فحص تفصيلي للاتصال
+    const oldTest = await oldDb.query('SELECT current_database(), current_user, version()');
+    log(`✅ نجح الاتصال بـ Supabase`, colors.green);
+    log(`   📊 قاعدة البيانات: ${oldTest.rows[0].current_database}`, colors.cyan);
+    log(`   👤 المستخدم: ${oldTest.rows[0].current_user}`, colors.cyan);
+    log(`   🔧 الإصدار: ${oldTest.rows[0].version.split(' ')[0]}`, colors.cyan);
 
     log('🔗 اختبار الاتصال بقاعدة البيانات الجديدة...', colors.blue);
     await newDb.connect();
-    const newVersion = await newDb.query('SELECT version()');
+    
+    const newTest = await newDb.query('SELECT current_database(), current_user, version()');
     log(`✅ نجح الاتصال بقاعدة البيانات الجديدة`, colors.green);
+    log(`   📊 قاعدة البيانات: ${newTest.rows[0].current_database}`, colors.cyan);
+    log(`   👤 المستخدم: ${newTest.rows[0].current_user}`, colors.cyan);
+    log(`   🔧 الإصدار: ${newTest.rows[0].version.split(' ')[0]}`, colors.cyan);
 
     // بدء عملية الترحيل
     log('\n📋 قائمة الجداول المراد ترحيلها:', colors.bright);

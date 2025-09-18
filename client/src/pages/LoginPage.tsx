@@ -248,6 +248,28 @@ export default function LoginPage() {
                   )}
                 </Button>
 
+                {/* زر تسجيل الدخول السريع */}
+                {loginStep === 'credentials' && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full mt-2"
+                    onClick={() => {
+                      // تسجيل دخول سريع بدون كلمة مرور
+                      loginMutation.mutate({
+                        email: 'admin@demo.local',
+                        password: 'bypass-demo-login',
+                        totpCode: '',
+                      });
+                    }}
+                    disabled={loginMutation.isPending}
+                    data-testid="button-quick-login"
+                  >
+                    <Shield className="ml-2 h-4 w-4" />
+                    تسجيل دخول سريع (تجريبي)
+                  </Button>
+                )}
+
                 {loginStep !== 'credentials' && (
                   <Button
                     type="button"

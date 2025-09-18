@@ -4,6 +4,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../auth/jwt-utils.js';
+import jwt from 'jsonwebtoken';
 
 interface AuthRequest extends Request {
   user?: {
@@ -63,6 +64,24 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
     }
 
     const token = authHeader.substring(7);
+    
+    // التحقق من الرمز التجريبي
+    try {
+      const demoDecoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET || 'demo-access-secret') as any;
+      if (demoDecoded && demoDecoded.userId === 'demo-user-id') {
+        console.log('✅ [AUTH] مستخدم تجريبي مصرح له');
+        req.user = {
+          userId: demoDecoded.userId,
+          email: demoDecoded.email,
+          role: demoDecoded.role,
+          sessionId: 'demo-session'
+        };
+        return next();
+      }
+    } catch (error) {
+      // تجاهل خطأ التحقق من الرمز التجريبي والمتابعة للتحقق العادي
+    }
+    
     const decoded = await verifyAccessToken(token);
     
     if (!decoded || !decoded.success || !decoded.user) {

@@ -17,6 +17,24 @@ import {
   refreshAccessToken,
   verifyAccessToken,
 } from '../auth/auth-service';
+import jwt from 'jsonwebtoken';
+
+// دوال مساعدة لإنشاء الرموز المميزة
+const generateAccessToken = (payload: { userId: string; email: string; role: string }) => {
+  return jwt.sign(
+    payload,
+    process.env.JWT_ACCESS_SECRET || 'demo-access-secret',
+    { expiresIn: '15m' }
+  );
+};
+
+const generateRefreshToken = (payload: { userId: string; email: string }) => {
+  return jwt.sign(
+    payload,
+    process.env.JWT_REFRESH_SECRET || 'demo-refresh-secret',
+    { expiresIn: '30d' }
+  );
+};
 
 const router = Router();
 

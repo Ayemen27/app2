@@ -133,15 +133,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     console.log('📋 [AuthProvider.login] بيانات الاستجابة:', data);
 
     if (data.success) {
-      console.log('✅ [AuthProvider.login] نجح تسجيل الدخول، حفظ بيانات المستخدم:', data.user.email);
-      setUser(data.user);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      console.log('✅ [AuthProvider.login] نجح تسجيل الدخول، حفظ بيانات المستخدم:', data.user?.email || data.data?.user?.email);
+      
+      const userData = data.user || data.data?.user;
+      const tokensData = data.tokens || data.data;
+      
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
       
       // معالجة كلاً من tokens.accessToken و token (للتوافق مع Vercel)
-      if (data.tokens && data.tokens.accessToken) {
+      if (tokensData?.accessToken) {
         console.log('💾 [AuthProvider.login] حفظ الرموز من tokens object');
-        localStorage.setItem('accessToken', data.tokens.accessToken);
-        localStorage.setItem('refreshToken', data.tokens.refreshToken || '');
+        localStorage.setItem('accessToken', tokensData.accessToken);
+        localStorage.setItem('refreshToken', tokensData.refreshToken || '');
       } else if (data.token) {
         console.log('💾 [AuthProvider.login] حفظ الرموز من token field');
         localStorage.setItem('accessToken', data.token);

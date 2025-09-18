@@ -6,52 +6,25 @@ import * as schema from "@shared/schema";
 
 // إنشاء رابط قاعدة البيانات من متغيرات البيئة
 function createDatabaseUrl(): string {
-  // الأولوية للقاعدة الخارجية المحددة من المستخدم
-  if (process.env.EXTERNAL_DB_HOST) {
-    console.log('🌐 استخدام قاعدة البيانات الخارجية');
-    const host = process.env.EXTERNAL_DB_HOST;
-    const port = process.env.EXTERNAL_DB_PORT || '5432';
-    const user = process.env.EXTERNAL_DB_USER;
-    const password = process.env.EXTERNAL_DB_PASSWORD;
-    const database = process.env.EXTERNAL_DB_NAME;
-    
-    if (user && password && database) {
-      // تنظيف البيانات من المسافات الإضافية
-      const cleanUser = user.trim();
-      const cleanPassword = password.trim();
-      const cleanDatabase = database.trim();
-      const cleanHost = host.trim();
-      
-      const connectionString = `postgresql://${cleanUser}:${cleanPassword}@${cleanHost}:${port}/${cleanDatabase}`;
-      console.log('🔧 Connection string:', connectionString.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
-      return connectionString;
-    }
-    console.error('❌ بيانات القاعدة الخارجية غير مكتملة');
-  }
-
-  // استخدام DATABASE_URL من متغيرات البيئة إذا كانت متوفرة
+  // استخدام DATABASE_URL من ملف .env بشكل إجباري
   if (process.env.DATABASE_URL) {
-    console.log('✅ استخدام DATABASE_URL من متغيرات البيئة');
+    console.log('✅ استخدام DATABASE_URL من ملف .env (app2data)');
     const finalUrl = process.env.DATABASE_URL;
     console.log('🔧 Connection string:', finalUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
+    
+    // التأكد من أنه يتصل بقاعدة app2data وليس heliumdb
+    if (finalUrl.includes('heliumdb')) {
+      console.warn('⚠️ تم اكتشاف اتصال بـ heliumdb، سيتم تصحيحه إلى app2data');
+      const correctedUrl = finalUrl.replace('heliumdb', 'app2data');
+      console.log('🔧 Corrected URL:', correctedUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
+      return correctedUrl;
+    }
+    
     return finalUrl;
   }
   
-  // إنشاء رابط من متغيرات البيئة المنفصلة
-  const host = process.env.POSTGRES_HOST || 'localhost';
-  const port = process.env.POSTGRES_PORT || '5432';
-  const user = process.env.POSTGRES_USER || 'app2data';
-  const password = process.env.POSTGRES_PASSWORD;
-  const database = process.env.POSTGRES_DB || 'app2data';
-  
-  if (password && database) {
-    const connectionString = `postgresql://${user}:${password}@${host}:${port}/${database}`;
-    console.log('✅ إنشاء رابط اتصال من متغيرات البيئة المنفصلة');
-    return connectionString;
-  }
-  
-  console.error('❌ لم يتم العثور على بيانات الاتصال بقاعدة البيانات');
-  throw new Error('بيانات الاتصال بقاعدة البيانات مفقودة');
+  console.error('❌ DATABASE_URL غير موجود في ملف .env');
+  throw new Error('DATABASE_URL is required in .env file');
 }
 
 // إعداد SSL للاتصال المحلي

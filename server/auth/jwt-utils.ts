@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { eq, and, lt, or, ne } from 'drizzle-orm';
 import { db } from '../db.js';
-import { users, authUserSessions } from '../../shared/schema.js';
+import { users } from '../../shared/schema.js';
 
 // إعدادات JWT
 const JWT_CONFIG = {

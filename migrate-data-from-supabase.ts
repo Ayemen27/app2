@@ -74,7 +74,7 @@ function makeClient(connectionString: string) {
   // للاتصالات الخارجية - محاولة استخدام شهادة SSL
   LOG.info("🔐 اتصال خارجي - تفعيل SSL");
   
-  let ca = undefined;
+  let ca: string | undefined = undefined;
   const certPath = CA_PATH ? CA_PATH : './pg_cert.pem';
   
   try {

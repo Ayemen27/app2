@@ -21,6 +21,12 @@ function createDatabaseUrl(): string {
 function setupSSLConfig() {
   const connectionString = createDatabaseUrl();
   
+  // التحقق من sslmode في connection string
+  if (connectionString.includes('sslmode=disable') || connectionString.includes('ssl=false')) {
+    console.log('🔓 SSL معطل في connection string - تعطيل SSL');
+    return false;
+  }
+  
   // التحقق من البيئة المحلية
   const isLocalConnection = connectionString.includes('localhost') || 
                            connectionString.includes('127.0.0.1') ||

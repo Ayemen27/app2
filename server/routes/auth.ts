@@ -155,7 +155,7 @@ router.post('/login', async (req, res) => {
 
       console.log('✅ [Auth] تم تسجيل الدخول السريع بنجاح');
 
-      return res.status(200).json({
+      const quickLoginResponse = {
         success: true,
         message: "تم تسجيل الدخول السريع بنجاح",
         data: {
@@ -165,12 +165,21 @@ router.post('/login', async (req, res) => {
             firstName: user[0].firstName,
             lastName: user[0].lastName,
             name: `${user[0].firstName || ''} ${user[0].lastName || ''}`.trim() || user[0].email,
-            role: user[0].role
+            role: user[0].role,
+            mfaEnabled: false
           },
           accessToken,
           refreshToken
         }
+      };
+
+      console.log('🚀 [Auth] إرسال بيانات تسجيل الدخول السريع:', {
+        hasUser: !!quickLoginResponse.data.user,
+        userId: quickLoginResponse.data.user.id,
+        hasToken: !!quickLoginResponse.data.accessToken
       });
+
+      return res.status(200).json(quickLoginResponse);
     }
 
     // البحث عن المستخدم العادي
@@ -231,7 +240,7 @@ router.post('/login', async (req, res) => {
 
     console.log('✅ [Auth] تم تسجيل الدخول بنجاح');
 
-    res.status(200).json({
+    const responseData = {
       success: true,
       message: "تم تسجيل الدخول بنجاح",
       data: {
@@ -241,12 +250,22 @@ router.post('/login', async (req, res) => {
           firstName: user.firstName,
           lastName: user.lastName,
           name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
-          role: user.role
+          role: user.role,
+          mfaEnabled: false
         },
         accessToken,
         refreshToken
       }
+    };
+
+    console.log('📤 [Auth] إرسال البيانات:', {
+      hasUser: !!responseData.data.user,
+      userId: responseData.data.user.id,
+      hasToken: !!responseData.data.accessToken,
+      tokenPreview: responseData.data.accessToken.substring(0, 20) + '...'
     });
+
+    res.status(200).json(responseData);
 
   } catch (error) {
     console.error("❌ [Auth] خطأ في تسجيل الدخول:", error);

@@ -119,7 +119,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (email: string, password: string) => {
     console.log('🔑 [AuthProvider.login] بدء تسجيل الدخول:', email, new Date().toISOString());
 
-    const response = await fetch('/api/auth/login', {
+    try {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,7 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('📨 [AuthProvider.login] استجابة تسجيل الدخول:', response.status);
 
       const data = await response.json();
-      console.log('📦 [AuthProvider.login] بيانات الاستجابة:', { success: data.success, hasUser: !!data.data?.user, hasToken: !!data.data?.accessToken });
+      console.log('📦 [AuthProvider.login] بيانات الاستجابة الكاملة:', data);
 
       if (!response.ok || !data.success) {
         console.log('❌ [AuthProvider.login] فشل تسجيل الدخول:', data.message);
@@ -139,17 +140,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // استخراج بيانات المستخدم بشكل صحيح
       const userData = data.data?.user || data.user;
-      const tokenData = data.data?.accessToken || data.tokens?.accessToken || data.accessToken;
+      const tokenData = data.data?.accessToken || data.data?.token || data.tokens?.accessToken || data.accessToken || data.token;
       const refreshTokenData = data.data?.refreshToken || data.tokens?.refreshToken || data.refreshToken;
 
       console.log('🔍 [AuthProvider.login] فحص البيانات المستخرجة:', { 
-        userData: !!userData, 
+        userData: userData, 
         hasToken: !!tokenData,
-        userDetails: userData ? { id: userData.id, email: userData.email } : 'none'
+        userDetails: userData ? { id: userData.id, email: userData.email } : 'none',
+        tokenPreview: tokenData ? tokenData.substring(0, 30) + '...' : 'none'
       });
 
       if (!userData || !tokenData) {
-        console.error('❌ [AuthProvider.login] بيانات غير مكتملة:', { userData, hasToken: !!tokenData });
+        console.error('❌ [AuthProvider.login] بيانات غير مكتملة:', { 
+          userData: userData, 
+          hasToken: !!tokenData,
+          rawData: data 
+        });
         throw new Error('بيانات تسجيل الدخول غير مكتملة من الخادم');
       }
 
@@ -159,34 +165,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: userData.email,
         name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.email,
         role: userData.role || 'admin',
+        mfaEnabled: userData.mfaEnabled || false,
       };
 
-      const token = tokenData;
+      console.log('👤 [AuthProvider.login] إعداد بيانات المستخدم:', user);
 
-      console.log('🔍 [AuthProvider.login] فحص البيانات النهائية:', { 
-        userId: user.id, 
-        userEmail: user.email, 
-        userName: user.name, 
-        userRole: user.role,
-        hasToken: !!token,
-        tokenPreview: token ? token.substring(0, 20) + '...' : 'none'
-      });
-
-      // حفظ المستخدم أولاً
-      console.log('👤 [AuthProvider.login] حفظ بيانات المستخدم...');
+      // حفظ المستخدم والتوكين
       setUser(user);
       localStorage.setItem('user', JSON.stringify(user));
-
-      // حفظ التوكينات
-      console.log('🔐 [AuthProvider.login] حفظ الرموز المميزة...');
-      localStorage.setItem('accessToken', token);
+      localStorage.setItem('accessToken', tokenData);
+      
       if (refreshTokenData) {
         localStorage.setItem('refreshToken', refreshTokenData);
       }
 
+      console.log('💾 [AuthProvider.login] تم حفظ البيانات بنجاح');
       console.log('🔄 [AuthProvider.login] تحديث cache queries');
+      
       queryClient.invalidateQueries();
+      
       console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');
+
+    } catch (error) {
+      console.error('❌ [AuthProvider.login] خطأ في تسجيل الدخول:', error);
+      throw error;
+    }
   };
 
   // تسجيل الخروج

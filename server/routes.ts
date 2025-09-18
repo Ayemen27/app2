@@ -400,31 +400,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // جلب قائمة الجداول المتاحة للهجرة
   app.get("/api/migration/tables", requireAuth, requireRole('admin'), async (req, res) => {
     try {
-      const defaultTables = [
-        "account_balances", "accounts", "actions", "approvals", "autocomplete_data", "channels",
-        "daily_expense_summaries", "daily_expenses", "equipment", "finance_events", "finance_payments",
-        "fund_transfers", "journals", "maintenance_schedules", "maintenance_tasks", "material_purchases",
-        "materials", "messages", "notification_read_states", "print_settings", "project_fund_transfers",
-        "projects", "report_templates", "supplier_payments", "suppliers", "system_events", "system_notifications",
-        "tool_categories", "tool_cost_tracking", "tool_maintenance_logs", "tool_movements", "tool_notifications",
-        "tool_purchase_items", "tool_reservations", "tool_stock", "tool_usage_analytics", "tools",
-        "transaction_lines", "transactions", "users", "worker_attendance", "workers"
-      ];
+      // استيراد قاعدة البيانات القديمة
+      const { oldDb, getOldDbClient } = await import('./old-db');
+      
+      let tablesWithInfo: any[] = [];
+      
+      try {
+        // الحصول على قائمة الجداول الفعلية من قاعدة البيانات القديمة
+        const client = await getOldDbClient();
+        
+        const tablesQuery = await client.query(`
+          SELECT 
+            table_name,
+            (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name) as column_count
+          FROM information_schema.tables t
+          WHERE table_schema = 'public' 
+          AND table_type = 'BASE TABLE'
+          ORDER BY table_name
+        `);
+        
+        await client.end();
+        
+        if (tablesQuery.rows && tablesQuery.rows.length > 0) {
+          tablesWithInfo = tablesQuery.rows.map((row: any) => ({
+            name: row.table_name,
+            displayName: getTableDisplayName(row.table_name),
+            category: getTableCategory(row.table_name),
+            estimatedRows: 0, // سيتم تحديثها لاحقاً
+            status: 'ready',
+            priority: getTablePriority(row.table_name),
+            columnCount: row.column_count
+          }));
+        }
+        
+      } catch (dbError: any) {
+        console.error('❌ خطأ في الاتصال بقاعدة البيانات القديمة:', dbError);
+        
+        // في حالة فشل الاتصال، استخدم قائمة افتراضية
+        const defaultTables = [
+          "account_balances", "accounts", "actions", "approvals", "autocomplete_data", "channels",
+          "daily_expense_summaries", "daily_expenses", "equipment", "finance_events", "finance_payments",
+          "fund_transfers", "journals", "maintenance_schedules", "maintenance_tasks", "material_purchases",
+          "materials", "messages", "notification_read_states", "print_settings", "project_fund_transfers",
+          "projects", "report_templates", "supplier_payments", "suppliers", "system_events", "system_notifications",
+          "tool_categories", "tool_cost_tracking", "tool_maintenance_logs", "tool_movements", "tool_notifications",
+          "tool_purchase_items", "tool_reservations", "tool_stock", "tool_usage_analytics", "tools",
+          "transaction_lines", "transactions", "users", "worker_attendance", "workers"
+        ];
 
-      // إضافة معلومات إضافية لكل جدول
-      const tablesWithInfo = defaultTables.map(tableName => ({
-        name: tableName,
-        displayName: getTableDisplayName(tableName),
-        category: getTableCategory(tableName),
-        estimatedRows: 0, // سيتم تحديثها لاحقاً عند الاستعلام
-        status: 'ready',
-        priority: getTablePriority(tableName)
-      }));
+        tablesWithInfo = defaultTables.map(tableName => ({
+          name: tableName,
+          displayName: getTableDisplayName(tableName),
+          category: getTableCategory(tableName),
+          estimatedRows: 0,
+          status: 'ready',
+          priority: getTablePriority(tableName),
+          columnCount: 0
+        }));
+      }
 
       res.json({
         success: true,
         data: tablesWithInfo,
-        message: `تم العثور على ${tablesWithInfo.length} جدول متاح للهجرة`
+        message: `تم العثور على ${tablesWithInfo.length} جدول متاح للهجرة من قاعدة البيانات القديمة`
       });
     } catch (error: any) {
       console.error('❌ خطأ في جلب قائمة الجداول:', error);
@@ -440,29 +478,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/migration/table/:tableName/info", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { tableName } = req.params;
-      const externalUrl = process.env.OLD_DB_URL;
       
-      if (!externalUrl) {
-        return res.status(400).json({
-          success: false,
-          error: "لم يتم تكوين اتصال قاعدة البيانات الخارجية"
-        });
-      }
-
-      // هنا يمكن إضافة استعلام فعلي للحصول على معلومات الجدول
-      const tableInfo = {
+      // استيراد قاعدة البيانات القديمة
+      const { getOldDbClient } = await import('./old-db');
+      
+      let tableInfo: any = {
         name: tableName,
         displayName: getTableDisplayName(tableName),
-        estimatedRows: Math.floor(Math.random() * 10000), // مؤقت - سيتم استبداله باستعلام حقيقي
+        estimatedRows: 0,
         columns: [],
         lastUpdated: new Date().toISOString(),
         status: 'ready'
       };
+      
+      try {
+        const client = await getOldDbClient();
+        
+        // الحصول على معلومات الجدول
+        const tableInfoQuery = await client.query(`
+          SELECT 
+            column_name,
+            data_type,
+            is_nullable,
+            column_default
+          FROM information_schema.columns 
+          WHERE table_name = $1 
+          AND table_schema = 'public'
+          ORDER BY ordinal_position
+        `, [tableName]);
+        
+        // الحصول على عدد الصفوف المقدر
+        const rowCountQuery = await client.query(`
+          SELECT COUNT(*) as row_count 
+          FROM "${tableName}"
+        `);
+        
+        await client.end();
+        
+        tableInfo = {
+          name: tableName,
+          displayName: getTableDisplayName(tableName),
+          estimatedRows: parseInt(rowCountQuery.rows[0]?.row_count || '0'),
+          columns: tableInfoQuery.rows || [],
+          lastUpdated: new Date().toISOString(),
+          status: 'ready'
+        };
+        
+      } catch (dbError: any) {
+        console.error(`❌ خطأ في جلب معلومات الجدول ${tableName} من قاعدة البيانات القديمة:`, dbError);
+        // سيبقى tableInfo بالقيم الافتراضية
+      }
 
       res.json({
         success: true,
         data: tableInfo,
-        message: `تم جلب معلومات الجدول ${tableName} بنجاح`
+        message: `تم جلب معلومات الجدول ${tableName} من قاعدة البيانات القديمة`
       });
     } catch (error: any) {
       console.error(`❌ خطأ في جلب معلومات الجدول ${req.params.tableName}:`, error);

@@ -1,6 +1,4 @@
 
-#!/usr/bin/env node
-
 /**
  * سكربت تهيئة متغيرات البيئة تلقائياً
  * يتأكد من وجود جميع المتغيرات المطلوبة في ملف .env
@@ -18,6 +16,7 @@ const requiredEnvVars = {
   'JWT_ACCESS_SECRET': 'ebd185c17c06993902fe94b0d2628af77440140e6be2304fa9891dedb4dc14c5c5107ea13af39608c372c42e6dc3b797eba082e1d484f44e9bb08f8c4f0aa3d9',
   'JWT_REFRESH_SECRET': '5246045571e21f30c5ea8e3bb051bb8e68a6dc1256f3267711e8391cad91866e849d4ecc139a8d491169f4f2a50a15680cca9bfa7181e7554cc61915f3867b20',
   'ENCRYPTION_KEY': '0367beacd2697c2d253a477e870747b7bc03ca5e0812962139e97e8541050b7d725d00726eb3fc809dbd2279fac5b53e69c25b2fbac3e4379ca98044986c5b00',
+  'SESSION_SECRET': '0hbejGF7PzGIHtRdgzOWuX6DBaSWVhew/Wg5kwxgnKPto3/UT7dPRBuryDhROVyOneNnawtFLyjFHgz89Dh2oQ==',
   'NODE_ENV': 'production',
   'PORT': '5000'
 };

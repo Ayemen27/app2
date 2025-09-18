@@ -21,8 +21,8 @@ function validateOldDatabaseUrl(url: string): boolean {
   try {
     const urlObj = new URL(url);
     return urlObj.protocol === 'postgresql:' || urlObj.protocol === 'postgres:';
-  } catch (error) {
-    console.error('❌ URL قاعدة البيانات القديمة غير صحيح:', error.message);
+  } catch (error: any) {
+    console.error('❌ URL قاعدة البيانات القديمة غير صحيح:', error?.message || error);
     return false;
   }
 }
@@ -65,8 +65,8 @@ export const oldPool = cleanOldConnectionString ? new Pool({
   min: 0, // عدم إنشاء اتصالات مسبقة
   idleTimeoutMillis: 60000, // زيادة idle timeout
   connectionTimeoutMillis: 10000, // تقليل timeout للكشف السريع عن الأخطاء
-  acquireTimeoutMillis: 15000, // تقليل وقت الانتظار
-  createTimeoutMillis: 10000, // تقليل وقت إنشاء اتصال جديد
+  // acquireTimeoutMillis: 15000, // هذا الخيار غير متاح في PoolConfig
+  // createTimeoutMillis: 10000, // هذا الخيار غير متاح في PoolConfig
   destroyTimeoutMillis: 5000, // وقت إغلاق الاتصال
   reapIntervalMillis: 1000, // فحص الاتصالات كل ثانية
   createRetryIntervalMillis: 2000, // إعادة المحاولة كل ثانيتين
@@ -92,7 +92,7 @@ export const getOldDbClient = async (retries = 3): Promise<Client> => {
       console.log(`🔄 محاولة الاتصال ${attempt}/${retries} بقاعدة البيانات القديمة...`);
       
       const client = new Client({
-        connectionString: cleanOldConnectionString,
+        connectionString: cleanOldConnectionString!,
         ssl: oldSSLConfig,
         connectionTimeoutMillis: 8000, // تقليل timeout للكشف السريع عن المشاكل
         statement_timeout: 30000, // تقليل statement timeout

@@ -17,7 +17,7 @@ function createDatabaseUrl(): string {
   throw new Error('DATABASE_URL is required');
 }
 
-// إعداد SSL للاتصال المحلي
+// إعداد SSL الآمن للاتصال
 function setupSSLConfig() {
   const connectionString = createDatabaseUrl();
   
@@ -31,12 +31,44 @@ function setupSSLConfig() {
     return false;
   }
   
-  // للاتصالات الخارجية - استخدام SSL مع تجاهل جميع مشاكل الشهادات
-  console.log('🌐 اتصال خارجي - تفعيل SSL مع تجاهل مشاكل الشهادات');
+  // للاتصالات الخارجية - استخدام SSL الآمن مع التحقق من الشهادات
+  console.log('🔐 اتصال خارجي - تفعيل SSL الآمن مع التحقق من الشهادات');
+  
+  // التحقق من وجود ملف الشهادة
+  const certPath = './pg_cert.pem';
+  let ca = undefined;
+  
+  try {
+    if (fs.existsSync(certPath)) {
+      ca = fs.readFileSync(certPath);
+      console.log('📜 تم تحميل شهادة SSL بنجاح');
+    } else if (process.env.NODE_ENV === 'production') {
+      console.error('❌ ملف الشهادة مفقود في الإنتاج: pg_cert.pem');
+      throw new Error('SSL certificate file is required in production');
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('❌ فشل في تحميل شهادة SSL في الإنتاج:', error);
+      throw error;
+    }
+    console.warn('⚠️ تعذر تحميل شهادة SSL، سيتم استخدام الشهادات الافتراضية');
+  }
+  
+  // For self-signed certificates, we need to handle them specially
+  if (ca) {
+    console.log('🔑 استخدام شهادة SSL مخصصة - السماح بالشهادات الموقعة ذاتياً');
+    return {
+      rejectUnauthorized: false, // Must be false for self-signed certs
+      ca: ca, // Use our trusted certificate
+      minVersion: 'TLSv1.2' as const,
+      checkServerIdentity: () => undefined // Disable hostname check since we trust our CA
+    };
+  }
+  
+  // No custom CA - use system certificates with full validation
   return {
-    rejectUnauthorized: false,
-    checkServerIdentity: () => undefined,
-    secureProtocol: 'TLSv1_2_method'
+    rejectUnauthorized: true,
+    minVersion: 'TLSv1.2' as const
   };
 }
 

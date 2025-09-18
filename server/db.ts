@@ -40,15 +40,17 @@ function setupSSLConfig() {
   };
 }
 
-// تعيين متغير البيئة لتجاهل مشاكل SSL
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+// SSL configuration is handled per connection in setupSSLConfig()
 
 const connectionString = createDatabaseUrl();
 const sslConfig = setupSSLConfig();
 
 // تكوين اتصال قاعدة البيانات
+// Remove SSL parameters from connection string to avoid conflicts
+const cleanConnectionString = connectionString.replace(/[?&]sslmode=[^&]*/g, '').replace(/[?&]ssl=[^&]*/g, '');
+
 export const pool = new Pool({ 
-  connectionString,
+  connectionString: cleanConnectionString,
   ssl: sslConfig,
   // إعدادات الاتصال المحسنة
   max: 10,

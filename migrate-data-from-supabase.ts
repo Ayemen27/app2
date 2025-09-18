@@ -230,9 +230,10 @@ async function migrateTable(tableName: string): Promise<void> {
   }
 }
 
-// قائمة الجداول المراد ترحيلها
+// قائمة الجداول المراد ترحيلها (التي تحتوي على بيانات حسب فحص Supabase)
 const tables = [
-  "users",
+  "users", // يحتوي على 1 صف
+  // يمكن إضافة جداول أخرى إذا تم العثور على بيانات لاحقاً
   "projects", 
   "workers",
   "worker_types",

@@ -179,6 +179,16 @@ export const getQueryFn: <T>(options: {
       // تسجيل مبسط في بيئة التطوير فقط
       if (process.env.NODE_ENV === 'development') {
         console.log(`📊 ${queryKey[0]} - تم استلام البيانات بنجاح`);
+        
+        // إضافة debugging خاص للإشعارات - مع guard للأمان
+        if (typeof queryKey[0] === 'string' && queryKey[0].includes('notifications')) {
+          console.log('🔍 [DEBUG] تفاصيل استجابة الإشعارات:', {
+            dataType: typeof data,
+            isArray: Array.isArray(data),
+            dataKeys: data && typeof data === 'object' ? Object.keys(data) : 'N/A',
+            dataContent: data
+          });
+        }
       }
       
       // حماية إضافية من مشاكل البيانات وإستخراج البيانات الفعلية

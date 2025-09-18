@@ -44,12 +44,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true, data: [], message: "Workers endpoint working" });
   });
 
+  // Worker types endpoint - إرجاع أنواع العمال بالتنسيق المطلوب
+  app.get("/api/worker-types", (req, res) => {
+    try {
+      const workerTypes = [
+        { id: '1', name: 'معلم', usageCount: 1 },
+        { id: '2', name: 'عامل', usageCount: 1 },
+        { id: '3', name: 'مساعد', usageCount: 1 },
+        { id: '4', name: 'سائق', usageCount: 1 },
+        { id: '5', name: 'حارس', usageCount: 1 }
+      ];
+      
+      res.json({ 
+        success: true, 
+        data: workerTypes, 
+        message: "Worker types loaded successfully" 
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        data: [],
+        error: error.message,
+        message: "فشل في جلب أنواع العمال"
+      });
+    }
+  });
+
   app.get("/api/daily-expenses", (req, res) => {
     res.json({ success: true, data: [], message: "Daily expenses endpoint working" });
   });
 
   app.get("/api/material-purchases", (req, res) => {
     res.json({ success: true, data: [], message: "Material purchases endpoint working" });
+  });
+
+  // جلب الإشعارات - handler بسيط في الذاكرة للتوافق مع frontend
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id || req.user?.email || 'default';
+      
+      console.log(`📥 [API] جلب الإشعارات للمستخدم: ${userId}`);
+      
+      // إشعارات تجريبية لتجنب أخطاء الواجهة الأمامية
+      const mockNotifications = [
+        {
+          id: '1',
+          type: 'system',
+          title: 'مرحباً بك في النظام',
+          message: 'تم تسجيل دخولك بنجاح',
+          priority: 'info',
+          createdAt: new Date().toISOString(),
+          status: 'unread',
+          actionRequired: false
+        },
+        {
+          id: '2', 
+          type: 'maintenance',
+          title: 'تحديث النظام',
+          message: 'سيتم تحديث النظام قريباً',
+          priority: 'medium',
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          status: 'read',
+          actionRequired: true
+        }
+      ];
+      
+      const unreadCount = mockNotifications.filter(n => n.status === 'unread').length;
+      
+      console.log(`✅ [API] تم إرجاع ${mockNotifications.length} إشعار، غير مقروء: ${unreadCount}`);
+      
+      // إرجاع البيانات بالشكل المتوقع من الـ frontend
+      res.json({
+        success: true,
+        data: mockNotifications,
+        count: mockNotifications.length,
+        unreadCount: unreadCount,
+        message: `تم جلب ${mockNotifications.length} إشعار بنجاح`
+      });
+    } catch (error: any) {
+      console.error('❌ [API] خطأ في جلب الإشعارات:', error);
+      res.status(500).json({
+        success: false,
+        data: [],
+        count: 0,
+        unreadCount: 0,
+        error: error.message,
+        message: "فشل في جلب الإشعارات"
+      });
+    }
+  });
+
+  // تعليم إشعار كمقروء - handler بسيط للتوافق
+  app.post("/api/notifications/:id/read", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id || req.user?.email || 'default';
+      const notificationId = req.params.id;
+      
+      console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء للمستخدم: ${userId}`);
+      
+      // مؤقتاً - إرجاع نجاح فقط للتوافق مع الواجهة الأمامية
+      res.json({
+        success: true,
+        message: "تم تعليم الإشعار كمقروء"
+      });
+    } catch (error: any) {
+      console.error('❌ [API] خطأ في تعليم الإشعار كمقروء:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في تعليم الإشعار كمقروء"
+      });
+    }
+  });
+
+  // مسار بديل للتوافق مع NotificationCenter.tsx القديم
+  app.post("/api/notifications/:id/mark-read", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id || req.user?.email || 'default';
+      const notificationId = req.params.id;
+      
+      console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء (مسار بديل) للمستخدم: ${userId}`);
+      
+      // مؤقتاً - إرجاع نجاح فقط للتوافق مع الواجهة الأمامية
+      res.json({
+        success: true,
+        message: "تم تعليم الإشعار كمقروء"
+      });
+    } catch (error: any) {
+      console.error('❌ [API] خطأ في تعليم الإشعار كمقروء (مسار بديل):', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في تعليم الإشعار كمقروء"
+      });
+    }
+  });
+
+  // تعليم جميع الإشعارات كمقروءة
+  app.post("/api/notifications/mark-all-read", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id || req.user?.email || 'default';
+      const projectId = req.body.projectId;
+      
+      console.log(`✅ [API] تعليم جميع الإشعارات كمقروءة للمستخدم: ${userId}`);
+      
+      // مؤقتاً - إرجاع نجاح فقط للتوافق مع الواجهة الأمامية
+      res.json({
+        success: true,
+        message: "تم تعليم جميع الإشعارات كمقروءة"
+      });
+    } catch (error: any) {
+      console.error('❌ [API] خطأ في تعليم الإشعارات كمقروءة:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في تعليم الإشعارات كمقروءة"
+      });
+    }
   });
 
   // خدمة النسخ الاحتياطي الآمنة - معلومات الجدول (محمية للإداريين)

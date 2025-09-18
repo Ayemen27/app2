@@ -46,46 +46,19 @@ const typeIcons = {
 export function NotificationsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
 
-  // جلب الإشعارات مع معالجة محسنة للأخطاء
-  const { data: notifications = [], isLoading, error } = useQuery({
+  // جلب الإشعارات مع الطباعة الصحيحة
+  const { data: notifications = [], isLoading, error, refetch } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
-    queryFn: async () => {
-      try {
-        const response = await fetch('/api/notifications');
-        if (!response.ok) {
-          console.error('❌ خطأ في جلب الإشعارات:', response.status, response.statusText);
-          throw new Error(`فشل في جلب الإشعارات: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('📊 تم جلب الإشعارات:', data);
-        
-        // معالجة هيكل الاستجابة المختلفة
-        if (data && typeof data === 'object') {
-          // إذا كانت في شكل {success, data, count}
-          if (data.success !== undefined && data.data !== undefined) {
-            const notifications = Array.isArray(data.data) ? data.data : [];
-            return notifications as Notification[];
-          }
-          
-          // إذا كانت مصفوفة مباشرة
-          if (Array.isArray(data)) {
-            return data as Notification[];
-          }
-        }
-        
-        // في حالة عدم التطابق، أرجع مصفوفة فارغة
-        console.warn('⚠️ تحذير: هيكل استجابة غير متوقع للإشعارات:', data);
-        return [] as Notification[];
-      } catch (error) {
-        console.error('❌ خطأ في معالجة الإشعارات:', error);
-        // إرجاع مصفوفة فارغة بدلاً من إلقاء خطأ لتجنب كسر واجهة المستخدم
-        return [] as Notification[];
-      }
-    },
     staleTime: 30000, // 30 ثانية
     retry: 2, // محاولتين إضافيتين
     refetchInterval: 60000, // تحديث كل دقيقة
+    select: (data: any) => {
+      // تأكد من أن البيانات مصفوفة من الاستجابة
+      if (data && data.success && Array.isArray(data.data)) {
+        return data.data;
+      }
+      return [];
+    }
   });
 
   // عد الإشعارات غير المقروءة
@@ -162,8 +135,8 @@ export function NotificationsDropdown() {
                 <ScrollArea className="h-full">
                   <div className="p-4 space-y-3">
                     {Array.isArray(recentNotifications) && recentNotifications.map((notification, index) => {
-                      const PriorityIcon = priorityIcons[notification.priority];
-                      const TypeIcon = typeIcons[notification.type];
+                      const PriorityIcon = priorityIcons[notification.priority as keyof typeof priorityIcons] || Info;
+                      const TypeIcon = typeIcons[notification.type as keyof typeof typeIcons] || Bell;
                       
                       return (
                         <div key={notification.id}>
@@ -179,7 +152,7 @@ export function NotificationsDropdown() {
                             <div className="flex gap-3">
                               <div className="flex items-center gap-1 mt-1">
                                 <TypeIcon className="h-4 w-4 text-gray-500" />
-                                <div className={cn("p-0.5 rounded-full", priorityColors[notification.priority])}>
+                                <div className={cn("p-0.5 rounded-full", priorityColors[notification.priority as keyof typeof priorityColors] || 'bg-gray-500')}>
                                   <PriorityIcon className="h-2.5 w-2.5 text-white" />
                                 </div>
                               </div>
@@ -213,7 +186,7 @@ export function NotificationsDropdown() {
                                   
                                   <Badge
                                     variant="outline"
-                                    className={cn("text-xs text-white border-0 px-2 py-0.5", priorityColors[notification.priority])}
+                                    className={cn("text-xs text-white border-0 px-2 py-0.5", priorityColors[notification.priority as keyof typeof priorityColors] || 'bg-gray-500')}
                                   >
                                     {notification.priority === 'info' && 'معلومات'}
                                     {notification.priority === 'low' && 'منخفض'}

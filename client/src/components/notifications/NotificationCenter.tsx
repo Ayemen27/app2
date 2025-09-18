@@ -78,12 +78,30 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
       });
       if (response.ok) {
         const data = await response.json();
-        // إذا كان التنسيق الجديد
-        if (data.notifications) {
-          setNotifications(data.notifications);
+        console.log('🔍 [NotificationCenter] استجابة API:', data);
+        
+        // التعامل مع الشكل الجديد للاستجابة { success, data, unreadCount }
+        if (data.success && Array.isArray(data.data)) {
+          // تحويل البيانات للشكل المتوقع من NotificationCenter
+          const transformedNotifications = data.data.map((n: any) => ({
+            id: n.id,
+            type: n.type || 'system',
+            title: n.title,
+            message: n.message,
+            priority: n.priority === 'critical' ? 1 :
+                      n.priority === 'high' ? 2 :
+                      n.priority === 'medium' ? 3 :
+                      n.priority === 'low' ? 4 : 5,
+            createdAt: n.createdAt,
+            isRead: n.status === 'read',
+            actionRequired: n.actionRequired || false
+          }));
+          
+          setNotifications(transformedNotifications);
           setUnreadCount(data.unreadCount || 0);
-        } 
-        // إذا كان التنسيق القديم
+          console.log('✅ [NotificationCenter] تم تحويل وحفظ الإشعارات:', transformedNotifications.length);
+        }
+        // إذا كان التنسيق القديم (مصفوفة مباشرة)
         else if (Array.isArray(data)) {
           setNotifications(data.map((n: any) => ({
             ...n,
@@ -125,7 +143,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         return;
       }
       
-      const response = await fetch(`/api/notifications/${notificationId}/mark-read`, {
+      const response = await fetch(`/api/notifications/${notificationId}/read`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

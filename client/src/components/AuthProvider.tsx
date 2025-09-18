@@ -131,10 +131,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('📨 [AuthProvider.login] استجابة تسجيل الدخول:', response.status);
 
       const data = await response.json();
-      console.log('📦 [AuthProvider.login] بيانات الاستجابة الكاملة:', data);
+      console.log('📦 [AuthProvider.login] بيانات الاستجابة الكاملة:', JSON.stringify(data, null, 2));
+      console.log('📦 [AuthProvider.login] تفاصيل البيانات:', {
+        success: data.success,
+        hasData: !!data.data,
+        hasUser: !!(data.data?.user || data.user),
+        hasToken: !!(data.data?.accessToken || data.tokens?.accessToken || data.accessToken),
+        dataKeys: data.data ? Object.keys(data.data) : 'none',
+        topLevelKeys: Object.keys(data)
+      });
 
-      if (!response.ok || !data.success) {
-        console.log('❌ [AuthProvider.login] فشل تسجيل الدخول:', data.message);
+      if (!response.ok) {
+        console.log('❌ [AuthProvider.login] استجابة غير ناجحة:', response.status, data.message);
+        throw new Error(data.message || 'فشل تسجيل الدخول');
+      }
+
+      if (!data.success) {
+        console.log('❌ [AuthProvider.login] فشل من جانب الخادم:', data.message);
         throw new Error(data.message || 'فشل تسجيل الدخول');
       }
 
@@ -146,17 +159,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('🔍 [AuthProvider.login] فحص البيانات المستخرجة:', { 
         userData: userData, 
         hasToken: !!tokenData,
-        userDetails: userData ? { id: userData.id, email: userData.email } : 'none',
-        tokenPreview: tokenData ? tokenData.substring(0, 30) + '...' : 'none'
+        userDetails: userData ? { id: userData.id, email: userData.email, name: userData.name } : 'none',
+        tokenPreview: tokenData ? tokenData.substring(0, 30) + '...' : 'none',
+        refreshTokenPreview: refreshTokenData ? refreshTokenData.substring(0, 20) + '...' : 'none'
       });
 
-      if (!userData || !tokenData) {
-        console.error('❌ [AuthProvider.login] بيانات غير مكتملة:', { 
+      if (!userData) {
+        console.error('❌ [AuthProvider.login] بيانات المستخدم مفقودة:', { 
           userData: userData, 
-          hasToken: !!tokenData,
-          rawData: data 
+          dataStructure: data,
+          possibleUserPaths: [
+            'data.user',
+            'user'
+          ]
         });
-        throw new Error('بيانات تسجيل الدخول غير مكتملة من الخادم');
+        throw new Error('بيانات المستخدم مفقودة من استجابة الخادم');
+      }
+
+      if (!tokenData) {
+        console.error('❌ [AuthProvider.login] الرمز المميز مفقود:', { 
+          hasToken: !!tokenData,
+          dataStructure: data,
+          possibleTokenPaths: [
+            'data.accessToken',
+            'tokens.accessToken', 
+            'accessToken'
+          ]
+        });
+        throw new Error('الرمز المميز مفقود من استجابة الخادم');
       }
 
       // حفظ بيانات المستخدم
@@ -169,17 +199,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
       };
 
       console.log('👤 [AuthProvider.login] إعداد بيانات المستخدم:', user);
+      console.log('👤 [AuthProvider.login] التحقق من صحة البيانات:', {
+        hasId: !!user.id,
+        hasEmail: !!user.email,
+        hasName: !!user.name,
+        hasRole: !!user.role
+      });
 
+      // التحقق من وجود البيانات الأساسية
+      if (!user.id || !user.email) {
+        console.error('❌ [AuthProvider.login] بيانات المستخدم الأساسية مفقودة:', user);
+        throw new Error('بيانات المستخدم الأساسية مفقودة (ID أو البريد الإلكتروني)');
+      }
+
+      console.log('💾 [AuthProvider.login] بدء حفظ البيانات...');
+      
       // حفظ المستخدم والتوكين
       setUser(user);
+      console.log('✅ [AuthProvider.login] تم تعيين المستخدم في الحالة');
+      
       localStorage.setItem('user', JSON.stringify(user));
+      console.log('✅ [AuthProvider.login] تم حفظ بيانات المستخدم في localStorage');
+      
       localStorage.setItem('accessToken', tokenData);
+      console.log('✅ [AuthProvider.login] تم حفظ الرمز المميز');
       
       if (refreshTokenData) {
         localStorage.setItem('refreshToken', refreshTokenData);
+        console.log('✅ [AuthProvider.login] تم حفظ رمز التجديد');
       }
 
-      console.log('💾 [AuthProvider.login] تم حفظ البيانات بنجاح');
+      console.log('💾 [AuthProvider.login] تم حفظ جميع البيانات بنجاح');
+      
+      // التحقق من الحفظ
+      const savedUser = localStorage.getItem('user');
+      const savedToken = localStorage.getItem('accessToken');
+      console.log('🔍 [AuthProvider.login] تأكيد الحفظ:', {
+        userSaved: !!savedUser,
+        tokenSaved: !!savedToken,
+        userInState: !!user
+      });
       console.log('🔄 [AuthProvider.login] تحديث cache queries');
       
       queryClient.invalidateQueries();
@@ -188,7 +247,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     } catch (error) {
       console.error('❌ [AuthProvider.login] خطأ في تسجيل الدخول:', error);
-      throw error;
+      console.error('❌ [AuthProvider.login] تفاصيل الخطأ:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
+      // رمي خطأ واضح للمستخدم
+      if (error.message && error.message.includes('غير مكتملة')) {
+        throw error;
+      } else if (error.message && error.message.includes('مفقود')) {
+        throw error;
+      } else {
+        throw new Error('حدث خطأ أثناء تسجيل الدخول، يرجى المحاولة مرة أخرى');
+      }
     }
   };
 

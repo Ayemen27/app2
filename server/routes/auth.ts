@@ -176,8 +176,16 @@ router.post('/login', async (req, res) => {
       console.log('🚀 [Auth] إرسال بيانات تسجيل الدخول السريع:', {
         hasUser: !!quickLoginResponse.data.user,
         userId: quickLoginResponse.data.user.id,
-        hasToken: !!quickLoginResponse.data.accessToken
+        hasToken: !!quickLoginResponse.data.accessToken,
+        responseStructure: {
+          success: quickLoginResponse.success,
+          hasData: !!quickLoginResponse.data,
+          dataKeys: Object.keys(quickLoginResponse.data),
+          userKeys: quickLoginResponse.data.user ? Object.keys(quickLoginResponse.data.user) : 'none'
+        }
       });
+
+      console.log('📤 [Auth] البيانات الكاملة لتسجيل الدخول السريع:', JSON.stringify(quickLoginResponse, null, 2));
 
       return res.status(200).json(quickLoginResponse);
     }
@@ -262,8 +270,16 @@ router.post('/login', async (req, res) => {
       hasUser: !!responseData.data.user,
       userId: responseData.data.user.id,
       hasToken: !!responseData.data.accessToken,
-      tokenPreview: responseData.data.accessToken.substring(0, 20) + '...'
+      tokenPreview: responseData.data.accessToken.substring(0, 20) + '...',
+      responseStructure: {
+        success: responseData.success,
+        hasData: !!responseData.data,
+        dataKeys: Object.keys(responseData.data),
+        userKeys: responseData.data.user ? Object.keys(responseData.data.user) : 'none'
+      }
     });
+
+    console.log('📤 [Auth] البيانات الكاملة لتسجيل الدخول العادي:', JSON.stringify(responseData, null, 2));
 
     res.status(200).json(responseData);
 

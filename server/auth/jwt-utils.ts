@@ -5,16 +5,21 @@
 
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { eq, and, lt, or, ne } from 'drizzle-orm';
+import { eq, and, lt, or, ne, gte } from 'drizzle-orm';
 import { db } from '../db.js';
 import { users, authUserSessions } from '../../shared/schema.js';
+import { hashToken } from './crypto-utils.js';
 
 // ملاحظة: تم تفعيل نظام الجلسات مع جدول authUserSessions
 
-// إعدادات JWT
-const JWT_CONFIG = {
-  accessTokenSecret: (process.env.JWT_ACCESS_SECRET || 'construction-app-access-secret-2025') as string,
-  refreshTokenSecret: (process.env.JWT_REFRESH_SECRET || 'construction-app-refresh-secret-2025') as string,
+// إعدادات JWT - فقط من متغيرات البيئة للأمان
+if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
+  throw new Error('JWT_ACCESS_SECRET و JWT_REFRESH_SECRET مطلوبان في متغيرات البيئة للأمان');
+}
+
+export const JWT_CONFIG = {
+  accessTokenSecret: process.env.JWT_ACCESS_SECRET,
+  refreshTokenSecret: process.env.JWT_REFRESH_SECRET,
   accessTokenExpiry: '15m', // 15 دقيقة
   refreshTokenExpiry: '30d', // 30 يوم
   issuer: 'construction-management-app',
@@ -71,7 +76,7 @@ export function generateRefreshToken(payload: { userId: string; email: string })
 }
 
 /**
- * إنشاء زوج من الرموز (Access + Refresh) - نسخة مبسطة
+ * إنشاء زوج من الرموز (Access + Refresh) مع حفظ الجلسة
  */
 export async function generateTokenPair(
   userId: string,
@@ -82,17 +87,58 @@ export async function generateTokenPair(
   deviceInfo?: any
 ): Promise<TokenPair> {
   const sessionId = crypto.randomUUID();
+  const deviceId = deviceInfo?.deviceId || crypto.randomUUID();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 15 * 60 * 1000); // 15 دقيقة
   const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 يوم
 
-  // إنشاء Access Token
-  const accessToken = generateAccessToken({ userId, email, role });
+  // إنشاء JWT payload مع sessionId
+  const accessPayload = { userId, email, role, sessionId, type: 'access' as const };
+  const refreshPayload = { userId, email, sessionId, type: 'refresh' as const };
 
-  // إنشاء Refresh Token
-  const refreshToken = generateRefreshToken({ userId, email });
+  // إنشاء الرموز
+  const accessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
+    expiresIn: JWT_CONFIG.accessTokenExpiry,
+    issuer: JWT_CONFIG.issuer
+  });
+  
+  const refreshToken = jwt.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
+    expiresIn: JWT_CONFIG.refreshTokenExpiry,
+    issuer: JWT_CONFIG.issuer
+  });
 
-  // ملاحظة: حفظ الجلسة معطل مؤقتاً لعدم وجود authUserSessions table
+  // إنشاء hash للرموز للحفظ الآمن
+  const accessTokenHash = hashToken(accessToken);
+  const refreshTokenHash = hashToken(refreshToken);
+
+  try {
+    // حفظ الجلسة في قاعدة البيانات
+    await db.insert(authUserSessions).values({
+      userId,
+      deviceId,
+      sessionToken: sessionId,
+      deviceFingerprint: deviceInfo?.fingerprint,
+      userAgent,
+      ipAddress,
+      locationData: deviceInfo?.location,
+      deviceName: deviceInfo?.name,
+      browserName: deviceInfo?.browser?.name,
+      browserVersion: deviceInfo?.browser?.version,
+      osName: deviceInfo?.os?.name,
+      osVersion: deviceInfo?.os?.version,
+      deviceType: deviceInfo?.type || 'web',
+      loginMethod: 'password',
+      accessTokenHash,
+      refreshTokenHash,
+      expiresAt: refreshExpiresAt, // الجلسة تنتهي مع refresh token
+      isRevoked: false,
+    });
+
+    console.log('✅ [JWT] تم حفظ الجلسة بنجاح:', { userId, sessionId: sessionId.substring(0, 8) + '...' });
+  } catch (error) {
+    console.error('❌ [JWT] خطأ في حفظ الجلسة:', error);
+    throw new Error('فشل في إنشاء جلسة المستخدم');
+  }
 
   return {
     accessToken,
@@ -104,13 +150,19 @@ export async function generateTokenPair(
 }
 
 /**
- * التحقق من صحة Access Token - نسخة مبسطة
+ * التحقق من صحة Access Token مع فحص الجلسة في قاعدة البيانات
  */
 export async function verifyAccessToken(token: string): Promise<{ success: boolean; user?: any } | null> {
   try {
+    // فك تشفير JWT
     const payload = jwt.verify(token, JWT_CONFIG.accessTokenSecret, {
       issuer: JWT_CONFIG.issuer,
-    }) as any;
+    }) as JWTPayload;
+
+    // التحقق من نوع الرمز
+    if (payload.type !== 'access') {
+      return null;
+    }
 
     // التحقق من وجود المستخدم في قاعدة البيانات
     const user = await db
@@ -122,6 +174,35 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
     if (user.length === 0 || !user[0].isActive) {
       return null;
     }
+
+    // التحقق من صحة الجلسة في قاعدة البيانات
+    const tokenHash = hashToken(token);
+    const session = await db
+      .select()
+      .from(authUserSessions)
+      .where(
+        and(
+          eq(authUserSessions.userId, payload.userId),
+          eq(authUserSessions.accessTokenHash, tokenHash),
+          eq(authUserSessions.isRevoked, false),
+          // التحقق من عدم انتهاء صلاحية الجلسة
+          // نستخدم expiresAt للجلسة وليس للـ access token لأن access token ينتهي كل 15 دقيقة
+          // ولكن الجلسة تستمر 30 يوم
+          gte(authUserSessions.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (session.length === 0) {
+      // الجلسة غير موجودة أو ملغاة أو منتهية الصلاحية
+      return null;
+    }
+
+    // تحديث آخر نشاط للجلسة
+    await db
+      .update(authUserSessions)
+      .set({ lastActivity: new Date() })
+      .where(eq(authUserSessions.id, session[0].id));
 
     return {
       success: true,
@@ -129,23 +210,30 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
         userId: payload.userId,
         email: payload.email,
         role: payload.role,
-        sessionId: 'simple-session' // مؤقتاً
+        sessionId: session[0].sessionToken
       }
     };
   } catch (error) {
-    console.error('خطأ في التحقق من Access Token:', error);
+    // تقليل تسجيل الأخطاء الحساسة
+    console.error('خطأ في التحقق من Access Token');
     return null;
   }
 }
 
 /**
- * التحقق من صحة Refresh Token - نسخة مبسطة
+ * التحقق من صحة Refresh Token مع فحص قاعدة البيانات
  */
 export async function verifyRefreshToken(token: string): Promise<any | null> {
   try {
+    // فك تشفير JWT
     const payload = jwt.verify(token, JWT_CONFIG.refreshTokenSecret, {
       issuer: JWT_CONFIG.issuer,
-    }) as any;
+    }) as JWTPayload;
+
+    // التحقق من نوع الرمز
+    if (payload.type !== 'refresh') {
+      return null;
+    }
 
     // التحقق من وجود المستخدم في قاعدة البيانات
     const user = await db
@@ -158,7 +246,33 @@ export async function verifyRefreshToken(token: string): Promise<any | null> {
       return null;
     }
 
-    return payload;
+    // التحقق من صحة الجلسة في قاعدة البيانات
+    const tokenHash = hashToken(token);
+    const session = await db
+      .select()
+      .from(authUserSessions)
+      .where(
+        and(
+          eq(authUserSessions.userId, payload.userId),
+          eq(authUserSessions.refreshTokenHash, tokenHash),
+          eq(authUserSessions.isRevoked, false),
+          gte(authUserSessions.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (session.length === 0) {
+      // الجلسة غير موجودة أو ملغاة أو منتهية الصلاحية
+      return null;
+    }
+
+    // إرجاع بيانات المستخدم والجلسة
+    return {
+      userId: payload.userId,
+      email: payload.email,
+      sessionId: payload.sessionId,
+      user: user[0]
+    };
   } catch (error) {
     console.error('خطأ في التحقق من Refresh Token:', error);
     return null;
@@ -166,56 +280,150 @@ export async function verifyRefreshToken(token: string): Promise<any | null> {
 }
 
 /**
- * تجديد Access Token باستخدام Refresh Token - نسخة مبسطة
+ * تجديد Access Token باستخدام Refresh Token مع تدوير الرموز
  */
 export async function refreshAccessToken(refreshToken: string): Promise<TokenPair | null> {
-  const payload = await verifyRefreshToken(refreshToken);
-  if (!payload) {
+  try {
+    // فك تشفير refresh token
+    const payload = jwt.verify(refreshToken, JWT_CONFIG.refreshTokenSecret, {
+      issuer: JWT_CONFIG.issuer,
+    }) as JWTPayload;
+
+    // التحقق من نوع الرمز
+    if (payload.type !== 'refresh') {
+      return null;
+    }
+
+    // التحقق من وجود المستخدم
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, payload.userId))
+      .limit(1);
+
+    if (user.length === 0 || !user[0].isActive) {
+      return null;
+    }
+
+    // التحقق من صحة refresh token في قاعدة البيانات
+    const refreshTokenHash = hashToken(refreshToken);
+    const session = await db
+      .select()
+      .from(authUserSessions)
+      .where(
+        and(
+          eq(authUserSessions.userId, payload.userId),
+          eq(authUserSessions.refreshTokenHash, refreshTokenHash),
+          eq(authUserSessions.isRevoked, false),
+          gte(authUserSessions.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (session.length === 0) {
+      // الجلسة غير موجودة أو ملغاة أو منتهية الصلاحية
+      return null;
+    }
+
+    // إنشاء رموز جديدة
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 15 * 60 * 1000); // 15 دقيقة
+    const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 يوم
+
+    const newSessionId = crypto.randomUUID();
+    const accessPayload = { userId: payload.userId, email: user[0].email, role: user[0].role, sessionId: newSessionId, type: 'access' as const };
+    const refreshPayload = { userId: payload.userId, email: user[0].email, sessionId: newSessionId, type: 'refresh' as const };
+
+    const newAccessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
+      expiresIn: JWT_CONFIG.accessTokenExpiry,
+      issuer: JWT_CONFIG.issuer
+    });
+    
+    const newRefreshToken = jwt.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
+      expiresIn: JWT_CONFIG.refreshTokenExpiry,
+      issuer: JWT_CONFIG.issuer
+    });
+
+    // إنشاء hash للرموز الجديدة
+    const newAccessTokenHash = hashToken(newAccessToken);
+    const newRefreshTokenHash = hashToken(newRefreshToken);
+
+    // تحديث الجلسة بالرموز الجديدة (تدوير الرموز)
+    await db
+      .update(authUserSessions)
+      .set({
+        sessionToken: newSessionId,
+        accessTokenHash: newAccessTokenHash,
+        refreshTokenHash: newRefreshTokenHash,
+        expiresAt: refreshExpiresAt,
+        lastActivity: new Date(),
+      })
+      .where(eq(authUserSessions.id, session[0].id));
+
+    console.log('✅ [JWT] تم تدوير الرموز بنجاح:', { 
+      userId: payload.userId, 
+      oldSessionId: session[0].sessionToken?.substring(0, 8) + '...',
+      newSessionId: newSessionId.substring(0, 8) + '...'
+    });
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      sessionId: newSessionId,
+      expiresAt,
+      refreshExpiresAt,
+    };
+
+  } catch (error) {
+    console.error('خطأ في تجديد الرمز');
     return null;
   }
-
-  // الحصول على بيانات المستخدم الحالية
-  const user = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, payload.userId))
-    .limit(1);
-
-  if (user.length === 0 || !user[0].isActive) {
-    return null;
-  }
-
-  // إنشاء رموز جديدة ببساطة
-  return generateTokenPair(
-    payload.userId,
-    payload.email,
-    user[0].role
-  );
 }
 
 /**
- * إبطال رمز أو جلسة
+ * إبطال جلسة بناءً على sessionId أو token hash
  */
 export async function revokeToken(tokenOrSessionId: string, reason?: string): Promise<boolean> {
   try {
-    const updated = await db
+    // محاولة إبطال الجلسة بناءً على sessionId أولاً
+    let updated = await db
       .update(authUserSessions)
       .set({
         isRevoked: true,
         revokedAt: new Date(),
         revokedReason: reason || 'manual_revoke',
       })
-      .where(
-        or(
-          eq(authUserSessions.accessTokenHash, tokenOrSessionId),
-          eq(authUserSessions.refreshTokenHash, tokenOrSessionId),
-          eq(authUserSessions.deviceId, tokenOrSessionId)
-        )
-      );
+      .where(eq(authUserSessions.sessionToken, tokenOrSessionId));
 
-    return (updated.rowCount || 0) > 0;
+    // إذا لم تنجح، جرب بناءً على token hashes
+    if ((updated.rowCount || 0) === 0) {
+      updated = await db
+        .update(authUserSessions)
+        .set({
+          isRevoked: true,
+          revokedAt: new Date(),
+          revokedReason: reason || 'manual_revoke',
+        })
+        .where(
+          or(
+            eq(authUserSessions.accessTokenHash, tokenOrSessionId),
+            eq(authUserSessions.refreshTokenHash, tokenOrSessionId),
+            eq(authUserSessions.deviceId, tokenOrSessionId)
+          )
+        );
+    }
+
+    const success = (updated.rowCount || 0) > 0;
+    if (success) {
+      console.log('✅ [JWT] تم إبطال الجلسة بنجاح:', { 
+        sessionId: tokenOrSessionId.length > 32 ? 'token' : tokenOrSessionId.substring(0, 8) + '...',
+        reason
+      });
+    }
+
+    return success;
   } catch (error) {
-    console.error('خطأ في إبطال الرمز:', error);
+    console.error('خطأ في إبطال الجلسة');
     return false;
   }
 }
@@ -306,5 +514,4 @@ export function decodeToken(token: string): JWTPayload | null {
   }
 }
 
-// تصدير إعدادات JWT للاستخدام في أماكن أخرى
-export { JWT_CONFIG };
+// تم تصدير JWT_CONFIG في بداية الملف

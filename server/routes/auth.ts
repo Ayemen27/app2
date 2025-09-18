@@ -586,18 +586,31 @@ router.put('/password', requireAuth, async (req: AuthenticatedRequest, res) => {
  */
 router.post('/logout', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    console.log('🚪 [Auth] بدء عملية تسجيل الخروج للمستخدم:', req.user?.email);
+    const userId = req.user!.userId;
+    const sessionId = req.user!.sessionId;
+    const userEmail = req.user!.email;
     
-    // في النظام الحالي JWT stateless، logout يتم من جانب العميل فقط
-    // لا حاجة لحذف sessions من قاعدة البيانات لأنها غير موجودة
+    console.log('🚪 [Auth] بدء عملية تسجيل الخروج للمستخدم:', userEmail);
     
-    // يمكن هنا إضافة تسجيل حدث الخروج للأمان
-    console.log('✅ [Auth] تم تسجيل الخروج بنجاح');
-
-    res.json({
-      success: true,
-      message: 'تم تسجيل الخروج بنجاح'
-    });
+    // إبطال الجلسة الحالية في قاعدة البيانات
+    const success = await terminateSession(userId, sessionId, 'user_logout');
+    
+    if (success) {
+      console.log('✅ [Auth] تم تسجيل الخروج وإبطال الجلسة بنجاح');
+      
+      res.json({
+        success: true,
+        message: 'تم تسجيل الخروج بنجاح'
+      });
+    } else {
+      console.log('⚠️ [Auth] لم يتم العثور على الجلسة للإبطال، ولكن العملية نجحت من جانب العميل');
+      
+      // حتى لو لم نجد الجلسة في قاعدة البيانات، نعتبر logout ناجح من جانب العميل
+      res.json({
+        success: true,
+        message: 'تم تسجيل الخروج بنجاح'
+      });
+    }
 
   } catch (error) {
     console.error('خطأ في API تسجيل الخروج:', error);

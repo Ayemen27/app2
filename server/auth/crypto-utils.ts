@@ -253,6 +253,21 @@ export function decryptBackupCodes(encryptedCodes: string): string[] {
 }
 
 /**
+ * إنشاء hash آمن للرموز (JWT tokens)
+ */
+export function hashToken(token: string): string {
+  try {
+    return crypto
+      .createHash('sha256')
+      .update(token + CRYPTO_CONFIG.encryptionKey)
+      .digest('hex');
+  } catch (error) {
+    console.error('خطأ في تشفير الرمز:', error);
+    throw new Error('فشل في تشفير الرمز');
+  }
+}
+
+/**
  * التحقق من قوة كلمة المرور
  */
 export function validatePasswordStrength(password: string): {

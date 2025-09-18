@@ -68,7 +68,6 @@ export async function loginUser(request: LoginRequest): Promise<LoginResult> {
   const { email, password, totpCode, ipAddress, userAgent, deviceInfo } = request;
 
   console.log('🔐 بدء عملية تسجيل الدخول للمستخدم:', email);
-  console.log('🔐 تفاصيل الطلب:', { email, passwordLength: password?.length, hasPassword: !!password });
 
   try {
     // البحث عن المستخدم
@@ -79,7 +78,7 @@ export async function loginUser(request: LoginRequest): Promise<LoginResult> {
       .where(eq(users.email, email))
       .limit(1);
 
-    console.log('🔍 نتيجة البحث:', { found: userResult.length, email });
+    console.log('🔍 نتيجة البحث:', { found: userResult.length });
 
     if (userResult.length === 0) {
       await logAuditEvent({
@@ -119,13 +118,7 @@ export async function loginUser(request: LoginRequest): Promise<LoginResult> {
     }
 
     // التحقق من كلمة المرور
-    console.log('🔍 فحص كلمة المرور للمستخدم:', email);
-    console.log('🔍 طول كلمة المرور المرسلة:', password.length);
-    console.log('🔍 طول كلمة المرور المحفوظة:', user.password ? user.password.length : 'undefined');
-    console.log('🔍 كلمة المرور المحفوظة تبدأ بـ:', user.password ? user.password.substring(0, 10) + '...' : 'undefined');
-    
     const isPasswordValid = await verifyPassword(password, user.password);
-    console.log('🔍 نتيجة التحقق من كلمة المرور:', isPasswordValid);
     
     if (!isPasswordValid) {
       await logAuditEvent({
@@ -315,7 +308,7 @@ export async function registerUser(request: RegisterRequest) {
       })
       .where(eq(users.id, userId));
 
-    console.log('📝 تم تسجيل مستخدم جديد وتفعيله:', email);
+    console.log('📝 تم تسجيل مستخدم جديد وتفعيله بنجاح');
 
     return {
       success: true,
@@ -332,7 +325,7 @@ export async function registerUser(request: RegisterRequest) {
     console.error('خطأ في التسجيل:', error);
     
     // تسجيل الخطأ في نظام الأخطاء الذكي
-    console.log('❌ خطأ في إنشاء الحساب:', email, (error as Error).message);
+    console.log('❌ خطأ في إنشاء الحساب');
 
     return {
       success: false,
@@ -478,13 +471,13 @@ export async function enableTOTP(userId: string, totpCode: string, ipAddress?: s
 export async function logAuditEvent(event: any) {
   try {
     // تسجيل مبسط في الكونسول حتى يتم إنشاء جداول التدقيق
-    console.log('🔍 [Audit]', {
-      userId: event.userId,
-      action: event.action,
-      resource: event.resource,
-      status: event.status || 'success',
-      timestamp: new Date().toISOString()
-    });
+    // تسجيل مبسط للأحداث الأمنية
+    if (event.action?.includes('failed') || event.action?.includes('error')) {
+      console.log('🔍 [Security]', {
+        action: event.action,
+        status: event.status || 'success'
+      });
+    }
   } catch (error) {
     console.error('خطأ في تسجيل حدث التدقيق:', error);
   }

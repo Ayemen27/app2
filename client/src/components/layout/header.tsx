@@ -33,6 +33,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/notifications': { title: 'الإشعارات', icon: Bell },
   '/ai-system': { title: 'النظام الذكي', icon: Shield },
   '/smart-errors': { title: 'كشف الأخطاء الذكي', icon: Shield },
+  '/data-migration': { title: 'هجرة البيانات من Supabase', icon: ArrowLeftRight },
 };
 
 export default function Header() {

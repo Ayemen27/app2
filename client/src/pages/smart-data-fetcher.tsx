@@ -12,6 +12,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Download, Database, RefreshCw, Eye, Settings, AlertCircle, CheckCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
+// API Response Types
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
 interface TableInfo {
   columns: string[];
   rowCount: number;
@@ -24,6 +31,54 @@ interface SyncResult {
   savedLocally: number;
 }
 
+interface TableDataResponse {
+  data: Record<string, any>[];
+  count: number;
+}
+
+interface FullBackupSummary {
+  tablesProcessed: number;
+  totalSynced: number;
+  totalSaved: number;
+  totalErrors: number;
+}
+
+interface FullBackupResult {
+  tableName: string;
+  success: boolean;
+  synced: number;
+  savedLocally: number;
+  errors?: number;
+}
+
+interface FullBackupResponse {
+  summary: FullBackupSummary;
+  results: FullBackupResult[];
+}
+
+// Type Guards
+const isTableDataResponse = (data: unknown): data is TableDataResponse => {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'data' in data &&
+    'count' in data &&
+    Array.isArray((data as any).data) &&
+    typeof (data as any).count === 'number'
+  );
+};
+
+const isTableInfo = (data: unknown): data is TableInfo => {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'columns' in data &&
+    'rowCount' in data &&
+    Array.isArray((data as any).columns) &&
+    typeof (data as any).rowCount === 'number'
+  );
+};
+
 export default function SupabaseBackupSystem() {
   const [selectedTable, setSelectedTable] = useState("");
   const [previewLimit, setPreviewLimit] = useState(50);
@@ -33,35 +88,37 @@ export default function SupabaseBackupSystem() {
   const queryClient = useQueryClient();
 
   // جلب قائمة الجداول المتاحة للنسخ الاحتياطي
-  const { data: tablesData, isLoading: tablesLoading } = useQuery({
+  const { data: tablesData, isLoading: tablesLoading } = useQuery<ApiResponse<string[]>>({
     queryKey: ["/api/backup/tables"]
   });
 
   // جلب معلومات الجدول من Supabase
-  const { data: tableInfo, isLoading: infoLoading } = useQuery({
+  const { data: tableInfo, isLoading: infoLoading } = useQuery<ApiResponse<TableInfo>>({
     queryKey: ["/api/backup/table", selectedTable, "info"],
     enabled: !!selectedTable
   });
 
   // معاينة بيانات الجدول من Supabase  
-  const { data: tableData, isLoading: dataLoading, refetch: refetchData } = useQuery({
+  const { data: tableData, isLoading: dataLoading, refetch: refetchData } = useQuery<ApiResponse<TableDataResponse>>({
     queryKey: ["/api/backup/table", selectedTable, "preview", `?limit=${previewLimit}&offset=${previewOffset}`],
     enabled: !!selectedTable
   });
 
   // نسخ احتياطي للجدول من Supabase
-  const backupMutation = useMutation({
+  const backupMutation = useMutation<ApiResponse<SyncResult>, Error, { tableName: string; batchSize: number }>({
     mutationFn: async ({ tableName, batchSize }: { tableName: string; batchSize: number }) => {
       return await apiRequest(`/api/backup/table/${tableName}/backup`, "POST", { batchSize });
     },
-    onSuccess: (data: any) => {
-      toast({
-        title: "تم النسخ الاحتياطي بنجاح",
-        description: `تم نسخ ${data.data.synced} صف من Supabase وحفظ ${data.data.savedLocally} صف محلياً`
-      });
+    onSuccess: (data) => {
+      if (data?.data) {
+        toast({
+          title: "تم النسخ الاحتياطي بنجاح",
+          description: `تم نسخ ${data.data.synced} صف من Supabase وحفظ ${data.data.savedLocally} صف محلياً`
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/backup/table"] });
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast({
         title: "خطأ في النسخ الاحتياطي",
         description: error.message || "حدث خطأ أثناء النسخ الاحتياطي",
@@ -71,19 +128,21 @@ export default function SupabaseBackupSystem() {
   });
 
   // نسخة احتياطية شاملة لجميع الجداول
-  const fullBackupMutation = useMutation({
+  const fullBackupMutation = useMutation<ApiResponse<FullBackupResponse>, Error, { batchSize: number }>({
     mutationFn: async ({ batchSize }: { batchSize: number }) => {
       return await apiRequest(`/api/backup/full-backup`, "POST", { batchSize });
     },
-    onSuccess: (data: any) => {
-      const summary = data.data.summary;
-      toast({
-        title: "تم النسخ الاحتياطي الشامل بنجاح",
-        description: `تم نسخ ${summary.totalSynced} صف من ${summary.tablesProcessed} جدول وحفظ ${summary.totalSaved} صف محلياً`
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/backup/"] });
+    onSuccess: (data) => {
+      if (data?.data?.summary) {
+        const summary = data.data.summary;
+        toast({
+          title: "تم النسخ الاحتياطي الشامل بنجاح",
+          description: `تم نسخ ${summary.totalSynced} صف من ${summary.tablesProcessed} جدول وحفظ ${summary.totalSaved} صف محلياً`
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/backup"] });
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast({
         title: "خطأ في النسخ الاحتياطي الشامل",
         description: error.message || "حدث خطأ أثناء النسخ الاحتياطي الشامل",
@@ -238,7 +297,7 @@ export default function SupabaseBackupSystem() {
               <CardContent>
                 {infoLoading ? (
                   <div className="text-center py-8">جاري تحميل معلومات الجدول...</div>
-                ) : tableInfo?.data ? (
+                ) : (tableInfo?.data && isTableInfo(tableInfo.data)) ? (
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
                       <Badge variant="outline" className="text-lg">
@@ -289,28 +348,28 @@ export default function SupabaseBackupSystem() {
                     </Button>
                   </div>
                 </CardTitle>
-                {tableData?.data && (
+                {(tableData?.data && isTableDataResponse(tableData.data)) && (
                   <CardDescription>
-                    عرض {tableData.count} صف من إجمالي {tableInfo?.data?.rowCount || 0}
+                    عرض {tableData.data.count} صف من إجمالي {(tableInfo?.data && isTableInfo(tableInfo.data)) ? tableInfo.data.rowCount : 0}
                   </CardDescription>
                 )}
               </CardHeader>
               <CardContent>
                 {dataLoading ? (
                   <div className="text-center py-8">جاري تحميل البيانات...</div>
-                ) : tableData?.data?.length > 0 ? (
+                ) : (tableData?.data && isTableDataResponse(tableData.data) && tableData.data.data.length > 0) ? (
                   <div className="space-y-4">
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            {Object.keys(tableData.data[0]).map((column) => (
+                            {Object.keys(tableData.data.data[0]).map((column) => (
                               <TableHead key={column}>{column}</TableHead>
                             ))}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {tableData.data.map((row: any, index: number) => (
+                          {tableData.data.data.map((row: any, index: number) => (
                             <TableRow key={index}>
                               {Object.values(row).map((value: any, cellIndex: number) => (
                                 <TableCell key={cellIndex}>
@@ -335,12 +394,12 @@ export default function SupabaseBackupSystem() {
                       </Button>
                       
                       <span className="text-sm text-gray-600">
-                        الصفوف {previewOffset + 1} - {previewOffset + (tableData?.count || 0)}
+                        الصفوف {previewOffset + 1} - {previewOffset + ((tableData?.data && isTableDataResponse(tableData.data)) ? tableData.data.count : 0)}
                       </span>
                       
                       <Button 
                         onClick={handleNextPage}
-                        disabled={!tableData?.data || tableData.count < previewLimit}
+                        disabled={!(tableData?.data && isTableDataResponse(tableData.data)) || tableData.data.count < previewLimit}
                         variant="outline"
                         data-testid="button-next-page"
                       >
@@ -390,7 +449,7 @@ export default function SupabaseBackupSystem() {
                     )}
                   </Button>
                   
-                  {tableInfo?.data && (
+                  {(tableInfo?.data && isTableInfo(tableInfo.data)) && (
                     <div className="text-sm text-gray-600">
                       سيتم نسخ {tableInfo.data.rowCount.toLocaleString()} صف من Supabase على دفعات من {batchSize} صف
                     </div>
@@ -398,7 +457,7 @@ export default function SupabaseBackupSystem() {
                 </div>
 
                 {/* عرض نتائج آخر نسخة احتياطية */}
-                {backupMutation.data && (
+                {(backupMutation.data?.data) && (
                   <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                     <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
                       <CheckCircle className="h-5 w-5" />
@@ -430,7 +489,7 @@ export default function SupabaseBackupSystem() {
                       <AlertCircle className="h-5 w-5" />
                       <div>
                         <div className="font-semibold">خطأ في النسخ الاحتياطي</div>
-                        <div className="text-sm">{(backupMutation.error as any)?.message || "حدث خطأ غير معروف"}</div>
+                        <div className="text-sm">{backupMutation.error?.message || "حدث خطأ غير معروف"}</div>
                       </div>
                     </div>
                   </div>
@@ -439,7 +498,7 @@ export default function SupabaseBackupSystem() {
             </Card>
 
             {/* عرض نتائج النسخ الاحتياطي الشامل */}
-            {fullBackupMutation.data && (
+            {(fullBackupMutation.data?.data) && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
@@ -476,7 +535,7 @@ export default function SupabaseBackupSystem() {
                   </div>
 
                   <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {fullBackupMutation.data.data.results.map((result: any, index: number) => (
+                    {fullBackupMutation.data.data.results.map((result: FullBackupResult, index: number) => (
                       <div
                         key={index}
                         className={`flex items-center justify-between p-2 rounded ${
@@ -510,7 +569,7 @@ export default function SupabaseBackupSystem() {
                   <AlertCircle className="h-5 w-5" />
                   <div>
                     <div className="font-semibold">خطأ في النسخ الاحتياطي الشامل</div>
-                    <div className="text-sm">{(fullBackupMutation.error as any)?.message || "حدث خطأ غير معروف"}</div>
+                    <div className="text-sm">{fullBackupMutation.error?.message || "حدث خطأ غير معروف"}</div>
                   </div>
                 </div>
               </div>

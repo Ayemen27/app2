@@ -31,7 +31,7 @@ externalPort = 3001
 PORT = "5000"
 
 [workflows]
-runButton = "Project"
+runButton = "Start Application with Environment Setup"
 
 [[workflows.workflow]]
 name = "Project"
@@ -50,3 +50,16 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Start Application with Environment Setup"
+author = 47747481
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run setup-env"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"

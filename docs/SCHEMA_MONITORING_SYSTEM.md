@@ -185,7 +185,7 @@ generateExpectedSchemaFile();
 {
   "status": "drift_detected",
   "compared_at": "2025-08-29T13:47:32.304Z", 
-  "database_url_host": "helium",
+  "database_url_host": "app2data",
   "missing_tables": [],
   "extra_tables": [],
   "mismatches": [

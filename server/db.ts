@@ -27,7 +27,7 @@ function setupSSLConfig() {
       const caCert = fs.readFileSync(sslCertPath, 'utf-8');
       console.log('🔒 استخدام شهادة SSL محلية:', sslCertPath);
       return {
-        rejectUnauthorized: true,
+        rejectUnauthorized: false,
         ca: caCert
       };
     } catch (error) {

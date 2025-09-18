@@ -1,5 +1,6 @@
-
 import { defineConfig } from "drizzle-kit";
+import fs from "fs";
+import path from "path";
 
 // التحقق من وجود DATABASE_URL
 if (!process.env.DATABASE_URL) {
@@ -7,28 +8,39 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required. Please set it in your environment variables");
 }
 
-// استخراج معلومات الاتصال من DATABASE_URL
+// التحقق من وجود شهادة SSL في متغيرات البيئة
+if (!process.env.PGSSLROOTCERT) {
+  console.error("❌ PGSSLROOTCERT غير موجود في متغيرات البيئة");
+  throw new Error("PGSSLROOTCERT is required. Please set it in your environment variables");
+}
+
+// استخراج شهادة SSL من المتغير وحفظها مؤقتًا
+const sslCertPath = path.join(process.cwd(), "pg_cert.pem");
+fs.writeFileSync(sslCertPath, process.env.PGSSLROOTCERT.replace(/\\n/g, "\n"));
+
+// استخراج معلومات الاتصال
 const databaseUrl = process.env.DATABASE_URL;
 console.log("🔧 استخدام قاعدة البيانات:", databaseUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
 
-// تحديد إعدادات SSL بناءً على نوع الاتصال
+// إعداد SSL بناءً على الشهادة
 function getSSLConfig() {
   const url = databaseUrl.toLowerCase();
-  
-  // إذا كان الاتصال محلي، لا نحتاج SSL
+
+  // اتصال محلي بدون SSL
   if (url.includes('localhost') || url.includes('127.0.0.1')) {
     return false;
   }
-  
-  // للاتصالات الخارجية، نستخدم SSL مع تجاهل الشهادات غير الموثوقة
+
+  // اتصال خارجي باستخدام الشهادة من .env
   return {
-    rejectUnauthorized: false
+    rejectUnauthorized: false,
+    ca: fs.readFileSync(sslCertPath).toString()
   };
 }
 
 export default defineConfig({
   out: "./migrations",
-  schema: "./shared/schema.ts", 
+  schema: "./shared/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
     url: databaseUrl,
@@ -36,9 +48,7 @@ export default defineConfig({
   },
   verbose: true,
   strict: true,
-  // إعدادات إضافية للأداء والاستقرار
-  schemaFilter: ["public"],
+  schemaFilter: ["app2data"],
   tablesFilter: ["*"],
-  // تمكين التتبع المفصل للعمليات
   breakpoints: true
 });

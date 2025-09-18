@@ -34,6 +34,7 @@ function getSSLConfig() {
   // اتصال خارجي باستخدام الشهادة من .env
   return {
     rejectUnauthorized: false,
+    checkServerIdentity: () => undefined,
     ca: fs.readFileSync(sslCertPath).toString()
   };
 }

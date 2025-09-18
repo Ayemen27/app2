@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -15,6 +15,20 @@ export const users = pgTable("users", {
   lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Authentication User Sessions table (جدول جلسات المستخدمين)
+export const authUserSessions = pgTable("auth_user_sessions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  sessionId: text("session_id").notNull().unique(),
+  refreshToken: text("refresh_token"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastUsed: timestamp("last_used").defaultNow(),
+  userAgent: text("user_agent"),
+  ipAddress: text("ip_address"),
+  isActive: boolean("is_active").default(true).notNull(),
 });
 
 // Projects table
@@ -370,6 +384,16 @@ export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
 export type InsertSupplierPayment = z.infer<typeof insertSupplierPaymentSchema>;
 export type InsertPrintSettings = z.infer<typeof insertPrintSettingsSchema>;
 export type InsertProjectFundTransfer = z.infer<typeof insertProjectFundTransferSchema>;
+
+// Auth User Sessions Schemas
+export const insertAuthUserSessionSchema = createInsertSchema(authUserSessions).omit({
+  id: true,
+  createdAt: true,
+  lastUsed: true,
+});
+
+export type AuthUserSession = typeof authUserSessions.$inferSelect;
+export type InsertAuthUserSession = z.infer<typeof insertAuthUserSessionSchema>;
 
 
 

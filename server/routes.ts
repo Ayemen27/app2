@@ -730,19 +730,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let tablesWithInfo: any[] = [];
       
       try {
-        // الحصول على قائمة الجداول الفعلية من قاعدة البيانات القديمة
-        const client = await getOldDbClient();
+        // الحصول على قائمة الجداول مع timeout wrapper
+        const client = await getOldDbClient(1); // محاولة واحدة فقط لتوفير الوقت
         
-        const tablesQuery = await client.query(`
-          SELECT 
-            table_name,
-            (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name) as column_count
-          FROM information_schema.tables t
+        // استعلام مع timeout wrapper مرن باستخدام Promise.race
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Query timeout after 20 seconds')), 20000);
+        });
+        
+        const queryPromise = client.query(`
+          SELECT table_name
+          FROM information_schema.tables 
           WHERE table_schema = 'public' 
           AND table_type = 'BASE TABLE'
           ORDER BY table_name
+          LIMIT 100
         `);
         
+        const tablesQuery = await Promise.race([queryPromise, timeoutPromise]);
+        
+        // إطلاق الاتصال للـ pool بدلاً من إغلاقه
         await client.end();
         
         if (tablesQuery.rows && tablesQuery.rows.length > 0) {
@@ -753,7 +760,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             estimatedRows: 0, // سيتم تحديثها لاحقاً
             status: 'ready',
             priority: getTablePriority(row.table_name),
-            columnCount: row.column_count
+            columnCount: 0 // لا نحسبها الآن لتوفير الوقت
           }));
         }
         

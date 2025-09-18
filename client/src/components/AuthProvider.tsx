@@ -51,13 +51,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         const savedUser = localStorage.getItem('user');
         const accessToken = localStorage.getItem('accessToken');
-        
+
         console.log('🔍 [AuthProvider] فحص البيانات المحفوظة:', {
           hasUser: !!savedUser,
           hasToken: !!accessToken,
           userPreview: savedUser ? JSON.parse(savedUser).email : 'غير موجود'
         });
-        
+
         if (savedUser && accessToken) {
           console.log('✅ [AuthProvider] تم العثور على بيانات محفوظة، التحقق من صحتها...');
           // التحقق من صحة الرمز المميز مع النظام المتقدم
@@ -68,9 +68,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 'Authorization': `Bearer ${accessToken}`,
               },
             });
-            
+
             console.log('📨 [AuthProvider] استجابة /api/auth/me:', response.status);
-            
+
             if (response.ok) {
               const data = await response.json();
               console.log('📋 [AuthProvider] بيانات المستخدم من API:', data);
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 return;
               }
             }
-            
+
             console.log('🔄 [AuthProvider] فشل التحقق، محاولة تجديد الرمز...');
             // إذا فشل التحقق، محاولة تجديد الرمز
             const refreshSuccess = await refreshToken();
@@ -118,47 +118,62 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // تسجيل الدخول
   const login = async (email: string, password: string) => {
     console.log('🔑 [AuthProvider.login] بدء تسجيل الدخول:', email, new Date().toISOString());
-    
-    console.log('📡 [AuthProvider.login] إرسال طلب تسجيل الدخول إلى /api/auth/login');
+
     const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    console.log('📨 [AuthProvider.login] استجابة تسجيل الدخول:', response.status);
-    const data = await response.json();
-    console.log('📋 [AuthProvider.login] بيانات الاستجابة:', data);
+      console.log('📨 [AuthProvider.login] استجابة تسجيل الدخول:', response.status);
 
-    if (data.success) {
-      console.log('✅ [AuthProvider.login] نجح تسجيل الدخول، حفظ بيانات المستخدم:', data.user?.email || data.data?.user?.email);
-      
-      const userData = data.user || data.data?.user;
-      const tokensData = data.tokens || data.data;
-      
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      
-      // معالجة كلاً من tokens.accessToken و token (للتوافق مع Vercel)
-      if (tokensData?.accessToken) {
-        console.log('💾 [AuthProvider.login] حفظ الرموز من tokens object');
-        localStorage.setItem('accessToken', tokensData.accessToken);
-        localStorage.setItem('refreshToken', tokensData.refreshToken || '');
-      } else if (data.token) {
-        console.log('💾 [AuthProvider.login] حفظ الرموز من token field');
-        localStorage.setItem('accessToken', data.token);
-        localStorage.setItem('refreshToken', data.refreshToken || '');
+      const data = await response.json();
+      console.log('📦 [AuthProvider.login] بيانات الاستجابة:', { success: data.success, hasUser: !!data.data?.user, hasToken: !!data.data?.accessToken });
+
+      if (!response.ok || !data.success) {
+        console.log('❌ [AuthProvider.login] فشل تسجيل الدخول:', data.message);
+        throw new Error(data.message || 'فشل تسجيل الدخول');
       }
-      
+
+      // حفظ بيانات المستخدم
+      const user = {
+        id: data.user?.id || data.data?.user?.id,
+        email: data.user?.email || data.data?.user?.email,
+        name: data.user?.name || data.data?.user?.name || `${data.data?.user?.firstName || ''} ${data.data?.user?.lastName || ''}`.trim(),
+        role: data.user?.role || data.data?.user?.role,
+      };
+
+      const token = data.tokens?.accessToken || data.data?.accessToken;
+
+      console.log('🔍 [AuthProvider.login] فحص البيانات المستلمة:', { 
+        userId: user.id, 
+        userEmail: user.email, 
+        userName: user.name, 
+        userRole: user.role,
+        hasToken: !!token,
+        tokenPreview: token ? token.substring(0, 20) + '...' : 'none'
+      });
+
+      if (!user.id || !token) {
+        console.error('❌ [AuthProvider.login] بيانات غير مكتملة:', { user, hasToken: !!token });
+        throw new Error('بيانات تسجيل الدخول غير مكتملة');
+      }
+
+      setUser(user);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      // معالجة كلاً من tokens.accessToken و token (للتوافق مع Vercel)
+      if (token) {
+        console.log('💾 [AuthProvider.login] حفظ الرمز المميز');
+        localStorage.setItem('accessToken', token);
+        localStorage.setItem('refreshToken', data.tokens?.refreshToken || data.data?.refreshToken || '');
+      }
+
       console.log('🔄 [AuthProvider.login] تحديث cache queries');
       queryClient.invalidateQueries();
       console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');
-    } else {
-      console.log('❌ [AuthProvider.login] فشل تسجيل الدخول:', data.message);
-      throw new Error(data.message);
-    }
   };
 
   // تسجيل الخروج
@@ -234,7 +249,7 @@ export function useAuthenticatedRequest() {
 
   return async (url: string, options: RequestInit = {}): Promise<Response> => {
     const accessToken = localStorage.getItem('accessToken');
-    
+
     const response = await fetch(url, {
       ...options,
       headers: {

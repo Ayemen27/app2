@@ -3,6 +3,7 @@ import type { Server } from "http";
 import { createServer } from "http";
 import { db } from "./db";
 import { SecureDataFetcher } from "./services/secure-data-fetcher";
+import { requireAuth, requireRole } from "./middleware/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -52,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // خدمة النسخ الاحتياطي الآمنة - معلومات الجدول (محمية للإداريين)
-  app.get("/api/backup/table/:tableName/info", requireAuth, requireAdmin, async (req, res) => {
+  app.get("/api/backup/table/:tableName/info", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { tableName } = req.params;
       const externalUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DB_URL;
@@ -83,7 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // خدمة النسخ الاحتياطي الآمنة - جلب البيانات (محمية للإداريين)
-  app.get("/api/backup/table/:tableName/preview", requireAuth, requireAdmin, async (req, res) => {
+  app.get("/api/backup/table/:tableName/preview", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { tableName } = req.params;
       const { limit = 50, offset = 0, orderBy, orderDirection } = req.query;
@@ -125,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // خدمة النسخ الاحتياطي الكاملة من Supabase إلى قاعدة البيانات الجديدة (محمية للإداريين)
-  app.post("/api/backup/table/:tableName/backup", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/backup/table/:tableName/backup", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { tableName } = req.params;
       const { batchSize = 100 } = req.body;
@@ -159,7 +160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // قائمة الجداول المتاحة للنسخ الاحتياطي من Supabase (محمية للإداريين)
-  app.get("/api/backup/tables", requireAuth, requireAdmin, (req, res) => {
+  app.get("/api/backup/tables", requireAuth, requireRole('admin'), (req, res) => {
     const availableTables = SecureDataFetcher.getAllowedTables();
     
     res.json({
@@ -170,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // نسخة احتياطية شاملة لجميع الجداول (محمية للإداريين)
-  app.post("/api/backup/full-backup", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/backup/full-backup", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { batchSize = 100 } = req.body;
       const externalUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DB_URL;

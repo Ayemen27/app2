@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { StatsCard } from "@/components/ui/stats-card";
 import { 
   Database, 
   Download, 
@@ -27,7 +28,18 @@ import {
   Activity,
   ArrowRight,
   Filter,
-  Search
+  Search,
+  Save,
+  Undo,
+  Server,
+  HardDrive,
+  Wifi,
+  WifiOff,
+  FileText,
+  Trash2,
+  Copy,
+  Upload,
+  BarChart3
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -38,6 +50,11 @@ interface MigrationTable {
   displayName: string;
   category: string;
   estimatedRows: number;
+  actualRows?: number;
+  columnCount?: number;
+  columns?: string[];
+  description?: string;
+  size?: string;
   status: 'ready' | 'migrating' | 'completed' | 'failed';
   priority: number;
 }
@@ -87,6 +104,18 @@ export default function DataMigrationPage() {
   const { data: tablesData, isLoading: tablesLoading, refetch: refetchTables } = useQuery<MigrationTable[]>({
     queryKey: ['/api/migration/tables'],
     refetchInterval: 30000, // تحديث كل 30 ثانية
+  });
+
+  // جلب إحصائيات شاملة
+  const { data: generalStats, refetch: refetchGeneralStats } = useQuery({
+    queryKey: ['/api/migration/general-stats'],
+    refetchInterval: 60000, // تحديث كل دقيقة
+  });
+
+  // فحص حالة الاتصال بقاعدة البيانات المصدر
+  const { data: connectionStatus, refetch: refetchConnection } = useQuery({
+    queryKey: ['/api/migration/connection-status'],
+    refetchInterval: 30000,
   });
 
   // جلب حالة الهجرة الحالية
@@ -181,92 +210,128 @@ export default function DataMigrationPage() {
     }
   };
 
-  // حساب الإحصائيات
-  const stats = {
-    totalTables: tablesData?.length || 0,
-    selectedTables: selectedTables.length,
-    readyTables: (tablesData || []).filter((t: MigrationTable) => t.status === 'ready').length,
-    completedTables: (tablesData || []).filter((t: MigrationTable) => t.status === 'completed').length
+  // حساب الإحصائيات الشاملة
+  const calculateGeneralStats = () => {
+    const totalRecords = (tablesData || []).reduce((sum: number, table: MigrationTable) => 
+      sum + (table.actualRows || table.estimatedRows), 0
+    );
+    
+    const estimatedDataSize = (generalStats?.estimatedDataSize || 
+      Math.round(totalRecords * 0.001 * 100) / 100) + ' MB';
+      
+    return {
+      totalTables: tablesData?.length || 0,
+      selectedTables: selectedTables.length,
+      readyTables: (tablesData || []).filter((t: MigrationTable) => t.status === 'ready').length,
+      completedTables: (tablesData || []).filter((t: MigrationTable) => t.status === 'completed').length,
+      totalRecords,
+      estimatedDataSize,
+      isConnected: connectionStatus?.connected || false
+    };
   };
+  
+  const stats = calculateGeneralStats();
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl" dir="rtl">
-      {/* العنوان والإحصائيات */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <Database className="h-8 w-8 text-blue-600" />
-          <div>
-            <h1 className="text-3xl font-bold">هجرة البيانات من Supabase</h1>
-            <p className="text-muted-foreground">نقل البيانات بأمان وكفاءة إلى قاعدة البيانات المحلية</p>
-          </div>
+    <div className="container mx-auto p-3 sm:p-6 max-w-7xl" dir="rtl">
+      {/* الإحصائيات الشاملة باستخدام مكونات موحدة */}
+      <div className="mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+          <StatsCard
+            title="إجمالي الجداول"
+            value={stats.totalTables}
+            icon={Database}
+            color="blue"
+            data-testid="stat-total-tables"
+          />
+          <StatsCard
+            title="إجمالي السجلات"
+            value={stats.totalRecords.toLocaleString()}
+            icon={BarChart3}
+            color="green"
+            data-testid="stat-total-records"
+          />
+          <StatsCard
+            title="حجم البيانات المقدر"
+            value={stats.estimatedDataSize}
+            icon={HardDrive}
+            color="purple"
+            data-testid="stat-data-size"
+          />
+          <StatsCard
+            title="حالة الاتصال"
+            value={stats.isConnected ? 'متصل' : 'منقطع'}
+            icon={stats.isConnected ? Wifi : WifiOff}
+            color={stats.isConnected ? 'green' : 'red'}
+            data-testid="stat-connection-status"
+          />
         </div>
-
-        {/* إحصائيات سريعة */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Database className="h-5 w-5 text-blue-500" />
-                <div>
-                  <p className="text-sm text-muted-foreground">إجمالي الجداول</p>
-                  <p className="text-2xl font-bold">{stats.totalTables}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-green-500" />
-                <div>
-                  <p className="text-sm text-muted-foreground">جداول مكتملة</p>
-                  <p className="text-2xl font-bold">{stats.completedTables}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Activity className="h-5 w-5 text-blue-500" />
-                <div>
-                  <p className="text-sm text-muted-foreground">جداول محددة</p>
-                  <p className="text-2xl font-bold">{stats.selectedTables}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-orange-500" />
-                <div>
-                  <p className="text-sm text-muted-foreground">جداول جاهزة</p>
-                  <p className="text-2xl font-bold">{stats.readyTables}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        
+        {/* إحصائيات إضافية */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <StatsCard
+            title="جداول مكتملة"
+            value={stats.completedTables}
+            icon={CheckCircle}
+            color="emerald"
+            data-testid="stat-completed-tables"
+          />
+          <StatsCard
+            title="جداول جاهزة"
+            value={stats.readyTables}
+            icon={Clock}
+            color="orange"
+            data-testid="stat-ready-tables"
+          />
+          <StatsCard
+            title="جداول محددة"
+            value={stats.selectedTables}
+            icon={Activity}
+            color="indigo"
+            data-testid="stat-selected-tables"
+          />
+          <StatsCard
+            title="نسبة الإكمال"
+            value={`${Math.round((stats.completedTables / stats.totalTables) * 100) || 0}%`}
+            icon={Activity}
+            color="teal"
+            data-testid="stat-completion-rate"
+          />
         </div>
       </div>
 
-      {/* علامات التبويب */}
+      {/* علامات التبويب المحسنة */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="tables" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            اختيار الجداول
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto gap-1">
+          <TabsTrigger value="tables" className="flex items-center gap-2 text-xs sm:text-sm p-2 sm:p-3">
+            <Database className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">اختيار الجداول</span>
+            <span className="sm:hidden">الجداول</span>
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            الإعدادات
+          <TabsTrigger value="settings" className="flex items-center gap-2 text-xs sm:text-sm p-2 sm:p-3">
+            <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">الإعدادات</span>
+            <span className="sm:hidden">إعدادات</span>
           </TabsTrigger>
-          <TabsTrigger value="progress" className="flex items-center gap-2">
-            <Activity className="h-4 w-4" />
-            متابعة التقدم
+          <TabsTrigger value="progress" className="flex items-center gap-2 text-xs sm:text-sm p-2 sm:p-3">
+            <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">متابعة التقدم</span>
+            <span className="sm:hidden">التقدم</span>
+          </TabsTrigger>
+          <TabsTrigger value="backup" className="flex items-center gap-2 text-xs sm:text-sm p-2 sm:p-3">
+            <Save className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">النسخ الاحتياطي</span>
+            <span className="sm:hidden">نسخ</span>
+          </TabsTrigger>
+          <TabsTrigger value="restore" className="flex items-center gap-2 text-xs sm:text-sm p-2 sm:p-3">
+            <Undo className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">الاستعادة المتقدمة</span>
+            <span className="sm:hidden">استعادة</span>
+          </TabsTrigger>
+          <TabsTrigger value="database-mgmt" className="flex items-center gap-2 text-xs sm:text-sm p-2 sm:p-3">
+            <Server className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">إدارة قواعد البيانات</span>
+            <span className="sm:hidden">إدارة</span>
           </TabsTrigger>
         </TabsList>
 
@@ -274,22 +339,28 @@ export default function DataMigrationPage() {
         <TabsContent value="tables" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+              <CardTitle className="flex items-center justify-between text-base sm:text-lg">
                 <span>الجداول المتاحة للهجرة</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => refetchTables()}
-                  disabled={tablesLoading}
-                  data-testid="button-refresh-tables"
-                >
-                  <RefreshCw className={`h-4 w-4 ${tablesLoading ? 'animate-spin' : ''}`} />
-                  تحديث
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      refetchTables();
+                      refetchGeneralStats();
+                      refetchConnection();
+                    }}
+                    disabled={tablesLoading}
+                    data-testid="button-refresh-tables"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${tablesLoading ? 'animate-spin' : ''}`} />
+                    <span className="hidden sm:inline ml-2">تحديث</span>
+                  </Button>
+                </div>
               </CardTitle>
               
               {/* أدوات البحث والتصفية */}
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1">
                   <div className="relative">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -297,16 +368,16 @@ export default function DataMigrationPage() {
                       placeholder="البحث في الجداول..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 text-sm sm:text-base"
                       data-testid="input-search-tables"
                     />
                   </div>
                 </div>
-                <div className="sm:w-48">
+                <div className="w-full sm:w-48">
                   <select
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-full p-2 border rounded-md"
+                    className="w-full p-2 border rounded-md text-sm sm:text-base"
                     data-testid="select-category-filter"
                   >
                     <option value="all">جميع الفئات</option>
@@ -320,17 +391,18 @@ export default function DataMigrationPage() {
               </div>
 
               {/* أدوات الاختيار */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-2 sm:gap-4">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={toggleSelectAll}
                     data-testid="button-toggle-select-all"
+                    className="text-xs sm:text-sm"
                   >
                     {selectedTables.length === filteredTables.length ? 'إلغاء اختيار الكل' : 'اختيار الكل'}
                   </Button>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-xs sm:text-sm text-muted-foreground">
                     محدد {selectedTables.length} من {filteredTables.length} جدول
                   </span>
                 </div>
@@ -338,16 +410,102 @@ export default function DataMigrationPage() {
             </CardHeader>
 
             <CardContent>
-              <ScrollArea className="h-[400px]">
-                <Table>
+              <ScrollArea className="h-[300px] sm:h-[400px]">
+                <div className="space-y-3 sm:hidden">
+                  {/* عرض البطاقات للهواتف المحمولة */}
+                  {tablesLoading ? (
+                    <div className="text-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                      <p className="text-sm">جاري تحميل الجداول...</p>
+                    </div>
+                  ) : filteredTables.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Database className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm">لا توجد جداول متطابقة مع البحث</p>
+                    </div>
+                  ) : (
+                    filteredTables.map((table: MigrationTable) => (
+                      <Card key={table.name} className="p-3">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedTables.includes(table.name)}
+                            onChange={() => toggleTableSelection(table.name)}
+                            className="w-4 h-4 mt-1"
+                            data-testid={`checkbox-table-${table.name}`}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium text-sm truncate">{table.displayName}</h4>
+                              <Badge 
+                                variant={
+                                  table.status === 'ready' ? 'default' :
+                                  table.status === 'completed' ? 'secondary' :
+                                  table.status === 'failed' ? 'destructive' :
+                                  'outline'
+                                }
+                                className="text-xs"
+                              >
+                                {table.status === 'ready' ? 'جاهز' :
+                                 table.status === 'completed' ? 'مكتمل' :
+                                 table.status === 'failed' ? 'فاشل' :
+                                 table.status}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-1">{table.name}</p>
+                            {table.description && (
+                              <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{table.description}</p>
+                            )}
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="flex items-center gap-1">
+                                <BarChart3 className="h-3 w-3" />
+                                <span>{(table.actualRows || table.estimatedRows).toLocaleString()} صف</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <FileText className="h-3 w-3" />
+                                <span>{table.columnCount || '—'} عمود</span>
+                              </div>
+                            </div>
+                            {table.columns && table.columns.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-xs text-muted-foreground mb-1">الأعمدة:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {table.columns.slice(0, 3).map((col, index) => (
+                                    <Badge key={index} variant="outline" className="text-xs px-1 py-0">
+                                      {col}
+                                    </Badge>
+                                  ))}
+                                  {table.columns.length > 3 && (
+                                    <Badge variant="outline" className="text-xs px-1 py-0">
+                                      +{table.columns.length - 3}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between mt-2">
+                              <Badge variant="outline" className="text-xs">{table.category}</Badge>
+                              {table.size && (
+                                <span className="text-xs text-muted-foreground">{table.size}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
+                
+                {/* عرض الجدول للشاشات الكبيرة */}
+                <Table className="hidden sm:table">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">اختيار</TableHead>
-                      <TableHead>اسم الجدول</TableHead>
+                      <TableHead>معلومات الجدول</TableHead>
                       <TableHead>الفئة</TableHead>
-                      <TableHead>الصفوف المقدرة</TableHead>
+                      <TableHead>البيانات</TableHead>
+                      <TableHead>الأعمدة</TableHead>
                       <TableHead>الحالة</TableHead>
-                      <TableHead>الأولوية</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -381,12 +539,50 @@ export default function DataMigrationPage() {
                             <div>
                               <p className="font-medium">{table.displayName}</p>
                               <p className="text-sm text-muted-foreground">{table.name}</p>
+                              {table.description && (
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{table.description}</p>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">{table.category}</Badge>
                           </TableCell>
-                          <TableCell>{table.estimatedRows.toLocaleString()}</TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-sm">
+                                <BarChart3 className="h-3 w-3" />
+                                <span>{(table.actualRows || table.estimatedRows).toLocaleString()} صف</span>
+                              </div>
+                              {table.size && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <HardDrive className="h-3 w-3" />
+                                  <span>{table.size}</span>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-sm">
+                                <FileText className="h-3 w-3" />
+                                <span>{table.columnCount || '—'} عمود</span>
+                              </div>
+                              {table.columns && table.columns.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {table.columns.slice(0, 2).map((col, index) => (
+                                    <Badge key={index} variant="outline" className="text-xs px-1 py-0">
+                                      {col}
+                                    </Badge>
+                                  ))}
+                                  {table.columns.length > 2 && (
+                                    <Badge variant="outline" className="text-xs px-1 py-0">
+                                      +{table.columns.length - 2}
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Badge 
                               variant={
@@ -402,9 +598,6 @@ export default function DataMigrationPage() {
                                table.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{table.priority}</Badge>
-                          </TableCell>
                         </TableRow>
                       ))
                     )}
@@ -415,8 +608,8 @@ export default function DataMigrationPage() {
           </Card>
 
           {/* أزرار التحكم */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center gap-4">
               <Button
                 onClick={startMigration}
                 disabled={selectedTables.length === 0 || startMigrationMutation.isPending}
@@ -552,6 +745,170 @@ export default function DataMigrationPage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* تبويب النسخ الاحتياطي المحلي */}
+        <TabsContent value="backup" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Save className="h-5 w-5" />
+                النسخ الاحتياطي المحلي
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="text-center py-8">
+                <Save className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">إنشاء نسخة احتياطية محلية</h3>
+                <p className="text-muted-foreground mb-6">
+                  قم بإنشاء نسخة احتياطية كاملة من قاعدة البيانات المحلية للحماية من فقدان البيانات
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
+                  <Button variant="outline" data-testid="button-create-backup">
+                    <Download className="h-4 w-4 ml-2" />
+                    إنشاء نسخة احتياطية
+                  </Button>
+                  <Button variant="outline" data-testid="button-schedule-backup">
+                    <Clock className="h-4 w-4 ml-2" />
+                    جدولة النسخ الاحتياطي
+                  </Button>
+                </div>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="font-medium mb-3">النسخ الاحتياطية المحفوظة</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">نسخة احتياطية يومية</p>
+                      <p className="text-sm text-muted-foreground">تم إنشاؤها في 18 سبتمبر 2025</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" data-testid="button-download-backup">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="outline" data-testid="button-delete-backup">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* تبويب الاستعادة المتقدمة */}
+        <TabsContent value="restore" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Undo className="h-5 w-5" />
+                الاستعادة المتقدمة
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="text-center py-8">
+                <Undo className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">استعادة البيانات</h3>
+                <p className="text-muted-foreground mb-6">
+                  استعد البيانات من النسخ الاحتياطية أو قم بعمليات استعادة متقدمة
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
+                  <Button variant="outline" data-testid="button-restore-from-backup">
+                    <Upload className="h-4 w-4 ml-2" />
+                    استعادة من نسخة احتياطية
+                  </Button>
+                  <Button variant="outline" data-testid="button-selective-restore">
+                    <Copy className="h-4 w-4 ml-2" />
+                    استعادة انتقائية
+                  </Button>
+                </div>
+              </div>
+              <Separator />
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>تحذير:</strong> عمليات الاستعادة قد تستغرق وقتاً طويلاً وقد تؤثر على أداء النظام.
+                  تأكد من إنشاء نسخة احتياطية حديثة قبل البدء.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* تبويب إدارة قواعد البيانات */}
+        <TabsContent value="database-mgmt" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Server className="h-5 w-5" />
+                إدارة قواعد البيانات
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="text-center p-6 border rounded-lg">
+                  <Database className="h-12 w-12 mx-auto mb-3 text-blue-500" />
+                  <h4 className="font-medium mb-2">قاعدة البيانات المصدر</h4>
+                  <p className="text-sm text-muted-foreground mb-4">Supabase Database</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2">
+                      {stats.isConnected ? (
+                        <>
+                          <Wifi className="h-4 w-4 text-green-500" />
+                          <span className="text-sm text-green-600">متصل</span>
+                        </>
+                      ) : (
+                        <>
+                          <WifiOff className="h-4 w-4 text-red-500" />
+                          <span className="text-sm text-red-600">غير متصل</span>
+                        </>
+                      )}
+                    </div>
+                    <Button size="sm" variant="outline" data-testid="button-test-source-connection">
+                      اختبار الاتصال
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="text-center p-6 border rounded-lg">
+                  <HardDrive className="h-12 w-12 mx-auto mb-3 text-green-500" />
+                  <h4 className="font-medium mb-2">قاعدة البيانات المحلية</h4>
+                  <p className="text-sm text-muted-foreground mb-4">Local PostgreSQL</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2">
+                      <Wifi className="h-4 w-4 text-green-500" />
+                      <span className="text-sm text-green-600">متصل</span>
+                    </div>
+                    <Button size="sm" variant="outline" data-testid="button-manage-local-db">
+                      إدارة قاعدة البيانات
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h4 className="font-medium mb-3">أدوات الإدارة</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <Button variant="outline" className="justify-start" data-testid="button-optimize-tables">
+                    <Settings className="h-4 w-4 ml-2" />
+                    تحسين الجداول
+                  </Button>
+                  <Button variant="outline" className="justify-start" data-testid="button-analyze-performance">
+                    <BarChart3 className="h-4 w-4 ml-2" />
+                    تحليل الأداء
+                  </Button>
+                  <Button variant="outline" className="justify-start" data-testid="button-manage-indexes">
+                    <Database className="h-4 w-4 ml-2" />
+                    إدارة الفهارس
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

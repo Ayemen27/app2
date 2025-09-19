@@ -358,7 +358,68 @@ export const insertAutocompleteDataSchema = createInsertSchema(autocompleteData)
 export const insertWorkerMiscExpenseSchema = createInsertSchema(workerMiscExpenses).omit({ id: true, createdAt: true }).extend({
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
 });
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true, lastLogin: true });
+// 🛡️ **Enhanced User Input Validation - حماية أمنية محسّنة**
+export const insertUserSchema = createInsertSchema(users).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true, 
+  lastLogin: true 
+}).extend({
+  email: z.string()
+    .min(5, "البريد الإلكتروني قصير جداً")
+    .max(255, "البريد الإلكتروني طويل جداً") 
+    .email("تنسيق البريد الإلكتروني غير صحيح")
+    .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "البريد الإلكتروني يحتوي على أحرف غير مسموحة"),
+  password: z.string()
+    .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
+    .max(128, "كلمة المرور طويلة جداً")
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).*$/, 
+           "كلمة المرور يجب أن تحتوي على حرف كبير وصغير ورقم ورمز خاص"),
+  firstName: z.string()
+    .min(1, "الاسم الأول مطلوب")
+    .max(100, "الاسم الأول طويل جداً")
+    .regex(/^[a-zA-Zا-ي\s\-']+$/, "الاسم يحتوي على أحرف غير مسموحة"),
+  lastName: z.string()
+    .max(100, "اسم العائلة طويل جداً")
+    .regex(/^[a-zA-Zا-ي\s\-']*$/, "اسم العائلة يحتوي على أحرف غير مسموحة")
+    .optional(),
+  role: z.enum(['admin', 'manager', 'user'], {
+    errorMap: () => ({ message: "الدور يجب أن يكون admin أو manager أو user" })
+  })
+});
+
+// 🛡️ **Enhanced Worker Input Validation**
+export const enhancedInsertWorkerSchema = createInsertSchema(workers).omit({ 
+  id: true, 
+  createdAt: true 
+}).extend({
+  name: z.string()
+    .min(2, "اسم العامل قصير جداً")
+    .max(100, "اسم العامل طويل جداً")
+    .regex(/^[a-zA-Zا-ي\s\-']+$/, "اسم العامل يحتوي على أحرف غير مسموحة"),
+  type: z.enum(['معلم', 'عامل', 'مساعد', 'سائق', 'حارس'], {
+    errorMap: () => ({ message: "نوع العامل غير صحيح" })
+  }),
+  dailyWage: z.string()
+    .regex(/^\d+(\.\d{1,2})?$/, "الأجر اليومي يجب أن يكون رقماً صحيحاً")
+    .refine((val) => parseFloat(val) > 0 && parseFloat(val) <= 10000, {
+      message: "الأجر اليومي يجب أن يكون بين 1 و 10000"
+    })
+});
+
+// 🛡️ **Enhanced Project Input Validation**  
+export const enhancedInsertProjectSchema = createInsertSchema(projects).omit({
+  id: true,
+  createdAt: true
+}).extend({
+  name: z.string()
+    .min(2, "اسم المشروع قصير جداً")
+    .max(200, "اسم المشروع طويل جداً")
+    .regex(/^[a-zA-Zا-ي0-9\s\-_().]+$/, "اسم المشروع يحتوي على أحرف غير مسموحة"),
+  status: z.enum(['active', 'completed', 'paused'], {
+    errorMap: () => ({ message: "حالة المشروع يجب أن تكون active أو completed أو paused" })
+  })
+});
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, createdAt: true });
 export const insertSupplierPaymentSchema = createInsertSchema(supplierPayments).omit({ id: true, createdAt: true }).extend({
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal

@@ -25,31 +25,24 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
     
     console.log(`🔍 [AUTH] فحص المسار: ${method} ${path}`);
     
-    // **تخطي المصادقة تماماً لجميع العمليات الأساسية**
-    const skipAuthPaths = [
-      '/api/workers',
-      '/api/projects', 
-      '/api/fund-transfers',
-      '/api/suppliers',
-      '/api/daily-expenses',
-      '/api/material-purchases',
-      '/api/transportation-expenses',
-      '/api/worker-attendance'
+    // 🔒 **تطبيق المصادقة على جميع المسارات الحساسة** 
+    // ⚠️ تم إزالة skipAuthPaths لأنها تشكل ثغرة أمنية خطيرة جداً
+    // جميع endpoints الحساسة (العمال، المشاريع، التحويلات، إلخ) تحتاج مصادقة
+
+    // المسارات الوحيدة المسموح بها بدون مصادقة (PUBLIC ONLY)
+    const publicOnlyPaths = [
+      '/api/health',
+      '/api/db/info', // معلومات عامة عن قاعدة البيانات
+      '/api/worker-types' // قائمة أنواع العمال فقط - بيانات غير حساسة
     ];
     
-    // فحص إذا كان المسار ضمن العمليات الأساسية
-    const shouldSkipAuth = skipAuthPaths.some(skipPath => 
-      path === skipPath || path.startsWith(skipPath + '/')
+    // فحص المسارات العامة المحدودة فقط
+    const isPublicPath = publicOnlyPaths.some(publicPath => 
+      path === publicPath
     );
     
-    if (shouldSkipAuth) {
-      console.log(`✅ [AUTH] تخطي كامل للمصادقة: ${method} ${path}`);
-      req.user = {
-        userId: 'system-bypass',
-        email: 'system@bypass.local',
-        role: 'admin',
-        sessionId: 'bypass-session'
-      };
+    if (isPublicPath) {
+      console.log(`✅ [AUTH] مسار عام آمن: ${method} ${path}`);
       return next();
     }
     

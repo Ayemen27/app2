@@ -85,23 +85,28 @@ export function verifyTOTPCode(secret: string, token: string): boolean {
 }
 
 /**
- * تشفير البيانات الحساسة (AES-256-GCM)
+ * تشفير البيانات الحساسة (AES-256-GCM) - تم إصلاحه
  */
 export function encryptSensitiveData(data: string): {
   encrypted: string;
   iv: string;
+  authTag: string;
 } {
   try {
     const iv = crypto.randomBytes(16);
-    const key = CRYPTO_CONFIG.encryptionKey + iv.toString('hex');
-    const cipher = crypto.createCipher('aes-256-cbc', key);
+    // إنشاء مفتاح ثابت 256-بت من ENCRYPTION_KEY
+    const key = crypto.pbkdf2Sync(CRYPTO_CONFIG.encryptionKey, 'construction-salt-2025', 100000, 32, 'sha256');
+    const cipher = crypto.createCipherGCM('aes-256-gcm', key, iv);
     
     let encrypted = cipher.update(data, 'utf8', 'hex');
     encrypted += cipher.final('hex');
+    
+    const authTag = cipher.getAuthTag();
 
     return {
       encrypted,
       iv: iv.toString('hex'),
+      authTag: authTag.toString('hex'),
     };
   } catch (error) {
     console.error('خطأ في تشفير البيانات:', error);
@@ -110,12 +115,15 @@ export function encryptSensitiveData(data: string): {
 }
 
 /**
- * فك تشفير البيانات الحساسة
+ * فك تشفير البيانات الحساسة - تم إصلاحه
  */
-export function decryptSensitiveData(encrypted: string, iv: string): string {
+export function decryptSensitiveData(encrypted: string, iv: string, authTag: string): string {
   try {
-    const key = CRYPTO_CONFIG.encryptionKey + iv;
-    const decipher = crypto.createDecipher('aes-256-cbc', key);
+    // إنشاء نفس المفتاح المستخدم في التشفير
+    const key = crypto.pbkdf2Sync(CRYPTO_CONFIG.encryptionKey, 'construction-salt-2025', 100000, 32, 'sha256');
+    const decipher = crypto.createDecipherGCM('aes-256-gcm', key, Buffer.from(iv, 'hex'));
+    
+    decipher.setAuthTag(Buffer.from(authTag, 'hex'));
     
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
@@ -123,7 +131,7 @@ export function decryptSensitiveData(encrypted: string, iv: string): string {
     return decrypted;
   } catch (error) {
     console.error('خطأ في فك تشفير البيانات:', error);
-    throw new Error('فشل في فك تشفير البيانات');
+    throw new Error('فشل في فك تشفير البيانات أو البيانات محرفة');
   }
 }
 

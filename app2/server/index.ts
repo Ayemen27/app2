@@ -1,12 +1,80 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات app2data
 import authRoutes from './routes/auth.js';
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+
+// 🛡️ **Security Headers - يحمي من XSS, clickjacking, MIME sniffing**
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Needed for Vite in dev
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false // For Vite compatibility
+}));
+
+// 🌐 **CORS Configuration - يمنع Cross-Origin attacks**
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://yourapp.com'] // Replace with your actual domain
+    : ['http://localhost:5000', 'http://127.0.0.1:5000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// 🔧 **Fix trust proxy for rate limiting** - هام لأمان rate limiting
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1); // Trust first proxy in production
+} else {
+  app.set('trust proxy', true); // Trust all proxies in development
+}
+
+// 🚫 **Global Rate Limiting - يمنع DDoS and brute force**
+const globalRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 دقيقة
+  max: 1000, // 1000 طلب كحد أقصى لكل IP
+  message: {
+    success: false,
+    error: 'تم تجاوز عدد الطلبات المسموح. حاول لاحقاً',
+    retryAfter: 15 * 60 // بالثواني
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // 🛡️ **IPv6-safe key generator للحماية الآمنة**
+  keyGenerator: (req) => {
+    // استخدام express-rate-limit's built-in IP handling
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0]) || 
+               req.connection.remoteAddress || 
+               req.socket.remoteAddress || 
+               'unknown';
+    
+    // تطهير IPv6 addresses وIPv4-mapped IPv6 addresses
+    if (typeof ip === 'string') {
+      // إزالة IPv4-mapped IPv6 prefix
+      return ip.replace(/^::ffff:/, '').trim();
+    }
+    return ip || 'unknown';
+  }
+});
+
+app.use(globalRateLimit);
+
+// 📝 **Body parsing middleware**
+app.use(express.json({ limit: '10mb' })); // حماية من payload كبيرة
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 app.use((req, res, next) => {
   const start = Date.now();

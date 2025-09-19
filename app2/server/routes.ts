@@ -104,13 +104,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Basic API routes for construction project management
-  app.get("/api/projects", (req, res) => {
-    res.json({ success: true, data: [], message: "Projects endpoint working" });
+  // 🔒 **Basic API routes - NOW SECURED WITH AUTHENTICATION**
+  // ⚠️ كانت هذه endpoints بدون حماية - تم إصلاح الثغرة الأمنية الخطيرة!
+  app.get("/api/projects", requireAuth, (req, res) => {
+    res.json({ success: true, data: [], message: "Projects endpoint working - NOW SECURED ✅" });
   });
 
-  app.get("/api/workers", (req, res) => {
-    res.json({ success: true, data: [], message: "Workers endpoint working" });
+  app.get("/api/workers", requireAuth, (req, res) => {
+    res.json({ success: true, data: [], message: "Workers endpoint working - NOW SECURED ✅" });
   });
 
   // Worker types endpoint - إرجاع أنواع العمال بالتنسيق المطلوب
@@ -139,12 +140,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/daily-expenses", (req, res) => {
-    res.json({ success: true, data: [], message: "Daily expenses endpoint working" });
+  app.get("/api/daily-expenses", requireAuth, (req, res) => {
+    res.json({ success: true, data: [], message: "Daily expenses endpoint working - NOW SECURED ✅" });
   });
 
-  app.get("/api/material-purchases", (req, res) => {
-    res.json({ success: true, data: [], message: "Material purchases endpoint working" });
+  app.get("/api/material-purchases", requireAuth, (req, res) => {
+    res.json({ success: true, data: [], message: "Material purchases endpoint working - NOW SECURED ✅" });
   });
 
   // جلب الإشعارات - handler بسيط في الذاكرة للتوافق مع frontend

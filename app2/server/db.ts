@@ -1,5 +1,3 @@
-
-
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import fs from 'fs';
@@ -12,13 +10,13 @@ initializeEnvironment();
 // إنشاء رابط قاعدة البيانات مع الأولوية الصحيحة
 function createDatabaseUrl(): string {
   const databaseUrl = envLoader.get('DATABASE_URL');
-  
+
   if (databaseUrl) {
     console.log('✅ تم العثور على DATABASE_URL');
     console.log('🔧 Connection string:', databaseUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
     return databaseUrl;
   }
-  
+
   console.error('❌ DATABASE_URL غير موجود في أي من المصادر:');
   console.error('   - ملف .env');
   console.error('   - ecosystem.config.json');
@@ -26,69 +24,32 @@ function createDatabaseUrl(): string {
   throw new Error('DATABASE_URL is required');
 }
 
-// إعداد SSL الآمن للاتصال
+// إعداد SSL للاتصال المحلي
 function setupSSLConfig() {
   const connectionString = createDatabaseUrl();
-  
-  // التحقق من sslmode في connection string
-  if (connectionString.includes('sslmode=disable') || connectionString.includes('ssl=false')) {
-    console.log('🔓 SSL معطل في connection string - تعطيل SSL');
-    return false;
-  }
-  
-  // التحقق من البيئة المحلية
+
+  // التحقق من نوع الاتصال
   const isLocalConnection = connectionString.includes('localhost') || 
                            connectionString.includes('127.0.0.1') ||
                            connectionString.includes('@localhost/');
-  
+
   if (isLocalConnection) {
     console.log('🔓 اتصال محلي - تعطيل SSL');
     return false;
   }
-  
-  // للاتصالات الخارجية - استخدام SSL الآمن مع التحقق من الشهادات
-  console.log('🔐 اتصال خارجي - تفعيل SSL الآمن مع التحقق من الشهادات');
-  
-  // التحقق من وجود ملف الشهادة
-  const certPath = './pg_cert.pem';
-  let ca = undefined;
-  
-  try {
-    if (fs.existsSync(certPath)) {
-      ca = fs.readFileSync(certPath);
-      console.log('📜 تم تحميل شهادة SSL بنجاح');
-    } else if (process.env.NODE_ENV === 'production') {
-      console.error('❌ ملف الشهادة مفقود في الإنتاج: pg_cert.pem');
-      throw new Error('SSL certificate file is required in production');
-    }
-  } catch (error) {
-    if (process.env.NODE_ENV === 'production') {
-      console.error('❌ فشل في تحميل شهادة SSL في الإنتاج:', error);
-      throw error;
-    }
-    console.warn('⚠️ تعذر تحميل شهادة SSL، سيتم استخدام الشهادات الافتراضية');
-  }
-  
-  // For official CA certificates, use full validation
-  if (ca) {
-    console.log('🔑 استخدام شهادة SSL الرسمية - تفعيل التحقق الكامل');
-    return {
-      rejectUnauthorized: true, // Full validation for official certs
-      ca: ca, // Use our trusted certificate
-      minVersion: 'TLSv1.2' as const
-    };
-  }
-  
-  // No custom CA - use system certificates with full validation
+
+  // للاتصالات الخارجية للخادم الخاص (ليس Supabase)
+  console.log('🔐 اتصال خارجي للخادم الخاص - تفعيل SSL بسيط');
+
   return {
-    rejectUnauthorized: true,
+    rejectUnauthorized: false, // مرونة للخوادم الخاصة
     minVersion: 'TLSv1.2' as const
   };
 }
 
 // SSL configuration is handled per connection in setupSSLConfig()
 
-const connectionString = createDatabaseUrl();
+const connectionString = createDatabaseUrl(); // Re-fetch to ensure we have the correct string for config
 const sslConfig = setupSSLConfig();
 
 // تكوين اتصال قاعدة البيانات
@@ -123,4 +84,3 @@ export const db = drizzle(pool, { schema });
     console.error('❌ فشل الاتصال بقاعدة البيانات:', err);
   }
 })();
-

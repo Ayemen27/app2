@@ -6,14 +6,25 @@ import { smartConnectionManager } from "./smart-connection-manager";
 
 // قائمة بيضاء للجداول المسموح بالوصول إليها (الموجودة فعلياً في Supabase)
 const ALLOWED_TABLES = [
-  "projects", "workers", "material_purchases", "suppliers", 
-  "equipment", "users", "worker_attendance"
+  "actions", "ai_system_decisions", "ai_system_logs", "ai_system_metrics", 
+  "ai_system_recommendations", "approvals", "auth_audit_log", "auth_permissions",
+  "auth_role_permissions", "auth_roles", "auth_user_permissions", "auth_user_roles",
+  "auth_user_security_settings", "auth_user_sessions", "auth_verification_codes",
+  "autocomplete_data", "autocomplete_stats_mv", "channels", "daily_expense_summaries",
+  "equipment", "equipment_movements", "error_logs", "fund_transfers", 
+  "material_purchases", "materials", "messages", "notification_metrics",
+  "notification_queue", "notification_read_states", "notification_settings",
+  "notification_templates", "notifications", "print_settings",
+  "project_fund_transfers", "projects", "report_templates", "security_policies",
+  "security_policy_implementations", "security_policy_suggestions", 
+  "security_policy_violations", "supplier_payments", "suppliers", 
+  "system_events", "transportation_expenses", "users", "worker_attendance",
+  "worker_balances", "worker_misc_expenses", "worker_transfers", 
+  "worker_types", "workers"
 ] as const;
 
-// الجداول المفقودة في Supabase (للمرجع فقط)
-const MISSING_TABLES = [
-  "daily_expenses", "accounts", "transactions", "tools"
-] as const;
+// لا توجد جداول مفقودة - جميع الجداول متاحة
+const MISSING_TABLES = [] as const;
 
 type AllowedTable = typeof ALLOWED_TABLES[number];
 
@@ -369,6 +380,51 @@ export class SecureDataFetcher {
     } catch (error) {
       console.error(`❌ فشل حفظ البيانات محلياً في ${tableName}:`, error);
       return 0;
+    }
+  }
+
+  // اختبار الاتصال بـ Supabase
+  async testConnection(): Promise<{
+    success: boolean;
+    responseTime: number;
+    details?: any;
+    error?: string;
+  }> {
+    const startTime = Date.now();
+    
+    try {
+      await this.connect();
+      
+      const result = await this.externalClient!.query(`
+        SELECT 
+          current_database() as database,
+          current_user as user,
+          version() as version,
+          now() as server_time
+      `);
+      
+      const responseTime = Date.now() - startTime;
+      
+      return {
+        success: true,
+        responseTime,
+        details: {
+          database: result.rows[0].database,
+          user: result.rows[0].user,
+          version: result.rows[0].version.split(' ')[0],
+          serverTime: result.rows[0].server_time,
+          tablesCount: ALLOWED_TABLES.length
+        }
+      };
+    } catch (error: any) {
+      const responseTime = Date.now() - startTime;
+      console.error('❌ فشل اختبار الاتصال بـ Supabase:', error);
+      
+      return {
+        success: false,
+        responseTime,
+        error: error.message
+      };
     }
   }
 

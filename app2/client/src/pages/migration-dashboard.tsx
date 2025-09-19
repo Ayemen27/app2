@@ -74,17 +74,24 @@ export default function MigrationDashboard() {
 
   // متابعة المهمة النشطة تلقائياً
   useEffect(() => {
-    const jobs = Array.isArray(jobsData) ? jobsData : [];
+    // توحيد منطق الوصول للبيانات - استخدام jobsData?.data بدلاً من Array.isArray
+    const jobs = (jobsData as any)?.data || [];
     if (jobs.length > 0) {
       const runningJob = jobs.find((job: MigrationJob) => job.status === 'running');
       if (runningJob && runningJob.id !== activeJobId) {
+        console.log('🎯 تم اكتشاف مهمة نشطة جديدة:', runningJob.id);
         setActiveJobId(runningJob.id);
       } else if (!runningJob && activeJobId) {
         // المهمة انتهت، استمر في المراقبة لفترة قصيرة
+        console.log('⏰ إنهاء تتبع المهمة النشطة:', activeJobId);
         setTimeout(() => setActiveJobId(null), 5000);
       }
+    } else if (activeJobId && !jobsLoading) {
+      // في حالة عدم وجود مهام وتوقف التحميل، إلغاء التتبع
+      console.log('🧹 تنظيف تتبع المهمة النشطة - لا توجد مهام');
+      setTimeout(() => setActiveJobId(null), 2000);
     }
-  }, [jobsData, activeJobId]);
+  }, [jobsData, activeJobId, jobsLoading]);
 
   // بدء مهمة هجرة جديدة
   const startMigrationMutation = useMutation({
@@ -194,6 +201,30 @@ export default function MigrationDashboard() {
     );
   };
 
+  // حالة التحميل العام عند عدم وجود بيانات
+  if (jobsLoading && allJobs.length === 0) {
+    return (
+      <div className="container mx-auto p-6 space-y-6 bg-white dark:bg-black text-black dark:text-white">
+        <div className="flex items-center gap-3 mb-6">
+          <Database className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+          <div>
+            <h1 className="text-3xl font-bold">لوحة تحكم هجرة البيانات</h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              جاري تحميل بيانات الهجرة...
+            </p>
+          </div>
+        </div>
+        
+        {/* Skeleton للإعدادات */}
+        <div className="space-y-4">
+          <div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
+          <div className="h-48 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
+          <div className="h-64 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6 bg-white dark:bg-black text-black dark:text-white">
       {/* العنوان الرئيسي */}
@@ -281,7 +312,31 @@ export default function MigrationDashboard() {
       </Card>
 
       {/* حالة الهجرة النشطة */}
-      {currentJob && (
+      {activeJobLoading && activeJobId && (
+        <Card className="border-2 border-gray-300 dark:border-gray-600">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                جاري تحميل بيانات المهمة...
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="h-6 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+              <div className="grid grid-cols-4 gap-4">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="h-20 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+                ))}
+              </div>
+              <div className="h-40 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {currentJob && !activeJobLoading && (
         <Card className="border-2 border-blue-500 dark:border-blue-400">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -309,9 +364,20 @@ export default function MigrationDashboard() {
               />
               <div className="flex justify-between text-xs text-gray-600">
                 <span>{currentJob.tablesProcessed} من {currentJob.totalTables} جدول</span>
-                {currentJob.estimatedTimeRemaining && currentJob.estimatedTimeRemaining > 0 && (
-                  <span>الوقت المتبقي: {formatDuration(currentJob.estimatedTimeRemaining * 1000)}</span>
-                )}
+                <div className="flex items-center gap-4">
+                  {currentJob.estimatedTimeRemaining && currentJob.estimatedTimeRemaining > 0 && (
+                    <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium">
+                      <Clock className="h-3 w-3" />
+                      متبقي: {formatDuration(currentJob.estimatedTimeRemaining * 1000)}
+                    </span>
+                  )}
+                  {currentJob.duration && currentJob.duration > 0 && (
+                    <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
+                      <Activity className="h-3 w-3" />
+                      منقضي: {formatDuration(currentJob.duration)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -344,13 +410,13 @@ export default function MigrationDashboard() {
             </div>
 
             {/* تفاصيل الجداول */}
-            {currentJob.tableProgress.length > 0 && (
+            {currentJob.tableProgress.length > 0 ? (
               <div className="space-y-3">
                 <h4 className="font-semibold flex items-center gap-2">
                   <BarChart3 className="h-4 w-4" />
-                  تقدم الجداول
+                  تقدم الجداول ({currentJob.tableProgress.length})
                 </h4>
-                <div className="max-h-60 overflow-y-auto">
+                <div className="max-h-60 overflow-y-auto border rounded-md">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -381,6 +447,12 @@ export default function MigrationDashboard() {
                   </Table>
                 </div>
               </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>لا توجد تفاصيل جداول متاحة حالياً</p>
+                <p className="text-sm">ستظهر التفاصيل عند بدء عملية الهجرة</p>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -396,11 +468,26 @@ export default function MigrationDashboard() {
           <CardDescription>جميع عمليات الهجرة السابقة</CardDescription>
         </CardHeader>
         <CardContent>
-          {jobsLoading ? (
-            <div className="text-center py-8">جاري تحميل المهام...</div>
+          {jobsLoading && allJobs.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500" />
+                جاري تحميل تاريخ المهام...
+              </div>
+            </div>
           ) : allJobs.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              لا توجد مهام هجرة
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-semibold mb-2">لا توجد مهام هجرة بعد</h3>
+              <p className="text-sm">ابدأ عملية هجرة جديدة لرؤية التقدم هنا</p>
+              <Button 
+                onClick={handleStartMigration} 
+                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
+                data-testid="button-start-first-migration"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                بدء أول عملية هجرة
+              </Button>
             </div>
           ) : (
             <div className="space-y-3">

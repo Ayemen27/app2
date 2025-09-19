@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import type { Server } from "http";
 import { createServer } from "http";
+import rateLimit from "express-rate-limit";
 import { db } from "./db";
 import { SecureDataFetcher } from "./services/secure-data-fetcher";
 import { requireAuth, requireRole } from "./middleware/auth";
@@ -43,6 +44,37 @@ interface GeneralStats {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // Rate limiting middleware للـ migration endpoints
+  const migrationRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 دقيقة
+    max: 10, // حد أقصى 10 طلبات لكل IP كل 15 دقيقة
+    message: {
+      success: false,
+      error: 'تم تجاوز الحد المسموح من الطلبات. يرجى المحاولة لاحقاً',
+      message: 'Rate limit exceeded for migration endpoints'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    // تطبيق على endpoints محددة فقط
+    skip: (req) => {
+      // تخطي للمشرفين المعرفين (optional enhancement)
+      return false;
+    }
+  });
+
+  // Rate limiting أكثر صرامة لعمليات بدء الهجرة
+  const migrationStartRateLimit = rateLimit({
+    windowMs: 60 * 60 * 1000, // ساعة واحدة
+    max: 3, // حد أقصى 3 محاولات بدء هجرة كل ساعة
+    message: {
+      success: false,
+      error: 'تم تجاوز الحد المسموح لبدء الهجرة. يمكنك المحاولة بعد ساعة',
+      message: 'Migration start rate limit exceeded'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+  });
 
   // Health check endpoint
   app.get("/api/health", (req, res) => {
@@ -435,8 +467,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== API endpoints للهجرة المحسنة مع مراقبة التقدم ====================
 
-  // بدء مهمة هجرة جديدة
-  app.post("/api/migration/start", requireAuth, requireRole('admin'), async (req, res) => {
+  // بدء مهمة هجرة جديدة (مع rate limiting صارم)
+  app.post("/api/migration/start", migrationStartRateLimit, requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { batchSize = 100 } = req.body;
       
@@ -475,7 +507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // الحصول على حالة مهمة هجرة
-  app.get("/api/migration/status/:jobId", requireAuth, requireRole('admin'), (req, res) => {
+  app.get("/api/migration/status/:jobId", migrationRateLimit, requireAuth, requireRole('admin'), (req, res) => {
     try {
       const { jobId } = req.params;
       console.log(`🎯 Status endpoint called for jobId: ${jobId}`);
@@ -524,7 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // إيقاف/إلغاء مهمة هجرة
-  app.post("/api/migration/stop/:jobId", requireAuth, requireRole('admin'), (req, res) => {
+  app.post("/api/migration/stop/:jobId", migrationRateLimit, requireAuth, requireRole('admin'), (req, res) => {
     try {
       const { jobId } = req.params;
       const success = migrationJobManager.cancelJob(jobId);
@@ -551,7 +583,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // قائمة جميع مهام الهجرة
-  app.get("/api/migration/jobs", requireAuth, requireRole('admin'), (req, res) => {
+  app.get("/api/migration/jobs", migrationRateLimit, requireAuth, requireRole('admin'), (req, res) => {
     try {
       const jobs = migrationJobManager.getAllJobs();
       
@@ -977,7 +1009,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // جلب قائمة الجداول المتاحة للهجرة
-  app.get("/api/migration/tables", requireAuth, requireRole('admin'), async (req, res) => {
+  app.get("/api/migration/tables", migrationRateLimit, requireAuth, requireRole('admin'), async (req, res) => {
     try {
       // استيراد قاعدة البيانات القديمة والتحقق من التوفر
       const { isOldDatabaseAvailable, getOldDbClient } = await import('./old-db');
@@ -1237,8 +1269,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // نقل البيانات (هجرة شاملة لعدة جداول) - تم إعادة توجيهها لاستخدام MigrationJobManager
-  app.post("/api/migration/transfer", requireAuth, requireRole('admin'), async (req, res) => {
+  // نقل البيانات (هجرة شاملة لعدة جداول) - مع rate limiting للحماية
+  app.post("/api/migration/transfer", migrationStartRateLimit, requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { tables = [], batchSize = 50 } = req.body;
 

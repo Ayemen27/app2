@@ -1,6 +1,6 @@
 import { Client } from "pg";
 import fs from "fs";
-import { db, pool } from "../db";
+import { pool } from "../old-db";
 import * as schema from "@shared/schema";
 
 // قائمة بيضاء للجداول المسموح بالوصول إليها

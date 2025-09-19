@@ -1,7 +1,7 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import * as schema from "@shared/schema";
-import { DatabaseSecurityGuard } from './database-security';
+import { DatabaseSecurityGuard } from './database-security.js';
 import { DatabaseRestrictionGuard } from './database-restrictions';
 
 // Configure WebSocket for Neon/Supabase serverless connection - Dynamic import

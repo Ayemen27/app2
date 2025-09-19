@@ -542,7 +542,7 @@ export class EnhancedMigrationService {
   /**
    * هجرة شاملة لعدة جداول
    */
-  async migrateBatch(tables: string[], options: Partial<MigrationOptions> = {}): Promise<MigrationResult[]> {
+  async migrateMultipleTables(tables: string[], options: Partial<MigrationOptions> = {}): Promise<MigrationResult[]> {
     this.LOG.info(`🚀 بدء الهجرة الشاملة لـ ${tables.length} جدول`);
     
     const results: MigrationResult[] = [];
@@ -558,7 +558,11 @@ export class EnhancedMigrationService {
         const result = await this.migrateTable({
           ...this.DEFAULT_OPTIONS,
           ...options,
-          tableName,
+          tableName: tableName,
+          batchSize: options.batchSize || this.DEFAULT_OPTIONS.batchSize!,
+          maxRetries: options.maxRetries || this.DEFAULT_OPTIONS.maxRetries!,
+          retryDelayMs: options.retryDelayMs || this.DEFAULT_OPTIONS.retryDelayMs!,
+          connectionTimeout: options.connectionTimeout || this.DEFAULT_OPTIONS.connectionTimeout!
         });
         
         results.push(result);

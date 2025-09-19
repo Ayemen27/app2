@@ -34,6 +34,11 @@ export class EnvironmentLoader {
     // 1. قراءة ملف .env
     this.loadFromEnvFile();
 
+    // تطبيق NODE_ENV مبكراً للاستقرار
+    if (this.envVars.NODE_ENV) {
+      process.env.NODE_ENV = this.envVars.NODE_ENV;
+    }
+
     // 2. قراءة من ecosystem.config.json
     this.loadFromEcosystemConfig();
 
@@ -82,8 +87,17 @@ export class EnvironmentLoader {
 
   /**
    * قراءة من ecosystem.config.json
+   * يتم تجاهلها في بيئة التطوير لتجنب التداخل مع إعدادات التطوير
    */
   private loadFromEcosystemConfig(): void {
+    // تجاهل ecosystem.config.json في بيئة التطوير
+    // التحقق من القيم المحملة من .env أولاً ثم من process.env
+    const nodeEnv = this.envVars.NODE_ENV ?? process.env.NODE_ENV;
+    if (nodeEnv === 'development') {
+      console.log('⚠️ تجاهل ecosystem.config.json في بيئة التطوير');
+      return;
+    }
+
     const ecosystemPath = path.join(process.cwd(), 'ecosystem.config.json');
 
     if (!fs.existsSync(ecosystemPath)) {

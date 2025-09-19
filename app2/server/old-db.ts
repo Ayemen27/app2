@@ -131,10 +131,24 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
   const supabaseUrl = getCredential('SUPABASE_URL');
   const supabasePassword = getCredential('SUPABASE_DATABASE_PASSWORD');
   
-  // تشخيص متقدم للبيانات
-  console.log('🔍 تشخيص بيانات الاتصال:');
+  // تشخيص متقدم للبيانات من جميع المصادر
+  console.log('🔍 تشخيص شامل لمصادر بيانات الاتصال:');
+  console.log('📄 من ملف .env:');
+  console.log(`   SUPABASE_URL: ${process.env.SUPABASE_URL || 'غير موجود'}`);
+  console.log(`   OLD_DB_URL: ${process.env.OLD_DB_URL || 'غير موجود'}`);
+  console.log('📄 من credentials.ts:');
   console.log(`   SUPABASE_URL: ${supabaseUrl}`);
+  console.log(`   SUPABASE_DATABASE_URL: ${getCredential('SUPABASE_DATABASE_URL') || 'غير موجود'}`);
   console.log(`   Password length: ${supabasePassword ? supabasePassword.length : 'غير موجود'}`);
+  
+  // فحص OLD_DB_URL من .env للحصول على المنطقة الصحيحة
+  const oldDbUrl = process.env.OLD_DB_URL;
+  if (oldDbUrl) {
+    const regionMatch = oldDbUrl.match(/aws-0-[^.]+/);
+    if (regionMatch) {
+      console.log(`🌍 منطقة جغرافية من OLD_DB_URL: ${regionMatch[0]}`);
+    }
+  }
   
   // استخراج اسم المشروع
   const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
@@ -147,57 +161,71 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
   
   console.log(`   اسم المشروع المستخرج: ${project}`);
   
-  // قائمة خيارات الاتصال المختلفة
-  const connectionOptions = [
-    {
-      name: 'Pooler Connection (Port 6543)',
-      config: {
-        host: 'aws-0-eu-central-1.pooler.supabase.com',
-        port: 6543,
-        database: 'postgres',
-        user: `postgres.${project}`,
-        password: supabasePassword,
-        ssl: { rejectUnauthorized: false },
-        connectionTimeoutMillis: 15000,
-      }
-    },
-    {
-      name: 'Pooler Connection (Port 5432)',
-      config: {
-        host: 'aws-0-eu-central-1.pooler.supabase.com',
-        port: 5432,
-        database: 'postgres',
-        user: `postgres.${project}`,
-        password: supabasePassword,
-        ssl: { rejectUnauthorized: false },
-        connectionTimeoutMillis: 15000,
-      }
-    },
-    {
-      name: 'Direct Connection (Port 5432)',
-      config: {
-        host: `db.${project}.supabase.co`,
-        port: 5432,
-        database: 'postgres',
-        user: `postgres.${project}`,
-        password: supabasePassword,
-        ssl: { rejectUnauthorized: false },
-        connectionTimeoutMillis: 15000,
-      }
-    },
-    {
-      name: 'Alternative User Format',
-      config: {
-        host: 'aws-0-eu-central-1.pooler.supabase.com',
-        port: 6543,
-        database: 'postgres',
-        user: `postgres`,
-        password: supabasePassword,
-        ssl: { rejectUnauthorized: false },
-        connectionTimeoutMillis: 15000,
-      }
-    }
+  // قائمة خيارات الاتصال المختلفة مع جميع المناطق الجغرافية
+  const regions = [
+    'aws-0-eu-central-1',
+    'aws-0-us-east-1', 
+    'aws-0-us-west-1',
+    'aws-0-ap-southeast-1'
   ];
+
+  const connectionOptions = [];
+
+  // إنشاء خيارات الاتصال لكل منطقة جغرافية
+  for (const region of regions) {
+    connectionOptions.push(
+      {
+        name: `Pooler Connection ${region} (Port 6543)`,
+        config: {
+          host: `${region}.pooler.supabase.com`,
+          port: 6543,
+          database: 'postgres',
+          user: `postgres.${project}`,
+          password: supabasePassword,
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 15000,
+        }
+      },
+      {
+        name: `Pooler Connection ${region} (Port 5432)`,
+        config: {
+          host: `${region}.pooler.supabase.com`,
+          port: 5432,
+          database: 'postgres',
+          user: `postgres.${project}`,
+          password: supabasePassword,
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 15000,
+        }
+      },
+      {
+        name: `Alternative User Format ${region}`,
+        config: {
+          host: `${region}.pooler.supabase.com`,
+          port: 6543,
+          database: 'postgres',
+          user: `postgres`,
+          password: supabasePassword,
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 15000,
+        }
+      }
+    );
+  }
+
+  // إضافة اتصال مباشر
+  connectionOptions.push({
+    name: 'Direct Connection (Port 5432)',
+    config: {
+      host: `db.${project}.supabase.co`,
+      port: 5432,
+      database: 'postgres',
+      user: `postgres.${project}`,
+      password: supabasePassword,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 15000,
+    }
+  });
   
   // تجربة كل خيار اتصال
   for (const option of connectionOptions) {

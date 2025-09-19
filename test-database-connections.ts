@@ -1,6 +1,7 @@
 
 import { Client as PgClient } from "pg";
 import dotenv from "dotenv";
+import { getCredential } from './server/config/credentials';
 
 dotenv.config();
 
@@ -61,19 +62,28 @@ async function main() {
   // اختبار قاعدة البيانات الجديدة
   const newDbOk = await testConnection(
     'قاعدة البيانات الجديدة (الخارجية)',
-    process.env.DATABASE_URL!
+    getCredential('DATABASE_URL')
   );
 
   // اختبار قاعدة البيانات القديمة (Supabase)
   let oldDbOk = false;
-  if (process.env.SUPABASE_DATABASE_URL) {
-    oldDbOk = await testConnection(
-      'قاعدة البيانات القديمة (Supabase)',
-      process.env.SUPABASE_DATABASE_URL
-    );
-  } else {
-    log('\n⚠️ SUPABASE_DATABASE_URL غير محدد في متغيرات البيئة', colors.yellow);
-    log('💡 قم بإضافة رابط Supabase في ملف .env.migration', colors.yellow);
+  try {
+    const supabaseUrl = getCredential('SUPABASE_URL');
+    const supabasePassword = getCredential('SUPABASE_DATABASE_PASSWORD');
+    const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+    
+    if (project && supabasePassword) {
+      const supabaseConnectionString = `postgresql://postgres.${project}:${supabasePassword}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`;
+      oldDbOk = await testConnection(
+        'قاعدة البيانات القديمة (Supabase)',
+        supabaseConnectionString
+      );
+    } else {
+      log('\n⚠️ بيانات Supabase غير صحيحة في البيانات المثبتة', colors.yellow);
+      log('💡 تحقق من SUPABASE_URL و SUPABASE_DATABASE_PASSWORD', colors.yellow);
+    }
+  } catch (error) {
+    log(`\n❌ خطأ في بناء رابط Supabase: ${(error as Error).message}`, colors.red);
   }
 
   // النتيجة النهائية

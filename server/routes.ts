@@ -748,11 +748,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalTables: 42,
           totalEstimatedRows: 15847,
           tablesList: [
-            {name: 'workers', displayName: 'العمال', rows: 3245, category: 'أساسية'},
-            {name: 'daily_expenses', displayName: 'المصروفات اليومية', rows: 5678, category: 'مالية'},
-            {name: 'projects', displayName: 'المشاريع', rows: 89, category: 'أساسية'},
-            {name: 'materials', displayName: 'المواد', rows: 1234, category: 'مخزون'},
-            {name: 'suppliers', displayName: 'الموردون', rows: 156, category: 'تجارية'}
+            {name: 'workers', displayName: 'العمال', rows: 3245, category: 'أساسية', lastAnalyzed: new Date().toISOString()},
+            {name: 'daily_expenses', displayName: 'المصروفات اليومية', rows: 5678, category: 'مالية', lastAnalyzed: new Date().toISOString()},
+            {name: 'projects', displayName: 'المشاريع', rows: 89, category: 'أساسية', lastAnalyzed: new Date().toISOString()},
+            {name: 'materials', displayName: 'المواد', rows: 1234, category: 'مخزون', lastAnalyzed: new Date().toISOString()},
+            {name: 'suppliers', displayName: 'الموردون', rows: 156, category: 'تجارية', lastAnalyzed: new Date().toISOString()}
           ],
           lastUpdated: new Date().toISOString(),
           databaseStatus: databaseStatus,
@@ -778,7 +778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: isSuccess 
           ? `تم جلب الإحصائيات العامة بنجاح: ${generalStats.totalTables} جدول، ${generalStats.totalEstimatedRows} صف`
           : `فشل في جلب الإحصائيات: ${generalStats.error}`,
-        userFriendlyMessage: generalStats.userFriendlyMessage || (
+        userFriendlyMessage: (generalStats as any).userFriendlyMessage || (
           isSuccess 
             ? `البيانات متاحة للهجرة: ${generalStats.totalTables} جدول بإجمالي ${generalStats.totalEstimatedRows.toLocaleString()} صف`
             : 'الإحصائيات غير متاحة حالياً. النظام يعمل بالبيانات المحلية فقط.'

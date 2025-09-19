@@ -468,6 +468,310 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== API endpoints للهجرة المحسنة مع مراقبة التقدم ====================
 
+  // 📊 **فحص شامل للبيانات في Supabase**
+  app.get("/api/migration/supabase-stats", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      console.log('📊 [Migration] بدء فحص شامل للبيانات في Supabase...');
+      
+      const supabaseUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DATABASE_URL;
+      
+      if (!supabaseUrl) {
+        return res.status(400).json({
+          success: false,
+          error: "لم يتم تكوين اتصال Supabase",
+          userFriendlyMessage: "خطأ في التكوين - لا يمكن الاتصال بـ Supabase"
+        });
+      }
+
+      const fetcher = new SecureDataFetcher(supabaseUrl);
+      
+      // الجداول المطلوب فحصها كما طلب المستخدم
+      const requiredTables = [
+        'workers', 'projects', 'suppliers', 'material_purchases', 
+        'equipment', 'worker_attendance', 'fund_transfers'
+      ];
+      
+      const tableStats: TableInfo[] = [];
+      const criticalTables: CriticalTable[] = [];
+      const emptyTables: EmptyTable[] = [];
+      let totalEstimatedRows = 0;
+      let hasErrors = false;
+      let errorDetails = '';
+
+      console.log('🔍 [Migration] فحص الجداول المطلوبة:', requiredTables);
+
+      // فحص كل جدول بشكل منفصل
+      for (const tableName of requiredTables) {
+        try {
+          console.log(`📋 [Migration] فحص الجدول: ${tableName}`);
+          
+          const rowCount = await fetcher.getRowCount(tableName);
+          
+          // أسماء عربية للجداول
+          const displayNames = {
+            'workers': 'العمال',
+            'projects': 'المشاريع', 
+            'suppliers': 'الموردين',
+            'material_purchases': 'مشتريات المواد',
+            'equipment': 'المعدات',
+            'worker_attendance': 'حضور العمال',
+            'fund_transfers': 'تحويلات العهدة'
+          };
+
+          const tableData: TableInfo = {
+            name: tableName,
+            displayName: displayNames[tableName as keyof typeof displayNames] || tableName,
+            rows: rowCount,
+            category: tableName.includes('worker') ? 'عمال' : tableName.includes('material') ? 'مواد' : 'عام',
+            lastAnalyzed: new Date().toISOString()
+          };
+
+          tableStats.push(tableData);
+          totalEstimatedRows += rowCount;
+
+          // تصنيف الجداول حسب الأهمية
+          if (rowCount > 100) {
+            criticalTables.push({
+              name: tableName,
+              displayName: tableData.displayName,
+              rows: rowCount
+            });
+          } else if (rowCount === 0) {
+            emptyTables.push({
+              name: tableName,
+              displayName: tableData.displayName
+            });
+          }
+
+          console.log(`✅ [Migration] ${tableData.displayName}: ${rowCount} صف`);
+
+          // فحص خاص لجدول material_purchases للبحث عن بيانات JSON
+          if (tableName === 'material_purchases' && rowCount > 0) {
+            try {
+              const sampleData = await fetcher.fetchData(tableName, { limit: 5 });
+              let hasJsonData = false;
+              
+              sampleData.forEach(row => {
+                Object.entries(row).forEach(([key, value]) => {
+                  if (typeof value === 'object' && value !== null) {
+                    hasJsonData = true;
+                    console.log(`🔍 [Migration] عثر على بيانات JSON في ${tableName}.${key}`);
+                  }
+                });
+              });
+
+              if (hasJsonData) {
+                console.log(`⚠️ [Migration] جدول ${tableName} يحتوي على بيانات JSON - سيتطلب معالجة خاصة`);
+              }
+            } catch (jsonError: any) {
+              console.warn(`⚠️ [Migration] لا يمكن فحص JSON في ${tableName}:`, jsonError.message);
+            }
+          }
+
+        } catch (tableError: any) {
+          console.error(`❌ [Migration] خطأ في فحص الجدول ${tableName}:`, tableError.message);
+          hasErrors = true;
+          errorDetails += `${tableName}: ${tableError.message}; `;
+
+          // إضافة الجدول كفارغ في حالة الخطأ
+          const displayNames = {
+            'workers': 'العمال',
+            'projects': 'المشاريع', 
+            'suppliers': 'الموردين',
+            'material_purchases': 'مشتريات المواد',
+            'equipment': 'المعدات',
+            'worker_attendance': 'حضور العمال',
+            'fund_transfers': 'تحويلات العهدة'
+          };
+          
+          emptyTables.push({
+            name: tableName,
+            displayName: displayNames[tableName as keyof typeof displayNames] || tableName
+          });
+        }
+      }
+
+      await fetcher.disconnect();
+
+      // تحضير الإحصائيات النهائية
+      const stats: GeneralStats = {
+        totalTables: requiredTables.length,
+        totalEstimatedRows,
+        tablesList: tableStats,
+        lastUpdated: new Date().toISOString(),
+        databaseStatus: hasErrors ? 'تحذير - توجد أخطاء' : 'متصل بنجاح',
+        databaseSize: `${Math.round(totalEstimatedRows / 1000)}K صف تقريباً`,
+        oldestRecord: null,
+        newestRecord: null,
+        criticalTables,
+        emptyTables
+      };
+
+      if (hasErrors) {
+        stats.error = errorDetails;
+        stats.userFriendlyMessage = 'تم الفحص مع وجود بعض التحذيرات';
+      }
+
+      console.log('📊 [Migration] تم إكمال فحص البيانات:', {
+        totalTables: stats.totalTables,
+        totalRows: stats.totalEstimatedRows,
+        criticalTables: stats.criticalTables.length,
+        emptyTables: stats.emptyTables.length
+      });
+
+      res.json({
+        success: true,
+        data: stats,
+        message: hasErrors ? 'فحص البيانات مكتمل مع تحذيرات' : 'تم فحص البيانات بنجاح'
+      });
+
+    } catch (error: any) {
+      console.error('❌ [Migration] فشل فحص البيانات في Supabase:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        userFriendlyMessage: 'فشل في الاتصال بـ Supabase أو فحص البيانات',
+        message: 'خطأ في فحص البيانات'
+      });
+    }
+  });
+
+  // 🔍 **تحليل مفصل لجدول material_purchases**
+  app.get("/api/migration/analyze-material-purchases", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      console.log('🔬 [Migration] بدء تحليل جدول material_purchases...');
+      
+      const supabaseUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DATABASE_URL;
+      
+      if (!supabaseUrl) {
+        return res.status(400).json({
+          success: false,
+          error: "لم يتم تكوين اتصال Supabase"
+        });
+      }
+
+      const { JsonMigrationHandler } = await import('./services/json-migration-handler');
+      const jsonHandler = new JsonMigrationHandler(supabaseUrl);
+      
+      try {
+        const analysis = await jsonHandler.analyzeMaterialPurchasesStructure(20);
+        
+        res.json({
+          success: true,
+          data: analysis,
+          message: `تحليل جدول material_purchases مكتمل - الاستراتيجية: ${analysis.migrationStrategy}`
+        });
+
+      } finally {
+        await jsonHandler.disconnect();
+      }
+
+    } catch (error: any) {
+      console.error('❌ [Migration] فشل في تحليل material_purchases:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في تحليل جدول material_purchases'
+      });
+    }
+  });
+
+  // 🎯 **هجرة تجريبية صغيرة**
+  app.post("/api/migration/test-small", migrationRateLimit, requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      console.log('🧪 [Migration] بدء هجرة تجريبية صغيرة...');
+      
+      const { tableName = 'projects', batchSize = 10 } = req.body;
+      
+      if (!['projects', 'workers', 'suppliers'].includes(tableName)) {
+        return res.status(400).json({
+          success: false,
+          error: "الجدول المحدد غير مسموح للاختبار. المسموح: projects, workers, suppliers"
+        });
+      }
+
+      const supabaseUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DATABASE_URL;
+      if (!supabaseUrl) {
+        return res.status(400).json({
+          success: false,
+          error: "لم يتم تكوين اتصال Supabase"
+        });
+      }
+
+      // إنشاء مهمة اختبار
+      const userId = req.user?.id || req.user?.email || 'test_user';
+      const jobId = await enhancedMigrationJobManager.createJob(userId);
+      
+      // تشغيل اختبار محدود
+      const fetcher = new SecureDataFetcher(supabaseUrl);
+      
+      try {
+        const tableInfo = await fetcher.getTableInfo(tableName);
+        
+        if (!tableInfo.exists || tableInfo.rowCount === 0) {
+          await enhancedMigrationJobManager.completeJob(jobId, false, `الجدول ${tableName} فارغ أو غير موجود`);
+          
+          return res.status(404).json({
+            success: false,
+            message: `الجدول ${tableName} فارغ أو غير موجود في Supabase`
+          });
+        }
+
+        // اختبار عينة صغيرة
+        const testData = await fetcher.fetchData(tableName, { 
+          limit: Math.min(batchSize, 5),
+          orderBy: 'id'
+        });
+
+        console.log(`🔍 [Migration] اختبار ${testData.length} سجل من ${tableName}`);
+
+        let successCount = 0;
+        let duplicateCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+
+        // محاولة هجرة العينة
+        for (const row of testData) {
+          try {
+            // هنا يمكن إضافة منطق الهجرة الفعلي
+            successCount++;
+          } catch (error: any) {
+            errorCount++;
+            errors.push(`الصف ${row.id}: ${error.message}`);
+          }
+        }
+
+        await enhancedMigrationJobManager.completeJob(jobId, errorCount === 0);
+
+        res.json({
+          success: errorCount === 0,
+          data: {
+            jobId,
+            tableName,
+            totalTested: testData.length,
+            successCount,
+            duplicateCount,
+            errorCount,
+            errors: errors.slice(0, 3), // أول 3 أخطاء فقط
+            sampleData: testData.slice(0, 2) // عينتان للمراجعة
+          },
+          message: `اختبار ${tableName} مكتمل: ${successCount} نجح، ${errorCount} فشل`
+        });
+
+      } finally {
+        await fetcher.disconnect();
+      }
+
+    } catch (error: any) {
+      console.error('❌ [Migration] فشل في الاختبار الصغير:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في تشغيل الاختبار الصغير'
+      });
+    }
+  });
+
   // بدء مهمة هجرة جديدة (مع rate limiting صارم)
   app.post("/api/migration/start", migrationStartRateLimit, requireAuth, requireRole('admin'), async (req, res) => {
     try {

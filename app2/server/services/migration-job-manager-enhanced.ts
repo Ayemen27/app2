@@ -1,4 +1,5 @@
 import { SecureDataFetcher } from "./secure-data-fetcher";
+import { JsonMigrationHandler } from "./json-migration-handler";
 import { db } from "../db";
 import { 
   migrationJobs, 
@@ -6,7 +7,14 @@ import {
   migrationBatchLog,
   type MigrationJob as DBMigrationJob,
   type MigrationTableProgress as DBMigrationTableProgress,
-  type MigrationBatchLog as DBMigrationBatchLog
+  type MigrationBatchLog as DBMigrationBatchLog,
+  workers,
+  projects,
+  suppliers,
+  materialPurchases,
+  equipment,
+  workerAttendance,
+  fundTransfers
 } from "../../shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -592,8 +600,54 @@ class EnhancedMigrationJobManager {
             totalRows: tableInfo.rowCount
           });
 
-          // بدء المزامنة الآمنة باستخدام syncTableData
-          const result = await fetcher.syncTableData(tableName, batchSize);
+          // معالجة خاصة لجدول material_purchases بسبب احتواءه على JSON
+          if (tableName === 'material_purchases') {
+            console.log('🔍 [Migration] تطبيق معالجة خاصة لجدول material_purchases...');
+            const jsonHandler = new JsonMigrationHandler(externalUrl);
+            
+            try {
+              const result = await jsonHandler.migrateMaterialPurchasesSafely(batchSize);
+              
+              await this.updateTableProgress(jobId, tableName, {
+                status: 'completed',
+                processedRows: result.totalProcessed,
+                savedRows: result.successfullyMigrated,
+                errors: result.errors,
+                endTime: new Date(),
+                errorMessage: result.errors > 0 ? `${result.errors} أخطاء - التفاصيل: ${result.errorDetails.slice(0, 3).join('; ')}` : undefined
+              });
+
+              console.log(`✅ [Migration] مهمة ${tableName} مكتملة:`, {
+                processed: result.totalProcessed,
+                saved: result.successfullyMigrated,
+                duplicatesSkipped: result.duplicatesSkipped,
+                jsonConversions: result.jsonConversions,
+                errors: result.errors
+              });
+
+            } catch (jsonError: any) {
+              console.error(`❌ [Migration] فشل في معالجة JSON لجدول ${tableName}:`, jsonError);
+              await this.updateTableProgress(jobId, tableName, {
+                status: 'failed',
+                endTime: new Date(),
+                errorMessage: `فشل معالجة JSON: ${jsonError.message}`
+              });
+            } finally {
+              await jsonHandler.disconnect();
+            }
+          } else {
+            // معالجة عادية للجداول الأخرى مع حماية من التكرار
+            const result = await this.migrateSafeTable(fetcher, tableName, batchSize, jobId);
+            
+            await this.updateTableProgress(jobId, tableName, {
+              status: result.success ? 'completed' : 'failed',
+              processedRows: result.totalProcessed,
+              savedRows: result.totalSaved,
+              errors: result.errors,
+              endTime: new Date(),
+              errorMessage: result.errors > 0 ? `${result.errors} أخطاء` : undefined
+            });
+          }
           
           // تسجيل تفاصيل العملية
           try {
@@ -657,6 +711,252 @@ class EnhancedMigrationJobManager {
       await this.completeJob(jobId, false, error.message);
       throw error;
     }
+  }
+
+  /**
+   * 🔄 هجرة آمنة للجداول العادية مع حماية من التكرار
+   */
+  private async migrateSafeTable(
+    fetcher: SecureDataFetcher,
+    tableName: string,
+    batchSize: number,
+    jobId: string
+  ): Promise<{
+    success: boolean;
+    totalProcessed: number;
+    totalSaved: number;
+    errors: number;
+    duplicatesSkipped: number;
+  }> {
+    console.log(`🔄 [Migration] بدء الهجرة الآمنة للجدول: ${tableName}`);
+    
+    const result = {
+      success: true,
+      totalProcessed: 0,
+      totalSaved: 0,
+      errors: 0,
+      duplicatesSkipped: 0
+    };
+
+    try {
+      const totalRows = await fetcher.getRowCount(tableName);
+      const totalBatches = Math.ceil(totalRows / batchSize);
+
+      // معالجة الدفعات
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const offset = batchIndex * batchSize;
+        
+        try {
+          const batchData = await fetcher.fetchData(tableName, {
+            limit: batchSize,
+            offset: offset,
+            orderBy: 'id'
+          });
+
+          // معالجة كل سجل في الدفعة
+          for (const row of batchData) {
+            result.totalProcessed++;
+
+            try {
+              // فحص التكرار حسب الجدول
+              const isDuplicate = await this.checkDuplicateRecord(tableName, row);
+              
+              if (isDuplicate) {
+                result.duplicatesSkipped++;
+                continue;
+              }
+
+              // إدراج السجل
+              await this.insertSafeRecord(tableName, row);
+              result.totalSaved++;
+
+            } catch (rowError: any) {
+              result.errors++;
+              console.error(`❌ [Migration] خطأ في السجل ${row.id}:`, rowError.message);
+            }
+          }
+
+          // تحديث التقدم كل دفعة
+          if (batchIndex % 5 === 0) {
+            await this.updateTableProgress(jobId, tableName, {
+              processedRows: result.totalProcessed,
+              savedRows: result.totalSaved,
+              errors: result.errors
+            });
+          }
+
+        } catch (batchError: any) {
+          result.errors++;
+          console.error(`❌ [Migration] خطأ في الدفعة ${batchIndex + 1}:`, batchError.message);
+          result.success = false;
+        }
+      }
+
+    } catch (error: any) {
+      console.error(`❌ [Migration] فشل في الهجرة الآمنة لـ ${tableName}:`, error.message);
+      result.success = false;
+      result.errors++;
+    }
+
+    console.log(`✅ [Migration] انتهت هجرة ${tableName}:`, result);
+    return result;
+  }
+
+  /**
+   * 🔍 فحص تكرار السجل
+   */
+  private async checkDuplicateRecord(tableName: string, row: any): Promise<boolean> {
+    try {
+      let existingRecord;
+
+      // فحص حسب نوع الجدول
+      switch (tableName) {
+        case 'workers':
+          existingRecord = await db.select()
+            .from(workers)
+            .where(eq(workers.id, row.id))
+            .limit(1);
+          break;
+
+        case 'projects':
+          existingRecord = await db.select()
+            .from(projects)
+            .where(eq(projects.id, row.id))
+            .limit(1);
+          break;
+
+        case 'suppliers':
+          existingRecord = await db.select()
+            .from(suppliers)
+            .where(eq(suppliers.id, row.id))
+            .limit(1);
+          break;
+
+        case 'equipment':
+          existingRecord = await db.select()
+            .from(equipment)
+            .where(eq(equipment.id, row.id))
+            .limit(1);
+          break;
+
+        case 'worker_attendance':
+          existingRecord = await db.select()
+            .from(workerAttendance)
+            .where(eq(workerAttendance.id, row.id))
+            .limit(1);
+          break;
+
+        case 'fund_transfers':
+          existingRecord = await db.select()
+            .from(fundTransfers)
+            .where(eq(fundTransfers.id, row.id))
+            .limit(1);
+          break;
+
+        default:
+          console.warn(`⚠️ [Migration] جدول غير معروف للفحص: ${tableName}`);
+          return false;
+      }
+
+      return existingRecord && existingRecord.length > 0;
+
+    } catch (error: any) {
+      console.error(`❌ [Migration] خطأ في فحص التكرار لـ ${tableName}:`, error.message);
+      return false; // في حالة الشك، نسمح بالإدراج
+    }
+  }
+
+  /**
+   * 💾 إدراج آمن للسجل
+   */
+  private async insertSafeRecord(tableName: string, row: any): Promise<void> {
+    try {
+      // تنظيف البيانات حسب الجدول
+      const cleanedRow = this.cleanRowData(tableName, row);
+
+      // الإدراج حسب نوع الجدول
+      switch (tableName) {
+        case 'workers':
+          await db.insert(workers).values(cleanedRow);
+          break;
+
+        case 'projects':
+          await db.insert(projects).values(cleanedRow);
+          break;
+
+        case 'suppliers':
+          await db.insert(suppliers).values(cleanedRow);
+          break;
+
+        case 'equipment':
+          await db.insert(equipment).values(cleanedRow);
+          break;
+
+        case 'worker_attendance':
+          await db.insert(workerAttendance).values(cleanedRow);
+          break;
+
+        case 'fund_transfers':
+          await db.insert(fundTransfers).values(cleanedRow);
+          break;
+
+        default:
+          throw new Error(`جدول غير مدعوم للإدراج: ${tableName}`);
+      }
+
+    } catch (error: any) {
+      console.error(`❌ [Migration] فشل إدراج السجل في ${tableName}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * 🧹 تنظيف بيانات السجل حسب الجدول
+   */
+  private cleanRowData(tableName: string, row: any): any {
+    const cleaned = { ...row };
+
+    // إزالة الحقول غير المطلوبة
+    delete cleaned._count;
+    delete cleaned.__typename;
+
+    // تحويل التواريخ والقيم النصية
+    if (cleaned.created_at) {
+      cleaned.createdAt = cleaned.created_at;
+      delete cleaned.created_at;
+    }
+    
+    if (cleaned.updated_at) {
+      cleaned.updatedAt = cleaned.updated_at;
+      delete cleaned.updated_at;
+    }
+
+    // تحويل الأرقام العشرية إلى نصوص (للتوافق مع نوع decimal)
+    const decimalFields = ['daily_wage', 'amount', 'quantity', 'unit_price', 'total_amount', 'paid_amount', 'remaining_amount'];
+    decimalFields.forEach(field => {
+      if (cleaned[field] !== undefined && cleaned[field] !== null) {
+        cleaned[field] = String(cleaned[field]);
+      }
+    });
+
+    // معالجة خاصة حسب الجدول
+    switch (tableName) {
+      case 'worker_attendance':
+        if (cleaned.work_days !== undefined) {
+          cleaned.workDays = String(cleaned.work_days);
+          delete cleaned.work_days;
+        }
+        break;
+
+      case 'fund_transfers':
+        if (cleaned.transfer_date) {
+          cleaned.transferDate = cleaned.transfer_date;
+          delete cleaned.transfer_date;
+        }
+        break;
+    }
+
+    return cleaned;
   }
 
   /**

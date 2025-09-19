@@ -1,6 +1,6 @@
 import { Client } from "pg";
 import fs from "fs";
-import { db } from "../db";
+import { db, pool } from "../db";
 import * as schema from "@shared/schema";
 
 // قائمة بيضاء للجداول المسموح بالوصول إليها
@@ -262,17 +262,17 @@ export class SecureDataFetcher {
         );
       `;
       
-      await db.execute(createTableQuery);
+      await pool.query(createTableQuery);
       
       // حفظ البيانات على دفعات
       let savedCount = 0;
       
       for (const row of data) {
         try {
-          // استخدام upsert لتجنب التكرار
+          // استخدام upsert لتجنب التكرار - تصحيح syntax للمعاملات
           const upsertQuery = `
             INSERT INTO "${backupTableName}" (original_id, data, source_table)
-            VALUES ($1, $2, $3)
+            VALUES (?, ?, ?)
             ON CONFLICT (original_id, source_table) 
             DO UPDATE SET 
               data = EXCLUDED.data,
@@ -284,7 +284,8 @@ export class SecureDataFetcher {
                            row.uuid?.toString() || 
                            `${tableName}_${savedCount}_${Date.now()}`;
           
-          await db.execute(upsertQuery, [
+          // استخدام pool.query بدلاً من db.execute للتوافق مع المعاملات
+          await pool.query(upsertQuery, [
             originalId,
             JSON.stringify(row),
             tableName
@@ -301,11 +302,11 @@ export class SecureDataFetcher {
       
       // إنشاء فهرس للبحث السريع
       try {
-        await db.execute(`
+        await pool.query(`
           CREATE INDEX IF NOT EXISTS idx_${backupTableName}_synced_at 
           ON "${backupTableName}" (synced_at);
         `);
-        await db.execute(`
+        await pool.query(`
           CREATE INDEX IF NOT EXISTS idx_${backupTableName}_source 
           ON "${backupTableName}" (source_table);
         `);

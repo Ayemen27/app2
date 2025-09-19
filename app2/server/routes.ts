@@ -348,13 +348,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('🚀 بدء النسخ الاحتياطي الشامل من Supabase...');
 
+      // فحص الجداول المتاحة فعلياً
+      const fetcher = new SecureDataFetcher(externalUrl);
+      const availableTables = await fetcher.getAvailableTables();
+      await fetcher.disconnect();
+
+      console.log(`📊 تم العثور على ${availableTables.length} جدول متاح في Supabase:`, availableTables);
+
       const results: any[] = [];
-      const availableTables = SecureDataFetcher.getAllowedTables();
 
       for (const tableName of availableTables) {
         try {
           console.log(`🔄 نسخ احتياطي للجدول ${tableName}...`);
           const fetcher = new SecureDataFetcher(externalUrl);
+          
+          // فحص وجود الجدول قبل المزامنة
+          const tableInfo = await fetcher.getTableInfo(tableName);
+          
+          if (!tableInfo.exists) {
+            console.warn(`⚠️ تخطي الجدول ${tableName} - غير موجود في Supabase`);
+            results.push({
+              tableName,
+              success: false,
+              synced: 0,
+              savedLocally: 0,
+              errors: 0,
+              skipped: true,
+              reason: 'الجدول غير موجود في Supabase'
+            });
+            await fetcher.disconnect();
+            continue;
+          }
+
           const result = await fetcher.syncTableData(tableName, Math.min(batchSize, 200));
           await fetcher.disconnect();
 

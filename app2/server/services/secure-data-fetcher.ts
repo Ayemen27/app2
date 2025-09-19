@@ -4,11 +4,15 @@ import { getSmartPool } from "../db";
 import * as schema from "@shared/schema";
 import { smartConnectionManager } from "./smart-connection-manager";
 
-// قائمة بيضاء للجداول المسموح بالوصول إليها
+// قائمة بيضاء للجداول المسموح بالوصول إليها (الموجودة فعلياً في Supabase)
 const ALLOWED_TABLES = [
-  "projects", "workers", "daily_expenses", "material_purchases",
-  "suppliers", "accounts", "transactions", "equipment", "tools",
-  "users", "worker_attendance"
+  "projects", "workers", "material_purchases", "suppliers", 
+  "equipment", "users", "worker_attendance"
+] as const;
+
+// الجداول المفقودة في Supabase (للمرجع فقط)
+const MISSING_TABLES = [
+  "daily_expenses", "accounts", "transactions", "tools"
 ] as const;
 
 type AllowedTable = typeof ALLOWED_TABLES[number];
@@ -120,10 +124,37 @@ export class SecureDataFetcher {
     }
   }
 
+  // التحقق من وجود الجدول قبل الوصول إليه
+  private async checkTableExists(tableName: string): Promise<boolean> {
+    try {
+      await this.connect();
+      
+      const result = await this.externalClient!.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = $1
+        );
+      `, [tableName]);
+      
+      return result.rows[0].exists;
+    } catch (error) {
+      console.warn(`⚠️ خطأ في فحص وجود الجدول ${tableName}:`, error);
+      return false;
+    }
+  }
+
   // جلب عدد الصفوف بطريقة آمنة
   async getRowCount(tableName: string): Promise<number> {
     if (!this.validateTable(tableName)) {
       throw new Error(`الجدول '${tableName}' غير مسموح به`);
+    }
+
+    // التحقق من وجود الجدول أولاً
+    const exists = await this.checkTableExists(tableName);
+    if (!exists) {
+      console.warn(`⚠️ الجدول ${tableName} غير موجود في Supabase`);
+      return 0;
     }
 
     await this.connect();
@@ -143,9 +174,17 @@ export class SecureDataFetcher {
   async getTableInfo(tableName: string): Promise<{
     columns: string[];
     rowCount: number;
+    exists: boolean;
   }> {
     if (!this.validateTable(tableName)) {
       throw new Error(`الجدول '${tableName}' غير مسموح به`);
+    }
+
+    // التحقق من وجود الجدول أولاً
+    const exists = await this.checkTableExists(tableName);
+    if (!exists) {
+      console.warn(`⚠️ الجدول ${tableName} غير موجود في Supabase`);
+      return { columns: [], rowCount: 0, exists: false };
     }
 
     await this.connect();
@@ -164,10 +203,10 @@ export class SecureDataFetcher {
       // جلب عدد الصفوف
       const rowCount = await this.getRowCount(tableName);
 
-      return { columns, rowCount };
+      return { columns, rowCount, exists: true };
     } catch (error) {
       console.error(`❌ خطأ في جلب معلومات الجدول ${tableName}:`, error);
-      return { columns: [], rowCount: 0 };
+      return { columns: [], rowCount: 0, exists: false };
     }
   }
 
@@ -345,6 +384,31 @@ export class SecureDataFetcher {
   // الحصول على قائمة الجداول المسموحة
   static getAllowedTables(): readonly AllowedTable[] {
     return ALLOWED_TABLES;
+  }
+
+  // الحصول على قائمة الجداول المفقودة
+  static getMissingTables(): readonly string[] {
+    return MISSING_TABLES;
+  }
+
+  // فحص الجداول المتاحة فعلياً في Supabase
+  async getAvailableTables(): Promise<string[]> {
+    try {
+      await this.connect();
+
+      const result = await this.externalClient!.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = ANY($1)
+        ORDER BY table_name
+      `, [ALLOWED_TABLES]);
+
+      return result.rows.map(row => row.table_name);
+    } catch (error) {
+      console.error(`❌ خطأ في جلب الجداول المتاحة:`, error);
+      return [];
+    }
   }
 }
 

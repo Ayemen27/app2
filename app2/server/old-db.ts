@@ -1,16 +1,8 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+
+import { Pool, Client } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 import { getCredential } from './config/credentials';
-
-// Configure WebSocket for Neon/Supabase serverless connection
-// Use native WebSocket if available, otherwise skip WebSocket configuration
-if (typeof WebSocket !== 'undefined') {
-  neonConfig.webSocketConstructor = WebSocket;
-} else {
-  // In Node.js environment, we'll use regular HTTP connections
-  console.warn('⚠️ WebSocket غير متوفر، سيتم استخدام HTTP connections');
-}
 
 // دالة فحص إتاحة قاعدة البيانات القديمة
 export function isOldDatabaseAvailable(): boolean {
@@ -43,19 +35,23 @@ export async function testOldDatabaseConnection() {
       throw new Error('فشل في استخراج اسم المشروع من SUPABASE_URL');
     }
 
-    const connectionString = `postgresql://postgres.${project}:${supabasePassword}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`;
-    const testPool = new Pool({ 
-      connectionString,
-      ssl: { rejectUnauthorized: false }
+    const client = new Client({
+      host: 'aws-0-eu-central-1.pooler.supabase.com',
+      port: 5432,
+      database: 'postgres',
+      user: `postgres.${project}`,
+      password: supabasePassword,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
     });
-    const client = await testPool.connect();
     
     const startTime = Date.now();
+    await client.connect();
+    
     const result = await client.query('SELECT version(), current_database(), current_user');
     const responseTime = Date.now() - startTime;
     
-    client.release();
-    await testPool.end();
+    await client.end();
     
     return {
       success: true,
@@ -79,7 +75,7 @@ export async function testOldDatabaseConnection() {
 }
 
 // دالة الحصول على عميل قاعدة البيانات القديمة
-export async function getOldDbClient(maxRetries: number = 3): Promise<any> {
+export async function getOldDbClient(maxRetries: number = 3): Promise<Client> {
   if (!isOldDatabaseAvailable()) {
     throw new Error("قاعدة البيانات القديمة غير مكوّنة");
   }
@@ -91,24 +87,26 @@ export async function getOldDbClient(maxRetries: number = 3): Promise<any> {
       const supabaseUrl = getCredential('SUPABASE_URL');
       const supabasePassword = getCredential('SUPABASE_DATABASE_PASSWORD');
       
-      // بناء connection string للاتصال بـ Supabase
+      // بناء connection للاتصال بـ Supabase
       const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
       
       if (!project) {
         throw new Error('فشل في استخراج اسم المشروع من SUPABASE_URL');
       }
 
-      const connectionString = `postgresql://postgres.${project}:${supabasePassword}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`;
+      console.log(`🔗 Connection: postgresql://postgres.${project}:***@aws-0-eu-central-1.pooler.supabase.com:5432/postgres`);
       
-      console.log(`🔗 Connection: ${connectionString.replace(supabasePassword, '***')}`);
-      
-      const pool = new Pool({ 
-        connectionString,
+      const client = new Client({
+        host: 'aws-0-eu-central-1.pooler.supabase.com',
+        port: 5432,
+        database: 'postgres',
+        user: `postgres.${project}`,
+        password: supabasePassword,
         ssl: { rejectUnauthorized: false },
-        connectionTimeoutMillis: 10000
+        connectionTimeoutMillis: 10000,
       });
       
-      const client = await pool.connect();
+      await client.connect();
       
       // اختبار الاتصال
       await client.query('SELECT 1');
@@ -142,9 +140,18 @@ if (isOldDatabaseAvailable()) {
     const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
     
     if (project) {
-      const connectionString = `postgresql://postgres.${project}:${supabasePassword}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`;
-      pool = new Pool({ connectionString });
-      db = drizzle({ client: pool, schema });
+      pool = new Pool({
+        host: 'aws-0-eu-central-1.pooler.supabase.com',
+        port: 5432,
+        database: 'postgres',
+        user: `postgres.${project}`,
+        password: supabasePassword,
+        ssl: { rejectUnauthorized: false },
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000,
+      });
+      db = drizzle(pool, { schema });
     }
   } catch (error) {
     console.warn('⚠️ فشل في تكوين pool قاعدة البيانات القديمة:', error);

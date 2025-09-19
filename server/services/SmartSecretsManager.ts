@@ -356,10 +356,16 @@ export class SmartSecretsManager {
     try {
       console.log('🔄 تهيئة نظام المفاتيح السرية عند بدء التشغيل...');
       
-      // تحقق من البيئة (Production/Development)
-      const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+      // تحقق من البيئة (Production/Development/Replit)
+      const isProd = process.env.NODE_ENV === 'production' || 
+                     process.env.VERCEL === '1' || 
+                     process.env.REPL_ID; // Replit environment detection
+      
       if (isProd) {
-        console.log('🌐 النشر على Vercel - سيتم استخدام متغيرات البيئة من Vercel');
+        console.log('🌐 بيئة الإنتاج - سيتم استخدام متغيرات البيئة من النظام');
+        if (process.env.REPL_ID) {
+          console.log('🚀 تم اكتشاف بيئة Replit - استخدام Replit Secrets');
+        }
         return this.validateProductionEnvironment();
       }
       
@@ -379,7 +385,7 @@ export class SmartSecretsManager {
   }
 
   /**
-   * فحص متغيرات البيئة في الإنتاج (Vercel)
+   * فحص متغيرات البيئة في الإنتاج (Replit/Vercel)
    */
   private validateProductionEnvironment(): boolean {
     const requiredForProduction = [
@@ -394,12 +400,20 @@ export class SmartSecretsManager {
       }
     }
     
+    const platform = process.env.REPL_ID ? 'Replit' : 
+                    process.env.VERCEL ? 'Vercel' : 'إنتاج';
+    
     if (missing.length === 0) {
-      console.log('✅ جميع المتغيرات البيئية متاحة في بيئة الإنتاج');
+      console.log(`✅ جميع المتغيرات البيئية متاحة في بيئة ${platform}`);
       return true;
     } else {
-      console.error(`❌ متغيرات مفقودة في بيئة الإنتاج: ${missing.join(', ')}`);
-      console.error('💡 تأكد من إعدادات قاعدة البيانات app2data والمتغيرات البيئية');
+      console.error(`❌ متغيرات مفقودة في بيئة ${platform}: ${missing.join(', ')}`);
+      if (process.env.REPL_ID) {
+        console.error('💡 تأكد من إضافة المتغيرات في Replit Secrets');
+        console.error('🔧 اذهب إلى Secrets في Replit وأضف المتغيرات المطلوبة');
+      } else {
+        console.error('💡 تأكد من إعدادات قاعدة البيانات app2data والمتغيرات البيئية');
+      }
       return false;
     }
   }

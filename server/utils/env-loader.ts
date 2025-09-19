@@ -1,4 +1,3 @@
-
 import fs from 'fs';
 import path from 'path';
 
@@ -54,7 +53,7 @@ export class EnvironmentLoader {
    */
   private loadFromEnvFile(): void {
     const envPath = path.join(process.cwd(), '.env');
-    
+
     if (!fs.existsSync(envPath)) {
       console.log('⚠️ ملف .env غير موجود');
       return;
@@ -64,13 +63,13 @@ export class EnvironmentLoader {
       console.log('📄 قراءة متغيرات من ملف .env');
       const content = fs.readFileSync(envPath, 'utf-8');
       const lines = content.split('\n');
-      
+
       for (const line of lines) {
         const trimmedLine = line.trim();
         if (trimmedLine && !trimmedLine.startsWith('#') && trimmedLine.includes('=')) {
           const [key, ...valueParts] = trimmedLine.split('=');
           const value = valueParts.join('=').replace(/^["']|["']$/g, '');
-          
+
           if (key.trim() && value.trim()) {
             this.envVars[key.trim()] = value.trim();
           }
@@ -86,7 +85,7 @@ export class EnvironmentLoader {
    */
   private loadFromEcosystemConfig(): void {
     const ecosystemPath = path.join(process.cwd(), 'ecosystem.config.json');
-    
+
     if (!fs.existsSync(ecosystemPath)) {
       console.log('⚠️ ملف ecosystem.config.json غير موجود');
       return;
@@ -96,7 +95,7 @@ export class EnvironmentLoader {
       console.log('📄 قراءة متغيرات من ecosystem.config.json');
       const content = fs.readFileSync(ecosystemPath, 'utf-8');
       const config = JSON.parse(content);
-      
+
       if (config.apps && config.apps.length > 0) {
         // البحث عن التطبيق الحالي
         const currentApp = config.apps.find((app: any) => 
@@ -104,7 +103,7 @@ export class EnvironmentLoader {
           app.script?.includes('server/index.js') ||
           app.cwd?.includes('app2')
         ) || config.apps[0];
-        
+
         if (currentApp && currentApp.env) {
           for (const [key, value] of Object.entries(currentApp.env)) {
             // فقط إذا لم توجد في .env (أولوية أقل)
@@ -124,12 +123,12 @@ export class EnvironmentLoader {
    */
   private loadFromSystemEnv(): void {
     console.log('📄 قراءة متغيرات من بيئة النظام');
-    
+
     const systemVars = [
       'DATABASE_URL', 'NODE_ENV', 'PORT', 'JWT_ACCESS_SECRET', 
       'JWT_REFRESH_SECRET', 'ENCRYPTION_KEY', 'DOMAIN'
     ];
-    
+
     for (const key of systemVars) {
       if (!this.envVars[key] && process.env[key]) {
         this.envVars[key] = process.env[key];
@@ -142,13 +141,13 @@ export class EnvironmentLoader {
    */
   private logLoadedVariables(): void {
     const sensitiveKeys = ['PASSWORD', 'SECRET', 'KEY', 'TOKEN'];
-    
+
     console.log('📋 المتغيرات المحملة:');
     for (const [key, value] of Object.entries(this.envVars)) {
       const isSensitive = sensitiveKeys.some(sensitive => 
         key.toUpperCase().includes(sensitive)
       );
-      
+
       if (isSensitive) {
         console.log(`   ${key}: [مخفي]`);
       } else if (key === 'DATABASE_URL') {

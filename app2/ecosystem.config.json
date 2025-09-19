@@ -2,7 +2,7 @@
   "apps": [
     {
       "name": "app2",
-      "script": "server/index.js", 
+      "script": "./dist/index.js", 
       "cwd": "/home/administrator/app2",
       "env": {
         "NODE_ENV": "production",

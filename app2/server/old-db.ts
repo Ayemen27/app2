@@ -1,15 +1,15 @@
-
 import { Pool, Client } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 import { getCredential } from './config/credentials';
+import * as fs from 'fs';
 
 // دالة فحص إتاحة قاعدة البيانات القديمة
 export function isOldDatabaseAvailable(): boolean {
   try {
     const supabaseUrl = getCredential('SUPABASE_URL');
     const supabasePassword = getCredential('SUPABASE_DATABASE_PASSWORD');
-    
+
     return Boolean(supabaseUrl && supabasePassword && supabaseUrl !== 'https://placeholder.supabase.co');
   } catch {
     return false;
@@ -35,13 +35,13 @@ export async function testOldDatabaseConnection() {
 
   const supabaseUrl = getCredential('SUPABASE_URL');
   const supabasePassword = getCredential('SUPABASE_DATABASE_PASSWORD');
-  
+
   console.log('\n🔍 بدء تشخيص شامل لاتصال Supabase...');
   console.log(`📋 URL: ${supabaseUrl}`);
   console.log(`🔑 Password: ${supabasePassword ? '[موجود]' : '[مفقود]'}`);
-  
+
   const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
-  
+
   if (!project) {
     return {
       success: false,
@@ -62,15 +62,15 @@ export async function testOldDatabaseConnection() {
 
   try {
     const client = await getOldDbClient(1);
-    
+
     const startTime = Date.now();
     const result = await client.query('SELECT version(), current_database(), current_user, now()');
     const responseTime = Date.now() - startTime;
-    
+
     await client.end();
-    
+
     console.log('✅ تم الاتصال بنجاح');
-    
+
     return {
       success: true,
       message: "تم الاتصال بقاعدة البيانات القديمة بنجاح",
@@ -84,12 +84,12 @@ export async function testOldDatabaseConnection() {
         connectionMethod: "تم تحديد أفضل طريقة اتصال تلقائياً"
       }
     };
-    
+
   } catch (error: any) {
     console.error('❌ فشل الاتصال:', error.message);
-    
+
     const troubleshooting = [];
-    
+
     if (error.message.includes('Tenant or user not found')) {
       troubleshooting.push('المشروع غير موجود أو تم حذفه من Supabase');
       troubleshooting.push('تحقق من لوحة تحكم Supabase');
@@ -106,9 +106,9 @@ export async function testOldDatabaseConnection() {
       troubleshooting.push('تحقق من صحة الـ URL');
       troubleshooting.push('تحقق من حالة خدمات Supabase');
     }
-    
+
     troubleshooting.push('تحقق من https://status.supabase.com');
-    
+
     return {
       success: false,
       message: error.message || "فشل الاتصال بقاعدة البيانات القديمة",
@@ -127,10 +127,10 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
   if (!isOldDatabaseAvailable()) {
     throw new Error("قاعدة البيانات القديمة غير مكوّنة");
   }
-  
+
   const supabaseUrl = getCredential('SUPABASE_URL');
   const supabasePassword = getCredential('SUPABASE_DATABASE_PASSWORD');
-  
+
   // تشخيص متقدم للبيانات من جميع المصادر
   console.log('🔍 تشخيص شامل لمصادر بيانات الاتصال:');
   console.log('📄 من ملف .env:');
@@ -140,7 +140,7 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
   console.log(`   SUPABASE_URL: ${supabaseUrl}`);
   console.log(`   SUPABASE_DATABASE_URL: ${getCredential('SUPABASE_DATABASE_URL') || 'غير موجود'}`);
   console.log(`   Password length: ${supabasePassword ? supabasePassword.length : 'غير موجود'}`);
-  
+
   // فحص OLD_DB_URL من .env للحصول على المنطقة الصحيحة
   const oldDbUrl = process.env.OLD_DB_URL;
   if (oldDbUrl) {
@@ -149,18 +149,18 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
       console.log(`🌍 منطقة جغرافية من OLD_DB_URL: ${regionMatch[0]}`);
     }
   }
-  
+
   // استخراج اسم المشروع
   const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
-  
+
   if (!project) {
     console.error('❌ فشل في استخراج اسم المشروع من SUPABASE_URL');
     console.log(`   URL المُستخدم: ${supabaseUrl}`);
     throw new Error('فشل في استخراج اسم المشروع من SUPABASE_URL');
   }
-  
+
   console.log(`   اسم المشروع المستخرج: ${project}`);
-  
+
   // قائمة خيارات الاتصال المختلفة مع جميع المناطق الجغرافية
   // ترتيب المناطق بناءً على النجاح السابق
   const regions = [
@@ -183,7 +183,11 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
           database: 'postgres',
           user: `postgres.${project}`,
           password: supabasePassword,
-          ssl: { rejectUnauthorized: false },
+          ssl: {
+            rejectUnauthorized: true,
+            ca: fs.readFileSync('./pg_cert.pem'),
+            minVersion: 'TLSv1.2'
+          },
           connectionTimeoutMillis: 15000,
         }
       },
@@ -195,7 +199,11 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
           database: 'postgres',
           user: `postgres.${project}`,
           password: supabasePassword,
-          ssl: { rejectUnauthorized: false },
+          ssl: {
+            rejectUnauthorized: true,
+            ca: fs.readFileSync('./pg_cert.pem'),
+            minVersion: 'TLSv1.2'
+          },
           connectionTimeoutMillis: 15000,
         }
       },
@@ -207,7 +215,11 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
           database: 'postgres',
           user: `postgres`,
           password: supabasePassword,
-          ssl: { rejectUnauthorized: false },
+          ssl: {
+            rejectUnauthorized: true,
+            ca: fs.readFileSync('./pg_cert.pem'),
+            minVersion: 'TLSv1.2'
+          },
           connectionTimeoutMillis: 15000,
         }
       }
@@ -223,33 +235,37 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
       database: 'postgres',
       user: `postgres.${project}`,
       password: supabasePassword,
-      ssl: { rejectUnauthorized: false },
+      ssl: {
+        rejectUnauthorized: true,
+        ca: fs.readFileSync('./pg_cert.pem'),
+        minVersion: 'TLSv1.2'
+      },
       connectionTimeoutMillis: 15000,
     }
   });
-  
+
   // تجربة كل خيار اتصال
   for (const option of connectionOptions) {
     console.log(`🔄 تجربة ${option.name}...`);
     console.log(`🔗 Connection: postgresql://${option.config.user}:***@${option.config.host}:${option.config.port}/${option.config.database}`);
-    
+
     try {
       const client = new Client(option.config);
       await client.connect();
-      
+
       // اختبار الاتصال
       const result = await client.query('SELECT version(), current_database(), current_user');
-      
+
       console.log('✅ نجح الاتصال مع قاعدة البيانات القديمة');
       console.log(`   الطريقة: ${option.name}`);
       console.log(`   المستخدم: ${result.rows[0].current_user}`);
       console.log(`   قاعدة البيانات: ${result.rows[0].current_database}`);
-      
+
       return client;
-      
+
     } catch (error: any) {
       console.warn(`⚠️ فشل ${option.name}:`, error.message);
-      
+
       // تحليل نوع الخطأ
       if (error.message.includes('Tenant or user not found')) {
         console.error('❌ المشروع غير موجود أو بيانات الاعتماد خاطئة');
@@ -260,11 +276,11 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
       } else if (error.message.includes('ENOTFOUND') || error.message.includes('getaddrinfo')) {
         console.error('❌ لا يمكن العثور على الخادم');
       }
-      
+
       continue;
     }
   }
-  
+
   // إذا فشلت جميع الطرق، إظهار معلومات الاستكشاف
   console.error('❌ فشلت جميع محاولات الاتصال');
   console.log('\n🔍 خطوات استكشاف الأخطاء:');
@@ -272,7 +288,7 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
   console.log('2. تحقق من صحة كلمة مرور قاعدة البيانات');
   console.log('3. تحقق من إعدادات الشبكة والجدار الناري');
   console.log('4. تحقق من حالة خدمات Supabase');
-  
+
   throw new Error('فشل في الاتصال بقاعدة البيانات القديمة - جميع الطرق فشلت');
 }
 
@@ -285,7 +301,7 @@ if (isOldDatabaseAvailable()) {
     const supabaseUrl = getCredential('SUPABASE_URL');
     const supabasePassword = getCredential('SUPABASE_DATABASE_PASSWORD');
     const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
-    
+
     if (project) {
       pool = new Pool({
         host: 'aws-0-us-east-1.pooler.supabase.com',
@@ -293,7 +309,11 @@ if (isOldDatabaseAvailable()) {
         database: 'postgres',
         user: `postgres.${project}`,
         password: supabasePassword,
-        ssl: { rejectUnauthorized: false },
+        ssl: {
+          rejectUnauthorized: true,
+          ca: fs.readFileSync('./pg_cert.pem'),
+          minVersion: 'TLSv1.2'
+        },
         max: 10,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000,

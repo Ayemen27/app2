@@ -37,6 +37,8 @@ interface GeneralStats {
   criticalTables: CriticalTable[];
   emptyTables: EmptyTable[];
   error?: string; // optional error property
+  userFriendlyMessage?: string; // optional user friendly message
+  demoMode?: boolean; // optional demo mode flag
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -475,8 +477,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           database: connectionTest.details?.database || 'متصل',
           user: connectionTest.details?.user || 'مخفي لأسباب أمنية',
           version: connectionTest.details?.version || 'PostgreSQL',
-          host: connectionTest.details?.host || 'مخفي لأسباب أمنية',
-          port: connectionTest.details?.port || 'مخفي لأسباب أمنية',
+          host: (connectionTest.details as any)?.host || 'مخفي لأسباب أمنية',
+          port: (connectionTest.details as any)?.port || 'مخفي لأسباب أمنية',
           ssl: true,
           responseTime: connectionTest.details?.responseTime || 0,
           error: null,
@@ -899,26 +901,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // في حالة فشل الاتصال، استخدم قائمة افتراضية مع بيانات تجريبية واقعية
           console.log('🔄 تشغيل وضع العرض التوضيحي - جداول تجريبية...');
+          const demoRowCounts: { [key: string]: number } = {
+            'workers': 3245,
+            'daily_expenses': 5678,
+            'projects': 89,
+            'materials': 1234,
+            'suppliers': 156,
+            'transactions': 8923,
+            'accounts': 245,
+            'tools': 567,
+            'users': 45,
+            'equipment': 123
+          };
+          
           tablesWithInfo = defaultTables.map(tableName => {
-            const demoRowCounts = {
-              'workers': 3245,
-              'daily_expenses': 5678,
-              'projects': 89,
-              'materials': 1234,
-              'suppliers': 156,
-              'transactions': 8923,
-              'accounts': 245,
-              'tools': 567,
-              'users': 45,
-              'equipment': 123
-            };
+            const rowCount = demoRowCounts[tableName] || Math.floor(Math.random() * 1000) + 50;
             
             return {
               name: tableName,
               displayName: getTableDisplayName(tableName),
               category: getTableCategory(tableName),
-              estimatedRows: demoRowCounts[tableName] || Math.floor(Math.random() * 1000) + 50,
-              actualRows: demoRowCounts[tableName] || Math.floor(Math.random() * 1000) + 50,
+              estimatedRows: rowCount,
+              actualRows: rowCount,
               status: 'ready',
               priority: getTablePriority(tableName),
               columnCount: Math.floor(Math.random() * 10) + 5,

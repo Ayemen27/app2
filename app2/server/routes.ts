@@ -5,7 +5,7 @@ import rateLimit from "express-rate-limit";
 import { db } from "./db";
 import { SecureDataFetcher } from "./services/secure-data-fetcher";
 import { requireAuth, requireRole } from "./middleware/auth";
-import { migrationJobManager, type MigrationJob } from "./services/migration-job-manager";
+import { enhancedMigrationJobManager } from "./services/migration-job-manager-enhanced";
 
 // TypeScript interfaces for migration endpoints
 interface TableInfo {
@@ -474,7 +474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { batchSize = 100 } = req.body;
       
       // التحقق من وجود مهمة نشطة
-      const activeJob = migrationJobManager.getActiveJob();
+      const activeJob = await enhancedMigrationJobManager.getActiveJob();
       if (activeJob) {
         return res.status(409).json({
           success: false,
@@ -483,13 +483,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // إنشاء مهمة جديدة
-      const jobId = migrationJobManager.createJob();
+      // إنشاء مهمة جديدة مع Enhanced Manager
+      const userId = req.user?.id || req.user?.email || 'system';
+      const jobId = await enhancedMigrationJobManager.createJob(userId);
       
-      // تشغيل المهمة في الخلفية
-      migrationJobManager.runMigration(jobId, batchSize).catch(error => {
+      // تشغيل المهمة في الخلفية مع التخزين الدائم
+      enhancedMigrationJobManager.runMigration(jobId, batchSize).catch(error => {
         console.error(`❌ خطأ في تشغيل مهمة الهجرة ${jobId}:`, error);
-        migrationJobManager.completeJob(jobId, false, error.message);
+        enhancedMigrationJobManager.completeJob(jobId, false, error.message);
       });
 
       res.json({
@@ -513,8 +514,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { jobId } = req.params;
       console.log(`🎯 Status endpoint called for jobId: ${jobId}`);
       
-      console.log(`📞 Calling migrationJobManager.getJob(${jobId})`);
-      const job = migrationJobManager.getJob(jobId);
+      console.log(`📞 Calling enhancedMigrationJobManager.getJob(${jobId})`);
+      const job = await enhancedMigrationJobManager.getJob(jobId);
       console.log(`📋 Job result:`, job ? `Found job ${job.id}` : 'Job not found');
       
       if (!job) {
@@ -557,10 +558,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // إيقاف/إلغاء مهمة هجرة
-  app.post("/api/migration/stop/:jobId", migrationRateLimit, requireAuth, requireRole('admin'), (req, res) => {
+  app.post("/api/migration/stop/:jobId", migrationRateLimit, requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { jobId } = req.params;
-      const success = migrationJobManager.cancelJob(jobId);
+      const success = await enhancedMigrationJobManager.cancelJob(jobId);
       
       if (!success) {
         return res.status(400).json({
@@ -584,9 +585,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // قائمة جميع مهام الهجرة
-  app.get("/api/migration/jobs", migrationRateLimit, requireAuth, requireRole('admin'), (req, res) => {
+  app.get("/api/migration/jobs", migrationRateLimit, requireAuth, requireRole('admin'), async (req, res) => {
     try {
-      const jobs = migrationJobManager.getAllJobs();
+      const jobs = await enhancedMigrationJobManager.getAllJobs();
       
       res.json({
         success: true,

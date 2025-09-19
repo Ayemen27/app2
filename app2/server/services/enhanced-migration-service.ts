@@ -121,15 +121,21 @@ export class EnhancedMigrationService {
         this.LOG.warn(`⚠️ ${name}: تعذر تحميل شهادة SSL: ${e.message}`);
       }
 
-      config.ssl = ca ? {
-        rejectUnauthorized: false,
-        ca: ca,
-        minVersion: 'TLSv1.2',
-        checkServerIdentity: () => undefined
-      } : {
-        rejectUnauthorized: false,
-        minVersion: 'TLSv1.2'
-      };
+      // التحقق من وجود شهادة CA للاتصال الآمن
+      if (ca) {
+        this.LOG.success(`🔐 ${name}: تطبيق SSL آمن مع شهادة CA`);
+        config.ssl = {
+          rejectUnauthorized: true,
+          ca: ca,
+          minVersion: 'TLSv1.2',
+          secureProtocol: 'TLSv1_2_method'
+        };
+      } else {
+        // فشل مبكر - لا نسمح بالاتصال بدون شهادة CA صحيحة
+        const errorMsg = `⛔ ${name}: رفض الاتصال - لا توجد شهادة CA صحيحة. الاتصال غير آمن!`;
+        this.LOG.error(errorMsg);
+        throw new Error(`فشل في التحقق من الأمان: ${errorMsg}`);
+      }
     }
 
     const client = new Client(config);

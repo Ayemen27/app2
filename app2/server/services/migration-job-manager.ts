@@ -1,4 +1,14 @@
 import { SecureDataFetcher } from "./secure-data-fetcher";
+import { db } from "../db";
+import { 
+  migrationJobs, 
+  migrationTableProgress, 
+  migrationBatchLog,
+  type MigrationJob as DBMigrationJob,
+  type MigrationTableProgress as DBMigrationTableProgress,
+  type MigrationBatchLog as DBMigrationBatchLog
+} from "../../shared/schema";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface MigrationJob {
   id: string;
@@ -29,7 +39,8 @@ export interface MigrationTableProgress {
 }
 
 class MigrationJobManager {
-  private jobs = new Map<string, MigrationJob>();
+  // تخزين مؤقت للأداء - قاعدة البيانات هي المصدر الحقيقي
+  private jobsCache = new Map<string, MigrationJob>();
   private activeJobId: string | null = null;
 
   private generateJobId(): string {
@@ -68,31 +79,57 @@ class MigrationJobManager {
     return matches ? parseInt(matches[1]) : null;
   }
 
-  public createJob(): string {
-    // منع تشغيل مهام متعددة
-    if (this.activeJobId) {
+  public async createJob(userId?: string): Promise<string> {
+    // منع تشغيل مهام متعددة - فحص من قاعدة البيانات
+    const activeJob = await this.getActiveJobFromDB();
+    if (activeJob) {
       throw new Error('هناك مهمة هجرة نشطة بالفعل');
     }
 
     const jobId = this.generateJobId();
-    const job: MigrationJob = {
-      id: jobId,
-      status: 'pending',
-      startTime: new Date(),
-      tablesProcessed: 0,
-      totalTables: 0,
-      totalRowsProcessed: 0,
-      totalRowsSaved: 0,
-      totalErrors: 0,
-      progress: 0,
-      tableProgress: [],
-    };
-
-    this.jobs.set(jobId, job);
-    this.activeJobId = jobId;
     
-    console.log(`✨ تم إنشاء مهمة هجرة جديدة: ${jobId}`);
-    return jobId;
+    try {
+      // إنشاء المهمة في قاعدة البيانات مع معاملة آمنة
+      await db.transaction(async (tx) => {
+        await tx.insert(migrationJobs).values({
+          id: jobId,
+          status: 'pending',
+          tablesProcessed: 0,
+          totalTables: 0,
+          totalRowsProcessed: 0,
+          totalRowsSaved: 0,
+          totalErrors: 0,
+          progress: 0,
+          userId: userId || null,
+          batchSize: 100,
+          resumable: true
+        });
+      });
+
+      this.activeJobId = jobId;
+      
+      // إضافة للتخزين المؤقت
+      const job: MigrationJob = {
+        id: jobId,
+        status: 'pending',
+        startTime: new Date(),
+        tablesProcessed: 0,
+        totalTables: 0,
+        totalRowsProcessed: 0,
+        totalRowsSaved: 0,
+        totalErrors: 0,
+        progress: 0,
+        tableProgress: [],
+      };
+      this.jobsCache.set(jobId, job);
+      
+      console.log(`✨ تم إنشاء مهمة هجرة جديدة في قاعدة البيانات: ${jobId}`);
+      return jobId;
+      
+    } catch (error: any) {
+      console.error(`❌ فشل في إنشاء مهمة الهجرة: ${error.message}`);
+      throw new Error(`فشل في إنشاء مهمة الهجرة: ${error.message}`);
+    }
   }
 
   public getJob(jobId: string): MigrationJob | undefined {

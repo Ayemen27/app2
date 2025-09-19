@@ -1,5 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { SystemMetrics, ErrorLog, DiagnosticCheck } from "@shared/schema";
+
+// أنواع مؤقتة للمراقبة
+interface SystemMetrics {
+  id?: string;
+  cpuUsage?: number;
+  memoryUsage?: number;
+  timestamp?: string;
+}
+
+interface ErrorLog {
+  id?: string;
+  message?: string;
+  level?: string;
+  timestamp?: string;
+}
+
+interface DiagnosticCheck {
+  id?: string;
+  name?: string;
+  status?: string;
+  timestamp?: string;
+}
 
 export function useMonitoring() {
   const queryClient = useQueryClient();
@@ -11,7 +32,7 @@ export function useMonitoring() {
     refetch: refetchMetrics,
   } = useQuery<SystemMetrics>({
     queryKey: ['/api/metrics/current'],
-    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    refetchInterval: 120000, // Auto-refresh every 2 minutes لتقليل الحمولة
   });
 
   // Error logs
@@ -20,7 +41,7 @@ export function useMonitoring() {
     isLoading: logsLoading,
   } = useQuery<ErrorLog[]>({
     queryKey: ['/api/error-logs'],
-    refetchInterval: 60000, // Auto-refresh every minute
+    refetchInterval: 120000, // Auto-refresh every 2 minutes لتقليل الحمولة
   });
 
   // Diagnostic checks

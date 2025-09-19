@@ -201,7 +201,7 @@ const DatabaseTableManager = () => {
   // جلب قائمة الجداول مع معلومات RLS
   const { data: rawTables = [], isLoading } = useQuery<DatabaseTable[]>({
     queryKey: ['/api/db-admin/tables'],
-    refetchInterval: 30000, // تحديث كل 30 ثانية
+    refetchInterval: 60000, // تحديث كل دقيقة لتقليل الحمولة
   });
 
   // إزالة التكرار من الجداول بناءً على اسم الجدول فقط (أقوى)
@@ -685,19 +685,19 @@ export default function AISystemDashboard() {
   // جلب حالة النظام
   const { data: systemStatus } = useQuery<any>({
     queryKey: ['/api/ai-system/status'],
-    refetchInterval: 10000, // تحديث كل 10 ثوانِ
+    refetchInterval: 60000, // تحديث كل دقيقة لتقليل الحمولة
   });
 
   // جلب مقاييس النظام
   const { data: metrics } = useQuery<SystemMetrics>({
     queryKey: ['/api/ai-system/metrics'],
-    refetchInterval: 5000, // تحديث كل 5 ثوانِ
+    refetchInterval: 30000, // تحديث كل 30 ثانية لتقليل الحمولة
   });
 
   // جلب الأخطاء الحقيقية من النظام الذكي
   const { data: errorStats } = useQuery({
     queryKey: ['/api/smart-errors/statistics'],
-    refetchInterval: 10000,
+    refetchInterval: 60000, // تحديث كل دقيقة لتقليل الحمولة
   });
 
   // جلب قائمة الأخطاء التفصيلية
@@ -727,7 +727,7 @@ export default function AISystemDashboard() {
     message: string;
   }>({
     queryKey: ['/api/smart-errors/detected'],
-    refetchInterval: 15000,
+    refetchInterval: 60000, // تحديث كل دقيقة لتقليل الحمولة
   });
 
   // جلب التوصيات

@@ -196,8 +196,8 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   useEffect(() => {
     fetchNotifications();
     
-    // تحديث الإشعارات كل 30 ثانية
-    const interval = setInterval(fetchNotifications, 30000);
+    // تحديث الإشعارات كل 5 دقائق لتقليل الحمولة
+    const interval = setInterval(fetchNotifications, 300000);
     return () => clearInterval(interval);
   }, []);
 

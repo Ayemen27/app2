@@ -62,14 +62,14 @@ export default function MigrationDashboard() {
   // جلب قائمة جميع المهام
   const { data: jobsData, isLoading: jobsLoading } = useQuery({
     queryKey: ['/api/migration/jobs'],
-    refetchInterval: 5000, // تحديث كل 5 ثواني
+    refetchInterval: 30000, // تحديث كل 30 ثانية لتقليل الحمولة
   });
 
   // جلب حالة المهمة النشطة
   const { data: activeJobData, isLoading: activeJobLoading } = useQuery({
     queryKey: ['/api/migration/status', activeJobId],
     enabled: !!activeJobId,
-    refetchInterval: 2000, // تحديث كل ثانيتين
+    refetchInterval: 15000, // تحديث كل 15 ثانية لتقليل الحمولة
   });
 
   // متابعة المهمة النشطة تلقائياً

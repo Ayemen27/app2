@@ -2,8 +2,8 @@
   "apps": [
     {
       "name": "app2",
-      "script": "server/index.js",
-      "cwd": "./",
+      "script": "server/index.js", 
+      "cwd": "/home/administrator/app2",
       "env": {
         "NODE_ENV": "production",
         "PORT": "3000",
@@ -17,9 +17,9 @@
       "exec_mode": "fork",
       "watch": false,
       "max_memory_restart": "1G",
-      "error_file": "./logs/app2-err.log",
-      "out_file": "./logs/app2-out.log",
-      "log_file": "./logs/app2-combined.log",
+      "error_file": "/home/administrator/logs/app2-err.log",
+      "out_file": "/home/administrator/logs/app2-out.log", 
+      "log_file": "/home/administrator/logs/app2-combined.log",
       "time": true
     },
     {

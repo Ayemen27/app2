@@ -3,7 +3,7 @@
  * يدعم تشفير كلمات المرور، TOTP، ورموز التحقق
  */
 
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 

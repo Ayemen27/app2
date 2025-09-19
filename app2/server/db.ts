@@ -68,14 +68,13 @@ function setupSSLConfig() {
     console.warn('⚠️ تعذر تحميل شهادة SSL، سيتم استخدام الشهادات الافتراضية');
   }
   
-  // For self-signed certificates, we need to handle them specially
+  // For official CA certificates, use full validation
   if (ca) {
-    console.log('🔑 استخدام شهادة SSL مخصصة - السماح بالشهادات الموقعة ذاتياً');
+    console.log('🔑 استخدام شهادة SSL الرسمية - تفعيل التحقق الكامل');
     return {
-      rejectUnauthorized: false, // Must be false for self-signed certs
+      rejectUnauthorized: true, // Full validation for official certs
       ca: ca, // Use our trusted certificate
-      minVersion: 'TLSv1.2' as const,
-      checkServerIdentity: () => undefined // Disable hostname check since we trust our CA
+      minVersion: 'TLSv1.2' as const
     };
   }
   

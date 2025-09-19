@@ -51,11 +51,11 @@ export class SecureDataFetcher {
       if (fs.existsSync(certPath)) {
         const ca = fs.readFileSync(certPath, { encoding: "utf8" });
         config.ssl = {
-          rejectUnauthorized: true, // التحقق الكامل من الشهادات
+          rejectUnauthorized: true, // التحقق الكامل من الشهادات الرسمية
           ca: ca,
           minVersion: 'TLSv1.2'
         };
-        console.log('🔒 تم تحميل شهادة SSL وتفعيل التحقق الآمن');
+        console.log('🔒 تم تحميل شهادة SSL الرسمية وتفعيل التحقق الآمن');
       } else {
         console.error('❌ ملف شهادة SSL مفقود: pg_cert.pem');
         throw new Error('شهادة SSL مطلوبة للاتصالات الآمنة');

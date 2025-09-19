@@ -558,7 +558,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalTables: 0,
         totalEstimatedRows: 0,
         tablesList: [],
-        lastUpdated: new Date().toISOString(),
+        lastUpdated: new Date().toLocaleString('en-GB', { 
+          timeZone: 'Europe/London',
+          day: '2-digit',
+          month: '2-digit', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }),
         databaseStatus: 'unknown',
         databaseSize: 'غير محدد',
         oldestRecord: null,
@@ -575,7 +584,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalTables: 0,
           totalEstimatedRows: 0,
           tablesList: [],
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: new Date().toLocaleString('en-GB', { 
+            timeZone: 'Europe/London',
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          }),
           databaseStatus: 'not_configured',
           databaseSize: 'غير مُكوّنة',
           oldestRecord: null,
@@ -744,31 +762,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userFriendlyMessage = 'انتهت مهلة الاتصال بقاعدة البيانات القديمة.';
         }
         
-        // في حالة فشل الاتصال، استخدم إحصائيات تجريبية واقعية
-        console.log('🔄 تشغيل وضع العرض التوضيحي - إحصائيات تجريبية...');
+        // في حالة فشل الاتصال، إرجاع خطأ واضح بدون بيانات وهمية
+        console.log('❌ فشل الاتصال - عدم توفير بيانات وهمية');
         generalStats = {
-          totalTables: 42,
-          totalEstimatedRows: 15847,
-          tablesList: [
-            {name: 'workers', displayName: 'العمال', rows: 3245, category: 'أساسية', lastAnalyzed: new Date().toISOString()},
-            {name: 'daily_expenses', displayName: 'المصروفات اليومية', rows: 5678, category: 'مالية', lastAnalyzed: new Date().toISOString()},
-            {name: 'projects', displayName: 'المشاريع', rows: 89, category: 'أساسية', lastAnalyzed: new Date().toISOString()},
-            {name: 'materials', displayName: 'المواد', rows: 1234, category: 'مخزون', lastAnalyzed: new Date().toISOString()},
-            {name: 'suppliers', displayName: 'الموردون', rows: 156, category: 'تجارية', lastAnalyzed: new Date().toISOString()}
-          ],
-          lastUpdated: new Date().toISOString(),
+          totalTables: 0,
+          totalEstimatedRows: 0,
+          tablesList: [],
+          lastUpdated: new Date().toLocaleString('en-GB', { 
+            timeZone: 'Europe/London',
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          }),
           databaseStatus: databaseStatus,
-          databaseSize: '245 MB (تجريبي)',
-          oldestRecord: '2023-01-15T08:00:00Z',
-          newestRecord: new Date().toISOString(),
-          criticalTables: [
-            {name: 'workers', displayName: 'العمال', rows: 3245},
-            {name: 'daily_expenses', displayName: 'المصروفات اليومية', rows: 5678}
-          ],
+          databaseSize: 'غير متاح',
+          oldestRecord: null,
+          newestRecord: null,
+          criticalTables: [],
           emptyTables: [],
           error: dbError.message,
-          userFriendlyMessage: userFriendlyMessage,
-          demoMode: true
+          userFriendlyMessage: userFriendlyMessage
         };
       }
 
@@ -795,7 +812,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalTables: 0,
           totalEstimatedRows: 0,
           tablesList: [],
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: new Date().toLocaleString('en-GB', { 
+            timeZone: 'Europe/London',
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          }),
           databaseStatus: 'system_error',
           databaseSize: 'غير متاح',
           oldestRecord: null,
@@ -899,39 +925,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (dbError: any) {
           console.error('❌ خطأ في الاتصال بقاعدة البيانات القديمة:', dbError);
           
-          // في حالة فشل الاتصال، استخدم قائمة افتراضية مع بيانات تجريبية واقعية
-          console.log('🔄 تشغيل وضع العرض التوضيحي - جداول تجريبية...');
-          const demoRowCounts: { [key: string]: number } = {
-            'workers': 3245,
-            'daily_expenses': 5678,
-            'projects': 89,
-            'materials': 1234,
-            'suppliers': 156,
-            'transactions': 8923,
-            'accounts': 245,
-            'tools': 567,
-            'users': 45,
-            'equipment': 123
-          };
+          // في حالة فشل الاتصال، إرجاع قائمة فارغة بدون بيانات وهمية
+          console.log('❌ فشل الاتصال بقاعدة البيانات - عدم توفير بيانات وهمية');
           
-          tablesWithInfo = defaultTables.map(tableName => {
-            const rowCount = demoRowCounts[tableName] || Math.floor(Math.random() * 1000) + 50;
-            
-            return {
-              name: tableName,
-              displayName: getTableDisplayName(tableName),
-              category: getTableCategory(tableName),
-              estimatedRows: rowCount,
-              actualRows: rowCount,
-              status: 'ready',
-              priority: getTablePriority(tableName),
-              columnCount: Math.floor(Math.random() * 10) + 5,
-              size: `${Math.floor(Math.random() * 50) + 10} KB`,
-              description: `جدول ${getTableDisplayName(tableName)} (بيانات تجريبية)`,
-              columns: getTableColumns(tableName).slice(0, 5),
-              demoMode: true
-            };
-          });
+          tablesWithInfo = [];
           
           dataSource = 'default';
           
@@ -956,7 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         connectionMessage: connectionMessage,
         userFriendlyMessage: dataSource === 'database' 
           ? `توفر ${tablesWithInfo.length} جدول للهجرة من قاعدة البيانات القديمة`
-          : `يوجد ${tablesWithInfo.length} جدول متاح للهجرة (بيانات محلية). قاعدة البيانات القديمة غير متصلة حالياً.`
+          : 'قاعدة البيانات القديمة غير متصلة. لا توجد بيانات متاحة للهجرة.'
       });
     } catch (error: any) {
       console.error('❌ خطأ عام في جلب قائمة الجداول:', error);
@@ -982,7 +979,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         displayName: getTableDisplayName(tableName),
         estimatedRows: 0,
         columns: [],
-        lastUpdated: new Date().toISOString(),
+        lastUpdated: new Date().toLocaleString('en-GB', { 
+          timeZone: 'Europe/London',
+          day: '2-digit',
+          month: '2-digit', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }),
         status: 'ready'
       };
       
@@ -1015,7 +1021,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           displayName: getTableDisplayName(tableName),
           estimatedRows: parseInt(rowCountQuery.rows[0]?.row_count || '0'),
           columns: tableInfoQuery.rows || [],
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: new Date().toLocaleString('en-GB', { 
+            timeZone: 'Europe/London',
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          }),
           status: 'ready'
         };
         

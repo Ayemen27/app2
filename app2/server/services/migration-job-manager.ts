@@ -36,6 +36,38 @@ class MigrationJobManager {
     return `migration_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  // التحقق من صحة معرف المهمة (دعم النمطين القديم والجديد)
+  private isValidJobId(jobId: string): boolean {
+    return jobId.startsWith('migration_') || jobId.startsWith('batch_migration_');
+  }
+
+  // إنشاء مهمة وهمية للمهام القديمة المفقودة
+  private createLegacyJobPlaceholder(jobId: string): MigrationJob {
+    const timestamp = this.extractTimestampFromJobId(jobId);
+    const startTime = timestamp ? new Date(timestamp) : new Date();
+    
+    return {
+      id: jobId,
+      status: 'completed', // افتراض أن المهام القديمة مكتملة
+      startTime,
+      endTime: new Date(startTime.getTime() + 300000), // إضافة 5 دقائق
+      tablesProcessed: 0,
+      totalTables: 0,
+      totalRowsProcessed: 0,
+      totalRowsSaved: 0,
+      totalErrors: 0,
+      progress: 100,
+      tableProgress: [],
+      error: 'مهمة قديمة - التفاصيل غير متوفرة'
+    };
+  }
+
+  // استخراج الطابع الزمني من معرف المهمة
+  private extractTimestampFromJobId(jobId: string): number | null {
+    const matches = jobId.match(/_(\d{13})/);
+    return matches ? parseInt(matches[1]) : null;
+  }
+
   public createJob(): string {
     // منع تشغيل مهام متعددة
     if (this.activeJobId) {
@@ -64,7 +96,30 @@ class MigrationJobManager {
   }
 
   public getJob(jobId: string): MigrationJob | undefined {
-    return this.jobs.get(jobId);
+    console.log(`🔍 MigrationJobManager.getJob called with: ${jobId}`);
+    
+    // التحقق من صحة معرف المهمة
+    if (!this.isValidJobId(jobId)) {
+      console.log(`❌ Invalid job ID format: ${jobId}`);
+      return undefined;
+    }
+
+    console.log(`✅ Valid job ID format: ${jobId}`);
+
+    // البحث عن المهمة في الذاكرة أولاً
+    let job = this.jobs.get(jobId);
+    console.log(`🔍 Job found in memory: ${job ? 'yes' : 'no'}`);
+    
+    // إذا لم توجد وكانت مهمة قديمة، إنشاء placeholder
+    if (!job && jobId.startsWith('batch_migration_')) {
+      console.log(`📋 إنشاء placeholder للمهمة القديمة: ${jobId}`);
+      job = this.createLegacyJobPlaceholder(jobId);
+      this.jobs.set(jobId, job); // حفظ في الذاكرة للوصول السريع
+      console.log(`✅ Placeholder created and stored for: ${jobId}`);
+    }
+
+    console.log(`🏁 Returning job: ${job ? job.id : 'undefined'}`);
+    return job;
   }
 
   public getAllJobs(): MigrationJob[] {

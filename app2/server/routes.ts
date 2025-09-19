@@ -478,14 +478,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/migration/status/:jobId", requireAuth, requireRole('admin'), (req, res) => {
     try {
       const { jobId } = req.params;
+      console.log(`🎯 Status endpoint called for jobId: ${jobId}`);
+      
+      console.log(`📞 Calling migrationJobManager.getJob(${jobId})`);
       const job = migrationJobManager.getJob(jobId);
+      console.log(`📋 Job result:`, job ? `Found job ${job.id}` : 'Job not found');
       
       if (!job) {
+        console.log(`❌ Returning 404 for jobId: ${jobId}`);
         return res.status(404).json({
           success: false,
           error: "مهمة الهجرة غير موجودة"
         });
       }
+      
+      console.log(`✅ Returning job data for: ${job.id}`);
 
       // حساب الوقت المتوقع للانتهاء
       let estimatedTimeRemaining = 0;
@@ -1230,10 +1237,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // نقل البيانات (هجرة شاملة لعدة جداول)
+  // نقل البيانات (هجرة شاملة لعدة جداول) - تم إعادة توجيهها لاستخدام MigrationJobManager
   app.post("/api/migration/transfer", requireAuth, requireRole('admin'), async (req, res) => {
     try {
-      const { tables = [], batchSize = 50, delayBetweenBatches = 1000 } = req.body;
+      const { tables = [], batchSize = 50 } = req.body;
 
       if (!tables.length) {
         return res.status(400).json({
@@ -1242,30 +1249,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`🚀 بدء الهجرة الشاملة لـ ${tables.length} جدول`);
+      // التحقق من وجود مهمة نشطة
+      const activeJob = migrationJobManager.getActiveJob();
+      if (activeJob) {
+        return res.status(409).json({
+          success: false,
+          error: "هناك مهمة هجرة نشطة بالفعل",
+          jobId: activeJob.id
+        });
+      }
 
-      const migrationSession = {
-        id: `batch_migration_${Date.now()}`,
-        tables,
-        batchSize,
-        delayBetweenBatches,
-        status: 'started',
-        startedAt: new Date().toISOString(),
-        progress: 0,
-        completedTables: [],
-        failedTables: [],
-        totalTables: tables.length
-      };
+      console.log(`🚀 بدء الهجرة الشاملة لـ ${tables.length} جدول باستخدام MigrationJobManager`);
+
+      // إنشاء مهمة جديدة باستخدام MigrationJobManager
+      const jobId = migrationJobManager.createJob();
+      
+      // تشغيل المهمة في الخلفية
+      migrationJobManager.runMigration(jobId, batchSize).catch(error => {
+        console.error(`❌ خطأ في تشغيل مهمة الهجرة ${jobId}:`, error);
+        migrationJobManager.completeJob(jobId, false, error.message);
+      });
 
       res.json({
         success: true,
-        data: migrationSession,
+        data: {
+          id: jobId,
+          status: 'started',
+          startedAt: new Date().toISOString(),
+          totalTables: tables.length
+        },
+        jobId: jobId,
         message: `تم بدء الهجرة الشاملة لـ ${tables.length} جدول`
-      });
-
-      // تشغيل الهجرة الشاملة في الخلفية
-      processBatchMigrationInBackground(migrationSession).catch(error => {
-        console.error('❌ خطأ في الهجرة الشاملة:', error);
       });
 
     } catch (error: any) {
@@ -1278,56 +1292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // متابعة حالة عملية الهجرة
-  app.get("/api/migration/status/:jobId?", requireAuth, requireRole('admin'), async (req, res) => {
-    try {
-      const { jobId } = req.params;
 
-      // البحث عن العملية الحقيقية - لا نستخدم بيانات وهمية
-      if (!jobId) {
-        return res.status(400).json({
-          success: false,
-          error: 'يجب تحديد معرف العملية',
-          message: 'معرف العملية مطلوب'
-        });
-      }
-
-      // لا توجد عمليات هجرة حقيقية مخزنة حالياً
-      res.status(404).json({
-        success: false,
-        error: 'العملية غير موجودة',
-        message: 'لا يمكن العثور على عملية الهجرة المطلوبة'
-      });
-    } catch (error: any) {
-      console.error('❌ خطأ في جلب حالة الهجرة:', error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "فشل في جلب حالة عملية الهجرة"
-      });
-    }
-  });
-
-  // إيقاف عملية الهجرة
-  app.post("/api/migration/stop/:jobId", requireAuth, requireRole('admin'), async (req, res) => {
-    try {
-      const { jobId } = req.params;
-
-      console.log(`⏹️ إيقاف عملية الهجرة: ${jobId}`);
-
-      res.json({
-        success: true,
-        message: `تم إيقاف عملية الهجرة ${jobId} بنجاح`
-      });
-    } catch (error: any) {
-      console.error('❌ خطأ في إيقاف عملية الهجرة:', error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "فشل في إيقاف عملية الهجرة"
-      });
-    }
-  });
 
   // === إدارة الاتصالات الذكية (محمية للإداريين)
   app.get("/api/connections/status", requireAuth, requireRole('admin'), async (req, res) => {

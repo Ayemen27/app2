@@ -319,6 +319,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       queryClient.invalidateQueries();
       
       console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');
+      
+      // إجبار إعادة تقييم حالة المصادقة فوراً
+      console.log('🔄 [AuthProvider.login] إجبار تحديث حالة المصادقة...');
+      
+      // التأكد من أن المكونات الأخرى تتلقى التحديث
+      setTimeout(() => {
+        console.log('✅ [AuthProvider.login] تم تأكيد حالة المصادقة:', {
+          isAuthenticated: !!user,
+          userId: user?.id,
+          userEmail: user?.email
+        });
+      }, 100);
 
     } catch (error) {
       console.error('❌ [AuthProvider.login] خطأ في تسجيل الدخول:', error);

@@ -89,8 +89,21 @@ export default function LoginPage() {
         description: "أهلاً وسهلاً",
       });
       
-      // التوجه إلى الصفحة الرئيسية
-      navigate("/");
+      // التوجه إلى الصفحة الرئيسية مع تأخير بسيط للتأكد من تحديث الحالة
+      console.log('🚀 [LoginPage] بدء التوجيه للصفحة الرئيسية...');
+      setTimeout(() => {
+        console.log('🎯 [LoginPage] تنفيذ التوجيه إلى /');
+        navigate("/");
+        
+        // إجبار إعادة تحميل الصفحة إذا لم يتم التوجيه
+        setTimeout(() => {
+          console.log('🔄 [LoginPage] التحقق من التوجيه الناجح...');
+          if (window.location.pathname === '/login') {
+            console.log('⚠️ [LoginPage] لم يتم التوجيه، إعادة تحميل الصفحة');
+            window.location.href = '/';
+          }
+        }, 1000);
+      }, 500);
     },
     onError: (error: any) => {
       console.error('❌ فشل تسجيل الدخول:', error);

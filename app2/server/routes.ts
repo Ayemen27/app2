@@ -38,7 +38,7 @@ interface GeneralStats {
   emptyTables: EmptyTable[];
   error?: string; // optional error property
   userFriendlyMessage?: string; // optional user friendly message
-  demoMode?: boolean; // optional demo mode flag
+  // إزالة demoMode flag - لا نستخدم بيانات وهمية
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -121,41 +121,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`📥 [API] جلب الإشعارات للمستخدم: ${userId}`);
       
-      // إشعارات تجريبية لتجنب أخطاء الواجهة الأمامية
-      const mockNotifications = [
-        {
-          id: '1',
-          type: 'system',
-          title: 'مرحباً بك في النظام',
-          message: 'تم تسجيل دخولك بنجاح',
-          priority: 'info',
-          createdAt: new Date().toISOString(),
-          status: 'unread',
-          actionRequired: false
-        },
-        {
-          id: '2', 
-          type: 'maintenance',
-          title: 'تحديث النظام',
-          message: 'سيتم تحديث النظام قريباً',
-          priority: 'medium',
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          status: 'read',
-          actionRequired: true
-        }
-      ];
+      // لا توجد إشعارات حقيقية - النظام لا يستخدم بيانات وهمية
+      const notifications: any[] = [];
       
-      const unreadCount = mockNotifications.filter(n => n.status === 'unread').length;
+      console.log(`✅ [API] لا توجد إشعارات مخزنة`);
       
-      console.log(`✅ [API] تم إرجاع ${mockNotifications.length} إشعار، غير مقروء: ${unreadCount}`);
-      
-      // إرجاع البيانات بالشكل المتوقع من الـ frontend
       res.json({
         success: true,
-        data: mockNotifications,
-        count: mockNotifications.length,
-        unreadCount: unreadCount,
-        message: `تم جلب ${mockNotifications.length} إشعار بنجاح`
+        data: notifications,
+        count: 0,
+        unreadCount: 0,
+        message: 'لا توجد إشعارات'
       });
     } catch (error: any) {
       console.error('❌ [API] خطأ في جلب الإشعارات:', error);
@@ -1151,25 +1127,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { jobId } = req.params;
 
-      // في التطبيق الحقيقي، استخدم قاعدة بيانات لتخزين حالة المهام
-      const mockStatus = {
-        id: jobId || 'default_job',
-        status: 'running',
-        progress: Math.floor(Math.random() * 100),
-        startedAt: new Date(Date.now() - 300000).toISOString(), // منذ 5 دقائق
-        estimatedCompletion: new Date(Date.now() + 120000).toISOString(), // خلال دقيقتين
-        currentTable: 'projects',
-        processedRows: 1247,
-        totalRows: 2500,
-        errors: [],
-        completedTables: ['users', 'workers'],
-        remainingTables: ['projects', 'daily_expenses', 'materials']
-      };
+      // البحث عن العملية الحقيقية - لا نستخدم بيانات وهمية
+      if (!jobId) {
+        return res.status(400).json({
+          success: false,
+          error: 'يجب تحديد معرف العملية',
+          message: 'معرف العملية مطلوب'
+        });
+      }
 
-      res.json({
-        success: true,
-        data: mockStatus,
-        message: "تم جلب حالة عملية الهجرة بنجاح"
+      // لا توجد عمليات هجرة حقيقية مخزنة حالياً
+      res.status(404).json({
+        success: false,
+        error: 'العملية غير موجودة',
+        message: 'لا يمكن العثور على عملية الهجرة المطلوبة'
       });
     } catch (error: any) {
       console.error('❌ خطأ في جلب حالة الهجرة:', error);

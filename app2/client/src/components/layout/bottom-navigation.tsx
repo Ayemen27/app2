@@ -139,19 +139,19 @@ export default function BottomNavigation() {
               <span className="text-xs">المزيد</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-[80vh]">
+          <SheetContent side="bottom" className="h-[85vh] max-w-full">
             <SheetHeader className="mb-4">
-              <SheetTitle className="text-right">جميع الصفحات</SheetTitle>
+              <SheetTitle className="text-right text-lg">جميع الصفحات</SheetTitle>
             </SheetHeader>
             
-            <ScrollArea className="h-full">
-              <div className="space-y-6 pb-20">
+            <ScrollArea className="h-full pr-2">
+              <div className="space-y-4 pb-20 px-1">
                 {allPages.map((category, categoryIndex) => (
                   <div key={categoryIndex}>
-                    <h3 className="font-semibold text-lg mb-3 text-primary">
+                    <h3 className="font-semibold text-base mb-3 text-primary text-right border-b border-border pb-1">
                       {category.category}
                     </h3>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {category.pages.map((page, pageIndex) => {
                         const Icon = page.icon;
                         const isActive = location === page.path;
@@ -160,16 +160,16 @@ export default function BottomNavigation() {
                           <Button
                             key={pageIndex}
                             variant={isActive ? "default" : "ghost"}
-                            className="w-full justify-start h-auto p-4"
+                            className="w-full justify-start h-auto p-3 min-h-[60px]"
                             onClick={() => handlePageNavigation(page.path)}
                           >
                             <div className="flex items-start gap-3 w-full text-right">
-                              <Icon className={`h-5 w-5 mt-0.5 ${isActive ? 'text-primary-foreground' : 'text-primary'}`} />
-                              <div className="flex-1">
-                                <div className={`font-medium ${isActive ? 'text-primary-foreground' : ''}`}>
+                              <Icon className={`h-5 w-5 mt-1 flex-shrink-0 ${isActive ? 'text-primary-foreground' : 'text-primary'}`} />
+                              <div className="flex-1 min-w-0">
+                                <div className={`font-medium leading-tight text-right ${isActive ? 'text-primary-foreground' : ''}`}>
                                   {page.label}
                                 </div>
-                                <div className={`text-sm mt-1 ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                                <div className={`text-xs mt-1 leading-tight text-right break-words ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                                   {page.description}
                                 </div>
                               </div>
@@ -179,7 +179,7 @@ export default function BottomNavigation() {
                       })}
                     </div>
                     {categoryIndex < allPages.length - 1 && (
-                      <Separator className="mt-4" />
+                      <Separator className="my-4" />
                     )}
                   </div>
                 ))}

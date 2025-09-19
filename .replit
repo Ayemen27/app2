@@ -78,3 +78,12 @@ author = "agent"
 task = "shell.exec"
 args = "cd app2 && npm install && npm run dev"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "بناء "
+mode = "sequential"
+author = 47788345
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd app2 && npm run build "

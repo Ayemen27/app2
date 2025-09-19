@@ -42,7 +42,7 @@ interface GeneralStats {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  
+
   // Health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });
@@ -90,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { id: '4', name: 'سائق', usageCount: 1 },
         { id: '5', name: 'حارس', usageCount: 1 }
       ];
-      
+
       res.json({ 
         success: true, 
         data: workerTypes, 
@@ -118,14 +118,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/notifications", requireAuth, async (req, res) => {
     try {
       const userId = req.user?.id || req.user?.email || 'default';
-      
+
       console.log(`📥 [API] جلب الإشعارات للمستخدم: ${userId}`);
-      
+
       // لا توجد إشعارات حقيقية - النظام لا يستخدم بيانات وهمية
       const notifications: any[] = [];
-      
+
       console.log(`✅ [API] لا توجد إشعارات مخزنة`);
-      
+
       res.json({
         success: true,
         data: notifications,
@@ -151,9 +151,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user?.id || req.user?.email || 'default';
       const notificationId = req.params.id;
-      
+
       console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء للمستخدم: ${userId}`);
-      
+
       // مؤقتاً - إرجاع نجاح فقط للتوافق مع الواجهة الأمامية
       res.json({
         success: true,
@@ -174,9 +174,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user?.id || req.user?.email || 'default';
       const notificationId = req.params.id;
-      
+
       console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء (مسار بديل) للمستخدم: ${userId}`);
-      
+
       // مؤقتاً - إرجاع نجاح فقط للتوافق مع الواجهة الأمامية
       res.json({
         success: true,
@@ -197,9 +197,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user?.id || req.user?.email || 'default';
       const projectId = req.body.projectId;
-      
+
       console.log(`✅ [API] تعليم جميع الإشعارات كمقروءة للمستخدم: ${userId}`);
-      
+
       // مؤقتاً - إرجاع نجاح فقط للتوافق مع الواجهة الأمامية
       res.json({
         success: true,
@@ -220,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { tableName } = req.params;
       const externalUrl = process.env.OLD_DB_URL;
-      
+
       if (!externalUrl) {
         return res.status(400).json({
           success: false,
@@ -252,7 +252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { tableName } = req.params;
       const { limit = 50, offset = 0, orderBy, orderDirection } = req.query;
       const externalUrl = process.env.OLD_DB_URL;
-      
+
       if (!externalUrl) {
         return res.status(400).json({
           success: false,
@@ -261,12 +261,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const fetcher = new SecureDataFetcher(externalUrl);
-      
+
       const options: any = {
         limit: Math.min(parseInt(limit as string), 100), // حد أقصى للأمان
         offset: Math.max(parseInt(offset as string), 0)
       };
-      
+
       if (orderBy) options.orderBy = orderBy as string;
       if (orderDirection) options.orderDirection = orderDirection as 'ASC' | 'DESC';
 
@@ -294,7 +294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { tableName } = req.params;
       const { batchSize = 100 } = req.body;
       const externalUrl = process.env.OLD_DB_URL;
-      
+
       if (!externalUrl) {
         return res.status(400).json({
           success: false,
@@ -325,7 +325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // قائمة الجداول المتاحة للنسخ الاحتياطي من قاعدة البيانات الخارجية (محمية للإداريين)
   app.get("/api/backup/tables", requireAuth, requireRole('admin'), (req, res) => {
     const availableTables = SecureDataFetcher.getAllowedTables();
-    
+
     res.json({
       success: true,
       data: Array.from(availableTables),
@@ -338,7 +338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { batchSize = 100 } = req.body;
       const externalUrl = process.env.OLD_DB_URL;
-      
+
       if (!externalUrl) {
         return res.status(400).json({
           success: false,
@@ -347,17 +347,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log('🚀 بدء النسخ الاحتياطي الشامل من Supabase...');
-      
+
       const results: any[] = [];
       const availableTables = SecureDataFetcher.getAllowedTables();
-      
+
       for (const tableName of availableTables) {
         try {
           console.log(`🔄 نسخ احتياطي للجدول ${tableName}...`);
           const fetcher = new SecureDataFetcher(externalUrl);
           const result = await fetcher.syncTableData(tableName, Math.min(batchSize, 200));
           await fetcher.disconnect();
-          
+
           results.push({
             tableName,
             success: result.success,
@@ -365,7 +365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             savedLocally: result.savedLocally,
             errors: result.errors
           });
-          
+
           // فترة انتظار قصيرة بين الجداول لتجنب إرهاق النظام
           await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (error: any) {
@@ -384,7 +384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalSynced = results.reduce((sum, r) => sum + r.synced, 0);
       const totalSaved = results.reduce((sum, r) => sum + r.savedLocally, 0);
       const totalErrors = results.reduce((sum, r) => sum + r.errors, 0);
-      
+
       res.json({
         success: totalErrors === 0,
         data: {
@@ -413,14 +413,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/migration/connection-status", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       console.log('🔍 فحص حالة الاتصال بقاعدة البيانات القديمة...');
-      
+
       // استيراد قاعدة البيانات القديمة والتحقق من التوفر
       const { isOldDatabaseAvailable, testOldDatabaseConnection } = await import('./old-db');
-      
+
       // التحقق المسبق من إعدادات قاعدة البيانات
       if (!isOldDatabaseAvailable()) {
         console.warn('⚠️ قاعدة البيانات القديمة غير مُكوّنة أو غير متاحة');
-        
+
         const connectionStatus = {
           connected: false,
           database: 'غير مُكوّنة',
@@ -433,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error: 'قاعدة البيانات القديمة غير مُكوّنة في متغيرات البيئة (OLD_DB_URL مفقود أو غير صحيح)',
           configStatus: 'missing_config'
         };
-        
+
         return res.json({
           success: false,
           data: connectionStatus,
@@ -441,13 +441,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userFriendlyMessage: 'قاعدة البيانات القديمة غير متصلة حالياً. النظام يعمل بالبيانات المحلية فقط.'
         });
       }
-      
+
       // اختبار الاتصال مع الدالة المحسّنة
       const connectionTest = await testOldDatabaseConnection();
-      
+
       if (connectionTest.success) {
         console.log('✅ نجح الاتصال بقاعدة البيانات القديمة');
-        
+
         const connectionStatus = {
           connected: true,
           database: connectionTest.details?.database || 'متصل',
@@ -460,7 +460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error: null,
           configStatus: 'configured'
         };
-        
+
         res.json({
           success: true,
           data: connectionStatus,
@@ -469,11 +469,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else {
         console.error('❌ فشل الاتصال بقاعدة البيانات القديمة:', connectionTest.message);
-        
+
         // تحليل نوع الخطأ لرسالة أفضل للمستخدم
         let userFriendlyMessage = 'قاعدة البيانات القديمة غير متاحة حالياً.';
         let configStatus = 'connection_failed';
-        
+
         if (connectionTest.message.includes('ENOTFOUND')) {
           userFriendlyMessage = 'عنوان قاعدة البيانات القديمة غير صحيح أو الخادم غير متاح.';
           configStatus = 'dns_failed';
@@ -484,7 +484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userFriendlyMessage = 'انتهت مهلة الاتصال بقاعدة البيانات القديمة.';
           configStatus = 'timeout';
         }
-        
+
         const connectionStatus = {
           connected: false,
           database: 'غير متاح',
@@ -497,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error: connectionTest.message,
           configStatus: configStatus
         };
-        
+
         res.json({
           success: false,
           data: connectionStatus,
@@ -526,10 +526,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/migration/general-stats", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       console.log('📊 جلب الإحصائيات العامة من قاعدة البيانات القديمة...');
-      
+
       // استيراد قاعدة البيانات القديمة والتحقق من التوفر
       const { isOldDatabaseAvailable, getOldDbClient } = await import('./old-db');
-      
+
       let generalStats: GeneralStats = {
         totalTables: 0,
         totalEstimatedRows: 0,
@@ -551,11 +551,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         criticalTables: [],
         emptyTables: []
       };
-      
+
       // التحقق المسبق من إعدادات قاعدة البيانات
       if (!isOldDatabaseAvailable()) {
         console.warn('⚠️ قاعدة البيانات القديمة غير مُكوّنة، سيتم استخدام بيانات افتراضية');
-        
+
         generalStats = {
           totalTables: 0,
           totalEstimatedRows: 0,
@@ -578,7 +578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           emptyTables: [],
           error: 'قاعدة البيانات القديمة غير مُكوّنة في متغيرات البيئة'
         };
-        
+
         return res.json({
           success: false,
           data: generalStats,
@@ -589,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
         const client = await getOldDbClient(1); // محاولة واحدة فقط لتوفير الوقت
-        
+
         // جلب قائمة الجداول مع عدد الصفوف
         const tablesQuery = await client.query(`
           SELECT 
@@ -628,7 +628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // معالجة النتائج
         const tables = tablesQuery.rows || [];
         const totalRows = tables.reduce((sum: number, table: any) => sum + parseInt(table.live_rows || 0), 0);
-        
+
         // تحديد الجداول الحرجة (بأكثر من 1000 صف)
         const criticalTables = tables
           .filter((table: any) => parseInt(table.live_rows || 0) > 1000)
@@ -654,7 +654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // محاولة العثور على التواريخ من جداول مختلفة
           const dateSearchTables = ['projects', 'users', 'daily_expenses', 'workers'];
           const dateSearchClient = await getOldDbClient();
-          
+
           for (const tableName of dateSearchTables) {
             try {
               // البحث عن أعمدة التاريخ الشائعة
@@ -666,10 +666,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 AND data_type IN ('timestamp', 'timestamptz', 'date')
                 LIMIT 1
               `, [tableName]);
-              
+
               if (dateColumnsQuery.rows.length > 0) {
                 const dateColumn = dateColumnsQuery.rows[0].column_name;
-                
+
                 const minMaxQuery = await dateSearchClient.query(`
                   SELECT 
                     MIN(${dateColumn}) as oldest,
@@ -678,7 +678,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   FROM "${tableName}"
                   WHERE ${dateColumn} IS NOT NULL
                 `);
-                
+
                 if (minMaxQuery.rows[0] && minMaxQuery.rows[0].record_count > 0) {
                   if (!oldestRecord || new Date(minMaxQuery.rows[0].oldest) < new Date(oldestRecord)) {
                     oldestRecord = minMaxQuery.rows[0].oldest;
@@ -693,7 +693,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`تجاهل الجدول ${tableName} في بحث التواريخ`);
             }
           }
-          
+
           await dateSearchClient.end();
         } catch (dateError) {
           console.log('تعذر العثور على تواريخ السجلات:', dateError);
@@ -722,11 +722,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       } catch (dbError: any) {
         console.error('❌ خطأ في جلب الإحصائيات من قاعدة البيانات القديمة:', dbError);
-        
+
         // تحليل نوع الخطأ لحالة أفضل
         let databaseStatus = 'error';
         let userFriendlyMessage = 'فشل في الاتصال بقاعدة البيانات القديمة.';
-        
+
         if (dbError.message.includes('ENOTFOUND')) {
           databaseStatus = 'unreachable';
           userFriendlyMessage = 'قاعدة البيانات القديمة غير قابلة للوصول حالياً.';
@@ -737,7 +737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           databaseStatus = 'timeout';
           userFriendlyMessage = 'انتهت مهلة الاتصال بقاعدة البيانات القديمة.';
         }
-        
+
         // في حالة فشل الاتصال، إرجاع خطأ واضح بدون بيانات وهمية
         console.log('❌ فشل الاتصال - عدم توفير بيانات وهمية');
         generalStats = {
@@ -766,7 +766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const isSuccess = !['error', 'not_configured', 'unreachable', 'connection_refused', 'timeout'].includes(generalStats.databaseStatus);
-      
+
       res.json({
         success: isSuccess,
         data: generalStats,
@@ -818,7 +818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // استيراد قاعدة البيانات القديمة والتحقق من التوفر
       const { isOldDatabaseAvailable, getOldDbClient } = await import('./old-db');
-      
+
       // قائمة افتراضية للجداول (موحدة لسهولة الصيانة)
       const defaultTables = [
         "account_balances", "accounts", "actions", "approvals", "autocomplete_data", "channels",
@@ -830,15 +830,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "tool_purchase_items", "tool_reservations", "tool_stock", "tool_usage_analytics", "tools",
         "transaction_lines", "transactions", "users", "worker_attendance", "workers"
       ];
-      
+
       let tablesWithInfo: any[] = [];
       let dataSource = 'default'; // 'database' | 'default'
       let connectionMessage = '';
-      
+
       // التحقق المسبق من إعدادات قاعدة البيانات
       if (!isOldDatabaseAvailable()) {
         console.warn('⚠️ قاعدة البيانات القديمة غير مُكوّنة، استخدام قائمة افتراضية');
-        
+
         tablesWithInfo = defaultTables.map(tableName => ({
           name: tableName,
           displayName: getTableDisplayName(tableName),
@@ -848,14 +848,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           priority: getTablePriority(tableName),
           columnCount: 0
         }));
-        
+
         dataSource = 'default';
         connectionMessage = 'قاعدة البيانات القديمة غير مُكوّنة - تم استخدام قائمة افتراضية';
       } else {
         try {
           // محاولة الاتصال وجلب قائمة الجداول
           const client = await getOldDbClient(1); // محاولة واحدة فقط لتوفير الوقت
-          
+
           // استعلام بسيط بدون timeout
           const tablesQuery = await client.query(`
             SELECT table_name
@@ -865,10 +865,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ORDER BY table_name
             LIMIT 100
           `);
-          
+
           // إطلاق الاتصال للـ pool بدلاً من إغلاقه
           await client.end();
-          
+
           if (tablesQuery.rows && tablesQuery.rows.length > 0) {
             tablesWithInfo = tablesQuery.rows.map((row: any) => ({
               name: row.table_name,
@@ -879,7 +879,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               priority: getTablePriority(row.table_name),
               columnCount: 0 // لا نحسبها الآن لتوفير الوقت
             }));
-            
+
             dataSource = 'database';
             connectionMessage = `تم جلب ${tablesQuery.rows.length} جدول من قاعدة البيانات القديمة`;
           } else {
@@ -893,21 +893,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               priority: getTablePriority(tableName),
               columnCount: 0
             }));
-            
+
             dataSource = 'default';
             connectionMessage = 'قاعدة البيانات القديمة فارغة - تم استخدام قائمة افتراضية';
           }
-          
+
         } catch (dbError: any) {
           console.error('❌ خطأ في الاتصال بقاعدة البيانات القديمة:', dbError);
-          
+
           // في حالة فشل الاتصال، إرجاع قائمة فارغة بدون بيانات وهمية
           console.log('❌ فشل الاتصال بقاعدة البيانات - عدم توفير بيانات وهمية');
-          
+
           tablesWithInfo = [];
-          
+
           dataSource = 'default';
-          
+
           // تحليل نوع الخطأ لرسالة أفضل
           if (dbError.message.includes('ENOTFOUND')) {
             connectionMessage = 'قاعدة البيانات القديمة غير قابلة للوصول - تم استخدام قائمة افتراضية';
@@ -946,10 +946,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/migration/table/:tableName/info", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { tableName } = req.params;
-      
+
       // استيراد قاعدة البيانات القديمة
       const { getOldDbClient } = await import('./old-db');
-      
+
       let tableInfo: any = {
         name: tableName,
         displayName: getTableDisplayName(tableName),
@@ -967,10 +967,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }),
         status: 'ready'
       };
-      
+
       try {
         const client = await getOldDbClient();
-        
+
         // الحصول على معلومات الجدول
         const tableInfoQuery = await client.query(`
           SELECT 
@@ -983,15 +983,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           AND table_schema = 'public'
           ORDER BY ordinal_position
         `, [tableName]);
-        
+
         // الحصول على عدد الصفوف المقدر
         const rowCountQuery = await client.query(`
           SELECT COUNT(*) as row_count 
           FROM "${tableName}"
         `);
-        
+
         await client.end();
-        
+
         tableInfo = {
           name: tableName,
           displayName: getTableDisplayName(tableName),
@@ -1009,7 +1009,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }),
           status: 'ready'
         };
-        
+
       } catch (dbError: any) {
         console.error(`❌ خطأ في جلب معلومات الجدول ${tableName} من قاعدة البيانات القديمة:`, dbError);
         // سيبقى tableInfo بالقيم الافتراضية
@@ -1169,6 +1169,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         error: error.message,
         message: "فشل في إيقاف عملية الهجرة"
+      });
+    }
+  });
+
+  // === إدارة الاتصالات الذكية (محمية للإداريين)
+  app.get("/api/connections/status", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { smartConnectionManager } = await import('./services/smart-connection-manager');
+      const status = smartConnectionManager.getConnectionStatus();
+      const testResults = await smartConnectionManager.runConnectionTest();
+
+      res.json({
+        success: true,
+        data: {
+          status,
+          testResults,
+          recommendations: {
+            local: status.local ? "✅ جاهز للعمليات المحلية" : "❌ يحتاج إعادة تكوين",
+            supabase: status.supabase ? "✅ جاهز للنسخ الاحتياطي" : "⚠️ تحقق من إعدادات Supabase"
+          }
+        },
+        message: `إجمالي الاتصالات النشطة: ${status.totalConnections}/2`
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  app.post("/api/connections/reconnect", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { target = 'both' } = req.body;
+      const { smartConnectionManager } = await import('./services/smart-connection-manager');
+
+      await smartConnectionManager.reconnect(target);
+      const newStatus = smartConnectionManager.getConnectionStatus();
+
+      res.json({
+        success: true,
+        data: newStatus,
+        message: `تم إعادة تهيئة الاتصال: ${target}`
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // === فحص الاتصال بـ Supabase (محمية للإداريين)
+  app.get("/api/backup/connection-test", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const externalUrl = process.env.OLD_DB_URL;
+
+      if (!externalUrl) {
+        return res.status(400).json({
+          success: false,
+          message: "لم يتم تكوين اتصال قاعدة البيانات الخارجية (OLD_DB_URL مفقود)"
+        });
+      }
+
+      console.log('🚀 بدء اختبار الاتصال بـ Supabase...');
+      const fetcher = new SecureDataFetcher(externalUrl);
+      const connectionStatus = await fetcher.testConnection();
+      await fetcher.disconnect();
+
+      res.json({
+        success: connectionStatus.success,
+        data: connectionStatus,
+        message: connectionStatus.success
+          ? `تم الاتصال بـ Supabase بنجاح (${connectionStatus.responseTime}ms)`
+          : `فشل الاتصال بـ Supabase: ${connectionStatus.error}`
+      });
+    } catch (error: any) {
+      console.error("خطأ في اختبار الاتصال بـ Supabase:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل اختبار الاتصال بـ Supabase"
       });
     }
   });

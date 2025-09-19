@@ -1,7 +1,8 @@
 import { Client } from "pg";
 import fs from "fs";
-import { pool } from "../old-db";
+import { getSmartPool } from "../db";
 import * as schema from "@shared/schema";
+import { smartConnectionManager } from "./smart-connection-manager";
 
 // قائمة بيضاء للجداول المسموح بالوصول إليها
 const ALLOWED_TABLES = [
@@ -248,6 +249,14 @@ export class SecureDataFetcher {
     try {
       console.log(`💾 حفظ ${data.length} صف من ${tableName} في قاعدة البيانات المحلية...`);
 
+      // استخدام المدير الذكي للحصول على الاتصال المحلي للكتابة
+      const localPool = getSmartPool('write');
+      
+      if (!localPool) {
+        console.error('❌ لا يمكن الحصول على اتصال محلي للحفظ');
+        return 0;
+      }
+
       // إنشاء جدول backup مخصص لكل جدول أصلي
       const backupTableName = `backup_${tableName}`;
 
@@ -263,7 +272,7 @@ export class SecureDataFetcher {
         );
       `;
 
-      await pool.query(createTableQuery);
+      await localPool.query(createTableQuery);
 
       // حفظ البيانات على دفعات
       let savedCount = 0;
@@ -285,8 +294,8 @@ export class SecureDataFetcher {
                            row.uuid?.toString() || 
                            `${tableName}_${savedCount}_${Date.now()}`;
 
-          // استخدام pool.query بدلاً من db.execute للتوافق مع المعاملات
-          await pool.query(upsertQuery, [
+          // استخدام localPool.query بدلاً من pool.query للتوافق مع المدير الذكي
+          await localPool.query(upsertQuery, [
             originalId,
             JSON.stringify(row),
             tableName
@@ -303,11 +312,11 @@ export class SecureDataFetcher {
 
       // إنشاء فهرس للبحث السريع
       try {
-        await pool.query(`
+        await localPool.query(`
           CREATE INDEX IF NOT EXISTS idx_${backupTableName}_synced_at 
           ON "${backupTableName}" (synced_at);
         `);
-        await pool.query(`
+        await localPool.query(`
           CREATE INDEX IF NOT EXISTS idx_${backupTableName}_source 
           ON "${backupTableName}" (source_table);
         `);

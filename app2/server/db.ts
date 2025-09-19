@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import fs from 'fs';
 import * as schema from "@shared/schema";
 import { envLoader, initializeEnvironment } from './utils/env-loader';
+import { smartConnectionManager } from './services/smart-connection-manager';
 
 // تهيئة متغيرات البيئة عند تحميل الموديول
 initializeEnvironment();
@@ -84,3 +85,20 @@ export const db = drizzle(pool, { schema });
     console.error('❌ فشل الاتصال بقاعدة البيانات:', err);
   }
 })();
+
+// 🧠 الدوال الذكية لإدارة الاتصالات
+export function getSmartDB(operationType: 'read' | 'write' | 'backup' | 'sync' = 'read') {
+  const connection = smartConnectionManager.getSmartConnection(operationType);
+  
+  console.log(`🎯 [Smart DB] توجيه ${operationType} إلى: ${connection.source || 'لا يوجد اتصال'}`);
+  
+  return connection.db || db; // fallback to default db
+}
+
+export function getSmartPool(operationType: 'read' | 'write' | 'backup' | 'sync' = 'read') {
+  const connection = smartConnectionManager.getSmartConnection(operationType);
+  
+  console.log(`🎯 [Smart Pool] توجيه ${operationType} إلى: ${connection.source || 'لا يوجد اتصال'}`);
+  
+  return connection.pool || pool; // fallback to default pool
+}

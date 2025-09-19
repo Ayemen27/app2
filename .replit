@@ -1,5 +1,5 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
-run = "cd app2 && npm install && npm run dev"
+run = "cd app2 && npm install && npm run build && npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
@@ -76,7 +76,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd app2 && npm install && npm run dev"
+args = "cd app2 && npm install && npm run build && npm run dev"
 waitForPort = 5000
 
 [[workflows.workflow]]

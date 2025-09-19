@@ -18,7 +18,7 @@ export const HARDCODED_CREDENTIALS = {
   SUPABASE_SERVICE_ROLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpYnRhc215dXN4ZnF4eHFla2tzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Mjk0NDEwMywiZXhwIjoyMDY4NTIwMTAzfQ.CVAZFD5nNuhXOghOKQfjATy7F4LNb3hNSuKu2ToDmis",
   
   // Supabase Database Connection
-  SUPABASE_DATABASE_URL: "postgresql://postgres.wibtasmyusxfqxxqekks:Ay**--772283228@aws-0-eu-central-1.pooler.supabase.com:6543/postgres",
+  SUPABASE_DATABASE_URL: "postgresql://postgres.wibtasmyusxfqxxqekks:Ay**--772283228@aws-0-us-east-1.pooler.supabase.com:6543/postgres",
   SUPABASE_DATABASE_PASSWORD: "Ay**--772283228",
   
   // Environment

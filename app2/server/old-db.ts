@@ -162,9 +162,10 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
   console.log(`   اسم المشروع المستخرج: ${project}`);
   
   // قائمة خيارات الاتصال المختلفة مع جميع المناطق الجغرافية
+  // ترتيب المناطق بناءً على النجاح السابق
   const regions = [
+    'aws-0-us-east-1', // المنطقة الصحيحة أولاً
     'aws-0-eu-central-1',
-    'aws-0-us-east-1', 
     'aws-0-us-west-1',
     'aws-0-ap-southeast-1'
   ];
@@ -287,8 +288,8 @@ if (isOldDatabaseAvailable()) {
     
     if (project) {
       pool = new Pool({
-        host: 'aws-0-eu-central-1.pooler.supabase.com',
-        port: 5432,
+        host: 'aws-0-us-east-1.pooler.supabase.com',
+        port: 6543,
         database: 'postgres',
         user: `postgres.${project}`,
         password: supabasePassword,

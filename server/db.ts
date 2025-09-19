@@ -3,17 +3,25 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import fs from 'fs';
 import * as schema from "@shared/schema";
+import { envLoader, initializeEnvironment } from './utils/env-loader';
 
-// إنشاء رابط قاعدة البيانات من متغيرات البيئة
+// تهيئة متغيرات البيئة عند تحميل الموديول
+initializeEnvironment();
+
+// إنشاء رابط قاعدة البيانات مع الأولوية الصحيحة
 function createDatabaseUrl(): string {
-  if (process.env.DATABASE_URL) {
-    console.log('✅ استخدام DATABASE_URL من متغيرات البيئة');
-    const finalUrl = process.env.DATABASE_URL;
-    console.log('🔧 Connection string:', finalUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
-    return finalUrl;
+  const databaseUrl = envLoader.get('DATABASE_URL');
+  
+  if (databaseUrl) {
+    console.log('✅ تم العثور على DATABASE_URL');
+    console.log('🔧 Connection string:', databaseUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
+    return databaseUrl;
   }
   
-  console.error('❌ DATABASE_URL غير موجود في متغيرات البيئة');
+  console.error('❌ DATABASE_URL غير موجود في أي من المصادر:');
+  console.error('   - ملف .env');
+  console.error('   - ecosystem.config.json');
+  console.error('   - متغيرات بيئة النظام');
   throw new Error('DATABASE_URL is required');
 }
 

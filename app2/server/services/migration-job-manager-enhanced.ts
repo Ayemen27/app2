@@ -38,6 +38,17 @@ export interface MigrationTableProgress {
   errorMessage?: string;
 }
 
+export interface BatchInfo {
+  batchIndex: number;
+  batchSize: number;
+  batchOffset: number;
+  rowsProcessed: number;
+  rowsSaved: number;
+  totalProcessed: number;
+  totalSaved: number;
+  totalErrors: number;
+}
+
 /**
  * Enhanced Migration Job Manager مع تخزين دائم وآمن
  * 
@@ -527,7 +538,7 @@ class EnhancedMigrationJobManager {
       
       await this.updateJob(jobId, { 
         totalTables: availableTables.length,
-        currentTable: availableTables[0] || null
+        currentTable: availableTables[0] || undefined
       });
       
       console.log(`📊 تم العثور على ${availableTables.length} جدول للهجرة`);
@@ -581,53 +592,44 @@ class EnhancedMigrationJobManager {
             totalRows: tableInfo.rowCount
           });
 
-          // بدء المزامنة الآمنة مع ON CONFLICT
-          const result = await fetcher.safeSync(tableName, batchSize, {
-            onBatchComplete: async (batchInfo) => {
-              // حفظ تقدم الدفعة في قاعدة البيانات
-              await this.updateTableProgress(jobId, tableName, {
-                processedRows: batchInfo.totalProcessed,
-                savedRows: batchInfo.totalSaved,
-                errors: batchInfo.totalErrors
-              });
-
-              // تسجيل تفاصيل الدفعة
-              try {
-                await db.insert(migrationBatchLog).values({
-                  jobId,
-                  tableName,
-                  batchIndex: batchInfo.batchIndex,
-                  batchSize: batchInfo.batchSize,
-                  batchOffset: batchInfo.batchOffset,
-                  status: 'completed',
-                  rowsProcessed: batchInfo.rowsProcessed,
-                  rowsSaved: batchInfo.rowsSaved,
-                  retryCount: 0,
-                  transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-                  endTime: new Date()
-                });
-              } catch (logError: any) {
-                console.warn(`تحذير في تسجيل الدفعة: ${logError.message}`);
-              }
-            }
-          });
+          // بدء المزامنة الآمنة باستخدام syncTableData
+          const result = await fetcher.syncTableData(tableName, batchSize);
+          
+          // تسجيل تفاصيل العملية
+          try {
+            await db.insert(migrationBatchLog).values({
+              jobId,
+              tableName,
+              batchIndex: 1,
+              batchSize: batchSize,
+              batchOffset: 0,
+              status: result.success ? 'completed' : 'failed',
+              rowsProcessed: result.synced,
+              rowsSaved: result.savedLocally,
+              retryCount: 0,
+              transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+              endTime: new Date()
+            });
+          } catch (logError: any) {
+            console.warn(`تحذير في تسجيل العملية: ${logError.message}`);
+          }
 
           // تحديث النتيجة النهائية للجدول
           await this.updateTableProgress(jobId, tableName, {
             status: result.success ? 'completed' : 'failed',
-            processedRows: result.totalProcessed,
-            savedRows: result.totalSaved,
-            errors: result.totalErrors,
+            processedRows: result.synced,
+            savedRows: result.savedLocally,
+            errors: result.errors,
             endTime: new Date(),
-            errorMessage: result.success ? null : result.error
+            errorMessage: result.success ? undefined : 'فشل في المزامنة'
           });
 
           // تحديث إجماليات المهمة
           await this.updateJob(jobId, {
             tablesProcessed: i + 1,
-            totalRowsProcessed: (currentJob?.totalRowsProcessed || 0) + result.totalProcessed,
-            totalRowsSaved: (currentJob?.totalRowsSaved || 0) + result.totalSaved,
-            totalErrors: (currentJob?.totalErrors || 0) + result.totalErrors
+            totalRowsProcessed: (currentJob?.totalRowsProcessed || 0) + result.synced,
+            totalRowsSaved: (currentJob?.totalRowsSaved || 0) + result.savedLocally,
+            totalErrors: (currentJob?.totalErrors || 0) + result.errors
           });
 
         } catch (tableError: any) {

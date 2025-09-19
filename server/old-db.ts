@@ -2,9 +2,14 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import * as schema from "@shared/schema";
 
-// Configure WebSocket for Neon/Supabase serverless connection - Dynamic import
-const wsModule = await import("ws");
-neonConfig.webSocketConstructor = wsModule.WebSocket;
+// Configure WebSocket for Neon/Supabase serverless connection
+// Use native WebSocket if available, otherwise skip WebSocket configuration
+if (typeof WebSocket !== 'undefined') {
+  neonConfig.webSocketConstructor = WebSocket;
+} else {
+  // In Node.js environment, we'll use regular HTTP connections
+  console.warn('⚠️ WebSocket غير متوفر، سيتم استخدام HTTP connections');
+}
 
 // التحقق من وجود رابط قاعدة البيانات القديمة
 const connectionString = process.env.OLD_DB_URL || "";

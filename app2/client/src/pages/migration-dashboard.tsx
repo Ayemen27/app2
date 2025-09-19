@@ -74,8 +74,9 @@ export default function MigrationDashboard() {
 
   // متابعة المهمة النشطة تلقائياً
   useEffect(() => {
-    if (jobsData?.data) {
-      const runningJob = jobsData.data.find((job: MigrationJob) => job.status === 'running');
+    const jobs = Array.isArray(jobsData) ? jobsData : [];
+    if (jobs.length > 0) {
+      const runningJob = jobs.find((job: MigrationJob) => job.status === 'running');
       if (runningJob && runningJob.id !== activeJobId) {
         setActiveJobId(runningJob.id);
       } else if (!runningJob && activeJobId) {
@@ -129,8 +130,8 @@ export default function MigrationDashboard() {
     }
   });
 
-  const currentJob: MigrationJob | null = activeJobData?.data || null;
-  const allJobs: MigrationJob[] = jobsData?.data || [];
+  const currentJob: MigrationJob | null = (activeJobData as any)?.data || null;
+  const allJobs: MigrationJob[] = (jobsData as any)?.data || [];
 
   const handleStartMigration = () => {
     startMigrationMutation.mutate({ batchSize });

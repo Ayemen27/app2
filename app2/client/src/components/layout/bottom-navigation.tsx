@@ -139,16 +139,16 @@ export default function BottomNavigation() {
               <span className="text-xs">المزيد</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-[85vh] max-w-full">
-            <SheetHeader className="mb-4">
+          <SheetContent side="bottom" className="h-[85vh] max-w-full px-4">
+            <SheetHeader className="mb-4 px-2">
               <SheetTitle className="text-right text-lg">جميع الصفحات</SheetTitle>
             </SheetHeader>
             
-            <ScrollArea className="h-full pr-2">
-              <div className="space-y-4 pb-20 px-1">
+            <ScrollArea className="h-full">
+              <div className="space-y-4 pb-20 px-2">
                 {allPages.map((category, categoryIndex) => (
                   <div key={categoryIndex}>
-                    <h3 className="font-semibold text-base mb-3 text-primary text-right border-b border-border pb-1">
+                    <h3 className="font-semibold text-base mb-3 text-primary text-right border-b border-border pb-2 pr-3">
                       {category.category}
                     </h3>
                     <div className="space-y-1">
@@ -160,16 +160,16 @@ export default function BottomNavigation() {
                           <Button
                             key={pageIndex}
                             variant={isActive ? "default" : "ghost"}
-                            className="w-full justify-start h-auto p-3 min-h-[60px]"
+                            className="w-full justify-start h-auto p-4 min-h-[70px] mx-1"
                             onClick={() => handlePageNavigation(page.path)}
                           >
-                            <div className="flex items-start gap-3 w-full text-right">
-                              <Icon className={`h-5 w-5 mt-1 flex-shrink-0 ${isActive ? 'text-primary-foreground' : 'text-primary'}`} />
-                              <div className="flex-1 min-w-0">
-                                <div className={`font-medium leading-tight text-right ${isActive ? 'text-primary-foreground' : ''}`}>
+                            <div className="flex items-start gap-4 w-full text-right pr-2">
+                              <Icon className={`h-6 w-6 mt-1 flex-shrink-0 ${isActive ? 'text-primary-foreground' : 'text-primary'}`} />
+                              <div className="flex-1 min-w-0 text-right">
+                                <div className={`font-medium leading-relaxed text-right pr-2 ${isActive ? 'text-primary-foreground' : ''}`}>
                                   {page.label}
                                 </div>
-                                <div className={`text-xs mt-1 leading-tight text-right break-words ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                                <div className={`text-xs mt-2 leading-relaxed text-right break-words pr-2 ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                                   {page.description}
                                 </div>
                               </div>

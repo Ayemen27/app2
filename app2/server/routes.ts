@@ -4,6 +4,7 @@ import { createServer } from "http";
 import { db } from "./db";
 import { SecureDataFetcher } from "./services/secure-data-fetcher";
 import { requireAuth, requireRole } from "./middleware/auth";
+import { migrationJobManager, type MigrationJob } from "./services/migration-job-manager";
 
 // TypeScript interfaces for migration endpoints
 interface TableInfo {
@@ -425,6 +426,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("خطأ في النسخ الاحتياطي الشامل:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // ==================== API endpoints للهجرة المحسنة مع مراقبة التقدم ====================
+
+  // بدء مهمة هجرة جديدة
+  app.post("/api/migration/start", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { batchSize = 100 } = req.body;
+      
+      // التحقق من وجود مهمة نشطة
+      const activeJob = migrationJobManager.getActiveJob();
+      if (activeJob) {
+        return res.status(409).json({
+          success: false,
+          error: "هناك مهمة هجرة نشطة بالفعل",
+          jobId: activeJob.id
+        });
+      }
+
+      // إنشاء مهمة جديدة
+      const jobId = migrationJobManager.createJob();
+      
+      // تشغيل المهمة في الخلفية
+      migrationJobManager.runMigration(jobId, batchSize).catch(error => {
+        console.error(`❌ خطأ في تشغيل مهمة الهجرة ${jobId}:`, error);
+        migrationJobManager.completeJob(jobId, false, error.message);
+      });
+
+      res.json({
+        success: true,
+        jobId: jobId,
+        message: "تم بدء مهمة الهجرة بنجاح"
+      });
+
+    } catch (error: any) {
+      console.error("خطأ في بدء مهمة الهجرة:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // الحصول على حالة مهمة هجرة
+  app.get("/api/migration/status/:jobId", requireAuth, requireRole('admin'), (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const job = migrationJobManager.getJob(jobId);
+      
+      if (!job) {
+        return res.status(404).json({
+          success: false,
+          error: "مهمة الهجرة غير موجودة"
+        });
+      }
+
+      // حساب الوقت المتوقع للانتهاء
+      let estimatedTimeRemaining = 0;
+      if (job.status === 'running' && job.tablesProcessed > 0) {
+        const elapsedTime = Date.now() - job.startTime.getTime();
+        const avgTimePerTable = elapsedTime / job.tablesProcessed;
+        const remainingTables = job.totalTables - job.tablesProcessed;
+        estimatedTimeRemaining = Math.round(avgTimePerTable * remainingTables / 1000); // seconds
+      }
+
+      res.json({
+        success: true,
+        data: {
+          ...job,
+          estimatedTimeRemaining,
+          duration: job.endTime 
+            ? job.endTime.getTime() - job.startTime.getTime()
+            : Date.now() - job.startTime.getTime()
+        }
+      });
+
+    } catch (error: any) {
+      console.error("خطأ في جلب حالة المهمة:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // إيقاف/إلغاء مهمة هجرة
+  app.post("/api/migration/stop/:jobId", requireAuth, requireRole('admin'), (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const success = migrationJobManager.cancelJob(jobId);
+      
+      if (!success) {
+        return res.status(400).json({
+          success: false,
+          error: "لا يمكن إلغاء هذه المهمة"
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "تم إلغاء مهمة الهجرة بنجاح"
+      });
+
+    } catch (error: any) {
+      console.error("خطأ في إلغاء المهمة:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // قائمة جميع مهام الهجرة
+  app.get("/api/migration/jobs", requireAuth, requireRole('admin'), (req, res) => {
+    try {
+      const jobs = migrationJobManager.getAllJobs();
+      
+      res.json({
+        success: true,
+        data: jobs,
+        count: jobs.length
+      });
+
+    } catch (error: any) {
+      console.error("خطأ في جلب قائمة المهام:", error);
       res.status(500).json({
         success: false,
         error: error.message

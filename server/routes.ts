@@ -852,12 +852,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // محاولة الاتصال وجلب قائمة الجداول
           const client = await getOldDbClient(1); // محاولة واحدة فقط لتوفير الوقت
           
-          // استعلام مع timeout wrapper مرن باستخدام Promise.race
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Query timeout after 15 seconds')), 15000);
-          });
-          
-          const queryPromise = client.query(`
+          // استعلام بسيط بدون timeout
+          const tablesQuery = await client.query(`
             SELECT table_name
             FROM information_schema.tables 
             WHERE table_schema = 'public' 
@@ -865,8 +861,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ORDER BY table_name
             LIMIT 100
           `);
-          
-          const tablesQuery = await Promise.race([queryPromise, timeoutPromise]);
           
           // إطلاق الاتصال للـ pool بدلاً من إغلاقه
           await client.end();

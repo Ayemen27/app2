@@ -509,7 +509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // الحصول على حالة مهمة هجرة
-  app.get("/api/migration/status/:jobId", migrationRateLimit, requireAuth, requireRole('admin'), (req, res) => {
+  app.get("/api/migration/status/:jobId", migrationRateLimit, requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { jobId } = req.params;
       console.log(`🎯 Status endpoint called for jobId: ${jobId}`);
@@ -1284,7 +1284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // التحقق من وجود مهمة نشطة
-      const activeJob = migrationJobManager.getActiveJob();
+      const activeJob = await enhancedMigrationJobManager.getActiveJob();
       if (activeJob) {
         return res.status(409).json({
           success: false,
@@ -1296,12 +1296,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🚀 بدء الهجرة الشاملة لـ ${tables.length} جدول باستخدام MigrationJobManager`);
 
       // إنشاء مهمة جديدة باستخدام MigrationJobManager
-      const jobId = migrationJobManager.createJob();
+      const userId = req.user?.id || req.user?.email || 'system';
+      const jobId = await enhancedMigrationJobManager.createJob(userId);
       
       // تشغيل المهمة في الخلفية
-      migrationJobManager.runMigration(jobId, batchSize).catch(error => {
+      enhancedMigrationJobManager.runMigration(jobId, batchSize).catch(error => {
         console.error(`❌ خطأ في تشغيل مهمة الهجرة ${jobId}:`, error);
-        migrationJobManager.completeJob(jobId, false, error.message);
+        enhancedMigrationJobManager.completeJob(jobId, false, error.message);
       });
 
       res.json({

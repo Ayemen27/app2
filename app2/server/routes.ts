@@ -154,7 +154,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { NotificationService } = await import('./services/NotificationService');
       const notificationService = new NotificationService();
       
-      const userId = req.user?.id || req.user?.email || 'default';
+      // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
+      const userId = req.user?.userId || req.user?.email || null;
       const { limit, offset, type, unreadOnly, projectId } = req.query;
 
       console.log(`📥 [API] جلب الإشعارات للمستخدم: ${userId}`);
@@ -195,7 +196,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { NotificationService } = await import('./services/NotificationService');
       const notificationService = new NotificationService();
       
-      const userId = req.user?.id || req.user?.email || 'default';
+      // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
+      const userId = req.user?.userId || req.user?.email || null;
       const notificationId = req.params.id;
 
       console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء للمستخدم: ${userId}`);
@@ -222,7 +224,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { NotificationService } = await import('./services/NotificationService');
       const notificationService = new NotificationService();
       
-      const userId = req.user?.id || req.user?.email || 'default';
+      // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
+      const userId = req.user?.userId || req.user?.email || null;
       const notificationId = req.params.id;
 
       console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء (مسار بديل) للمستخدم: ${userId}`);
@@ -249,7 +252,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { NotificationService } = await import('./services/NotificationService');
       const notificationService = new NotificationService();
       
-      const userId = req.user?.id || req.user?.email || 'default';
+      // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
+      const userId = req.user?.userId || req.user?.email || null;
       const projectId = req.body.projectId;
 
       console.log(`✅ [API] تعليم جميع الإشعارات كمقروءة للمستخدم: ${userId}`);
@@ -276,7 +280,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { NotificationService } = await import('./services/NotificationService');
       const notificationService = new NotificationService();
       
-      const userId = req.user?.id || req.user?.email || 'default';
+      // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
+      const userId = req.user?.userId || req.user?.email || null;
       const { type, title, body, priority, recipients, projectId } = req.body;
 
       console.log(`🔧 [TEST] إنشاء إشعار اختبار من المستخدم: ${userId}`);
@@ -313,7 +318,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { NotificationService } = await import('./services/NotificationService');
       const notificationService = new NotificationService();
       
-      const userId = req.user?.id || req.user?.email || 'default';
+      // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
+      const userId = req.user?.userId || req.user?.email || null;
 
       console.log(`📊 [TEST] جلب إحصائيات الإشعارات للمستخدم: ${userId}`);
 

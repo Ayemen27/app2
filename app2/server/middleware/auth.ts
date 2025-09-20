@@ -32,7 +32,8 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
     // المسارات الوحيدة المسموح بها بدون مصادقة (PUBLIC ONLY)
     const publicOnlyPaths = [
       '/api/health',
-      '/api/db/info', // معلومات عامة عن قاعدة البيانات
+      '/api/auth/login', // تسجيل الدخول
+      '/api/auth/refresh', // تجديد الرمز
       '/api/worker-types' // قائمة أنواع العمال فقط - بيانات غير حساسة
     ];
     
@@ -58,22 +59,7 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
 
     const token = authHeader.substring(7);
     
-    // التحقق من الرمز التجريبي
-    try {
-      const demoDecoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET || 'demo-access-secret') as any;
-      if (demoDecoded && demoDecoded.userId === 'demo-user-id') {
-        console.log('✅ [AUTH] مستخدم تجريبي مصرح له');
-        req.user = {
-          userId: demoDecoded.userId,
-          email: demoDecoded.email,
-          role: demoDecoded.role,
-          sessionId: 'demo-session'
-        };
-        return next();
-      }
-    } catch (error) {
-      // تجاهل خطأ التحقق من الرمز التجريبي والمتابعة للتحقق العادي
-    }
+    // ✅ تم إزالة النظام التجريبي غير الآمن - نستخدم فقط النظام الآمن
     
     const decoded = await verifyAccessToken(token);
     

@@ -214,7 +214,7 @@ export const getQueryFn: <T>(options: {
           dataType: typeof data
         });
       
-      // تسجيل مبسط في بيئة التطوير فقط
+        // تسجيل مبسط في بيئة التطوير فقط
         if (process.env.NODE_ENV === 'development') {
           console.log(`📊 ${queryKey[0]} - تم استلام البيانات بنجاح`);
           
@@ -228,6 +228,61 @@ export const getQueryFn: <T>(options: {
             });
           }
         }
+
+        // 🔍 تشخيص مفصل للبيانات المستلمة
+        console.log(`📊 [QueryClient] تحليل البيانات لـ ${queryKey.join("/")}:`, {
+          dataType: typeof data,
+          isObject: data && typeof data === 'object',
+          hasSuccess: data?.success !== undefined,
+          hasDataProperty: data?.data !== undefined,
+          actualDataValue: data?.data,
+          rawData: data
+        });
+
+        // استخراج البيانات الفعلية دون إجبار على مصفوفة فارغة
+        if (data && typeof data === 'object') {
+          // للتحقق من endpoints الهجرة التي تُرجع objects
+          const isMigrationEndpoint = typeof queryKey[0] === 'string' && queryKey[0].includes('migration');
+          
+          // إذا كانت البيانات في الشكل { success, data, count } (شكل API)
+          if (data.success !== undefined && data.data !== undefined) {
+            console.log(`✅ [QueryClient] بيانات API صحيحة لـ ${queryKey.join("/")}:`, {
+              success: data.success,
+              dataExists: data.data !== null,
+              dataType: typeof data.data,
+              isArray: Array.isArray(data.data)
+            });
+            
+            // لنقاط النهاية الخاصة بالهجرة، نُرجع البيانات كما هي
+            if (isMigrationEndpoint) {
+              return data.data; // إرجاع البيانات كما هي (object أو array)
+            }
+            
+            // ✅ إصلاح جذري: إرجاع البيانات كما هي دون تعديل
+            // إذا كانت null أو undefined فقط، إرجاع مصفوفة فارغة
+            if (data.data === null || data.data === undefined) {
+              console.warn(`⚠️ [QueryClient] البيانات null/undefined لـ ${queryKey.join("/")} - إرجاع مصفوفة فارغة`);
+              return [];
+            }
+            
+            return data.data; // إرجاع البيانات الحقيقية كما هي
+          }
+          
+          // إذا كانت البيانات مصفوفة مباشرة (شكل Replit)
+          if (Array.isArray(data)) {
+            console.log(`📋 [QueryClient] مصفوفة مباشرة لـ ${queryKey.join("/")}:`, data.length);
+            return data;
+          }
+          
+          // إذا كان لديها خاصية data مباشرة
+          if (data.data !== undefined) {
+            console.log(`🔗 [QueryClient] خاصية data مباشرة لـ ${queryKey.join("/")}:`, data.data);
+            return data.data !== null ? data.data : [];
+          }
+        }
+        
+        console.log(`🔄 [QueryClient] إرجاع البيانات كما هي لـ ${queryKey.join("/")}:`, data);
+        return data;
       } catch (error) {
         clearTimeout(timeoutId);
         
@@ -239,61 +294,6 @@ export const getQueryFn: <T>(options: {
         console.error(`❌ [QueryClient] خطأ في ${queryKey.join("/")}`, error);
         throw error;
       }
-      
-      // 🔍 تشخيص مفصل للبيانات المستلمة
-      console.log(`📊 [QueryClient] تحليل البيانات لـ ${queryKey.join("/")}:`, {
-        dataType: typeof data,
-        isObject: data && typeof data === 'object',
-        hasSuccess: data?.success !== undefined,
-        hasDataProperty: data?.data !== undefined,
-        actualDataValue: data?.data,
-        rawData: data
-      });
-
-      // استخراج البيانات الفعلية دون إجبار على مصفوفة فارغة
-      if (data && typeof data === 'object') {
-        // للتحقق من endpoints الهجرة التي تُرجع objects
-        const isMigrationEndpoint = typeof queryKey[0] === 'string' && queryKey[0].includes('migration');
-        
-        // إذا كانت البيانات في الشكل { success, data, count } (شكل API)
-        if (data.success !== undefined && data.data !== undefined) {
-          console.log(`✅ [QueryClient] بيانات API صحيحة لـ ${queryKey.join("/")}:`, {
-            success: data.success,
-            dataExists: data.data !== null,
-            dataType: typeof data.data,
-            isArray: Array.isArray(data.data)
-          });
-          
-          // لنقاط النهاية الخاصة بالهجرة، نُرجع البيانات كما هي
-          if (isMigrationEndpoint) {
-            return data.data; // إرجاع البيانات كما هي (object أو array)
-          }
-          
-          // ✅ إصلاح جذري: إرجاع البيانات كما هي دون تعديل
-          // إذا كانت null أو undefined فقط، إرجاع مصفوفة فارغة
-          if (data.data === null || data.data === undefined) {
-            console.warn(`⚠️ [QueryClient] البيانات null/undefined لـ ${queryKey.join("/")} - إرجاع مصفوفة فارغة`);
-            return [];
-          }
-          
-          return data.data; // إرجاع البيانات الحقيقية كما هي
-        }
-        
-        // إذا كانت البيانات مصفوفة مباشرة (شكل Replit)
-        if (Array.isArray(data)) {
-          console.log(`📋 [QueryClient] مصفوفة مباشرة لـ ${queryKey.join("/")}:`, data.length);
-          return data;
-        }
-        
-        // إذا كان لديها خاصية data مباشرة
-        if (data.data !== undefined) {
-          console.log(`🔗 [QueryClient] خاصية data مباشرة لـ ${queryKey.join("/")}:`, data.data);
-          return data.data !== null ? data.data : [];
-        }
-      }
-      
-      console.log(`🔄 [QueryClient] إرجاع البيانات كما هي لـ ${queryKey.join("/")}:`, data);
-      return data;
     }
 
     return makeQueryRequest();

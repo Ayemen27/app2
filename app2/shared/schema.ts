@@ -87,7 +87,7 @@ export const workerAttendance = pgTable("worker_attendance", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id),
   workerId: varchar("worker_id").notNull().references(() => workers.id),
-  date: text("date").notNull(), // YYYY-MM-DD format
+  date: text("attendance_date").notNull(), // YYYY-MM-DD format
   startTime: text("start_time"), // HH:MM format
   endTime: text("end_time"), // HH:MM format
   workDescription: text("work_description"),
@@ -95,13 +95,14 @@ export const workerAttendance = pgTable("worker_attendance", {
   workDays: decimal("work_days", { precision: 3, scale: 2 }).notNull().default('1.00'), // عدد أيام العمل (مثل 0.5، 1.0، 1.5)
   dailyWage: decimal("daily_wage", { precision: 10, scale: 2 }).notNull(), // الأجر اليومي الكامل
   actualWage: decimal("actual_wage", { precision: 10, scale: 2 }).notNull(), // الأجر الفعلي = dailyWage * workDays
+  totalPay: decimal("total_pay", { precision: 10, scale: 2 }).notNull(), // إجمالي الدفع المطلوب = actualWage
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0').notNull(), // المبلغ المدفوع فعلياً (الصرف)
   remainingAmount: decimal("remaining_amount", { precision: 10, scale: 2 }).default('0').notNull(), // المتبقي في حساب العامل
   paymentType: text("payment_type").notNull().default("partial"), // "full" | "partial" | "credit"
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   // قيد فريد لمنع تسجيل حضور مكرر لنفس العامل في نفس اليوم
-  uniqueWorkerDate: sql`UNIQUE (worker_id, date, project_id)`
+  uniqueWorkerDate: sql`UNIQUE (worker_id, attendance_date, project_id)`
 }));
 
 // Suppliers (الموردين)

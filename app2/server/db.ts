@@ -42,7 +42,7 @@ function setupSSLConfig() {
   console.log('🔐 اتصال خارجي - إعداد SSL آمن ومرن');
 
   // 🛡️ **SSL Configuration الآمن والمرن للخوادم الخاصة**
-  const sslConfig = {
+  const sslConfig: any = {
     // في حالة شهادات self-signed للخوادم الخاصة الآمنة
     rejectUnauthorized: false,
     // لكن نتطلب تشفير قوي

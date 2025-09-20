@@ -40,8 +40,7 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
     // مسارات الاختبار المؤقتة - سيتم إزالتها لاحقاً
     const tempTestPaths = [
       '/api/test/notifications/create',
-      '/api/test/notifications/stats',
-      '/api/notifications' // مؤقت للاختبار
+      '/api/test/notifications/stats'
     ];
     
     // فحص المسارات العامة والاختبارية المؤقتة

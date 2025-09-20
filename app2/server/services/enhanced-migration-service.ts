@@ -59,11 +59,54 @@ export interface MigrationResult {
   speed: number; // rows per second
 }
 
+export interface SchemaValidationResult {
+  tableName: string;
+  isValid: boolean;
+  sourceColumns: string[];
+  targetColumns: string[];
+  missingInTarget: string[];
+  extraInTarget: string[];
+  criticalIssues: string[];
+  warnings: string[];
+  canMigrate: boolean;
+}
+
+export interface DryRunResult {
+  overallSuccess: boolean;
+  tablesChecked: number;
+  validTables: number;
+  tablesWithWarnings: number;
+  tablesWithErrors: number;
+  tableResults: SchemaValidationResult[];
+  summary: string;
+  recommendations: string[];
+}
+
 export class EnhancedMigrationService {
   private oldClient: Client | null = null;
   private newClient: Client | null = null;
   private isConnected = false;
   private migrationCancelled = false;
+  private defaultProjectId: string | null = null;
+
+  // الجداول المدعومة في schema.ts
+  private readonly SUPPORTED_TABLES = [
+    'users', 'auth_user_sessions', 'projects', 'workers', 'fund_transfers',
+    'worker_attendance', 'suppliers', 'materials', 'material_purchases', 
+    'supplier_payments', 'daily_expenses', 'worker_misc_expenses',
+    'worker_transfers', 'worker_balances', 'daily_expense_summaries',
+    'notifications', 'notification_settings', 'notification_read_states',
+    'notification_queue', 'notification_metrics', 'notification_templates',
+    'autocomplete_data', 'auth_roles', 'auth_user_roles', 'auth_role_permissions',
+    'migrationJobs', 'migrationTableProgress', 'migrationBatchLog'
+  ];
+
+  // الجداول المستثناة من الهجرة (موجودة في DB لكن غير مدعومة في الكود)
+  private readonly EXCLUDED_TABLES = [
+    'equipment', 'equipment_movements', // الجداول غير المُعرفة في schema.ts
+    'error_logs', 'system_events', // جداول النظام
+    'print_settings', 'report_templates' // جداول التقارير القديمة
+  ];
 
   private readonly DEFAULT_OPTIONS: Partial<MigrationOptions> = {
     batchSize: 100,
@@ -84,6 +127,66 @@ export class EnhancedMigrationService {
     if (!oldDbUrl || !newDbUrl) {
       throw new Error('يجب توفير عناوين قواعد البيانات القديمة والجديدة');
     }
+  }
+
+  /**
+   * الحصول على المشروع الافتراضي أو إنشاؤه
+   */
+  private async ensureDefaultProject(): Promise<string> {
+    if (this.defaultProjectId) {
+      return this.defaultProjectId;
+    }
+
+    try {
+      // البحث عن المشروع الافتراضي
+      const findQuery = `SELECT id FROM public.projects WHERE name = 'غير مخصص' LIMIT 1`;
+      const result = await this.newClient!.query(findQuery);
+      
+      if (result.rows.length > 0) {
+        this.defaultProjectId = result.rows[0].id;
+        this.LOG.success(`✅ تم العثور على المشروع الافتراضي: ${this.defaultProjectId}`);
+      } else {
+        // إنشاء المشروع الافتراضي
+        const insertQuery = `INSERT INTO public.projects (name, status) VALUES ('غير مخصص', 'active') RETURNING id`;
+        const insertResult = await this.newClient!.query(insertQuery);
+        this.defaultProjectId = insertResult.rows[0].id;
+        this.LOG.success(`🆕 تم إنشاء المشروع الافتراضي: ${this.defaultProjectId}`);
+      }
+      
+      return this.defaultProjectId!;
+    } catch (error: any) {
+      this.LOG.error(`❌ فشل في الحصول على المشروع الافتراضي: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * التحقق من دعم الجدول في schema.ts
+   */
+  private checkTableSupport(tableName: string): 'supported' | 'excluded' | 'unknown' {
+    if (this.SUPPORTED_TABLES.includes(tableName)) {
+      return 'supported';
+    }
+    if (this.EXCLUDED_TABLES.includes(tableName)) {
+      return 'excluded';
+    }
+    return 'unknown';
+  }
+
+  /**
+   * معالجة خاصة لجدول fund_transfers - إصلاح null project_id
+   */
+  private async processFundTransfersRow(row: any): Promise<any> {
+    const processedRow = { ...row };
+    
+    // إذا كان project_id فارغ أو null، استخدم المشروع الافتراضي
+    if (!processedRow.project_id || processedRow.project_id === null) {
+      const defaultProjectId = await this.ensureDefaultProject();
+      processedRow.project_id = defaultProjectId;
+      this.LOG.debug(`🔧 تم إصلاح project_id null إلى المشروع الافتراضي: ${defaultProjectId}`);
+    }
+    
+    return processedRow;
   }
 
   /**
@@ -276,6 +379,30 @@ export class EnhancedMigrationService {
       throw new Error('يجب الاتصال بقاعدة البيانات أولاً');
     }
 
+    // التحقق من دعم الجدول
+    const tableSupport = this.checkTableSupport(opts.tableName!);
+    
+    if (tableSupport === 'excluded') {
+      this.LOG.warn(`⚠️ تم تخطي الجدول ${opts.tableName} - مستثنى من الهجرة (غير مدعوم في schema.ts)`);
+      return {
+        success: true,
+        tableName: opts.tableName!,
+        totalRows: 0,
+        migratedRows: 0,
+        failedRows: 0,
+        duration: Date.now() - startTime.getTime(),
+        errors: [],
+        speed: 0
+      };
+    }
+    
+    if (tableSupport === 'unknown') {
+      this.LOG.error(`❌ الجدول ${opts.tableName} غير معروف - لا يوجد في قائمة الجداول المدعومة أو المستثناة`);
+      throw new Error(`الجدول ${opts.tableName} غير معروف في النظام`);
+    }
+
+    this.LOG.success(`✅ الجدول ${opts.tableName} مدعوم - بدء الهجرة`);
+
     try {
       // الحصول على معلومات الجدول
       const { columns, rowCount: totalRows } = await this.getTableInfo(opts.tableName!);
@@ -406,7 +533,7 @@ export class EnhancedMigrationService {
         }
 
         // بناء استعلام الإدراج
-        const { insertQuery, params } = this.buildInsertQuery(tableName, columns, rows);
+        const { insertQuery, params } = await this.buildInsertQuery(tableName, columns, rows);
 
         // إدراج البيانات مع transaction
         await this.newClient!.query('BEGIN');
@@ -452,16 +579,26 @@ export class EnhancedMigrationService {
   }
 
   /**
-   * بناء استعلام الإدراج مع المعاملات
+   * بناء استعلام الإدراج مع المعاملات ومعالجة خاصة للجداول
    */
-  private buildInsertQuery(tableName: string, columns: string[], rows: any[]): {insertQuery: string, params: any[]} {
+  private async buildInsertQuery(tableName: string, columns: string[], rows: any[]): Promise<{insertQuery: string, params: any[]}> {
     const columnsList = columns.map(c => `"${c}"`).join(', ');
     const params: any[] = [];
     const valuesSql: string[] = [];
     
     let paramIndex = 1;
     
-    for (const row of rows) {
+    // معالجة كل صف حسب نوع الجدول
+    const processedRows = await Promise.all(
+      rows.map(async (row) => {
+        if (tableName === 'fund_transfers') {
+          return await this.processFundTransfersRow(row);
+        }
+        return row; // الجداول الأخرى بدون معالجة
+      })
+    );
+    
+    for (const row of processedRows) {
       const placeholders = columns.map(col => {
         params.push(row[col]);
         return `$${paramIndex++}`;
@@ -523,6 +660,165 @@ export class EnhancedMigrationService {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * التحقق من schema لجدول واحد
+   */
+  async validateTableSchema(tableName: string): Promise<SchemaValidationResult> {
+    if (!this.isConnected) {
+      throw new Error('يجب الاتصال بقاعدة البيانات أولاً');
+    }
+
+    const result: SchemaValidationResult = {
+      tableName,
+      isValid: false,
+      sourceColumns: [],
+      targetColumns: [],
+      missingInTarget: [],
+      extraInTarget: [],
+      criticalIssues: [],
+      warnings: [],
+      canMigrate: false
+    };
+
+    try {
+      // التحقق من دعم الجدول أولاً
+      const tableSupport = this.checkTableSupport(tableName);
+      
+      if (tableSupport === 'excluded') {
+        result.warnings.push(`الجدول ${tableName} مستثنى من الهجرة`);
+        result.canMigrate = false;
+        return result;
+      }
+
+      if (tableSupport === 'unknown') {
+        result.criticalIssues.push(`الجدول ${tableName} غير معروف في النظام`);
+        result.canMigrate = false;
+        return result;
+      }
+
+      // الحصول على أعمدة الجدول من المصدر
+      const sourceColumnsQuery = `
+        SELECT column_name, data_type, is_nullable, column_default
+        FROM information_schema.columns 
+        WHERE table_schema='public' AND table_name=$1 
+        ORDER BY ordinal_position
+      `;
+      const sourceResult = await this.oldClient!.query(sourceColumnsQuery, [tableName]);
+      result.sourceColumns = sourceResult.rows.map(r => `${r.column_name}:${r.data_type}${r.is_nullable === 'NO' ? ':NOT_NULL' : ''}`);
+
+      // الحصول على أعمدة الجدول من الهدف
+      const targetResult = await this.newClient!.query(sourceColumnsQuery, [tableName]);
+      result.targetColumns = targetResult.rows.map(r => `${r.column_name}:${r.data_type}${r.is_nullable === 'NO' ? ':NOT_NULL' : ''}`);
+
+      // المقارنة بين الأعمدة
+      const sourceColNames = sourceResult.rows.map(r => r.column_name);
+      const targetColNames = targetResult.rows.map(r => r.column_name);
+
+      result.missingInTarget = sourceColNames.filter(col => !targetColNames.includes(col));
+      result.extraInTarget = targetColNames.filter(col => !sourceColNames.includes(col));
+
+      // فحص المشاكل الحرجة
+      if (result.missingInTarget.length > 0) {
+        result.criticalIssues.push(`أعمدة مفقودة في الهدف: ${result.missingInTarget.join(', ')}`);
+      }
+
+      // فحص التحذيرات
+      if (result.extraInTarget.length > 0) {
+        result.warnings.push(`أعمدة إضافية في الهدف: ${result.extraInTarget.join(', ')}`);
+      }
+
+      // تحديد إمكانية الهجرة
+      result.canMigrate = result.criticalIssues.length === 0;
+      result.isValid = result.canMigrate && result.warnings.length === 0;
+
+      this.LOG.debug(`تم فحص schema للجدول ${tableName}: ${result.canMigrate ? 'قابل للهجرة' : 'غير قابل للهجرة'}`);
+
+    } catch (error: any) {
+      result.criticalIssues.push(`خطأ في فحص الجدول: ${error.message}`);
+      result.canMigrate = false;
+    }
+
+    return result;
+  }
+
+  /**
+   * تشغيل dry-run للتحقق من جميع الجداول قبل الهجرة
+   */
+  async performDryRun(tableNames: string[]): Promise<DryRunResult> {
+    this.LOG.info(`🔍 بدء Dry-Run للتحقق من ${tableNames.length} جدول...`);
+
+    const tableResults: SchemaValidationResult[] = [];
+    let validTables = 0;
+    let tablesWithWarnings = 0;
+    let tablesWithErrors = 0;
+
+    // فحص كل جدول على حدة
+    for (const tableName of tableNames) {
+      try {
+        const result = await this.validateTableSchema(tableName);
+        tableResults.push(result);
+
+        if (result.canMigrate) {
+          if (result.warnings.length === 0) {
+            validTables++;
+          } else {
+            tablesWithWarnings++;
+          }
+        } else {
+          tablesWithErrors++;
+        }
+
+      } catch (error: any) {
+        tableResults.push({
+          tableName,
+          isValid: false,
+          sourceColumns: [],
+          targetColumns: [],
+          missingInTarget: [],
+          extraInTarget: [],
+          criticalIssues: [`خطأ في الفحص: ${error.message}`],
+          warnings: [],
+          canMigrate: false
+        });
+        tablesWithErrors++;
+      }
+    }
+
+    // إنشاء التقرير النهائي
+    const dryRunResult: DryRunResult = {
+      overallSuccess: tablesWithErrors === 0,
+      tablesChecked: tableNames.length,
+      validTables,
+      tablesWithWarnings,
+      tablesWithErrors,
+      tableResults,
+      summary: '',
+      recommendations: []
+    };
+
+    // إنشاء الملخص
+    if (dryRunResult.overallSuccess) {
+      if (tablesWithWarnings === 0) {
+        dryRunResult.summary = `✅ جميع الجداول (${validTables}) جاهزة للهجرة بدون مشاكل`;
+      } else {
+        dryRunResult.summary = `⚠️ ${validTables} جدول جاهز للهجرة، ${tablesWithWarnings} جدول مع تحذيرات`;
+        dryRunResult.recommendations.push('راجع التحذيرات قبل بدء الهجرة');
+      }
+    } else {
+      dryRunResult.summary = `❌ فشل: ${tablesWithErrors} جدول غير قابل للهجرة، ${validTables} جدول صالح`;
+      dryRunResult.recommendations.push('أصلح المشاكل الحرجة قبل المتابعة');
+    }
+
+    // إضافة توصيات مفصلة
+    if (tablesWithErrors > 0) {
+      dryRunResult.recommendations.push('فحص schema الجداول الفاشلة وإصلاح عدم التطابق');
+    }
+
+    this.LOG.info(`📊 نتائج Dry-Run: ${dryRunResult.summary}`);
+    
+    return dryRunResult;
   }
 
   /**

@@ -232,11 +232,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const refreshTokenData = data.data?.refreshToken || data.tokens?.refreshToken || data.refreshToken;
 
       console.log('🔍 [AuthProvider.login] فحص البيانات المستخرجة:', { 
-        userData: userData, 
+        hasUserData: !!userData,
         hasToken: !!tokenData,
-        userDetails: userData ? { id: userData.id, email: userData.email, name: userData.name } : 'none',
-        tokenPreview: tokenData ? tokenData.substring(0, 30) + '...' : 'none',
-        refreshTokenPreview: refreshTokenData ? refreshTokenData.substring(0, 20) + '...' : 'none'
+        hasRefreshToken: !!refreshTokenData,
+        userDetails: userData ? { id: userData.id, email: userData.email, name: userData.name } : 'none'
       });
 
       if (!userData) {

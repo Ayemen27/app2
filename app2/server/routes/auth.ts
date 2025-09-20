@@ -396,9 +396,8 @@ router.post('/refresh', async (req, res) => {
       });
     }
 
-    // تسجيل معلومات basic عن الرمز (بدون كشف التفاصيل الحساسة)
-    const tokenPreview = refreshToken.substring(0, 20) + '...' + refreshToken.slice(-10);
-    console.log(`🔍 [API/refresh] معالجة رمز: ${tokenPreview}`);
+    // تسجيل طلب معالجة الرمز (بدون كشف أي تفاصيل)
+    console.log('🔍 [API/refresh] بدء معالجة رمز التجديد');
 
     const result = await refreshAccessToken(refreshToken);
     const duration = Date.now() - startTime;
@@ -406,7 +405,6 @@ router.post('/refresh', async (req, res) => {
     if (!result) {
       console.log(`❌ [API/refresh] فشل تجديد الرمز بعد ${duration}ms - رمز غير صالح أو منتهي`, {
         ip: clientIP,
-        tokenPreview,
         duration
       });
       return res.status(401).json({
@@ -418,7 +416,6 @@ router.post('/refresh', async (req, res) => {
 
     console.log(`✅ [API/refresh] نجح تجديد الرمز بعد ${duration}ms`, {
       ip: clientIP,
-      newTokenPreview: result.accessToken.substring(0, 20) + '...',
       expiresIn: Math.round((result.expiresAt.getTime() - Date.now()) / 1000 / 60) + ' دقيقة',
       duration
     });

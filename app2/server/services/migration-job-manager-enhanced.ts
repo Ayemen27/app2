@@ -12,7 +12,6 @@ import {
   projects,
   suppliers,
   materialPurchases,
-  equipment,
   workerAttendance,
   fundTransfers
 } from "../../shared/schema";
@@ -562,9 +561,29 @@ class EnhancedMigrationJobManager {
         });
       }
 
+      // قائمة الجداول المدعومة والغير مدعومة
+      const SUPPORTED_TABLES = ['workers', 'projects', 'suppliers', 'equipment', 'worker_attendance', 'fund_transfers', 'material_purchases'];
+      const BLACKLISTED_TABLES = ['notifications', 'users', 'transportation_expenses', 'auth_users', 'auth_sessions', 'auth_permissions'];
+      
+      // تصفية الجداول المدعومة فقط
+      const supportedTables = availableTables.filter(tableName => {
+        if (BLACKLISTED_TABLES.includes(tableName)) {
+          console.log(`⏭️ تخطي الجدول المحظور: ${tableName}`);
+          return false;
+        }
+        if (!SUPPORTED_TABLES.includes(tableName)) {
+          console.warn(`⚠️ جدول غير مدعوم: ${tableName} - سيتم تخطيه`);
+          return false;
+        }
+        return true;
+      });
+      
+      console.log(`📋 سيتم معالجة ${supportedTables.length} جدول من أصل ${availableTables.length} جدول`);
+
       // معالجة كل جدول مع حفظ التقدم
-      for (let i = 0; i < availableTables.length; i++) {
-        const tableName = availableTables[i];
+      for (let i = 0; i < supportedTables.length; i++) {
+        const tableName = supportedTables[i];
+        let tableResult: any = null; // متغير محلي لكل جدول
         
         // التحقق من الإلغاء
         const currentJob = await this.getJob(jobId);
@@ -579,7 +598,7 @@ class EnhancedMigrationJobManager {
           startTime: new Date()
         });
 
-        console.log(`🔄 معالجة الجدول ${i + 1}/${availableTables.length}: ${tableName}...`);
+        console.log(`🔄 معالجة الجدول ${i + 1}/${supportedTables.length}: ${tableName}...`);
 
         try {
           // فحص وجود الجدول
@@ -606,85 +625,95 @@ class EnhancedMigrationJobManager {
             const jsonHandler = new JsonMigrationHandler(externalUrl);
             
             try {
-              const result = await jsonHandler.migrateMaterialPurchasesSafely(batchSize);
+              tableResult = await jsonHandler.migrateMaterialPurchasesSafely(batchSize);
               
               await this.updateTableProgress(jobId, tableName, {
                 status: 'completed',
-                processedRows: result.totalProcessed,
-                savedRows: result.successfullyMigrated,
-                errors: result.errors,
+                processedRows: tableResult.totalProcessed,
+                savedRows: tableResult.successfullyMigrated,
+                errors: tableResult.errors,
                 endTime: new Date(),
-                errorMessage: result.errors > 0 ? `${result.errors} أخطاء - التفاصيل: ${result.errorDetails.slice(0, 3).join('; ')}` : undefined
+                errorMessage: tableResult.errors > 0 ? `${tableResult.errors} أخطاء - التفاصيل: ${tableResult.errorDetails.slice(0, 3).join('; ')}` : undefined
               });
 
-              console.log(`✅ [Migration] مهمة ${tableName} مكتملة:`, {
-                processed: result.totalProcessed,
-                saved: result.successfullyMigrated,
-                duplicatesSkipped: result.duplicatesSkipped,
-                jsonConversions: result.jsonConversions,
-                errors: result.errors
+              console.log(`✅ [Migration] انتهت هجرة ${tableName}:`, {
+                success: true,
+                totalProcessed: tableResult.totalProcessed,
+                totalSaved: tableResult.successfullyMigrated,
+                duplicatesSkipped: tableResult.duplicatesSkipped,
+                jsonConversions: tableResult.jsonConversions,
+                errors: tableResult.errors
               });
 
             } catch (jsonError: any) {
-              console.error(`❌ [Migration] فشل في معالجة JSON لجدول ${tableName}:`, jsonError);
+              console.error(`❌ [Migration] خطأ في معالجة الجدول ${tableName}: ${jsonError.message}`);
               await this.updateTableProgress(jobId, tableName, {
                 status: 'failed',
                 endTime: new Date(),
                 errorMessage: `فشل معالجة JSON: ${jsonError.message}`
               });
+              // إنشاء tableResult للتوافق مع باقي الكود
+              tableResult = {
+                success: false,
+                totalProcessed: 0,
+                totalSaved: 0,
+                successfullyMigrated: 0,
+                errors: 1
+              };
             } finally {
               await jsonHandler.disconnect();
             }
           } else {
             // معالجة عادية للجداول الأخرى مع حماية من التكرار
-            const result = await this.migrateSafeTable(fetcher, tableName, batchSize, jobId);
+            tableResult = await this.migrateSafeTable(fetcher, tableName, batchSize, jobId);
             
             await this.updateTableProgress(jobId, tableName, {
-              status: result.success ? 'completed' : 'failed',
-              processedRows: result.totalProcessed,
-              savedRows: result.totalSaved,
-              errors: result.errors,
+              status: tableResult.success ? 'completed' : 'failed',
+              processedRows: tableResult.totalProcessed,
+              savedRows: tableResult.totalSaved,
+              errors: tableResult.errors,
               endTime: new Date(),
-              errorMessage: result.errors > 0 ? `${result.errors} أخطاء` : undefined
+              errorMessage: tableResult.errors > 0 ? `${tableResult.errors} أخطاء` : undefined
+            });
+
+            console.log(`✅ [Migration] انتهت هجرة ${tableName}:`, {
+              success: tableResult.success,
+              totalProcessed: tableResult.totalProcessed,
+              totalSaved: tableResult.totalSaved,
+              errors: tableResult.errors
             });
           }
           
-          // تسجيل تفاصيل العملية
+          // تسجيل تفاصيل العملية - مع معالجة صحيحة للخصائص
           try {
-            await db.insert(migrationBatchLog).values({
-              jobId,
-              tableName,
-              batchIndex: 1,
-              batchSize: batchSize,
-              batchOffset: 0,
-              status: result.success ? 'completed' : 'failed',
-              rowsProcessed: result.synced,
-              rowsSaved: result.savedLocally,
-              retryCount: 0,
-              transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-              endTime: new Date()
-            });
+            if (tableResult) {
+              await db.insert(migrationBatchLog).values({
+                jobId,
+                tableName,
+                batchIndex: 1,
+                batchSize: batchSize,
+                batchOffset: 0,
+                status: tableResult.success ? 'completed' : 'failed',
+                rowsProcessed: tableResult.totalProcessed || 0,
+                rowsSaved: tableResult.totalSaved || tableResult.successfullyMigrated || 0,
+                retryCount: 0,
+                transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+                endTime: new Date()
+              });
+            }
           } catch (logError: any) {
-            console.warn(`تحذير في تسجيل العملية: ${logError.message}`);
+            console.warn(`⚠️ [Migration] تحذير في تسجيل العملية للجدول ${tableName}: ${logError.message}`);
           }
 
-          // تحديث النتيجة النهائية للجدول
-          await this.updateTableProgress(jobId, tableName, {
-            status: result.success ? 'completed' : 'failed',
-            processedRows: result.synced,
-            savedRows: result.savedLocally,
-            errors: result.errors,
-            endTime: new Date(),
-            errorMessage: result.success ? undefined : 'فشل في المزامنة'
-          });
-
-          // تحديث إجماليات المهمة
-          await this.updateJob(jobId, {
-            tablesProcessed: i + 1,
-            totalRowsProcessed: (currentJob?.totalRowsProcessed || 0) + result.synced,
-            totalRowsSaved: (currentJob?.totalRowsSaved || 0) + result.savedLocally,
-            totalErrors: (currentJob?.totalErrors || 0) + result.errors
-          });
+          // تحديث إجماليات المهمة مع الخصائص الصحيحة
+          if (tableResult) {
+            await this.updateJob(jobId, {
+              tablesProcessed: i + 1,
+              totalRowsProcessed: (currentJob?.totalRowsProcessed || 0) + (tableResult.totalProcessed || 0),
+              totalRowsSaved: (currentJob?.totalRowsSaved || 0) + (tableResult.totalSaved || tableResult.successfullyMigrated || 0),
+              totalErrors: (currentJob?.totalErrors || 0) + (tableResult.errors || 0)
+            });
+          }
 
         } catch (tableError: any) {
           console.error(`❌ خطأ في معالجة الجدول ${tableName}:`, tableError.message);

@@ -139,7 +139,7 @@ export async function getOldDbClient(maxRetries: number = 1): Promise<Client> {
   console.log('📄 من credentials.ts:');
   console.log(`   SUPABASE_URL: ${supabaseUrl}`);
   console.log(`   SUPABASE_DATABASE_URL: ${getCredential('SUPABASE_DATABASE_URL') || 'غير موجود'}`);
-  console.log(`   Password length: ${supabasePassword ? supabasePassword.length : 'غير موجود'}`);
+  console.log(`   Password status: ${supabasePassword ? 'موجود' : 'غير موجود'}`);
   
   // فحص OLD_DB_URL من .env للحصول على المنطقة الصحيحة
   const oldDbUrl = process.env.OLD_DB_URL;

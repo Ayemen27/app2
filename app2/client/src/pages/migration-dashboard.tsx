@@ -18,7 +18,12 @@ import {
   AlertCircle,
   Activity,
   BarChart3,
-  RefreshCw
+  RefreshCw,
+  Monitor,
+  Target,
+  Layers,
+  TrendingUp,
+  FileJson
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -62,7 +67,25 @@ export default function MigrationDashboard() {
   // جلب قائمة جميع المهام
   const { data: jobsData, isLoading: jobsLoading } = useQuery({
     queryKey: ['/api/migration/jobs'],
-    refetchInterval: 30000, // تحديث كل 30 ثانية لتقليل الحمولة
+    refetchInterval: 15000, // تحديث كل 15 ثانية للمراقبة الحية
+  });
+
+  // جلب الإحصائيات العامة من Supabase
+  const { data: generalStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['/api/migration/general-stats'],
+    refetchInterval: 30000, // تحديث كل 30 ثانية
+  });
+
+  // جلب قائمة الجداول مع التفاصيل
+  const { data: tablesData, isLoading: tablesLoading } = useQuery({
+    queryKey: ['/api/migration/tables'],
+    refetchInterval: 30000, // تحديث كل 30 ثانية
+  });
+
+  // جلب حالة الاتصال
+  const { data: connectionStatus } = useQuery({
+    queryKey: ['/api/migration/connection-status'],
+    refetchInterval: 60000, // تحديث كل دقيقة
   });
 
   // جلب حالة المهمة النشطة
@@ -164,6 +187,27 @@ export default function MigrationDashboard() {
     }
   };
 
+  // دالة تنسيق الأرقام بفواصل
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat('ar-SA').format(num);
+  };
+
+  // دالة للحصول على نوع قاعدة البيانات من العدد
+  const getDatabaseTypeFromRowCount = (rowCount: number) => {
+    if (rowCount > 1000) return 'كبير';
+    if (rowCount > 100) return 'متوسط';
+    if (rowCount > 0) return 'صغير';
+    return 'فارغ';
+  };
+
+  // دالة للحصول على أولوية الجدول
+  const getTablePriority = (tableName: string, rowCount: number) => {
+    const criticalTables = ['workers', 'projects', 'suppliers', 'material_purchases'];
+    if (criticalTables.includes(tableName)) return 'عالية';
+    if (rowCount > 500) return 'متوسطة';
+    return 'منخفضة';
+  };
+
   const getStatusBadge = (status: MigrationJob['status']) => {
     const config = {
       pending: { color: 'bg-gray-500', text: 'في الانتظار', icon: Clock },
@@ -206,13 +250,19 @@ export default function MigrationDashboard() {
     return (
       <div className="container mx-auto p-6 space-y-6 bg-white dark:bg-black text-black dark:text-white">
         <div className="flex items-center gap-3 mb-6">
-          <Database className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+          <Monitor className="h-8 w-8 text-blue-600 dark:text-blue-400" />
           <div>
-            <h1 className="text-3xl font-bold">لوحة تحكم هجرة البيانات</h1>
+            <h1 className="text-3xl font-bold">مراقب الهجرة المباشر</h1>
             <p className="text-gray-600 dark:text-gray-400">
-              جاري تحميل بيانات الهجرة...
+              نظام مراقبة متقدم للهجرة الآمنة من Supabase
             </p>
           </div>
+          {connectionStatus?.data?.connected && (
+            <Badge className="bg-green-500 text-white animate-pulse">
+              <Activity className="w-3 h-3 mr-1" />
+              متصل
+            </Badge>
+          )}
         </div>
         
         {/* Skeleton للإعدادات */}
@@ -282,6 +332,162 @@ export default function MigrationDashboard() {
           )}
         </div>
       </div>
+
+      {/* إحصائيات Supabase الحية */}
+      {(generalStats?.data || statsLoading) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 border-blue-200 dark:border-blue-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                إجمالي الجداول
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-900 dark:text-blue-100" data-testid="text-total-tables">
+                {statsLoading ? (
+                  <div className="animate-pulse bg-blue-200 dark:bg-blue-700 h-8 w-16 rounded" />
+                ) : (
+                  formatNumber(generalStats?.data?.totalTables || 0)
+                )}
+              </div>
+              <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                جدول في Supabase
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900 dark:to-green-800 border-green-200 dark:border-green-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-green-800 dark:text-green-200">
+                إجمالي الصفوف
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-900 dark:text-green-100" data-testid="text-total-rows">
+                {statsLoading ? (
+                  <div className="animate-pulse bg-green-200 dark:bg-green-700 h-8 w-20 rounded" />
+                ) : (
+                  formatNumber(generalStats?.data?.totalEstimatedRows || 0)
+                )}
+              </div>
+              <p className="text-xs text-green-600 dark:text-green-300 mt-1">
+                سجل للهجرة
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900 dark:to-purple-800 border-purple-200 dark:border-purple-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                حالة قاعدة البيانات
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                {connectionStatus?.data?.connected ? (
+                  <>
+                    <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                      متصل
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                      غير متصل
+                    </span>
+                  </>
+                )}
+              </div>
+              <p className="text-xs text-purple-600 dark:text-purple-300 mt-1">
+                Supabase و قاعدة البيانات المحلية
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900 dark:to-orange-800 border-orange-200 dark:border-orange-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                مهام نشطة
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-900 dark:text-orange-100" data-testid="text-active-jobs">
+                {jobsLoading ? (
+                  <div className="animate-pulse bg-orange-200 dark:bg-orange-700 h-8 w-8 rounded" />
+                ) : (
+                  allJobs.filter(job => job.status === 'running').length
+                )}
+              </div>
+              <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">
+                هجرة قيد التشغيل
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* اختبار هجرة آمن (Smoke Test) */}
+      <Card className="bg-white dark:bg-gray-900 border-yellow-200 dark:border-yellow-700">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-black dark:text-white">
+            <Target className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+            اختبار هجرة آمن (Smoke Test)
+          </CardTitle>
+          <CardDescription className="text-gray-600 dark:text-gray-400">
+            اختبار هجرة جداول صغيرة بحجم دفعات محدود للتأكد من السلامة
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                <span className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+                  جداول الاختبار المقترحة
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                <div className="bg-white dark:bg-gray-800 p-2 rounded border">
+                  <span className="font-medium">worker_types</span>
+                  <br />
+                  <span className="text-gray-500">جدول صغير (≈5 صفوف)</span>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-2 rounded border">
+                  <span className="font-medium">projects</span>
+                  <br />
+                  <span className="text-gray-500">جدول متوسط (≈20 صف)</span>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-2 rounded border">
+                  <span className="font-medium">workers</span>
+                  <br />
+                  <span className="text-gray-500">جدول مهم (≈100 صف)</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={() => {
+                  setBatchSize(10);
+                  handleStartMigration();
+                }}
+                disabled={startMigrationMutation.isPending || (currentJob && currentJob.status === 'running')}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                data-testid="button-start-smoke-test"
+              >
+                <Target className="h-4 w-4 mr-2" />
+                بدء الاختبار الآمن (حجم دفعة = 10)
+              </Button>
+              
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                سيتم اختبار جميع الجداول بدفعات صغيرة لضمان السلامة
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* إعدادات الهجرة */}
       <Card>

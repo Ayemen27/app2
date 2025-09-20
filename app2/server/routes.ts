@@ -699,7 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // إنشاء مهمة اختبار
-      const userId = req.user?.id || req.user?.email || 'test_user';
+      const userId = req.user?.id || null; // استخدام معرف المستخدم الصحيح أو null
       const jobId = await enhancedMigrationJobManager.createJob(userId);
       
       // تشغيل اختبار محدود
@@ -788,7 +788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // إنشاء مهمة جديدة مع Enhanced Manager
-      const userId = req.user?.id || req.user?.email || 'system';
+      const userId = req.user?.id || null; // استخدام معرف المستخدم الصحيح أو null
       const jobId = await enhancedMigrationJobManager.createJob(userId);
       
       // تشغيل المهمة في الخلفية مع التخزين الدائم
@@ -1600,7 +1600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🚀 بدء الهجرة الشاملة لـ ${tables.length} جدول باستخدام MigrationJobManager`);
 
       // إنشاء مهمة جديدة باستخدام MigrationJobManager
-      const userId = req.user?.id || req.user?.email || 'system';
+      const userId = req.user?.id || null; // استخدام معرف المستخدم الصحيح أو null
       const jobId = await enhancedMigrationJobManager.createJob(userId);
       
       // تشغيل المهمة في الخلفية

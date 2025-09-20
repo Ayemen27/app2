@@ -113,7 +113,20 @@ export async function apiRequest(
         return {};
       }
       
-      return await res.json();
+      const jsonData = await res.json();
+      
+      // تسجيل للتتبع والتشخيص
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🔍 [apiRequest] ${method} ${url} - البيانات المستلمة:`, {
+          hasSuccess: jsonData?.success !== undefined,
+          hasData: jsonData?.data !== undefined,
+          dataType: typeof jsonData?.data,
+          isDataArray: Array.isArray(jsonData?.data),
+          actualData: jsonData
+        });
+      }
+      
+      return jsonData;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('انتهت مهلة الطلب، يرجى المحاولة مرة أخرى');
@@ -196,7 +209,7 @@ export const getQueryFn: <T>(options: {
         // للتحقق من endpoints الهجرة التي تُرجع objects
         const isMigrationEndpoint = typeof queryKey[0] === 'string' && queryKey[0].includes('migration');
         
-        // إذا كانت البيانات في الشكل { success, data, count } (شكل Vercel API)
+        // إذا كانت البيانات في الشكل { success, data, count } (شكل API)
         if (data.success !== undefined && data.data !== undefined) {
           
           // لنقاط النهاية الخاصة بالهجرة، نُرجع البيانات كما هي
@@ -204,15 +217,9 @@ export const getQueryFn: <T>(options: {
             return data.data; // إرجاع البيانات كما هي (object أو array)
           }
           
-          // للبقية، التأكد من أن data.data مصفوفة
-          if (data.data !== null && !Array.isArray(data.data)) {
-            console.warn('🚨 [QueryClient] تحذير: data.data ليست مصفوفة، تحويل إلى مصفوفة فارغة');
-            console.warn('🔍 نوع البيانات الحالي:', typeof data.data, data.data);
-            return [];
-          }
-          
-          // إرجاع البيانات الفعلية (المصفوفة)
-          return data.data || [];
+          // ✅ إصلاح: عدم إجبار البيانات على أن تكون مصفوفة فقط
+          // إرجاع البيانات الفعلية مهما كان نوعها
+          return data.data !== null ? data.data : [];
         }
         
         // إذا كانت البيانات مصفوفة مباشرة (شكل Replit)
@@ -220,11 +227,9 @@ export const getQueryFn: <T>(options: {
           return data;
         }
         
-        // حماية إضافية - لكن للهجرة نحتفظ بالكائنات
-        if (!isMigrationEndpoint && data.data !== undefined && data.data !== null && !Array.isArray(data.data)) {
-          console.warn('🚨 [QueryClient] تحذير: data.data ليست مصفوفة، تحويل إلى مصفوفة فارغة');
-          console.warn('🔍 نوع البيانات الحالي:', typeof data.data, data.data);
-          data.data = [];
+        // إذا كان لديها خاصية data مباشرة
+        if (data.data !== undefined) {
+          return data.data !== null ? data.data : [];
         }
       }
       

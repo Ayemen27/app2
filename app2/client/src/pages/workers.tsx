@@ -210,14 +210,7 @@ export default function WorkersPage() {
     queryFn: async () => {
       try {
         console.log('🔄 [Workers] جلب قائمة العمال...');
-        const response = await fetch('/api/workers');
-        
-        if (!response.ok) {
-          console.error('❌ [Workers] خطأ HTTP:', response.status, response.statusText);
-          throw new Error(`فشل في جلب العمال: ${response.status}`);
-        }
-        
-        const data = await response.json();
+        const data = await apiRequest('/api/workers', 'GET');
         console.log('📊 [Workers] استجابة العمال:', data);
         
         // معالجة هيكل الاستجابة المتعددة

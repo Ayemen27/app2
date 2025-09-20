@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChartGantt, Building2, Star, CheckCircle2, Clock, FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { apiRequest } from "@/lib/queryClient";
 import type { Project } from "@shared/schema";
 
 interface ProjectSelectorProps {
@@ -26,14 +27,7 @@ export default function ProjectSelector({
     queryFn: async () => {
       try {
         console.log('🔄 [ProjectSelector] جلب قائمة المشاريع...');
-        const response = await fetch('/api/projects');
-        
-        if (!response.ok) {
-          console.error('❌ [ProjectSelector] خطأ HTTP:', response.status, response.statusText);
-          throw new Error(`فشل في جلب المشاريع: ${response.status}`);
-        }
-        
-        const data = await response.json();
+        const data = await apiRequest('/api/projects', 'GET');
         console.log('📊 [ProjectSelector] استجابة المشاريع:', data);
         
         // معالجة هيكل الاستجابة المتعددة

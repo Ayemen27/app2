@@ -83,9 +83,8 @@ export function EquipmentManagement() {
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
-      const response = await fetch('/api/projects');
-      if (!response.ok) throw new Error('فشل في جلب المشاريع');
-      return response.json();
+      const response = await apiRequest('/api/projects', 'GET');
+      return response;
     },
     staleTime: 15 * 60 * 1000, // البيانات طازجة لـ 15 دقيقة
     gcTime: 60 * 60 * 1000, // الاحتفاظ بالبيانات لـ 60 دقيقة

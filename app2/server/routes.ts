@@ -591,9 +591,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('✅ [API] نجح validation حضور العامل');
       
+      // حساب actualWage = dailyWage * workDays وتحويل workDays إلى string
+      const dataWithActualWage = {
+        ...validationResult.data,
+        workDays: validationResult.data.workDays.toString(), // تحويل إلى string للتوافق مع decimal
+        actualWage: (parseFloat(validationResult.data.dailyWage) * validationResult.data.workDays).toString()
+      };
+      
       // إدراج حضور العامل الجديد في قاعدة البيانات
       console.log('💾 [API] حفظ حضور العامل في قاعدة البيانات...');
-      const newAttendance = await db.insert(workerAttendance).values(validationResult.data).returning();
+      const newAttendance = await db.insert(workerAttendance).values([dataWithActualWage]).returning();
       
       const duration = Date.now() - startTime;
       console.log(`✅ [API] تم إنشاء حضور العامل بنجاح في ${duration}ms:`, {
@@ -889,7 +896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ [API] تم إنشاء المعدة بنجاح في ${duration}ms:`, {
         id: newEquipment[0].id,
         name: newEquipment[0].name,
-        category: newEquipment[0].category
+        categoryId: newEquipment[0].categoryId
       });
       
       res.status(201).json({
@@ -1289,10 +1296,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // حساب actualWage إذا تم تحديث dailyWage أو workDays وتحويل workDays إلى string
+      const updateData: any = { ...validationResult.data };
+      
+      // تحويل workDays إلى string إذا كان موجوداً
+      if (updateData.workDays !== undefined) {
+        updateData.workDays = updateData.workDays.toString();
+      }
+      
+      // حساب actualWage
+      if (updateData.dailyWage && updateData.workDays) {
+        updateData.actualWage = (parseFloat(updateData.dailyWage) * parseFloat(updateData.workDays)).toString();
+      } else if (updateData.dailyWage && existingAttendance[0].workDays) {
+        updateData.actualWage = (parseFloat(updateData.dailyWage) * parseFloat(existingAttendance[0].workDays)).toString();
+      } else if (updateData.workDays && existingAttendance[0].dailyWage) {
+        updateData.actualWage = (parseFloat(existingAttendance[0].dailyWage) * parseFloat(updateData.workDays)).toString();
+      }
+
       // تحديث حضور العامل
       const updatedAttendance = await db
         .update(workerAttendance)
-        .set(validationResult.data)
+        .set(updateData)
         .where(eq(workerAttendance.id, attendanceId))
         .returning();
       

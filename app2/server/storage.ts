@@ -82,6 +82,7 @@ export interface IStorage {
   // Materials
   getMaterials(): Promise<Material[]>;
   createMaterial(material: InsertMaterial): Promise<Material>;
+  updateMaterial(id: string, material: Partial<InsertMaterial>): Promise<Material | undefined>;
   findMaterialByNameAndUnit(name: string, unit: string): Promise<Material | undefined>;
   
   // Material Purchases
@@ -109,6 +110,7 @@ export interface IStorage {
   // Daily Expense Summaries
   getDailyExpenseSummary(projectId: string, date: string): Promise<DailyExpenseSummary | undefined>;
   createOrUpdateDailyExpenseSummary(summary: InsertDailyExpenseSummary): Promise<DailyExpenseSummary>;
+  updateDailyExpenseSummary(id: string, summary: Partial<InsertDailyExpenseSummary>): Promise<DailyExpenseSummary | undefined>;
   getPreviousDayBalance(projectId: string, currentDate: string): Promise<string>;
   deleteDailySummary(projectId: string, date: string): Promise<void>;
   getDailySummary(projectId: string, date: string): Promise<DailyExpenseSummary | null>;
@@ -277,6 +279,7 @@ export interface IStorage {
   // Equipment Movements - Simple Tracking
   getEquipmentMovements(equipmentId: string): Promise<EquipmentMovement[]>;
   createEquipmentMovement(movement: InsertEquipmentMovement): Promise<EquipmentMovement>;
+  updateEquipmentMovement(id: string, movement: Partial<InsertEquipmentMovement>): Promise<EquipmentMovement | undefined>;
 
 
   // =====================================================

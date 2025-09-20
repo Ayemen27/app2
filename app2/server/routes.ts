@@ -3,6 +3,7 @@ import type { Server } from "http";
 import { createServer } from "http";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
+import { projects, workers } from "@shared/schema";
 import { SecureDataFetcher } from "./services/secure-data-fetcher";
 import { requireAuth, requireRole } from "./middleware/auth";
 import { enhancedMigrationJobManager } from "./services/migration-job-manager-enhanced";
@@ -106,13 +107,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // 🔒 **Basic API routes - NOW SECURED WITH AUTHENTICATION**
   // ⚠️ كانت هذه endpoints بدون حماية - تم إصلاح الثغرة الأمنية الخطيرة!
-  app.get("/api/projects", requireAuth, (req, res) => {
-    res.json({ success: true, data: [], message: "Projects endpoint working - NOW SECURED ✅" });
+  app.get("/api/projects", requireAuth, async (req, res) => {
+    try {
+      console.log('📊 [API] جلب قائمة المشاريع من قاعدة البيانات');
+      
+      const projectsList = await db.select().from(projects).orderBy(projects.createdAt);
+      
+      console.log(`✅ [API] تم جلب ${projectsList.length} مشروع من قاعدة البيانات`);
+      
+      res.json({ 
+        success: true, 
+        data: projectsList, 
+        message: `تم جلب ${projectsList.length} مشروع بنجاح` 
+      });
+    } catch (error: any) {
+      console.error('❌ [API] خطأ في جلب المشاريع:', error);
+      res.status(500).json({ 
+        success: false, 
+        data: [], 
+        error: error.message,
+        message: "فشل في جلب قائمة المشاريع" 
+      });
+    }
   });
 
-  app.get("/api/workers", requireAuth, (req, res) => {
-    res.json({ success: true, data: [], message: "Workers endpoint working - NOW SECURED ✅" });
+  app.get("/api/workers", requireAuth, async (req, res) => {
+    try {
+      console.log('👷 [API] جلب قائمة العمال من قاعدة البيانات');
+      
+      const workersList = await db.select().from(workers).orderBy(workers.createdAt);
+      
+      console.log(`✅ [API] تم جلب ${workersList.length} عامل من قاعدة البيانات`);
+      
+      res.json({ 
+        success: true, 
+        data: workersList, 
+        message: `تم جلب ${workersList.length} عامل بنجاح` 
+      });
+    } catch (error: any) {
+      console.error('❌ [API] خطأ في جلب العمال:', error);
+      res.status(500).json({ 
+        success: false, 
+        data: [], 
+        error: error.message,
+        message: "فشل في جلب قائمة العمال" 
+      });
+    }
   });
+
 
   // Worker types endpoint - إرجاع أنواع العمال بالتنسيق المطلوب
   app.get("/api/worker-types", (req, res) => {

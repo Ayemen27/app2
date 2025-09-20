@@ -2,6 +2,7 @@ import type { Express } from "express";
 import type { Server } from "http";
 import { createServer } from "http";
 import rateLimit from "express-rate-limit";
+import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { projects, workers, enhancedInsertProjectSchema, enhancedInsertWorkerSchema } from "@shared/schema";
 import { SecureDataFetcher } from "./services/secure-data-fetcher";
@@ -339,6 +340,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🔄 PATCH endpoint للعمال - تحديث بيانات عامل موجود مع validation محسن
+  app.patch("/api/workers/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const workerId = req.params.id;
+      console.log('🔄 [API] طلب تحديث العامل من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID العامل:', workerId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!workerId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف العامل مطلوب',
+          message: 'لم يتم توفير معرف العامل للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود العامل أولاً
+      const existingWorker = await db.select().from(workers).where(eq(workers.id, workerId)).limit(1);
+      
+      if (existingWorker.length === 0) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] العامل غير موجود:', workerId);
+        return res.status(404).json({
+          success: false,
+          error: 'العامل غير موجود',
+          message: `لم يتم العثور على عامل بالمعرف: ${workerId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام enhanced schema - نسمح بتحديث جزئي
+      const validationResult = enhancedInsertWorkerSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث العامل:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث العامل غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث العامل غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation تحديث العامل');
+      
+      // تحديث العامل في قاعدة البيانات
+      console.log('💾 [API] تحديث العامل في قاعدة البيانات...');
+      const updatedWorker = await db
+        .update(workers)
+        .set(validationResult.data)
+        .where(eq(workers.id, workerId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث العامل بنجاح في ${duration}ms:`, {
+        id: updatedWorker[0].id,
+        name: updatedWorker[0].name,
+        type: updatedWorker[0].type,
+        dailyWage: updatedWorker[0].dailyWage,
+        isActive: updatedWorker[0].isActive
+      });
+      
+      res.json({
+        success: true,
+        data: updatedWorker[0],
+        message: `تم تحديث العامل "${updatedWorker[0].name}" بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث العامل:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في تحديث العامل';
+      let statusCode = 500;
+      
+      if (error.code === '23505') { // duplicate key
+        errorMessage = 'اسم العامل موجود مسبقاً';
+        statusCode = 409;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات العامل ناقصة';
+        statusCode = 400;
+      } else if (error.code === '22P02') { // invalid input syntax
+        errorMessage = 'تنسيق البيانات غير صحيح';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // ❌ DELETE endpoint للعمال - حذف عامل مع logging وتحقق من الوجود
+  app.delete("/api/workers/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const workerId = req.params.id;
+      console.log('❌ [API] طلب حذف العامل من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID العامل المراد حذفه:', workerId);
+      
+      if (!workerId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف العامل مطلوب',
+          message: 'لم يتم توفير معرف العامل للحذف',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود العامل أولاً وجلب بياناته للـ logging
+      const existingWorker = await db.select().from(workers).where(eq(workers.id, workerId)).limit(1);
+      
+      if (existingWorker.length === 0) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] العامل غير موجود:', workerId);
+        return res.status(404).json({
+          success: false,
+          error: 'العامل غير موجود',
+          message: `لم يتم العثور على عامل بالمعرف: ${workerId}`,
+          processingTime: duration
+        });
+      }
+      
+      const workerToDelete = existingWorker[0];
+      console.log('🗑️ [API] سيتم حذف العامل:', {
+        id: workerToDelete.id,
+        name: workerToDelete.name,
+        type: workerToDelete.type
+      });
+      
+      // حذف العامل من قاعدة البيانات
+      console.log('🗑️ [API] حذف العامل من قاعدة البيانات...');
+      const deletedWorker = await db
+        .delete(workers)
+        .where(eq(workers.id, workerId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم حذف العامل بنجاح في ${duration}ms:`, {
+        id: deletedWorker[0].id,
+        name: deletedWorker[0].name,
+        type: deletedWorker[0].type
+      });
+      
+      res.json({
+        success: true,
+        data: deletedWorker[0],
+        message: `تم حذف العامل "${deletedWorker[0].name}" (${deletedWorker[0].type}) بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في حذف العامل:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في حذف العامل';
+      let statusCode = 500;
+      
+      if (error.code === '23503') { // foreign key violation
+        errorMessage = 'لا يمكن حذف العامل - مرتبط ببيانات أخرى';
+        statusCode = 409;
+      } else if (error.code === '22P02') { // invalid input syntax
+        errorMessage = 'معرف العامل غير صحيح';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
 
   // Worker types endpoint - إرجاع أنواع العمال بالتنسيق المطلوب
   app.get("/api/worker-types", (req, res) => {

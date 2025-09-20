@@ -106,7 +106,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
 
   const updateMiscExpenseMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<WorkerMiscExpense> }) =>
-      apiRequest(`/api/worker-misc-expenses/${id}`, "PUT", data),
+      apiRequest(`/api/worker-misc-expenses/${id}`, "PATCH", data),
     onSuccess: async () => {
       // حفظ قيم الإكمال التلقائي
       if (miscDescription) await saveAutocompleteValue('workerMiscDescriptions', miscDescription);

@@ -354,6 +354,7 @@ export default function WorkerAttendance() {
           isPresent: true,
           workDays: workDays,
           dailyWage: worker?.dailyWage || "0",
+          totalPay: actualWage.toString(),
           paidAmount: paidAmount.toString(),
           remainingAmount: remainingAmount.toString(),
           paymentType: data.paymentType || "partial",

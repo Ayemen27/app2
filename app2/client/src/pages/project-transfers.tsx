@@ -63,7 +63,7 @@ export default function ProjectTransfers() {
 
   // جلب قائمة عمليات الترحيل
   const { data: transfers = [], isLoading: transfersLoading } = useQuery<ProjectFundTransfer[]>({
-    queryKey: ["/api/project-fund-transfers"],
+    queryKey: ["/api/fund-transfers"],
   });
 
   // إنشاء أو تحديث عملية ترحيل
@@ -76,16 +76,16 @@ export default function ProjectTransfers() {
       ]);
       
       if (editingTransfer) {
-        return apiRequest(`/api/project-fund-transfers/${editingTransfer.id}`, "PUT", data);
+        return apiRequest(`/api/fund-transfers/${editingTransfer.id}`, "PATCH", data);
       }
-      return apiRequest("/api/project-fund-transfers", "POST", data);
+      return apiRequest("/api/fund-transfers", "POST", data);
     },
     onSuccess: async (newTransfer, variables) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       // تحديث فوري للقائمة بدلاً من إعادة التحميل
-      queryClient.setQueryData(["/api/project-fund-transfers"], (oldData: any[]) => {
+      queryClient.setQueryData(["/api/fund-transfers"], (oldData: any[]) => {
         if (!oldData) return [newTransfer];
         
         if (editingTransfer) {
@@ -131,10 +131,10 @@ export default function ProjectTransfers() {
   // حذف عملية ترحيل
   const deleteTransferMutation = useMutation({
     mutationFn: (transferId: string) =>
-      apiRequest(`/api/project-fund-transfers/${transferId}`, "DELETE"),
+      apiRequest(`/api/fund-transfers/${transferId}`, "DELETE"),
     onSuccess: (_, transferId) => {
       // حذف فوري من القائمة
-      queryClient.setQueryData(["/api/project-fund-transfers"], (oldData: any[]) => {
+      queryClient.setQueryData(["/api/fund-transfers"], (oldData: any[]) => {
         if (!oldData) return [];
         return oldData.filter(transfer => transfer.id !== transferId);
       });

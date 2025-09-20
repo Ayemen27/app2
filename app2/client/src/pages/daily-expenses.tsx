@@ -685,7 +685,7 @@ function DailyExpensesContent() {
   // Fund Transfer Update Mutation
   const updateFundTransferMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => 
-      apiRequest(`/api/fund-transfers/${id}`, "PUT", data),
+      apiRequest(`/api/fund-transfers/${id}`, "PATCH", data),
     onSuccess: async (updatedTransfer, { id }) => {
       // تحديث فوري للقائمة
       queryClient.setQueryData(["/api/projects", selectedProjectId, "fund-transfers", selectedDate], (oldData: any[]) => {
@@ -793,7 +793,7 @@ function DailyExpensesContent() {
   // Transportation Update Mutation
   const updateTransportationMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => 
-      apiRequest(`/api/transportation-expenses/${id}`, "PUT", data),
+      apiRequest(`/api/transportation-expenses/${id}`, "PATCH", data),
     onSuccess: async (updatedExpense, { id }) => {
       // تحديث فوري للقائمة
       queryClient.setQueryData(["/api/projects", selectedProjectId, "transportation-expenses", selectedDate], (oldData: any[]) => {

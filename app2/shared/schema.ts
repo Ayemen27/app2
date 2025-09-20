@@ -214,10 +214,14 @@ export const dailyExpenseSummaries = pgTable("daily_expense_summaries", {
   totalWorkerWages: decimal("total_worker_wages", { precision: 10, scale: 2 }).default('0').notNull(),
   totalMaterialCosts: decimal("total_material_costs", { precision: 10, scale: 2 }).default('0').notNull(),
   totalTransportationCosts: decimal("total_transportation_costs", { precision: 10, scale: 2 }).default('0').notNull(),
+  totalWorkerTransfers: decimal("total_worker_transfers", { precision: 10, scale: 2 }).default('0').notNull(),
+  totalWorkerMiscExpenses: decimal("total_worker_misc_expenses", { precision: 10, scale: 2 }).default('0').notNull(),
   totalIncome: decimal("total_income", { precision: 10, scale: 2 }).notNull(),
   totalExpenses: decimal("total_expenses", { precision: 10, scale: 2 }).notNull(),
   remainingBalance: decimal("remaining_balance", { precision: 10, scale: 2 }).notNull(),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Worker types table (أنواع العمال)
@@ -353,7 +357,7 @@ export const insertWorkerBalanceSchema = createInsertSchema(workerBalances).omit
 export const insertProjectFundTransferSchema = createInsertSchema(projectFundTransfers).omit({ id: true, createdAt: true }).extend({
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
 });
-export const insertDailyExpenseSummarySchema = createInsertSchema(dailyExpenseSummaries).omit({ id: true, createdAt: true });
+export const insertDailyExpenseSummarySchema = createInsertSchema(dailyExpenseSummaries).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkerTypeSchema = createInsertSchema(workerTypes).omit({ id: true, createdAt: true, lastUsed: true });
 export const insertAutocompleteDataSchema = createInsertSchema(autocompleteData).omit({ id: true, createdAt: true, lastUsed: true });
 export const insertWorkerMiscExpenseSchema = createInsertSchema(workerMiscExpenses).omit({ id: true, createdAt: true }).extend({

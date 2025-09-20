@@ -2,7 +2,7 @@ import type { Express } from "express";
 import type { Server } from "http";
 import { createServer } from "http";
 import rateLimit from "express-rate-limit";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "./db";
 import { 
   projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
@@ -202,6 +202,209 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: [], 
         error: error.message,
         message: "فشل في جلب قائمة المشاريع مع الإحصائيات" 
+      });
+    }
+  });
+
+  // 📊 GET endpoint للملخص اليومي للمشروع - جلب الملخص المالي ليوم محدد
+  app.get("/api/projects/:id/daily-summary/:date", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { id: projectId, date } = req.params;
+      
+      console.log(`📊 [API] طلب جلب الملخص اليومي للمشروع من المستخدم: ${req.user?.email}`);
+      console.log(`📋 [API] معاملات الطلب: projectId=${projectId}, date=${date}`);
+      
+      // Validation للمعاملات
+      if (!projectId || !date) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] معاملات مطلوبة مفقودة:', { projectId, date });
+        return res.status(400).json({
+          success: false,
+          error: 'معاملات مطلوبة مفقودة',
+          message: 'معرف المشروع والتاريخ مطلوبان',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من صحة تنسيق التاريخ (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] تنسيق التاريخ غير صحيح:', date);
+        return res.status(400).json({
+          success: false,
+          error: 'تنسيق التاريخ غير صحيح',
+          message: 'يجب أن يكون التاريخ بصيغة YYYY-MM-DD',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود المشروع أولاً
+      console.log('🔍 [API] التحقق من وجود المشروع...');
+      const projectExists = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+      
+      if (projectExists.length === 0) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] المشروع غير موجود:', projectId);
+        return res.status(404).json({
+          success: false,
+          error: 'المشروع غير موجود',
+          message: `لم يتم العثور على مشروع بالمعرف: ${projectId}`,
+          processingTime: duration
+        });
+      }
+
+      // محاولة جلب البيانات من Materialized View أولاً (للأداء الأفضل)
+      console.log('💾 [API] جلب الملخص اليومي من قاعدة البيانات...');
+      let dailySummary = null;
+      
+      try {
+        // محاولة استخدام Materialized View للأداء الأفضل
+        console.log('⚡ [API] محاولة جلب البيانات من daily_summary_mv...');
+        const mvResult = await db.execute(sql`
+          SELECT 
+            id,
+            project_id,
+            summary_date,
+            carried_forward_amount,
+            total_fund_transfers,
+            total_worker_wages,
+            total_material_costs,
+            total_transportation_expenses,
+            total_worker_transfers,
+            total_worker_misc_expenses,
+            total_income,
+            total_expenses,
+            remaining_balance,
+            notes,
+            created_at,
+            updated_at,
+            project_name
+          FROM daily_summary_mv 
+          WHERE project_id = ${projectId} AND summary_date = ${date}
+          LIMIT 1
+        `);
+        
+        if (mvResult.rows && mvResult.rows.length > 0) {
+          dailySummary = mvResult.rows[0];
+          console.log('✅ [API] تم جلب البيانات من Materialized View بنجاح');
+        }
+      } catch (mvError) {
+        console.log('⚠️ [API] Materialized View غير متاح، التبديل للجدول العادي...');
+        // Fallback للجدول العادي
+        const regularResult = await db.select({
+          id: dailyExpenseSummaries.id,
+          project_id: dailyExpenseSummaries.projectId,
+          summary_date: dailyExpenseSummaries.date,
+          carried_forward_amount: dailyExpenseSummaries.carriedForwardAmount,
+          total_fund_transfers: dailyExpenseSummaries.totalFundTransfers,
+          total_worker_wages: dailyExpenseSummaries.totalWorkerWages,
+          total_material_costs: dailyExpenseSummaries.totalMaterialCosts,
+          total_transportation_expenses: dailyExpenseSummaries.totalTransportationCosts,
+          total_worker_transfers: sql`COALESCE(${dailyExpenseSummaries.totalWorkerTransfers}, 0)`,
+          total_worker_misc_expenses: sql`COALESCE(${dailyExpenseSummaries.totalWorkerMiscExpenses}, 0)`,
+          total_income: dailyExpenseSummaries.totalIncome,
+          total_expenses: dailyExpenseSummaries.totalExpenses,
+          remaining_balance: dailyExpenseSummaries.remainingBalance,
+          notes: sql`COALESCE(${dailyExpenseSummaries.notes}, '')`,
+          created_at: dailyExpenseSummaries.createdAt,
+          updated_at: sql`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
+          project_name: projects.name
+        })
+        .from(dailyExpenseSummaries)
+        .leftJoin(projects, eq(dailyExpenseSummaries.projectId, projects.id))
+        .where(and(
+          eq(dailyExpenseSummaries.projectId, projectId),
+          eq(dailyExpenseSummaries.date, date)
+        ))
+        .limit(1);
+
+        if (regularResult.length > 0) {
+          dailySummary = regularResult[0];
+          console.log('✅ [API] تم جلب البيانات من الجدول العادي بنجاح');
+        }
+      }
+
+      const duration = Date.now() - startTime;
+
+      if (!dailySummary) {
+        console.log(`📭 [API] لا توجد بيانات ملخص يومي للمشروع ${projectId} في تاريخ ${date}`);
+        return res.status(404).json({
+          success: false,
+          data: null,
+          error: 'لا توجد بيانات',
+          message: `لا يوجد ملخص مالي للمشروع في تاريخ ${date}`,
+          processingTime: duration,
+          metadata: {
+            projectId,
+            date,
+            projectName: projectExists[0].name
+          }
+        });
+      }
+
+      // تنسيق البيانات للإرجاع
+      const formattedSummary = {
+        id: dailySummary.id,
+        projectId: dailySummary.project_id,
+        projectName: dailySummary.project_name || projectExists[0].name,
+        date: dailySummary.summary_date || date,
+        financialSummary: {
+          carriedForwardAmount: parseFloat(String(dailySummary.carried_forward_amount || '0')),
+          totalFundTransfers: parseFloat(String(dailySummary.total_fund_transfers || '0')),
+          totalWorkerWages: parseFloat(String(dailySummary.total_worker_wages || '0')),
+          totalMaterialCosts: parseFloat(String(dailySummary.total_material_costs || '0')),
+          totalTransportationExpenses: parseFloat(String(dailySummary.total_transportation_expenses || '0')),
+          totalWorkerTransfers: parseFloat(String(dailySummary.total_worker_transfers || '0')),
+          totalWorkerMiscExpenses: parseFloat(String(dailySummary.total_worker_misc_expenses || '0')),
+          totalIncome: parseFloat(String(dailySummary.total_income || '0')),
+          totalExpenses: parseFloat(String(dailySummary.total_expenses || '0')),
+          remainingBalance: parseFloat(String(dailySummary.remaining_balance || '0'))
+        },
+        notes: String(dailySummary.notes || ''),
+        createdAt: dailySummary.created_at,
+        updatedAt: dailySummary.updated_at || dailySummary.created_at
+      };
+
+      console.log(`✅ [API] تم جلب الملخص اليومي بنجاح في ${duration}ms:`, {
+        projectId,
+        projectName: formattedSummary.projectName,
+        date,
+        totalIncome: formattedSummary.financialSummary.totalIncome,
+        totalExpenses: formattedSummary.financialSummary.totalExpenses,
+        remainingBalance: formattedSummary.financialSummary.remainingBalance
+      });
+      
+      res.json({
+        success: true,
+        data: formattedSummary,
+        message: `تم جلب الملخص المالي للمشروع "${formattedSummary.projectName}" في تاريخ ${date} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب الملخص اليومي:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في جلب الملخص اليومي';
+      let statusCode = 500;
+      
+      if (error.code === '42P01') { // relation does not exist
+        errorMessage = 'جدول الملخصات اليومية غير موجود';
+        statusCode = 503;
+      } else if (error.code === '22008') { // invalid date format
+        errorMessage = 'تنسيق التاريخ غير صحيح';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        data: null,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
       });
     }
   });

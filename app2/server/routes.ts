@@ -4,7 +4,16 @@ import { createServer } from "http";
 import rateLimit from "express-rate-limit";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
-import { projects, workers, enhancedInsertProjectSchema, enhancedInsertWorkerSchema } from "@shared/schema";
+import { 
+  projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
+  fundTransfers, transportationExpenses, dailyExpenseSummaries, tools, toolMovements,
+  workerTransfers, workerMiscExpenses,
+  enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
+  insertMaterialSchema, insertSupplierSchema, insertMaterialPurchaseSchema,
+  insertWorkerAttendanceSchema, insertFundTransferSchema, insertTransportationExpenseSchema,
+  insertDailyExpenseSummarySchema, insertToolSchema, insertToolMovementSchema,
+  insertWorkerTransferSchema, insertWorkerMiscExpenseSchema
+} from "@shared/schema";
 import { SecureDataFetcher } from "./services/secure-data-fetcher";
 import { requireAuth, requireRole } from "./middleware/auth";
 import { enhancedMigrationJobManager } from "./services/migration-job-manager-enhanced";
@@ -334,6 +343,1543 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(statusCode).json({
         success: false,
         error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📝 POST endpoint للمواد - إضافة مادة جديدة مع validation محسن
+  app.post("/api/materials", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log('📝 [API] طلب إضافة مادة جديدة من المستخدم:', req.user?.email);
+      console.log('📋 [API] بيانات المادة المرسلة:', req.body);
+      
+      // Validation باستخدام insert schema
+      const validationResult = insertMaterialSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation المادة:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات المادة غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات المادة غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation المادة');
+      
+      // إدراج المادة الجديدة في قاعدة البيانات
+      console.log('💾 [API] حفظ المادة في قاعدة البيانات...');
+      const newMaterial = await db.insert(materials).values(validationResult.data).returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم إنشاء المادة بنجاح في ${duration}ms:`, {
+        id: newMaterial[0].id,
+        name: newMaterial[0].name,
+        category: newMaterial[0].category,
+        unit: newMaterial[0].unit
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newMaterial[0],
+        message: `تم إنشاء المادة "${newMaterial[0].name}" (${newMaterial[0].category}) بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في إنشاء المادة:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في إنشاء المادة';
+      let statusCode = 500;
+      
+      if (error.code === '23505') { // duplicate key
+        errorMessage = 'المادة موجودة مسبقاً';
+        statusCode = 409;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات المادة ناقصة';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📝 POST endpoint للموردين - إضافة مورد جديد مع validation محسن
+  app.post("/api/suppliers", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log('📝 [API] طلب إضافة مورد جديد من المستخدم:', req.user?.email);
+      console.log('📋 [API] بيانات المورد المرسلة:', req.body);
+      
+      // Validation باستخدام insert schema
+      const validationResult = insertSupplierSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation المورد:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات المورد غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات المورد غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation المورد');
+      
+      // إدراج المورد الجديد في قاعدة البيانات
+      console.log('💾 [API] حفظ المورد في قاعدة البيانات...');
+      const newSupplier = await db.insert(suppliers).values(validationResult.data).returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم إنشاء المورد بنجاح في ${duration}ms:`, {
+        id: newSupplier[0].id,
+        name: newSupplier[0].name,
+        contactPerson: newSupplier[0].contactPerson
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newSupplier[0],
+        message: `تم إنشاء المورد "${newSupplier[0].name}" بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في إنشاء المورد:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في إنشاء المورد';
+      let statusCode = 500;
+      
+      if (error.code === '23505') { // duplicate key
+        errorMessage = 'اسم المورد موجود مسبقاً';
+        statusCode = 409;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات المورد ناقصة';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📝 POST endpoint لمشتريات المواد - إضافة مشتريات جديدة مع validation محسن
+  app.post("/api/material-purchases", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log('📝 [API] طلب إضافة مشتريات مواد جديدة من المستخدم:', req.user?.email);
+      console.log('📋 [API] بيانات مشتريات المواد المرسلة:', req.body);
+      
+      // Validation باستخدام insert schema
+      const validationResult = insertMaterialPurchaseSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation مشتريات المواد:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات مشتريات المواد غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات مشتريات المواد غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation مشتريات المواد');
+      
+      // إدراج مشتريات المواد الجديدة في قاعدة البيانات
+      console.log('💾 [API] حفظ مشتريات المواد في قاعدة البيانات...');
+      const newPurchase = await db.insert(materialPurchases).values(validationResult.data).returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم إنشاء مشتريات المواد بنجاح في ${duration}ms:`, {
+        id: newPurchase[0].id,
+        projectId: newPurchase[0].projectId,
+        totalAmount: newPurchase[0].totalAmount
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newPurchase[0],
+        message: `تم إنشاء مشتريات المواد بقيمة ${newPurchase[0].totalAmount} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في إنشاء مشتريات المواد:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في إنشاء مشتريات المواد';
+      let statusCode = 500;
+      
+      if (error.code === '23503') { // foreign key violation
+        errorMessage = 'المشروع أو المادة أو المورد المحدد غير موجود';
+        statusCode = 400;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات مشتريات المواد ناقصة';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📝 POST endpoint لحضور العمال - إضافة حضور جديد مع validation محسن
+  app.post("/api/worker-attendance", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log('📝 [API] طلب إضافة حضور عامل جديد من المستخدم:', req.user?.email);
+      console.log('📋 [API] بيانات حضور العامل المرسلة:', req.body);
+      
+      // Validation باستخدام insert schema
+      const validationResult = insertWorkerAttendanceSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation حضور العامل:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات حضور العامل غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات حضور العامل غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation حضور العامل');
+      
+      // إدراج حضور العامل الجديد في قاعدة البيانات
+      console.log('💾 [API] حفظ حضور العامل في قاعدة البيانات...');
+      const newAttendance = await db.insert(workerAttendance).values(validationResult.data).returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم إنشاء حضور العامل بنجاح في ${duration}ms:`, {
+        id: newAttendance[0].id,
+        workerId: newAttendance[0].workerId,
+        date: newAttendance[0].date
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newAttendance[0],
+        message: `تم تسجيل حضور العامل بتاريخ ${newAttendance[0].date} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في إنشاء حضور العامل:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في تسجيل حضور العامل';
+      let statusCode = 500;
+      
+      if (error.code === '23505') { // duplicate key
+        errorMessage = 'تم تسجيل حضور هذا العامل في هذا التاريخ مسبقاً';
+        statusCode = 409;
+      } else if (error.code === '23503') { // foreign key violation
+        errorMessage = 'المشروع أو العامل المحدد غير موجود';
+        statusCode = 400;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات حضور العامل ناقصة';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📝 POST endpoint لتحويلات العهدة - إضافة تحويل جديد مع validation محسن
+  app.post("/api/fund-transfers", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log('📝 [API] طلب إضافة تحويل عهدة جديد من المستخدم:', req.user?.email);
+      console.log('📋 [API] بيانات تحويل العهدة المرسلة:', req.body);
+      
+      // Validation باستخدام insert schema
+      const validationResult = insertFundTransferSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحويل العهدة:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحويل العهدة غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحويل العهدة غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation تحويل العهدة');
+      
+      // إدراج تحويل العهدة الجديد في قاعدة البيانات
+      console.log('💾 [API] حفظ تحويل العهدة في قاعدة البيانات...');
+      const newTransfer = await db.insert(fundTransfers).values(validationResult.data).returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم إنشاء تحويل العهدة بنجاح في ${duration}ms:`, {
+        id: newTransfer[0].id,
+        amount: newTransfer[0].amount,
+        transferType: newTransfer[0].transferType
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newTransfer[0],
+        message: `تم إنشاء تحويل عهدة بقيمة ${newTransfer[0].amount} (${newTransfer[0].transferType}) بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في إنشاء تحويل العهدة:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في إنشاء تحويل العهدة';
+      let statusCode = 500;
+      
+      if (error.code === '23505') { // duplicate key
+        errorMessage = 'رقم التحويل موجود مسبقاً';
+        statusCode = 409;
+      } else if (error.code === '23503') { // foreign key violation
+        errorMessage = 'المشروع المحدد غير موجود';
+        statusCode = 400;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات تحويل العهدة ناقصة';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📝 POST endpoint لمصاريف المواصلات - إضافة مصروف جديد مع validation محسن
+  app.post("/api/transportation-expenses", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log('📝 [API] طلب إضافة مصروف مواصلات جديد من المستخدم:', req.user?.email);
+      console.log('📋 [API] بيانات مصروف المواصلات المرسلة:', req.body);
+      
+      // Validation باستخدام insert schema
+      const validationResult = insertTransportationExpenseSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation مصروف المواصلات:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات مصروف المواصلات غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات مصروف المواصلات غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation مصروف المواصلات');
+      
+      // إدراج مصروف المواصلات الجديد في قاعدة البيانات
+      console.log('💾 [API] حفظ مصروف المواصلات في قاعدة البيانات...');
+      const newExpense = await db.insert(transportationExpenses).values(validationResult.data).returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم إنشاء مصروف المواصلات بنجاح في ${duration}ms:`, {
+        id: newExpense[0].id,
+        amount: newExpense[0].amount,
+        description: newExpense[0].description
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newExpense[0],
+        message: `تم إنشاء مصروف مواصلات بقيمة ${newExpense[0].amount} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في إنشاء مصروف المواصلات:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في إنشاء مصروف المواصلات';
+      let statusCode = 500;
+      
+      if (error.code === '23503') { // foreign key violation
+        errorMessage = 'المشروع أو العامل المحدد غير موجود';
+        statusCode = 400;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات مصروف المواصلات ناقصة';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📝 POST endpoint لملخص المصاريف اليومية - إضافة ملخص جديد مع validation محسن
+  app.post("/api/daily-expense-summaries", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log('📝 [API] طلب إضافة ملخص مصاريف يومية جديد من المستخدم:', req.user?.email);
+      console.log('📋 [API] بيانات ملخص المصاريف اليومية المرسلة:', req.body);
+      
+      // Validation باستخدام insert schema
+      const validationResult = insertDailyExpenseSummarySchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation ملخص المصاريف اليومية:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات ملخص المصاريف اليومية غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات ملخص المصاريف اليومية غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation ملخص المصاريف اليومية');
+      
+      // إدراج ملخص المصاريف اليومية الجديد في قاعدة البيانات
+      console.log('💾 [API] حفظ ملخص المصاريف اليومية في قاعدة البيانات...');
+      const newSummary = await db.insert(dailyExpenseSummaries).values(validationResult.data).returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم إنشاء ملخص المصاريف اليومية بنجاح في ${duration}ms:`, {
+        id: newSummary[0].id,
+        date: newSummary[0].date,
+        totalExpenses: newSummary[0].totalExpenses
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newSummary[0],
+        message: `تم إنشاء ملخص المصاريف اليومية لتاريخ ${newSummary[0].date} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في إنشاء ملخص المصاريف اليومية:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في إنشاء ملخص المصاريف اليومية';
+      let statusCode = 500;
+      
+      if (error.code === '23503') { // foreign key violation
+        errorMessage = 'المشروع المحدد غير موجود';
+        statusCode = 400;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات ملخص المصاريف اليومية ناقصة';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📝 POST endpoint للمعدات (equipment = tools) - إضافة معدة جديدة مع validation محسن
+  app.post("/api/equipment", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log('📝 [API] طلب إضافة معدة جديدة من المستخدم:', req.user?.email);
+      console.log('📋 [API] بيانات المعدة المرسلة:', req.body);
+      
+      // Validation باستخدام insert schema
+      const validationResult = insertToolSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation المعدة:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات المعدة غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات المعدة غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation المعدة');
+      
+      // إدراج المعدة الجديدة في قاعدة البيانات
+      console.log('💾 [API] حفظ المعدة في قاعدة البيانات...');
+      const newEquipment = await db.insert(tools).values(validationResult.data).returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم إنشاء المعدة بنجاح في ${duration}ms:`, {
+        id: newEquipment[0].id,
+        name: newEquipment[0].name,
+        category: newEquipment[0].category
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newEquipment[0],
+        message: `تم إنشاء المعدة "${newEquipment[0].name}" بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في إنشاء المعدة:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في إنشاء المعدة';
+      let statusCode = 500;
+      
+      if (error.code === '23505') { // duplicate key
+        errorMessage = 'اسم المعدة موجود مسبقاً';
+        statusCode = 409;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات المعدة ناقصة';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📝 POST endpoint لتحويلات المعدات - إضافة تحويل معدة جديد مع validation محسن
+  app.post("/api/equipment-transfers", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log('📝 [API] طلب إضافة تحويل معدة جديد من المستخدم:', req.user?.email);
+      console.log('📋 [API] بيانات تحويل المعدة المرسلة:', req.body);
+      
+      // Validation باستخدام insert schema
+      const validationResult = insertToolMovementSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحويل المعدة:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحويل المعدة غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحويل المعدة غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation تحويل المعدة');
+      
+      // إدراج تحويل المعدة الجديد في قاعدة البيانات
+      console.log('💾 [API] حفظ تحويل المعدة في قاعدة البيانات...');
+      const newTransfer = await db.insert(toolMovements).values(validationResult.data).returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم إنشاء تحويل المعدة بنجاح في ${duration}ms:`, {
+        id: newTransfer[0].id,
+        toolId: newTransfer[0].toolId,
+        movementType: newTransfer[0].movementType
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newTransfer[0],
+        message: `تم إنشاء تحويل المعدة بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في إنشاء تحويل المعدة:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في إنشاء تحويل المعدة';
+      let statusCode = 500;
+      
+      if (error.code === '23503') { // foreign key violation
+        errorMessage = 'المعدة أو المشروع المحدد غير موجود';
+        statusCode = 400;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات تحويل المعدة ناقصة';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoint للمواد - تحديث بيانات مادة موجودة مع validation محسن
+  app.patch("/api/materials/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const materialId = req.params.id;
+      console.log('🔄 [API] طلب تحديث المادة من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID المادة:', materialId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!materialId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المادة مطلوب',
+          message: 'لم يتم توفير معرف المادة للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود المادة أولاً
+      const existingMaterial = await db.select().from(materials).where(eq(materials.id, materialId)).limit(1);
+      
+      if (existingMaterial.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'المادة غير موجودة',
+          message: `لم يتم العثور على مادة بالمعرف: ${materialId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertMaterialSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث المادة:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث المادة غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث المادة غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث المادة
+      const updatedMaterial = await db
+        .update(materials)
+        .set(validationResult.data)
+        .where(eq(materials.id, materialId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث المادة بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedMaterial[0],
+        message: `تم تحديث المادة "${updatedMaterial[0].name}" بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث المادة:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث المادة',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoint للموردين - تحديث بيانات مورد موجود مع validation محسن
+  app.patch("/api/suppliers/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const supplierId = req.params.id;
+      console.log('🔄 [API] طلب تحديث المورد من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID المورد:', supplierId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!supplierId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المورد مطلوب',
+          message: 'لم يتم توفير معرف المورد للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود المورد أولاً
+      const existingSupplier = await db.select().from(suppliers).where(eq(suppliers.id, supplierId)).limit(1);
+      
+      if (existingSupplier.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'المورد غير موجود',
+          message: `لم يتم العثور على مورد بالمعرف: ${supplierId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertSupplierSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث المورد:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث المورد غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث المورد غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث المورد
+      const updatedSupplier = await db
+        .update(suppliers)
+        .set(validationResult.data)
+        .where(eq(suppliers.id, supplierId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث المورد بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedSupplier[0],
+        message: `تم تحديث المورد "${updatedSupplier[0].name}" بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث المورد:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث المورد',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoint لمشتريات المواد - تحديث مشتريات موجودة مع validation محسن
+  app.patch("/api/material-purchases/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const purchaseId = req.params.id;
+      console.log('🔄 [API] طلب تحديث مشتريات المواد من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID مشتريات المواد:', purchaseId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!purchaseId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف مشتريات المواد مطلوب',
+          message: 'لم يتم توفير معرف مشتريات المواد للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود مشتريات المواد أولاً
+      const existingPurchase = await db.select().from(materialPurchases).where(eq(materialPurchases.id, purchaseId)).limit(1);
+      
+      if (existingPurchase.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'مشتريات المواد غير موجودة',
+          message: `لم يتم العثور على مشتريات مواد بالمعرف: ${purchaseId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertMaterialPurchaseSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث مشتريات المواد:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث مشتريات المواد غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث مشتريات المواد غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث مشتريات المواد
+      const updatedPurchase = await db
+        .update(materialPurchases)
+        .set(validationResult.data)
+        .where(eq(materialPurchases.id, purchaseId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث مشتريات المواد بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedPurchase[0],
+        message: `تم تحديث مشتريات المواد بقيمة ${updatedPurchase[0].totalAmount} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث مشتريات المواد:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث مشتريات المواد',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoint لحضور العمال - تحديث حضور موجود مع validation محسن
+  app.patch("/api/worker-attendance/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const attendanceId = req.params.id;
+      console.log('🔄 [API] طلب تحديث حضور العامل من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID حضور العامل:', attendanceId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!attendanceId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف حضور العامل مطلوب',
+          message: 'لم يتم توفير معرف حضور العامل للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود حضور العامل أولاً
+      const existingAttendance = await db.select().from(workerAttendance).where(eq(workerAttendance.id, attendanceId)).limit(1);
+      
+      if (existingAttendance.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'حضور العامل غير موجود',
+          message: `لم يتم العثور على حضور عامل بالمعرف: ${attendanceId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertWorkerAttendanceSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث حضور العامل:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث حضور العامل غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث حضور العامل غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث حضور العامل
+      const updatedAttendance = await db
+        .update(workerAttendance)
+        .set(validationResult.data)
+        .where(eq(workerAttendance.id, attendanceId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث حضور العامل بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedAttendance[0],
+        message: `تم تحديث حضور العامل بتاريخ ${updatedAttendance[0].date} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث حضور العامل:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث حضور العامل',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoint لتحويلات العهدة - تحديث تحويل موجود مع validation محسن
+  app.patch("/api/fund-transfers/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const transferId = req.params.id;
+      console.log('🔄 [API] طلب تحديث تحويل العهدة من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID تحويل العهدة:', transferId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!transferId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف تحويل العهدة مطلوب',
+          message: 'لم يتم توفير معرف تحويل العهدة للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود تحويل العهدة أولاً
+      const existingTransfer = await db.select().from(fundTransfers).where(eq(fundTransfers.id, transferId)).limit(1);
+      
+      if (existingTransfer.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'تحويل العهدة غير موجود',
+          message: `لم يتم العثور على تحويل عهدة بالمعرف: ${transferId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertFundTransferSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث تحويل العهدة:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث تحويل العهدة غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث تحويل العهدة غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث تحويل العهدة
+      const updatedTransfer = await db
+        .update(fundTransfers)
+        .set(validationResult.data)
+        .where(eq(fundTransfers.id, transferId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث تحويل العهدة بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedTransfer[0],
+        message: `تم تحديث تحويل العهدة بقيمة ${updatedTransfer[0].amount} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث تحويل العهدة:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث تحويل العهدة',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoint لمصاريف المواصلات - تحديث مصروف موجود مع validation محسن
+  app.patch("/api/transportation-expenses/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const expenseId = req.params.id;
+      console.log('🔄 [API] طلب تحديث مصروف المواصلات من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID مصروف المواصلات:', expenseId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!expenseId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف مصروف المواصلات مطلوب',
+          message: 'لم يتم توفير معرف مصروف المواصلات للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود مصروف المواصلات أولاً
+      const existingExpense = await db.select().from(transportationExpenses).where(eq(transportationExpenses.id, expenseId)).limit(1);
+      
+      if (existingExpense.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'مصروف المواصلات غير موجود',
+          message: `لم يتم العثور على مصروف مواصلات بالمعرف: ${expenseId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertTransportationExpenseSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث مصروف المواصلات:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث مصروف المواصلات غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث مصروف المواصلات غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث مصروف المواصلات
+      const updatedExpense = await db
+        .update(transportationExpenses)
+        .set(validationResult.data)
+        .where(eq(transportationExpenses.id, expenseId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث مصروف المواصلات بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedExpense[0],
+        message: `تم تحديث مصروف المواصلات بقيمة ${updatedExpense[0].amount} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث مصروف المواصلات:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث مصروف المواصلات',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoint لملخص المصاريف اليومية - تحديث ملخص موجود مع validation محسن
+  app.patch("/api/daily-expense-summaries/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const summaryId = req.params.id;
+      console.log('🔄 [API] طلب تحديث ملخص المصاريف اليومية من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID ملخص المصاريف اليومية:', summaryId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!summaryId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف ملخص المصاريف اليومية مطلوب',
+          message: 'لم يتم توفير معرف ملخص المصاريف اليومية للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود ملخص المصاريف اليومية أولاً
+      const existingSummary = await db.select().from(dailyExpenseSummaries).where(eq(dailyExpenseSummaries.id, summaryId)).limit(1);
+      
+      if (existingSummary.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'ملخص المصاريف اليومية غير موجود',
+          message: `لم يتم العثور على ملخص مصاريف يومية بالمعرف: ${summaryId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertDailyExpenseSummarySchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث ملخص المصاريف اليومية:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث ملخص المصاريف اليومية غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث ملخص المصاريف اليومية غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث ملخص المصاريف اليومية
+      const updatedSummary = await db
+        .update(dailyExpenseSummaries)
+        .set(validationResult.data)
+        .where(eq(dailyExpenseSummaries.id, summaryId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث ملخص المصاريف اليومية بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedSummary[0],
+        message: `تم تحديث ملخص المصاريف اليومية لتاريخ ${updatedSummary[0].date} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث ملخص المصاريف اليومية:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث ملخص المصاريف اليومية',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoint للمعدات - تحديث معدة موجودة مع validation محسن
+  app.patch("/api/equipment/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const equipmentId = req.params.id;
+      console.log('🔄 [API] طلب تحديث المعدة من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID المعدة:', equipmentId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!equipmentId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المعدة مطلوب',
+          message: 'لم يتم توفير معرف المعدة للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود المعدة أولاً
+      const existingEquipment = await db.select().from(tools).where(eq(tools.id, equipmentId)).limit(1);
+      
+      if (existingEquipment.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'المعدة غير موجودة',
+          message: `لم يتم العثور على معدة بالمعرف: ${equipmentId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertToolSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث المعدة:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث المعدة غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث المعدة غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث المعدة
+      const updatedEquipment = await db
+        .update(tools)
+        .set(validationResult.data)
+        .where(eq(tools.id, equipmentId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث المعدة بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedEquipment[0],
+        message: `تم تحديث المعدة "${updatedEquipment[0].name}" بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث المعدة:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث المعدة',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoint لتحويلات المعدات - تحديث تحويل معدة موجود مع validation محسن
+  app.patch("/api/equipment-transfers/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const transferId = req.params.id;
+      console.log('🔄 [API] طلب تحديث تحويل المعدة من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID تحويل المعدة:', transferId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!transferId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف تحويل المعدة مطلوب',
+          message: 'لم يتم توفير معرف تحويل المعدة للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود تحويل المعدة أولاً
+      const existingTransfer = await db.select().from(toolMovements).where(eq(toolMovements.id, transferId)).limit(1);
+      
+      if (existingTransfer.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'تحويل المعدة غير موجود',
+          message: `لم يتم العثور على تحويل معدة بالمعرف: ${transferId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertToolMovementSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث تحويل المعدة:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث تحويل المعدة غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث تحويل المعدة غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث تحويل المعدة
+      const updatedTransfer = await db
+        .update(toolMovements)
+        .set(validationResult.data)
+        .where(eq(toolMovements.id, transferId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث تحويل المعدة بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedTransfer[0],
+        message: `تم تحديث تحويل المعدة بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث تحويل المعدة:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث تحويل المعدة',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoint لتحويلات العمال - تحديث تحويل عامل موجود مع validation محسن
+  app.patch("/api/worker-transfers/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const transferId = req.params.id;
+      console.log('🔄 [API] طلب تحديث تحويل العامل من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID تحويل العامل:', transferId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!transferId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف تحويل العامل مطلوب',
+          message: 'لم يتم توفير معرف تحويل العامل للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود تحويل العامل أولاً
+      const existingTransfer = await db.select().from(workerTransfers).where(eq(workerTransfers.id, transferId)).limit(1);
+      
+      if (existingTransfer.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'تحويل العامل غير موجود',
+          message: `لم يتم العثور على تحويل عامل بالمعرف: ${transferId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertWorkerTransferSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث تحويل العامل:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث تحويل العامل غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث تحويل العامل غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث تحويل العامل
+      const updatedTransfer = await db
+        .update(workerTransfers)
+        .set(validationResult.data)
+        .where(eq(workerTransfers.id, transferId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث تحويل العامل بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedTransfer[0],
+        message: `تم تحديث تحويل العامل بقيمة ${updatedTransfer[0].amount} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث تحويل العامل:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث تحويل العامل',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoint للمصاريف المتنوعة للعمال - تحديث مصروف موجود مع validation محسن
+  app.patch("/api/worker-misc-expenses/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const expenseId = req.params.id;
+      console.log('🔄 [API] طلب تحديث المصروف المتنوع للعامل من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID المصروف المتنوع:', expenseId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!expenseId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المصروف المتنوع للعامل مطلوب',
+          message: 'لم يتم توفير معرف المصروف المتنوع للعامل للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود المصروف المتنوع أولاً
+      const existingExpense = await db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.id, expenseId)).limit(1);
+      
+      if (existingExpense.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'المصروف المتنوع للعامل غير موجود',
+          message: `لم يتم العثور على مصروف متنوع للعامل بالمعرف: ${expenseId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertWorkerMiscExpenseSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث المصروف المتنوع للعامل:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث المصروف المتنوع للعامل غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث المصروف المتنوع للعامل غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث المصروف المتنوع للعامل
+      const updatedExpense = await db
+        .update(workerMiscExpenses)
+        .set(validationResult.data)
+        .where(eq(workerMiscExpenses.id, expenseId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث المصروف المتنوع للعامل بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedExpense[0],
+        message: `تم تحديث المصروف المتنوع للعامل بقيمة ${updatedExpense[0].amount} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث المصروف المتنوع للعامل:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث المصروف المتنوع للعامل',
         message: error.message,
         processingTime: duration
       });

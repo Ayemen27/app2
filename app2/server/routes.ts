@@ -156,6 +156,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
       const userId = req.user?.userId || req.user?.email || null;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: "غير مخول - لم يتم العثور على معرف المستخدم",
+          message: "يرجى تسجيل الدخول مرة أخرى"
+        });
+      }
+      
       const { limit, offset, type, unreadOnly, projectId } = req.query;
 
       console.log(`📥 [API] جلب الإشعارات للمستخدم: ${userId}`);
@@ -198,6 +207,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
       const userId = req.user?.userId || req.user?.email || null;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: "غير مخول - لم يتم العثور على معرف المستخدم",
+          message: "يرجى تسجيل الدخول مرة أخرى"
+        });
+      }
+      
       const notificationId = req.params.id;
 
       console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء للمستخدم: ${userId}`);
@@ -226,6 +244,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
       const userId = req.user?.userId || req.user?.email || null;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: "غير مخول - لم يتم العثور على معرف المستخدم",
+          message: "يرجى تسجيل الدخول مرة أخرى"
+        });
+      }
+      
       const notificationId = req.params.id;
 
       console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء (مسار بديل) للمستخدم: ${userId}`);
@@ -254,6 +281,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
       const userId = req.user?.userId || req.user?.email || null;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: "غير مخول - لم يتم العثور على معرف المستخدم",
+          message: "يرجى تسجيل الدخول مرة أخرى"
+        });
+      }
+      
       const projectId = req.body.projectId;
 
       console.log(`✅ [API] تعليم جميع الإشعارات كمقروءة للمستخدم: ${userId}`);
@@ -274,8 +310,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // إنشاء إشعار جديد للاختبار (محمي للمصادقة)
-  app.post("/api/test/notifications/create", requireAuth, async (req, res) => {
+  // إنشاء إشعار جديد للاختبار (محمي للمصادقة والإدارة فقط)
+  app.post("/api/test/notifications/create", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { NotificationService } = await import('./services/NotificationService');
       const notificationService = new NotificationService();
@@ -312,14 +348,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // جلب إحصائيات الإشعارات للاختبار
-  app.get("/api/test/notifications/stats", requireAuth, async (req, res) => {
+  // جلب إحصائيات الإشعارات للاختبار (محمي للإدارة فقط)
+  app.get("/api/test/notifications/stats", requireAuth, requireRole('admin'), async (req, res) => {
     try {
       const { NotificationService } = await import('./services/NotificationService');
       const notificationService = new NotificationService();
       
       // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
       const userId = req.user?.userId || req.user?.email || null;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: "غير مخول - لم يتم العثور على معرف المستخدم",
+          message: "يرجى تسجيل الدخول مرة أخرى"
+        });
+      }
 
       console.log(`📊 [TEST] جلب إحصائيات الإشعارات للمستخدم: ${userId}`);
 

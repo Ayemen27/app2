@@ -304,17 +304,40 @@ router.post('/login', async (req, res) => {
 });
 
 /**
- * تسجيل حساب جديد
+ * تسجيل حساب جديد - محسن مع رسائل خطأ أفضل
  * POST /api/auth/register
  */
 router.post('/register', async (req, res) => {
   try {
+    console.log('📝 [API/register] طلب تسجيل جديد:', { 
+      email: req.body?.email, 
+      hasName: !!req.body?.name,
+      hasPassword: !!req.body?.password
+    });
+
     const validation = registerSchema.safeParse(req.body);
     if (!validation.success) {
+      // تحسين رسائل أخطاء التحقق
+      const friendlyErrors = validation.error.errors.map(error => {
+        const field = error.path.join('.');
+        
+        switch (field) {
+          case 'email':
+            return 'البريد الإلكتروني غير صالح. يرجى إدخال بريد إلكتروني صحيح';
+          case 'password':
+            return 'كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حروف كبيرة وصغيرة وأرقام';
+          case 'name':
+            return 'الاسم مطلوب ويجب أن يكون حرفين على الأقل';
+          default:
+            return error.message;
+        }
+      });
+
       return res.status(400).json({
         success: false,
-        message: 'بيانات غير صالحة',
-        errors: validation.error.errors
+        message: 'يرجى تصحيح البيانات المدخلة',
+        errors: friendlyErrors,
+        details: process.env.NODE_ENV === 'development' ? validation.error.errors : undefined
       });
     }
 
@@ -325,13 +348,32 @@ router.post('/register', async (req, res) => {
     });
 
     const statusCode = result.success ? 201 : 400;
+    
+    console.log(`${result.success ? '✅' : '❌'} [API/register] نتيجة التسجيل:`, {
+      success: result.success,
+      message: result.message,
+      hasUser: !!result.user
+    });
+
     res.status(statusCode).json(result);
 
   } catch (error) {
-    console.error('خطأ في API التسجيل:', error);
+    console.error('❌ [API/register] خطأ في API التسجيل:', error);
+    
+    // رسالة خطأ مفهومة للمستخدم
+    const errorMessage = (error as Error).message;
+    let userFriendlyMessage = 'حدث خطأ أثناء إنشاء الحساب. يرجى المحاولة لاحقاً';
+    
+    if (errorMessage.includes('unique') || errorMessage.includes('duplicate')) {
+      userFriendlyMessage = 'البريد الإلكتروني مستخدم مسبقاً';
+    } else if (errorMessage.includes('connection') || errorMessage.includes('timeout')) {
+      userFriendlyMessage = 'مشكلة في الاتصال بالخادم. يرجى المحاولة لاحقاً';
+    }
+
     res.status(500).json({
       success: false,
-      message: 'حدث خطأ داخلي في الخادم'
+      message: userFriendlyMessage,
+      error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
   }
 });

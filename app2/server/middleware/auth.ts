@@ -38,10 +38,8 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
     ];
 
     // مسارات الاختبار المؤقتة - سيتم إزالتها لاحقاً
-    const tempTestPaths = [
-      '/api/test/notifications/create',
-      '/api/test/notifications/stats'
-    ];
+    // ✅ تم إزالة مسارات الاختبار لإصلاح الثغرة الأمنية - هذه المسارات تحتاج مصادقة
+    const tempTestPaths: string[] = [];
     
     // فحص المسارات العامة والاختبارية المؤقتة
     const isPublicPath = publicOnlyPaths.some(publicPath => 

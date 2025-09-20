@@ -26,6 +26,78 @@ import {
   getUserActiveSessions
 } from './jwt-utils.js';
 
+/**
+ * دالة ذكية لتقسيم الاسم الكامل إلى firstName و lastName
+ * تدعم الأسماء العربية والإنجليزية
+ */
+function parseFullName(fullName: string): { firstName: string; lastName?: string } {
+  if (!fullName || typeof fullName !== 'string') {
+    return { firstName: fullName || '' };
+  }
+
+  // تنظيف الاسم من المساحات الزائدة
+  const cleanName = fullName.trim().replace(/\s+/g, ' ');
+  
+  if (!cleanName) {
+    return { firstName: '' };
+  }
+
+  // تقسيم الاسم إلى كلمات
+  const nameParts = cleanName.split(' ').filter(part => part.length > 0);
+  
+  if (nameParts.length === 0) {
+    return { firstName: cleanName };
+  } else if (nameParts.length === 1) {
+    // اسم واحد فقط
+    return { firstName: nameParts[0] };
+  } else if (nameParts.length === 2) {
+    // اسم أول واسم أخير
+    return { 
+      firstName: nameParts[0], 
+      lastName: nameParts[1] 
+    };
+  } else {
+    // أكثر من كلمتين - الأول يصبح firstName والباقي يصبح lastName
+    return { 
+      firstName: nameParts[0], 
+      lastName: nameParts.slice(1).join(' ') 
+    };
+  }
+}
+
+/**
+ * دالة لتحسين رسائل الخطأ وإخفاء التفاصيل التقنية
+ */
+function createUserFriendlyErrorMessage(error: any): string {
+  if (!error) return 'حدث خطأ غير متوقع';
+  
+  const errorMessage = error.message || error.toString() || '';
+  
+  // أخطاء قاعدة البيانات الشائعة
+  if (errorMessage.includes('unique constraint') || errorMessage.includes('duplicate key')) {
+    return 'البريد الإلكتروني مستخدم مسبقاً. يرجى استخدام بريد إلكتروني آخر';
+  }
+  
+  if (errorMessage.includes('connection') || errorMessage.includes('timeout')) {
+    return 'مشكلة في الاتصال بالخادم. يرجى المحاولة لاحقاً';
+  }
+  
+  if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
+    return 'البيانات المدخلة غير صحيحة. يرجى مراجعة المعلومات المدخلة';
+  }
+  
+  if (errorMessage.includes('password')) {
+    return 'كلمة المرور لا تلبي متطلبات الأمان المطلوبة';
+  }
+  
+  if (errorMessage.includes('email')) {
+    return 'تنسيق البريد الإلكتروني غير صحيح';
+  }
+  
+  // رسالة عامة للأخطاء غير المعروفة
+  return 'حدث خطأ أثناء معالجة طلبك. يرجى المحاولة لاحقاً';
+}
+
 // واجهة طلب تسجيل الدخول
 interface LoginRequest {
   email: string;
@@ -246,90 +318,130 @@ export async function loginUser(request: LoginRequest): Promise<LoginResult> {
 }
 
 /**
- * تسجيل مستخدم جديد
+ * تسجيل مستخدم جديد - محسن مع تقسيم الأسماء ومعالجة الأخطاء
  */
 export async function registerUser(request: RegisterRequest) {
   const { email, password, name, phone, role = 'user', ipAddress, userAgent } = request;
 
   try {
+    console.log('🔧 [Register] بدء عملية تسجيل مستخدم جديد:', { email, hasName: !!name });
+
+    // تقسيم الاسم الكامل إلى firstName و lastName
+    const parsedName = parseFullName(name);
+    console.log('👤 [Register] تم تقسيم الاسم:', parsedName);
+
+    // التحقق من أن الاسم الأول غير فارغ (مطلوب حسب schema)
+    if (!parsedName.firstName || parsedName.firstName.trim().length === 0) {
+      return {
+        success: false,
+        message: 'الاسم الأول مطلوب. يرجى إدخال اسم صحيح',
+        issues: ['الاسم فارغ أو غير صالح']
+      };
+    }
+
     // التحقق من قوة كلمة المرور
     const passwordValidation = validatePasswordStrength(password);
     if (!passwordValidation.isValid) {
       return {
         success: false,
-        message: 'كلمة المرور ضعيفة',
+        message: 'كلمة المرور لا تلبي متطلبات الأمان المطلوبة',
         issues: passwordValidation.issues,
         suggestions: passwordValidation.suggestions
       };
     }
 
-    // التحقق من وجود المستخدم
+    // التحقق من وجود المستخدم مسبقاً
+    console.log('🔍 [Register] التحقق من وجود المستخدم مسبقاً...');
     const existingUser = await db
       .select()
       .from(users)
-      .where(eq(users.email, email))
+      .where(eq(users.email, email.toLowerCase()))
       .limit(1);
 
     if (existingUser.length > 0) {
+      console.log('❌ [Register] البريد الإلكتروني موجود مسبقاً');
       return {
         success: false,
-        message: 'البريد الإلكتروني مستخدم مسبقاً'
+        message: 'البريد الإلكتروني مستخدم مسبقاً. يرجى استخدام بريد إلكتروني آخر أو تسجيل الدخول'
       };
     }
 
     // تشفير كلمة المرور
+    console.log('🔐 [Register] تشفير كلمة المرور...');
     const passwordHash = await hashPassword(password);
 
-    // إنشاء المستخدم
+    // إنشاء المستخدم مع الاسم المقسم
+    console.log('📝 [Register] إنشاء المستخدم في قاعدة البيانات...');
     const newUser = await db
       .insert(users)
       .values({
-        email,
+        email: email.toLowerCase(),
         password: passwordHash,
-        firstName: name,
-        phone,
+        firstName: parsedName.firstName.trim(),
+        lastName: parsedName.lastName?.trim() || null,
+        phone: phone?.trim() || null,
         role,
         isActive: true,
-        emailVerifiedAt: null, // يحتاج التحقق
+        emailVerifiedAt: new Date(), // تفعيل مباشر للتبسيط
       })
       .returning();
 
     const userId = newUser[0].id;
+    console.log('✅ [Register] تم إنشاء المستخدم بنجاح:', { 
+      userId, 
+      firstName: parsedName.firstName, 
+      lastName: parsedName.lastName 
+    });
 
-    // إعدادات الأمان الافتراضية - سيتم إنشاؤها لاحقاً عند الحاجة
-    console.log('✅ تم إنشاء المستخدم:', userId);
-
-    // تفعيل الحساب مباشرة للاختبار
-    await db
-      .update(users)
-      .set({ 
-        emailVerifiedAt: new Date(), // تفعيل مباشر 
-        isActive: true 
-      })
-      .where(eq(users.id, userId));
-
-    console.log('📝 تم تسجيل مستخدم جديد وتفعيله بنجاح');
+    // تسجيل حدث التسجيل في سجل التدقيق
+    await logAuditEvent({
+      userId,
+      action: 'user_registered',
+      resource: 'auth',
+      ipAddress,
+      userAgent,
+      status: 'success',
+      metadata: { 
+        email: email.toLowerCase(),
+        role,
+        registrationMethod: 'standard'
+      }
+    });
 
     return {
       success: true,
-      message: 'تم إنشاء الحساب وتفعيله بنجاح!',
+      message: 'تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول',
       user: {
         id: userId,
-        email,
-        name,
+        email: email.toLowerCase(),
+        name: `${parsedName.firstName} ${parsedName.lastName || ''}`.trim(),
+        firstName: parsedName.firstName,
+        lastName: parsedName.lastName || '',
         role,
       }
     };
 
   } catch (error) {
-    console.error('خطأ في التسجيل:', error);
+    console.error('❌ [Register] خطأ في التسجيل:', error);
     
-    // تسجيل الخطأ في نظام الأخطاء الذكي
-    console.log('❌ خطأ في إنشاء الحساب');
+    // تسجيل الخطأ في سجل التدقيق
+    await logAuditEvent({
+      action: 'user_registration_error',
+      resource: 'auth',
+      ipAddress,
+      userAgent,
+      status: 'error',
+      errorMessage: (error as Error).message,
+      metadata: { email }
+    });
+
+    // استخدام دالة تحسين رسائل الخطأ
+    const userFriendlyMessage = createUserFriendlyErrorMessage(error);
 
     return {
       success: false,
-      message: 'حدث خطأ أثناء إنشاء الحساب'
+      message: userFriendlyMessage,
+      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
     };
   }
 }

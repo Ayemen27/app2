@@ -232,7 +232,7 @@ export const getQueryFn: <T>(options: {
           throw new Error('انتهت مهلة الطلب، يرجى المحاولة مرة أخرى');
         }
         
-        console.error(`❌ [QueryClient] خطأ في ${queryKey.join("/"):}`, error);
+        console.error(`❌ [QueryClient] خطأ في ${queryKey.join("/")}`, error);
         throw error;
       }
       

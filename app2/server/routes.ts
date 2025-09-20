@@ -148,24 +148,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true, data: [], message: "Material purchases endpoint working - NOW SECURED ✅" });
   });
 
-  // جلب الإشعارات - handler بسيط في الذاكرة للتوافق مع frontend
+  // جلب الإشعارات - استخدام NotificationService الحقيقي
   app.get("/api/notifications", requireAuth, async (req, res) => {
     try {
+      const { NotificationService } = await import('./services/NotificationService');
+      const notificationService = new NotificationService();
+      
       const userId = req.user?.id || req.user?.email || 'default';
+      const { limit, offset, type, unreadOnly, projectId } = req.query;
 
       console.log(`📥 [API] جلب الإشعارات للمستخدم: ${userId}`);
 
-      // لا توجد إشعارات حقيقية - النظام لا يستخدم بيانات وهمية
-      const notifications: any[] = [];
+      const result = await notificationService.getUserNotifications(userId, {
+        limit: limit ? parseInt(limit as string) : 50,
+        offset: offset ? parseInt(offset as string) : 0,
+        type: type as string,
+        unreadOnly: unreadOnly === 'true',
+        projectId: projectId as string
+      });
 
-      console.log(`✅ [API] لا توجد إشعارات مخزنة`);
+      console.log(`✅ [API] تم جلب ${result.notifications.length} إشعار للمستخدم ${userId}`);
 
       res.json({
         success: true,
-        data: notifications,
-        count: 0,
-        unreadCount: 0,
-        message: 'لا توجد إشعارات'
+        data: result.notifications,
+        count: result.total,
+        unreadCount: result.unreadCount,
+        message: result.notifications.length > 0 ? 'تم جلب الإشعارات بنجاح' : 'لا توجد إشعارات'
       });
     } catch (error: any) {
       console.error('❌ [API] خطأ في جلب الإشعارات:', error);
@@ -180,15 +189,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // تعليم إشعار كمقروء - handler بسيط للتوافق
+  // تعليم إشعار كمقروء - استخدام NotificationService الحقيقي
   app.post("/api/notifications/:id/read", requireAuth, async (req, res) => {
     try {
+      const { NotificationService } = await import('./services/NotificationService');
+      const notificationService = new NotificationService();
+      
       const userId = req.user?.id || req.user?.email || 'default';
       const notificationId = req.params.id;
 
       console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء للمستخدم: ${userId}`);
 
-      // مؤقتاً - إرجاع نجاح فقط للتوافق مع الواجهة الأمامية
+      await notificationService.markAsRead(notificationId, userId);
+
       res.json({
         success: true,
         message: "تم تعليم الإشعار كمقروء"
@@ -206,12 +219,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // مسار بديل للتوافق مع NotificationCenter.tsx القديم
   app.post("/api/notifications/:id/mark-read", requireAuth, async (req, res) => {
     try {
+      const { NotificationService } = await import('./services/NotificationService');
+      const notificationService = new NotificationService();
+      
       const userId = req.user?.id || req.user?.email || 'default';
       const notificationId = req.params.id;
 
       console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء (مسار بديل) للمستخدم: ${userId}`);
 
-      // مؤقتاً - إرجاع نجاح فقط للتوافق مع الواجهة الأمامية
+      await notificationService.markAsRead(notificationId, userId);
+
       res.json({
         success: true,
         message: "تم تعليم الإشعار كمقروء"
@@ -229,12 +246,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // تعليم جميع الإشعارات كمقروءة
   app.post("/api/notifications/mark-all-read", requireAuth, async (req, res) => {
     try {
+      const { NotificationService } = await import('./services/NotificationService');
+      const notificationService = new NotificationService();
+      
       const userId = req.user?.id || req.user?.email || 'default';
       const projectId = req.body.projectId;
 
       console.log(`✅ [API] تعليم جميع الإشعارات كمقروءة للمستخدم: ${userId}`);
 
-      // مؤقتاً - إرجاع نجاح فقط للتوافق مع الواجهة الأمامية
+      await notificationService.markAllAsRead(userId, projectId);
+
       res.json({
         success: true,
         message: "تم تعليم جميع الإشعارات كمقروءة"
@@ -245,6 +266,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         error: error.message,
         message: "فشل في تعليم الإشعارات كمقروءة"
+      });
+    }
+  });
+
+  // إنشاء إشعار جديد للاختبار (محمي للمصادقة)
+  app.post("/api/test/notifications/create", requireAuth, async (req, res) => {
+    try {
+      const { NotificationService } = await import('./services/NotificationService');
+      const notificationService = new NotificationService();
+      
+      const userId = req.user?.id || req.user?.email || 'default';
+      const { type, title, body, priority, recipients, projectId } = req.body;
+
+      console.log(`🔧 [TEST] إنشاء إشعار اختبار من المستخدم: ${userId}`);
+
+      const notificationData = {
+        type: type || 'announcement',
+        title: title || 'إشعار اختبار',
+        body: body || 'هذا إشعار اختبار لفحص النظام',
+        priority: priority || 3,
+        recipients: recipients || [userId],
+        projectId: projectId || null
+      };
+
+      const notification = await notificationService.createNotification(notificationData);
+
+      res.json({
+        success: true,
+        data: notification,
+        message: "تم إنشاء الإشعار بنجاح"
+      });
+    } catch (error: any) {
+      console.error('❌ [TEST] خطأ في إنشاء الإشعار:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في إنشاء الإشعار"
+      });
+    }
+  });
+
+  // جلب إحصائيات الإشعارات للاختبار
+  app.get("/api/test/notifications/stats", requireAuth, async (req, res) => {
+    try {
+      const { NotificationService } = await import('./services/NotificationService');
+      const notificationService = new NotificationService();
+      
+      const userId = req.user?.id || req.user?.email || 'default';
+
+      console.log(`📊 [TEST] جلب إحصائيات الإشعارات للمستخدم: ${userId}`);
+
+      const stats = await notificationService.getNotificationStats(userId);
+
+      res.json({
+        success: true,
+        data: stats,
+        message: "تم جلب الإحصائيات بنجاح"
+      });
+    } catch (error: any) {
+      console.error('❌ [TEST] خطأ في جلب الإحصائيات:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في جلب الإحصائيات"
       });
     }
   });

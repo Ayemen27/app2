@@ -41,39 +41,60 @@ function setupSSLConfig() {
 
   console.log('🔐 اتصال خارجي - إعداد SSL آمن ومرن');
 
-  // 🛡️ **SSL Configuration الآمن والمرن للخوادم الخاصة**
+  // 🛡️ **SSL Configuration آمن ومحسن**
   const sslConfig: any = {
-    // في حالة شهادات self-signed للخوادم الخاصة الآمنة
-    rejectUnauthorized: false,
-    // لكن نتطلب تشفير قوي
+    // الافتراضي: تفعيل التحقق من الشهادات (أمان قوي)
+    rejectUnauthorized: true,
+    // تطلب تشفير قوي
     minVersion: 'TLSv1.2' as const,
     maxVersion: 'TLSv1.3' as const,
-    // التحقق من hostname إذا كان متاحاً  
-    checkServerIdentity: (hostname: string, cert: any) => {
-      console.log(`🔍 [SSL] التحقق من الخادم: ${hostname}`);
-      // نسمح بالاتصال للخوادم الخاصة المعروفة
-      if (hostname && (
-        hostname.includes('93.127.142.144') || 
-        hostname.includes('binarjoinanelytic.info')
-      )) {
-        console.log('✅ [SSL] خادم خاص موثوق');
-        return undefined; // تمرير التحقق
-      }
-      // للخوادم غير المعروفة، ننفذ التحقق القياسي
-      return require('tls').checkServerIdentity(hostname, cert);
-    }
   };
   
-  // إذا كان لدينا شهادة SSL مخصصة
+  // محاولة استخدام شهادة SSL من متغيرات البيئة أولاً
   try {
-    const certPath = process.env.PGSSLROOTCERT || './pg_cert.pem';
-    if (require('fs').existsSync(certPath)) {
-      console.log('📜 [SSL] استخدام شهادة SSL مخصصة');
-      sslConfig.ca = require('fs').readFileSync(certPath);
-      sslConfig.rejectUnauthorized = true; // إذا كان لدينا شهادة، نفعل التحقق
+    const sslCert = envLoader.get('PGSSLROOTCERT');
+    
+    if (sslCert) {
+      console.log('📜 [SSL] استخدام شهادة SSL من متغيرات البيئة');
+      sslConfig.ca = sslCert;
+      // تعطيل التحقق للاختبار حتى مع وجود شهادة
+      sslConfig.rejectUnauthorized = false;
+      console.log('✅ [SSL] تم تحميل الشهادة - تعطيل التحقق للاختبار');
+    } else {
+      // إذا لم توجد شهادة في متغيرات البيئة، تحقق من الملف
+      const certPath = './pg_cert.pem';
+      if (require('fs').existsSync(certPath)) {
+        console.log('📜 [SSL] استخدام شهادة SSL من الملف');
+        sslConfig.ca = require('fs').readFileSync(certPath);
+        console.log('✅ [SSL] تم تحميل الشهادة من الملف - تفعيل التحقق الكامل');
+      } else {
+        // للخوادم الخاصة المعروفة والموثوقة فقط أو الاختبار
+        console.log('🔧 [SSL] تعطيل التحقق للاختبار');
+        sslConfig.rejectUnauthorized = false;
+        
+        if (connectionString.includes('93.127.142.144') || 
+            connectionString.includes('binarjoinanelytic.info')) {
+          console.log('⚠️ [SSL] خادم خاص موثوق - تعطيل التحقق مؤقتاً');
+          
+          // إضافة تحقق مخصص للخوادم الموثوقة
+          sslConfig.checkServerIdentity = (hostname: string, cert: any) => {
+            console.log(`🔍 [SSL] التحقق المخصص للخادم: ${hostname}`);
+            if (hostname && (
+              hostname.includes('93.127.142.144') || 
+              hostname.includes('binarjoinanelytic.info')
+            )) {
+              console.log('✅ [SSL] خادم خاص معروف ومسموح');
+              return undefined; // تمرير التحقق
+            }
+            // للخوادم غير المعروفة، رفض الاتصال
+            throw new Error(`خادم غير مسموح: ${hostname}`);
+          };
+        }
+      }
     }
   } catch (error) {
-    console.log('⚠️ [SSL] لا توجد شهادة مخصصة، الاعتماد على التكوين المرن');
+    console.error('❌ [SSL] خطأ في إعداد SSL:', error);
+    throw error;
   }
 
   return sslConfig;

@@ -1,20 +1,11 @@
 import { 
   notifications, 
-  notificationQueue, 
   notificationReadStates, 
-  notificationSettings,
-  notificationTemplates,
-  channels,
-  messages,
-  NotificationTypes,
-  NotificationPriority,
-  NotificationStatus,
+  systemNotifications,
   type Notification,
   type InsertNotification,
-  type NotificationSettings as NotificationSettingsType,
-  type InsertNotificationQueue,
-  type NotificationTemplate as DBNotificationTemplate,
-  type InsertNotificationTemplate
+  type SystemNotification,
+  type InsertSystemNotification
 } from "@shared/schema";
 import { db } from "../db";
 import { eq, and, desc, or, inArray, sql } from "drizzle-orm";
@@ -37,16 +28,34 @@ export interface NotificationPayload {
   };
 }
 
-export interface TemplateVariable {
-  name: string;
-  type?: string;
-  required?: boolean;
-  example?: string;
-}
+// تعريف أولويات الإشعارات
+export const NotificationPriority = {
+  INFO: 1,
+  LOW: 2,
+  MEDIUM: 3,
+  HIGH: 4,
+  EMERGENCY: 5,
+} as const;
 
-export interface ExtendedNotificationTemplate extends DBNotificationTemplate {
-  variables?: TemplateVariable[];
-}
+// تعريف أنواع الإشعارات
+export const NotificationTypes = {
+  SYSTEM: 'system',
+  SAFETY: 'safety',
+  TASK: 'task',
+  PAYROLL: 'payroll',
+  ANNOUNCEMENT: 'announcement',
+  MAINTENANCE: 'maintenance',
+  WARRANTY: 'warranty',
+} as const;
+
+// تعريف حالات الإشعارات
+export const NotificationStatus = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  SENT: 'sent',
+  FAILED: 'failed',
+  SKIPPED: 'skipped',
+} as const;
 
 /**
  * خدمة الإشعارات المتكاملة
@@ -89,36 +98,8 @@ export class NotificationService {
       .values(notificationData)
       .returning();
 
-    // إضافة الإشعار إلى طابور الإرسال
-    await this.queueNotification(notification, recipients);
-
     console.log(`✅ تم إنشاء الإشعار: ${notification.id}`);
     return notification;
-  }
-
-  /**
-   * إضافة إشعار إلى طابور الإرسال
-   */
-  private async queueNotification(notification: Notification, recipients: string[]): Promise<void> {
-    const channels = ['push']; // يمكن إضافة email و sms لاحقاً
-    const queueItems: InsertNotificationQueue[] = [];
-
-    for (const userId of recipients) {
-      for (const channel of channels) {
-        queueItems.push({
-          notificationId: notification.id,
-          userId: userId,
-          channel: channel,
-          status: NotificationStatus.PENDING,
-        });
-      }
-    }
-
-    if (queueItems.length > 0) {
-      await db
-        .insert(notificationQueue)
-        .values(queueItems);
-    }
   }
 
   /**
@@ -638,10 +619,7 @@ export class NotificationService {
       .delete(notificationReadStates)
       .where(eq(notificationReadStates.notificationId, notificationId));
 
-    // حذف من طابور الإرسال
-    await db
-      .delete(notificationQueue)
-      .where(eq(notificationQueue.notificationId, notificationId));
+    // ملاحظة: تم تبسيط النظام - لا يوجد طابور إرسال حالياً
 
     // حذف الإشعار
     await db

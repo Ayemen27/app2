@@ -733,17 +733,48 @@ router.post('/logout', requireAuth, async (req: AuthenticatedRequest, res) => {
  */
 router.get('/me', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
+    // استخراج معلومات المستخدم من التوكن
+    const userId = req.user?.userId || '';
+    const email = req.user?.email || '';
+    const role = req.user?.role || 'user';
+    
+    // محاولة جلب بيانات المستخدم الكاملة من قاعدة البيانات
+    let userData = null;
+    try {
+      const userResult = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (userResult.length > 0) {
+        userData = userResult[0];
+      }
+    } catch (dbError) {
+      console.log('⚠️ [API/me] لا يمكن جلب بيانات المستخدم من قاعدة البيانات، استخدام بيانات التوكن');
+    }
+    
+    // تجهيز الاستجابة بالتنسيق المطلوب من AuthProvider
+    const user = {
+      id: userId,
+      email: email,
+      firstName: userData?.firstName || 'مستخدم',
+      lastName: userData?.lastName || '',
+      name: userData ? 
+        `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || email : 
+        email,
+      role: role,
+      mfaEnabled: false // حقل mfaEnabled غير موجود في schema الحالي
+    };
+
+    console.log('✅ [API/me] إرسال بيانات المستخدم:', {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    });
+
     res.json({
       success: true,
-      user: {
-        id: req.user?.userId || '',
-        email: req.user?.email || '',
-        role: req.user?.role || 'user',
-        sessionId: req.user?.sessionId || '',
-      }
+      user: user
     });
   } catch (error) {
-    console.error('خطأ في API معلومات المستخدم:', error);
+    console.error('❌ [API/me] خطأ في API معلومات المستخدم:', error);
     res.status(500).json({
       success: false,
       message: 'حدث خطأ داخلي في الخادم'

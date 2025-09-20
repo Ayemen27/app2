@@ -153,55 +153,87 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     
     async function makeQueryRequest(retryCount = 0): Promise<any> {
-      // إعداد headers مع Authorization
-      const headers: Record<string, string> = {};
-      const accessToken = localStorage.getItem('accessToken');
-      if (accessToken) {
-        headers["Authorization"] = `Bearer ${accessToken}`;
-      }
+      // إعداد timeout للطلب
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      const res = await fetch(queryKey.join("/") as string, {
-        headers,
-        credentials: "include",
-      });
+      try {
+        // إعداد headers مع Authorization
+        const headers: Record<string, string> = {};
+        const accessToken = localStorage.getItem('accessToken');
+        if (accessToken) {
+          headers["Authorization"] = `Bearer ${accessToken}`;
+        }
+
+        console.log(`🔍 [QueryClient] إرسال طلب: ${queryKey.join("/")}`, {
+          hasToken: !!accessToken,
+          tokenPreview: accessToken ? `${accessToken.substring(0, 10)}...` : 'لا يوجد'
+        });
+
+        const res = await fetch(queryKey.join("/") as string, {
+          headers,
+          credentials: "include",
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
 
       // التعامل مع خطأ 401
-      if (res.status === 401) {
-        if (unauthorizedBehavior === "returnNull") {
-          return null as any;
-        }
-        
-        // محاولة تجديد التوكن إذا كانت المحاولة الأولى
-        if (retryCount === 0) {
-          console.log('🔄 محاولة تجديد التوكن في query...');
-          const refreshed = await refreshAuthToken();
-          if (refreshed) {
-            console.log('✅ تم تجديد التوكن، إعادة تشغيل query...');
-            return makeQueryRequest(1);
+        if (res.status === 401) {
+          console.log(`🚫 [QueryClient] رمز 401 لـ ${queryKey.join("/")}`, { retryCount });
+          
+          if (unauthorizedBehavior === "returnNull") {
+            return null as any;
           }
+          
+          // محاولة تجديد التوكن إذا كانت المحاولة الأولى
+          if (retryCount === 0) {
+            console.log('🔄 محاولة تجديد التوكن في query...');
+            const refreshed = await refreshAuthToken();
+            if (refreshed) {
+              console.log('✅ تم تجديد التوكن، إعادة تشغيل query...');
+              return makeQueryRequest(1);
+            }
+          }
+          
+          // إذا فشل التجديد أو كانت محاولة ثانية
+          console.log('❌ فشل التجديد، إعادة توجيه لتسجيل الدخول');
+          window.location.href = '/login';
+          throw new Error('انتهت جلسة المصادقة، يرجى تسجيل الدخول مرة أخرى');
         }
-        
-        // إذا فشل التجديد أو كانت محاولة ثانية
-        window.location.href = '/login';
-        throw new Error('انتهت جلسة المصادقة، يرجى تسجيل الدخول مرة أخرى');
-      }
 
-      await throwIfResNotOk(res);
-      const data = await res.json();
+        await throwIfResNotOk(res);
+        const data = await res.json();
+        
+        console.log(`✅ [QueryClient] استجابة ناجحة لـ ${queryKey.join("/")}:`, {
+          hasData: !!data,
+          dataType: typeof data
+        });
       
       // تسجيل مبسط في بيئة التطوير فقط
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`📊 ${queryKey[0]} - تم استلام البيانات بنجاح`);
-        
-        // إضافة debugging خاص للإشعارات - مع guard للأمان
-        if (typeof queryKey[0] === 'string' && queryKey[0].includes('notifications')) {
-          console.log('🔍 [DEBUG] تفاصيل استجابة الإشعارات:', {
-            dataType: typeof data,
-            isArray: Array.isArray(data),
-            dataKeys: data && typeof data === 'object' ? Object.keys(data) : 'N/A',
-            dataContent: data
-          });
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`📊 ${queryKey[0]} - تم استلام البيانات بنجاح`);
+          
+          // إضافة debugging خاص للإشعارات - مع guard للأمان
+          if (typeof queryKey[0] === 'string' && queryKey[0].includes('notifications')) {
+            console.log('🔍 [DEBUG] تفاصيل استجابة الإشعارات:', {
+              dataType: typeof data,
+              isArray: Array.isArray(data),
+              dataKeys: data && typeof data === 'object' ? Object.keys(data) : 'N/A',
+              dataContent: data
+            });
+          }
         }
+      } catch (error) {
+        clearTimeout(timeoutId);
+        
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log(`⏰ [QueryClient] timeout لـ ${queryKey.join("/")}`);
+          throw new Error('انتهت مهلة الطلب، يرجى المحاولة مرة أخرى');
+        }
+        
+        console.error(`❌ [QueryClient] خطأ في ${queryKey.join("/"):}`, error);
+        throw error;
       }
       
       // حماية إضافية من مشاكل البيانات وإستخراج البيانات الفعلية

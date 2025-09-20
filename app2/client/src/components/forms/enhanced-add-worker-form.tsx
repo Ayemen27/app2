@@ -45,13 +45,37 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
 
   const addWorkerMutation = useMutation({
     mutationFn: async (data: InsertWorker) => {
-      // حفظ القيم في autocomplete_data قبل العملية الأساسية
-      await Promise.all([
-        saveAutocompleteValue('workerNames', data.name),
-        saveAutocompleteValue('workerTypes', data.type)
-      ]);
+      console.log('🔧 [AddWorker] بدء إضافة عامل:', data);
       
-      return apiRequest("/api/workers", "POST", data);
+      try {
+        // التحقق من وجود رمز المصادقة
+        const accessToken = localStorage.getItem('accessToken');
+        console.log('🔑 [AddWorker] فحص رمز المصادقة:', {
+          hasToken: !!accessToken,
+          tokenPreview: accessToken ? `${accessToken.substring(0, 10)}...` : 'لا يوجد'
+        });
+        
+        if (!accessToken) {
+          throw new Error('لا يوجد رمز مصادقة - يرجى تسجيل الدخول مرة أخرى');
+        }
+        
+        // حفظ القيم في autocomplete_data قبل العملية الأساسية
+        console.log('💾 [AddWorker] حفظ في autocomplete...');
+        await Promise.all([
+          saveAutocompleteValue('workerNames', data.name),
+          saveAutocompleteValue('workerTypes', data.type)
+        ]);
+        console.log('✅ [AddWorker] تم حفظ autocomplete');
+        
+        console.log('📤 [AddWorker] إرسال طلب إضافة العامل...');
+        const result = await apiRequest("/api/workers", "POST", data);
+        console.log('✅ [AddWorker] نجح إضافة العامل:', result);
+        
+        return result;
+      } catch (error) {
+        console.error('❌ [AddWorker] خطأ في إضافة العامل:', error);
+        throw error;
+      }
     },
     onSuccess: async (newWorker, variables) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة

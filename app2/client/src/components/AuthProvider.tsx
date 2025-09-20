@@ -5,6 +5,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { registerAuthHelpers } from "../lib/queryClient";
 
 interface User {
   id: string;
@@ -21,6 +22,9 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
+  // ✅ Helper functions لإدارة التوكنات
+  getAccessToken: () => string | null;
+  getRefreshToken: () => string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,6 +47,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const queryClient = useQueryClient();
 
   const isAuthenticated = user !== null;
+
+  // ✅ Helper functions لإدارة التوكنات - مركزية وآمنة
+  const getAccessToken = (): string | null => {
+    return localStorage.getItem('accessToken');
+  };
+
+  const getRefreshToken = (): string | null => {
+    return localStorage.getItem('refreshToken');
+  };
 
   // متغيرات لإدارة Fallback mechanisms
   const [authFailureCount, setAuthFailureCount] = useState(0);
@@ -108,12 +121,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
               console.log(`⚠️ [AuthProvider] فشل التحقق: ${response.status}`);
 
               // ✅ محاولة تجديد التوكن عند 401
-              if (response.status === 401 && refreshToken) {
+              const refreshTokenValue = localStorage.getItem('refreshToken');
+              if (response.status === 401 && refreshTokenValue) {
                 console.log('🔄 [AuthProvider] محاولة تجديد التوكن...');
                 const refreshResponse = await fetch('/api/auth/refresh', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ refreshToken }),
+                  body: JSON.stringify({ refreshToken: refreshTokenValue }),
                   credentials: 'include'
                 });
 
@@ -519,7 +533,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     refreshToken,
+    getAccessToken,
+    getRefreshToken,
   };
+
+  // تسجيل helpers مع queryClient للتوحيد
+  useEffect(() => {
+    registerAuthHelpers({
+      getAccessToken,
+      refreshToken,
+      logout,
+    });
+  }, []);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

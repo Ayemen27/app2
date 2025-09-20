@@ -24,40 +24,36 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-// دالة تجديد التوكن
-async function refreshAuthToken(): Promise<boolean> {
-  try {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) {
-      return false;
-    }
+// ✅ تم نقل إدارة التوكنات إلى AuthProvider - سيتم ربطها لاحقاً
+let authProviderHelpers: {
+  getAccessToken: () => string | null;
+  refreshToken: () => Promise<boolean>;
+  logout: () => Promise<void>;
+} | null = null;
 
-    const response = await fetch('/api/auth/refresh', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refreshToken }),
-    });
+// تسجيل helpers من AuthProvider
+export function registerAuthHelpers(helpers: typeof authProviderHelpers) {
+  authProviderHelpers = helpers;
+}
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data.success && data.tokens) {
-        localStorage.setItem('accessToken', data.tokens.accessToken);
-        localStorage.setItem('refreshToken', data.tokens.refreshToken);
-        return true;
-      }
-    }
-
-    // إذا فشل التجديد، امسح البيانات
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    return false;
-  } catch (error) {
-    console.error('خطأ في تجديد التوكن:', error);
-    return false;
+// دالة مساعدة للحصول على التوكن
+function getStoredAccessToken(): string | null {
+  if (authProviderHelpers) {
+    return authProviderHelpers.getAccessToken();
   }
+  // fallback للتوافق المؤقت
+  return localStorage.getItem('accessToken');
+}
+
+// دالة تجديد التوكن - تستخدم AuthProvider الآن
+async function refreshAuthToken(): Promise<boolean> {
+  if (authProviderHelpers) {
+    return await authProviderHelpers.refreshToken();
+  }
+  
+  // fallback للتوافق المؤقت
+  console.warn('⚠️ AuthProvider helpers غير مسجلة - استخدام fallback');
+  return false;
 }
 
 export async function apiRequest(
@@ -78,7 +74,7 @@ export async function apiRequest(
       }
       
       // إضافة رمز المصادقة إذا كان متوفراً
-      const accessToken = localStorage.getItem('accessToken');
+      const accessToken = getStoredAccessToken();
       if (accessToken) {
         headers["Authorization"] = `Bearer ${accessToken}`;
       }
@@ -100,8 +96,12 @@ export async function apiRequest(
           return makeRequest(1); // إعادة المحاولة مرة واحدة فقط
         } else {
           console.log('❌ فشل في تجديد التوكن');
-          // إعادة توجيه لصفحة تسجيل الدخول
-          window.location.href = '/login';
+          // استخدام logout من AuthProvider
+          if (authProviderHelpers) {
+            await authProviderHelpers.logout();
+          } else {
+            window.location.href = '/login';
+          }
           throw new Error('انتهت جلسة المصادقة، يرجى تسجيل الدخول مرة أخرى');
         }
       }
@@ -160,14 +160,13 @@ export const getQueryFn: <T>(options: {
       try {
         // إعداد headers مع Authorization
         const headers: Record<string, string> = {};
-        const accessToken = localStorage.getItem('accessToken');
+        const accessToken = getStoredAccessToken();
         if (accessToken) {
           headers["Authorization"] = `Bearer ${accessToken}`;
         }
 
         console.log(`🔍 [QueryClient] إرسال طلب: ${queryKey.join("/")}`, {
-          hasToken: !!accessToken,
-          tokenPreview: accessToken ? `${accessToken.substring(0, 10)}...` : 'لا يوجد'
+          hasToken: !!accessToken
         });
 
         const res = await fetch(queryKey.join("/") as string, {

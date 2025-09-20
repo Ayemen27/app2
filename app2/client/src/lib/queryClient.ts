@@ -178,13 +178,18 @@ export const getQueryFn: <T>(options: {
 
         clearTimeout(timeoutId);
 
-      // التعامل مع خطأ 401
+      // التعامل مع خطأ 401 - إظهار السبب الحقيقي
         if (res.status === 401) {
-          console.log(`🚫 [QueryClient] رمز 401 لـ ${queryKey.join("/")}`, { retryCount });
+          console.error(`🚫 [QueryClient] خطأ 401 غير مصرح لـ ${queryKey.join("/")}`, { 
+            retryCount,
+            hasToken: !!localStorage.getItem('accessToken'),
+            queryKey: queryKey.join("/")
+          });
           
-          if (unauthorizedBehavior === "returnNull") {
-            return null as any;
-          }
+          // ❌ إزالة returnNull التي تُخفي الأخطاء الحقيقية
+          // if (unauthorizedBehavior === "returnNull") {
+          //   return null as any;
+          // }
           
           // محاولة تجديد التوكن إذا كانت المحاولة الأولى
           if (retryCount === 0) {
@@ -196,10 +201,9 @@ export const getQueryFn: <T>(options: {
             }
           }
           
-          // إذا فشل التجديد أو كانت محاولة ثانية
-          console.log('❌ فشل التجديد، إعادة توجيه لتسجيل الدخول');
-          window.location.href = '/login';
-          throw new Error('انتهت جلسة المصادقة، يرجى تسجيل الدخول مرة أخرى');
+          // إذا فشل التجديد - إظهار الخطأ الحقيقي بدلاً من إخفاءه
+          console.error('❌ فشل المصادقة - إظهار الخطأ الحقيقي');
+          throw new Error(`خطأ في المصادقة (401): ${queryKey.join("/")} - يرجى تسجيل الدخول مرة أخرى`);
         }
 
         await throwIfResNotOk(res);
@@ -236,35 +240,59 @@ export const getQueryFn: <T>(options: {
         throw error;
       }
       
-      // حماية إضافية من مشاكل البيانات وإستخراج البيانات الفعلية
+      // 🔍 تشخيص مفصل للبيانات المستلمة
+      console.log(`📊 [QueryClient] تحليل البيانات لـ ${queryKey.join("/")}:`, {
+        dataType: typeof data,
+        isObject: data && typeof data === 'object',
+        hasSuccess: data?.success !== undefined,
+        hasDataProperty: data?.data !== undefined,
+        actualDataValue: data?.data,
+        rawData: data
+      });
+
+      // استخراج البيانات الفعلية دون إجبار على مصفوفة فارغة
       if (data && typeof data === 'object') {
         // للتحقق من endpoints الهجرة التي تُرجع objects
         const isMigrationEndpoint = typeof queryKey[0] === 'string' && queryKey[0].includes('migration');
         
         // إذا كانت البيانات في الشكل { success, data, count } (شكل API)
         if (data.success !== undefined && data.data !== undefined) {
+          console.log(`✅ [QueryClient] بيانات API صحيحة لـ ${queryKey.join("/")}:`, {
+            success: data.success,
+            dataExists: data.data !== null,
+            dataType: typeof data.data,
+            isArray: Array.isArray(data.data)
+          });
           
           // لنقاط النهاية الخاصة بالهجرة، نُرجع البيانات كما هي
           if (isMigrationEndpoint) {
             return data.data; // إرجاع البيانات كما هي (object أو array)
           }
           
-          // ✅ إصلاح: عدم إجبار البيانات على أن تكون مصفوفة فقط
-          // إرجاع البيانات الفعلية مهما كان نوعها
-          return data.data !== null ? data.data : [];
+          // ✅ إصلاح جذري: إرجاع البيانات كما هي دون تعديل
+          // إذا كانت null أو undefined فقط، إرجاع مصفوفة فارغة
+          if (data.data === null || data.data === undefined) {
+            console.warn(`⚠️ [QueryClient] البيانات null/undefined لـ ${queryKey.join("/")} - إرجاع مصفوفة فارغة`);
+            return [];
+          }
+          
+          return data.data; // إرجاع البيانات الحقيقية كما هي
         }
         
         // إذا كانت البيانات مصفوفة مباشرة (شكل Replit)
         if (Array.isArray(data)) {
+          console.log(`📋 [QueryClient] مصفوفة مباشرة لـ ${queryKey.join("/")}:`, data.length);
           return data;
         }
         
         // إذا كان لديها خاصية data مباشرة
         if (data.data !== undefined) {
+          console.log(`🔗 [QueryClient] خاصية data مباشرة لـ ${queryKey.join("/")}:`, data.data);
           return data.data !== null ? data.data : [];
         }
       }
       
+      console.log(`🔄 [QueryClient] إرجاع البيانات كما هي لـ ${queryKey.join("/")}:`, data);
       return data;
     }
 

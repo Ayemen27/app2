@@ -59,123 +59,102 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.log('🔍 [AuthProvider] فحص البيانات المحفوظة:', {
           hasUser: !!savedUser,
           hasToken: !!accessToken,
-          userPreview: savedUser ? JSON.parse(savedUser).email : 'غير موجود',
-          authFailureCount
+          userPreview: savedUser ? `${savedUser.substring(0, 50)}...` : 'غير موجود',
+          authFailureCount: authFailureCount
         });
 
+        // ✅ إصلاح: التحقق الدقيق من البيانات المحفوظة
         if (savedUser && accessToken) {
-          console.log('✅ [AuthProvider] تم العثور على بيانات محفوظة، التحقق من صحتها...');
-          
-          // إذا فشلت المصادقة مرات كثيرة، استخدم البيانات المحفوظة مؤقتاً
-          if (authFailureCount >= 3) {
-            console.log('🆘 [AuthProvider] فشل متكرر في المصادقة - استخدام fallback مؤقت');
-            try {
-              const parsedUser = JSON.parse(savedUser);
-              setUser(parsedUser);
-              
-              // محاولة تجديد في الخلفية (غير متزامن)
-              setTimeout(() => {
-                refreshToken(true).then(success => {
-                  if (success) {
-                    console.log('✅ [AuthProvider] تم تجديد الرمز في الخلفية');
-                    setAuthFailureCount(0);
-                  }
-                });
-              }, 2000);
-              
-              return;
-            } catch (error) {
-              console.error('❌ [AuthProvider] خطأ في تحليل البيانات المحفوظة:', error);
-            }
-          }
-
-          // التحقق من صحة الرمز المميز مع النظام المتقدم
+          console.log('📦 [AuthProvider] وُجدت بيانات محفوظة، محاولة التحقق...');
           try {
-            console.log('📡 [AuthProvider] إرسال طلب التحقق إلى /api/auth/me');
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout لبطء الشبكة
+            // محاولة تحليل بيانات المستخدم
+            const parsedUser = JSON.parse(savedUser);
+            console.log('👤 [AuthProvider] تم تحليل بيانات المستخدم:', {
+              id: parsedUser.id,
+              email: parsedUser.email
+            });
 
+            // ✅ التحقق من صحة التوكن مع الخادم
+            console.log('🔍 [AuthProvider] التحقق من صحة التوكن مع الخادم...');
             const response = await fetch('/api/auth/me', {
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
               },
-              signal: controller.signal,
+              credentials: 'include'
             });
 
-            clearTimeout(timeoutId);
-            setLastAuthCheck(new Date());
-
-            console.log('📨 [AuthProvider] استجابة /api/auth/me:', response.status);
+            console.log('📡 [AuthProvider] استجابة التحقق:', {
+              status: response.status,
+              ok: response.ok
+            });
 
             if (response.ok) {
-              const data = await response.json();
-              console.log('📋 [AuthProvider] بيانات المستخدم من API:', data);
-              if (data.success) {
-                console.log('✅ [AuthProvider] تم التحقق بنجاح، حفظ المستخدم:', data.user.email);
-                setUser(data.user);
-                setAuthFailureCount(0); // إعادة تعيين عداد الفشل عند النجاح
-                return;
-              }
-            }
+              const responseData = await response.json();
+              console.log('✅ [AuthProvider] بيانات الاستجابة:', responseData);
 
-            console.log('🔄 [AuthProvider] فشل التحقق، محاولة تجديد الرمز...');
-            // إذا فشل التحقق، محاولة تجديد الرمز
-            const refreshSuccess = await refreshToken();
-            if (!refreshSuccess) {
-              console.log('❌ [AuthProvider] فشل تجديد الرمز');
-              setAuthFailureCount(prev => prev + 1);
-              
-              // Fallback: استخدام البيانات المحفوظة مؤقتاً إذا لم تفشل كثيراً
-              if (authFailureCount < 2) {
-                console.log('🆘 [AuthProvider] استخدام fallback - البيانات المحفوظة مؤقتاً');
-                try {
-                  const parsedUser = JSON.parse(savedUser);
-                  setUser(parsedUser);
-                  return;
-                } catch (error) {
-                  console.error('❌ [AuthProvider] خطأ في تحليل البيانات للـ fallback:', error);
-                }
+              if (responseData.success && responseData.user) {
+                console.log('✅ [AuthProvider] تم التحقق من البيانات بنجاح:', {
+                  userId: responseData.user.id,
+                  email: responseData.user.email
+                });
+                setUser(responseData.user);
+                setLastAuthCheck(new Date());
+                setAuthFailureCount(0); // إعادة تعيين عداد الأخطاء
+              } else {
+                throw new Error('بيانات المستخدم غير صحيحة في الاستجابة');
               }
-              
-              // مسح البيانات فقط بعد فشل متكرر
-              console.log('💥 [AuthProvider] فشل متكرر - مسح البيانات المحفوظة');
-              localStorage.removeItem('user');
-              localStorage.removeItem('accessToken');
-              localStorage.removeItem('refreshToken');
             } else {
-              console.log('✅ [AuthProvider] نجح تجديد الرمز');
-              setAuthFailureCount(0);
+              console.log(`⚠️ [AuthProvider] فشل التحقق: ${response.status}`);
+
+              // ✅ محاولة تجديد التوكن عند 401
+              if (response.status === 401 && refreshToken) {
+                console.log('🔄 [AuthProvider] محاولة تجديد التوكن...');
+                const refreshResponse = await fetch('/api/auth/refresh', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ refreshToken }),
+                  credentials: 'include'
+                });
+
+                if (refreshResponse.ok) {
+                  const refreshData = await refreshResponse.json();
+                  if (refreshData.success && refreshData.tokens) {
+                    console.log('✅ [AuthProvider] تم تجديد التوكن بنجاح');
+                    localStorage.setItem('accessToken', refreshData.tokens.accessToken);
+                    localStorage.setItem('refreshToken', refreshData.tokens.refreshToken);
+                    // تعيين المستخدم مباشرة
+                    setUser(parsedUser);
+                    setAuthFailureCount(0);
+                    return;
+                  }
+                }
+                console.log('❌ [AuthProvider] فشل تجديد التوكن');
+              }
+
+              throw new Error(`HTTP ${response.status}: فشل التحقق من المصادقة`);
             }
           } catch (error) {
-            console.error('❌ [AuthProvider] خطأ في التحقق من الرمز:', error);
-            setAuthFailureCount(prev => prev + 1);
-            
-            // معالجة timeout و network errors بشكل منفصل
-            if (error instanceof Error && error.name === 'AbortError') {
-              console.log('⏰ [AuthProvider] timeout في التحقق الأولي');
-            }
-            
-            // Fallback: استخدام البيانات المحفوظة في حالة خطأ الشبكة
-            if (authFailureCount < 2) {
-              console.log('🆘 [AuthProvider] خطأ شبكة - استخدام fallback');
-              try {
-                const parsedUser = JSON.parse(savedUser);
-                setUser(parsedUser);
-                return;
-              } catch (parseError) {
-                console.error('❌ [AuthProvider] خطأ في تحليل البيانات للـ fallback:', parseError);
-              }
-            }
-            
-            // مسح البيانات فقط بعد فشل متكرر
-            if (authFailureCount >= 2) {
+            console.error('❌ [AuthProvider] خطأ في التحقق من البيانات:', error);
+            const newFailureCount = authFailureCount + 1;
+            setAuthFailureCount(newFailureCount);
+
+            // مسح البيانات إذا تكررت الأخطاء (تساهل أكثر)
+            if (newFailureCount >= 3) {
+              console.log('🧹 [AuthProvider] مسح البيانات بسبب تكرار الأخطاء');
               localStorage.removeItem('user');
               localStorage.removeItem('accessToken');
               localStorage.removeItem('refreshToken');
+              setUser(null);
+            } else {
+              console.log(`⏳ [AuthProvider] إبقاء البيانات، محاولة ${newFailureCount}/3`);
             }
           }
         } else {
-          console.log('ℹ️ [AuthProvider] لا توجد بيانات محفوظة');
+          console.log('ℹ️ [AuthProvider] لا توجد بيانات محفوظة', {
+            hasSavedUser: !!savedUser,
+            hasAccessToken: !!accessToken
+          });
         }
       } catch (error) {
         console.error('❌ [AuthProvider] خطأ عام في تحقق المصادقة:', error);
@@ -287,24 +266,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       console.log('💾 [AuthProvider.login] بدء حفظ البيانات...');
-      
+
       // حفظ المستخدم والتوكين
       setUser(user);
       console.log('✅ [AuthProvider.login] تم تعيين المستخدم في الحالة');
-      
+
       localStorage.setItem('user', JSON.stringify(user));
       console.log('✅ [AuthProvider.login] تم حفظ بيانات المستخدم في localStorage');
-      
+
       localStorage.setItem('accessToken', tokenData);
       console.log('✅ [AuthProvider.login] تم حفظ الرمز المميز');
-      
+
       if (refreshTokenData) {
         localStorage.setItem('refreshToken', refreshTokenData);
         console.log('✅ [AuthProvider.login] تم حفظ رمز التجديد');
       }
 
       console.log('💾 [AuthProvider.login] تم حفظ جميع البيانات بنجاح');
-      
+
       // التحقق من الحفظ
       const savedUser = localStorage.getItem('user');
       const savedToken = localStorage.getItem('accessToken');
@@ -314,14 +293,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         userInState: !!user
       });
       console.log('🔄 [AuthProvider.login] تحديث cache queries');
-      
+
       queryClient.invalidateQueries();
-      
+
       console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');
-      
+
       // إجبار إعادة تقييم حالة المصادقة فوراً
       console.log('🔄 [AuthProvider.login] إجبار تحديث حالة المصادقة...');
-      
+
       // التأكد من أن المكونات الأخرى تتلقى التحديث
       setTimeout(() => {
         console.log('✅ [AuthProvider.login] تم تأكيد حالة المصادقة:', {
@@ -338,7 +317,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         stack: error instanceof Error ? error.stack : undefined,
         name: error instanceof Error ? error.name : 'UnknownError'
       });
-      
+
       // رمي خطأ واضح للمستخدم
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage && errorMessage.includes('غير مكتملة')) {
@@ -355,7 +334,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = async () => {
     try {
       console.log('🚪 [AuthProvider.logout] بدء عملية تسجيل الخروج...');
-      
+
       const accessToken = localStorage.getItem('accessToken');
       if (accessToken) {
         console.log('📤 [AuthProvider.logout] إرسال طلب logout للخادم...');
@@ -365,7 +344,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             'Authorization': `Bearer ${accessToken}`,
           },
         });
-        
+
         if (response.ok) {
           const result = await response.json();
           console.log('✅ [AuthProvider.logout] استجابة logout من الخادم:', result);
@@ -380,19 +359,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.warn('⚠️ [AuthProvider.logout] سنتابع التنظيف المحلي رغم الخطأ');
     } finally {
       console.log('🧹 [AuthProvider.logout] بدء التنظيف المحلي...');
-      
+
       // تنظيف الحالة والتخزين المحلي
       setUser(null);
       console.log('✅ [AuthProvider.logout] تم مسح بيانات المستخدم من الحالة');
-      
+
       localStorage.removeItem('user');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       console.log('✅ [AuthProvider.logout] تم مسح جميع البيانات من localStorage');
-      
+
       queryClient.clear();
       console.log('✅ [AuthProvider.logout] تم مسح cache');
-      
+
       console.log('🎉 [AuthProvider.logout] اكتمل تسجيل الخروج بنجاح');
     }
   };
@@ -414,7 +393,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // تجديد الرمز المميز مع backoff strategy وتحسينات شاملة
   const refreshToken = async (forceRetry: boolean = false): Promise<boolean> => {
     console.log('🔄 [AuthProvider.refreshToken] بدء عملية تجديد الرمز...');
-    
+
     // تجنب محاولات متزامنة متعددة
     if (isRefreshing && !forceRetry) {
       console.log('⏳ [AuthProvider.refreshToken] تجديد جارٍ بالفعل، انتظار...');
@@ -439,7 +418,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // حد أقصى 3 محاولات
       const maxAttempts = 3;
-      
+
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const attemptStartTime = Date.now();
         console.log(`🔄 [AuthProvider.refreshToken] محاولة ${attempt + 1}/${maxAttempts}...`);
@@ -468,18 +447,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (response.ok) {
             const data = await response.json();
             console.log('📦 [AuthProvider.refreshToken] استجابة ناجحة:', { success: data.success, hasTokens: !!data.tokens });
-            
+
             if (data.success && data.tokens) {
               // نجحت العملية - حفظ الرموز الجديدة
               localStorage.setItem('accessToken', data.tokens.accessToken);
               localStorage.setItem('refreshToken', data.tokens.refreshToken);
-              
+
               // إعادة تعيين عداد المحاولات
               setRefreshAttempts(0);
-              
+
               const totalDuration = Date.now() - startTime;
               console.log(`✅ [AuthProvider.refreshToken] نجح التجديد في ${totalDuration}ms بعد ${attempt + 1} محاولة`);
-              
+
               return true;
             }
           }
@@ -487,16 +466,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // فشل HTTP - تحليل السبب
           const errorText = await response.text();
           console.log(`❌ [AuthProvider.refreshToken] فشل HTTP ${response.status}:`, errorText);
-          
+
           // إذا كان 401 أو 403، فالـ refresh token منتهي الصلاحية
           if (response.status === 401 || response.status === 403) {
             console.log('🚫 [AuthProvider.refreshToken] refresh token منتهي الصلاحية - لا فائدة من إعادة المحاولة');
             break; // خروج من حلقة المحاولات
           }
-          
+
         } catch (error) {
           const attemptDuration = Date.now() - attemptStartTime;
-          
+
           if (error instanceof Error) {
             if (error.name === 'AbortError') {
               console.log(`⏰ [AuthProvider.refreshToken] timeout في المحاولة ${attempt + 1} بعد ${attemptDuration}ms`);
@@ -520,7 +499,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setRefreshAttempts(prev => prev + 1);
       const totalDuration = Date.now() - startTime;
       console.log(`❌ [AuthProvider.refreshToken] فشل التجديد نهائياً بعد ${totalDuration}ms و${maxAttempts} محاولات`);
-      
+
       return false;
 
     } catch (error) {

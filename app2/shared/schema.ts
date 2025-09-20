@@ -55,6 +55,7 @@ export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   status: text("status").notNull().default("active"), // active, completed, paused
+  imageUrl: text("image_url"), // صورة المشروع (اختيارية)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -418,7 +419,11 @@ export const enhancedInsertProjectSchema = createInsertSchema(projects).omit({
     .regex(/^[a-zA-Zا-ي0-9\s\-_().]+$/, "اسم المشروع يحتوي على أحرف غير مسموحة"),
   status: z.enum(['active', 'completed', 'paused'], {
     errorMap: () => ({ message: "حالة المشروع يجب أن تكون active أو completed أو paused" })
-  })
+  }),
+  imageUrl: z.string()
+    .url("رابط الصورة غير صحيح")
+    .optional()
+    .or(z.literal(""))
 });
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, createdAt: true });
 export const insertSupplierPaymentSchema = createInsertSchema(supplierPayments).omit({ id: true, createdAt: true }).extend({

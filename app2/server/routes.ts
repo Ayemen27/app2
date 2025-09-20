@@ -155,6 +155,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 📊 GET endpoint للمشاريع مع الإحصائيات
+  app.get("/api/projects/with-stats", requireAuth, async (req, res) => {
+    try {
+      console.log('📊 [API] جلب المشاريع مع الإحصائيات من قاعدة البيانات');
+      
+      // جلب جميع المشاريع أولاً
+      const projectsList = await db.select().from(projects).orderBy(projects.createdAt);
+      
+      // إنشاء إحصائيات لكل مشروع (مبسطة في الوقت الحالي)
+      const projectsWithStats = projectsList.map(project => ({
+        ...project,
+        stats: {
+          totalWorkers: 0,
+          totalExpenses: 0,
+          totalIncome: 0,
+          currentBalance: 0,
+          activeWorkers: 0,
+          completedDays: 0,
+          materialPurchases: 0,
+          lastActivity: project.createdAt.toISOString()
+        }
+      }));
+      
+      console.log(`✅ [API] تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات من قاعدة البيانات`);
+      
+      res.json({ 
+        success: true, 
+        data: projectsWithStats, 
+        message: `تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات بنجاح` 
+      });
+    } catch (error: any) {
+      console.error('❌ [API] خطأ في جلب المشاريع مع الإحصائيات:', error);
+      res.status(500).json({ 
+        success: false, 
+        data: [], 
+        error: error.message,
+        message: "فشل في جلب قائمة المشاريع مع الإحصائيات" 
+      });
+    }
+  });
+
   // 📝 POST endpoint للمشاريع - إضافة مشروع جديد مع validation محسن
   app.post("/api/projects", requireAuth, async (req, res) => {
     const startTime = Date.now();

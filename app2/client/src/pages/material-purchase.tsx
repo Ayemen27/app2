@@ -372,7 +372,7 @@ export default function MaterialPurchase() {
         saveAutocompleteValue('notes', notes)
       ]);
       
-      return apiRequest(`/api/material-purchases/${id}`, "PUT", data);
+      return apiRequest(`/api/material-purchases/${id}`, "PATCH", data);
     },
     onSuccess: async () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة

@@ -699,7 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // إنشاء مهمة اختبار
-      const userId = req.user?.id || null; // استخدام معرف المستخدم الصحيح أو null
+      const userId = req.user?.id || undefined; // استخدام معرف المستخدم الصحيح أو undefined
       const jobId = await enhancedMigrationJobManager.createJob(userId);
       
       // تشغيل اختبار محدود
@@ -772,6 +772,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // إلغاء المهام العالقة قسراً - unlock stuck migration jobs
+  app.post("/api/migration/unlock", migrationRateLimit, requireAuth, async (req, res) => {
+    try {
+      console.log('🔧 طلب إلغاء المهام العالقة قسراً');
+      
+      const result = await enhancedMigrationJobManager.forceUnlockStuckJobs();
+      
+      res.json({
+        success: true,
+        data: result,
+        message: result.unlockedCount > 0 
+          ? `تم إلغاء ${result.unlockedCount} مهمة عالقة بنجاح`
+          : 'لا توجد مهام عالقة'
+      });
+    } catch (error: any) {
+      console.error('❌ خطأ في إلغاء المهام العالقة:', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في إلغاء المهام العالقة'
+      });
+    }
+  });
+
   // بدء مهمة هجرة جديدة (مع rate limiting صارم)
   app.post("/api/migration/start", migrationStartRateLimit, requireAuth, requireRole('admin'), async (req, res) => {
     try {
@@ -788,7 +812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // إنشاء مهمة جديدة مع Enhanced Manager
-      const userId = req.user?.id || null; // استخدام معرف المستخدم الصحيح أو null
+      const userId = req.user?.id || undefined; // استخدام معرف المستخدم الصحيح أو undefined
       const jobId = await enhancedMigrationJobManager.createJob(userId);
       
       // تشغيل المهمة في الخلفية مع التخزين الدائم
@@ -1600,7 +1624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🚀 بدء الهجرة الشاملة لـ ${tables.length} جدول باستخدام MigrationJobManager`);
 
       // إنشاء مهمة جديدة باستخدام MigrationJobManager
-      const userId = req.user?.id || null; // استخدام معرف المستخدم الصحيح أو null
+      const userId = req.user?.id || undefined; // استخدام معرف المستخدم الصحيح أو undefined
       const jobId = await enhancedMigrationJobManager.createJob(userId);
       
       // تشغيل المهمة في الخلفية

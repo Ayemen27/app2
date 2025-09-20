@@ -107,6 +107,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // 🧹 تنظيف المهام العالقة عند بدء التشغيل
+  const { enhancedMigrationJobManager } = await import('./services/migration-job-manager-enhanced');
+  await enhancedMigrationJobManager.startupCleanup();
+  
   const server = await registerRoutes(app);
 
   app.use('/api/auth', authRoutes);

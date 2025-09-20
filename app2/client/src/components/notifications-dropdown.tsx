@@ -51,7 +51,7 @@ export function NotificationsDropdown() {
     queryKey: ['/api/notifications'],
     staleTime: 30000, // 30 ثانية
     retry: 2, // محاولتين إضافيتين
-    refetchInterval: 60000, // تحديث كل دقيقة
+    refetchInterval: false, // تعطيل التحديث التلقائي
     select: (data: any) => {
       // تأكد من أن البيانات مصفوفة من الاستجابة
       if (data && data.success && Array.isArray(data.data)) {

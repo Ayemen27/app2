@@ -15,7 +15,7 @@ import {
   workerAttendance,
   fundTransfers
 } from "../../shared/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface MigrationJob {
   id: string;
@@ -73,8 +73,8 @@ class EnhancedMigrationJobManager {
   private heartbeatInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    // بدء نظام heartbeat للمهام النشطة
-    this.startHeartbeatSystem();
+    // لا نبدأ heartbeat تلقائياً - فقط عند الحاجة
+    // this.startHeartbeatSystem();
   }
 
   private generateJobId(): string {
@@ -88,8 +88,14 @@ class EnhancedMigrationJobManager {
 
   /**
    * نظام Heartbeat للتأكد من أن المهام النشطة لا تزال تعمل
+   * يعمل فقط عند وجود مهام نشطة
    */
   private startHeartbeatSystem(): void {
+    if (this.heartbeatInterval) {
+      return; // تجنب تشغيل متعدد
+    }
+    
+    console.log('🟢 بدء نظام heartbeat للمهام النشطة');
     this.heartbeatInterval = setInterval(async () => {
       if (this.activeJobId) {
         try {
@@ -102,8 +108,22 @@ class EnhancedMigrationJobManager {
         } catch (error: any) {
           console.error('❌ فشل في تحديث heartbeat:', error.message);
         }
+      } else {
+        // لا توجد مهام نشطة - إيقاف heartbeat
+        this.stopHeartbeatSystem();
       }
     }, 30000); // كل 30 ثانية
+  }
+
+  /**
+   * إيقاف نظام heartbeat عندما لا توجد مهام نشطة
+   */
+  private stopHeartbeatSystem(): void {
+    if (this.heartbeatInterval) {
+      console.log('🔴 إيقاف نظام heartbeat - لا توجد مهام نشطة');
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
   }
 
   /**
@@ -120,6 +140,98 @@ class EnhancedMigrationJobManager {
     } catch (error: any) {
       console.error('❌ خطأ في البحث عن المهمة النشطة:', error.message);
       return null;
+    }
+  }
+
+  /**
+   * كشف المهام العالقة بناءً على آخر heartbeat
+   * مهمة تعتبر عالقة إذا كان آخر heartbeat أقدم من 90 ثانية
+   */
+  public async detectStuckJobs(): Promise<DBMigrationJob[]> {
+    try {
+      const stuckJobsThreshold = new Date(Date.now() - 90000); // 90 ثانية
+      
+      const stuckJobs = await db.select()
+        .from(migrationJobs)
+        .where(
+          and(
+            eq(migrationJobs.status, 'running'),
+            // إذا كان lastHeartbeat null أو أقدم من threshold
+            sql`(last_heartbeat IS NULL OR last_heartbeat < ${stuckJobsThreshold})`
+          )
+        );
+      
+      console.log(`🔍 تم العثور على ${stuckJobs.length} مهمة عالقة`);
+      return stuckJobs;
+    } catch (error: any) {
+      console.error('❌ خطأ في كشف المهام العالقة:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * إلغاء المهام العالقة قسراً
+   */
+  public async forceUnlockStuckJobs(): Promise<{ unlockedCount: number; jobIds: string[] }> {
+    try {
+      const stuckJobs = await this.detectStuckJobs();
+      
+      if (stuckJobs.length === 0) {
+        console.log('✅ لا توجد مهام عالقة للإلغاء');
+        return { unlockedCount: 0, jobIds: [] };
+      }
+
+      const jobIds = stuckJobs.map(job => job.id);
+      
+      // إلغاء المهام العالقة
+      await db.transaction(async (tx) => {
+        for (const job of stuckJobs) {
+          await tx.update(migrationJobs)
+            .set({
+              status: 'cancelled',
+              endTime: new Date(),
+              updatedAt: new Date(),
+              errorMessage: 'تم إلغاء المهمة قسراً - مهمة عالقة'
+            })
+            .where(eq(migrationJobs.id, job.id));
+        }
+      });
+
+      // تنظيف التخزين المؤقت
+      for (const jobId of jobIds) {
+        this.jobsCache.delete(jobId);
+      }
+
+      // إيقاف heartbeat إذا كانت المهمة النشطة عالقة
+      if (this.activeJobId && jobIds.includes(this.activeJobId)) {
+        this.activeJobId = null;
+        this.stopHeartbeatSystem();
+      }
+
+      console.log(`🔧 تم إلغاء ${stuckJobs.length} مهمة عالقة قسراً: ${jobIds.join(', ')}`);
+      return { unlockedCount: stuckJobs.length, jobIds };
+    } catch (error: any) {
+      console.error('❌ خطأ في إلغاء المهام العالقة:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * تنظيف تلقائي للمهام العالقة عند بدء التشغيل
+   */
+  public async startupCleanup(): Promise<void> {
+    try {
+      console.log('🧹 بدء التنظيف التلقائي للمهام العالقة...');
+      
+      const result = await this.forceUnlockStuckJobs();
+      
+      if (result.unlockedCount > 0) {
+        console.log(`✅ تم تنظيف ${result.unlockedCount} مهمة عالقة أثناء بدء التشغيل`);
+      } else {
+        console.log('✅ لا توجد مهام عالقة - النظام نظيف');
+      }
+    } catch (error: any) {
+      console.error('❌ فشل في التنظيف التلقائي:', error.message);
     }
   }
 
@@ -192,6 +304,9 @@ class EnhancedMigrationJobManager {
       });
 
       this.activeJobId = jobId;
+      
+      // بدء نظام heartbeat عند إنشاء مهمة جديدة
+      this.startHeartbeatSystem();
       
       // إضافة للتخزين المؤقت
       const job: MigrationJob = {
@@ -466,9 +581,11 @@ class EnhancedMigrationJobManager {
         }
       }
 
-      // إنهاء المهمة النشطة
+      // إنهاء المهمة النشطة وإيقاف heartbeat
       if (this.activeJobId === jobId) {
         this.activeJobId = null;
+        // إيقاف نظام heartbeat عند انتهاء المهمة
+        this.stopHeartbeatSystem();
       }
 
       const duration = job ? endTime.getTime() - job.startTime.getTime() : 0;
@@ -508,8 +625,11 @@ class EnhancedMigrationJobManager {
         job.endTime = endTime;
       }
 
+      // إنهاء المهمة النشطة وإيقاف heartbeat
       if (this.activeJobId === jobId) {
         this.activeJobId = null;
+        // إيقاف نظام heartbeat عند إلغاء المهمة
+        this.stopHeartbeatSystem();
       }
 
       console.log(`⛔ تم إلغاء مهمة الهجرة ${jobId}`);
@@ -862,11 +982,9 @@ class EnhancedMigrationJobManager {
           break;
 
         case 'equipment':
-          existingRecord = await db.select()
-            .from(equipment)
-            .where(eq(equipment.id, row.id))
-            .limit(1);
-          break;
+          // Equipment table not defined in schema - skip for now
+          console.warn('⚠️ [Migration] Equipment table not implemented in schema');
+          return false;
 
         case 'worker_attendance':
           existingRecord = await db.select()
@@ -918,8 +1036,9 @@ class EnhancedMigrationJobManager {
           break;
 
         case 'equipment':
-          await db.insert(equipment).values(cleanedRow);
-          break;
+          // Equipment table not defined in schema - skip for now
+          console.warn('⚠️ [Migration] Equipment table not implemented in schema');
+          throw new Error('Equipment table not available in current schema');
 
         case 'worker_attendance':
           await db.insert(workerAttendance).values(cleanedRow);

@@ -124,29 +124,33 @@ export default function DataMigrationPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [currentMigrationId, setCurrentMigrationId] = useState<string | null>(null);
 
-  // جلب قائمة الجداول المتاحة
+  // جلب قائمة الجداول المتاحة - بدون تحديث تلقائي
   const { data: tablesData, isLoading: tablesLoading, refetch: refetchTables } = useQuery<MigrationTable[]>({
     queryKey: ['/api/migration/tables'],
-    refetchInterval: 30000, // تحديث كل 30 ثانية
+    refetchInterval: false, // إيقاف التحديث التلقائي
+    staleTime: 15 * 60 * 1000, // اعتبار البيانات قديمة بعد 15 دقيقة
   });
 
-  // جلب إحصائيات شاملة
+  // جلب إحصائيات شاملة - بدون تحديث تلقائي
   const { data: generalStats, refetch: refetchGeneralStats } = useQuery<GeneralStats>({
     queryKey: ['/api/migration/general-stats'],
-    refetchInterval: 60000, // تحديث كل دقيقة
+    refetchInterval: false, // إيقاف التحديث التلقائي
+    staleTime: 10 * 60 * 1000, // اعتبار البيانات قديمة بعد 10 دقائق
   });
 
-  // فحص حالة الاتصال بقاعدة البيانات المصدر
+  // فحص حالة الاتصال بقاعدة البيانات المصدر - بدون تحديث تلقائي
   const { data: connectionStatus, refetch: refetchConnection } = useQuery<ConnectionStatus>({
     queryKey: ['/api/migration/connection-status'],
-    refetchInterval: 30000,
+    refetchInterval: false, // إيقاف التحديث التلقائي
+    staleTime: 5 * 60 * 1000, // اعتبار البيانات قديمة بعد 5 دقائق
   });
 
-  // جلب حالة الهجرة الحالية
+  // جلب حالة الهجرة الحالية - تحديث فقط للمهام النشطة
   const { data: migrationStatus, refetch: refetchStatus } = useQuery<MigrationStatus>({
     queryKey: ['/api/migration/status', currentMigrationId],
     enabled: !!currentMigrationId,
-    refetchInterval: 2000, // تحديث كل ثانيتين
+    refetchInterval: currentMigrationId ? 5000 : false, // تحديث كل 5 ثوان فقط للمهام النشطة
+    staleTime: 2000, // اعتبار البيانات قديمة بعد ثانيتين
   });
 
   // Mutations للعمليات

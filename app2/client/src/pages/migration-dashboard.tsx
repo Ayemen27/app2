@@ -64,35 +64,40 @@ export default function MigrationDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // جلب قائمة جميع المهام
-  const { data: jobsData, isLoading: jobsLoading } = useQuery({
+  // جلب قائمة جميع المهام - بدون تحديث تلقائي
+  const { data: jobsData, isLoading: jobsLoading, refetch: refetchJobs } = useQuery({
     queryKey: ['/api/migration/jobs'],
-    refetchInterval: 15000, // تحديث كل 15 ثانية للمراقبة الحية
+    refetchInterval: false, // إيقاف التحديث التلقائي
+    staleTime: 5 * 60 * 1000, // اعتبار البيانات قديمة بعد 5 دقائق
   });
 
-  // جلب الإحصائيات العامة من Supabase
-  const { data: generalStats, isLoading: statsLoading } = useQuery({
+  // جلب الإحصائيات العامة من Supabase - بدون تحديث تلقائي
+  const { data: generalStats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['/api/migration/general-stats'],
-    refetchInterval: 30000, // تحديث كل 30 ثانية
+    refetchInterval: false, // إيقاف التحديث التلقائي
+    staleTime: 10 * 60 * 1000, // اعتبار البيانات قديمة بعد 10 دقائق
   });
 
-  // جلب قائمة الجداول مع التفاصيل
-  const { data: tablesData, isLoading: tablesLoading } = useQuery({
+  // جلب قائمة الجداول مع التفاصيل - بدون تحديث تلقائي
+  const { data: tablesData, isLoading: tablesLoading, refetch: refetchTables } = useQuery({
     queryKey: ['/api/migration/tables'],
-    refetchInterval: 30000, // تحديث كل 30 ثانية
+    refetchInterval: false, // إيقاف التحديث التلقائي
+    staleTime: 15 * 60 * 1000, // اعتبار البيانات قديمة بعد 15 دقيقة
   });
 
-  // جلب حالة الاتصال
-  const { data: connectionStatus } = useQuery({
+  // جلب حالة الاتصال - بدون تحديث تلقائي
+  const { data: connectionStatus, refetch: refetchConnection } = useQuery({
     queryKey: ['/api/migration/connection-status'],
-    refetchInterval: 60000, // تحديث كل دقيقة
+    refetchInterval: false, // إيقاف التحديث التلقائي
+    staleTime: 5 * 60 * 1000, // اعتبار البيانات قديمة بعد 5 دقائق
   });
 
-  // جلب حالة المهمة النشطة
-  const { data: activeJobData, isLoading: activeJobLoading } = useQuery({
+  // جلب حالة المهمة النشطة - تحديث فقط للمهام النشطة
+  const { data: activeJobData, isLoading: activeJobLoading, refetch: refetchActiveJob } = useQuery({
     queryKey: ['/api/migration/status', activeJobId],
     enabled: !!activeJobId,
-    refetchInterval: 15000, // تحديث كل 15 ثانية لتقليل الحمولة
+    refetchInterval: activeJobId ? 10000 : false, // تحديث كل 10 ثوان فقط للمهام النشطة
+    staleTime: 5000, // اعتبار البيانات قديمة بعد 5 ثوان للمهام النشطة
   });
 
   // متابعة المهمة النشطة تلقائياً
@@ -257,7 +262,7 @@ export default function MigrationDashboard() {
               نظام مراقبة متقدم للهجرة الآمنة من Supabase
             </p>
           </div>
-          {connectionStatus?.data?.connected && (
+          {(connectionStatus as any)?.data?.connected && (
             <Badge className="bg-green-500 text-white animate-pulse">
               <Activity className="w-3 h-3 mr-1" />
               متصل
@@ -334,7 +339,7 @@ export default function MigrationDashboard() {
       </div>
 
       {/* إحصائيات Supabase الحية */}
-      {(generalStats?.data || statsLoading) && (
+      {((generalStats as any)?.data || statsLoading) && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 border-blue-200 dark:border-blue-700">
             <CardHeader className="pb-2">
@@ -347,7 +352,7 @@ export default function MigrationDashboard() {
                 {statsLoading ? (
                   <div className="animate-pulse bg-blue-200 dark:bg-blue-700 h-8 w-16 rounded" />
                 ) : (
-                  formatNumber(generalStats?.data?.totalTables || 0)
+                  formatNumber((generalStats as any)?.data?.totalTables || 0)
                 )}
               </div>
               <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
@@ -367,7 +372,7 @@ export default function MigrationDashboard() {
                 {statsLoading ? (
                   <div className="animate-pulse bg-green-200 dark:bg-green-700 h-8 w-20 rounded" />
                 ) : (
-                  formatNumber(generalStats?.data?.totalEstimatedRows || 0)
+                  formatNumber((generalStats as any)?.data?.totalEstimatedRows || 0)
                 )}
               </div>
               <p className="text-xs text-green-600 dark:text-green-300 mt-1">
@@ -384,7 +389,7 @@ export default function MigrationDashboard() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                {connectionStatus?.data?.connected ? (
+                {(connectionStatus as any)?.data?.connected ? (
                   <>
                     <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
                     <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
@@ -473,7 +478,7 @@ export default function MigrationDashboard() {
                   setBatchSize(10);
                   handleStartMigration();
                 }}
-                disabled={startMigrationMutation.isPending || (currentJob && currentJob.status === 'running')}
+                disabled={startMigrationMutation.isPending || !!(currentJob && currentJob.status === 'running')}
                 className="bg-yellow-600 hover:bg-yellow-700 text-white"
                 data-testid="button-start-smoke-test"
               >

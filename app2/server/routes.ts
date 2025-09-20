@@ -3,7 +3,7 @@ import type { Server } from "http";
 import { createServer } from "http";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { projects, workers } from "@shared/schema";
+import { projects, workers, enhancedInsertProjectSchema, enhancedInsertWorkerSchema } from "@shared/schema";
 import { SecureDataFetcher } from "./services/secure-data-fetcher";
 import { requireAuth, requireRole } from "./middleware/auth";
 import { enhancedMigrationJobManager } from "./services/migration-job-manager-enhanced";
@@ -151,6 +151,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: [], 
         error: error.message,
         message: "فشل في جلب قائمة العمال" 
+      });
+    }
+  });
+
+  // 📝 POST endpoint للمشاريع - إضافة مشروع جديد مع validation محسن
+  app.post("/api/projects", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log('📝 [API] طلب إضافة مشروع جديد من المستخدم:', req.user?.email);
+      console.log('📋 [API] بيانات المشروع المرسلة:', req.body);
+      
+      // Validation باستخدام enhanced schema
+      const validationResult = enhancedInsertProjectSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation المشروع:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات المشروع غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات المشروع غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation المشروع');
+      
+      // إدراج المشروع الجديد في قاعدة البيانات
+      console.log('💾 [API] حفظ المشروع في قاعدة البيانات...');
+      const newProject = await db.insert(projects).values(validationResult.data).returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم إنشاء المشروع بنجاح في ${duration}ms:`, {
+        id: newProject[0].id,
+        name: newProject[0].name,
+        status: newProject[0].status
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newProject[0],
+        message: `تم إنشاء المشروع "${newProject[0].name}" بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في إنشاء المشروع:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في إنشاء المشروع';
+      let statusCode = 500;
+      
+      if (error.code === '23505') { // duplicate key
+        errorMessage = 'اسم المشروع موجود مسبقاً';
+        statusCode = 409;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات المشروع ناقصة';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 👷 POST endpoint للعمال - إضافة عامل جديد مع validation محسن
+  app.post("/api/workers", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log('👷 [API] طلب إضافة عامل جديد من المستخدم:', req.user?.email);
+      console.log('📋 [API] بيانات العامل المرسلة:', req.body);
+      
+      // Validation باستخدام enhanced schema
+      const validationResult = enhancedInsertWorkerSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation العامل:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات العامل غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات العامل غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+      
+      console.log('✅ [API] نجح validation العامل');
+      
+      // إدراج العامل الجديد في قاعدة البيانات
+      console.log('💾 [API] حفظ العامل في قاعدة البيانات...');
+      const newWorker = await db.insert(workers).values(validationResult.data).returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم إنشاء العامل بنجاح في ${duration}ms:`, {
+        id: newWorker[0].id,
+        name: newWorker[0].name,
+        type: newWorker[0].type,
+        dailyWage: newWorker[0].dailyWage
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newWorker[0],
+        message: `تم إنشاء العامل "${newWorker[0].name}" (${newWorker[0].type}) بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في إنشاء العامل:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في إنشاء العامل';
+      let statusCode = 500;
+      
+      if (error.code === '23505') { // duplicate key
+        errorMessage = 'اسم العامل موجود مسبقاً';
+        statusCode = 409;
+      } else if (error.code === '23502') { // not null violation
+        errorMessage = 'بيانات العامل ناقصة';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
       });
     }
   });

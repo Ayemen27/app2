@@ -2,7 +2,7 @@ import type { Express } from "express";
 import type { Server } from "http";
 import { createServer } from "http";
 import rateLimit from "express-rate-limit";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, gte, lt } from "drizzle-orm";
 import { db } from "./db";
 import { 
   projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
@@ -1260,7 +1260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectInfo
       ] = await Promise.all([
         db.select().from(fundTransfers)
-          .where(and(eq(fundTransfers.projectId, projectId), sql`DATE(${fundTransfers.transferDate}) = ${date}`)),
+          .where(and(eq(fundTransfers.projectId, projectId), gte(fundTransfers.transferDate, sql`${date}::date`), lt(fundTransfers.transferDate, sql`(${date}::date + interval '1 day')`))),
         db.select({
           id: workerAttendance.id,
           workerId: workerAttendance.workerId,
@@ -1275,11 +1275,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
         .where(and(eq(workerAttendance.projectId, projectId), eq(workerAttendance.date, date))),
         db.select().from(materialPurchases)
-          .where(and(eq(materialPurchases.projectId, projectId), sql`DATE(${materialPurchases.purchaseDate}) = ${date}`)),
+          .where(and(eq(materialPurchases.projectId, projectId), gte(materialPurchases.purchaseDate, sql`${date}::date`), lt(materialPurchases.purchaseDate, sql`(${date}::date + interval '1 day')`))),
         db.select().from(transportationExpenses)
-          .where(and(eq(transportationExpenses.projectId, projectId), sql`DATE(${transportationExpenses.date}) = ${date}`)),
+          .where(and(eq(transportationExpenses.projectId, projectId), gte(transportationExpenses.date, sql`${date}::date`), lt(transportationExpenses.date, sql`(${date}::date + interval '1 day')`))),
         db.select().from(workerTransfers)
-          .where(and(eq(workerTransfers.projectId, projectId), sql`DATE(${workerTransfers.transferDate}) = ${date}`)),
+          .where(and(eq(workerTransfers.projectId, projectId), gte(workerTransfers.transferDate, sql`${date}::date`), lt(workerTransfers.transferDate, sql`(${date}::date + interval '1 day')`))),
         db.select().from(workerMiscExpenses)
           .where(and(eq(workerMiscExpenses.projectId, projectId), eq(workerMiscExpenses.date, date))),
         db.select().from(projects).where(eq(projects.id, projectId)).limit(1)

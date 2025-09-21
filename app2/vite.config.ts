@@ -9,6 +9,19 @@ export default defineConfig({
     outDir: '../dist/public',
     emptyOutDir: true,
     target: 'es2020',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-toast'],
+          charts: ['recharts'],
+          excel: ['exceljs'],
+          query: ['@tanstack/react-query'],
+          router: ['wouter']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
   },
   resolve: {
     alias: {

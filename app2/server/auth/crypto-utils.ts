@@ -96,7 +96,7 @@ export function encryptSensitiveData(data: string): {
     const iv = crypto.randomBytes(16);
     // إنشاء مفتاح ثابت 256-بت من ENCRYPTION_KEY
     const key = crypto.pbkdf2Sync(CRYPTO_CONFIG.encryptionKey, 'construction-salt-2025', 100000, 32, 'sha256');
-    const cipher = crypto.createCipherGCM('aes-256-gcm', key, iv);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
     
     let encrypted = cipher.update(data, 'utf8', 'hex');
     encrypted += cipher.final('hex');
@@ -121,7 +121,7 @@ export function decryptSensitiveData(encrypted: string, iv: string, authTag: str
   try {
     // إنشاء نفس المفتاح المستخدم في التشفير
     const key = crypto.pbkdf2Sync(CRYPTO_CONFIG.encryptionKey, 'construction-salt-2025', 100000, 32, 'sha256');
-    const decipher = crypto.createDecipherGCM('aes-256-gcm', key, Buffer.from(iv, 'hex'));
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'hex'));
     
     decipher.setAuthTag(Buffer.from(authTag, 'hex'));
     

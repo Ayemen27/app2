@@ -13,6 +13,8 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("admin"), // admin, manager, user
   isActive: boolean("is_active").default(true).notNull(),
   lastLogin: timestamp("last_login"),
+  totpSecret: text("totp_secret"), // TOTP secret for 2FA
+  mfaEnabled: boolean("mfa_enabled").default(false).notNull(), // Multi-factor authentication enabled
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -87,18 +89,25 @@ export const workerAttendance = pgTable("worker_attendance", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id),
   workerId: varchar("worker_id").notNull().references(() => workers.id),
-  date: text("attendance_date").notNull(), // YYYY-MM-DD format
+  attendanceDate: text("attendance_date").notNull(), // YYYY-MM-DD format
+  date: text("date"), // عمود إضافي للتاريخ - nullable
   startTime: text("start_time"), // HH:MM format
   endTime: text("end_time"), // HH:MM format
   workDescription: text("work_description"),
-  isPresent: boolean("is_present").notNull(),
-  workDays: decimal("work_days", { precision: 3, scale: 2 }).notNull().default('1.00'), // عدد أيام العمل (مثل 0.5، 1.0، 1.5)
+  isPresent: boolean("is_present"), // nullable في قاعدة البيانات
+  // أعمدة قديمة موجودة في قاعدة البيانات
+  hoursWorked: decimal("hours_worked", { precision: 5, scale: 2 }).default('8.00'),
+  overtime: decimal("overtime", { precision: 5, scale: 2 }).default('0.00'),
+  overtimeRate: decimal("overtime_rate", { precision: 10, scale: 2 }).default('0.00'),
+  // أعمدة جديدة
+  workDays: decimal("work_days", { precision: 3, scale: 2 }).default('1.00'), // عدد أيام العمل (مثل 0.5، 1.0، 1.5)
   dailyWage: decimal("daily_wage", { precision: 10, scale: 2 }).notNull(), // الأجر اليومي الكامل
-  actualWage: decimal("actual_wage", { precision: 10, scale: 2 }).notNull(), // الأجر الفعلي = dailyWage * workDays
+  actualWage: decimal("actual_wage", { precision: 10, scale: 2 }), // الأجر الفعلي = dailyWage * workDays - nullable في قاعدة البيانات
   totalPay: decimal("total_pay", { precision: 10, scale: 2 }).notNull(), // إجمالي الدفع المطلوب = actualWage
-  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0').notNull(), // المبلغ المدفوع فعلياً (الصرف)
-  remainingAmount: decimal("remaining_amount", { precision: 10, scale: 2 }).default('0').notNull(), // المتبقي في حساب العامل
-  paymentType: text("payment_type").notNull().default("partial"), // "full" | "partial" | "credit"
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0'), // المبلغ المدفوع فعلياً (الصرف) - nullable في قاعدة البيانات
+  remainingAmount: decimal("remaining_amount", { precision: 10, scale: 2 }).default('0'), // المتبقي في حساب العامل - nullable في قاعدة البيانات
+  paymentType: text("payment_type").default("partial"), // "full" | "partial" | "credit" - nullable في قاعدة البيانات
+  notes: text("notes"), // ملاحظات
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   // قيد فريد لمنع تسجيل حضور مكرر لنفس العامل في نفس اليوم
@@ -135,14 +144,16 @@ export const materialPurchases = pgTable("material_purchases", {
   supplierId: varchar("supplier_id").references(() => suppliers.id), // ربط بالمورد
   materialName: text("material_name").notNull(), // اسم المادة بدلاً من materialId
   quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
+  unit: text("unit").notNull(), // وحدة القياس - موجودة في قاعدة البيانات
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   purchaseType: text("purchase_type").notNull().default("نقد"), // نقد، أجل
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0').notNull(), // المبلغ المدفوع
   remainingAmount: decimal("remaining_amount", { precision: 10, scale: 2 }).default('0').notNull(), // المتبقي
   supplierName: text("supplier_name"), // اسم المورد (للتوافق العكسي)
+  receiptNumber: text("receipt_number"), // رقم الإيصال - موجود في قاعدة البيانات
   invoiceNumber: text("invoice_number"),
-  invoiceDate: text("invoice_date").notNull(), // تاريخ الفاتورة - YYYY-MM-DD format
+  invoiceDate: text("invoice_date"), // تاريخ الفاتورة - YYYY-MM-DD format - nullable في قاعدة البيانات
   dueDate: text("due_date"), // تاريخ الاستحقاق للفواتير الآجلة - YYYY-MM-DD format
   invoicePhoto: text("invoice_photo"), // base64 or file path
   notes: text("notes"),
@@ -328,15 +339,21 @@ export const insertFundTransferSchema = createInsertSchema(fundTransfers).omit({
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
   transferDate: z.coerce.date(), // تحويل string إلى Date تلقائياً
 });
-export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance).omit({ id: true, createdAt: true, actualWage: true }).extend({
+export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance).omit({ id: true, createdAt: true }).extend({
+  attendanceDate: z.string(), // اسم الحقل الصحيح
   workDays: z.number().min(0.1).max(2.0).default(1.0), // عدد أيام العمل من 0.1 إلى 2.0
   dailyWage: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
-  paidAmount: z.coerce.string().optional(), // تحويل إلى string للتوافق مع نوع decimal
-  remainingAmount: z.coerce.string().optional(), // تحويل إلى string للتوافق مع نوع decimal
+  actualWage: z.coerce.string().optional(), // nullable في قاعدة البيانات
+  paidAmount: z.coerce.string().optional(), // تحويل إلى string للتوافق مع نوع decimal - nullable
+  remainingAmount: z.coerce.string().optional(), // تحويل إلى string للتوافق مع نوع decimal - nullable
+  hoursWorked: z.coerce.string().optional(), // الأعمدة القديمة - اختيارية
+  overtime: z.coerce.string().optional(), // الأعمدة القديمة - اختيارية
+  overtimeRate: z.coerce.string().optional(), // الأعمدة القديمة - اختيارية
 });
 export const insertMaterialSchema = createInsertSchema(materials).omit({ id: true, createdAt: true });
 export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({ id: true, createdAt: true }).extend({
   quantity: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
+  unit: z.string(), // وحدة القياس المطلوبة
   unitPrice: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
   totalAmount: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
   purchaseType: z.string().default("نقد"), // قيمة افتراضية للنوع

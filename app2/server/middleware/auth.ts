@@ -37,6 +37,9 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
       '/api/worker-types' // قائمة أنواع العمال فقط - بيانات غير حساسة
     ];
 
+    // HEAD requests للفحص لا تحتاج مصادقة
+    const isHeadRequestForAutocomplete = method === 'HEAD' && path === '/api/autocomplete';
+
     // مسارات الاختبار المؤقتة - سيتم إزالتها لاحقاً
     // ✅ تم إزالة مسارات الاختبار لإصلاح الثغرة الأمنية - هذه المسارات تحتاج مصادقة
     const tempTestPaths: string[] = [];
@@ -50,7 +53,7 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
       path === testPath || path.startsWith(testPath)
     );
     
-    if (isPublicPath || isTempTestPath) {
+    if (isPublicPath || isTempTestPath || isHeadRequestForAutocomplete) {
       console.log(`✅ [AUTH] مسار عام آمن: ${method} ${path}`);
       return next();
     }

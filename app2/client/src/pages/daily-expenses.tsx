@@ -575,11 +575,10 @@ function DailyExpensesContent() {
     mutationFn: ({ id, data }: { id: string; data: any }) => 
       apiRequest(`/api/fund-transfers/${id}`, "PATCH", data),
     onSuccess: async (updatedTransfer, { id }) => {
-      // تحديث فوري للقائمة
-      queryClient.setQueryData(["/api/projects", selectedProjectId, "fund-transfers", selectedDate], (oldData: any[]) => {
-        if (!oldData) return [updatedTransfer];
-        return oldData.map(transfer => transfer.id === id ? updatedTransfer : transfer);
-      });
+      // تحديث daily-expenses query حيث تأتي بيانات fund transfers
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] });
+      // تحديث previous-balance للأيام التالية لأن التعديل يؤثر على الرصيد
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "previous-balance"] });
 
       // حفظ قيم الإكمال التلقائي
       if (senderName) await saveAutocompleteValue('senderNames', senderName);
@@ -683,11 +682,10 @@ function DailyExpensesContent() {
     mutationFn: ({ id, data }: { id: string; data: any }) => 
       apiRequest(`/api/transportation-expenses/${id}`, "PATCH", data),
     onSuccess: async (updatedExpense, { id }) => {
-      // تحديث فوري للقائمة
-      queryClient.setQueryData(["/api/projects", selectedProjectId, "transportation-expenses", selectedDate], (oldData: any[]) => {
-        if (!oldData) return [updatedExpense];
-        return oldData.map(expense => expense.id === id ? updatedExpense : expense);
-      });
+      // تحديث daily-expenses query حيث تأتي بيانات transportation expenses
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] });
+      // تحديث previous-balance للأيام التالية لأن التعديل يؤثر على الرصيد
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "previous-balance"] });
 
       // حفظ قيم الإكمال التلقائي
       if (transportDescription) await saveAutocompleteValue('transportDescriptions', transportDescription);

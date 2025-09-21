@@ -61,6 +61,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [authFailureCount, setAuthFailureCount] = useState(0);
   const [lastAuthCheck, setLastAuthCheck] = useState<Date | null>(null);
 
+  // تسجيل helpers مع queryClient
+  useEffect(() => {
+    registerAuthHelpers({
+      getAccessToken,
+      refreshToken,
+      logout
+    });
+  }, []); // تشغيل مرة واحدة فقط
+
   // تحقق من وجود مستخدم محفوظ عند بدء التطبيق مع آليات تعافي محسنة
   useEffect(() => {
     const initAuth = async () => {
@@ -229,7 +238,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         success: data.success,
         hasData: !!data.data,
         hasUser: !!(data.data?.user || data.user),
-        hasToken: !!(data.data?.accessToken || data.tokens?.accessToken || data.accessToken),
+        hasToken: !!(data.data?.tokens?.accessToken || data.data?.accessToken || data.tokens?.accessToken || data.accessToken),
         dataKeys: data.data ? Object.keys(data.data) : 'none',
         topLevelKeys: Object.keys(data)
       });
@@ -246,7 +255,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // استخراج بيانات المستخدم بشكل صحيح
       const userData = data.data?.user || data.user;
-      const tokenData = data.data?.tokens?.accessToken || data.data?.accessToken || data.data?.token || data.tokens?.accessToken || data.accessToken || data.token;
+      const tokenData = data.data?.tokens?.accessToken || data.data?.accessToken || data.tokens?.accessToken || data.accessToken || data.token;
       const refreshTokenData = data.data?.tokens?.refreshToken || data.data?.refreshToken || data.tokens?.refreshToken || data.refreshToken;
 
       console.log('🔍 [AuthProvider.login] فحص البيانات المستخرجة:', { 

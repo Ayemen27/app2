@@ -101,12 +101,14 @@ export function StatsCard({
   const cleanValue = () => {
     if (typeof value === 'number') {
       if (isNaN(value) || !isFinite(value)) return '0';
-      return formatter ? formatter(value) : value.toLocaleString('en-US');
+      const cleanedValue = Math.max(0, value);
+      return formatter ? formatter(cleanedValue) : cleanedValue.toLocaleString('en-US');
     }
     
     const stringValue = value.toString();
     
-    // إزالة الأرقام المتكررة المشبوهة (مثل 0181818181818181818)
+    // إزالة الأرقام المتكررة المشبوهة (مثل 162162162 أو 0181818181818181818)
+    if (stringValue.match(/^(\d{1,3})\1{2,}$/)) return '0';
     if (stringValue.match(/^(\d)\1{5,}$/)) return '0';
     
     // إزالة الأرقام الطويلة غير المنطقية
@@ -117,10 +119,11 @@ export function StatsCard({
     const parsed = parseFloat(cleanedNumber);
     
     if (!isNaN(parsed) && isFinite(parsed)) {
-      return parsed.toLocaleString('en-US');
+      const finalValue = Math.max(0, parsed);
+      return finalValue.toLocaleString('en-US');
     }
     
-    return stringValue;
+    return '0';
   };
   
   const displayValue = cleanValue();

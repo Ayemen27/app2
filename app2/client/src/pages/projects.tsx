@@ -364,16 +364,16 @@ export default function ProjectsPage() {
     if (value === null || value === undefined) return defaultValue;
     
     if (typeof value === 'number') {
-      return isNaN(value) || !isFinite(value) ? defaultValue : value;
+      return isNaN(value) || !isFinite(value) ? defaultValue : Math.max(0, value);
     }
     
     if (typeof value === 'string') {
-      // تنظيف القيم المتكررة المشبوهة
-      if (value.match(/^(\d)\1{10,}$/)) return defaultValue;
+      // تنظيف القيم المتكررة المشبوهة مثل 162162162
+      if (value.match(/^(\d{1,3})\1{2,}$/)) return defaultValue;
       
       const cleanValue = value.replace(/[^\d.-]/g, '');
       const parsed = parseFloat(cleanValue);
-      return isNaN(parsed) || !isFinite(parsed) ? defaultValue : parsed;
+      return isNaN(parsed) || !isFinite(parsed) ? defaultValue : Math.max(0, parsed);
     }
     
     return defaultValue;

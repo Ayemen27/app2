@@ -406,13 +406,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const projectId = project.id;
         
         try {
-          // حساب إجمالي العمال والعمال النشطين
+          // حساب إجمالي العمال والعمال النشطين المرتبطين بهذا المشروع فقط
           const workersStats = await db.execute(sql`
             SELECT 
-              COUNT(DISTINCT w.id) as total_workers,
-              COUNT(DISTINCT CASE WHEN w.is_active = true THEN w.id END) as active_workers
-            FROM workers w
-            LEFT JOIN worker_attendance wa ON w.id = wa.worker_id AND wa.project_id = ${projectId}
+              COUNT(DISTINCT wa.worker_id) as total_workers,
+              COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
+            FROM worker_attendance wa
+            INNER JOIN workers w ON wa.worker_id = w.id
+            WHERE wa.project_id = ${projectId}
           `);
           
           // حساب مصاريف المواد
@@ -424,11 +425,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             WHERE project_id = ${projectId}
           `);
           
-          // حساب أجور العمال
+          // حساب أجور العمال وأيام العمل المكتملة
           const workerWagesStats = await db.execute(sql`
             SELECT 
-              COALESCE(SUM(actual_wage), 0) as worker_wages,
-              COUNT(DISTINCT attendance_date) as completed_days
+              COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
+              COUNT(DISTINCT date) as completed_days
             FROM worker_attendance 
             WHERE project_id = ${projectId} AND is_present = true
           `);
@@ -447,15 +448,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             WHERE project_id = ${projectId}
           `);
           
-          // استخراج القيم
-          const totalWorkers = Number(workersStats.rows[0]?.total_workers || 0);
-          const activeWorkers = Number(workersStats.rows[0]?.active_workers || 0);
-          const materialExpenses = Number(materialStats.rows[0]?.material_expenses || 0);
-          const materialPurchases = Number(materialStats.rows[0]?.material_purchases || 0);
-          const workerWages = Number(workerWagesStats.rows[0]?.worker_wages || 0);
-          const completedDays = Number(workerWagesStats.rows[0]?.completed_days || 0);
-          const totalIncome = Number(fundTransfersStats.rows[0]?.total_income || 0);
-          const transportExpenses = Number(transportStats.rows[0]?.transport_expenses || 0);
+          // استخراج القيم مع تنظيف البيانات
+          const totalWorkers = Math.max(0, parseInt(workersStats.rows[0]?.total_workers || '0'));
+          const activeWorkers = Math.max(0, parseInt(workersStats.rows[0]?.active_workers || '0'));
+          const materialExpenses = Math.max(0, parseFloat(materialStats.rows[0]?.material_expenses || '0'));
+          const materialPurchases = Math.max(0, parseInt(materialStats.rows[0]?.material_purchases || '0'));
+          const workerWages = Math.max(0, parseFloat(workerWagesStats.rows[0]?.worker_wages || '0'));
+          const completedDays = Math.max(0, parseInt(workerWagesStats.rows[0]?.completed_days || '0'));
+          const totalIncome = Math.max(0, parseFloat(fundTransfersStats.rows[0]?.total_income || '0'));
+          const transportExpenses = Math.max(0, parseFloat(transportStats.rows[0]?.transport_expenses || '0'));
           
           // حساب إجمالي المصروفات والرصيد الحالي
           const totalExpenses = materialExpenses + workerWages + transportExpenses;

@@ -202,8 +202,19 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // البحث عن المستخدم العادي
-    const userResult = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+    // البحث عن المستخدم العادي مع فحص وجود الأعمدة
+    const userResult = await db.select({
+      id: users.id,
+      email: users.email,
+      password: users.password,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      role: users.role,
+      isActive: users.isActive,
+      lastLogin: users.lastLogin,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    }).from(users).where(eq(users.email, email.toLowerCase())).limit(1);
 
     if (userResult.length === 0) {
       console.log('❌ [Auth] المستخدم غير موجود:', email);

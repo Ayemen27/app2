@@ -467,28 +467,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const attemptDuration = Date.now() - attemptStartTime;
           console.log(`📊 [AuthProvider.refreshToken] محاولة ${attempt + 1} استغرقت ${attemptDuration}ms`);
 
-          if (response.ok) {
-            const data = await response.json();
-            console.log('📦 [AuthProvider.refreshToken] استجابة ناجحة:', { success: data.success, hasTokens: !!data.tokens });
-
-            if (data.success && data.tokens) {
-              // نجحت العملية - حفظ الرموز الجديدة
-              localStorage.setItem('accessToken', data.tokens.accessToken);
-              localStorage.setItem('refreshToken', data.tokens.refreshToken);
-
-              // إعادة تعيين عداد المحاولات
-              setRefreshAttempts(0);
-
-              const totalDuration = Date.now() - startTime;
-              console.log(`✅ [AuthProvider.refreshToken] نجح التجديد في ${totalDuration}ms بعد ${attempt + 1} محاولة`);
-
-              return true;
-            }
+          // قراءة response مرة واحدة فقط
+          const responseText = await response.text();
+          let data;
+          
+          try {
+            // محاولة parsing كـ JSON
+            data = JSON.parse(responseText);
+          } catch (parseError) {
+            // إذا فشل parsing، استخدام النص كما هو
+            console.log(`❌ [AuthProvider.refreshToken] فشل parsing JSON:`, responseText);
+            data = { success: false, message: responseText };
           }
 
-          // فشل HTTP - تحليل السبب
-          const errorText = await response.text();
-          console.log(`❌ [AuthProvider.refreshToken] فشل HTTP ${response.status}:`, errorText);
+          if (response.ok && data.success && data.tokens) {
+            console.log('📦 [AuthProvider.refreshToken] استجابة ناجحة:', { success: data.success, hasTokens: !!data.tokens });
+            
+            // نجحت العملية - حفظ الرموز الجديدة
+            localStorage.setItem('accessToken', data.tokens.accessToken);
+            localStorage.setItem('refreshToken', data.tokens.refreshToken);
+
+            // إعادة تعيين عداد المحاولات
+            setRefreshAttempts(0);
+
+            const totalDuration = Date.now() - startTime;
+            console.log(`✅ [AuthProvider.refreshToken] نجح التجديد في ${totalDuration}ms بعد ${attempt + 1} محاولة`);
+
+            return true;
+          } else {
+            // فشل HTTP أو بيانات غير صحيحة
+            console.log(`❌ [AuthProvider.refreshToken] فشل ${response.status}:`, data.message || responseText);
+          }
 
           // إذا كان 401 أو 403، فالـ refresh token منتهي الصلاحية
           if (response.status === 401 || response.status === 403) {

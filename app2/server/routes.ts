@@ -3123,6 +3123,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ❌ DELETE endpoint للمشاريع - حذف مشروع مع logging وتحقق من الوجود
+  app.delete("/api/projects/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const projectId = req.params.id;
+      console.log('❌ [API] طلب حذف المشروع من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID المشروع المراد حذفه:', projectId);
+      
+      if (!projectId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المشروع مطلوب',
+          message: 'لم يتم توفير معرف المشروع للحذف',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود المشروع أولاً وجلب بياناته للـ logging
+      const existingProject = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+      
+      if (existingProject.length === 0) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] المشروع غير موجود:', projectId);
+        return res.status(404).json({
+          success: false,
+          error: 'المشروع غير موجود',
+          message: `لم يتم العثور على مشروع بالمعرف: ${projectId}`,
+          processingTime: duration
+        });
+      }
+      
+      const projectToDelete = existingProject[0];
+      console.log('🗑️ [API] سيتم حذف المشروع:', {
+        id: projectToDelete.id,
+        name: projectToDelete.name,
+        status: projectToDelete.status
+      });
+      
+      // حذف المشروع من قاعدة البيانات
+      console.log('🗑️ [API] حذف المشروع من قاعدة البيانات...');
+      const deletedProject = await db
+        .delete(projects)
+        .where(eq(projects.id, projectId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم حذف المشروع بنجاح في ${duration}ms:`, {
+        id: deletedProject[0].id,
+        name: deletedProject[0].name,
+        status: deletedProject[0].status
+      });
+      
+      res.json({
+        success: true,
+        data: deletedProject[0],
+        message: `تم حذف المشروع "${deletedProject[0].name}" بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في حذف المشروع:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في حذف المشروع';
+      let statusCode = 500;
+      
+      if (error.code === '23503') { // foreign key violation
+        errorMessage = 'لا يمكن حذف المشروع - مرتبط ببيانات أخرى (عمال، مواد، مصروفات)';
+        statusCode = 409;
+      } else if (error.code === '22P02') { // invalid input syntax
+        errorMessage = 'معرف المشروع غير صحيح';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
   // ❌ DELETE endpoint للمواد - حذف مادة مع logging وتحقق من الوجود
   app.delete("/api/materials/:id", requireAuth, async (req, res) => {
     const startTime = Date.now();

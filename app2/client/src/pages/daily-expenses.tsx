@@ -559,7 +559,10 @@ function DailyExpensesContent() {
   const deleteWorkerTransferMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/worker-transfers/${id}`, "DELETE"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-transfers", selectedDate] });
+      // تحديث daily-expenses query حيث تأتي بيانات worker transfers
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] });
+      // تحديث previous-balance للأيام التالية لأن الحذف يؤثر على الرصيد
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "previous-balance"] });
       toast({ title: "تم الحذف", description: "تم حذف حوالة العامل بنجاح" });
     },
     onError: () => {

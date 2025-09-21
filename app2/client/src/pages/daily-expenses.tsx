@@ -22,10 +22,11 @@ import { useSelectedProject } from "@/hooks/use-selected-project";
 import ProjectSelector from "@/components/project-selector";
 import ExpenseSummary from "@/components/expense-summary";
 import WorkerMiscExpenses from "./worker-misc-expenses";
-import { getCurrentDate, formatCurrency, formatDate } from "@/lib/utils";
+import { getCurrentDate, formatCurrency, formatDate, cleanNumber } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import type { 
   WorkerAttendance, 
   TransportationExpense, 
@@ -40,50 +41,7 @@ import type {
   ProjectFundTransfer 
 } from "@shared/schema";
 
-// Error Boundary Component
-function ErrorFallback({ error, resetErrorBoundary }: any) {
-  return (
-    <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 m-4">
-      <div className="flex items-center mb-3">
-        <div className="h-6 w-6 rounded-full bg-red-100 flex items-center justify-center ml-2">
-          <span className="text-red-600 text-sm">!</span>
-        </div>
-        <h3 className="font-medium">حدث خطأ في تحميل الصفحة</h3>
-      </div>
-      <details className="mb-3">
-        <summary className="cursor-pointer text-sm">تفاصيل الخطأ</summary>
-        <pre className="mt-2 text-xs bg-red-100 p-2 rounded overflow-auto">{error.message}</pre>
-      </details>
-      <Button onClick={resetErrorBoundary} size="sm" variant="outline" className="border-red-300">
-        <RefreshCw className="h-4 w-4 ml-1" />
-        إعادة المحاولة
-      </Button>
-    </div>
-  );
-}
-
-class ErrorBoundary extends React.Component<any, any> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: any) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: any, errorInfo: any) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return <ErrorFallback error={this.state.error} resetErrorBoundary={() => this.setState({ hasError: false, error: null })} />;
-    }
-
-    return this.props.children;
-  }
-}
+// إزالة تعريف ErrorBoundary المحلي لتجنب التكرار - يتم استيراده من components/ErrorBoundary
 
 function DailyExpensesContent() {
   const [, setLocation] = useLocation();
@@ -248,10 +206,7 @@ function DailyExpensesContent() {
     retry: 2,
   });
 
-  // معالجة آمنة للبيانات - التأكد من أن البيانات مصفوفات
-  const safeAttendance = Array.isArray(todayWorkerAttendance) ? todayWorkerAttendance : [];
-  const safeTransportation = Array.isArray(todayTransportation) ? todayTransportation : [];
-  const safeMaterialPurchases = Array.isArray(todayMaterialPurchases) ? todayMaterialPurchases : [];
+  // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData
 
   // جلب معلومات المواد مع معالجة آمنة للأخطاء
   const { data: materials = [] } = useQuery({
@@ -274,9 +229,7 @@ function DailyExpensesContent() {
     gcTime: 600000, // 10 دقائق
   });
 
-  // معالجة آمنة لباقي البيانات
-  const safeWorkerTransfers = Array.isArray(todayWorkerTransfers) ? todayWorkerTransfers : [];
-  const safeMiscExpenses = Array.isArray(todayMiscExpenses) ? todayMiscExpenses : [];
+  // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData
 
   // جلب عمليات ترحيل الأموال بين المشاريع مع أسماء المشاريع
   const { data: projectTransfers = [] } = useQuery<(ProjectFundTransfer & { fromProjectName?: string; toProjectName?: string })[]>({
@@ -355,7 +308,12 @@ function DailyExpensesContent() {
   const todayWorkerTransfers = dailyExpensesData?.workerTransfers || [];
   const todayMiscExpenses = dailyExpensesData?.miscExpenses || [];
 
-  // معالجة آمنة للعهد
+  // معالجة آمنة للبيانات - التأكد من أن البيانات مصفوفات
+  const safeAttendance = Array.isArray(todayWorkerAttendance) ? todayWorkerAttendance : [];
+  const safeTransportation = Array.isArray(todayTransportation) ? todayTransportation : [];
+  const safeMaterialPurchases = Array.isArray(todayMaterialPurchases) ? todayMaterialPurchases : [];
+  const safeWorkerTransfers = Array.isArray(todayWorkerTransfers) ? todayWorkerTransfers : [];
+  const safeMiscExpenses = Array.isArray(todayMiscExpenses) ? todayMiscExpenses : [];
   const safeFundTransfers = Array.isArray(todayFundTransfers) ? todayFundTransfers : [];
 
   // جلب الرصيد المتبقي من اليوم السابق
@@ -891,10 +849,11 @@ function DailyExpensesContent() {
       // فحص النتائج للتأكد من عدم وجود قيم غير منطقية
       const maxReasonableAmount = 100000000; // 100 مليون
       Object.keys(result).forEach(key => {
-        if (Math.abs(result[key]) > maxReasonableAmount) {
-          console.warn(`⚠️ [DailyExpenses] قيمة غير منطقية في ${key}:`, result[key]);
+        const value = (result as any)[key];
+        if (typeof value === 'number' && Math.abs(value) > maxReasonableAmount) {
+          console.warn(`⚠️ [DailyExpenses] قيمة غير منطقية في ${key}:`, value);
           if (key !== 'remainingBalance') {
-            result[key] = 0; // إعادة تعيين القيم غير المنطقية إلى الصفر
+            (result as any)[key] = 0; // إعادة تعيين القيم غير المنطقية إلى الصفر
           }
         }
       });

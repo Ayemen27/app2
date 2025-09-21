@@ -230,8 +230,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // استخراج بيانات المستخدم بشكل صحيح
       const userData = data.data?.user || data.user;
-      const tokenData = data.data?.accessToken || data.data?.token || data.tokens?.accessToken || data.accessToken || data.token;
-      const refreshTokenData = data.data?.refreshToken || data.tokens?.refreshToken || data.refreshToken;
+      const tokenData = data.data?.tokens?.accessToken || data.data?.accessToken || data.data?.token || data.tokens?.accessToken || data.accessToken || data.token;
+      const refreshTokenData = data.data?.tokens?.refreshToken || data.data?.refreshToken || data.tokens?.refreshToken || data.refreshToken;
 
       console.log('🔍 [AuthProvider.login] فحص البيانات المستخرجة:', { 
         hasUserData: !!userData,

@@ -32,7 +32,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     // البحث عن المستخدم في قاعدة البيانات
     const userResult = await db.execute(sql`
-      SELECT id, email, password, full_name, created_at
+      SELECT id, email, password, first_name, last_name, created_at
       FROM users 
       WHERE email = ${email}
     `);
@@ -72,7 +72,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     console.log('✅ [AUTH] تم تسجيل الدخول بنجاح:', { 
       userId: user.id, 
       email: user.email,
-      fullName: user.full_name
+      fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim()
     });
 
     res.json({
@@ -82,7 +82,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         user: {
           id: user.id,
           email: user.email,
-          fullName: user.full_name,
+          fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
           createdAt: user.created_at
         },
         tokens: {
@@ -137,10 +137,15 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // إنشاء المستخدم الجديد
+    // تقسيم fullName إلى first_name و last_name
+    const names = fullName.trim().split(/\s+/);
+    const firstName = names[0] || '';
+    const lastName = names.slice(1).join(' ') || '';
+    
     const newUserResult = await db.execute(sql`
-      INSERT INTO users (email, password, full_name, created_at)
-      VALUES (${email}, ${hashedPassword}, ${fullName}, NOW())
-      RETURNING id, email, full_name, created_at
+      INSERT INTO users (email, password, first_name, last_name, created_at)
+      VALUES (${email}, ${hashedPassword}, ${firstName}, ${lastName}, NOW())
+      RETURNING id, email, first_name, last_name, created_at
     `);
 
     const newUser = newUserResult.rows[0] as any;
@@ -148,7 +153,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     console.log('✅ [AUTH] تم إنشاء حساب جديد:', { 
       userId: newUser.id, 
       email: newUser.email,
-      fullName: newUser.full_name
+      fullName: `${newUser.first_name || ''} ${newUser.last_name || ''}`.trim()
     });
 
     res.status(201).json({
@@ -158,7 +163,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
         user: {
           id: newUser.id,
           email: newUser.email,
-          fullName: newUser.full_name,
+          fullName: `${newUser.first_name || ''} ${newUser.last_name || ''}`.trim(),
           createdAt: newUser.created_at
         }
       }
@@ -231,7 +236,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
       // البحث عن المستخدم مرة أخرى للتأكد
       const userResult = await db.execute(sql`
-        SELECT id, email, full_name, created_at
+        SELECT id, email, first_name, last_name, created_at
         FROM users 
         WHERE id = ${decoded.userId || decoded.id}
       `);

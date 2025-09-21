@@ -41,8 +41,17 @@ export default function ProjectTransactionsSimple() {
       if (!selectedProject) return [];
       try {
         console.log(`🔄 جلب تحويلات العهدة للمشروع: ${selectedProject}`);
-        const response = await fetch(`/api/projects/${selectedProject}/fund-transfers`);
+        const response = await fetch(`/api/projects/${selectedProject}/fund-transfers`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json',
+          }
+        });
         if (!response.ok) {
+          if (response.status === 401) {
+            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
+            return [];
+          }
           console.error(`❌ خطأ في جلب تحويلات العهدة: ${response.status}`);
           return [];
         }
@@ -55,7 +64,7 @@ export default function ProjectTransactionsSimple() {
       }
     },
     enabled: !!selectedProject,
-    retry: 2,
+    retry: 1,
     staleTime: 30000,
   });
 
@@ -86,8 +95,17 @@ export default function ProjectTransactionsSimple() {
       if (!selectedProject) return [];
       try {
         console.log(`🔄 جلب حضور العمال للمشروع: ${selectedProject}`);
-        const response = await fetch(`/api/projects/${selectedProject}/worker-attendance`);
+        const response = await fetch(`/api/projects/${selectedProject}/worker-attendance`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json',
+          }
+        });
         if (!response.ok) {
+          if (response.status === 401) {
+            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
+            return [];
+          }
           console.error(`❌ خطأ في جلب حضور العمال: ${response.status}`);
           return [];
         }
@@ -100,14 +118,42 @@ export default function ProjectTransactionsSimple() {
       }
     },
     enabled: !!selectedProject,
-    retry: 2,
+    retry: 1,
     staleTime: 30000,
   });
 
   // جلب مشتريات المواد للمشروع
-  const { data: materialPurchases = [] } = useQuery({
+  const { data: materialPurchases = [], isLoading: materialsLoading, error: materialsError } = useQuery({
     queryKey: ['/api/projects', selectedProject, 'material-purchases'],
+    queryFn: async () => {
+      if (!selectedProject) return [];
+      try {
+        console.log(`🔄 جلب مشتريات المواد للمشروع: ${selectedProject}`);
+        const response = await fetch(`/api/projects/${selectedProject}/material-purchases`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json',
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
+            return [];
+          }
+          console.error(`❌ خطأ في جلب مشتريات المواد: ${response.status}`);
+          return [];
+        }
+        const data = await response.json();
+        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} مشترية مواد`);
+        return Array.isArray(data?.data) ? data.data : [];
+      } catch (error) {
+        console.error('❌ خطأ في جلب مشتريات المواد:', error);
+        return [];
+      }
+    },
     enabled: !!selectedProject,
+    retry: 1,
+    staleTime: 30000,
   });
 
   // جلب مصروفات النقل للمشروع
@@ -309,7 +355,7 @@ export default function ProjectTransactionsSimple() {
           type: isDeferred ? 'deferred' : 'expense',
           category: isDeferred ? 'مشتريات آجلة' : 'مشتريات المواد',
           amount: amount,
-          description: `مادة: ${purchase.materialName || purchase.material?.name || purchase.name || 'غير محدد'}${isDeferred ? ' (آجل)' : ''}`
+          description: `مادة: ${purchase.materialName || purchase.name || 'غير محدد'}${isDeferred ? ' (آجل)' : ''}`
         });
       }
     });
@@ -490,6 +536,33 @@ export default function ProjectTransactionsSimple() {
 
         {selectedProject && (
           <>
+            {/* عرض الأخطاء إن وجدت */}
+            {(fundTransfersError || attendanceError || materialsError) && (
+              <Card className="bg-red-50 border-red-200 mb-4">
+                <CardContent className="p-4">
+                  <div className="text-red-800">
+                    <h3 className="font-semibold mb-2">⚠️ تحذيرات في جلب البيانات:</h3>
+                    {fundTransfersError && <p>• خطأ في جلب تحويلات العهدة</p>}
+                    {attendanceError && <p>• خطأ في جلب حضور العمال</p>}
+                    {materialsError && <p>• خطأ في جلب مشتريات المواد</p>}
+                    <p className="text-sm mt-2 text-red-600">يرجى التحقق من اتصالك بالإنترنت أو تسجيل الدخول مرة أخرى.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* مؤشر التحميل */}
+            {(fundTransfersLoading || attendanceLoading || materialsLoading) && (
+              <Card className="bg-blue-50 border-blue-200 mb-4">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3 text-blue-800">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                    <span>جاري تحميل البيانات المالية...</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* الإحصائيات باستخدام StatsGrid */}
             <StatsGrid 
               stats={[

@@ -133,7 +133,7 @@ export const materialPurchases = pgTable("material_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id),
   supplierId: varchar("supplier_id").references(() => suppliers.id), // ربط بالمورد
-  materialId: varchar("material_id").notNull().references(() => materials.id),
+  materialName: text("material_name").notNull(), // اسم المادة بدلاً من materialId
   quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),

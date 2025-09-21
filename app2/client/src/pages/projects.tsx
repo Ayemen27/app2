@@ -29,7 +29,7 @@ import {
   Camera,
   Upload,
   X,
-  Image as ImageIcon,
+  ImageIcon,
   Eye
 } from "lucide-react";
 import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
@@ -55,6 +55,20 @@ interface ProjectWithStats extends Project {
   stats: ProjectStats;
 }
 
+// Helper functions for cleaning and parsing numbers
+const cleanInteger = (value: any): number => {
+  if (value === undefined || value === null) return 0;
+  const num = parseInt(String(value), 10);
+  return isNaN(num) ? 0 : Math.max(0, num);
+};
+
+const cleanNumber = (value: any): number => {
+  if (value === undefined || value === null) return 0;
+  const num = parseFloat(String(value));
+  return isNaN(num) ? 0 : Math.max(0, num);
+};
+
+
 export default function ProjectsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -62,7 +76,7 @@ export default function ProjectsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { setFloatingAction } = useFloatingButton();
-  
+
   // Image handling states
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -209,7 +223,7 @@ export default function ProjectsPage() {
     onSuccess: async (data, variables) => {
       // حفظ اسم المشروع في autocomplete_data
       await saveAutocompleteValue('projectNames', variables.name);
-      
+
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
       toast({ title: "تم إنشاء المشروع بنجاح" });
@@ -236,7 +250,7 @@ export default function ProjectsPage() {
     onSuccess: async (result, variables) => {
       // حفظ اسم المشروع في autocomplete_data
       await saveAutocompleteValue('projectNames', variables.data.name);
-      
+
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
       toast({ title: "تم تحديث المشروع بنجاح" });
@@ -329,7 +343,7 @@ export default function ProjectsPage() {
   // تعيين إجراء الزر العائم
   useEffect(() => {
     setFloatingAction(() => setIsCreateDialogOpen(true), "إضافة مشروع جديد");
-    
+
     // تنظيف الزر عند مغادرة الصفحة
     return () => setFloatingAction(null);
   }, [setFloatingAction]);
@@ -378,7 +392,7 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6 p-6">
-      
+
       {/* إحصائيات عامة */}
       <StatsGrid>
         <StatsCard
@@ -460,7 +474,7 @@ export default function ProjectsPage() {
                 {/* Image Upload Section */}
                 <div className="space-y-4">
                   <FormLabel>صورة المشروع (اختيارية)</FormLabel>
-                  
+
                   {selectedImage ? (
                     <div className="relative">
                       <img 
@@ -504,7 +518,7 @@ export default function ProjectsPage() {
                       </div>
                     </div>
                   )}
-                  
+
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -577,7 +591,7 @@ export default function ProjectsPage() {
                   </Badge>
                 </div>
               ) : null}
-              
+
               <CardHeader className={project.imageUrl ? "pb-3" : "pb-3"}>
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
@@ -594,7 +608,7 @@ export default function ProjectsPage() {
                   )}
                 </div>
               </CardHeader>
-              
+
               <CardContent className="space-y-4">
                 {/* Financial Summary */}
                 <div className="grid grid-cols-2 gap-3">
@@ -607,7 +621,7 @@ export default function ProjectsPage() {
                       {formatCurrency(project.stats.totalIncome)}
                     </p>
                   </div>
-                  
+
                   <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
                     <div className="flex items-center gap-2 mb-1">
                       <DollarSign className="h-4 w-4 text-red-600" />
@@ -639,7 +653,7 @@ export default function ProjectsPage() {
                     <p className="text-xs text-muted-foreground">العمال</p>
                     <p className="text-sm font-semibold arabic-numbers">{project.stats.totalWorkers}</p>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <div className="flex items-center justify-center gap-1">
                       <Package className="h-3 w-3 text-muted-foreground" />
@@ -647,7 +661,7 @@ export default function ProjectsPage() {
                     <p className="text-xs text-muted-foreground">المشتريات</p>
                     <p className="text-sm font-semibold arabic-numbers">{project.stats.materialPurchases}</p>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <div className="flex items-center justify-center gap-1">
                       <Calendar className="h-3 w-3 text-muted-foreground" />
@@ -676,7 +690,7 @@ export default function ProjectsPage() {
                     <Edit className="h-3 w-3" />
                     تعديل
                   </Button>
-                  
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="outline" size="sm" className="gap-1 text-red-600 hover:text-red-700">
@@ -765,7 +779,7 @@ export default function ProjectsPage() {
               {/* Image Upload Section */}
               <div className="space-y-4">
                 <FormLabel>صورة المشروع (اختيارية)</FormLabel>
-                
+
                 {editSelectedImage ? (
                   <div className="relative">
                     <img 
@@ -809,7 +823,7 @@ export default function ProjectsPage() {
                     </div>
                   </div>
                 )}
-                
+
                 <input
                   ref={editFileInputRef}
                   type="file"

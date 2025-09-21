@@ -96,7 +96,20 @@ export function StatsCard({
   "data-testid": dataTestId
 }: StatsCardProps) {
   const colors = colorVariants[color];
-  const displayValue = typeof value === 'number' && formatter ? formatter(value) : value.toString();
+  
+  // تنظيف القيمة قبل العرض
+  const cleanValue = () => {
+    if (typeof value === 'number') {
+      if (isNaN(value) || !isFinite(value)) return '0';
+      return formatter ? formatter(value) : value.toString();
+    }
+    const stringValue = value.toString();
+    // إزالة الأرقام المتكررة المشبوهة
+    if (stringValue.match(/^(\d)\1{10,}$/)) return '0';
+    return stringValue;
+  };
+  
+  const displayValue = cleanValue();
   
   return (
     <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-md transition-shadow duration-200`}>

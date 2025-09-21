@@ -8,14 +8,92 @@ export function cn(...inputs: ClassValue[]) {
 export const formatCurrency = (amount: number | string | null | undefined): string => {
   if (amount === null || amount === undefined) return "0 ر.ي";
 
-  const numValue = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (isNaN(numValue)) return "0 ر.ي";
+  // تنظيف القيمة من الأنماط المتكررة المشبوهة
+  let cleanAmount: number;
+  
+  if (typeof amount === 'string') {
+    // إزالة الأرقام المتكررة المشبوهة (مثل 162162162)
+    if (amount.match(/^(\d{1,3})\1{2,}$/)) {
+      return "0 ر.ي";
+    }
+    
+    // تنظيف وتحويل النص إلى رقم
+    const cleaned = amount.replace(/[^\d.-]/g, '');
+    cleanAmount = parseFloat(cleaned);
+  } else {
+    cleanAmount = amount;
+  }
+
+  // فحص صحة الرقم
+  if (isNaN(cleanAmount) || !isFinite(cleanAmount)) {
+    return "0 ر.ي";
+  }
+
+  // فحص القيم غير المنطقية (أكبر من 100 مليار أو أصغر من -100 مليار)
+  if (Math.abs(cleanAmount) > 100000000000) {
+    console.warn('⚠️ قيمة مالية غير منطقية:', cleanAmount);
+    return "0 ر.ي";
+  }
 
   // استخدام الأرقام الإنجليزية للحسابات والعرض الصحيح
-  return `${numValue.toLocaleString('en-US', {
+  return `${cleanAmount.toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   })} ر.ي`;
+};
+
+// دوال مساعدة جديدة لتنظيف البيانات
+export const cleanNumber = (value: any): number => {
+  if (value === null || value === undefined) return 0;
+  
+  if (typeof value === 'number') {
+    if (isNaN(value) || !isFinite(value)) return 0;
+    // فحص القيم غير المنطقية
+    if (Math.abs(value) > 100000000000) return 0;
+    return Math.max(0, value);
+  }
+  
+  if (typeof value === 'string') {
+    // فحص الأنماط المتكررة المشبوهة
+    if (value.match(/^(\d{1,3})\1{2,}$/)) return 0;
+    if (value.match(/^(\d)\1{5,}$/)) return 0;
+    
+    // تنظيف النص
+    const cleaned = value.replace(/[^\d.-]/g, '');
+    const parsed = parseFloat(cleaned);
+    
+    if (isNaN(parsed) || !isFinite(parsed)) return 0;
+    if (Math.abs(parsed) > 100000000000) return 0;
+    
+    return Math.max(0, parsed);
+  }
+  
+  return 0;
+};
+
+export const cleanInteger = (value: any): number => {
+  if (value === null || value === undefined) return 0;
+  
+  if (typeof value === 'number') {
+    if (isNaN(value) || !isFinite(value)) return 0;
+    // فحص القيم غير المنطقية (أكثر من مليون عامل!)
+    if (value > 1000000) return 0;
+    return Math.max(0, Math.floor(value));
+  }
+  
+  if (typeof value === 'string') {
+    // فحص الأنماط المتكررة المشبوهة
+    if (value.match(/^(\d{1,3})\1{2,}$/)) return 0;
+    if (value.match(/^(\d)\1{5,}$/)) return 0;
+    
+    const cleaned = value.replace(/[^\d]/g, '');
+    const parsed = parseInt(cleaned, 10);
+    
+    if (isNaN(parsed) || parsed > 1000000) return 0;
+    return Math.max(0, parsed);
+  }
+  
+  return 0;
 };
 
 export const formatDate = (dateInput: string | Date): string => {

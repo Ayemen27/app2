@@ -97,29 +97,81 @@ export function StatsCard({
 }: StatsCardProps) {
   const colors = colorVariants[color];
   
-  // تنظيف القيمة قبل العرض مع حماية أقوى
+  // تنظيف القيمة قبل العرض مع حماية أقوى ومحسنة
   const cleanValue = () => {
     if (typeof value === 'number') {
       if (isNaN(value) || !isFinite(value)) return '0';
+      
+      // فحص القيم غير المنطقية (أكبر من 100 مليار)
+      if (Math.abs(value) > 100000000000) {
+        console.warn('⚠️ [StatsCard] قيمة رقمية غير منطقية:', value);
+        return '0';
+      }
+      
       const cleanedValue = Math.max(0, value);
       return formatter ? formatter(cleanedValue) : cleanedValue.toLocaleString('en-US');
     }
     
-    const stringValue = value.toString();
+    const stringValue = value.toString().trim();
     
-    // إزالة الأرقام المتكررة المشبوهة (مثل 162162162 أو 0181818181818181818)
-    if (stringValue.match(/^(\d{1,3})\1{2,}$/)) return '0';
-    if (stringValue.match(/^(\d)\1{5,}$/)) return '0';
+    // فحوصات محسنة للأنماط المشبوهة
     
-    // إزالة الأرقام الطويلة غير المنطقية
-    if (stringValue.length > 10 && stringValue.match(/^\d+$/)) return '0';
+    // 1. الأرقام المتكررة المشبوهة (مثل 162162162)
+    if (stringValue.match(/^(\d{1,3})\1{2,}$/)) {
+      console.warn('⚠️ [StatsCard] نمط متكرر مشبوه:', stringValue);
+      return '0';
+    }
+    
+    // 2. تكرار نفس الرقم أكثر من 5 مرات (مثل 1111111)
+    if (stringValue.match(/^(\d)\1{5,}$/)) {
+      console.warn('⚠️ [StatsCard] تكرار رقم واحد:', stringValue);
+      return '0';
+    }
+    
+    // 3. أرقام طويلة جداً (أكثر من 12 رقم)
+    if (stringValue.length > 12 && stringValue.match(/^\d+$/)) {
+      console.warn('⚠️ [StatsCard] رقم طويل غير منطقي:', stringValue);
+      return '0';
+    }
+    
+    // 4. فحص الأنماط المشبوهة الإضافية
+    const suspiciousPatterns = [
+      /^(\d{2,3})\1{3,}$/, // تكرار مجموعات أرقام
+      /^0+[1-9]0*\1+$/, // أصفار مع تكرار
+      /^(123|234|345|456|567|678|789|012|098|987|876|765|654|543|432|321){3,}$/ // تسلسلات متكررة
+    ];
+    
+    for (const pattern of suspiciousPatterns) {
+      if (pattern.test(stringValue)) {
+        console.warn('⚠️ [StatsCard] نمط مشبوه آخر:', stringValue);
+        return '0';
+      }
+    }
     
     // تنظيف الأرقام وإعادة تنسيقها
     const cleanedNumber = stringValue.replace(/[^\d.-]/g, '');
+    
+    if (!cleanedNumber || cleanedNumber === '' || cleanedNumber === '-') {
+      return '0';
+    }
+    
     const parsed = parseFloat(cleanedNumber);
     
     if (!isNaN(parsed) && isFinite(parsed)) {
+      // فحص القيم غير المنطقية مرة أخرى
+      if (Math.abs(parsed) > 100000000000) {
+        console.warn('⚠️ [StatsCard] قيمة محولة غير منطقية:', parsed);
+        return '0';
+      }
+      
       const finalValue = Math.max(0, parsed);
+      
+      // فحص إضافي للتأكد من عدم وجود أعداد صحيحة كبيرة جداً بشكل غير منطقي
+      if (Number.isInteger(finalValue) && finalValue > 1000000 && title.includes('عامل')) {
+        console.warn('⚠️ [StatsCard] عدد عمال غير منطقي:', finalValue);
+        return '0';
+      }
+      
       return finalValue.toLocaleString('en-US');
     }
     

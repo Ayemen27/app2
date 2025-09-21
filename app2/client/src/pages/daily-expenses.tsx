@@ -780,18 +780,25 @@ function DailyExpensesContent() {
 
   const calculateTotals = () => {
     try {
-      // إنشاء متغيرات آمنة لجميع البيانات مع تسجيل للتشخيص
-      const safeAttendance = Array.isArray(todayWorkerAttendance) ? todayWorkerAttendance : [];
-      const safeTransportation = Array.isArray(todayTransportation) ? todayTransportation : [];
-      const safeMaterialPurchases = Array.isArray(todayMaterialPurchases) ? todayMaterialPurchases : [];
-      const safeWorkerTransfers = Array.isArray(todayWorkerTransfers) ? todayWorkerTransfers : [];
-      const safeMiscExpenses = Array.isArray(todayMiscExpenses) ? todayMiscExpenses : [];
-      const safeFundTransfers = Array.isArray(todayFundTransfers) ? todayFundTransfers : [];
-      const safeProjectTransfers = Array.isArray(projectTransfers) ? projectTransfers : [];
+      // إنشاء متغيرات آمنة لجميع البيانات مع فحص إضافي
+      const safeAttendance = Array.isArray(todayWorkerAttendance) ? 
+        todayWorkerAttendance.filter(item => item && typeof item === 'object') : [];
+      const safeTransportation = Array.isArray(todayTransportation) ? 
+        todayTransportation.filter(item => item && typeof item === 'object') : [];
+      const safeMaterialPurchases = Array.isArray(todayMaterialPurchases) ? 
+        todayMaterialPurchases.filter(item => item && typeof item === 'object') : [];
+      const safeWorkerTransfers = Array.isArray(todayWorkerTransfers) ? 
+        todayWorkerTransfers.filter(item => item && typeof item === 'object') : [];
+      const safeMiscExpenses = Array.isArray(todayMiscExpenses) ? 
+        todayMiscExpenses.filter(item => item && typeof item === 'object') : [];
+      const safeFundTransfers = Array.isArray(todayFundTransfers) ? 
+        todayFundTransfers.filter(item => item && typeof item === 'object') : [];
+      const safeProjectTransfers = Array.isArray(projectTransfers) ? 
+        projectTransfers.filter(item => item && typeof item === 'object') : [];
 
       // تسجيل مبسط للحسابات المالية
       if (process.env.NODE_ENV === 'development') {
-        console.log('🧮 [DailyExpenses] إجمالي البيانات:', {
+        console.log('🧮 [DailyExpenses] إجمالي البيانات المنظفة:', {
           حضور: safeAttendance.length,
           نقل: safeTransportation.length,
           مشتريات: safeMaterialPurchases.length,
@@ -802,18 +809,19 @@ function DailyExpensesContent() {
         });
       }
 
+      // استخدام دالة cleanNumber المحسنة
       const totalWorkerWages = safeAttendance.reduce(
         (sum, attendance) => {
-          const amount = parseFloat(attendance.paidAmount || "0");
-          return sum + (isNaN(amount) ? 0 : amount);
+          const amount = cleanNumber(attendance.paidAmount);
+          return sum + amount;
         }, 
         0
       );
 
       const totalTransportation = safeTransportation.reduce(
         (sum, expense) => {
-          const amount = parseFloat(expense.amount || "0");
-          return sum + (isNaN(amount) ? 0 : amount);
+          const amount = cleanNumber(expense.amount);
+          return sum + amount;
         }, 
         0
       );
@@ -822,44 +830,44 @@ function DailyExpensesContent() {
       const totalMaterialCosts = safeMaterialPurchases
         .filter(purchase => purchase.purchaseType === "نقد")
         .reduce((sum, purchase) => {
-          const amount = parseFloat(purchase.totalAmount || "0");
-          return sum + (isNaN(amount) ? 0 : amount);
+          const amount = cleanNumber(purchase.totalAmount);
+          return sum + amount;
         }, 0);
 
       const totalWorkerTransfers = safeWorkerTransfers.reduce(
         (sum, transfer) => {
-          const amount = parseFloat(transfer.amount || "0");
-          return sum + (isNaN(amount) ? 0 : amount);
+          const amount = cleanNumber(transfer.amount);
+          return sum + amount;
         }, 0);
 
       const totalMiscExpenses = safeMiscExpenses.reduce(
         (sum, expense) => {
-          const amount = parseFloat(expense.amount || "0");
-          return sum + (isNaN(amount) ? 0 : amount);
+          const amount = cleanNumber(expense.amount);
+          return sum + amount;
         }, 0);
 
       const totalFundTransfers = safeFundTransfers.reduce(
         (sum, transfer) => {
-          const amount = parseFloat(transfer.amount || "0");
-          return sum + (isNaN(amount) ? 0 : amount);
+          const amount = cleanNumber(transfer.amount);
+          return sum + amount;
         }, 0);
 
       // حساب الأموال الواردة والصادرة من ترحيل المشاريع
       const incomingProjectTransfers = safeProjectTransfers
         .filter(transfer => transfer.toProjectId === selectedProjectId)
         .reduce((sum, transfer) => {
-          const amount = parseFloat(transfer.amount || "0");
-          return sum + (isNaN(amount) ? 0 : amount);
+          const amount = cleanNumber(transfer.amount);
+          return sum + amount;
         }, 0);
 
       const outgoingProjectTransfers = safeProjectTransfers
         .filter(transfer => transfer.fromProjectId === selectedProjectId)
         .reduce((sum, transfer) => {
-          const amount = parseFloat(transfer.amount || "0");
-          return sum + (isNaN(amount) ? 0 : amount);
+          const amount = cleanNumber(transfer.amount);
+          return sum + amount;
         }, 0);
 
-      const carriedAmount = parseFloat(carriedForward) || 0;
+      const carriedAmount = cleanNumber(carriedForward);
 
       const totalIncome = carriedAmount + totalFundTransfers + incomingProjectTransfers;
       const totalExpenses = totalWorkerWages + totalTransportation + totalMaterialCosts + 
@@ -867,22 +875,33 @@ function DailyExpensesContent() {
       const remainingBalance = totalIncome - totalExpenses;
 
       const result = {
-        totalWorkerWages: isNaN(totalWorkerWages) ? 0 : totalWorkerWages,
-        totalTransportation: isNaN(totalTransportation) ? 0 : totalTransportation,
-        totalMaterialCosts: isNaN(totalMaterialCosts) ? 0 : totalMaterialCosts,
-        totalWorkerTransfers: isNaN(totalWorkerTransfers) ? 0 : totalWorkerTransfers,
-        totalMiscExpenses: isNaN(totalMiscExpenses) ? 0 : totalMiscExpenses,
-        totalFundTransfers: isNaN(totalFundTransfers) ? 0 : totalFundTransfers,
-        incomingProjectTransfers: isNaN(incomingProjectTransfers) ? 0 : incomingProjectTransfers,
-        outgoingProjectTransfers: isNaN(outgoingProjectTransfers) ? 0 : outgoingProjectTransfers,
-        totalIncome: isNaN(totalIncome) ? 0 : totalIncome,
-        totalExpenses: isNaN(totalExpenses) ? 0 : totalExpenses,
-        remainingBalance: isNaN(remainingBalance) ? 0 : remainingBalance,
+        totalWorkerWages: Math.max(0, totalWorkerWages),
+        totalTransportation: Math.max(0, totalTransportation),
+        totalMaterialCosts: Math.max(0, totalMaterialCosts),
+        totalWorkerTransfers: Math.max(0, totalWorkerTransfers),
+        totalMiscExpenses: Math.max(0, totalMiscExpenses),
+        totalFundTransfers: Math.max(0, totalFundTransfers),
+        incomingProjectTransfers: Math.max(0, incomingProjectTransfers),
+        outgoingProjectTransfers: Math.max(0, outgoingProjectTransfers),
+        totalIncome: Math.max(0, totalIncome),
+        totalExpenses: Math.max(0, totalExpenses),
+        remainingBalance: remainingBalance, // يمكن أن يكون سالباً
       };
+
+      // فحص النتائج للتأكد من عدم وجود قيم غير منطقية
+      const maxReasonableAmount = 100000000; // 100 مليون
+      Object.keys(result).forEach(key => {
+        if (Math.abs(result[key]) > maxReasonableAmount) {
+          console.warn(`⚠️ [DailyExpenses] قيمة غير منطقية في ${key}:`, result[key]);
+          if (key !== 'remainingBalance') {
+            result[key] = 0; // إعادة تعيين القيم غير المنطقية إلى الصفر
+          }
+        }
+      });
 
       // تسجيل النتائج في بيئة التطوير فقط
       if (process.env.NODE_ENV === 'development') {
-        console.log('✅ الملخص المالي:', {
+        console.log('✅ الملخص المالي النهائي:', {
           إجمالي_الدخل: formatCurrency(result.totalIncome),
           إجمالي_المصاريف: formatCurrency(result.totalExpenses),
           الرصيد_المتبقي: formatCurrency(result.remainingBalance)

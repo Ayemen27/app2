@@ -406,6 +406,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const projectId = project.id;
         
         try {
+          // دالة مساعدة لتنظيف القيم المسترجعة من قاعدة البيانات
+          const cleanDbValue = (value: any, type: 'integer' | 'decimal' = 'decimal'): number => {
+            if (value === null || value === undefined) return 0;
+            
+            const strValue = String(value).trim();
+            
+            // فحص الأنماط المشبوهة
+            if (strValue.match(/^(\d{1,3})\1{2,}$/)) {
+              console.warn('⚠️ [API] قيمة مشبوهة من قاعدة البيانات:', strValue);
+              return 0;
+            }
+            
+            const parsed = type === 'integer' ? parseInt(strValue, 10) : parseFloat(strValue);
+            
+            if (isNaN(parsed) || !isFinite(parsed)) return 0;
+            
+            // فحص الحدود المنطقية
+            const maxValue = type === 'integer' ? 
+              (strValue.includes('worker') || strValue.includes('total_workers') ? 10000 : 1000000) : 
+              100000000000; // 100 مليار للمبالغ المالية
+            
+            if (Math.abs(parsed) > maxValue) {
+              console.warn(`⚠️ [API] قيمة تتجاوز الحد المنطقي (${type}):`, parsed);
+              return 0;
+            }
+            
+            return Math.max(0, parsed);
+          };
+
           // حساب إجمالي العمال والعمال النشطين المرتبطين بهذا المشروع فقط
           const workersStats = await db.execute(sql`
             SELECT 
@@ -420,7 +449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const materialStats = await db.execute(sql`
             SELECT 
               COUNT(*) as material_purchases,
-              COALESCE(SUM(total_amount), 0) as material_expenses
+              COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
             FROM material_purchases 
             WHERE project_id = ${projectId}
           `);
@@ -436,42 +465,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // حساب تحويلات العهدة (الإيرادات)
           const fundTransfersStats = await db.execute(sql`
-            SELECT COALESCE(SUM(amount), 0) as total_income
+            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
             FROM fund_transfers 
             WHERE project_id = ${projectId}
           `);
           
           // حساب مصاريف المواصلات
           const transportStats = await db.execute(sql`
-            SELECT COALESCE(SUM(amount), 0) as transport_expenses
+            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
             FROM transportation_expenses 
             WHERE project_id = ${projectId}
           `);
           
-          // استخراج القيم مع تنظيف البيانات
-          const totalWorkers = Math.max(0, parseInt(workersStats.rows[0]?.total_workers || '0'));
-          const activeWorkers = Math.max(0, parseInt(workersStats.rows[0]?.active_workers || '0'));
-          const materialExpenses = Math.max(0, parseFloat(materialStats.rows[0]?.material_expenses || '0'));
-          const materialPurchases = Math.max(0, parseInt(materialStats.rows[0]?.material_purchases || '0'));
-          const workerWages = Math.max(0, parseFloat(workerWagesStats.rows[0]?.worker_wages || '0'));
-          const completedDays = Math.max(0, parseInt(workerWagesStats.rows[0]?.completed_days || '0'));
-          const totalIncome = Math.max(0, parseFloat(fundTransfersStats.rows[0]?.total_income || '0'));
-          const transportExpenses = Math.max(0, parseFloat(transportStats.rows[0]?.transport_expenses || '0'));
+          // حساب تحويلات العمال والمصاريف المتنوعة
+          const workerTransfersStats = await db.execute(sql`
+            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
+            FROM worker_transfers 
+            WHERE project_id = ${projectId}
+          `);
+          
+          const miscExpensesStats = await db.execute(sql`
+            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
+            FROM worker_misc_expenses 
+            WHERE project_id = ${projectId}
+          `);
+          
+          // استخراج القيم مع تنظيف البيانات المحسن
+          const totalWorkers = cleanDbValue(workersStats.rows[0]?.total_workers || '0', 'integer');
+          const activeWorkers = cleanDbValue(workersStats.rows[0]?.active_workers || '0', 'integer');
+          const materialExpenses = cleanDbValue(materialStats.rows[0]?.material_expenses || '0');
+          const materialPurchases = cleanDbValue(materialStats.rows[0]?.material_purchases || '0', 'integer');
+          const workerWages = cleanDbValue(workerWagesStats.rows[0]?.worker_wages || '0');
+          const completedDays = cleanDbValue(workerWagesStats.rows[0]?.completed_days || '0', 'integer');
+          const totalIncome = cleanDbValue(fundTransfersStats.rows[0]?.total_income || '0');
+          const transportExpenses = cleanDbValue(transportStats.rows[0]?.transport_expenses || '0');
+          const workerTransfers = cleanDbValue(workerTransfersStats.rows[0]?.worker_transfers || '0');
+          const miscExpenses = cleanDbValue(miscExpensesStats.rows[0]?.misc_expenses || '0');
+          
+          // فحص إضافي للتأكد من منطقية العدد
+          if (totalWorkers > 1000) {
+            console.warn(`⚠️ [API] عدد عمال غير منطقي للمشروع ${project.name}: ${totalWorkers}`);
+          }
           
           // حساب إجمالي المصروفات والرصيد الحالي
-          const totalExpenses = materialExpenses + workerWages + transportExpenses;
+          const totalExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses;
           const currentBalance = totalIncome - totalExpenses;
           
+          // تسجيل مفصل في بيئة التطوير
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`📊 [API] إحصائيات المشروع "${project.name}":`, {
+              totalWorkers,
+              activeWorkers,
+              totalIncome,
+              totalExpenses,
+              currentBalance,
+              completedDays,
+              materialPurchases
+            });
+          }
+
           return {
             ...project,
             stats: {
-              totalWorkers: Math.max(0, totalWorkers) || 0,
-              totalExpenses: Math.max(0, totalExpenses) || 0,
-              totalIncome: Math.max(0, totalIncome) || 0,
-              currentBalance: currentBalance || 0,
-              activeWorkers: Math.max(0, activeWorkers) || 0,
-              completedDays: Math.max(0, completedDays) || 0,
-              materialPurchases: Math.max(0, materialPurchases) || 0,
+              totalWorkers: Math.max(0, totalWorkers),
+              totalExpenses: Math.max(0, totalExpenses),
+              totalIncome: Math.max(0, totalIncome),
+              currentBalance: currentBalance, // يمكن أن يكون سالباً
+              activeWorkers: Math.max(0, activeWorkers),
+              completedDays: Math.max(0, completedDays),
+              materialPurchases: Math.max(0, materialPurchases),
               lastActivity: project.createdAt.toISOString()
             }
           };

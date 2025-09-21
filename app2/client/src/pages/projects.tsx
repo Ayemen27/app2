@@ -94,15 +94,46 @@ export default function ProjectsPage() {
   // ✅ Fetch projects with statistics - استخدام default fetcher مع Authorization headers
   const { data: projectsData = [], isLoading, refetch: refetchProjects, error } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects/with-stats"],
-    // ✅ إزالة queryFn المخصص للاعتماد على default fetcher مع Authorization headers
+    queryFn: async () => {
+      try {
+        console.log('📊 [Projects] جلب المشاريع مع الإحصائيات...');
+        const response = await apiRequest("/api/projects/with-stats", "GET");
+        console.log('📊 [Projects] استجابة المشاريع:', response);
+
+        // معالجة هيكل الاستجابة المتعددة
+        let projects = [];
+        if (response && typeof response === 'object') {
+          if (response.success !== undefined && response.data !== undefined) {
+            projects = Array.isArray(response.data) ? response.data : [];
+          } else if (Array.isArray(response)) {
+            projects = response;
+          } else if (response.id) {
+            projects = [response];
+          } else if (response.data) {
+            projects = Array.isArray(response.data) ? response.data : [];
+          }
+        }
+
+        if (!Array.isArray(projects)) {
+          console.warn('⚠️ [Projects] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
+          projects = [];
+        }
+
+        console.log(`✅ [Projects] تم جلب ${projects.length} مشروع مع الإحصائيات`);
+        return projects as ProjectWithStats[];
+      } catch (error) {
+        console.error('❌ [Projects] خطأ في جلب المشاريع:', error);
+        return [] as ProjectWithStats[];
+      }
+    },
     refetchInterval: 60000, // إعادة التحديث كل دقيقة
     staleTime: 30000, // البيانات طازجة لـ 30 ثانية
     refetchOnWindowFocus: true,
     retry: 2, // محاولتين إضافيتين
   });
 
-  // ✅ معالجة البيانات بعد الحصول عليها من default fetcher
-  const projects = Array.isArray(projectsData) ? projectsData : [];
+  // ✅ معالجة البيانات بعد الحصول عليها مع تنظيف إضافي
+  const projects = Array.isArray(projectsData) ? projectsData.filter(project => project && typeof project === 'object') : [];
 
   // Create project form
   const createForm = useForm<InsertProject>({
@@ -379,33 +410,51 @@ export default function ProjectsPage() {
     return defaultValue;
   };
 
-  // حساب الإحصائيات العامة مع تنظيف البيانات
-  const overallStats = Array.isArray(projects) ? projects.reduce((acc, project) => {
-    const stats = project.stats || {};
-    
-    return {
-      totalProjects: acc.totalProjects + 1,
-      activeProjects: acc.activeProjects + (project.status === 'active' ? 1 : 0),
-      totalIncome: acc.totalIncome + safeParseNumber(stats.totalIncome),
-      totalExpenses: acc.totalExpenses + safeParseNumber(stats.totalExpenses),
-      totalWorkers: acc.totalWorkers + safeParseNumber(stats.activeWorkers),
-      materialPurchases: acc.materialPurchases + safeParseNumber(stats.materialPurchases),
-    };
-  }, {
-    totalProjects: 0,
-    activeProjects: 0,
-    totalIncome: 0,
-    totalExpenses: 0,
-    totalWorkers: 0,
-    materialPurchases: 0,
-  }) : {
-    totalProjects: 0,
-    activeProjects: 0,
-    totalIncome: 0,
-    totalExpenses: 0,
-    totalWorkers: 0,
-    materialPurchases: 0,
-  };
+  // حساب الإحصائيات العامة مع تنظيف البيانات محسن
+  const overallStats = useMemo(() => {
+    if (!Array.isArray(projects) || projects.length === 0) {
+      return {
+        totalProjects: 0,
+        activeProjects: 0,
+        totalIncome: 0,
+        totalExpenses: 0,
+        totalWorkers: 0,
+        materialPurchases: 0,
+      };
+    }
+
+    return projects.reduce((acc, project) => {
+      // التأكد من وجود المشروع وصحة بياناته
+      if (!project || typeof project !== 'object') {
+        console.warn('⚠️ [Projects] مشروع غير صحيح تم تخطيه:', project);
+        return acc;
+      }
+
+      const stats = project.stats || {};
+      
+      // استخدام دالة تنظيف محسنة للأرقام
+      const safeIncome = cleanNumber(stats.totalIncome);
+      const safeExpenses = cleanNumber(stats.totalExpenses);
+      const safeWorkers = cleanInteger(stats.totalWorkers);
+      const safePurchases = cleanInteger(stats.materialPurchases);
+
+      return {
+        totalProjects: acc.totalProjects + 1,
+        activeProjects: acc.activeProjects + (project.status === 'active' ? 1 : 0),
+        totalIncome: acc.totalIncome + safeIncome,
+        totalExpenses: acc.totalExpenses + safeExpenses,
+        totalWorkers: acc.totalWorkers + safeWorkers,
+        materialPurchases: acc.materialPurchases + safePurchases,
+      };
+    }, {
+      totalProjects: 0,
+      activeProjects: 0,
+      totalIncome: 0,
+      totalExpenses: 0,
+      totalWorkers: 0,
+      materialPurchases: 0,
+    });
+  }, [projects]);
 
   const currentBalance = overallStats.totalIncome - overallStats.totalExpenses;
 

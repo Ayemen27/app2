@@ -370,10 +370,12 @@ function DailyExpensesContent() {
       return apiRequest("/api/fund-transfers", "POST", data);
     },
     onSuccess: async (newTransfer) => {
-      // تحديث فوري للقائمة
-      queryClient.setQueryData(["/api/projects", selectedProjectId, "fund-transfers", selectedDate], (oldData: any[]) => {
-        if (!oldData) return [newTransfer];
-        return [newTransfer, ...oldData];
+      // ✅ إصلاح: تحديث فوري للبيانات الأساسية
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", selectedProjectId, "previous-balance"] 
       });
 
       toast({
@@ -430,10 +432,12 @@ function DailyExpensesContent() {
       return apiRequest("/api/transportation-expenses", "POST", data);
     },
     onSuccess: async (newExpense) => {
-      // تحديث فوري للقائمة
-      queryClient.setQueryData(["/api/projects", selectedProjectId, "transportation-expenses", selectedDate], (oldData: any[]) => {
-        if (!oldData) return [newExpense];
-        return [newExpense, ...oldData];
+      // ✅ إصلاح: تحديث فوري للبيانات الأساسية
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", selectedProjectId, "previous-balance"] 
       });
 
       toast({

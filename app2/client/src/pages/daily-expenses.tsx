@@ -492,23 +492,53 @@ function DailyExpensesContent() {
   // Delete mutations
   const deleteFundTransferMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/fund-transfers/${id}`, "DELETE"),
-    onSuccess: (_, id) => {
-      // حذف فوري من القائمة
-      queryClient.setQueryData(["/api/projects", selectedProjectId, "fund-transfers", selectedDate], (oldData: any[]) => {
-        if (!oldData) return [];
-        return oldData.filter(transfer => transfer.id !== id);
+    onMutate: () => {
+      // حفظ القيم الحالية لتجنب Race Condition
+      return {
+        projectId: selectedProjectId,
+        date: selectedDate
+      };
+    },
+    onSuccess: (_, id, context) => {
+      // استخدام القيم المحفوظة من onMutate
+      const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
+      
+      // تحديث فوري للقائمة باستخدام setQueryData
+      queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          fundTransfers: oldData.fundTransfers?.filter((transfer: any) => transfer.id !== id) || []
+        };
       });
-      toast({ title: "تم الحذف", description: "تم حذف العهدة بنجاح" });
+      
+      // إبطال الكاش للتأكد من التحديث الكامل
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "previous-balance"] 
+      });
+      
+      toast({ 
+        title: "تم الحذف", 
+        description: "تم حذف العهدة بنجاح" 
+      });
     },
     onError: (error: any) => {
       console.error("خطأ في حذف الحولة:", error);
 
       let errorMessage = "حدث خطأ أثناء حذف الحولة";
 
+      // معالجة محسنة للأخطاء
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
       } else if (error?.message) {
         errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
       }
 
       toast({ 
@@ -521,52 +551,243 @@ function DailyExpensesContent() {
 
   const deleteTransportationMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/transportation-expenses/${id}`, "DELETE"),
-    onSuccess: (_, id) => {
-      // حذف فوري من القائمة
-      queryClient.setQueryData(["/api/projects", selectedProjectId, "transportation-expenses", selectedDate], (oldData: any[]) => {
-        if (!oldData) return [];
-        return oldData.filter(expense => expense.id !== id);
-      });
-      toast({ title: "تم الحذف", description: "تم حذف مصروف المواصلات بنجاح" });
+    onMutate: () => {
+      // حفظ القيم الحالية لتجنب Race Condition
+      return {
+        projectId: selectedProjectId,
+        date: selectedDate
+      };
     },
-    onError: () => {
-      toast({ title: "خطأ", description: "حدث خطأ أثناء حذف المصروف", variant: "destructive" });
+    onSuccess: (_, id, context) => {
+      // استخدام القيم المحفوظة من onMutate
+      const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
+      
+      // تحديث فوري للقائمة باستخدام setQueryData
+      queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          transportationExpenses: oldData.transportationExpenses?.filter((expense: any) => expense.id !== id) || []
+        };
+      });
+      
+      // إبطال الكاش للتأكد من التحديث الكامل
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "previous-balance"] 
+      });
+      
+      toast({ 
+        title: "تم الحذف", 
+        description: "تم حذف مصروف المواصلات بنجاح" 
+      });
+    },
+    onError: (error: any) => {
+      console.error("خطأ في حذف مصروف المواصلات:", error);
+
+      let errorMessage = "حدث خطأ أثناء حذف مصروف المواصلات";
+
+      // معالجة محسنة للأخطاء
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      toast({ 
+        title: "فشل في حذف مصروف المواصلات", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     }
   });
 
   const deleteMaterialPurchaseMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/material-purchases/${id}`, "DELETE"),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
-      toast({ title: "تم الحذف", description: "تم حذف شراء المواد بنجاح" });
+    onMutate: () => {
+      // حفظ القيم الحالية لتجنب Race Condition
+      return {
+        projectId: selectedProjectId,
+        date: selectedDate
+      };
     },
-    onError: () => {
-      toast({ title: "خطأ", description: "حدث خطأ أثناء حذف الشراء", variant: "destructive" });
+    onSuccess: (_, id, context) => {
+      // استخدام القيم المحفوظة من onMutate
+      const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
+      
+      // تحديث فوري للقائمة باستخدام setQueryData
+      queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          materialPurchases: oldData.materialPurchases?.filter((purchase: any) => purchase.id !== id) || []
+        };
+      });
+      
+      // إبطال الكاش للتأكد من التحديث الكامل
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "material-purchases"] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "previous-balance"] 
+      });
+      
+      toast({ 
+        title: "تم الحذف", 
+        description: "تم حذف شراء المواد بنجاح" 
+      });
+    },
+    onError: (error: any) => {
+      console.error("خطأ في حذف شراء المواد:", error);
+
+      let errorMessage = "حدث خطأ أثناء حذف شراء المواد";
+
+      // معالجة محسنة للأخطاء
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      toast({ 
+        title: "فشل في حذف شراء المواد", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     }
   });
 
   const deleteWorkerAttendanceMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/worker-attendance/${id}`, "DELETE"),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "attendance"] });
-      toast({ title: "تم الحذف", description: "تم حذف حضور العامل بنجاح" });
+    onMutate: () => {
+      // حفظ القيم الحالية لتجنب Race Condition
+      return {
+        projectId: selectedProjectId,
+        date: selectedDate
+      };
     },
-    onError: () => {
-      toast({ title: "خطأ", description: "حدث خطأ أثناء حذف الحضور", variant: "destructive" });
+    onSuccess: (_, id, context) => {
+      // استخدام القيم المحفوظة من onMutate
+      const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
+      
+      // تحديث فوري للقائمة باستخدام setQueryData
+      queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          workerAttendance: oldData.workerAttendance?.filter((attendance: any) => attendance.id !== id) || []
+        };
+      });
+      
+      // إبطال الكاش للتأكد من التحديث الكامل
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "attendance"] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "previous-balance"] 
+      });
+      
+      toast({ 
+        title: "تم الحذف", 
+        description: "تم حذف حضور العامل بنجاح" 
+      });
+    },
+    onError: (error: any) => {
+      console.error("خطأ في حذف حضور العامل:", error);
+
+      let errorMessage = "حدث خطأ أثناء حذف حضور العامل";
+
+      // معالجة محسنة للأخطاء
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      toast({ 
+        title: "فشل في حذف حضور العامل", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     }
   });
 
   const deleteWorkerTransferMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/worker-transfers/${id}`, "DELETE"),
-    onSuccess: () => {
-      // تحديث daily-expenses query حيث تأتي بيانات worker transfers
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] });
-      // تحديث previous-balance للأيام التالية لأن الحذف يؤثر على الرصيد
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "previous-balance"] });
-      toast({ title: "تم الحذف", description: "تم حذف حوالة العامل بنجاح" });
+    onMutate: () => {
+      // حفظ القيم الحالية لتجنب Race Condition
+      return {
+        projectId: selectedProjectId,
+        date: selectedDate
+      };
     },
-    onError: () => {
-      toast({ title: "خطأ", description: "حدث خطأ أثناء حذف حوالة العامل", variant: "destructive" });
+    onSuccess: (_, id, context) => {
+      // استخدام القيم المحفوظة من onMutate
+      const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
+      
+      // تحديث فوري للقائمة باستخدام setQueryData
+      queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          workerTransfers: oldData.workerTransfers?.filter((transfer: any) => transfer.id !== id) || []
+        };
+      });
+      
+      // إبطال الكاش للتأكد من التحديث الكامل
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "previous-balance"] 
+      });
+      
+      toast({ 
+        title: "تم الحذف", 
+        description: "تم حذف حوالة العامل بنجاح" 
+      });
+    },
+    onError: (error: any) => {
+      console.error("خطأ في حذف حوالة العامل:", error);
+
+      let errorMessage = "حدث خطأ أثناء حذف حوالة العامل";
+
+      // معالجة محسنة للأخطاء
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      toast({ 
+        title: "فشل في حذف حوالة العامل", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     }
   });
 
@@ -1130,6 +1351,7 @@ function DailyExpensesContent() {
                 size="sm" 
                 className="bg-primary"
                 disabled={addFundTransferMutation.isPending || updateFundTransferMutation.isPending}
+                data-testid="button-add-fund-transfer"
               >
                 {addFundTransferMutation.isPending || updateFundTransferMutation.isPending ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -1168,6 +1390,7 @@ function DailyExpensesContent() {
                             variant="ghost" 
                             className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                             onClick={() => handleEditFundTransfer(transfer)}
+                            data-testid="button-edit-fund-transfer"
                           >
                             <Edit2 className="h-3 w-3" />
                           </Button>
@@ -1177,8 +1400,13 @@ function DailyExpensesContent() {
                             className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                             onClick={() => deleteFundTransferMutation.mutate(transfer.id)}
                             disabled={deleteFundTransferMutation.isPending}
+                            data-testid="button-delete-fund-transfer"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            {deleteFundTransferMutation.isPending ? (
+                              <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
                           </Button>
                         </div>
                       </div>
@@ -1248,8 +1476,13 @@ function DailyExpensesContent() {
                             className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                             onClick={() => deleteWorkerAttendanceMutation.mutate(attendance.id)}
                             disabled={deleteWorkerAttendanceMutation.isPending}
+                            data-testid="button-delete-worker-attendance"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            {deleteWorkerAttendanceMutation.isPending ? (
+                              <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
                           </Button>
                         </div>
                       </div>
@@ -1299,8 +1532,18 @@ function DailyExpensesContent() {
                 placeholder="ملاحظات"
                 className="flex-1"
               />
-              <Button onClick={handleAddTransportation} size="sm" className="bg-secondary">
-                {editingTransportationId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              <Button 
+                onClick={handleAddTransportation} 
+                size="sm" 
+                className="bg-secondary"
+                disabled={addTransportationMutation.isPending || updateTransportationMutation.isPending}
+                data-testid="button-add-transportation"
+              >
+                {addTransportationMutation.isPending || updateTransportationMutation.isPending ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
+                ) : (
+                  editingTransportationId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />
+                )}
               </Button>
               {editingTransportationId && (
                 <Button onClick={resetTransportationForm} size="sm" variant="outline">
@@ -1329,6 +1572,7 @@ function DailyExpensesContent() {
                           variant="ghost" 
                           className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                           onClick={() => handleEditTransportation(expense)}
+                          data-testid="button-edit-transportation"
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
@@ -1338,8 +1582,13 @@ function DailyExpensesContent() {
                           className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                           onClick={() => deleteTransportationMutation.mutate(expense.id)}
                           disabled={deleteTransportationMutation.isPending}
+                          data-testid="button-delete-transportation"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          {deleteTransportationMutation.isPending ? (
+                            <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -1415,8 +1664,13 @@ function DailyExpensesContent() {
                         className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         onClick={() => deleteMaterialPurchaseMutation.mutate(purchase.id)}
                         disabled={deleteMaterialPurchaseMutation.isPending}
+                        data-testid="button-delete-material-purchase"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        {deleteMaterialPurchaseMutation.isPending ? (
+                          <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -1511,10 +1765,20 @@ function DailyExpensesContent() {
                         variant="ghost" 
                         className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         onClick={() => {
-                          deleteWorkerTransferMutation.mutate(transfer.id);
+                          // نقل التأكيد خارج mutationFn لإصلاح مشكلة onSuccess
+                          const isConfirmed = window.confirm('هل أنت متأكد من حذف حوالة العامل؟ هذا الإجراء لا يمكن التراجع عنه.');
+                          if (isConfirmed) {
+                            deleteWorkerTransferMutation.mutate(transfer.id);
+                          }
                         }}
+                        disabled={deleteWorkerTransferMutation.isPending}
+                        data-testid="button-delete-worker-transfer"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        {deleteWorkerTransferMutation.isPending ? (
+                          <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
                       </Button>
                     </div>
                   </div>

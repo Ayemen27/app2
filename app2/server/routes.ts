@@ -1275,11 +1275,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
         .where(and(eq(workerAttendance.projectId, projectId), eq(workerAttendance.date, date))),
         db.select().from(materialPurchases)
-          .where(and(eq(materialPurchases.projectId, projectId), gte(materialPurchases.purchaseDate, sql`${date}::date`), lt(materialPurchases.purchaseDate, sql`(${date}::date + interval '1 day')`))),
+          .where(and(eq(materialPurchases.projectId, projectId), eq(materialPurchases.purchaseDate, date))),
         db.select().from(transportationExpenses)
-          .where(and(eq(transportationExpenses.projectId, projectId), gte(transportationExpenses.date, sql`${date}::date`), lt(transportationExpenses.date, sql`(${date}::date + interval '1 day')`))),
+          .where(and(eq(transportationExpenses.projectId, projectId), eq(transportationExpenses.date, date))),
         db.select().from(workerTransfers)
-          .where(and(eq(workerTransfers.projectId, projectId), gte(workerTransfers.transferDate, sql`${date}::date`), lt(workerTransfers.transferDate, sql`(${date}::date + interval '1 day')`))),
+          .where(and(eq(workerTransfers.projectId, projectId), eq(workerTransfers.transferDate, date))),
         db.select().from(workerMiscExpenses)
           .where(and(eq(workerMiscExpenses.projectId, projectId), eq(workerMiscExpenses.date, date))),
         db.select().from(projects).where(eq(projects.id, projectId)).limit(1)

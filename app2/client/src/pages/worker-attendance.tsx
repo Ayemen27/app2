@@ -179,7 +179,7 @@ export default function WorkerAttendance() {
 
   const saveAttendanceMutation = useMutation({
     mutationFn: async (attendanceRecords: InsertWorkerAttendance[]) => {
-      console.log("Saving attendance records:", attendanceRecords);
+      console.log("💾 بدء حفظ سجلات الحضور للعمال:", attendanceRecords.length);
       
       // حفظ قيم الإكمال التلقائي قبل العملية الأساسية
       const autocompletePromises = attendanceRecords.flatMap(record => [
@@ -191,24 +191,111 @@ export default function WorkerAttendance() {
         await Promise.all(autocompletePromises);
       }
       
-      // تنفيذ العملية الأساسية
-      const promises = attendanceRecords.map(record =>
-        apiRequest("/api/worker-attendance", "POST", record)
-      );
-      await Promise.all(promises);
-      return attendanceRecords;
+      // تحسين منطق الحفظ لتجنب تضارب السجلات الموجودة
+      const results = [];
+      const errors = [];
+      
+      for (const record of attendanceRecords) {
+        try {
+          console.log(`🔄 محاولة حفظ حضور العامل: ${record.workerId} في التاريخ: ${record.date}`);
+          
+          // أولاً: محاولة التحقق من وجود سجل موجود
+          try {
+            const existingRecordResponse = await apiRequest(
+              `/api/projects/${record.projectId}/attendance?date=${record.date}&workerId=${record.workerId}`, 
+              "GET"
+            );
+            
+            const existingRecords = existingRecordResponse?.data || existingRecordResponse || [];
+            const existingRecord = Array.isArray(existingRecords) 
+              ? existingRecords.find((r: any) => r.workerId === record.workerId)
+              : null;
+            
+            if (existingRecord) {
+              console.log(`📝 تحديث سجل موجود للعامل: ${record.workerId}`);
+              // تحديث السجل الموجود باستخدام PATCH
+              const updatedRecord = await apiRequest(
+                `/api/worker-attendance/${existingRecord.id}`, 
+                "PATCH", 
+                record
+              );
+              results.push(updatedRecord);
+            } else {
+              console.log(`➕ إنشاء سجل جديد للعامل: ${record.workerId}`);
+              // إنشاء سجل جديد باستخدام POST
+              const newRecord = await apiRequest("/api/worker-attendance", "POST", record);
+              results.push(newRecord);
+            }
+          } catch (checkError) {
+            console.log(`➕ سجل غير موجود، إنشاء جديد للعامل: ${record.workerId}`);
+            // إذا فشل التحقق، نحاول إنشاء سجل جديد
+            const newRecord = await apiRequest("/api/worker-attendance", "POST", record);
+            results.push(newRecord);
+          }
+          
+        } catch (error: any) {
+          console.error(`❌ فشل في حفظ حضور العامل ${record.workerId}:`, error);
+          errors.push({
+            workerId: record.workerId,
+            error: error.message || "خطأ غير معروف"
+          });
+        }
+      }
+      
+      console.log(`✅ تم حفظ ${results.length} سجل حضور بنجاح`);
+      if (errors.length > 0) {
+        console.warn(`⚠️ فشل في حفظ ${errors.length} سجل حضور:`, errors);
+      }
+      
+      return { 
+        successful: results, 
+        failed: errors,
+        totalProcessed: attendanceRecords.length 
+      };
     },
-    onSuccess: async (attendanceRecords) => {
+    onSuccess: async (result) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-
-      toast({
-        title: "تم الحفظ",
-        description: "تم حفظ حضور العمال بنجاح",
-      });
       queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "attendance"] });
-      // مسح البيانات بعد الحفظ
-      setAttendanceData({});
+
+      const { successful, failed, totalProcessed } = result;
+      
+      if (failed.length === 0) {
+        // جميع العمليات نجحت
+        toast({
+          title: "تم الحفظ بنجاح",
+          description: `تم حفظ حضور ${successful.length} عامل بنجاح`,
+        });
+      } else if (successful.length > 0) {
+        // بعض العمليات نجحت وبعضها فشل
+        toast({
+          title: "تم الحفظ جزئياً",
+          description: `نجح حفظ ${successful.length} عامل، فشل ${failed.length} عامل`,
+          variant: "default",
+        });
+        console.error("تفاصيل الأخطاء:", failed);
+      } else {
+        // جميع العمليات فشلت
+        toast({
+          title: "فشل الحفظ",
+          description: `فشل في حفظ جميع سجلات الحضور (${failed.length} عامل)`,
+          variant: "destructive",
+        });
+      }
+      
+      // مسح البيانات المحفوظة فقط للعمال الذين تم حفظهم بنجاح
+      if (successful.length > 0) {
+        setAttendanceData(prevData => {
+          const newData = { ...prevData };
+          successful.forEach((record: any) => {
+            const savedRecord = record?.data || record;
+            if (savedRecord?.workerId) {
+              delete newData[savedRecord.workerId];
+            }
+          });
+          return newData;
+        });
+      }
     },
     onError: async (error: any, attendanceRecords) => {
       // حفظ قيم الإكمال التلقائي حتى في حالة الخطأ

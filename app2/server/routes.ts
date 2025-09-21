@@ -173,18 +173,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // جلب جميع المشاريع أولاً
       const projectsList = await db.select().from(projects).orderBy(projects.createdAt);
       
-      // إنشاء إحصائيات لكل مشروع (مبسطة في الوقت الحالي)
-      const projectsWithStats = projectsList.map(project => ({
-        ...project,
-        stats: {
-          totalWorkers: 0,
-          totalExpenses: 0,
-          totalIncome: 0,
-          currentBalance: 0,
-          activeWorkers: 0,
-          completedDays: 0,
-          materialPurchases: 0,
-          lastActivity: project.createdAt.toISOString()
+      // حساب الإحصائيات الفعلية لكل مشروع
+      const projectsWithStats = await Promise.all(projectsList.map(async (project) => {
+        const projectId = project.id;
+        
+        try {
+          // حساب إجمالي العمال والعمال النشطين
+          const workersStats = await db.execute(sql`
+            SELECT 
+              COUNT(DISTINCT w.id) as total_workers,
+              COUNT(DISTINCT CASE WHEN w.is_active = true THEN w.id END) as active_workers
+            FROM workers w
+            LEFT JOIN worker_attendance wa ON w.id = wa.worker_id AND wa.project_id = ${projectId}
+          `);
+          
+          // حساب مصاريف المواد
+          const materialStats = await db.execute(sql`
+            SELECT 
+              COUNT(*) as material_purchases,
+              COALESCE(SUM(total_amount), 0) as material_expenses
+            FROM material_purchases 
+            WHERE project_id = ${projectId}
+          `);
+          
+          // حساب أجور العمال
+          const workerWagesStats = await db.execute(sql`
+            SELECT 
+              COALESCE(SUM(actual_wage), 0) as worker_wages,
+              COUNT(DISTINCT attendance_date) as completed_days
+            FROM worker_attendance 
+            WHERE project_id = ${projectId} AND is_present = true
+          `);
+          
+          // حساب تحويلات العهدة (الإيرادات)
+          const fundTransfersStats = await db.execute(sql`
+            SELECT COALESCE(SUM(amount), 0) as total_income
+            FROM fund_transfers 
+            WHERE project_id = ${projectId}
+          `);
+          
+          // حساب مصاريف المواصلات
+          const transportStats = await db.execute(sql`
+            SELECT COALESCE(SUM(amount), 0) as transport_expenses
+            FROM transportation_expenses 
+            WHERE project_id = ${projectId}
+          `);
+          
+          // استخراج القيم
+          const totalWorkers = Number(workersStats.rows[0]?.total_workers || 0);
+          const activeWorkers = Number(workersStats.rows[0]?.active_workers || 0);
+          const materialExpenses = Number(materialStats.rows[0]?.material_expenses || 0);
+          const materialPurchases = Number(materialStats.rows[0]?.material_purchases || 0);
+          const workerWages = Number(workerWagesStats.rows[0]?.worker_wages || 0);
+          const completedDays = Number(workerWagesStats.rows[0]?.completed_days || 0);
+          const totalIncome = Number(fundTransfersStats.rows[0]?.total_income || 0);
+          const transportExpenses = Number(transportStats.rows[0]?.transport_expenses || 0);
+          
+          // حساب إجمالي المصروفات والرصيد الحالي
+          const totalExpenses = materialExpenses + workerWages + transportExpenses;
+          const currentBalance = totalIncome - totalExpenses;
+          
+          return {
+            ...project,
+            stats: {
+              totalWorkers: totalWorkers.toString(),
+              totalExpenses: totalExpenses,
+              totalIncome: totalIncome,
+              currentBalance: currentBalance,
+              activeWorkers: activeWorkers.toString(),
+              completedDays: completedDays.toString(),
+              materialPurchases: materialPurchases.toString(),
+              lastActivity: project.createdAt.toISOString()
+            }
+          };
+        } catch (error) {
+          console.error(`❌ [API] خطأ في حساب إحصائيات المشروع ${project.name}:`, error);
+          
+          // إرجاع قيم افتراضية في حالة الخطأ
+          return {
+            ...project,
+            stats: {
+              totalWorkers: "0",
+              totalExpenses: 0,
+              totalIncome: 0,
+              currentBalance: 0,
+              activeWorkers: "0",
+              completedDays: "0",
+              materialPurchases: "0",
+              lastActivity: project.createdAt.toISOString()
+            }
+          };
         }
       }));
       
@@ -794,16 +872,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('✅ [API] نجح validation حضور العامل');
       
-      // حساب actualWage = dailyWage * workDays وتحويل workDays إلى string
-      const dataWithActualWage = {
+      // حساب actualWage و totalPay = dailyWage * workDays وتحويل workDays إلى string
+      const actualWageValue = parseFloat(validationResult.data.dailyWage) * validationResult.data.workDays;
+      const dataWithCalculatedFields = {
         ...validationResult.data,
         workDays: validationResult.data.workDays.toString(), // تحويل إلى string للتوافق مع decimal
-        actualWage: (parseFloat(validationResult.data.dailyWage) * validationResult.data.workDays).toString()
+        actualWage: actualWageValue.toString(),
+        totalPay: actualWageValue.toString() // totalPay = actualWage
       };
       
       // إدراج حضور العامل الجديد في قاعدة البيانات
       console.log('💾 [API] حفظ حضور العامل في قاعدة البيانات...');
-      const newAttendance = await db.insert(workerAttendance).values([dataWithActualWage]).returning();
+      const newAttendance = await db.insert(workerAttendance).values([dataWithCalculatedFields]).returning();
       
       const duration = Date.now() - startTime;
       console.log(`✅ [API] تم إنشاء حضور العامل بنجاح في ${duration}ms:`, {

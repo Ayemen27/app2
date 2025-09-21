@@ -1,4 +1,3 @@
-
 /**
  * مكون حماية الصفحات - يحمي الصفحات من الوصول غير المصرح به
  */
@@ -17,8 +16,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [authCheckComplete, setAuthCheckComplete] = useState(false);
 
   // فحص إضافي للتأكد من وجود بيانات محفوظة
-  const hasStoredAuth = typeof window !== 'undefined' && 
-    localStorage.getItem('user') && 
+  const hasStoredAuth = typeof window !== 'undefined' &&
+    localStorage.getItem('user') &&
     localStorage.getItem('accessToken');
 
   console.log('🛡️ [ProtectedRoute] فحص الحماية:', {
@@ -68,8 +67,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
             <p className="text-gray-600 dark:text-gray-400">
               حدث خطأ أثناء تحميل المحتوى. يرجى إعادة تحميل الصفحة.
             </p>
-            <button 
-              onClick={() => window.location.reload()} 
+            <button
+              onClick={() => window.location.reload()}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               إعادة تحميل
@@ -83,7 +82,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   // إذا كانت هناك بيانات محفوظة ولكن لم يتم تحميل المستخدم، محاولة أخيرة
   if (hasStoredAuth && !user && authCheckComplete) {
     console.log('⚠️ [ProtectedRoute] بيانات محفوظة موجودة لكن المستخدم غير محمل، إعادة المحاولة...');
-    
+
     try {
       const savedUser = localStorage.getItem('user');
       if (savedUser) {
@@ -98,9 +97,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   }
 
-  // إذا لم توجد بيانات مصادقة، إعادة توجيه لتسجيل الدخول
-  if (!isAuthenticated && !hasStoredAuth) {
-    console.log('🚫 [ProtectedRoute] غير مصادق عليه، إعادة توجيه إلى /login');
+  // فقط إعادة التوجيه إذا لم يكن هناك أي بيانات مصادقة نهائياً
+  if (!isAuthenticated && !hasStoredAuth && authCheckComplete) {
+    console.log('🚫 [ProtectedRoute] لا توجد بيانات مصادقة، إعادة توجيه إلى /login');
     return <Redirect to="/login" />;
   }
 

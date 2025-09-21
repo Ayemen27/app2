@@ -55,17 +55,43 @@ interface ProjectWithStats extends Project {
   stats: ProjectStats;
 }
 
-// Helper functions for cleaning and parsing numbers
+// Helper functions for cleaning and parsing numbers - محسنة
 const cleanInteger = (value: any): number => {
-  if (value === undefined || value === null) return 0;
-  const num = parseInt(String(value), 10);
-  return isNaN(num) ? 0 : Math.max(0, num);
+  if (value === undefined || value === null || value === '') return 0;
+  
+  // التعامل مع الأرقام المباشرة
+  if (typeof value === 'number') {
+    return isNaN(value) || !isFinite(value) ? 0 : Math.max(0, Math.floor(value));
+  }
+  
+  // التعامل مع النصوص
+  const stringValue = String(value).trim();
+  if (stringValue === '' || stringValue === 'null' || stringValue === 'undefined') return 0;
+  
+  // تنظيف النص من الرموز غير الرقمية (عدا الأرقام والنقطة والناقص)
+  const cleanValue = stringValue.replace(/[^\d.-]/g, '');
+  const num = parseInt(cleanValue, 10);
+  
+  return isNaN(num) || !isFinite(num) ? 0 : Math.max(0, num);
 };
 
 const cleanNumber = (value: any): number => {
-  if (value === undefined || value === null) return 0;
-  const num = parseFloat(String(value));
-  return isNaN(num) ? 0 : Math.max(0, num);
+  if (value === undefined || value === null || value === '') return 0;
+  
+  // التعامل مع الأرقام المباشرة
+  if (typeof value === 'number') {
+    return isNaN(value) || !isFinite(value) ? 0 : value;
+  }
+  
+  // التعامل مع النصوص
+  const stringValue = String(value).trim();
+  if (stringValue === '' || stringValue === 'null' || stringValue === 'undefined') return 0;
+  
+  // تنظيف النص من الرموز غير الرقمية (عدا الأرقام والنقطة والناقص)
+  const cleanValue = stringValue.replace(/[^\d.-]/g, '');
+  const num = parseFloat(cleanValue);
+  
+  return isNaN(num) || !isFinite(num) ? 0 : num;
 };
 
 
@@ -430,29 +456,36 @@ export default function ProjectsPage() {
     );
   }
 
-  // Helper function لتنظيف القيم النصية وتحويلها إلى أرقام
+  // Helper function محسنة لتنظيف القيم النصية وتحويلها إلى أرقام
   const safeParseNumber = (value: any, defaultValue: number = 0): number => {
-    if (value === null || value === undefined) return defaultValue;
+    if (value === null || value === undefined || value === '') return defaultValue;
     
     if (typeof value === 'number') {
-      return isNaN(value) || !isFinite(value) ? defaultValue : Math.max(0, value);
+      return isNaN(value) || !isFinite(value) ? defaultValue : value;
     }
     
     if (typeof value === 'string') {
-      // تنظيف القيم المتكررة المشبوهة مثل 162162162
-      if (value.match(/^(\d{1,3})\1{2,}$/)) return defaultValue;
+      const cleanValue = value.trim();
+      if (cleanValue === '' || cleanValue === 'null' || cleanValue === 'undefined') return defaultValue;
       
-      const cleanValue = value.replace(/[^\d.-]/g, '');
-      const parsed = parseFloat(cleanValue);
-      return isNaN(parsed) || !isFinite(parsed) ? defaultValue : Math.max(0, parsed);
+      // تنظيف القيم المتكررة المشبوهة مثل 162162162
+      if (cleanValue.match(/^(\d{1,3})\1{2,}$/)) return defaultValue;
+      
+      // إزالة الفواصل والرموز غير الرقمية
+      const numericValue = cleanValue.replace(/[^\d.-]/g, '');
+      const parsed = parseFloat(numericValue);
+      return isNaN(parsed) || !isFinite(parsed) ? defaultValue : parsed;
     }
     
     return defaultValue;
   };
 
-  // حساب الإحصائيات العامة مع تنظيف البيانات محسن
+  // حساب الإحصائيات العامة مع تحسين معالجة البيانات
   const overallStats = useMemo(() => {
+    console.log('🔄 [Projects] حساب الإحصائيات العامة، عدد المشاريع:', projects.length);
+    
     if (!Array.isArray(projects) || projects.length === 0) {
+      console.log('⚠️ [Projects] لا توجد مشاريع للحساب');
       return {
         totalProjects: 0,
         activeProjects: 0,
@@ -463,20 +496,36 @@ export default function ProjectsPage() {
       };
     }
 
-    return projects.reduce((acc, project) => {
+    const calculatedStats = projects.reduce((acc, project, index) => {
       // التأكد من وجود المشروع وصحة بياناته
       if (!project || typeof project !== 'object') {
-        console.warn('⚠️ [Projects] مشروع غير صحيح تم تخطيه:', project);
+        console.warn(`⚠️ [Projects] مشروع ${index} غير صحيح تم تخطيه:`, project);
         return acc;
       }
 
       const stats = project.stats || {};
       
+      // تسجيل تفصيلي لكل مشروع
+      console.log(`📊 [Projects] مشروع "${project.name}":`, {
+        totalIncome: stats.totalIncome,
+        totalExpenses: stats.totalExpenses,
+        totalWorkers: stats.totalWorkers,
+        materialPurchases: stats.materialPurchases,
+        status: project.status
+      });
+      
       // استخدام دالة تنظيف محسنة للأرقام
-      const safeIncome = cleanNumber(stats.totalIncome);
-      const safeExpenses = cleanNumber(stats.totalExpenses);
+      const safeIncome = safeParseNumber(stats.totalIncome, 0);
+      const safeExpenses = safeParseNumber(stats.totalExpenses, 0);
       const safeWorkers = cleanInteger(stats.totalWorkers);
       const safePurchases = cleanInteger(stats.materialPurchases);
+
+      console.log(`✅ [Projects] قيم منظفة للمشروع "${project.name}":`, {
+        safeIncome,
+        safeExpenses,
+        safeWorkers,
+        safePurchases
+      });
 
       return {
         totalProjects: acc.totalProjects + 1,
@@ -494,6 +543,9 @@ export default function ProjectsPage() {
       totalWorkers: 0,
       materialPurchases: 0,
     });
+
+    console.log('✅ [Projects] إجمالي الإحصائيات المحسوبة:', calculatedStats);
+    return calculatedStats;
   }, [projects]);
 
   const currentBalance = overallStats.totalIncome - overallStats.totalExpenses;
@@ -729,7 +781,7 @@ export default function ProjectsPage() {
                       <span className="text-xs font-medium text-green-700 dark:text-green-400">الدخل</span>
                     </div>
                     <p className="text-sm font-bold text-green-800 dark:text-green-300 arabic-numbers">
-                      {formatCurrency(project.stats.totalIncome)}
+                      {formatCurrency(safeParseNumber(project.stats.totalIncome, 0))}
                     </p>
                   </div>
 
@@ -739,7 +791,7 @@ export default function ProjectsPage() {
                       <span className="text-xs font-medium text-red-700 dark:text-red-400">المصروفات</span>
                     </div>
                     <p className="text-sm font-bold text-red-800 dark:text-red-300 arabic-numbers">
-                      {formatCurrency(project.stats.totalExpenses)}
+                      {formatCurrency(safeParseNumber(project.stats.totalExpenses, 0))}
                     </p>
                   </div>
                 </div>
@@ -751,7 +803,7 @@ export default function ProjectsPage() {
                     <span className="text-xs font-medium text-blue-700 dark:text-blue-400">الرصيد الحالي</span>
                   </div>
                   <p className="text-lg font-bold text-blue-800 dark:text-blue-300 arabic-numbers">
-                    {formatCurrency(project.stats.currentBalance)}
+                    {formatCurrency(safeParseNumber(project.stats.currentBalance, 0))}
                   </p>
                 </div>
 
@@ -762,7 +814,7 @@ export default function ProjectsPage() {
                       <Users className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground">العمال</p>
-                    <p className="text-sm font-semibold arabic-numbers">{safeParseNumber(project.stats.totalWorkers)}</p>
+                    <p className="text-sm font-semibold arabic-numbers">{cleanInteger(project.stats.totalWorkers)}</p>
                   </div>
 
                   <div className="space-y-1">
@@ -770,7 +822,7 @@ export default function ProjectsPage() {
                       <Package className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground">المشتريات</p>
-                    <p className="text-sm font-semibold arabic-numbers">{safeParseNumber(project.stats.materialPurchases)}</p>
+                    <p className="text-sm font-semibold arabic-numbers">{cleanInteger(project.stats.materialPurchases)}</p>
                   </div>
 
                   <div className="space-y-1">
@@ -778,7 +830,7 @@ export default function ProjectsPage() {
                       <Calendar className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground">أيام العمل</p>
-                    <p className="text-sm font-semibold">{safeParseNumber(project.stats.completedDays)}</p>
+                    <p className="text-sm font-semibold arabic-numbers">{cleanInteger(project.stats.completedDays)}</p>
                   </div>
                 </div>
 

@@ -274,42 +274,6 @@ function DailyExpensesContent() {
     gcTime: 600000, // 10 دقائق
   });
 
-  const { data: todayWorkerTransfers = [], refetch: refetchWorkerTransfers } = useQuery({
-    queryKey: ["/api/worker-transfers", selectedProjectId, selectedDate],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest(`/api/worker-transfers?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
-        // معالجة آمنة للاستجابة
-        if (response && response.data && Array.isArray(response.data)) {
-          return response.data as WorkerTransfer[];
-        }
-        return Array.isArray(response) ? response as WorkerTransfer[] : [];
-      } catch (error) {
-        console.error("Error fetching worker transfers:", error);
-        return [];
-      }
-    },
-    enabled: !!selectedProjectId,
-  });
-
-  const { data: todayMiscExpenses = [] } = useQuery({
-    queryKey: ["/api/worker-misc-expenses", selectedProjectId, selectedDate],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest(`/api/worker-misc-expenses?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
-        // معالجة آمنة للاستجابة
-        if (response && response.data && Array.isArray(response.data)) {
-          return response.data;
-        }
-        return Array.isArray(response) ? response : [];
-      } catch (error) {
-        console.error("Error fetching worker misc expenses:", error);
-        return [];
-      }
-    },
-    enabled: !!selectedProjectId,
-  });
-
   // معالجة آمنة لباقي البيانات
   const safeWorkerTransfers = Array.isArray(todayWorkerTransfers) ? todayWorkerTransfers : [];
   const safeMiscExpenses = Array.isArray(todayMiscExpenses) ? todayMiscExpenses : [];

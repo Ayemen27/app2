@@ -2601,6 +2601,174 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ❌ DELETE endpoint لمشتريات المواد - حذف مشتريات مع logging وتحقق من الوجود
+  app.delete("/api/material-purchases/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const purchaseId = req.params.id;
+      console.log('❌ [API] طلب حذف مشتريات المواد من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID مشتريات المواد المراد حذفها:', purchaseId);
+      
+      if (!purchaseId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف مشتريات المواد مطلوب',
+          message: 'لم يتم توفير معرف مشتريات المواد للحذف',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود مشتريات المواد أولاً وجلب بياناتها للـ logging
+      const existingPurchase = await db.select().from(materialPurchases).where(eq(materialPurchases.id, purchaseId)).limit(1);
+      
+      if (existingPurchase.length === 0) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] مشتريات المواد غير موجودة:', purchaseId);
+        return res.status(404).json({
+          success: false,
+          error: 'مشتريات المواد غير موجودة',
+          message: `لم يتم العثور على مشتريات مواد بالمعرف: ${purchaseId}`,
+          processingTime: duration
+        });
+      }
+      
+      const purchaseToDelete = existingPurchase[0];
+      console.log('🗑️ [API] سيتم حذف مشتريات المواد:', {
+        id: purchaseToDelete.id,
+        projectId: purchaseToDelete.projectId,
+        totalAmount: purchaseToDelete.totalAmount
+      });
+      
+      // حذف مشتريات المواد من قاعدة البيانات
+      console.log('🗑️ [API] حذف مشتريات المواد من قاعدة البيانات...');
+      const deletedPurchase = await db
+        .delete(materialPurchases)
+        .where(eq(materialPurchases.id, purchaseId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم حذف مشتريات المواد بنجاح في ${duration}ms:`, {
+        id: deletedPurchase[0].id,
+        totalAmount: deletedPurchase[0].totalAmount
+      });
+      
+      res.json({
+        success: true,
+        data: deletedPurchase[0],
+        message: `تم حذف مشتريات المواد بقيمة ${deletedPurchase[0].totalAmount} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في حذف مشتريات المواد:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في حذف مشتريات المواد';
+      let statusCode = 500;
+      
+      if (error.code === '23503') { // foreign key violation
+        errorMessage = 'لا يمكن حذف مشتريات المواد - مرتبطة ببيانات أخرى';
+        statusCode = 409;
+      } else if (error.code === '22P02') { // invalid input syntax
+        errorMessage = 'معرف مشتريات المواد غير صحيح';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // ❌ DELETE endpoint للموردين - حذف مورد مع logging وتحقق من الوجود
+  app.delete("/api/suppliers/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const supplierId = req.params.id;
+      console.log('❌ [API] طلب حذف المورد من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID المورد المراد حذفه:', supplierId);
+      
+      if (!supplierId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المورد مطلوب',
+          message: 'لم يتم توفير معرف المورد للحذف',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود المورد أولاً وجلب بياناته للـ logging
+      const existingSupplier = await db.select().from(suppliers).where(eq(suppliers.id, supplierId)).limit(1);
+      
+      if (existingSupplier.length === 0) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] المورد غير موجود:', supplierId);
+        return res.status(404).json({
+          success: false,
+          error: 'المورد غير موجود',
+          message: `لم يتم العثور على مورد بالمعرف: ${supplierId}`,
+          processingTime: duration
+        });
+      }
+      
+      const supplierToDelete = existingSupplier[0];
+      console.log('🗑️ [API] سيتم حذف المورد:', {
+        id: supplierToDelete.id,
+        name: supplierToDelete.name,
+        contactPerson: supplierToDelete.contactPerson
+      });
+      
+      // حذف المورد من قاعدة البيانات
+      console.log('🗑️ [API] حذف المورد من قاعدة البيانات...');
+      const deletedSupplier = await db
+        .delete(suppliers)
+        .where(eq(suppliers.id, supplierId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم حذف المورد بنجاح في ${duration}ms:`, {
+        id: deletedSupplier[0].id,
+        name: deletedSupplier[0].name
+      });
+      
+      res.json({
+        success: true,
+        data: deletedSupplier[0],
+        message: `تم حذف المورد "${deletedSupplier[0].name}" بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في حذف المورد:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في حذف المورد';
+      let statusCode = 500;
+      
+      if (error.code === '23503') { // foreign key violation
+        errorMessage = 'لا يمكن حذف المورد - مرتبط ببيانات أخرى';
+        statusCode = 409;
+      } else if (error.code === '22P02') { // invalid input syntax
+        errorMessage = 'معرف المورد غير صحيح';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
   // 🔄 PATCH endpoint للعمال - تحديث بيانات عامل موجود مع validation محسن
   app.patch("/api/workers/:id", requireAuth, async (req, res) => {
     const startTime = Date.now();
@@ -2874,18 +3042,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 🔄 PATCH endpoints للمواد
+  // 🔄 PATCH endpoint للمواد - تحديث مادة موجودة مع validation محسن
   app.patch("/api/materials/:id", requireAuth, async (req, res) => {
     const startTime = Date.now();
     try {
       const materialId = req.params.id;
-      console.log('🔄 [API] طلب تحديث المادة:', materialId);
+      console.log('🔄 [API] طلب تحديث المادة من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID المادة:', materialId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
       
-      // مؤقتاً نرجع رسالة نجاح حتى يتم إنشاء جدول materials
+      if (!materialId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المادة مطلوب',
+          message: 'لم يتم توفير معرف المادة للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود المادة أولاً
+      const existingMaterial = await db.select().from(materials).where(eq(materials.id, materialId)).limit(1);
+      
+      if (existingMaterial.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'المادة غير موجودة',
+          message: `لم يتم العثور على مادة بالمعرف: ${materialId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertMaterialSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث المادة:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث المادة غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث المادة غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث المادة
+      const updatedMaterial = await db
+        .update(materials)
+        .set(validationResult.data)
+        .where(eq(materials.id, materialId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث المادة بنجاح في ${duration}ms`);
+      
       res.json({
         success: true,
-        message: 'endpoint جاهز - سيتم تفعيله عند إنشاء جدول المواد',
-        processingTime: Date.now() - startTime
+        data: updatedMaterial[0],
+        message: `تم تحديث المادة "${updatedMaterial[0].name}" بنجاح`,
+        processingTime: duration
       });
       
     } catch (error: any) {
@@ -2901,27 +3123,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 🔄 PATCH endpoints لشراء المواد
-  app.patch("/api/material-purchases/:id", requireAuth, async (req, res) => {
+  // ❌ DELETE endpoint للمواد - حذف مادة مع logging وتحقق من الوجود
+  app.delete("/api/materials/:id", requireAuth, async (req, res) => {
     const startTime = Date.now();
     try {
-      const purchaseId = req.params.id;
-      console.log('🔄 [API] طلب تحديث شراء مواد:', purchaseId);
+      const materialId = req.params.id;
+      console.log('❌ [API] طلب حذف المادة من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID المادة المراد حذفها:', materialId);
       
-      // مؤقتاً نرجع رسالة نجاح حتى يتم إنشاء جدول material_purchases
+      if (!materialId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المادة مطلوب',
+          message: 'لم يتم توفير معرف المادة للحذف',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود المادة أولاً وجلب بياناتها للـ logging
+      const existingMaterial = await db.select().from(materials).where(eq(materials.id, materialId)).limit(1);
+      
+      if (existingMaterial.length === 0) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] المادة غير موجودة:', materialId);
+        return res.status(404).json({
+          success: false,
+          error: 'المادة غير موجودة',
+          message: `لم يتم العثور على مادة بالمعرف: ${materialId}`,
+          processingTime: duration
+        });
+      }
+      
+      const materialToDelete = existingMaterial[0];
+      console.log('🗑️ [API] سيتم حذف المادة:', {
+        id: materialToDelete.id,
+        name: materialToDelete.name,
+        category: materialToDelete.category
+      });
+      
+      // حذف المادة من قاعدة البيانات
+      console.log('🗑️ [API] حذف المادة من قاعدة البيانات...');
+      const deletedMaterial = await db
+        .delete(materials)
+        .where(eq(materials.id, materialId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم حذف المادة بنجاح في ${duration}ms:`, {
+        id: deletedMaterial[0].id,
+        name: deletedMaterial[0].name,
+        category: deletedMaterial[0].category
+      });
+      
       res.json({
         success: true,
-        message: 'endpoint جاهز - سيتم تفعيله عند إنشاء جدول شراء المواد',
-        processingTime: Date.now() - startTime
+        data: deletedMaterial[0],
+        message: `تم حذف المادة "${deletedMaterial[0].name}" بنجاح`,
+        processingTime: duration
       });
       
     } catch (error: any) {
       const duration = Date.now() - startTime;
-      console.error('❌ [API] خطأ في تحديث شراء المواد:', error);
+      console.error('❌ [API] خطأ في حذف المادة:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في حذف المادة';
+      let statusCode = 500;
+      
+      if (error.code === '23503') { // foreign key violation
+        errorMessage = 'لا يمكن حذف المادة - مرتبطة ببيانات أخرى';
+        statusCode = 409;
+      } else if (error.code === '22P02') { // invalid input syntax
+        errorMessage = 'معرف المادة غير صحيح';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 🔄 PATCH endpoints لشراء المواد - تحديث مشتريات موجودة مع validation محسن
+  app.patch("/api/material-purchases/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const purchaseId = req.params.id;
+      console.log('🔄 [API] طلب تحديث مشتريات المواد من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID مشتريات المواد:', purchaseId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!purchaseId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف مشتريات المواد مطلوب',
+          message: 'لم يتم توفير معرف مشتريات المواد للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود مشتريات المواد أولاً
+      const existingPurchase = await db.select().from(materialPurchases).where(eq(materialPurchases.id, purchaseId)).limit(1);
+      
+      if (existingPurchase.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'مشتريات المواد غير موجودة',
+          message: `لم يتم العثور على مشتريات مواد بالمعرف: ${purchaseId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertMaterialPurchaseSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث مشتريات المواد:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث مشتريات المواد غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث مشتريات المواد غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث مشتريات المواد
+      const updatedPurchase = await db
+        .update(materialPurchases)
+        .set(validationResult.data)
+        .where(eq(materialPurchases.id, purchaseId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث مشتريات المواد بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedPurchase[0],
+        message: `تم تحديث مشتريات المواد بقيمة ${updatedPurchase[0].totalAmount} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث مشتريات المواد:', error);
       
       res.status(500).json({
         success: false,
-        error: 'فشل في تحديث شراء المواد',
+        error: 'فشل في تحديث مشتريات المواد',
         message: error.message,
         processingTime: duration
       });

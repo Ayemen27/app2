@@ -401,10 +401,10 @@ export const insertUserSchema = createInsertSchema(users).omit({
   firstName: z.string()
     .min(1, "الاسم الأول مطلوب")
     .max(100, "الاسم الأول طويل جداً")
-    .regex(/^[a-zA-Zا-ي\s\-']+$/, "الاسم يحتوي على أحرف غير مسموحة"),
+    .regex(/^[a-zA-Zا-ي0-9\s\-']+$/, "الاسم يحتوي على أحرف غير مسموحة"),
   lastName: z.string()
     .max(100, "اسم العائلة طويل جداً")
-    .regex(/^[a-zA-Zا-ي\s\-']*$/, "اسم العائلة يحتوي على أحرف غير مسموحة")
+    .regex(/^[a-zA-Zا-ي0-9\s\-']*$/, "اسم العائلة يحتوي على أحرف غير مسموحة")
     .optional(),
   role: z.enum(['admin', 'manager', 'user'], {
     errorMap: () => ({ message: "الدور يجب أن يكون admin أو manager أو user" })
@@ -419,7 +419,7 @@ export const enhancedInsertWorkerSchema = createInsertSchema(workers).omit({
   name: z.string()
     .min(2, "اسم العامل قصير جداً")
     .max(100, "اسم العامل طويل جداً")
-    .regex(/^[a-zA-Zا-ي\s\-']+$/, "اسم العامل يحتوي على أحرف غير مسموحة"),
+    .regex(/^[a-zA-Zا-ي0-9\s\-']+$/, "اسم العامل يحتوي على أحرف غير مسموحة"),
   type: z.enum(['معلم', 'عامل', 'مساعد', 'سائق', 'حارس'], {
     errorMap: () => ({ message: "نوع العامل غير صحيح" })
   }),

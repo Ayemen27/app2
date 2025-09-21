@@ -236,13 +236,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return {
             ...project,
             stats: {
-              totalWorkers: totalWorkers.toString(),
-              totalExpenses: totalExpenses,
-              totalIncome: totalIncome,
-              currentBalance: currentBalance,
-              activeWorkers: activeWorkers.toString(),
-              completedDays: completedDays.toString(),
-              materialPurchases: materialPurchases.toString(),
+              totalWorkers: Math.max(0, totalWorkers) || 0,
+              totalExpenses: Math.max(0, totalExpenses) || 0,
+              totalIncome: Math.max(0, totalIncome) || 0,
+              currentBalance: currentBalance || 0,
+              activeWorkers: Math.max(0, activeWorkers) || 0,
+              completedDays: Math.max(0, completedDays) || 0,
+              materialPurchases: Math.max(0, materialPurchases) || 0,
               lastActivity: project.createdAt.toISOString()
             }
           };
@@ -253,13 +253,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return {
             ...project,
             stats: {
-              totalWorkers: "0",
+              totalWorkers: 0,
               totalExpenses: 0,
               totalIncome: 0,
               currentBalance: 0,
-              activeWorkers: "0",
-              completedDays: "0",
-              materialPurchases: "0",
+              activeWorkers: 0,
+              completedDays: 0,
+              materialPurchases: 0,
               lastActivity: project.createdAt.toISOString()
             }
           };

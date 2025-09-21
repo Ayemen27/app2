@@ -359,15 +359,37 @@ export default function ProjectsPage() {
     );
   }
 
-  // حساب الإحصائيات العامة
+  // Helper function لتنظيف القيم النصية وتحويلها إلى أرقام
+  const safeParseNumber = (value: any, defaultValue: number = 0): number => {
+    if (value === null || value === undefined) return defaultValue;
+    
+    if (typeof value === 'number') {
+      return isNaN(value) || !isFinite(value) ? defaultValue : value;
+    }
+    
+    if (typeof value === 'string') {
+      // تنظيف القيم المتكررة المشبوهة
+      if (value.match(/^(\d)\1{10,}$/)) return defaultValue;
+      
+      const cleanValue = value.replace(/[^\d.-]/g, '');
+      const parsed = parseFloat(cleanValue);
+      return isNaN(parsed) || !isFinite(parsed) ? defaultValue : parsed;
+    }
+    
+    return defaultValue;
+  };
+
+  // حساب الإحصائيات العامة مع تنظيف البيانات
   const overallStats = Array.isArray(projects) ? projects.reduce((acc, project) => {
+    const stats = project.stats || {};
+    
     return {
       totalProjects: acc.totalProjects + 1,
       activeProjects: acc.activeProjects + (project.status === 'active' ? 1 : 0),
-      totalIncome: acc.totalIncome + (project.stats?.totalIncome || 0),
-      totalExpenses: acc.totalExpenses + (project.stats?.totalExpenses || 0),
-      totalWorkers: acc.totalWorkers + (project.stats?.activeWorkers || 0),
-      materialPurchases: acc.materialPurchases + (project.stats?.materialPurchases || 0),
+      totalIncome: acc.totalIncome + safeParseNumber(stats.totalIncome),
+      totalExpenses: acc.totalExpenses + safeParseNumber(stats.totalExpenses),
+      totalWorkers: acc.totalWorkers + safeParseNumber(stats.activeWorkers),
+      materialPurchases: acc.materialPurchases + safeParseNumber(stats.materialPurchases),
     };
   }, {
     totalProjects: 0,
@@ -651,7 +673,7 @@ export default function ProjectsPage() {
                       <Users className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground">العمال</p>
-                    <p className="text-sm font-semibold arabic-numbers">{project.stats.totalWorkers}</p>
+                    <p className="text-sm font-semibold arabic-numbers">{safeParseNumber(project.stats.totalWorkers)}</p>
                   </div>
 
                   <div className="space-y-1">
@@ -659,7 +681,7 @@ export default function ProjectsPage() {
                       <Package className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground">المشتريات</p>
-                    <p className="text-sm font-semibold arabic-numbers">{project.stats.materialPurchases}</p>
+                    <p className="text-sm font-semibold arabic-numbers">{safeParseNumber(project.stats.materialPurchases)}</p>
                   </div>
 
                   <div className="space-y-1">
@@ -667,8 +689,9 @@ export default function ProjectsPage() {
                       <Calendar className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground">أيام العمل</p>
-                    <p className="text-sm font-semibold">{project.stats.completedDays}</p>
+                    <p className="text-sm font-semibold">{safeParseNumber(project.stats.completedDays)}</p>
                   </div>
+                </div></p>
                 </div>
 
                 {/* Last Activity */}

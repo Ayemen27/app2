@@ -97,15 +97,29 @@ export function StatsCard({
 }: StatsCardProps) {
   const colors = colorVariants[color];
   
-  // تنظيف القيمة قبل العرض
+  // تنظيف القيمة قبل العرض مع حماية أقوى
   const cleanValue = () => {
     if (typeof value === 'number') {
       if (isNaN(value) || !isFinite(value)) return '0';
-      return formatter ? formatter(value) : value.toString();
+      return formatter ? formatter(value) : value.toLocaleString('ar-SA');
     }
+    
     const stringValue = value.toString();
-    // إزالة الأرقام المتكررة المشبوهة
-    if (stringValue.match(/^(\d)\1{10,}$/)) return '0';
+    
+    // إزالة الأرقام المتكررة المشبوهة (مثل 0181818181818181818)
+    if (stringValue.match(/^(\d)\1{5,}$/)) return '0';
+    
+    // إزالة الأرقام الطويلة غير المنطقية
+    if (stringValue.length > 10 && stringValue.match(/^\d+$/)) return '0';
+    
+    // تنظيف الأرقام وإعادة تنسيقها
+    const cleanedNumber = stringValue.replace(/[^\d.-]/g, '');
+    const parsed = parseFloat(cleanedNumber);
+    
+    if (!isNaN(parsed) && isFinite(parsed)) {
+      return parsed.toLocaleString('ar-SA');
+    }
+    
     return stringValue;
   };
   

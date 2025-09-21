@@ -5,16 +5,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number | string, currency = "ر.ي"): string {
-  const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  if (isNaN(num)) return "0 " + currency;
-  
-  // استخدام الأرقام الإنجليزية مع العملة اليمنية
-  return new Intl.NumberFormat("en-US", {
-    style: "decimal",
-    maximumFractionDigits: 2,
+export function formatCurrency(amount: string | number): string {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(num) || !isFinite(num)) return '0 ر.ي';
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'decimal',
     minimumFractionDigits: 0,
-  }).format(num) + " " + currency;
+    maximumFractionDigits: 0,
+  }).format(num) + ' ر.ي';
 }
 
 export function formatDate(date: string | Date): string {
@@ -22,7 +21,7 @@ export function formatDate(date: string | Date): string {
   // استخدام التاريخ الميلادي بصيغة dd/MM/yyyy
   return new Intl.DateTimeFormat("en-GB", {
     year: "numeric",
-    month: "2-digit", 
+    month: "2-digit",
     day: "2-digit",
   }).format(d);
 }
@@ -45,10 +44,10 @@ export function addDays(date: string, days: number): string {
 
 export function calculateWorkHours(startTime: string, endTime: string): number {
   if (!startTime || !endTime) return 0;
-  
+
   const start = new Date(`2000-01-01T${startTime}:00`);
   const end = new Date(`2000-01-01T${endTime}:00`);
-  
+
   const diffMs = end.getTime() - start.getTime();
   return diffMs / (1000 * 60 * 60); // Convert to hours
 }
@@ -57,7 +56,7 @@ export function formatYemeniPhone(phone: string): string {
   if (!phone) return "";
   // تنسيق أرقام الهواتف اليمنية (مثال: +967-1-234567 أو 777-123-456)
   const cleanPhone = phone.replace(/\D/g, '');
-  
+
   if (cleanPhone.startsWith('967')) {
     // رقم دولي
     return `+967-${cleanPhone.slice(3, 4)}-${cleanPhone.slice(4)}`;
@@ -68,7 +67,7 @@ export function formatYemeniPhone(phone: string): string {
     // رقم أرضي
     return `${cleanPhone.slice(0, 1)}-${cleanPhone.slice(1)}`;
   }
-  
+
   return phone;
 }
 
@@ -85,28 +84,28 @@ export const autocompleteKeys = {
   SENDER_NAMES: 'senderNames',
   RECIPIENT_NAMES: 'recipientNames',
   RECIPIENT_PHONES: 'recipientPhones',
-  
+
   // Material purchases
   SUPPLIER_NAMES: 'supplierNames',
   MATERIAL_CATEGORIES: 'materialCategories',
   MATERIAL_UNITS: 'materialUnits',
   MATERIAL_NAMES: 'materialNames',
   INVOICE_NUMBERS: 'invoiceNumbers',
-  
+
   // Transportation
   TRANSPORT_DESCRIPTIONS: 'transportDescriptions',
-  
+
   // Fund transfers
   TRANSFER_NUMBERS: 'transferNumbers',
   FUND_TRANSFER_TYPES: 'fundTransferTypes',
-  
+
   // Worker attendance
   WORK_DESCRIPTIONS: 'workDescriptions',
-  
+
   // Projects and Workers
   PROJECT_NAMES: 'projectNames',
   WORKER_NAMES: 'workerNames',
-  
+
   // General
   NOTES: 'generalNotes',
   PHONE_NUMBERS: 'phoneNumbers',

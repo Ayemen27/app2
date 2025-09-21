@@ -93,7 +93,7 @@ export default function Dashboard() {
         console.log('🔄 [Dashboard] جلب المشاريع مع الإحصائيات...');
         const response = await apiRequest("/api/projects/with-stats", "GET");
         console.log('📊 [Dashboard] استجابة المشاريع:', response);
-        
+
         // معالجة هيكل الاستجابة المتعددة
         let projects = [];
         if (response && typeof response === 'object') {
@@ -118,13 +118,13 @@ export default function Dashboard() {
             console.log('✅ [Dashboard] استخراج البيانات من data فقط');
           }
         }
-        
+
         // التأكد من أن النتيجة مصفوفة
         if (!Array.isArray(projects)) {
           console.warn('⚠️ [Dashboard] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
           projects = [];
         }
-        
+
         console.log(`✅ [Dashboard] تم جلب ${projects.length} مشروع مع الإحصائيات`);
         return projects as ProjectWithStats[];
       } catch (error) {
@@ -165,13 +165,13 @@ export default function Dashboard() {
         saveAutocompleteValue('workerNames', data.name),
         saveAutocompleteValue('workerTypes', data.type)
       ]);
-      
+
       return apiRequest("/api/workers", "POST", data);
     },
     onSuccess: () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       queryClient.invalidateQueries({ queryKey: ["/api/workers"] });
       toast({
         title: "نجح الحفظ",
@@ -196,13 +196,13 @@ export default function Dashboard() {
         saveAutocompleteValue('projectNames', data.name),
         saveAutocompleteValue('projectDescriptions', data.description)
       ]);
-      
+
       return apiRequest("/api/projects", "POST", data);
     },
     onSuccess: () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
       toast({
@@ -226,13 +226,13 @@ export default function Dashboard() {
     mutationFn: async (data: { name: string }) => {
       // حفظ قيم أنواع العمال في autocomplete_data
       await saveAutocompleteValue('workerTypes', data.name);
-      
+
       return apiRequest("/api/worker-types", "POST", data);
     },
     onSuccess: (newType) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       toast({
         title: "تم الحفظ",
         description: "تم إضافة نوع العامل بنجاح",
@@ -268,7 +268,7 @@ export default function Dashboard() {
     const handleFloatingAction = () => {
       setShowFloatingMenu(!showFloatingMenu);
     };
-    
+
     setFloatingAction(handleFloatingAction, "إضافة");
     return () => setFloatingAction(null);
   }, [setFloatingAction, showFloatingMenu]);
@@ -283,7 +283,7 @@ export default function Dashboard() {
         totalExpenses: selectedProject.stats?.totalExpenses,
         currentBalance: selectedProject.stats?.currentBalance
       });
-      
+
       // فحص خاص لمشروع الحبشي
       if (selectedProject.name.includes('الحبشي')) {
         console.warn('🚨 مشروع الحبشي - تحقق من البيانات:', {
@@ -546,7 +546,7 @@ export default function Dashboard() {
                     )}
                   </SelectContent>
                 </Select>
-                
+
                 <Dialog open={showAddTypeDialog} onOpenChange={setShowAddTypeDialog}>
                   <DialogTrigger asChild>
                     <Button type="button" variant="outline" size="icon" className="shrink-0" title="إضافة نوع جديد">
@@ -628,7 +628,7 @@ export default function Dashboard() {
                   }
 
                   const parsedWage = parseFloat(workerData.dailyWage);
-                  
+
                   if (isNaN(parsedWage) || parsedWage <= 0) {
                     toast({
                       title: "خطأ",

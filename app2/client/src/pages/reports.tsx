@@ -143,13 +143,13 @@ export default function Reports() {
 
   // حساب الإحصائيات
   const reportStats: ReportStats = {
-    totalReports: 12, // عدد التقارير المتاحة
-    activeProjects: Array.isArray(projects) ? projects.filter(p => p.status === 'active').length : 0,
-    totalWorkers: workers.length,
-    totalIncome: Number(projectStats?.totalIncome) || 0,
-    totalExpenses: Number(projectStats?.totalExpenses) || 0,
-    currentBalance: Number(projectStats?.currentBalance) || 0,
-  };
+        totalReports: 12, // عدد التقارير المتاحة
+        activeProjects: Array.isArray(projects) ? projects.filter(p => p.status === 'active').length : 0,
+        totalWorkers: workers.length,
+        totalIncome: parseFloat(projectStats?.totalIncome?.toString() || '0') || 0,
+        totalExpenses: parseFloat(projectStats?.totalExpenses?.toString() || '0') || 0,
+        currentBalance: parseFloat(projectStats?.currentBalance?.toString() || '0') || 0,
+      };
 
   // دوال إنشاء التقارير
   const generateDailyExpensesReport = async () => {
@@ -161,7 +161,7 @@ export default function Reports() {
       });
       return;
     }
-    
+
     setIsGenerating(true);
     try {
       setLocation(`/daily-expenses?project=${selectedProjectId}&date=${dateTo}`);
@@ -189,7 +189,7 @@ export default function Reports() {
       });
       return;
     }
-    
+
     setIsGenerating(true);
     try {
       setLocation(`/worker-accounts?worker=${selectedWorkerId}&from=${dateFrom}&to=${dateTo}&project=${selectedProjectId}`);
@@ -217,7 +217,7 @@ export default function Reports() {
       });
       return;
     }
-    
+
     setIsGenerating(true);
     try {
       setLocation(`/project-transactions?project=${selectedProjectId}&from=${dateFrom}&to=${dateTo}`);
@@ -435,7 +435,7 @@ export default function Reports() {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
                 <CardContent className="p-3 md:p-4">
                   <div className="flex items-center justify-between">
@@ -447,8 +447,8 @@ export default function Reports() {
                   </div>
                 </CardContent>
               </Card>
-              
-              <Card className={`bg-gradient-to-br ${reportStats.currentBalance >= 0 ? 'from-emerald-50 to-emerald-100 border-emerald-200' : 'from-rose-50 to-rose-100 border-rose-200'}`}>
+
+              <Card className={`bg-gradient-to-br ${reportStats.currentBalance >= 0 ? 'from-emerald-50 to-emerald-100 border-emerald-200' : 'from-rose-50 to-rose-100 border-rose-100'}`}>
                 <CardContent className="p-3 md:p-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
@@ -461,7 +461,7 @@ export default function Reports() {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
                 <CardContent className="p-3 md:p-4">
                   <div className="flex items-center justify-between">

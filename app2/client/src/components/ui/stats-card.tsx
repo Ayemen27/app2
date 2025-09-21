@@ -101,7 +101,7 @@ export function StatsCard({
   const cleanValue = () => {
     if (typeof value === 'number') {
       if (isNaN(value) || !isFinite(value)) return '0';
-      return formatter ? formatter(value) : value.toLocaleString('ar-SA');
+      return formatter ? formatter(value) : value.toLocaleString('en-US');
     }
     
     const stringValue = value.toString();
@@ -117,7 +117,7 @@ export function StatsCard({
     const parsed = parseFloat(cleanedNumber);
     
     if (!isNaN(parsed) && isFinite(parsed)) {
-      return parsed.toLocaleString('ar-SA');
+      return parsed.toLocaleString('en-US');
     }
     
     return stringValue;

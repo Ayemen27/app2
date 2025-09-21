@@ -24,6 +24,14 @@ export function formatArabicNumber(num: number): string {
   return num.toString().replace(/\d/g, (digit) => arabicNumerals[parseInt(digit)]);
 }
 
+export function formatEnglishNumber(num: number): string {
+  if (isNaN(num) || !isFinite(num)) return '0';
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(num);
+}
+
 export function getArabicErrorLevel(level: string): string {
   const translations = {
     'CRITICAL': 'حرج',

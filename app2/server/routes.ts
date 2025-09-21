@@ -7,12 +7,12 @@ import { db } from "./db";
 import { 
   projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
   fundTransfers, transportationExpenses, dailyExpenseSummaries, tools, toolMovements,
-  workerTransfers, workerMiscExpenses,
+  workerTransfers, workerMiscExpenses, workerBalances,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
   insertMaterialSchema, insertSupplierSchema, insertMaterialPurchaseSchema,
   insertWorkerAttendanceSchema, insertFundTransferSchema, insertTransportationExpenseSchema,
   insertDailyExpenseSummarySchema, insertToolSchema, insertToolMovementSchema,
-  insertWorkerTransferSchema, insertWorkerMiscExpenseSchema
+  insertWorkerTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerBalanceSchema
 } from "@shared/schema";
 import { SecureDataFetcher } from "./services/secure-data-fetcher";
 import { requireAuth, requireRole } from "./middleware/auth";
@@ -2875,8 +2875,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ❌ DELETE endpoint للعمال - حذف عامل مع logging وتحقق من الوجود
-  app.delete("/api/workers/:id", requireAuth, async (req, res) => {
+  // ❌ DELETE endpoint للعمال - حذف عامل مع logging وتحقق من الوجود (محسن)
+  app.delete("/api/workers/:id", requireAuth, requireRole('admin'), async (req, res) => {
     const startTime = Date.now();
     try {
       const workerId = req.params.id;
@@ -2908,14 +2908,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const workerToDelete = existingWorker[0];
-      console.log('🗑️ [API] سيتم حذف العامل:', {
+      console.log('🗑️ [API] فحص إمكانية حذف العامل:', {
         id: workerToDelete.id,
         name: workerToDelete.name,
         type: workerToDelete.type
       });
+
+      // فحص وجود سجلات حضور مرتبطة بالعامل قبل المحاولة للحذف
+      console.log('🔍 [API] فحص سجلات الحضور المرتبطة بالعامل...');
+      const attendanceRecords = await db.select({
+        id: workerAttendance.id,
+        date: workerAttendance.date,
+        projectId: workerAttendance.projectId
+      })
+      .from(workerAttendance)
+      .where(eq(workerAttendance.workerId, workerId))
+      .limit(5); // جلب 5 سجلات كحد أقصى للمعاينة
       
-      // حذف العامل من قاعدة البيانات
-      console.log('🗑️ [API] حذف العامل من قاعدة البيانات...');
+      if (attendanceRecords.length > 0) {
+        const duration = Date.now() - startTime;
+        
+        // حساب إجمالي سجلات الحضور
+        const totalAttendanceCount = await db.select({
+          count: sql`COUNT(*)`
+        })
+        .from(workerAttendance)
+        .where(eq(workerAttendance.workerId, workerId));
+        
+        const totalCount = totalAttendanceCount[0]?.count || attendanceRecords.length;
+        
+        console.log(`⚠️ [API] لا يمكن حذف العامل - يحتوي على ${totalCount} سجل حضور`);
+        
+        return res.status(409).json({
+          success: false,
+          error: 'لا يمكن حذف العامل',
+          message: `لا يمكن حذف العامل "${workerToDelete.name}" لأنه يحتوي على ${totalCount} سجل حضور. يجب حذف جميع سجلات الحضور المرتبطة بالعامل أولاً من صفحة حضور العمال.`,
+          userAction: 'يجب حذف سجلات الحضور أولاً',
+          relatedRecordsCount: totalCount,
+          relatedRecordsType: 'سجلات حضور',
+          processingTime: duration
+        });
+      }
+      
+      // فحص وجود سجلات أخرى مرتبطة بالعامل - شامل جميع الجداول
+      console.log('🔍 [API] فحص سجلات التحويلات المالية المرتبطة بالعامل...');
+      const transferRecords = await db.select({ id: workerTransfers.id })
+        .from(workerTransfers)
+        .where(eq(workerTransfers.workerId, workerId))
+        .limit(1);
+      
+      if (transferRecords.length > 0) {
+        const duration = Date.now() - startTime;
+        
+        // حساب إجمالي التحويلات المالية
+        const totalTransfersCount = await db.select({
+          count: sql`COUNT(*)`
+        })
+        .from(workerTransfers)
+        .where(eq(workerTransfers.workerId, workerId));
+        
+        const transfersCount = totalTransfersCount[0]?.count || transferRecords.length;
+        
+        console.log(`⚠️ [API] لا يمكن حذف العامل - يحتوي على ${transfersCount} تحويل مالي`);
+        
+        return res.status(409).json({
+          success: false,
+          error: 'لا يمكن حذف العامل',
+          message: `لا يمكن حذف العامل "${workerToDelete.name}" لأنه يحتوي على ${transfersCount} تحويل مالي. يجب حذف جميع التحويلات المالية المرتبطة بالعامل أولاً من صفحة تحويلات العمال.`,
+          userAction: 'يجب حذف التحويلات المالية أولاً',
+          relatedRecordsCount: transfersCount,
+          relatedRecordsType: 'تحويلات مالية',
+          processingTime: duration
+        });
+      }
+      
+      // فحص وجود سجلات مصاريف النقل المرتبطة بالعامل
+      console.log('🔍 [API] فحص سجلات مصاريف النقل المرتبطة بالعامل...');
+      const transportRecords = await db.select({ id: transportationExpenses.id })
+        .from(transportationExpenses)
+        .where(eq(transportationExpenses.workerId, workerId))
+        .limit(1);
+      
+      if (transportRecords.length > 0) {
+        const duration = Date.now() - startTime;
+        
+        // حساب إجمالي مصاريف النقل
+        const totalTransportCount = await db.select({
+          count: sql`COUNT(*)`
+        })
+        .from(transportationExpenses)
+        .where(eq(transportationExpenses.workerId, workerId));
+        
+        const transportCount = totalTransportCount[0]?.count || transportRecords.length;
+        
+        console.log(`⚠️ [API] لا يمكن حذف العامل - يحتوي على ${transportCount} مصروف نقل`);
+        
+        return res.status(409).json({
+          success: false,
+          error: 'لا يمكن حذف العامل',
+          message: `لا يمكن حذف العامل "${workerToDelete.name}" لأنه يحتوي على ${transportCount} مصروف نقل. يجب حذف جميع مصاريف النقل المرتبطة بالعامل أولاً من صفحة مصاريف النقل.`,
+          userAction: 'يجب حذف مصاريف النقل أولاً',
+          relatedRecordsCount: transportCount,
+          relatedRecordsType: 'مصاريف نقل',
+          processingTime: duration
+        });
+      }
+      
+      // فحص وجود أرصدة العمال
+      console.log('🔍 [API] فحص أرصدة العمال المرتبطة بالعامل...');
+      const balanceRecords = await db.select({ id: workerBalances.id })
+        .from(workerBalances)
+        .where(eq(workerBalances.workerId, workerId))
+        .limit(1);
+      
+      if (balanceRecords.length > 0) {
+        const duration = Date.now() - startTime;
+        
+        // حساب إجمالي سجلات الأرصدة
+        const totalBalanceCount = await db.select({
+          count: sql`COUNT(*)`
+        })
+        .from(workerBalances)
+        .where(eq(workerBalances.workerId, workerId));
+        
+        const balanceCount = totalBalanceCount[0]?.count || balanceRecords.length;
+        
+        console.log(`⚠️ [API] لا يمكن حذف العامل - يحتوي على ${balanceCount} سجل رصيد`);
+        
+        return res.status(409).json({
+          success: false,
+          error: 'لا يمكن حذف العامل',
+          message: `لا يمكن حذف العامل "${workerToDelete.name}" لأنه يحتوي على ${balanceCount} سجل رصيد. يجب تصفية جميع الأرصدة المرتبطة بالعامل أولاً من صفحة أرصدة العمال.`,
+          userAction: 'يجب تصفية الأرصدة أولاً',
+          relatedRecordsCount: balanceCount,
+          relatedRecordsType: 'أرصدة',
+          processingTime: duration
+        });
+      }
+      
+      // المتابعة مع حذف العامل من قاعدة البيانات
+      console.log('🗑️ [API] حذف العامل من قاعدة البيانات (لا توجد سجلات مرتبطة)...');
       const deletedWorker = await db
         .delete(workers)
         .where(eq(workers.id, workerId))
@@ -2939,23 +3071,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const duration = Date.now() - startTime;
       console.error('❌ [API] خطأ في حذف العامل:', error);
       
-      // تحليل نوع الخطأ لرسالة أفضل
+      // تحليل نوع الخطأ لرسالة أفضل ومعلومات إضافية للتشخيص
       let errorMessage = 'فشل في حذف العامل';
       let statusCode = 500;
+      let userAction = 'يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني';
+      let relatedInfo: any = {};
       
-      if (error.code === '23503') { // foreign key violation
-        errorMessage = 'لا يمكن حذف العامل - مرتبط ببيانات أخرى';
+      if (error.code === '23503') { // foreign key violation - backstop
+        // هذا يحدث إذا لم نتمكن من اكتشاف السجلات المرتبطة مسبقاً (race conditions أو جداول غير محددة)
+        console.error('🚨 [API] خطأ قيد المفتاح الخارجي لم يتم اكتشافه مسبقاً (Race Condition محتمل):', {
+          code: error.code,
+          detail: error.detail,
+          constraint: error.constraint,
+          table: error.table,
+          column: error.column,
+          fullError: error.message
+        });
+        
+        errorMessage = 'لا يمكن حذف العامل لوجود سجلات مرتبطة لم يتم اكتشافها مسبقاً';
         statusCode = 409;
+        userAction = 'تحقق من جميع السجلات المرتبطة بالعامل في النظام وقم بحذفها أولاً';
+        
+        // محاولة استخراج معلومات مفيدة من تفاصيل الخطأ
+        const constraintDetails = error.constraint ? ` (${error.constraint})` : '';
+        const tableDetails = error.table ? ` في الجدول: ${error.table}` : '';
+        
+        relatedInfo = {
+          raceConditionDetected: true,
+          constraintViolated: error.constraint || 'غير محدد',
+          affectedTable: error.table || 'غير محدد',
+          affectedColumn: error.column || 'غير محدد',
+          technicalDetail: `انتهاك قيد FK${constraintDetails}${tableDetails}`,
+          suggestedAction: 'فحص سجلات إضافية قد تكون أُنشئت بين فحص الشروط وتنفيذ الحذف'
+        };
+        
       } else if (error.code === '22P02') { // invalid input syntax
-        errorMessage = 'معرف العامل غير صحيح';
+        errorMessage = 'معرف العامل غير صحيح أو تالف';
         statusCode = 400;
+        userAction = 'تحقق من صحة معرف العامل';
+        relatedInfo = {
+          invalidInputDetected: true,
+          inputValue: req.params.id,
+          expectedFormat: 'UUID صحيح'
+        };
+        
+      } else if (error.code === '42P01') { // undefined table
+        errorMessage = 'خطأ في بنية قاعدة البيانات - جدول غير موجود';
+        statusCode = 500;
+        userAction = 'تواصل مع الدعم الفني فوراً';
+        relatedInfo = {
+          databaseStructureIssue: true,
+          missingTable: error.message
+        };
+        
+      } else if (error.code === '08003') { // connection does not exist
+        errorMessage = 'انقطع الاتصال بقاعدة البيانات';
+        statusCode = 503;
+        userAction = 'تحقق من اتصال الإنترنت والمحاولة مرة أخرى';
+        relatedInfo = {
+          connectionIssue: true
+        };
+        
+      } else if (error.code === '08006') { // connection failure
+        errorMessage = 'فشل في الاتصال بقاعدة البيانات';
+        statusCode = 503;
+        userAction = 'تحقق من اتصال الإنترنت والمحاولة مرة أخرى';
+        relatedInfo = {
+          connectionFailure: true
+        };
+        
+      } else {
+        // أخطاء غير متوقعة
+        console.error('🔍 [API] خطأ غير متوقع في حذف العامل:', {
+          code: error.code,
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+        
+        relatedInfo = {
+          unexpectedError: true,
+          errorCode: error.code,
+          errorName: error.name,
+          timestamp: new Date().toISOString()
+        };
       }
       
       res.status(statusCode).json({
         success: false,
         error: errorMessage,
-        message: error.message,
-        processingTime: duration
+        message: `خطأ في حذف العامل: ${error.message}`,
+        userAction,
+        processingTime: duration,
+        troubleshooting: relatedInfo,
+        // معلومات إضافية للمطورين فقط في بيئة التطوير
+        ...(process.env.NODE_ENV === 'development' && {
+          debug: {
+            errorCode: error.code,
+            constraint: error.constraint,
+            table: error.table,
+            column: error.column,
+            detail: error.detail
+          }
+        })
       });
     }
   });

@@ -90,17 +90,42 @@ const WorkerCard = ({ worker, onEdit, onDelete, onToggleStatus }: {
                   <Trash2 className="h-4 w-4 text-red-600" />
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="max-w-md">
                 <AlertDialogHeader>
-                  <AlertDialogTitle>حذف العامل</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    هل أنت متأكد من حذف العامل "{worker.name}"؟ هذا الإجراء لا يمكن التراجع عنه.
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <Trash2 className="h-5 w-5 text-red-600" />
+                    حذف العامل
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-3">
+                    <p className="text-gray-700 dark:text-gray-300">
+                      هل أنت متأكد من حذف العامل <span className="font-semibold text-blue-600">"{worker.name}"</span>؟
+                    </p>
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <div className="w-4 h-4 rounded-full bg-yellow-500 flex items-center justify-center mt-0.5">
+                          <span className="text-white text-xs font-bold">!</span>
+                        </div>
+                        <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                          <p className="font-medium mb-1">تنبيه مهم:</p>
+                          <p>إذا كان لدى العامل سجلات حضور أو تحويلات مالية، فلن يتمكن من حذفه وستظهر رسالة خطأ توضح الخطوات المطلوبة.</p>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      هأ الإجراء لا يمكن التراجع عنه.
+                    </p>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDelete(worker.id)} className="bg-red-600 hover:bg-red-700">
-                    حذف
+                  <AlertDialogCancel className="flex items-center gap-2">
+                    إلغاء
+                  </AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={() => onDelete(worker.id)} 
+                    className="bg-red-600 hover:bg-red-700 flex items-center gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    تأكيد الحذف
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -285,18 +310,46 @@ export default function WorkersPage() {
 
   const deleteWorkerMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/workers/${id}`, "DELETE"),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
       toast({
-        title: "تم بنجاح",
-        description: "تم حذف العامل بنجاح",
+        title: "✅ تم بنجاح",
+        description: data?.message || "تم حذف العامل بنجاح",
+        className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
       });
     },
     onError: (error: any) => {
+      console.log('📝 [Workers] تفاصيل خطأ حذف العامل:', error);
+      
+      // معالجة محسنة لرسائل الخطأ الجديدة
+      let title = "⚠️ لا يمكن حذف العامل";
+      let description = error?.message || "حدث خطأ في حذف العامل";
+      
+      // إذا كان هناك بيانات إضافية في رسالة الخطأ
+      if (error?.userAction || error?.relatedRecordsCount) {
+        const recordsInfo = error.relatedRecordsCount ? 
+          `(العدد: ${error.relatedRecordsCount})` : '';
+        
+        const actionGuidance = error.userAction ? 
+          `\n\n📝 ما يجب فعله: ${error.userAction}` : '';
+        
+        const recordsType = error.relatedRecordsType ? 
+          `\n📁 السجلات المرتبطة: ${error.relatedRecordsType} ${recordsInfo}` : '';
+          
+        description = `${description}${recordsType}${actionGuidance}`;
+      }
+      
+      // رسالة مخصصة للحضور
+      if (error?.relatedRecordsType?.includes('سجلات حضور')) {
+        title = "📅 يجب حذف سجلات الحضور أولاً";
+      }
+      
       toast({
-        title: "خطأ",
-        description: error.message || "حدث خطأ في حذف العامل",
+        title,
+        description,
         variant: "destructive",
+        duration: 8000, // عرض الرسالة لمدة أطول لقراءة التفاصيل
+        className: "max-w-md"
       });
     },
   });

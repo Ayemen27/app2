@@ -556,6 +556,17 @@ function DailyExpensesContent() {
     }
   });
 
+  const deleteWorkerTransferMutation = useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/worker-transfers/${id}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-transfers", selectedDate] });
+      toast({ title: "تم الحذف", description: "تم حذف حوالة العامل بنجاح" });
+    },
+    onError: () => {
+      toast({ title: "خطأ", description: "حدث خطأ أثناء حذف حوالة العامل", variant: "destructive" });
+    }
+  });
+
   // Fund Transfer Update Mutation
   const updateFundTransferMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => 
@@ -1499,7 +1510,7 @@ function DailyExpensesContent() {
                         variant="ghost" 
                         className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         onClick={() => {
-                          toast({ title: "قريباً", description: "سيتم إضافة ميزة الحذف" });
+                          deleteWorkerTransferMutation.mutate(transfer.id);
                         }}
                       >
                         <Trash2 className="h-3 w-3" />

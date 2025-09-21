@@ -2,12 +2,12 @@ import type { Express } from "express";
 import type { Server } from "http";
 import { createServer } from "http";
 import rateLimit from "express-rate-limit";
-import { eq, and, sql, gte, lt } from "drizzle-orm";
+import { eq, and, sql, gte, lt, lte, desc } from "drizzle-orm";
 import { db } from "./db";
 import { 
   projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
   fundTransfers, transportationExpenses, dailyExpenseSummaries, tools, toolMovements,
-  workerTransfers, workerMiscExpenses, workerBalances,
+  workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
   insertMaterialSchema, insertSupplierSchema, insertMaterialPurchaseSchema,
   insertWorkerAttendanceSchema, insertFundTransferSchema, insertTransportationExpenseSchema,
@@ -777,6 +777,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // 💰 GET endpoint للرصيد المتبقي من اليوم السابق
+  app.get("/api/projects/:projectId/previous-balance/:date", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId, date } = req.params;
+      
+      console.log(`💰 [API] طلب جلب الرصيد المتبقي من اليوم السابق: projectId=${projectId}, date=${date}`);
+      
+      // التحقق من صحة المعاملات
+      if (!projectId || !date) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معاملات مطلوبة مفقودة',
+          message: 'معرف المشروع والتاريخ مطلوبان',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من تنسيق التاريخ
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'تنسيق التاريخ غير صحيح',
+          message: 'يجب أن يكون التاريخ بصيغة YYYY-MM-DD',
+          processingTime: duration
+        });
+      }
+
+      // حساب التاريخ السابق
+      const currentDate = new Date(date);
+      const previousDate = new Date(currentDate);
+      previousDate.setDate(currentDate.getDate() - 1);
+      const previousDateStr = previousDate.toISOString().split('T')[0];
+
+      console.log(`💰 [API] البحث عن الرصيد المتبقي ليوم: ${previousDateStr}`);
+
+      let previousBalance = 0;
+      let source = 'none';
+      
+      try {
+        // أولاً: محاولة العثور على أحدث ملخص محفوظ قبل التاريخ المطلوب
+        const latestSummary = await db.select({
+          remainingBalance: dailyExpenseSummaries.remainingBalance,
+          date: dailyExpenseSummaries.date
+        })
+        .from(dailyExpenseSummaries)
+        .where(and(
+          eq(dailyExpenseSummaries.projectId, projectId),
+          lt(dailyExpenseSummaries.date, date)
+        ))
+        .orderBy(desc(dailyExpenseSummaries.date))
+        .limit(1);
+
+        if (latestSummary.length > 0) {
+          const summaryDate = latestSummary[0].date;
+          const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || '0'));
+          
+          // إذا كان الملخص الموجود هو لليوم السابق مباشرة، استخدمه
+          if (summaryDate === previousDateStr) {
+            previousBalance = summaryBalance;
+            source = 'summary';
+            console.log(`💰 [API] تم العثور على ملخص لليوم السابق: ${previousBalance}`);
+          } else {
+            // إذا كان الملخص لتاريخ أقدم، احسب من ذلك التاريخ إلى اليوم السابق
+            console.log(`💰 [API] آخر ملخص محفوظ في ${summaryDate}, حساب تراكمي إلى ${previousDateStr}`);
+            
+            const startFromDate = new Date(summaryDate);
+            startFromDate.setDate(startFromDate.getDate() + 1);
+            const startFromStr = startFromDate.toISOString().split('T')[0];
+            
+            // حساب تراكمي من startFromStr إلى previousDateStr
+            const cumulativeBalance = await calculateCumulativeBalance(projectId, startFromStr, previousDateStr);
+            previousBalance = summaryBalance + cumulativeBalance;
+            source = 'computed-from-summary';
+            console.log(`💰 [API] رصيد تراكمي من ${summaryDate} (${summaryBalance}) + ${cumulativeBalance} = ${previousBalance}`);
+          }
+        } else {
+          // لا يوجد ملخص محفوظ، حساب تراكمي من البداية
+          console.log(`💰 [API] لا يوجد ملخص محفوظ، حساب تراكمي من البداية`);
+          previousBalance = await calculateCumulativeBalance(projectId, null, previousDateStr);
+          source = 'computed-full';
+          console.log(`💰 [API] رصيد تراكمي كامل: ${previousBalance}`);
+        }
+      } catch (error) {
+        console.warn(`⚠️ [API] خطأ في حساب الرصيد السابق، استخدام القيمة الافتراضية 0:`, error);
+        previousBalance = 0;
+        source = 'error';
+      }
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم حساب الرصيد المتبقي من اليوم السابق بنجاح في ${duration}ms: ${previousBalance}`);
+
+      res.json({
+        success: true,
+        data: {
+          balance: previousBalance.toString(),
+          previousDate: previousDateStr,
+          currentDate: date,
+          source
+        },
+        message: `تم حساب الرصيد المتبقي من يوم ${previousDateStr} بنجاح`,
+        processingTime: duration
+      });
+
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في حساب الرصيد المتبقي من اليوم السابق:', error);
+      
+      res.status(500).json({
+        success: false,
+        data: {
+          balance: "0"
+        },
+        error: 'فشل في حساب الرصيد المتبقي',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // دالة مساعدة لحساب الرصيد التراكمي
+  async function calculateCumulativeBalance(projectId: string, fromDate: string | null, toDate: string): Promise<number> {
+    try {
+      // تحديد النطاق الزمني
+      const whereConditions = [eq(fundTransfers.projectId, projectId)];
+      
+      if (fromDate) {
+        whereConditions.push(gte(fundTransfers.transferDate, sql`${fromDate}::date`));
+      }
+      whereConditions.push(lt(fundTransfers.transferDate, sql`(${toDate}::date + interval '1 day')`));
+
+      // جلب جميع البيانات المالية للفترة المحددة
+      const [
+        ftRows,
+        waRows,
+        mpRows,
+        teRows,
+        wtRows,
+        wmRows,
+        incomingPtRows,
+        outgoingPtRows
+      ] = await Promise.all([
+        // تحويلات العهدة
+        db.select().from(fundTransfers)
+          .where(and(...whereConditions)),
+        
+        // أجور العمال
+        db.select().from(workerAttendance)
+          .where(and(
+            eq(workerAttendance.projectId, projectId),
+            fromDate ? gte(workerAttendance.date, fromDate) : sql`true`,
+            lte(workerAttendance.date, toDate)
+          )),
+        
+        // مشتريات المواد النقدية فقط
+        db.select().from(materialPurchases)
+          .where(and(
+            eq(materialPurchases.projectId, projectId),
+            eq(materialPurchases.purchaseType, "نقد"),
+            fromDate ? gte(materialPurchases.purchaseDate, fromDate) : sql`true`,
+            lte(materialPurchases.purchaseDate, toDate)
+          )),
+        
+        // مصاريف النقل
+        db.select().from(transportationExpenses)
+          .where(and(
+            eq(transportationExpenses.projectId, projectId),
+            fromDate ? gte(transportationExpenses.date, fromDate) : sql`true`,
+            lte(transportationExpenses.date, toDate)
+          )),
+        
+        // حوالات العمال
+        db.select().from(workerTransfers)
+          .where(and(
+            eq(workerTransfers.projectId, projectId),
+            fromDate ? gte(workerTransfers.transferDate, fromDate) : sql`true`,
+            lte(workerTransfers.transferDate, toDate)
+          )),
+        
+        // مصاريف متنوعة للعمال
+        db.select().from(workerMiscExpenses)
+          .where(and(
+            eq(workerMiscExpenses.projectId, projectId),
+            fromDate ? gte(workerMiscExpenses.date, fromDate) : sql`true`,
+            lte(workerMiscExpenses.date, toDate)
+          )),
+        
+        // تحويلات واردة من مشاريع أخرى
+        db.select().from(projectFundTransfers)
+          .where(and(
+            eq(projectFundTransfers.toProjectId, projectId),
+            fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql`true`,
+            lte(projectFundTransfers.transferDate, toDate)
+          )),
+        
+        // تحويلات صادرة إلى مشاريع أخرى
+        db.select().from(projectFundTransfers)
+          .where(and(
+            eq(projectFundTransfers.fromProjectId, projectId),
+            fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql`true`,
+            lte(projectFundTransfers.transferDate, toDate)
+          ))
+      ]);
+
+      // حساب الإجماليات
+      const totalFundTransfers = ftRows.reduce((sum: number, t: any) => sum + parseFloat(String(t.amount || '0')), 0);
+      const totalWorkerWages = waRows.reduce((sum: number, w: any) => sum + parseFloat(String(w.paidAmount || '0')), 0);
+      const totalMaterialCosts = mpRows.reduce((sum: number, m: any) => sum + parseFloat(String(m.totalAmount || '0')), 0);
+      const totalTransportation = teRows.reduce((sum: number, t: any) => sum + parseFloat(String(t.amount || '0')), 0);
+      const totalWorkerTransfers = wtRows.reduce((sum: number, w: any) => sum + parseFloat(String(w.amount || '0')), 0);
+      const totalMiscExpenses = wmRows.reduce((sum: number, m: any) => sum + parseFloat(String(m.amount || '0')), 0);
+      const totalIncomingProjectTransfers = incomingPtRows.reduce((sum: number, p: any) => sum + parseFloat(String(p.amount || '0')), 0);
+      const totalOutgoingProjectTransfers = outgoingPtRows.reduce((sum: number, p: any) => sum + parseFloat(String(p.amount || '0')), 0);
+
+      const totalIncome = totalFundTransfers + totalIncomingProjectTransfers;
+      const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses + totalOutgoingProjectTransfers;
+      const balance = totalIncome - totalExpenses;
+
+      console.log(`💰 [Calc] فترة ${fromDate || 'البداية'} إلى ${toDate}: دخل=${totalIncome}, مصاريف=${totalExpenses}, رصيد=${balance}`);
+      
+      return balance;
+    } catch (error) {
+      console.error('❌ خطأ في حساب الرصيد التراكمي:', error);
+      return 0;
+    }
+  }
 
   // 📝 POST endpoint للمشاريع - إضافة مشروع جديد مع validation محسن
   app.post("/api/projects", requireAuth, async (req, res) => {
@@ -5471,6 +5701,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         error: error.message,
         message: "فشل اختبار الاتصال بـ Supabase"
+      });
+    }
+  });
+
+  // 🗑️ DELETE endpoint لحوالات العمال
+  app.delete("/api/worker-transfers/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const transferId = req.params.id;
+      console.log('🗑️ [API] طلب حذف حوالة العامل:', transferId);
+      console.log('👤 [API] المستخدم:', req.user?.email);
+      
+      if (!transferId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف حوالة العامل مطلوب',
+          message: 'لم يتم توفير معرف الحوالة للحذف',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود الحوالة أولاً
+      const existingTransfer = await db.select().from(workerTransfers).where(eq(workerTransfers.id, transferId)).limit(1);
+      
+      if (existingTransfer.length === 0) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] حوالة العامل غير موجودة:', transferId);
+        return res.status(404).json({
+          success: false,
+          error: 'حوالة العامل غير موجودة',
+          message: `لم يتم العثور على حوالة بالمعرف: ${transferId}`,
+          processingTime: duration
+        });
+      }
+      
+      const transferToDelete = existingTransfer[0];
+      console.log('🗑️ [API] سيتم حذف حوالة العامل:', {
+        id: transferToDelete.id,
+        workerId: transferToDelete.workerId,
+        amount: transferToDelete.amount,
+        recipientName: transferToDelete.recipientName
+      });
+      
+      // حذف حوالة العامل من قاعدة البيانات
+      console.log('🗑️ [API] حذف حوالة العامل من قاعدة البيانات...');
+      const deletedTransfer = await db
+        .delete(workerTransfers)
+        .where(eq(workerTransfers.id, transferId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم حذف حوالة العامل بنجاح في ${duration}ms:`, {
+        id: deletedTransfer[0].id,
+        amount: deletedTransfer[0].amount,
+        recipientName: deletedTransfer[0].recipientName
+      });
+      
+      res.json({
+        success: true,
+        data: deletedTransfer[0],
+        message: `تم حذف حوالة العامل إلى "${deletedTransfer[0].recipientName}" بقيمة ${deletedTransfer[0].amount} بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في حذف حوالة العامل:', error);
+      
+      // تحليل نوع الخطأ لرسالة أفضل
+      let errorMessage = 'فشل في حذف حوالة العامل';
+      let statusCode = 500;
+      
+      if (error.code === '23503') { // foreign key violation
+        errorMessage = 'لا يمكن حذف حوالة العامل - مرتبطة ببيانات أخرى';
+        statusCode = 409;
+      } else if (error.code === '22P02') { // invalid input syntax
+        errorMessage = 'معرف حوالة العامل غير صحيح';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        message: error.message,
+        processingTime: duration
       });
     }
   });

@@ -113,7 +113,35 @@ export async function apiRequest(
         return {};
       }
       
-      const jsonData = await res.json();
+      // ✅ تحسين معالجة JSON - فحص content-type أولاً
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await res.text();
+        console.error(`❌ [apiRequest] الخادم أرسل ${contentType || 'غير محدد'} بدلاً من JSON:`, {
+          url,
+          method,
+          status: res.status,
+          contentType,
+          responsePreview: responseText.substring(0, 200)
+        });
+        throw new Error(`خطأ في نوع الاستجابة: متوقع JSON لكن تم استلام ${contentType || 'غير محدد'}`);
+      }
+      
+      // ✅ إصلاح: استخدام clone لتجنب قراءة body مرتين
+      let jsonData;
+      try {
+        jsonData = await res.json();
+      } catch (parseError) {
+        // استخدام clone للحصول على نسخة من response قبل قراءة الـ text
+        const responseText = await res.clone().text();
+        console.error(`❌ [apiRequest] خطأ في تحليل JSON:`, {
+          url,
+          method,
+          parseError,
+          responsePreview: responseText.substring(0, 200)
+        });
+        throw new Error(`خطأ في تحليل استجابة JSON من الخادم`);
+      }
       
       // تسجيل للتتبع والتشخيص
       if (process.env.NODE_ENV === 'development') {

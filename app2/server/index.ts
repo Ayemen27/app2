@@ -132,6 +132,19 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
+  // ✅ معالج شامل للأخطاء 404 - بعد إعداد الملفات الثابتة
+  app.use("*", (req, res) => {
+    console.log(`❌ [404] مسار غير موجود: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({
+      success: false,
+      error: "المسار غير موجود",
+      message: `لم يتم العثور على المسار: ${req.method} ${req.originalUrl}`,
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      path: req.originalUrl
+    });
+  });
+
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.

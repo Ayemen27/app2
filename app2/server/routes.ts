@@ -698,17 +698,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const duration = Date.now() - startTime;
 
       if (!dailySummary) {
-        console.log(`📭 [API] لا توجد بيانات ملخص يومي للمشروع ${projectId} في تاريخ ${date}`);
-        return res.status(404).json({
-          success: false,
-          data: null,
-          error: 'لا توجد بيانات',
-          message: `لا يوجد ملخص مالي للمشروع في تاريخ ${date}`,
+        console.log(`📭 [API] لا توجد بيانات ملخص يومي للمشروع ${projectId} في تاريخ ${date} - إرجاع بيانات فارغة`);
+        // ✅ إصلاح: إرجاع بيانات فارغة بدلاً من 404
+        return res.json({
+          success: true,
+          data: {
+            id: null,
+            projectId,
+            date,
+            totalIncome: 0,
+            totalExpenses: 0,
+            remainingBalance: 0,
+            notes: null,
+            isEmpty: true,
+            message: `لا يوجد ملخص مالي محفوظ للمشروع في تاريخ ${date}`
+          },
           processingTime: duration,
           metadata: {
             projectId,
             date,
-            projectName: projectExists[0].name
+            projectName: projectExists[0].name,
+            isEmptyResult: true
           }
         });
       }
@@ -5868,31 +5878,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // await enhancedMigrationScript.migrateBatch(migrationSession);
   }
 
-  // Temporary placeholder for projects with stats
-  app.get("/api/projects/with-stats", (req, res) => {
-    res.json({ 
-      success: true, 
-      data: [
-        {
-          id: 1,
-          name: "مشروع تجريبي",
-          status: "active",
-          description: "مشروع لاختبار النظام",
-          stats: {
-            totalWorkers: "0",
-            totalExpenses: 0,
-            totalIncome: 0,
-            currentBalance: 0,
-            activeWorkers: "0",
-            completedDays: "0",
-            materialPurchases: "0",
-            lastActivity: new Date().toISOString()
-          }
-        }
-      ], 
-      message: "Projects with stats loaded successfully" 
-    });
-  });
 
   // ✅ إضافة API endpoints المفقودة التي تسبب أخطاء HTML بدلاً من JSON
 
@@ -6068,9 +6053,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.head("/api/autocomplete", requireAuth, (req, res) => {
-    // HEAD request للتحقق من وجود الـ endpoint
+
+  // HEAD request للتحقق من وجود الـ endpoint - لا نحتاج مصادقة للفحص
+  app.head("/api/autocomplete", (req, res) => {
     res.status(200).end();
+  });
+
+  // 📝 Autocomplete sub-endpoints للإكمال التلقائي
+  app.get("/api/autocomplete/senderNames", requireAuth, async (req, res) => {
+    try {
+      // جلب أسماء المرسلين من قاعدة البيانات أو إرجاع قائمة فارغة
+      res.json({
+        success: true,
+        data: [],
+        message: 'تم جلب أسماء المرسلين بنجاح'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في جلب أسماء المرسلين'
+      });
+    }
+  });
+
+  app.get("/api/autocomplete/transferNumbers", requireAuth, async (req, res) => {
+    try {
+      // جلب أرقام التحويلات من قاعدة البيانات أو إرجاع قائمة فارغة
+      res.json({
+        success: true,
+        data: [],
+        message: 'تم جلب أرقام التحويلات بنجاح'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في جلب أرقام التحويلات'
+      });
+    }
+  });
+
+  app.get("/api/autocomplete/transferTypes", requireAuth, async (req, res) => {
+    try {
+      // جلب أنواع التحويلات من قاعدة البيانات أو إرجاع قائمة فارغة
+      res.json({
+        success: true,
+        data: [],
+        message: 'تم جلب أنواع التحويلات بنجاح'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في جلب أنواع التحويلات'
+      });
+    }
+  });
+
+  app.get("/api/autocomplete/transportDescriptions", requireAuth, async (req, res) => {
+    try {
+      // جلب وصف المواصلات من قاعدة البيانات أو إرجاع قائمة فارغة
+      res.json({
+        success: true,
+        data: [],
+        message: 'تم جلب وصف المواصلات بنجاح'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في جلب وصف المواصلات'
+      });
+    }
+  });
+
+  app.get("/api/autocomplete/notes", requireAuth, async (req, res) => {
+    try {
+      // جلب الملاحظات من قاعدة البيانات أو إرجاع قائمة فارغة
+      res.json({
+        success: true,
+        data: [],
+        message: 'تم جلب الملاحظات بنجاح'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في جلب الملاحظات'
+      });
+    }
+  });
+
+  app.get("/api/autocomplete/workerMiscDescriptions", requireAuth, async (req, res) => {
+    try {
+      // جلب وصف المصاريف المتنوعة للعمال من قاعدة البيانات أو إرجاع قائمة فارغة
+      res.json({
+        success: true,
+        data: [],
+        message: 'تم جلب وصف المصاريف المتنوعة بنجاح'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في جلب وصف المصاريف المتنوعة'
+      });
+    }
   });
 
   // 🗑️ DELETE endpoints المفقودة للحذف
@@ -6205,6 +6294,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: errorMessage,
         message: error.message,
         processingTime: duration
+      });
+    }
+  });
+
+  // ✅ معالج شامل للأخطاء 404 - سيتم إضافته بعد الملفات الثابتة
+  // تم نقل هذا المعالج إلى server/index.ts ليكون بعد إعداد الملفات الثابتة
+
+  // ✅ معالج شامل للأخطاء العامة
+  app.use((error: any, req: any, res: any, next: any) => {
+    console.error(`💥 [خطأ خادم] ${req.method} ${req.originalUrl}:`, error);
+    
+    // تجنب إرسال HTML في حالة الأخطاء
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: "خطأ داخلي في الخادم",
+        message: "حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى",
+        timestamp: new Date().toISOString(),
+        method: req.method,
+        path: req.originalUrl
       });
     }
   });

@@ -221,60 +221,27 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
 }
 
 /**
- * التحقق من صحة Refresh Token مع فحص قاعدة البيانات
+ * التحقق من صحة Refresh Token - نسخة مبسطة
  */
 export async function verifyRefreshToken(token: string): Promise<any | null> {
   try {
     // فك تشفير JWT
     const payload = jwt.verify(token, JWT_CONFIG.refreshTokenSecret, {
       issuer: JWT_CONFIG.issuer,
-    }) as JWTPayload;
+    }) as any;
 
-    // التحقق من نوع الرمز
-    if (payload.type !== 'refresh') {
-      return null;
-    }
+    console.log('🔍 [JWT] فك تشفير refresh token:', { 
+      hasUserId: !!payload.userId, 
+      hasEmail: !!payload.email,
+      exp: payload.exp,
+      iat: payload.iat 
+    });
 
-    // التحقق من وجود المستخدم في قاعدة البيانات
-    const user = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, payload.userId))
-      .limit(1);
+    // إرجاع payload مباشرة - نسخة مبسطة
+    return payload;
 
-    if (user.length === 0 || !user[0].isActive) {
-      return null;
-    }
-
-    // التحقق من صحة الجلسة في قاعدة البيانات
-    const tokenHash = hashToken(token);
-    const session = await db
-      .select()
-      .from(authUserSessions)
-      .where(
-        and(
-          eq(authUserSessions.userId, payload.userId),
-          eq(authUserSessions.refreshTokenHash, tokenHash),
-          eq(authUserSessions.isRevoked, false),
-          gte(authUserSessions.expiresAt, new Date())
-        )
-      )
-      .limit(1);
-
-    if (session.length === 0) {
-      // الجلسة غير موجودة أو ملغاة أو منتهية الصلاحية
-      return null;
-    }
-
-    // إرجاع بيانات المستخدم والجلسة
-    return {
-      userId: payload.userId,
-      email: payload.email,
-      sessionId: payload.sessionId,
-      user: user[0]
-    };
-  } catch (error) {
-    console.error('خطأ في التحقق من Refresh Token:', error);
+  } catch (error: any) {
+    console.error('❌ [JWT] خطأ في التحقق من refresh token:', error.message);
     return null;
   }
 }

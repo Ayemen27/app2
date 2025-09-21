@@ -30,11 +30,11 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       });
     }
 
-    // البحث عن المستخدم في قاعدة البيانات
+    // البحث عن المستخدم في قاعدة البيانات (case insensitive)
     const userResult = await db.execute(sql`
       SELECT id, email, password, first_name, last_name, created_at
       FROM users 
-      WHERE email = ${email}
+      WHERE LOWER(email) = LOWER(${email})
     `);
 
     if (userResult.rows.length === 0) {
@@ -119,9 +119,9 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       });
     }
 
-    // التحقق من وجود المستخدم مسبقاً
+    // التحقق من وجود المستخدم مسبقاً (case insensitive)
     const existingUser = await db.execute(sql`
-      SELECT id FROM users WHERE email = ${email}
+      SELECT id FROM users WHERE LOWER(email) = LOWER(${email})
     `);
 
     if (existingUser.rows.length > 0) {
@@ -224,7 +224,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
     // التحقق من صحة refresh token
     try {
-      const decoded = verifyRefreshToken(refreshToken) as any;
+      const decoded = await verifyRefreshToken(refreshToken) as any;
       
       if (!decoded) {
         console.log('❌ [AUTH] Refresh token غير صالح');

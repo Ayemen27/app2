@@ -287,7 +287,7 @@ export async function loginUser(request: LoginRequest): Promise<LoginResult> {
         email: user.email,
         name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
         role: user.role,
-        profilePicture: user.avatarUrl,
+        profilePicture: null,
         mfaEnabled: false, // مؤقتاً
       },
       tokens: {
@@ -379,10 +379,10 @@ export async function registerUser(request: RegisterRequest) {
         password: passwordHash,
         firstName: parsedName.firstName.trim(),
         lastName: parsedName.lastName?.trim() || null,
-        phone: phone?.trim() || null,
+        // phone: phone?.trim() || null, // حقل غير موجود في schema
         role,
         isActive: true,
-        emailVerifiedAt: new Date(), // تفعيل مباشر للتبسيط
+        // emailVerifiedAt: new Date(), // تفعيل مباشر للتبسيط - حقل غير موجود في schema
       })
       .returning();
 
@@ -452,12 +452,13 @@ export async function registerUser(request: RegisterRequest) {
 export async function verifyEmail(userId: string, code: string, ipAddress?: string, userAgent?: string) {
   try {
     // تفعيل مباشر للتبسيط
-    await db
-      .update(users)
-      .set({ 
-        emailVerifiedAt: new Date()
-      })
-      .where(eq(users.id, userId));
+    // تفعيل البريد الإلكتروني - مؤجل حتى إضافة الحقل في schema
+    // await db
+    //   .update(users)
+    //   .set({ 
+    //     emailVerifiedAt: new Date()
+    //   })
+    //   .where(eq(users.id, userId));
 
     // تسجيل الحدث
     await logAuditEvent({

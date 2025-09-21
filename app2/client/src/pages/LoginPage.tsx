@@ -76,13 +76,28 @@ export default function LoginPage() {
     },
   });
 
-  // طفرة تسجيل الدخول المبسطة
+  // طفرة تسجيل الدخول المبسطة مع logging مفصل
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
-      console.log('🔑 بدء تسجيل الدخول:', data.email);
-      return login(data.email, data.password);
+      console.log('🚀 [LoginPage.loginMutation] بدء mutationFn:', {
+        email: data.email,
+        hasPassword: !!data.password,
+        passwordLength: data.password?.length || 0,
+        timestamp: new Date().toISOString()
+      });
+      
+      try {
+        console.log('🔑 [LoginPage.loginMutation] استدعاء login من AuthProvider...');
+        const result = await login(data.email, data.password);
+        console.log('✅ [LoginPage.loginMutation] تمت عملية login بنجاح:', result);
+        return result;
+      } catch (error) {
+        console.error('❌ [LoginPage.loginMutation] خطأ في login:', error);
+        throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log('🎉 [LoginPage.loginMutation] onSuccess triggered:', result);
       console.log('✅ نجح تسجيل الدخول');
       toast({
         title: "تم تسجيل الدخول بنجاح",
@@ -106,6 +121,7 @@ export default function LoginPage() {
       }, 500);
     },
     onError: (error: any) => {
+      console.error('❌ [LoginPage.loginMutation] onError triggered:', error);
       console.error('❌ فشل تسجيل الدخول:', error);
       toast({
         title: "فشل تسجيل الدخول",
@@ -116,15 +132,37 @@ export default function LoginPage() {
   });
 
   const onSubmit = (data: LoginFormData) => {
-    loginMutation.mutate(data);
+    console.log('🚀 [LoginPage.onSubmit] استدعاء تسجيل الدخول:', { 
+      email: data.email, 
+      hasPassword: !!data.password,
+      passwordLength: data.password?.length || 0,
+      timestamp: new Date().toISOString(),
+      formValid: form.formState.isValid,
+      formErrors: form.formState.errors
+    });
+    try {
+      loginMutation.mutate(data);
+      console.log('✅ [LoginPage.onSubmit] تم استدعاء mutation بنجاح');
+    } catch (error) {
+      console.error('❌ [LoginPage.onSubmit] خطأ في استدعاء mutation:', error);
+    }
   };
 
   // وظيفة لتعيين البريد وكلمة المرور (مستخدمة في زر الدخول التجريبي)
   const setEmail = (email: string) => form.setValue('email', email);
   const setPassword = (password: string) => form.setValue('password', password);
   const handleSubmit = (event?: React.FormEvent<HTMLFormElement>) => {
+    console.log('📝 [LoginPage.handleSubmit] بدء معالجة تسجيل الدخول:', {
+      hasEvent: !!event,
+      timestamp: new Date().toISOString()
+    });
     event?.preventDefault(); // منع السلوك الافتراضي إذا تم تمرير الحدث
     const data = form.getValues();
+    console.log('📋 [LoginPage.handleSubmit] بيانات النموذج:', { 
+      email: data.email, 
+      hasPassword: !!data.password,
+      passwordLength: data.password?.length || 0
+    });
     onSubmit(data);
   };
 
@@ -153,7 +191,13 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Form {...form}>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={(e) => {
+                console.log('📤 [LoginPage.Form] إرسال النموذج:', {
+                  timestamp: new Date().toISOString(),
+                  formData: form.getValues()
+                });
+                handleSubmit(e);
+              }} className="space-y-4">
 
                 {/* خطوة بيانات تسجيل الدخول */}
                 {loginStep === 'credentials' && (
@@ -277,12 +321,19 @@ export default function LoginPage() {
                     variant="outline"
                     className="w-full mt-2"
                     onClick={() => {
-                      setEmail("admin@demo.local");
-                      setPassword("bypass-demo-login");
-                      // تفعيل تسجيل الدخول التلقائي
-                      setTimeout(() => {
-                        handleSubmit({ preventDefault: () => {} } as any);
-                      }, 100);
+                      console.log('🎯 [LoginPage.QuickLogin] الضغط على زر الدخول السريع');
+                      try {
+                        setEmail("test@demo.local");
+                        setPassword("testpassword");
+                        console.log('✅ [LoginPage.QuickLogin] تم تعيين البيانات التجريبية');
+                        // تفعيل تسجيل الدخول التلقائي
+                        setTimeout(() => {
+                          console.log('⏰ [LoginPage.QuickLogin] تنفيذ handleSubmit بعد التأخير');
+                          handleSubmit({ preventDefault: () => {} } as any);
+                        }, 100);
+                      } catch (error) {
+                        console.error('❌ [LoginPage.QuickLogin] خطأ في الدخول السريع:', error);
+                      }
                     }}
                     disabled={loginMutation.isPending}
                     data-testid="button-quick-login"

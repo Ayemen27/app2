@@ -194,8 +194,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // تسجيل الدخول
   const login = async (email: string, password: string) => {
     console.log('🔑 [AuthProvider.login] بدء تسجيل الدخول:', email, new Date().toISOString());
+    console.log('📊 [AuthProvider.login] معاملات الدخل:', {
+      email: email,
+      hasPassword: !!password,
+      passwordLength: password?.length || 0,
+      isLoading: isLoading,
+      isAuthenticated: isAuthenticated,
+      currentUser: user?.email || 'لا يوجد'
+    });
 
     try {
+      console.log('📡 [AuthProvider.login] إرسال طلب لـ /api/auth/login...');
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -203,10 +212,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         },
         body: JSON.stringify({ email, password }),
       });
+      console.log('📨 [AuthProvider.login] تم استلام الاستجابة:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
 
       console.log('📨 [AuthProvider.login] استجابة تسجيل الدخول:', response.status);
 
       const data = await response.json();
+      console.log('🔍 [AuthProvider.login] البيانات الخام المستلمة:', JSON.stringify(data, null, 2));
       // ازالة تسجيل البيانات الحساسة - لا نطبع الرموز بشكل كامل
       console.log('📦 [AuthProvider.login] تم استلام بيانات تسجيل الدخول بنجاح');
       console.log('📦 [AuthProvider.login] تفاصيل البيانات:', {
@@ -291,14 +307,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('💾 [AuthProvider.login] بدء حفظ البيانات...');
 
       // حفظ المستخدم والتوكين
+      console.log('💾 [AuthProvider.login] محاولة تعيين المستخدم في الحالة:', user);
       setUser(user);
-      console.log('✅ [AuthProvider.login] تم تعيين المستخدم في الحالة');
+      console.log('✅ [AuthProvider.login] تم تعيين المستخدم في الحالة بنجاح');
+      console.log('🔍 [AuthProvider.login] التحقق من حالة المستخدم بعد التعيين:', {
+        userSet: !!user,
+        isAuthenticatedNow: !!user,
+        userId: user?.id,
+        userEmail: user?.email
+      });
 
-      localStorage.setItem('user', JSON.stringify(user));
-      console.log('✅ [AuthProvider.login] تم حفظ بيانات المستخدم في localStorage');
+      try {
+        const userJson = JSON.stringify(user);
+        console.log('💾 [AuthProvider.login] محاولة حفظ بيانات المستخدم:', {
+          userJsonLength: userJson.length,
+          userJson: userJson.substring(0, 100) + '...'
+        });
+        localStorage.setItem('user', userJson);
+        console.log('✅ [AuthProvider.login] تم حفظ بيانات المستخدم في localStorage بنجاح');
+      } catch (storageError) {
+        console.error('❌ [AuthProvider.login] فشل حفظ المستخدم في localStorage:', storageError);
+        throw new Error('فشل في حفظ بيانات المستخدم محلياً');
+      }
 
-      localStorage.setItem('accessToken', tokenData);
-      console.log('✅ [AuthProvider.login] تم حفظ الرمز المميز');
+      try {
+        console.log('💾 [AuthProvider.login] محاولة حفظ الرمز المميز:', {
+          tokenLength: tokenData?.length || 0,
+          tokenPreview: tokenData ? tokenData.substring(0, 20) + '...' : 'فارغ'
+        });
+        localStorage.setItem('accessToken', tokenData);
+        console.log('✅ [AuthProvider.login] تم حفظ الرمز المميز بنجاح');
+      } catch (storageError) {
+        console.error('❌ [AuthProvider.login] فشل حفظ الرمز في localStorage:', storageError);
+        throw new Error('فشل في حفظ الرمز المميز محلياً');
+      }
 
       if (refreshTokenData) {
         localStorage.setItem('refreshToken', refreshTokenData);
@@ -335,6 +377,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     } catch (error) {
       console.error('❌ [AuthProvider.login] خطأ في تسجيل الدخول:', error);
+      console.error('🚨 [AuthProvider.login] تفاصيل الخطأ الشامل:', {
+        errorType: typeof error,
+        errorName: error instanceof Error ? error.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : 'No stack trace',
+        timestamp: new Date().toISOString()
+      });
       console.error('❌ [AuthProvider.login] تفاصيل الخطأ:', {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,

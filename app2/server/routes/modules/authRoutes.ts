@@ -8,7 +8,7 @@ import { Request, Response } from 'express';
 import { db } from '../../db.js';
 import bcrypt from 'bcryptjs';
 import { sql } from 'drizzle-orm';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../auth/jwt-utils.js';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken, generateTokenPair } from '../../auth/jwt-utils.js';
 
 export const authRouter = express.Router();
 
@@ -58,16 +58,15 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       });
     }
 
-    // إنشاء JWT tokens
-    const accessToken = generateAccessToken({
-      userId: String(user.id),
-      email: String(user.email),
-      role: 'user' // افتراضي
-    });
-    const refreshToken = generateRefreshToken({
-      userId: String(user.id),
-      email: String(user.email)
-    });
+    // إنشاء JWT tokens مع حفظ الجلسة
+    const tokenPair = await generateTokenPair(
+      String(user.id),
+      String(user.email),
+      'user', // افتراضي
+      req.ip,
+      req.get('user-agent'),
+      { deviceId: 'web-browser' }
+    );
     
     console.log('✅ [AUTH] تم تسجيل الدخول بنجاح:', { 
       userId: user.id, 
@@ -82,12 +81,13 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         user: {
           id: user.id,
           email: user.email,
-          fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          role: 'admin', // إضافة الدور المطلوب
           createdAt: user.created_at
         },
         tokens: {
-          accessToken,
-          refreshToken
+          accessToken: tokenPair.accessToken,
+          refreshToken: tokenPair.refreshToken
         }
       }
     });

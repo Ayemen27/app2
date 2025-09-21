@@ -51,10 +51,33 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // إذا كان مصادق عليه، اسمح بالدخول
+  // إذا كان مصادق عليه، اسمح بالدخول مع حماية من الأخطاء
   if (isAuthenticated && user) {
     console.log('✅ [ProtectedRoute] مصادق عليه، إظهار المحتوى للمستخدم:', user.email);
-    return <>{children}</>;
+    try {
+      return <>{children}</>;
+    } catch (error) {
+      console.error('❌ [ProtectedRoute] خطأ في تحميل المحتوى:', error);
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+              خطأ في تحميل الصفحة
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              حدث خطأ أثناء تحميل المحتوى. يرجى إعادة تحميل الصفحة.
+            </p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              إعادة تحميل
+            </button>
+          </div>
+        </div>
+      );
+    }
   }
 
   // إذا كانت هناك بيانات محفوظة ولكن لم يتم تحميل المستخدم، محاولة أخيرة

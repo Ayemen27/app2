@@ -1275,11 +1275,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
         .where(and(eq(workerAttendance.projectId, projectId), eq(workerAttendance.date, date))),
         db.select().from(materialPurchases)
-          .where(and(eq(materialPurchases.projectId, projectId), sql`DATE(${materialPurchases.date}) = ${date}`)),
+          .where(and(eq(materialPurchases.projectId, projectId), sql`DATE(${materialPurchases.purchaseDate}) = ${date}`)),
         db.select().from(transportationExpenses)
           .where(and(eq(transportationExpenses.projectId, projectId), sql`DATE(${transportationExpenses.date}) = ${date}`)),
         db.select().from(workerTransfers)
-          .where(and(eq(workerTransfers.projectId, projectId), sql`DATE(${workerTransfers.date}) = ${date}`)),
+          .where(and(eq(workerTransfers.projectId, projectId), sql`DATE(${workerTransfers.transferDate}) = ${date}`)),
         db.select().from(workerMiscExpenses)
           .where(and(eq(workerMiscExpenses.projectId, projectId), eq(workerMiscExpenses.date, date))),
         db.select().from(projects).where(eq(projects.id, projectId)).limit(1)

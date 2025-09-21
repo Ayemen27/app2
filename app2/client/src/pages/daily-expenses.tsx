@@ -248,68 +248,9 @@ function DailyExpensesContent() {
     retry: 2,
   });
 
-  const { data: todayAttendance = [] } = useQuery<WorkerAttendance[]>({
-    queryKey: ["/api/projects", selectedProjectId, "attendance", selectedDate],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/attendance?date=${selectedDate}`, "GET");
-        // معالجة آمنة للهيكل المتداخل للاستجابة
-        if (response && response.data && Array.isArray(response.data)) {
-          return response.data as WorkerAttendance[];
-        }
-        return Array.isArray(response) ? response as WorkerAttendance[] : [];
-      } catch (error) {
-        console.error("Error fetching attendance:", error);
-        return [];
-      }
-    },
-    enabled: !!selectedProjectId,
-  });
-
   // معالجة آمنة للبيانات - التأكد من أن البيانات مصفوفات
   const safeAttendance = Array.isArray(todayAttendance) ? todayAttendance : [];
-
-  const { data: todayTransportation = [] } = useQuery<TransportationExpense[]>({
-    queryKey: ["/api/projects", selectedProjectId, "transportation-expenses", selectedDate],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/transportation-expenses?date=${selectedDate}`, "GET");
-        // معالجة آمنة للهيكل المتداخل للاستجابة
-        if (response && response.data && Array.isArray(response.data)) {
-          return response.data as TransportationExpense[];
-        }
-        return Array.isArray(response) ? response as TransportationExpense[] : [];
-      } catch (error) {
-        console.error("Error fetching transportation expenses:", error);
-        return [];
-      }
-    },
-    enabled: !!selectedProjectId,
-  });
-
-  // معالجة آمنة للبيانات
   const safeTransportation = Array.isArray(todayTransportation) ? todayTransportation : [];
-
-  const { data: todayMaterialPurchases = [], refetch: refetchMaterialPurchases } = useQuery({
-    queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/material-purchases?dateFrom=${selectedDate}&dateTo=${selectedDate}`, "GET");
-        console.log("Material purchases response:", response);
-        // معالجة آمنة للهيكل المتداخل للاستجابة
-        if (response && response.data && Array.isArray(response.data)) {
-          return response.data as any[];
-        }
-        return Array.isArray(response) ? response as any[] : [];
-      } catch (error) {
-        console.error("Error fetching material purchases:", error);
-        return [];
-      }
-    },
-    enabled: !!selectedProjectId,
-  });
-
-  // معالجة آمنة للبيانات
   const safeMaterialPurchases = Array.isArray(todayMaterialPurchases) ? todayMaterialPurchases : [];
 
   // جلب معلومات المواد مع معالجة آمنة للأخطاء
@@ -413,31 +354,42 @@ function DailyExpensesContent() {
   // معالجة آمنة لترحيل المشاريع
   const safeProjectTransfers = Array.isArray(projectTransfers) ? projectTransfers : [];
 
-  const { data: todayFundTransfers = [], refetch: refetchFundTransfers, isLoading: fundTransfersLoading } = useQuery({
-    queryKey: ["/api/projects", selectedProjectId, "fund-transfers", selectedDate],
+  // جلب البيانات الموحدة للمصروفات اليومية
+  const { data: dailyExpensesData, isLoading: dailyExpensesLoading, error: dailyExpensesError } = useQuery({
+    queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate],
     queryFn: async () => {
       if (!selectedProjectId || !selectedDate) {
-        return [];
+        return null;
       }
       
       try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/fund-transfers?date=${selectedDate}`, "GET");
-        // معالجة آمنة للهيكل المتداخل للاستجابة
-        if (response && response.data && Array.isArray(response.data)) {
-          return response.data as FundTransfer[];
+        console.log(`📊 جلب المصروفات اليومية: مشروع ${selectedProjectId}, تاريخ ${selectedDate}`);
+        const response = await apiRequest(`/api/projects/${selectedProjectId}/daily-expenses/${selectedDate}`, "GET");
+        
+        console.log('📊 استجابة المصروفات اليومية:', response);
+        
+        if (response && response.success && response.data) {
+          return response.data;
         }
-        return Array.isArray(response) ? response as FundTransfer[] : [];
+        
+        return null;
       } catch (error) {
-        console.error("Error fetching fund transfers:", error);
-        return [];
+        console.error("خطأ في جلب المصروفات اليومية:", error);
+        throw error;
       }
     },
     enabled: !!selectedProjectId && !!selectedDate,
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
-    staleTime: 30000, // البيانات صالحة لـ30 ثانية
-    gcTime: 60000, // الاحتفاظ بالذاكرة لدقيقة واحدة
+    retry: 2,
+    staleTime: 30000,
   });
+
+  // استخراج البيانات من الاستجابة الموحدة
+  const todayFundTransfers = dailyExpensesData?.fundTransfers || [];
+  const todayAttendance = dailyExpensesData?.workerAttendance || [];
+  const todayTransportation = dailyExpensesData?.transportationExpenses || [];
+  const todayMaterialPurchases = dailyExpensesData?.materialPurchases || [];
+  const todayWorkerTransfers = dailyExpensesData?.workerTransfers || [];
+  const todayMiscExpenses = dailyExpensesData?.miscExpenses || [];
 
   // معالجة آمنة للعهد
   const safeFundTransfers = Array.isArray(todayFundTransfers) ? todayFundTransfers : [];
@@ -1177,6 +1129,13 @@ function DailyExpensesContent() {
           {/* Fund Transfer Section */}
           <div className="border-t pt-3">
             <h4 className="font-medium text-foreground mb-2">تحويل عهدة جديدة</h4>
+            {dailyExpensesError && (
+              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-700 text-sm">
+                  خطأ في جلب البيانات: {dailyExpensesError.message}
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3 mb-2">
               <Input
                 type="number"
@@ -1184,7 +1143,7 @@ function DailyExpensesContent() {
                 value={fundAmount}
                 onChange={(e) => setFundAmount(e.target.value)}
                 placeholder="المبلغ *"
-                className="text-center arabic-numbers"
+                className="text-center"
                 min="0"
                 step="0.01"
               />
@@ -1237,7 +1196,7 @@ function DailyExpensesContent() {
             <div className="mt-3 pt-3 border-t">
               <h5 className="text-sm font-medium text-muted-foreground mb-2">العهد المضافة اليوم:</h5>
 
-              {fundTransfersLoading ? (
+              {dailyExpensesLoading ? (
                 <div className="text-center text-muted-foreground">جاري التحميل...</div>
               ) : Array.isArray(todayFundTransfers) && todayFundTransfers.length > 0 ? (
                 <div className="space-y-2">

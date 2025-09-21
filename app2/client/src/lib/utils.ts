@@ -5,26 +5,49 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: string | number): string {
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (isNaN(num) || !isFinite(num)) return '0 ر.ي';
+export const formatCurrency = (amount: number | string | null | undefined): string => {
+  if (amount === null || amount === undefined) return "0 ر.ي";
 
-  return new Intl.NumberFormat('en-US', {
-    style: 'decimal',
+  const numValue = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(numValue)) return "0 ر.ي";
+
+  // استخدام الأرقام الإنجليزية للحسابات والعرض الصحيح
+  return `${numValue.toLocaleString('en-US', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(num) + ' ر.ي';
-}
+    maximumFractionDigits: 2
+  })} ر.ي`;
+};
 
-export function formatDate(date: string | Date): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  // استخدام التاريخ الميلادي بصيغة dd/MM/yyyy
-  return new Intl.DateTimeFormat("en-GB", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
+export const formatDate = (dateInput: string | Date): string => {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+
+  if (isNaN(date.getTime())) {
+    return 'تاريخ غير صالح';
+  }
+
+  return new Intl.DateTimeFormat('ar-SA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+};
+
+// دالة جديدة لتنسيق الأرقام بالإنجليزية
+export const formatNumber = (num: number | string | null | undefined): string => {
+  if (num === null || num === undefined) return "0";
+
+  const numValue = typeof num === 'string' ? parseFloat(num) : num;
+  if (isNaN(numValue)) return "0";
+
+  // إزالة الأصفار الزائدة وتنسيق بالأرقام الإنجليزية
+  if (numValue === 0) return "0";
+
+  // تنسيق الأرقام بفواصل الآلاف للأعداد الكبيرة
+  return numValue.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: numValue % 1 === 0 ? 0 : 2
+  });
+};
 
 export function formatTime(time: string): string {
   if (!time) return "";

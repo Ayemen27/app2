@@ -747,18 +747,22 @@
     color: hsl(var(--success));
   }
 
-  .arabic-numbers {
-    font-feature-settings: "tnum" 1;
-    unicode-bidi: embed;
+  .english-numbers {
+    font-feature-settings: 'lnum';
+    font-variant-numeric: lining-nums;
     direction: ltr;
-    display: inline-block;
+    text-align: center;
+    font-family: 'Arial', sans-serif;
   }
 
-  .english-numbers {
-    font-feature-settings: "tnum" 1;
-    font-variant-numeric: tabular-nums;
+  /* إجبار الأرقام الإنجليزية في جميع الحقول الرقمية */
+  input[type="number"], 
+  .currency-display,
+  .number-display {
+    font-feature-settings: 'lnum';
+    font-variant-numeric: lining-nums;
+    font-family: 'Arial', sans-serif;
     direction: ltr;
-    display: inline-block;
   }
 
   .stats-number {

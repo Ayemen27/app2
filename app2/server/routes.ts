@@ -927,6 +927,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 📊 GET endpoint للمصروفات اليومية - جلب المصروفات لتاريخ محدد
+  app.get("/api/projects/:projectId/daily-expenses/:date", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId, date } = req.params;
+      
+      console.log(`📊 [API] طلب جلب المصروفات اليومية: projectId=${projectId}, date=${date}`);
+      
+      // التحقق من صحة المعاملات
+      if (!projectId || !date) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معاملات مطلوبة مفقودة',
+          message: 'معرف المشروع والتاريخ مطلوبان',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من تنسيق التاريخ
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'تنسيق التاريخ غير صحيح',
+          message: 'يجب أن يكون التاريخ بصيغة YYYY-MM-DD',
+          processingTime: duration
+        });
+      }
+
+      // جلب جميع البيانات المطلوبة
+      const [
+        fundTransfersResult,
+        workerAttendanceResult,
+        materialPurchasesResult,
+        transportationResult,
+        workerTransfersResult,
+        miscExpensesResult,
+        projectInfo
+      ] = await Promise.all([
+        db.select().from(fundTransfers)
+          .where(and(eq(fundTransfers.projectId, projectId), sql`DATE(${fundTransfers.transferDate}) = ${date}`)),
+        db.select({
+          id: workerAttendance.id,
+          workerId: workerAttendance.workerId,
+          projectId: workerAttendance.projectId,
+          date: workerAttendance.date,
+          paidAmount: workerAttendance.paidAmount,
+          actualWage: workerAttendance.actualWage,
+          workDays: workerAttendance.workDays,
+          workerName: workers.name
+        })
+        .from(workerAttendance)
+        .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+        .where(and(eq(workerAttendance.projectId, projectId), eq(workerAttendance.date, date))),
+        db.select().from(materialPurchases)
+          .where(and(eq(materialPurchases.projectId, projectId), sql`DATE(${materialPurchases.date}) = ${date}`)),
+        db.select().from(transportationExpenses)
+          .where(and(eq(transportationExpenses.projectId, projectId), sql`DATE(${transportationExpenses.date}) = ${date}`)),
+        db.select().from(workerTransfers)
+          .where(and(eq(workerTransfers.projectId, projectId), sql`DATE(${workerTransfers.date}) = ${date}`)),
+        db.select().from(workerMiscExpenses)
+          .where(and(eq(workerMiscExpenses.projectId, projectId), eq(workerMiscExpenses.date, date))),
+        db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
+      ]);
+
+      // حساب المجاميع
+      const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
+      const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
+      const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
+      const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
+
+      const totalIncome = totalFundTransfers;
+      const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
+      const remainingBalance = totalIncome - totalExpenses;
+
+      const responseData = {
+        date,
+        projectName: projectInfo[0]?.name || 'مشروع غير معروف',
+        projectId,
+        totalIncome,
+        totalExpenses,
+        remainingBalance,
+        fundTransfers: fundTransfersResult,
+        workerAttendance: workerAttendanceResult,
+        materialPurchases: materialPurchasesResult,
+        transportationExpenses: transportationResult,
+        workerTransfers: workerTransfersResult,
+        miscExpenses: miscExpensesResult
+      };
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب المصروفات اليومية بنجاح في ${duration}ms`);
+
+      res.json({
+        success: true,
+        data: responseData,
+        message: `تم جلب المصروفات اليومية لتاريخ ${date} بنجاح`,
+        processingTime: duration
+      });
+
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب المصروفات اليومية:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في جلب المصروفات اليومية',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
   // 📝 POST endpoint لتحويلات العهدة - إضافة تحويل جديد مع validation محسن
   app.post("/api/fund-transfers", requireAuth, async (req, res) => {
     const startTime = Date.now();

@@ -35,9 +35,28 @@ export default function ProjectTransactionsSimple() {
   });
 
   // جلب تحويلات العهدة العادية للمشروع
-  const { data: fundTransfers = [] } = useQuery({
+  const { data: fundTransfers = [], isLoading: fundTransfersLoading, error: fundTransfersError } = useQuery({
     queryKey: ['/api/projects', selectedProject, 'fund-transfers'],
+    queryFn: async () => {
+      if (!selectedProject) return [];
+      try {
+        console.log(`🔄 جلب تحويلات العهدة للمشروع: ${selectedProject}`);
+        const response = await fetch(`/api/projects/${selectedProject}/fund-transfers`);
+        if (!response.ok) {
+          console.error(`❌ خطأ في جلب تحويلات العهدة: ${response.status}`);
+          return [];
+        }
+        const data = await response.json();
+        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} تحويل عهدة`);
+        return Array.isArray(data?.data) ? data.data : [];
+      } catch (error) {
+        console.error('❌ خطأ في جلب تحويلات العهدة:', error);
+        return [];
+      }
+    },
     enabled: !!selectedProject,
+    retry: 2,
+    staleTime: 30000,
   });
 
   // جلب التحويلات بين المشاريع (الواردة)
@@ -61,9 +80,28 @@ export default function ProjectTransactionsSimple() {
   });
 
   // جلب حضور العمال للمشروع
-  const { data: workerAttendance = [] } = useQuery({
+  const { data: workerAttendance = [], isLoading: attendanceLoading, error: attendanceError } = useQuery({
     queryKey: ['/api/projects', selectedProject, 'attendance'],
+    queryFn: async () => {
+      if (!selectedProject) return [];
+      try {
+        console.log(`🔄 جلب حضور العمال للمشروع: ${selectedProject}`);
+        const response = await fetch(`/api/projects/${selectedProject}/worker-attendance`);
+        if (!response.ok) {
+          console.error(`❌ خطأ في جلب حضور العمال: ${response.status}`);
+          return [];
+        }
+        const data = await response.json();
+        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} سجل حضور`);
+        return Array.isArray(data?.data) ? data.data : [];
+      } catch (error) {
+        console.error('❌ خطأ في جلب حضور العمال:', error);
+        return [];
+      }
+    },
     enabled: !!selectedProject,
+    retry: 2,
+    staleTime: 30000,
   });
 
   // جلب مشتريات المواد للمشروع

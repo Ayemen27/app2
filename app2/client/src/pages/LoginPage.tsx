@@ -63,7 +63,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { login } = useAuth();
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [loginStep, setLoginStep] = useState<'credentials' | 'mfa' | 'verification'>('credentials');
 
@@ -88,13 +88,13 @@ export default function LoginPage() {
         title: "تم تسجيل الدخول بنجاح",
         description: "أهلاً وسهلاً",
       });
-      
+
       // التوجه إلى الصفحة الرئيسية مع تأخير بسيط للتأكد من تحديث الحالة
       console.log('🚀 [LoginPage] بدء التوجيه للصفحة الرئيسية...');
       setTimeout(() => {
         console.log('🎯 [LoginPage] تنفيذ التوجيه إلى /');
         navigate("/");
-        
+
         // إجبار إعادة تحميل الصفحة إذا لم يتم التوجيه
         setTimeout(() => {
           console.log('🔄 [LoginPage] التحقق من التوجيه الناجح...');
@@ -117,6 +117,15 @@ export default function LoginPage() {
 
   const onSubmit = (data: LoginFormData) => {
     loginMutation.mutate(data);
+  };
+
+  // وظيفة لتعيين البريد وكلمة المرور (مستخدمة في زر الدخول التجريبي)
+  const setEmail = (email: string) => form.setValue('email', email);
+  const setPassword = (password: string) => form.setValue('password', password);
+  const handleSubmit = (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault(); // منع السلوك الافتراضي إذا تم تمرير الحدث
+    const data = form.getValues();
+    onSubmit(data);
   };
 
   return (
@@ -144,8 +153,8 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                
+              <form onSubmit={handleSubmit} className="space-y-4">
+
                 {/* خطوة بيانات تسجيل الدخول */}
                 {loginStep === 'credentials' && (
                   <>
@@ -261,19 +270,19 @@ export default function LoginPage() {
                   )}
                 </Button>
 
-                {/* زر تسجيل الدخول السريع */}
+                {/* زر دخول تجريبي سريع */}
                 {loginStep === 'credentials' && (
                   <Button
                     type="button"
                     variant="outline"
                     className="w-full mt-2"
                     onClick={() => {
-                      // تسجيل دخول سريع بدون كلمة مرور
-                      loginMutation.mutate({
-                        email: 'admin@demo.local',
-                        password: 'bypass-demo-login',
-                        totpCode: '',
-                      });
+                      setEmail("admin@demo.local");
+                      setPassword("bypass-demo-login");
+                      // تفعيل تسجيل الدخول التلقائي
+                      setTimeout(() => {
+                        handleSubmit({ preventDefault: () => {} } as any);
+                      }, 100);
                     }}
                     disabled={loginMutation.isPending}
                     data-testid="button-quick-login"

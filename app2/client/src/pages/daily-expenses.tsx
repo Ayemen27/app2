@@ -93,20 +93,20 @@ function DailyExpensesContent() {
   });
   const [carriedForward, setCarriedForward] = useState<string>("0");
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
-  
+
   // Fund transfer form
   const [fundAmount, setFundAmount] = useState<string>("");
   const [senderName, setSenderName] = useState<string>("");
   const [transferNumber, setTransferNumber] = useState<string>("");
   const [transferType, setTransferType] = useState<string>("");
   const [editingFundTransferId, setEditingFundTransferId] = useState<string | null>(null);
-  
+
   // Transportation expense form
   const [transportDescription, setTransportDescription] = useState<string>("");
   const [transportAmount, setTransportAmount] = useState<string>("");
   const [transportNotes, setTransportNotes] = useState<string>("");
   const [editingTransportationId, setEditingTransportationId] = useState<string | null>(null);
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
@@ -114,7 +114,7 @@ function DailyExpensesContent() {
   // دالة مساعدة لحفظ قيم الإكمال التلقائي
   const saveAutocompleteValue = async (field: string, value: string) => {
     if (!value || value.trim().length < 2) return;
-    
+
     try {
       // التحقق من أن endpoint autocomplete موجود قبل المحاولة
       const response = await fetch('/api/autocomplete', { method: 'HEAD' });
@@ -122,7 +122,7 @@ function DailyExpensesContent() {
         console.warn(`Autocomplete endpoint not available for ${field}`);
         return;
       }
-      
+
       await apiRequest('/api/autocomplete', 'POST', {
         category: field,
         value: value.trim(),
@@ -144,7 +144,7 @@ function DailyExpensesContent() {
         saveButton.click();
       }
     };
-    
+
     setFloatingAction(handleSaveExpenses, "حفظ المصاريف");
     return () => setFloatingAction(null);
   }, [setFloatingAction]);
@@ -152,19 +152,19 @@ function DailyExpensesContent() {
   // دالة لحفظ جميع قيم الإكمال التلقائي للحولة
   const saveAllFundTransferAutocompleteValues = async () => {
     const promises = [];
-    
+
     if (senderName && senderName.trim().length >= 2) {
       promises.push(saveAutocompleteValue('senderNames', senderName));
     }
-    
+
     if (transferNumber && transferNumber.trim().length >= 1) {
       promises.push(saveAutocompleteValue('transferNumbers', transferNumber));
     }
-    
+
     if (transferType && transferType.trim().length >= 2) {
       promises.push(saveAutocompleteValue('transferTypes', transferType));
     }
-    
+
     if (promises.length > 0) {
       await Promise.all(promises);
     }
@@ -177,7 +177,7 @@ function DailyExpensesContent() {
         console.log('🔄 [DailyExpenses] جلب قائمة العمال...');
         const response = await apiRequest("/api/workers", "GET");
         console.log('📊 [DailyExpenses] استجابة العمال:', response);
-        
+
         // معالجة هيكل الاستجابة المتعددة
         let workers = [];
         if (response && typeof response === 'object') {
@@ -191,12 +191,12 @@ function DailyExpensesContent() {
             workers = Array.isArray(response.data) ? response.data : [];
           }
         }
-        
+
         if (!Array.isArray(workers)) {
           console.warn('⚠️ [DailyExpenses] بيانات العمال ليست مصفوفة، تحويل إلى مصفوفة فارغة');
           workers = [];
         }
-        
+
         console.log(`✅ [DailyExpenses] تم جلب ${workers.length} عامل`);
         return workers as Worker[];
       } catch (error) {
@@ -217,7 +217,7 @@ function DailyExpensesContent() {
         console.log('🔄 [DailyExpenses] جلب قائمة المشاريع...');
         const response = await apiRequest("/api/projects", "GET");
         console.log('📊 [DailyExpenses] استجابة المشاريع:', response);
-        
+
         // معالجة هيكل الاستجابة المتعددة
         let projects = [];
         if (response && typeof response === 'object') {
@@ -231,12 +231,12 @@ function DailyExpensesContent() {
             projects = Array.isArray(response.data) ? response.data : [];
           }
         }
-        
+
         if (!Array.isArray(projects)) {
           console.warn('⚠️ [DailyExpenses] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
           projects = [];
         }
-        
+
         console.log(`✅ [DailyExpenses] تم جلب ${projects.length} مشروع`);
         return projects as Project[];
       } catch (error) {
@@ -249,7 +249,7 @@ function DailyExpensesContent() {
   });
 
   // معالجة آمنة للبيانات - التأكد من أن البيانات مصفوفات
-  const safeAttendance = Array.isArray(todayAttendance) ? todayAttendance : [];
+  const safeAttendance = Array.isArray(todayWorkerAttendance) ? todayWorkerAttendance : [];
   const safeTransportation = Array.isArray(todayTransportation) ? todayTransportation : [];
   const safeMaterialPurchases = Array.isArray(todayMaterialPurchases) ? todayMaterialPurchases : [];
 
@@ -320,7 +320,7 @@ function DailyExpensesContent() {
     queryFn: async () => {
       try {
         const response = await apiRequest(`/api/project-fund-transfers?date=${selectedDate}`, "GET");
-        
+
         // معالجة الهيكل المتداخل للاستجابة
         let transferData = [];
         if (response && response.data && Array.isArray(response.data)) {
@@ -328,13 +328,13 @@ function DailyExpensesContent() {
         } else if (Array.isArray(response)) {
           transferData = response;
         }
-        
+
         if (!Array.isArray(transferData)) return [];
-        
+
         const filteredTransfers = transferData.filter((transfer: ProjectFundTransfer) => 
           transfer.fromProjectId === selectedProjectId || transfer.toProjectId === selectedProjectId
         );
-        
+
         // إضافة أسماء المشاريع
         return filteredTransfers.map((transfer: ProjectFundTransfer) => ({
           ...transfer,
@@ -361,17 +361,17 @@ function DailyExpensesContent() {
       if (!selectedProjectId || !selectedDate) {
         return null;
       }
-      
+
       try {
         console.log(`📊 جلب المصروفات اليومية: مشروع ${selectedProjectId}, تاريخ ${selectedDate}`);
         const response = await apiRequest(`/api/projects/${selectedProjectId}/daily-expenses/${selectedDate}`, "GET");
-        
+
         console.log('📊 استجابة المصروفات اليومية:', response);
-        
+
         if (response && response.success && response.data) {
           return response.data;
         }
-        
+
         return null;
       } catch (error) {
         console.error("خطأ في جلب المصروفات اليومية:", error);
@@ -385,7 +385,7 @@ function DailyExpensesContent() {
 
   // استخراج البيانات من الاستجابة الموحدة
   const todayFundTransfers = dailyExpensesData?.fundTransfers || [];
-  const todayAttendance = dailyExpensesData?.workerAttendance || [];
+  const todayWorkerAttendance = dailyExpensesData?.workerAttendance || [];
   const todayTransportation = dailyExpensesData?.transportationExpenses || [];
   const todayMaterialPurchases = dailyExpensesData?.materialPurchases || [];
   const todayWorkerTransfers = dailyExpensesData?.workerTransfers || [];
@@ -424,7 +424,7 @@ function DailyExpensesContent() {
   useEffect(() => {
     const initializeDefaultTransferTypes = async () => {
       const defaultTypes = ['حولة بنكية', 'تسليم يدوي', 'صراف آلي', 'تحويل داخلي', 'شيك', 'نقدية'];
-      
+
       for (const type of defaultTypes) {
         try {
           await saveAutocompleteValue('transferTypes', type);
@@ -443,7 +443,7 @@ function DailyExpensesContent() {
     mutationFn: async (data: InsertFundTransfer) => {
       // حفظ جميع قيم الإكمال التلقائي قبل العملية الأساسية
       await saveAllFundTransferAutocompleteValues();
-      
+
       // تنفيذ العملية الأساسية
       return apiRequest("/api/fund-transfers", "POST", data);
     },
@@ -453,15 +453,15 @@ function DailyExpensesContent() {
         if (!oldData) return [newTransfer];
         return [newTransfer, ...oldData];
       });
-      
+
       toast({
         title: "تم إضافة العهدة",
         description: "تم إضافة تحويل العهدة بنجاح",
       });
-      
+
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       // تنظيف النموذج
       setFundAmount("");
       setSenderName("");
@@ -471,14 +471,14 @@ function DailyExpensesContent() {
     onError: async (error: any) => {
       // حفظ جميع قيم الإكمال التلقائي حتى في حالة الخطأ
       await saveAllFundTransferAutocompleteValues();
-      
+
       // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       console.error("خطأ في إضافة الحولة:", error);
-      
+
       let errorMessage = "حدث خطأ أثناء إضافة الحولة";
-      
+
       // معالجة أنواع مختلفة من الأخطاء
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
@@ -487,7 +487,7 @@ function DailyExpensesContent() {
       } else if (typeof error === 'string') {
         errorMessage = error;
       }
-      
+
       toast({
         title: "فشل في إضافة الحولة",
         description: errorMessage,
@@ -503,7 +503,7 @@ function DailyExpensesContent() {
         saveAutocompleteValue('transportDescriptions', transportDescription),
         saveAutocompleteValue('notes', transportNotes)
       ]);
-      
+
       // تنفيذ العملية الأساسية
       return apiRequest("/api/transportation-expenses", "POST", data);
     },
@@ -513,15 +513,15 @@ function DailyExpensesContent() {
         if (!oldData) return [newExpense];
         return [newExpense, ...oldData];
       });
-      
+
       toast({
         title: "تم إضافة المواصلات",
         description: "تم إضافة مصروف المواصلات بنجاح",
       });
-      
+
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       // تنظيف النموذج
       setTransportDescription("");
       setTransportAmount("");
@@ -533,10 +533,10 @@ function DailyExpensesContent() {
         saveAutocompleteValue('transportDescriptions', transportDescription),
         saveAutocompleteValue('notes', transportNotes)
       ]);
-      
+
       // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       toast({
         title: "خطأ في إضافة المواصلات",
         description: error?.message || "حدث خطأ أثناء إضافة مصروف المواصلات",
@@ -552,7 +552,7 @@ function DailyExpensesContent() {
         title: "تم الحفظ",
         description: "تم حفظ ملخص المصروفات اليومية بنجاح",
       });
-      
+
       // تحديث ملخص اليوم
       queryClient.invalidateQueries({ 
         queryKey: ["/api/projects", selectedProjectId, "daily-summary", selectedDate] 
@@ -580,15 +580,15 @@ function DailyExpensesContent() {
     },
     onError: (error: any) => {
       console.error("خطأ في حذف الحولة:", error);
-      
+
       let errorMessage = "حدث خطأ أثناء حذف الحولة";
-      
+
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
       toast({ 
         title: "فشل في حذف الحولة", 
         description: errorMessage, 
@@ -644,14 +644,14 @@ function DailyExpensesContent() {
         if (!oldData) return [updatedTransfer];
         return oldData.map(transfer => transfer.id === id ? updatedTransfer : transfer);
       });
-      
+
       // حفظ قيم الإكمال التلقائي
       if (senderName) await saveAutocompleteValue('senderNames', senderName);
       if (transferNumber) await saveAutocompleteValue('transferNumbers', transferNumber);
-      
+
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       resetFundTransferForm();
       toast({
         title: "تم التحديث",
@@ -660,15 +660,15 @@ function DailyExpensesContent() {
     },
     onError: (error: any) => {
       console.error("خطأ في تحديث الحولة:", error);
-      
+
       let errorMessage = "حدث خطأ أثناء تحديث الحولة";
-      
+
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
       toast({
         title: "فشل في تحديث الحولة",
         description: errorMessage,
@@ -752,11 +752,11 @@ function DailyExpensesContent() {
         if (!oldData) return [updatedExpense];
         return oldData.map(expense => expense.id === id ? updatedExpense : expense);
       });
-      
+
       // حفظ قيم الإكمال التلقائي
       if (transportDescription) await saveAutocompleteValue('transportDescriptions', transportDescription);
       if (transportNotes) await saveAutocompleteValue('notes', transportNotes);
-      
+
       resetTransportationForm();
       toast({
         title: "تم التحديث",
@@ -817,7 +817,7 @@ function DailyExpensesContent() {
   const calculateTotals = () => {
     try {
       // إنشاء متغيرات آمنة لجميع البيانات مع تسجيل للتشخيص
-      const safeAttendance = Array.isArray(todayAttendance) ? todayAttendance : [];
+      const safeAttendance = Array.isArray(todayWorkerAttendance) ? todayWorkerAttendance : [];
       const safeTransportation = Array.isArray(todayTransportation) ? todayTransportation : [];
       const safeMaterialPurchases = Array.isArray(todayMaterialPurchases) ? todayMaterialPurchases : [];
       const safeWorkerTransfers = Array.isArray(todayWorkerTransfers) ? todayWorkerTransfers : [];
@@ -845,7 +845,7 @@ function DailyExpensesContent() {
         }, 
         0
       );
-      
+
       const totalTransportation = safeTransportation.reduce(
         (sum, expense) => {
           const amount = parseFloat(expense.amount || "0");
@@ -853,7 +853,7 @@ function DailyExpensesContent() {
         }, 
         0
       );
-      
+
       // حساب المشتريات النقدية فقط - استخدام البيانات الآمنة
       const totalMaterialCosts = safeMaterialPurchases
         .filter(purchase => purchase.purchaseType === "نقد")
@@ -861,25 +861,25 @@ function DailyExpensesContent() {
           const amount = parseFloat(purchase.totalAmount || "0");
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
-      
+
       const totalWorkerTransfers = safeWorkerTransfers.reduce(
         (sum, transfer) => {
           const amount = parseFloat(transfer.amount || "0");
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
-      
+
       const totalMiscExpenses = safeMiscExpenses.reduce(
         (sum, expense) => {
           const amount = parseFloat(expense.amount || "0");
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
-      
+
       const totalFundTransfers = safeFundTransfers.reduce(
         (sum, transfer) => {
           const amount = parseFloat(transfer.amount || "0");
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
-      
+
       // حساب الأموال الواردة والصادرة من ترحيل المشاريع
       const incomingProjectTransfers = safeProjectTransfers
         .filter(transfer => transfer.toProjectId === selectedProjectId)
@@ -887,16 +887,16 @@ function DailyExpensesContent() {
           const amount = parseFloat(transfer.amount || "0");
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
-      
+
       const outgoingProjectTransfers = safeProjectTransfers
         .filter(transfer => transfer.fromProjectId === selectedProjectId)
         .reduce((sum, transfer) => {
           const amount = parseFloat(transfer.amount || "0");
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
-      
+
       const carriedAmount = parseFloat(carriedForward) || 0;
-      
+
       const totalIncome = carriedAmount + totalFundTransfers + incomingProjectTransfers;
       const totalExpenses = totalWorkerWages + totalTransportation + totalMaterialCosts + 
                             totalWorkerTransfers + totalMiscExpenses + outgoingProjectTransfers;
@@ -925,7 +925,7 @@ function DailyExpensesContent() {
         });
       }
       return result;
-      
+
     } catch (error) {
       console.error('❌ [DailyExpenses] خطأ في calculateTotals:', error);
       // إرجاع قيم افتراضية آمنة في حالة حدوث خطأ
@@ -998,7 +998,7 @@ function DailyExpensesContent() {
       };
     }
   }, [
-    todayAttendance,
+    todayWorkerAttendance,
     todayTransportation,
     todayMaterialPurchases,
     todayWorkerTransfers,
@@ -1012,7 +1012,7 @@ function DailyExpensesContent() {
   // حساب مؤشرات البيانات المتوفرة مع معالجة آمنة
   const dataIndicators = {
     fundTransfers: Array.isArray(todayFundTransfers) && todayFundTransfers.length > 0,
-    attendance: Array.isArray(todayAttendance) && todayAttendance.length > 0,
+    attendance: Array.isArray(todayWorkerAttendance) && todayWorkerAttendance.length > 0,
     transportation: Array.isArray(todayTransportation) && todayTransportation.length > 0,
     materials: Array.isArray(todayMaterialPurchases) && todayMaterialPurchases.length > 0,
     workerTransfers: Array.isArray(todayWorkerTransfers) && todayWorkerTransfers.length > 0,
@@ -1125,7 +1125,7 @@ function DailyExpensesContent() {
               />
             </div>
           </div>
-          
+
           {/* Fund Transfer Section */}
           <div className="border-t pt-3">
             <h4 className="font-medium text-foreground mb-2">تحويل عهدة جديدة</h4>
@@ -1191,7 +1191,7 @@ function DailyExpensesContent() {
                 </Button>
               )}
             </div>
-            
+
             {/* عرض العهد المضافة لهذا اليوم */}
             <div className="mt-3 pt-3 border-t">
               <h5 className="text-sm font-medium text-muted-foreground mb-2">العهد المضافة اليوم:</h5>
@@ -1261,7 +1261,7 @@ function DailyExpensesContent() {
             <Users className="text-primary ml-2 h-5 w-5" />
             أجور العمال
           </h4>
-          {todayAttendance.length === 0 ? (
+          {safeAttendance.length === 0 ? (
             <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
               <Users className="mx-auto h-8 w-8 text-gray-400 mb-2" />
               <p className="text-sm text-gray-600">لا يوجد حضور عمال للتاريخ {selectedDate}</p>
@@ -1354,9 +1354,9 @@ function DailyExpensesContent() {
                 </Button>
               )}
             </div>
-            
+
             {/* Show existing transportation expenses */}
-            {todayTransportation.length === 0 ? (
+            {safeTransportation.length === 0 ? (
               <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 mt-3">
                 <Car className="mx-auto h-8 w-8 text-gray-400 mb-2" />
                 <p className="text-sm text-gray-600">لا توجد مصاريف نقل للتاريخ {selectedDate}</p>
@@ -1623,63 +1623,55 @@ function DailyExpensesContent() {
 
           {showProjectTransfers && (
             <div className="space-y-3">
-              {projectTransfers.length === 0 ? (
-                <div className="text-center text-muted-foreground py-4">
-                  لا توجد عمليات ترحيل أموال لهذا التاريخ
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {safeProjectTransfers.map((transfer) => (
-                    <div 
-                      key={transfer.id} 
-                      className={`p-3 rounded border-r-4 ${
-                        transfer.toProjectId === selectedProjectId 
-                          ? 'bg-green-50 border-green-500' 
-                          : 'bg-red-50 border-red-500'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium">
-                              {transfer.toProjectId === selectedProjectId ? (
-                                <span className="text-green-700">أموال واردة من: {transfer.fromProjectName}</span>
-                              ) : (
-                                <span className="text-red-700">أموال صادرة إلى: {transfer.toProjectName}</span>
-                              )}
-                            </span>
-                            <span className={`font-bold arabic-numbers ${
-                              transfer.toProjectId === selectedProjectId ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {transfer.toProjectId === selectedProjectId ? '+' : '-'}{formatCurrency(transfer.amount)}
-                            </span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            <div>السبب: {transfer.transferReason || 'ترحيل أموال'}</div>
-                            {transfer.description && (
-                              <div className="mt-1">الوصف: {transfer.description}</div>
-                            )}
-                            <div className="mt-1">التاريخ: {formatDate(transfer.transferDate)}</div>
-                          </div>
-                        </div>
+              {safeProjectTransfers.map((transfer) => (
+                <div 
+                  key={transfer.id} 
+                  className={`p-3 rounded border-r-4 ${
+                    transfer.toProjectId === selectedProjectId 
+                      ? 'bg-green-50 border-green-500' 
+                      : 'bg-red-50 border-red-500'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium">
+                          {transfer.toProjectId === selectedProjectId ? (
+                            <span className="text-green-700">أموال واردة من: {transfer.fromProjectName}</span>
+                          ) : (
+                            <span className="text-red-700">أموال صادرة إلى: {transfer.toProjectName}</span>
+                          )}
+                        </span>
+                        <span className={`font-bold arabic-numbers ${
+                          transfer.toProjectId === selectedProjectId ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {transfer.toProjectId === selectedProjectId ? '+' : '-'}{formatCurrency(transfer.amount)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        <div>السبب: {transfer.transferReason || 'ترحيل أموال'}</div>
+                        {transfer.description && (
+                          <div className="mt-1">الوصف: {transfer.description}</div>
+                        )}
+                        <div className="mt-1">التاريخ: {formatDate(transfer.transferDate)}</div>
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              )}
-              
-              <div className="mt-4 pt-3 border-t">
-                <Button
-                  variant="outline"
-                  onClick={() => setLocation("/project-transfers")}
-                  className="w-full border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50"
-                >
-                  <ArrowLeftRight className="ml-2 h-4 w-4" />
-                  إدارة عمليات ترحيل الأموال
-                </Button>
-              </div>
+              ))}
             </div>
           )}
+
+          <div className="mt-4 pt-3 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setLocation("/project-transfers")}
+              className="w-full border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50"
+            >
+              <ArrowLeftRight className="ml-2 h-4 w-4" />
+              إدارة عمليات ترحيل الأموال
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

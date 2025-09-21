@@ -165,6 +165,234 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 📊 GET endpoint لجلب تحويلات العهدة لمشروع محدد
+  app.get("/api/projects/:projectId/fund-transfers", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId } = req.params;
+      
+      console.log(`📊 [API] جلب تحويلات العهدة للمشروع: ${projectId}`);
+      
+      if (!projectId) {
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المشروع مطلوب',
+          processingTime: Date.now() - startTime
+        });
+      }
+
+      const transfers = await db.select()
+        .from(fundTransfers)
+        .where(eq(fundTransfers.projectId, projectId))
+        .orderBy(fundTransfers.transferDate);
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب ${transfers.length} تحويل عهدة في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: transfers,
+        message: `تم جلب ${transfers.length} تحويل عهدة للمشروع`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب تحويلات العهدة:', error);
+      res.status(500).json({
+        success: false,
+        data: [],
+        error: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📊 GET endpoint لجلب حضور العمال لمشروع محدد
+  app.get("/api/projects/:projectId/worker-attendance", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId } = req.params;
+      
+      console.log(`📊 [API] جلب حضور العمال للمشروع: ${projectId}`);
+      
+      if (!projectId) {
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المشروع مطلوب',
+          processingTime: Date.now() - startTime
+        });
+      }
+
+      const attendance = await db.select({
+        id: workerAttendance.id,
+        workerId: workerAttendance.workerId,
+        projectId: workerAttendance.projectId,
+        date: workerAttendance.date,
+        workDays: workerAttendance.workDays,
+        dailyWage: workerAttendance.dailyWage,
+        actualWage: workerAttendance.actualWage,
+        paidAmount: workerAttendance.paidAmount,
+        isPresent: workerAttendance.isPresent,
+        createdAt: workerAttendance.createdAt,
+        workerName: workers.name
+      })
+      .from(workerAttendance)
+      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+      .where(eq(workerAttendance.projectId, projectId))
+      .orderBy(workerAttendance.date);
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب ${attendance.length} سجل حضور في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: attendance,
+        message: `تم جلب ${attendance.length} سجل حضور للمشروع`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب حضور العمال:', error);
+      res.status(500).json({
+        success: false,
+        data: [],
+        error: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📊 GET endpoint لجلب مشتريات المواد لمشروع محدد
+  app.get("/api/projects/:projectId/material-purchases", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId } = req.params;
+      
+      console.log(`📊 [API] جلب مشتريات المواد للمشروع: ${projectId}`);
+      
+      if (!projectId) {
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المشروع مطلوب',
+          processingTime: Date.now() - startTime
+        });
+      }
+
+      const purchases = await db.select()
+        .from(materialPurchases)
+        .where(eq(materialPurchases.projectId, projectId))
+        .orderBy(materialPurchases.purchaseDate);
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب ${purchases.length} مشترية مواد في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: purchases,
+        message: `تم جلب ${purchases.length} مشترية مواد للمشروع`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب مشتريات المواد:', error);
+      res.status(500).json({
+        success: false,
+        data: [],
+        error: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📊 GET endpoint لجلب مصاريف النقل لمشروع محدد
+  app.get("/api/projects/:projectId/transportation-expenses", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId } = req.params;
+      
+      console.log(`📊 [API] جلب مصاريف النقل للمشروع: ${projectId}`);
+      
+      if (!projectId) {
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المشروع مطلوب',
+          processingTime: Date.now() - startTime
+        });
+      }
+
+      const expenses = await db.select()
+        .from(transportationExpenses)
+        .where(eq(transportationExpenses.projectId, projectId))
+        .orderBy(transportationExpenses.date);
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب ${expenses.length} مصروف نقل في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: expenses,
+        message: `تم جلب ${expenses.length} مصروف نقل للمشروع`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب مصاريف النقل:', error);
+      res.status(500).json({
+        success: false,
+        data: [],
+        error: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📊 GET endpoint لجلب المصاريف المتنوعة للعمال لمشروع محدد
+  app.get("/api/projects/:projectId/worker-misc-expenses", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId } = req.params;
+      
+      console.log(`📊 [API] جلب المصاريف المتنوعة للعمال للمشروع: ${projectId}`);
+      
+      if (!projectId) {
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المشروع مطلوب',
+          processingTime: Date.now() - startTime
+        });
+      }
+
+      const expenses = await db.select()
+        .from(workerMiscExpenses)
+        .where(eq(workerMiscExpenses.projectId, projectId))
+        .orderBy(workerMiscExpenses.date);
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب ${expenses.length} مصروف متنوع في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: expenses,
+        message: `تم جلب ${expenses.length} مصروف متنوع للمشروع`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب المصاريف المتنوعة:', error);
+      res.status(500).json({
+        success: false,
+        data: [],
+        error: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
   // 📊 GET endpoint للمشاريع مع الإحصائيات
   app.get("/api/projects/with-stats", requireAuth, async (req, res) => {
     try {

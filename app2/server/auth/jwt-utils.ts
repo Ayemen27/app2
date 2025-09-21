@@ -52,7 +52,7 @@ interface TokenPair {
  */
 export function generateAccessToken(payload: { userId: string; email: string; role: string }): string {
   return jwt.sign(
-    payload,
+    { ...payload, type: 'access' },
     JWT_CONFIG.accessTokenSecret,
     { 
       expiresIn: JWT_CONFIG.accessTokenExpiry,
@@ -66,7 +66,7 @@ export function generateAccessToken(payload: { userId: string; email: string; ro
  */
 export function generateRefreshToken(payload: { userId: string; email: string }): string {
   return jwt.sign(
-    payload,
+    { ...payload, type: 'refresh' },
     JWT_CONFIG.refreshTokenSecret,
     { 
       expiresIn: JWT_CONFIG.refreshTokenExpiry,
@@ -233,11 +233,18 @@ export async function verifyRefreshToken(token: string): Promise<any | null> {
     console.log('🔍 [JWT] فك تشفير refresh token:', { 
       hasUserId: !!payload.userId, 
       hasEmail: !!payload.email,
+      hasType: !!payload.type,
       exp: payload.exp,
       iat: payload.iat 
     });
 
-    // إرجاع payload مباشرة - نسخة مبسطة
+    // التحقق من نوع الرمز للأمان
+    if (payload.type && payload.type !== 'refresh') {
+      console.log('❌ [JWT] نوع رمز خاطئ:', payload.type);
+      return null;
+    }
+
+    // إرجاع payload مع التحقق الأساسي
     return payload;
 
   } catch (error: any) {

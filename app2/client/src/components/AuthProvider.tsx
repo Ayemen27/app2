@@ -117,6 +117,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
               } else {
                 throw new Error('بيانات المستخدم غير صحيحة في الاستجابة');
               }
+            } else if (response.status === 401) {
+              // في حالة 401، المستخدم بحاجة لتسجيل دخول جديد
+              console.log('🚫 [AuthProvider] التوكن منتهي الصلاحية، تسجيل خروج تلقائي');
+              // تنظيف البيانات
+              localStorage.removeItem('user');
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              setUser(null);
+              // لا نعيد توجيه هنا، سيتم التعامل معه في ProtectedRoute
             } else {
               console.log(`⚠️ [AuthProvider] فشل التحقق: ${response.status}`);
 

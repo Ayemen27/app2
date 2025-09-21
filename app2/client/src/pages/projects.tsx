@@ -123,13 +123,31 @@ export default function ProjectsPage() {
         return projects as ProjectWithStats[];
       } catch (error) {
         console.error('❌ [Projects] خطأ في جلب المشاريع:', error);
+        // في حالة الخطأ، لا نرمي الخطأ لتجنب كسر الصفحة
         return [] as ProjectWithStats[];
       }
     },
     refetchInterval: 60000, // إعادة التحديث كل دقيقة
     staleTime: 30000, // البيانات طازجة لـ 30 ثانية
     refetchOnWindowFocus: true,
-    retry: 2, // محاولتين إضافيتين
+    retry: (failureCount, error) => {
+      // إذا كان خطأ 401 (غير مصرح)، لا نعيد المحاولة
+      if ((error as any)?.status === 401) {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    onError: (error) => {
+      console.error('❌ [Projects] خطأ في Query:', error);
+      // إذا كان خطأ 401، نحاول تسجيل الدخول مرة أخرى
+      if ((error as any)?.status === 401) {
+        console.log('🔄 [Projects] خطأ 401، إعادة التوجيه لتسجيل الدخول...');
+        localStorage.removeItem('user');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+      }
+    }
   });
 
   // ✅ معالجة البيانات بعد الحصول عليها مع تنظيف إضافي
@@ -385,6 +403,28 @@ export default function ProjectsPage() {
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="text-muted-foreground">جاري تحميل المشاريع...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // معالجة الأخطاء
+  if (error) {
+    console.error('❌ [Projects] خطأ في تحميل المشاريع:', error);
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+            خطأ في تحميل المشاريع
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            حدث خطأ أثناء جلب البيانات. يرجى المحاولة مرة أخرى.
+          </p>
+          <Button onClick={() => refetchProjects()} className="gap-2">
+            <Plus className="h-4 w-4" />
+            إعادة المحاولة
+          </Button>
         </div>
       </div>
     );

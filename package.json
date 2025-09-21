@@ -10,8 +10,10 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/node": "^24.5.2",
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "express-rate-limit": "^8.1.0",
     "express-validator": "^7.2.1",

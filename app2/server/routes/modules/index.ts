@@ -13,6 +13,7 @@ import workerRouter from './workerRoutes.js';
 import financialRouter from './financialRoutes.js';
 import autocompleteRouter from './autocompleteRoutes.js';
 import notificationRouter from './notificationRoutes.js';
+import authRouter from './authRoutes.js';
 
 /**
  * تسجيل جميع الـ routers المنظمة
@@ -25,6 +26,9 @@ export function registerOrganizedRoutes(app: Express) {
   
   // مسارات الصحة والمراقبة (عامة)
   app.use('/api', healthRouter);
+  
+  // مسارات المصادقة (عامة - بدون حماية)
+  app.use('/api/auth', authRouter);
   
   // مسارات autocomplete - منطق مختلط (عام/محمي)
   app.use('/api/autocomplete', autocompleteRouter);

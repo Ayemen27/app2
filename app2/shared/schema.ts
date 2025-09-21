@@ -353,7 +353,7 @@ export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance)
 export const insertMaterialSchema = createInsertSchema(materials).omit({ id: true, createdAt: true });
 export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({ id: true, createdAt: true }).extend({
   quantity: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
-  unit: z.string(), // وحدة القياس المطلوبة
+  unit: z.string().min(1, "وحدة القياس مطلوبة").default("كيس"), // وحدة القياس المطلوبة مع قيمة افتراضية
   unitPrice: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
   totalAmount: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
   purchaseType: z.string().default("نقد"), // قيمة افتراضية للنوع
@@ -447,6 +447,20 @@ export const enhancedInsertProjectSchema = createInsertSchema(projects).omit({
     .optional()
     .or(z.literal(""))
 });
+
+// 🛡️ **Project Update Schema - لإصلاح الثغرة الأمنية في PATCH**
+export const updateProjectSchema = enhancedInsertProjectSchema.partial().omit({
+  // الحقول المحظور تعديلها لأسباب أمنية
+}).refine(
+  (data) => Object.keys(data).length > 0,
+  { message: "يجب توفير حقل واحد على الأقل للتحديث" }
+);
+
+// UUID validation schema
+export const uuidSchema = z.string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i, "معرف UUID غير صحيح")
+  .or(z.string().regex(/^[a-z0-9-]{8,50}$/, "معرف غير صحيح"));
+
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, createdAt: true });
 export const insertSupplierPaymentSchema = createInsertSchema(supplierPayments).omit({ id: true, createdAt: true }).extend({
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
@@ -474,6 +488,7 @@ export type PrintSettings = typeof printSettings.$inferSelect;
 export type ProjectFundTransfer = typeof projectFundTransfers.$inferSelect;
 
 export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type UpdateProject = z.infer<typeof updateProjectSchema>;
 export type InsertWorker = z.infer<typeof insertWorkerSchema>;
 export type InsertFundTransfer = z.infer<typeof insertFundTransferSchema>;
 export type InsertWorkerAttendance = z.infer<typeof insertWorkerAttendanceSchema>;

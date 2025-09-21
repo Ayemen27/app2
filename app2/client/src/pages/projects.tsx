@@ -691,7 +691,6 @@ export default function ProjectsPage() {
                     <p className="text-xs text-muted-foreground">أيام العمل</p>
                     <p className="text-sm font-semibold">{safeParseNumber(project.stats.completedDays)}</p>
                   </div>
-                </div></p>
                 </div>
 
                 {/* Last Activity */}

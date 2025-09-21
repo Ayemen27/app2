@@ -6,6 +6,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات app2data
 import authRoutes from './routes/auth.js';
+import { initializeRouteOrganizer } from './routes/routerOrganizer.js';
 
 const app = express();
 
@@ -112,6 +113,9 @@ app.use((req, res, next) => {
   await enhancedMigrationJobManager.startupCleanup();
   
   const server = await registerRoutes(app);
+
+  // 🏗️ تهيئة النظام التنظيمي للمسارات
+  initializeRouteOrganizer(app);
 
   app.use('/api/auth', authRoutes);
 

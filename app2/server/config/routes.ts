@@ -592,7 +592,7 @@ export class AdvancedRouteManager {
    */
   public getRateLimiter(path: string, method: HttpMethod): any {
     // البحث عن rate limiter مخصص للمسار والطريقة
-    for (const [limiterId, limiter] of this.rateLimiters.entries()) {
+    for (const [limiterId, limiter] of Array.from(this.rateLimiters.entries())) {
       const [limiterPath, methods] = limiterId.split(':');
       const methodsList = methods.split(',');
       

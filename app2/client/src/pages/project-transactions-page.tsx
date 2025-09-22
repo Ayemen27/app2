@@ -148,6 +148,24 @@ export default function ProjectTransactionsPage() {
     enabled: !!selectedProjectId,
   });
 
+  // جلب حوالات العمال للمشروع
+  const { data: workerTransfers = [] } = useQuery({
+    queryKey: ['/api/projects', selectedProjectId, 'worker-transfers'],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest(`/api/projects/${selectedProjectId}/worker-transfers`, 'GET');
+        if (response && response.data && Array.isArray(response.data)) {
+          return response.data;
+        }
+        return Array.isArray(response) ? response : [];
+      } catch (error) {
+        console.error('Error fetching worker transfers:', error);
+        return [];
+      }
+    },
+    enabled: !!selectedProjectId,
+  });
+
   // تحويل البيانات المالية إلى قائمة معاملات موحدة
   const transactions = useMemo(() => {
     const allTransactions: Transaction[] = [];
@@ -226,8 +244,33 @@ export default function ProjectTransactionsPage() {
       });
     }
 
+    // إضافة حوالات العمال (مصروف)
+    if (workerTransfers && Array.isArray(workerTransfers) && workerTransfers.length > 0) {
+      workerTransfers.forEach((transfer: any) => {
+        allTransactions.push({
+          id: `worker-transfer-${transfer.id || Math.random()}`,
+          date: transfer.transferDate,
+          type: 'expense',
+          category: 'حوالات العمال',
+          amount: transfer.amount || 0,
+          description: `حولة إلى: ${transfer.recipientName || 'غير محدد'} - ${getTransferMethodLabel(transfer.transferMethod)}`,
+          details: transfer
+        });
+      });
+    }
+
     return allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [fundTransfers, workerAttendance, materialPurchases, transportExpenses]);
+  }, [fundTransfers, workerAttendance, materialPurchases, transportExpenses, workerTransfers]);
+
+  // دالة لتحويل طريقة التحويل إلى نص عربي
+  const getTransferMethodLabel = (method: string) => {
+    switch (method) {
+      case 'cash': return 'نقداً';
+      case 'bank': return 'تحويل بنكي';
+      case 'hawaleh': return 'حولة';
+      default: return method || 'غير محدد';
+    }
+  };
 
   // تطبيق الفلاتر
   const filteredTransactions = useMemo(() => {

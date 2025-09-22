@@ -8,8 +8,8 @@ import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc } from 'drizzle-orm';
 import { db } from '../../db';
 import { 
-  fundTransfers, projectFundTransfers, workerMiscExpenses, suppliers, projects,
-  insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertSupplierSchema
+  fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects,
+  insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema
 } from '@shared/schema';
 import { requireAuth } from '../../middleware/auth.js';
 
@@ -114,40 +114,148 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
 
 // تعديل تحويل عهدة
 financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    const { id } = req.params;
-    console.log('💰 [API] تعديل تحويل العهدة:', id);
+    const transferId = req.params.id;
+    console.log('🔄 [API] طلب تحديث تحويل العهدة من المستخدم:', (req as any).user?.email);
+    console.log('📋 [API] ID تحويل العهدة:', transferId);
+    console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+    
+    if (!transferId) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'معرف تحويل العهدة مطلوب',
+        message: 'لم يتم توفير معرف تحويل العهدة للتحديث',
+        processingTime: duration
+      });
+    }
+
+    // التحقق من وجود تحويل العهدة أولاً
+    const existingTransfer = await db.select().from(fundTransfers).where(eq(fundTransfers.id, transferId)).limit(1);
+    
+    if (existingTransfer.length === 0) {
+      const duration = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: 'تحويل العهدة غير موجود',
+        message: `لم يتم العثور على تحويل عهدة بالمعرف: ${transferId}`,
+        processingTime: duration
+      });
+    }
+    
+    // Validation باستخدام insert schema - نسمح بتحديث جزئي
+    const validationResult = insertFundTransferSchema.partial().safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] فشل في validation تحديث تحويل العهدة:', validationResult.error.flatten());
+      
+      const errorMessages = validationResult.error.flatten().fieldErrors;
+      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث تحويل العهدة غير صحيحة';
+      
+      return res.status(400).json({
+        success: false,
+        error: 'بيانات تحديث تحويل العهدة غير صحيحة',
+        message: firstError,
+        details: errorMessages,
+        processingTime: duration
+      });
+    }
+
+    // تحديث تحويل العهدة
+    const updatedTransfer = await db
+      .update(fundTransfers)
+      .set(validationResult.data)
+      .where(eq(fundTransfers.id, transferId))
+      .returning();
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم تحديث تحويل العهدة بنجاح في ${duration}ms`);
     
     res.json({
       success: true,
-      message: `تعديل تحويل العهدة ${id} - سيتم نقل المنطق`
+      data: updatedTransfer[0],
+      message: `تم تحديث تحويل العهدة بقيمة ${updatedTransfer[0].amount} بنجاح`,
+      processingTime: duration
     });
+    
   } catch (error: any) {
-    console.error('❌ [Financial] خطأ في تعديل تحويل العهدة:', error);
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في تحديث تحويل العهدة:', error);
+    
     res.status(500).json({
       success: false,
-      error: 'خطأ في تعديل تحويل العهدة',
-      message: error.message
+      error: 'فشل في تحديث تحويل العهدة',
+      message: error.message,
+      processingTime: duration
     });
   }
 });
 
 // حذف تحويل عهدة
 financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    const { id } = req.params;
-    console.log('💰 [API] حذف تحويل العهدة:', id);
+    const transferId = req.params.id;
+    console.log('🗑️ [API] طلب حذف تحويل العهدة:', transferId);
+    
+    if (!transferId) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'معرف تحويل العهدة مطلوب',
+        message: 'لم يتم توفير معرف تحويل العهدة للحذف',
+        processingTime: duration
+      });
+    }
+
+    // التحقق من وجود تحويل العهدة أولاً
+    const existingTransfer = await db.select().from(fundTransfers).where(eq(fundTransfers.id, transferId)).limit(1);
+    
+    if (existingTransfer.length === 0) {
+      const duration = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: 'تحويل العهدة غير موجود',
+        message: `لم يتم العثور على تحويل عهدة بالمعرف: ${transferId}`,
+        processingTime: duration
+      });
+    }
+
+    // حذف تحويل العهدة
+    const deletedTransfer = await db
+      .delete(fundTransfers)
+      .where(eq(fundTransfers.id, transferId))
+      .returning();
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم حذف تحويل العهدة بنجاح في ${duration}ms`);
     
     res.json({
       success: true,
-      message: `حذف تحويل العهدة ${id} - سيتم نقل المنطق`
+      data: deletedTransfer[0],
+      message: `تم حذف تحويل العهدة بقيمة ${deletedTransfer[0]?.amount || 'غير محدد'} بنجاح`,
+      processingTime: duration
     });
+    
   } catch (error: any) {
-    console.error('❌ [Financial] خطأ في حذف تحويل العهدة:', error);
-    res.status(500).json({
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في حذف تحويل العهدة:', error);
+    
+    let errorMessage = 'فشل في حذف تحويل العهدة';
+    let statusCode = 500;
+    
+    if (error.code === '23503') { // foreign key violation
+      errorMessage = 'لا يمكن حذف تحويل العهدة لوجود مراجع مرتبطة به';
+      statusCode = 409;
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      error: 'خطأ في حذف تحويل العهدة',
-      message: error.message
+      error: errorMessage,
+      message: error.message,
+      processingTime: duration
     });
   }
 });
@@ -205,19 +313,75 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
 
 // إضافة تحويل أموال مشروع جديد
 financialRouter.post('/project-fund-transfers', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    console.log('🏗️ [API] إضافة تحويل أموال مشروع جديد');
+    console.log('🏗️ [API] طلب إضافة تحويل أموال مشروع جديد من المستخدم:', (req as any).user?.email);
+    console.log('📋 [API] بيانات تحويل المشروع المرسلة:', req.body);
     
-    res.json({
-      success: true,
-      message: 'إضافة تحويل أموال مشروع - سيتم نقل المنطق'
+    // Validation باستخدام insert schema
+    const validationResult = insertProjectFundTransferSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] فشل في validation تحويل المشروع:', validationResult.error.flatten());
+      
+      const errorMessages = validationResult.error.flatten().fieldErrors;
+      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحويل المشروع غير صحيحة';
+      
+      return res.status(400).json({
+        success: false,
+        error: 'بيانات تحويل المشروع غير صحيحة',
+        message: firstError,
+        details: errorMessages,
+        processingTime: duration
+      });
+    }
+    
+    console.log('✅ [API] نجح validation تحويل المشروع');
+    
+    // إدراج تحويل المشروع الجديد في قاعدة البيانات
+    console.log('💾 [API] حفظ تحويل المشروع في قاعدة البيانات...');
+    const newTransfer = await db.insert(projectFundTransfers).values(validationResult.data).returning();
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم إنشاء تحويل المشروع بنجاح في ${duration}ms:`, {
+      id: newTransfer[0].id,
+      fromProjectId: newTransfer[0].fromProjectId,
+      toProjectId: newTransfer[0].toProjectId,
+      amount: newTransfer[0].amount
     });
+    
+    res.status(201).json({
+      success: true,
+      data: newTransfer[0],
+      message: `تم إنشاء تحويل مشروع بقيمة ${newTransfer[0].amount} بنجاح`,
+      processingTime: duration
+    });
+    
   } catch (error: any) {
-    console.error('❌ [Financial] خطأ في إضافة تحويل أموال المشروع:', error);
-    res.status(500).json({
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في إنشاء تحويل المشروع:', error);
+    
+    // تحليل نوع الخطأ لرسالة أفضل
+    let errorMessage = 'فشل في إنشاء تحويل المشروع';
+    let statusCode = 500;
+    
+    if (error.code === '23505') { // duplicate key
+      errorMessage = 'رقم تحويل المشروع موجود مسبقاً';
+      statusCode = 409;
+    } else if (error.code === '23503') { // foreign key violation
+      errorMessage = 'أحد المشاريع المحددة غير موجود';
+      statusCode = 400;
+    } else if (error.code === '23502') { // not null violation
+      errorMessage = 'بيانات تحويل المشروع ناقصة';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      error: 'خطأ في إضافة تحويل أموال المشروع',
-      message: error.message
+      error: errorMessage,
+      message: error.message,
+      processingTime: duration
     });
   }
 });

@@ -31,6 +31,9 @@ export default function ProjectTransfers() {
   const { setFloatingAction } = useFloatingButton();
   const { selectedProjectId, selectProject } = useSelectedProject();
 
+  // تعيين المشروع الافتراضي لعرض جميع التحويلات
+  const currentProjectId = selectedProjectId || 'all';
+
   // تعيين إجراء الزر العائم لإضافة تحويل جديد
   useEffect(() => {
     const handleAddTransfer = () => {
@@ -61,27 +64,12 @@ export default function ProjectTransfers() {
     queryKey: ["/api/projects"],
   });
 
-  // جلب قائمة عمليات الترحيل
-  const { data: transfers = [], isLoading: transfersLoading } = useQuery<ProjectFundTransfer[]>({
-    queryKey: ["/api/project-fund-transfers", selectedProjectId],
+  // جلب جميع عمليات الترحيل (بدون فلترة)
+  const { data: allTransfers = [], isLoading: transfersLoading } = useQuery<ProjectFundTransfer[]>({
+    queryKey: ["/api/project-fund-transfers"],
     queryFn: async () => {
-      const url = selectedProjectId && selectedProjectId !== 'all' 
-        ? `/api/project-fund-transfers?projectId=${selectedProjectId}`
-        : '/api/project-fund-transfers';
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch transfers');
-      }
-      
-      const data = await response.json();
-      return data.data || [];
+      const response = await apiRequest('/api/project-fund-transfers', 'GET');
+      return response.data || [];
     },
   });
 
@@ -104,7 +92,7 @@ export default function ProjectTransfers() {
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       // تحديث فوري للقائمة بدلاً من إعادة التحميل
-      queryClient.setQueryData(["/api/project-fund-transfers", selectedProjectId], (oldData: any[]) => {
+      queryClient.setQueryData(["/api/project-fund-transfers"], (oldData: any[]) => {
         if (!oldData) return [newTransfer];
         
         if (editingTransfer) {
@@ -153,7 +141,7 @@ export default function ProjectTransfers() {
       apiRequest(`/api/project-fund-transfers/${transferId}`, "DELETE"),
     onSuccess: (_, transferId) => {
       // حذف فوري من القائمة
-      queryClient.setQueryData(["/api/project-fund-transfers", selectedProjectId], (oldData: any[]) => {
+      queryClient.setQueryData(["/api/project-fund-transfers"], (oldData: any[]) => {
         if (!oldData) return [];
         return oldData.filter(transfer => transfer.id !== transferId);
       });
@@ -226,15 +214,24 @@ export default function ProjectTransfers() {
     return project?.name || "غير محدد";
   };
 
-  // البيانات مفلترة مسبقاً من الباك إند، لذا نستخدمها مباشرة
-  const filteredTransfers = transfers;
+  // فلترة التحويلات محلياً حسب المشروع المختار
+  const filteredTransfers = currentProjectId && currentProjectId !== 'all' 
+    ? allTransfers.filter(transfer => 
+        transfer.fromProjectId === currentProjectId || 
+        transfer.toProjectId === currentProjectId
+      )
+    : allTransfers;
 
-  // حساب الإحصائيات
+  // حساب الإحصائيات بناءً على البيانات المفلترة
   const transferStats = {
     totalTransfers: filteredTransfers.length,
     totalAmount: filteredTransfers.reduce((sum, transfer) => sum + (parseFloat(transfer.amount?.toString() || '0') || 0), 0),
-    outgoingTransfers: filteredTransfers.filter(t => t.fromProjectId === selectedProjectId).length,
-    incomingTransfers: filteredTransfers.filter(t => t.toProjectId === selectedProjectId).length,
+    outgoingTransfers: currentProjectId && currentProjectId !== 'all' 
+      ? filteredTransfers.filter(t => t.fromProjectId === currentProjectId).length
+      : 0,
+    incomingTransfers: currentProjectId && currentProjectId !== 'all' 
+      ? filteredTransfers.filter(t => t.toProjectId === currentProjectId).length
+      : 0,
   };
 
   const formatCurrency = (amount: number) => {
@@ -256,7 +253,7 @@ export default function ProjectTransfers() {
             اختر المشروع
           </h2>
           <ProjectSelector
-            selectedProjectId={selectedProjectId}
+            selectedProjectId={currentProjectId}
             onProjectChange={(projectId, projectName) => selectProject(projectId, projectName)}
             showHeader={false}
             variant="compact"
@@ -265,34 +262,36 @@ export default function ProjectTransfers() {
       </Card>
 
       {/* إحصائيات عمليات الترحيل */}
-      {selectedProjectId && selectedProjectId !== 'all' && (
-        <StatsGrid>
-          <StatsCard
-            title="إجمالي العمليات"
-            value={transferStats.totalTransfers.toString()}
-            icon={ArrowRight}
-            color="blue"
-          />
-          <StatsCard
-            title="إجمالي المبالغ"
-            value={formatCurrency(transferStats.totalAmount)}
-            icon={DollarSign}
-            color="green"
-          />
-          <StatsCard
-            title="العمليات الصادرة"
-            value={transferStats.outgoingTransfers.toString()}
-            icon={TrendingUp}
-            color="orange"
-          />
-          <StatsCard
-            title="العمليات الواردة"
-            value={transferStats.incomingTransfers.toString()}
-            icon={TrendingUp}
-            color="purple"
-          />
-        </StatsGrid>
-      )}
+      <StatsGrid>
+        <StatsCard
+          title="إجمالي العمليات"
+          value={transferStats.totalTransfers.toString()}
+          icon={ArrowRight}
+          color="blue"
+        />
+        <StatsCard
+          title="إجمالي المبالغ"
+          value={formatCurrency(transferStats.totalAmount)}
+          icon={DollarSign}
+          color="green"
+        />
+        {currentProjectId && currentProjectId !== 'all' && (
+          <>
+            <StatsCard
+              title="العمليات الصادرة"
+              value={transferStats.outgoingTransfers.toString()}
+              icon={TrendingUp}
+              color="orange"
+            />
+            <StatsCard
+              title="العمليات الواردة"
+              value={transferStats.incomingTransfers.toString()}
+              icon={TrendingUp}
+              color="purple"
+            />
+          </>
+        )}
+      </StatsGrid>
 
       {/* نموذج إضافة عملية ترحيل جديدة */}
       {showForm && (
@@ -485,7 +484,7 @@ export default function ProjectTransfers() {
           ) : filteredTransfers.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">
-                {selectedProjectId && selectedProjectId !== 'all' 
+                {currentProjectId && currentProjectId !== 'all' 
                   ? "لا توجد عمليات ترحيل للمشروع المحدد"
                   : "لا توجد عمليات ترحيل مسجلة"
                 }

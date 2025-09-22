@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, TrendingUp, TrendingDown, Building2, Clock, DollarSign } from 'lucide-react';
+import { Search, Filter, TrendingUp, TrendingDown, DollarSign, Building, Clock, ArrowRightLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/utils';
@@ -565,69 +565,24 @@ export default function ProjectTransactionsSimple() {
 
   // حساب الإجماليات مع تشخيص مفصل
     const totals = useMemo(() => {
-      // فصل المعاملات حسب النوع
-      const incomeTransactions = filteredTransactions.filter(t => t.type === 'income');
-      const transferFromProjectTransactions = filteredTransactions.filter(t => t.type === 'transfer_from_project');
-      const expenseTransactions = filteredTransactions.filter(t => t.type === 'expense');
-      const deferredTransactions = filteredTransactions.filter(t => t.type === 'deferred');
+    const income = filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const transferFromProject = filteredTransactions.filter(t => t.type === 'transfer_from_project').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const transferToProject = filteredTransactions.filter(t => t.type === 'transfer_to_project').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const expenses = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (t.amount || 0), 0);
 
-      // حساب المجاميع
-      const income = incomeTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
-      const transferFromProject = transferFromProjectTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
-      const expenses = expenseTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
-      const deferred = deferredTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
-
-      // فصل التحويلات الصادرة من باقي المصاريف للوضوح
-      const outgoingTransfers = expenseTransactions.filter(t => t.category === 'تحويل إلى مشروع آخر').reduce((sum, t) => sum + (t.amount || 0), 0);
-      const regularExpenses = expenses - outgoingTransfers;
-
-      const totalIncome = income + transferFromProject;
-      const balance = totalIncome - expenses;
-
-    // تشخيص مفصل للمشروع
-    if (selectedProject) {
-      const selectedProjectName = Array.isArray(projects) ? projects.find(p => p.id === selectedProject)?.name || '' : '';
-
-      console.log(`💰 [${selectedProjectName}] تحليل مالي مفصل:`);
-      console.log(`📊 الدخل المباشر: ${income} (${incomeTransactions.length} عملية)`);
-      console.log(`🔄 تحويلات من مشاريع: ${transferFromProject} (${transferFromProjectTransactions.length} عملية)`);
-      console.log(`💸 إجمالي المصاريف: ${expenses} (${expenseTransactions.length} عملية)`);
-      console.log(`⏰ مشتريات آجلة: ${deferred} (${deferredTransactions.length} عملية)`);
-      console.log(`💎 الرصيد النهائي: ${balance}`);
-
-      // تفصيل المصاريف
-      const workerWages = expenseTransactions.filter(t => t.category === 'أجور العمال').reduce((sum, t) => sum + t.amount, 0);
-      const workerTransfers = expenseTransactions.filter(t => t.category === 'حوالات العمال').reduce((sum, t) => sum + t.amount, 0);
-      const materialCosts = expenseTransactions.filter(t => t.category === 'مشتريات المواد').reduce((sum, t) => sum + t.amount, 0);
-      const transportCosts = expenseTransactions.filter(t => t.category === 'مصروفات النقل').reduce((sum, t) => sum + t.amount, 0);
-      const projectTransfersOut = expenseTransactions.filter(t => t.category === 'تحويل إلى مشروع آخر').reduce((sum, t) => sum + t.amount, 0);
-
-      console.log(`📋 تفصيل المصاريف:`);
-      console.log(`👷 أجور العمال: ${workerWages}`);
-      console.log(`💸 حوالات العمال: ${workerTransfers}`);
-      console.log(`🏗️ مشتريات المواد: ${materialCosts}`);
-      console.log(`🚛 مصروفات النقل: ${transportCosts}`);
-      console.log(`📤 تحويلات لمشاريع أخرى: ${projectTransfersOut}`);
-
-      // فحص خاص للحبشي
-      if (selectedProjectName.includes('الحبشي')) {
-        console.warn(`🚨 [${selectedProjectName}] فحص خاص:`);
-        console.warn(`- هل الدخل يساوي المصاريف؟ ${income === expenses ? 'نعم ⚠️' : 'لا ✅'}`);
-        console.warn(`- هل توجد تحويلات وهمية؟ ${transferFromProject > 0 && transferFromProjectTransactions.length === 0 ? 'نعم ⚠️' : 'لا ✅'}`);
-      }
-    }
+    const totalIncome = income + transferFromProject;
+    const totalExpenses = expenses + transferToProject;
 
     return { 
-        income: income,
-        transferFromProject: transferFromProject,
-        transferToProject: outgoingTransfers,
-        totalIncome: totalIncome,
-        expenses: expenses,
-        regularExpenses: regularExpenses,
-        deferred: deferred,
-        balance: balance
-      };
-  }, [filteredTransactions, selectedProject, projects]);
+      income,
+      transferFromProject,
+      transferToProject,
+      totalIncome,
+      expenses,
+      totalExpenses,
+      balance: totalIncome - totalExpenses
+    };
+  }, [filteredTransactions]);
 
   const selectedProjectName = Array.isArray(projects) ? projects.find(p => p.id === selectedProject)?.name || '' : '';
 
@@ -733,12 +688,12 @@ export default function ProjectTransactionsSimple() {
                 {
                   title: "من مشاريع أخرى",
                   value: formatCurrency(totals.transferFromProject || 0),
-                  icon: Building2,
+                  icon: Building,
                   color: "teal",
                 },
                 {
                   title: "إجمالي المصاريف",
-                  value: formatCurrency(totals.expenses || 0),
+                  value: formatCurrency(totals.totalExpenses || 0),
                   icon: TrendingDown,
                   color: "red",
                 },
@@ -757,7 +712,7 @@ export default function ProjectTransactionsSimple() {
               stats={[
                 {
                   title: "المشتريات الآجلة",
-                  value: `${formatCurrency(totals.deferred || 0)} (لا تُحسب في الرصيد)`,
+                  value: `${formatCurrency(0 || 0)} (لا تُحسب في الرصيد)`,
                   icon: Clock,
                   color: "amber",
                 }
@@ -779,7 +734,7 @@ export default function ProjectTransactionsSimple() {
                 {filteredTransactions.length === 0 ? (
                   <div className="text-center py-6 sm:py-8 px-4">
                     <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 sm:p-6 border border-blue-200 dark:border-blue-800">
-                      <Building2 className="h-10 w-10 sm:h-12 sm:w-12 text-blue-400 mx-auto mb-3 sm:mb-4" />
+                      <Building className="h-10 w-10 sm:h-12 sm:w-12 text-blue-400 mx-auto mb-3 sm:mb-4" />
                       <h3 className="text-base sm:text-lg font-semibold text-blue-800 dark:text-blue-300 mb-2">
                         لا توجد عمليات مالية
                       </h3>

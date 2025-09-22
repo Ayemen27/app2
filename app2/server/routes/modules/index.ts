@@ -38,8 +38,8 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات المشاريع
   app.use('/api/projects', projectRouter);
   
-  // مسارات العمال
-  app.use('/api/workers', workerRouter);
+  // مسارات العمال - تحتوي على مسارات أساسية ومسارات فرعية
+  app.use('/api', workerRouter); // تركيب على /api للمسارات الفرعية مثل worker-attendance
   
   // المسارات المالية
   app.use('/api', financialRouter); // يحتوي على عدة prefixes

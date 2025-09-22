@@ -231,18 +231,13 @@ function DailyExpensesContent() {
 
   // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData
 
-  // جلب عمليات ترحيل الأموال بين المشاريع مع أسماء المشاريع
+  // جلب عمليات ترحيل الأموال بين المشاريع مع أسماء المشاريع - استعلام منفصل للصفحة اليومية
   const { data: projectTransfers = [] } = useQuery<(ProjectFundTransfer & { fromProjectName?: string; toProjectName?: string })[]>({
-    queryKey: ["/api/project-fund-transfers", selectedProjectId, selectedDate],
+    queryKey: ["/api/daily-project-transfers", selectedProjectId, selectedDate],
     queryFn: async () => {
       try {
-        // إرسال كل من projectId و date للفلترة الصحيحة في الخادم
-        const params = new URLSearchParams();
-        if (selectedProjectId) params.append('projectId', selectedProjectId);
-        if (selectedDate) params.append('date', selectedDate);
-        
-        const response = await apiRequest(`/api/project-fund-transfers?${params.toString()}`, "GET");
-        console.log('📊 [ProjectTransfers] استجابة API:', response);
+        const response = await apiRequest(`/api/daily-project-transfers?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
+        console.log('📊 [ProjectTransfers] استجابة API للصفحة اليومية:', response);
 
         // معالجة الهيكل المتداخل للاستجابة
         let transferData = [];
@@ -254,20 +249,16 @@ function DailyExpensesContent() {
 
         if (!Array.isArray(transferData)) return [];
 
-        console.log(`✅ [ProjectTransfers] تم جلب ${transferData.length} ترحيل لليوم ${selectedDate}`);
+        console.log(`✅ [ProjectTransfers] تم جلب ${transferData.length} ترحيل لليوم ${selectedDate} في الصفحة اليومية`);
         
-        // إضافة أسماء المشاريع (البيانات مفلترة مسبقاً من الخادم)
-        return transferData.map((transfer: ProjectFundTransfer) => ({
-          ...transfer,
-          fromProjectName: projects.find(p => p.id === transfer.fromProjectId)?.name || 'مشروع غير معروف',
-          toProjectName: projects.find(p => p.id === transfer.toProjectId)?.name || 'مشروع غير معروف'
-        }));
+        // البيانات تأتي مع أسماء المشاريع من الخادم مباشرة
+        return transferData;
       } catch (error) {
-        console.error("Error fetching project transfers:", error);
+        console.error("Error fetching daily project transfers:", error);
         return [];
       }
     },
-    enabled: !!selectedProjectId && !!selectedDate && showProjectTransfers && Array.isArray(projects) && projects.length > 0,
+    enabled: !!selectedProjectId && !!selectedDate && showProjectTransfers,
     staleTime: 60000, // البيانات صالحة لدقيقة واحدة
     gcTime: 300000, // الاحتفاظ بالذاكرة لـ 5 دقائق
   });

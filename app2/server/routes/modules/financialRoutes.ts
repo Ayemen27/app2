@@ -7,7 +7,7 @@ import express from 'express';
 import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc } from 'drizzle-orm';
 import { db } from '../../db';
-import { 
+import {
   fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects,
   insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema
 } from '@shared/schema';
@@ -28,7 +28,7 @@ financialRouter.get('/fund-transfers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     console.log('💰 [API] جلب جميع تحويلات العهدة من قاعدة البيانات');
-    
+
     const transfers = await db
       .select({
         id: fundTransfers.id,
@@ -45,10 +45,10 @@ financialRouter.get('/fund-transfers', async (req: Request, res: Response) => {
       .from(fundTransfers)
       .leftJoin(projects, eq(fundTransfers.projectId, projects.id))
       .orderBy(desc(fundTransfers.transferDate));
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل عهدة في ${duration}ms`);
-    
+
     res.json({
       success: true,
       data: transfers,
@@ -73,17 +73,17 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     console.log('💰 [API] إضافة تحويل عهدة جديد:', req.body);
-    
+
     // Validation باستخدام insert schema
     const validationResult = insertFundTransferSchema.safeParse(req.body);
-    
+
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] فشل في validation تحويل العهدة:', validationResult.error.flatten());
-      
+
       const errorMessages = validationResult.error.flatten().fieldErrors;
       const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحويل العهدة غير صحيحة';
-      
+
       return res.status(400).json({
         success: false,
         error: 'بيانات تحويل العهدة غير صحيحة',
@@ -92,15 +92,15 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
         processingTime: duration
       });
     }
-    
+
     console.log('✅ [API] نجح validation تحويل العهدة');
-    
+
     // إدراج تحويل العهدة الجديد في قاعدة البيانات
     const newTransfer = await db.insert(fundTransfers).values(validationResult.data).returning();
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء تحويل العهدة بنجاح في ${duration}ms`);
-    
+
     res.status(201).json({
       success: true,
       data: newTransfer[0],
@@ -110,14 +110,14 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [Financial] خطأ في إضافة تحويل العهدة:', error);
-    
+
     let errorMessage = 'فشل في إنشاء تحويل العهدة';
     let statusCode = 500;
-    
+
     if (error.code === '23505') errorMessage = 'رقم التحويل موجود مسبقاً', statusCode = 409;
     else if (error.code === '23503') errorMessage = 'المشروع المحدد غير موجود', statusCode = 400;
     else if (error.code === '23502') errorMessage = 'بيانات تحويل العهدة ناقصة', statusCode = 400;
-    
+
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
@@ -135,7 +135,7 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
     console.log('🔄 [API] طلب تحديث تحويل العهدة من المستخدم:', (req as any).user?.email);
     console.log('📋 [API] ID تحويل العهدة:', transferId);
     console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
-    
+
     if (!transferId) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
@@ -148,7 +148,7 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
 
     // التحقق من وجود تحويل العهدة أولاً
     const existingTransfer = await db.select().from(fundTransfers).where(eq(fundTransfers.id, transferId)).limit(1);
-    
+
     if (existingTransfer.length === 0) {
       const duration = Date.now() - startTime;
       return res.status(404).json({
@@ -158,17 +158,17 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
         processingTime: duration
       });
     }
-    
+
     // Validation باستخدام insert schema - نسمح بتحديث جزئي
     const validationResult = insertFundTransferSchema.partial().safeParse(req.body);
-    
+
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] فشل في validation تحديث تحويل العهدة:', validationResult.error.flatten());
-      
+
       const errorMessages = validationResult.error.flatten().fieldErrors;
       const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث تحويل العهدة غير صحيحة';
-      
+
       return res.status(400).json({
         success: false,
         error: 'بيانات تحديث تحويل العهدة غير صحيحة',
@@ -184,21 +184,21 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
       .set(validationResult.data)
       .where(eq(fundTransfers.id, transferId))
       .returning();
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث تحويل العهدة بنجاح في ${duration}ms`);
-    
+
     res.json({
       success: true,
       data: updatedTransfer[0],
       message: `تم تحديث تحويل العهدة بقيمة ${updatedTransfer[0].amount} بنجاح`,
       processingTime: duration
     });
-    
+
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [API] خطأ في تحديث تحويل العهدة:', error);
-    
+
     res.status(500).json({
       success: false,
       error: 'فشل في تحديث تحويل العهدة',
@@ -214,7 +214,7 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
   try {
     const transferId = req.params.id;
     console.log('🗑️ [API] طلب حذف تحويل العهدة:', transferId);
-    
+
     if (!transferId) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
@@ -227,7 +227,7 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
 
     // التحقق من وجود تحويل العهدة أولاً
     const existingTransfer = await db.select().from(fundTransfers).where(eq(fundTransfers.id, transferId)).limit(1);
-    
+
     if (existingTransfer.length === 0) {
       const duration = Date.now() - startTime;
       return res.status(404).json({
@@ -243,29 +243,29 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
       .delete(fundTransfers)
       .where(eq(fundTransfers.id, transferId))
       .returning();
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف تحويل العهدة بنجاح في ${duration}ms`);
-    
+
     res.json({
       success: true,
       data: deletedTransfer[0],
       message: `تم حذف تحويل العهدة بقيمة ${deletedTransfer[0]?.amount || 'غير محدد'} بنجاح`,
       processingTime: duration
     });
-    
+
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [API] خطأ في حذف تحويل العهدة:', error);
-    
+
     let errorMessage = 'فشل في حذف تحويل العهدة';
     let statusCode = 500;
-    
+
     if (error.code === '23503') { // foreign key violation
       errorMessage = 'لا يمكن حذف تحويل العهدة لوجود مراجع مرتبطة به';
       statusCode = 409;
     }
-    
+
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
@@ -280,7 +280,70 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
  * Project Fund Transfers
  */
 
-// جلب تحويلات أموال المشاريع
+// جلب تحويلات أموال المشاريع - خاص بصفحة المصروفات اليومية
+financialRouter.get('/daily-project-transfers', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, date } = req.query;
+
+    console.log('🏗️ [API] جلب تحويلات أموال المشاريع للمصروفات اليومية');
+    console.log('🔍 [API] معاملات الطلب:', { projectId, date });
+
+    if (!projectId || !date) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'معرف المشروع والتاريخ مطلوبان',
+        processingTime: duration
+      });
+    }
+
+    // استعلام مباشر للحصول على التحويلات الخاصة بالمشروع والتاريخ المحدد
+    const transfers = await db
+      .select({
+        id: projectFundTransfers.id,
+        fromProjectId: projectFundTransfers.fromProjectId,
+        toProjectId: projectFundTransfers.toProjectId,
+        amount: projectFundTransfers.amount,
+        description: projectFundTransfers.description,
+        transferReason: projectFundTransfers.transferReason,
+        transferDate: projectFundTransfers.transferDate,
+        createdAt: projectFundTransfers.createdAt,
+        fromProjectName: sql<string>`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+        toProjectName: sql<string>`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+      })
+      .from(projectFundTransfers)
+      .where(
+        and(
+          sql`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
+          eq(projectFundTransfers.transferDate, date as string)
+        )
+      )
+      .orderBy(desc(projectFundTransfers.createdAt));
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب ${transfers.length} تحويل مشروع للصفحة اليومية في ${duration}ms`);
+
+    res.json({
+      success: true,
+      data: transfers,
+      message: `تم جلب ${transfers.length} تحويل أموال مشاريع بنجاح`,
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب تحويلات أموال المشاريع للصفحة اليومية:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'فشل في جلب تحويلات أموال المشاريع',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+// جلب تحويلات أموال المشاريع مع فلترة محسنة
 financialRouter.get('/project-fund-transfers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
@@ -288,7 +351,7 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
     console.log('🏗️ [API] جلب تحويلات أموال المشاريع من قاعدة البيانات');
     console.log('🔍 [API] فلترة حسب المشروع:', projectId || 'جميع المشاريع');
     console.log('📅 [API] فلترة حسب التاريخ:', { date, dateFrom, dateTo });
-    
+
     let baseQuery = db
       .select({
         id: projectFundTransfers.id,
@@ -308,13 +371,13 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
 
     // تحضير شروط الفلترة وتجميعها في مصفوفة واحدة
     const conditions: any[] = [];
-    
+
     // فلترة حسب المشروع
     if (projectId && projectId !== 'all') {
       conditions.push(sql`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`);
       console.log('✅ [API] تم تطبيق فلترة المشروع:', projectId);
     }
-    
+
     // فلترة حسب التاريخ - محسنة لتحسين الأداء
     if (date) {
       // فلترة ليوم محدد باستخدام نطاق زمني بدلاً من DATE()
@@ -345,7 +408,7 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
       conditions.push(lte(projectFundTransfers.transferDate, endOfPeriod));
       console.log('✅ [API] تم تطبيق فلترة حتى تاريخ:', dateTo);
     }
-    
+
     // تطبيق جميع الشروط في استدعاء .where() واحد
     let transfers;
     if (conditions.length > 0) {
@@ -357,10 +420,10 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
     } else {
       transfers = await baseQuery.orderBy(desc(projectFundTransfers.transferDate));
     }
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل مشروع في ${duration}ms`);
-    
+
     res.json({
       success: true,
       data: transfers,
@@ -386,17 +449,17 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
   try {
     console.log('🏗️ [API] طلب إضافة تحويل أموال مشروع جديد من المستخدم:', (req as any).user?.email);
     console.log('📋 [API] بيانات تحويل المشروع المرسلة:', req.body);
-    
+
     // Validation باستخدام insert schema
     const validationResult = insertProjectFundTransferSchema.safeParse(req.body);
-    
+
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] فشل في validation تحويل المشروع:', validationResult.error.flatten());
-      
+
       const errorMessages = validationResult.error.flatten().fieldErrors;
       const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحويل المشروع غير صحيحة';
-      
+
       return res.status(400).json({
         success: false,
         error: 'بيانات تحويل المشروع غير صحيحة',
@@ -405,13 +468,13 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
         processingTime: duration
       });
     }
-    
+
     console.log('✅ [API] نجح validation تحويل المشروع');
-    
+
     // إدراج تحويل المشروع الجديد في قاعدة البيانات
     console.log('💾 [API] حفظ تحويل المشروع في قاعدة البيانات...');
     const newTransfer = await db.insert(projectFundTransfers).values(validationResult.data).returning();
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء تحويل المشروع بنجاح في ${duration}ms:`, {
       id: newTransfer[0].id,
@@ -419,22 +482,22 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
       toProjectId: newTransfer[0].toProjectId,
       amount: newTransfer[0].amount
     });
-    
+
     res.status(201).json({
       success: true,
       data: newTransfer[0],
       message: `تم إنشاء تحويل مشروع بقيمة ${newTransfer[0].amount} بنجاح`,
       processingTime: duration
     });
-    
+
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [API] خطأ في إنشاء تحويل المشروع:', error);
-    
+
     // تحليل نوع الخطأ لرسالة أفضل
     let errorMessage = 'فشل في إنشاء تحويل المشروع';
     let statusCode = 500;
-    
+
     if (error.code === '23505') { // duplicate key
       errorMessage = 'رقم تحويل المشروع موجود مسبقاً';
       statusCode = 409;
@@ -445,7 +508,7 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
       errorMessage = 'بيانات تحويل المشروع ناقصة';
       statusCode = 400;
     }
-    
+
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
@@ -465,14 +528,14 @@ financialRouter.get('/worker-transfers', async (req: Request, res: Response) => 
   const startTime = Date.now();
   try {
     console.log('👷‍♂️ [API] جلب جميع تحويلات العمال من قاعدة البيانات');
-    
+
     const transfers = await db.select()
       .from(workerTransfers)
       .orderBy(desc(workerTransfers.transferDate));
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل عامل في ${duration}ms`);
-    
+
     res.json({
       success: true,
       data: transfers,
@@ -497,17 +560,17 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
   const startTime = Date.now();
   try {
     console.log('👷‍♂️ [API] إضافة تحويل عامل جديد:', req.body);
-    
+
     // Validation باستخدام insert schema
     const validationResult = insertWorkerTransferSchema.safeParse(req.body);
-    
+
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] فشل في validation تحويل العامل:', validationResult.error.flatten());
-      
+
       const errorMessages = validationResult.error.flatten().fieldErrors;
       const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحويل العامل غير صحيحة';
-      
+
       return res.status(400).json({
         success: false,
         error: 'بيانات تحويل العامل غير صحيحة',
@@ -516,15 +579,15 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
         processingTime: duration
       });
     }
-    
+
     console.log('✅ [API] نجح validation تحويل العامل');
-    
+
     // إدراج تحويل العامل الجديد في قاعدة البيانات
     const newTransfer = await db.insert(workerTransfers).values(validationResult.data).returning();
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء تحويل العامل بنجاح في ${duration}ms`);
-    
+
     res.status(201).json({
       success: true,
       data: newTransfer[0],
@@ -534,13 +597,13 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [Financial] خطأ في إضافة تحويل العامل:', error);
-    
+
     let errorMessage = 'فشل في إنشاء تحويل العامل';
     let statusCode = 500;
-    
+
     if (error.code === '23503') errorMessage = 'العامل أو المشروع المحدد غير موجود', statusCode = 400;
     else if (error.code === '23502') errorMessage = 'بيانات تحويل العامل ناقصة', statusCode = 400;
-    
+
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
@@ -558,7 +621,7 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
     console.log('🔄 [API] طلب تحديث تحويل العامل من المستخدم:', (req as any).user?.email);
     console.log('📋 [API] ID تحويل العامل:', transferId);
     console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
-    
+
     if (!transferId) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
@@ -571,7 +634,7 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
 
     // التحقق من وجود تحويل العامل أولاً
     const existingTransfer = await db.select().from(workerTransfers).where(eq(workerTransfers.id, transferId)).limit(1);
-    
+
     if (existingTransfer.length === 0) {
       const duration = Date.now() - startTime;
       return res.status(404).json({
@@ -581,17 +644,17 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
         processingTime: duration
       });
     }
-    
+
     // Validation باستخدام insert schema - نسمح بتحديث جزئي
     const validationResult = insertWorkerTransferSchema.partial().safeParse(req.body);
-    
+
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] فشل في validation تحديث تحويل العامل:', validationResult.error.flatten());
-      
+
       const errorMessages = validationResult.error.flatten().fieldErrors;
       const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث تحويل العامل غير صحيحة';
-      
+
       return res.status(400).json({
         success: false,
         error: 'بيانات تحديث تحويل العامل غير صحيحة',
@@ -607,21 +670,21 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
       .set(validationResult.data)
       .where(eq(workerTransfers.id, transferId))
       .returning();
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث تحويل العامل بنجاح في ${duration}ms`);
-    
+
     res.json({
       success: true,
       data: updatedTransfer[0],
       message: `تم تحديث تحويل العامل بقيمة ${updatedTransfer[0].amount} بنجاح`,
       processingTime: duration
     });
-    
+
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [API] خطأ في تحديث تحويل العامل:', error);
-    
+
     res.status(500).json({
       success: false,
       error: 'فشل في تحديث تحويل العامل',
@@ -638,7 +701,7 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
     const transferId = req.params.id;
     console.log('🗑️ [API] طلب حذف حوالة العامل:', transferId);
     console.log('👤 [API] المستخدم:', (req as any).user?.email);
-    
+
     if (!transferId) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
@@ -651,7 +714,7 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
 
     // التحقق من وجود الحوالة أولاً
     const existingTransfer = await db.select().from(workerTransfers).where(eq(workerTransfers.id, transferId)).limit(1);
-    
+
     if (existingTransfer.length === 0) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] حوالة العامل غير موجودة:', transferId);
@@ -662,7 +725,7 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
         processingTime: duration
       });
     }
-    
+
     const transferToDelete = existingTransfer[0];
     console.log('🗑️ [API] سيتم حذف حوالة العامل:', {
       id: transferToDelete.id,
@@ -670,36 +733,36 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
       amount: transferToDelete.amount,
       recipientName: transferToDelete.recipientName
     });
-    
+
     // حذف حوالة العامل من قاعدة البيانات
     console.log('🗑️ [API] حذف حوالة العامل من قاعدة البيانات...');
     const deletedTransfer = await db
       .delete(workerTransfers)
       .where(eq(workerTransfers.id, transferId))
       .returning();
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف حوالة العامل بنجاح في ${duration}ms:`, {
       id: deletedTransfer[0].id,
       amount: deletedTransfer[0].amount,
       recipientName: deletedTransfer[0].recipientName
     });
-    
+
     res.json({
       success: true,
       data: deletedTransfer[0],
       message: `تم حذف حوالة العامل إلى "${deletedTransfer[0].recipientName}" بقيمة ${deletedTransfer[0].amount} بنجاح`,
       processingTime: duration
     });
-    
+
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [API] خطأ في حذف حوالة العامل:', error);
-    
+
     // تحليل نوع الخطأ لرسالة أفضل
     let errorMessage = 'فشل في حذف حوالة العامل';
     let statusCode = 500;
-    
+
     if (error.code === '23503') { // foreign key violation
       errorMessage = 'لا يمكن حذف حوالة العامل - مرتبطة ببيانات أخرى';
       statusCode = 409;
@@ -707,7 +770,7 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
       errorMessage = 'معرف حوالة العامل غير صحيح';
       statusCode = 400;
     }
-    
+
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
@@ -727,12 +790,12 @@ financialRouter.get('/worker-misc-expenses', async (req: Request, res: Response)
   const startTime = Date.now();
   try {
     console.log('💸 [API] جلب جميع مصاريف العمال المتنوعة من قاعدة البيانات');
-    
+
     const expenses = await db.select().from(workerMiscExpenses).orderBy(desc(workerMiscExpenses.date));
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${expenses.length} مصروف متنوع في ${duration}ms`);
-    
+
     res.json({
       success: true,
       data: expenses,
@@ -757,17 +820,17 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
   const startTime = Date.now();
   try {
     console.log('💸 [API] إضافة مصروف عامل متنوع جديد:', req.body);
-    
+
     // Validation باستخدام insert schema
     const validationResult = insertWorkerMiscExpenseSchema.safeParse(req.body);
-    
+
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] فشل في validation مصروف العامل المتنوع:', validationResult.error.flatten());
-      
+
       const errorMessages = validationResult.error.flatten().fieldErrors;
       const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات مصروف العامل المتنوع غير صحيحة';
-      
+
       return res.status(400).json({
         success: false,
         error: 'بيانات مصروف العامل المتنوع غير صحيحة',
@@ -776,15 +839,15 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
         processingTime: duration
       });
     }
-    
+
     console.log('✅ [API] نجح validation مصروف العامل المتنوع');
-    
+
     // إدراج مصروف العامل المتنوع الجديد في قاعدة البيانات
     const newExpense = await db.insert(workerMiscExpenses).values(validationResult.data).returning();
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء مصروف العامل المتنوع بنجاح في ${duration}ms`);
-    
+
     res.status(201).json({
       success: true,
       data: newExpense[0],
@@ -794,13 +857,13 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [Financial] خطأ في إضافة مصروف العامل:', error);
-    
+
     let errorMessage = 'فشل في إنشاء مصروف العامل المتنوع';
     let statusCode = 500;
-    
+
     if (error.code === '23503') errorMessage = 'العامل أو المشروع المحدد غير موجود', statusCode = 400;
     else if (error.code === '23502') errorMessage = 'بيانات مصروف العامل المتنوع ناقصة', statusCode = 400;
-    
+
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
@@ -818,7 +881,7 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
     console.log('🔄 [API] طلب تحديث المصروف المتنوع للعامل من المستخدم:', (req as any).user?.email);
     console.log('📋 [API] ID المصروف المتنوع:', expenseId);
     console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
-    
+
     if (!expenseId) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
@@ -831,7 +894,7 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
 
     // التحقق من وجود المصروف المتنوع أولاً
     const existingExpense = await db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.id, expenseId)).limit(1);
-    
+
     if (existingExpense.length === 0) {
       const duration = Date.now() - startTime;
       return res.status(404).json({
@@ -841,17 +904,17 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
         processingTime: duration
       });
     }
-    
+
     // Validation باستخدام insert schema - نسمح بتحديث جزئي
     const validationResult = insertWorkerMiscExpenseSchema.partial().safeParse(req.body);
-    
+
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] فشل في validation تحديث المصروف المتنوع للعامل:', validationResult.error.flatten());
-      
+
       const errorMessages = validationResult.error.flatten().fieldErrors;
       const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث المصروف المتنوع للعامل غير صحيحة';
-      
+
       return res.status(400).json({
         success: false,
         error: 'بيانات تحديث المصروف المتنوع للعامل غير صحيحة',
@@ -867,21 +930,21 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
       .set(validationResult.data)
       .where(eq(workerMiscExpenses.id, expenseId))
       .returning();
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث المصروف المتنوع للعامل بنجاح في ${duration}ms`);
-    
+
     res.json({
       success: true,
       data: updatedExpense[0],
       message: `تم تحديث المصروف المتنوع للعامل بقيمة ${updatedExpense[0].amount} بنجاح`,
       processingTime: duration
     });
-    
+
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [API] خطأ في تحديث المصروف المتنوع للعامل:', error);
-    
+
     res.status(500).json({
       success: false,
       error: 'فشل في تحديث المصروف المتنوع للعامل',
@@ -898,7 +961,7 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
     const expenseId = req.params.id;
     console.log('🗑️ [API] طلب حذف مصروف العامل المتنوع:', expenseId);
     console.log('👤 [API] المستخدم:', (req as any).user?.email);
-    
+
     if (!expenseId) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
@@ -911,7 +974,7 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
 
     // التحقق من وجود المصروف أولاً
     const existingExpense = await db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.id, expenseId)).limit(1);
-    
+
     if (existingExpense.length === 0) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] مصروف العامل المتنوع غير موجود:', expenseId);
@@ -922,7 +985,7 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
         processingTime: duration
       });
     }
-    
+
     const expenseToDelete = existingExpense[0];
     console.log('🗑️ [API] سيتم حذف مصروف العامل المتنوع:', {
       id: expenseToDelete.id,
@@ -930,36 +993,36 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
       amount: expenseToDelete.amount,
       description: expenseToDelete.description
     });
-    
+
     // حذف مصروف العامل المتنوع من قاعدة البيانات
     console.log('🗑️ [API] حذف مصروف العامل المتنوع من قاعدة البيانات...');
     const deletedExpense = await db
       .delete(workerMiscExpenses)
       .where(eq(workerMiscExpenses.id, expenseId))
       .returning();
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف مصروف العامل المتنوع بنجاح في ${duration}ms:`, {
       id: deletedExpense[0].id,
       amount: deletedExpense[0].amount,
       description: deletedExpense[0].description
     });
-    
+
     res.json({
       success: true,
       data: deletedExpense[0],
       message: `تم حذف مصروف العامل المتنوع "${deletedExpense[0].description}" بقيمة ${deletedExpense[0].amount} بنجاح`,
       processingTime: duration
     });
-    
+
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [API] خطأ في حذف مصروف العامل المتنوع:', error);
-    
+
     // تحليل نوع الخطأ لرسالة أفضل
     let errorMessage = 'فشل في حذف مصروف العامل المتنوع';
     let statusCode = 500;
-    
+
     if (error.code === '23503') { // foreign key violation
       errorMessage = 'لا يمكن حذف مصروف العامل المتنوع - مرتبط ببيانات أخرى';
       statusCode = 409;
@@ -967,7 +1030,7 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
       errorMessage = 'معرف مصروف العامل المتنوع غير صحيح';
       statusCode = 400;
     }
-    
+
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
@@ -988,7 +1051,7 @@ financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
   try {
     console.log('📊 [API] جلب ملخص التقارير المالية العامة');
     console.log('👤 [API] المستخدم:', (req as any).user?.email);
-    
+
     // جلب إحصائيات شاملة من قاعدة البيانات
     const [
       fundTransfersStats,
@@ -1000,28 +1063,28 @@ financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
     ] = await Promise.all([
       // إحصائيات تحويلات العهدة
       db.execute(sql`
-        SELECT 
+        SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM fund_transfers
       `),
       // إحصائيات تحويلات المشاريع
       db.execute(sql`
-        SELECT 
+        SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM project_fund_transfers
       `),
       // إحصائيات تحويلات العمال
       db.execute(sql`
-        SELECT 
+        SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM worker_transfers
       `),
       // إحصائيات مصاريف العمال المتنوعة
       db.execute(sql`
-        SELECT 
+        SELECT
           COUNT(*) as total_expenses,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM worker_misc_expenses
@@ -1103,7 +1166,7 @@ financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [API] خطأ في جلب ملخص التقارير المالية:', error);
-    
+
     res.status(500).json({
       success: false,
       error: 'فشل في جلب ملخص التقارير المالية',
@@ -1123,14 +1186,14 @@ financialRouter.get('/suppliers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     console.log('🏪 [API] جلب جميع الموردين من قاعدة البيانات');
-    
+
     const suppliersList = await db.select().from(suppliers)
       .where(eq(suppliers.isActive, true))
       .orderBy(suppliers.name);
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${suppliersList.length} مورد في ${duration}ms`);
-    
+
     res.json({
       success: true,
       data: suppliersList,
@@ -1155,17 +1218,17 @@ financialRouter.post('/suppliers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     console.log('🏪 [API] إضافة مورد جديد:', req.body);
-    
+
     // Validation باستخدام insert schema
     const validationResult = insertSupplierSchema.safeParse(req.body);
-    
+
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] فشل في validation المورد:', validationResult.error.flatten());
-      
+
       const errorMessages = validationResult.error.flatten().fieldErrors;
       const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات المورد غير صحيحة';
-      
+
       return res.status(400).json({
         success: false,
         error: 'بيانات المورد غير صحيحة',
@@ -1174,15 +1237,15 @@ financialRouter.post('/suppliers', async (req: Request, res: Response) => {
         processingTime: duration
       });
     }
-    
+
     console.log('✅ [API] نجح validation المورد');
-    
+
     // إدراج المورد الجديد في قاعدة البيانات
     const newSupplier = await db.insert(suppliers).values(validationResult.data).returning();
-    
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء المورد بنجاح في ${duration}ms`);
-    
+
     res.status(201).json({
       success: true,
       data: newSupplier[0],
@@ -1192,13 +1255,13 @@ financialRouter.post('/suppliers', async (req: Request, res: Response) => {
   } catch (error: any) {
     const duration = Date.now() - startTime;
     console.error('❌ [Financial] خطأ في إضافة المورد:', error);
-    
+
     let errorMessage = 'فشل في إنشاء المورد';
     let statusCode = 500;
-    
+
     if (error.code === '23505') errorMessage = 'اسم المورد موجود مسبقاً', statusCode = 409;
     else if (error.code === '23502') errorMessage = 'بيانات المورد ناقصة', statusCode = 400;
-    
+
     res.status(statusCode).json({
       success: false,
       error: errorMessage,

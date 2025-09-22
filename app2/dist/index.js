@@ -13826,9 +13826,10 @@ financialRouter.delete("/fund-transfers/:id", async (req, res) => {
 financialRouter.get("/project-fund-transfers", async (req, res) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.query;
+    const { projectId, date: date2, dateFrom, dateTo } = req.query;
     console.log("\u{1F3D7}\uFE0F [API] \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0623\u0645\u0648\u0627\u0644 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
     console.log("\u{1F50D} [API] \u0641\u0644\u062A\u0631\u0629 \u062D\u0633\u0628 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", projectId || "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639");
+    console.log("\u{1F4C5} [API] \u0641\u0644\u062A\u0631\u0629 \u062D\u0633\u0628 \u0627\u0644\u062A\u0627\u0631\u064A\u062E:", { date: date2, dateFrom, dateTo });
     let baseQuery = db.select({
       id: projectFundTransfers.id,
       fromProjectId: projectFundTransfers.fromProjectId,
@@ -13841,9 +13842,29 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
       fromProjectName: sql7`from_project.name`.as("fromProjectName"),
       toProjectName: sql7`to_project.name`.as("toProjectName")
     }).from(projectFundTransfers).leftJoin(sql7`${projects} as from_project`, eq10(projectFundTransfers.fromProjectId, sql7`from_project.id`)).leftJoin(sql7`${projects} as to_project`, eq10(projectFundTransfers.toProjectId, sql7`to_project.id`));
-    const transfers = projectId && projectId !== "all" ? await baseQuery.where(sql7`${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId}`).orderBy(desc6(projectFundTransfers.transferDate)) : await baseQuery.orderBy(desc6(projectFundTransfers.transferDate));
+    let whereConditions = [];
     if (projectId && projectId !== "all") {
+      whereConditions.push(sql7`${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId}`);
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", projectId);
+    }
+    if (date2) {
+      whereConditions.push(sql7`DATE(${projectFundTransfers.transferDate}) = ${date2}`);
+      console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u062A\u0627\u0631\u064A\u062E \u0645\u062D\u062F\u062F:", date2);
+    } else if (dateFrom && dateTo) {
+      whereConditions.push(sql7`DATE(${projectFundTransfers.transferDate}) >= ${dateFrom} AND DATE(${projectFundTransfers.transferDate}) <= ${dateTo}`);
+      console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0641\u062A\u0631\u0629 \u0632\u0645\u0646\u064A\u0629:", `${dateFrom} - ${dateTo}`);
+    } else if (dateFrom) {
+      whereConditions.push(sql7`DATE(${projectFundTransfers.transferDate}) >= ${dateFrom}`);
+      console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0645\u0646 \u062A\u0627\u0631\u064A\u062E:", dateFrom);
+    } else if (dateTo) {
+      whereConditions.push(sql7`DATE(${projectFundTransfers.transferDate}) <= ${dateTo}`);
+      console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u062D\u062A\u0649 \u062A\u0627\u0631\u064A\u062E:", dateTo);
+    }
+    let transfers;
+    if (whereConditions.length > 0) {
+      transfers = await baseQuery.where(sql7`${whereConditions.join(" AND ")}`).orderBy(desc6(projectFundTransfers.transferDate));
+    } else {
+      transfers = await baseQuery.orderBy(desc6(projectFundTransfers.transferDate));
     }
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0645\u0634\u0631\u0648\u0639 \u0641\u064A ${duration}ms`);

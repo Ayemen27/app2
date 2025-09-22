@@ -236,7 +236,13 @@ function DailyExpensesContent() {
     queryKey: ["/api/project-fund-transfers", selectedProjectId, selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/project-fund-transfers?date=${selectedDate}`, "GET");
+        // إرسال كل من projectId و date للفلترة الصحيحة في الخادم
+        const params = new URLSearchParams();
+        if (selectedProjectId) params.append('projectId', selectedProjectId);
+        if (selectedDate) params.append('date', selectedDate);
+        
+        const response = await apiRequest(`/api/project-fund-transfers?${params.toString()}`, "GET");
+        console.log('📊 [ProjectTransfers] استجابة API:', response);
 
         // معالجة الهيكل المتداخل للاستجابة
         let transferData = [];
@@ -248,12 +254,10 @@ function DailyExpensesContent() {
 
         if (!Array.isArray(transferData)) return [];
 
-        const filteredTransfers = transferData.filter((transfer: ProjectFundTransfer) => 
-          transfer.fromProjectId === selectedProjectId || transfer.toProjectId === selectedProjectId
-        );
-
-        // إضافة أسماء المشاريع
-        return filteredTransfers.map((transfer: ProjectFundTransfer) => ({
+        console.log(`✅ [ProjectTransfers] تم جلب ${transferData.length} ترحيل لليوم ${selectedDate}`);
+        
+        // إضافة أسماء المشاريع (البيانات مفلترة مسبقاً من الخادم)
+        return transferData.map((transfer: ProjectFundTransfer) => ({
           ...transfer,
           fromProjectName: projects.find(p => p.id === transfer.fromProjectId)?.name || 'مشروع غير معروف',
           toProjectName: projects.find(p => p.id === transfer.toProjectId)?.name || 'مشروع غير معروف'
@@ -263,7 +267,7 @@ function DailyExpensesContent() {
         return [];
       }
     },
-    enabled: !!selectedProjectId && showProjectTransfers && Array.isArray(projects) && projects.length > 0,
+    enabled: !!selectedProjectId && !!selectedDate && showProjectTransfers && Array.isArray(projects) && projects.length > 0,
     staleTime: 60000, // البيانات صالحة لدقيقة واحدة
     gcTime: 300000, // الاحتفاظ بالذاكرة لـ 5 دقائق
   });

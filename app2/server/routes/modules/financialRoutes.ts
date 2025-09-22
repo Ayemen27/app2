@@ -284,9 +284,10 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
 financialRouter.get('/project-fund-transfers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.query;
+    const { projectId, date, dateFrom, dateTo } = req.query;
     console.log('🏗️ [API] جلب تحويلات أموال المشاريع من قاعدة البيانات');
     console.log('🔍 [API] فلترة حسب المشروع:', projectId || 'جميع المشاريع');
+    console.log('📅 [API] فلترة حسب التاريخ:', { date, dateFrom, dateTo });
     
     let baseQuery = db
       .select({
@@ -305,15 +306,61 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
       .leftJoin(sql`${projects} as from_project`, eq(projectFundTransfers.fromProjectId, sql`from_project.id`))
       .leftJoin(sql`${projects} as to_project`, eq(projectFundTransfers.toProjectId, sql`to_project.id`));
 
-    // إضافة فلترة حسب المشروع إذا تم تمريره
-    const transfers = projectId && projectId !== 'all' 
-      ? await baseQuery
-          .where(sql`${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId}`)
-          .orderBy(desc(projectFundTransfers.transferDate))
-      : await baseQuery.orderBy(desc(projectFundTransfers.transferDate));
-      
+    // تحضير شروط الفلترة باستخدام Drizzle combinators
+    const conditions = [];
+    
+    // فلترة حسب المشروع
     if (projectId && projectId !== 'all') {
+      conditions.push(
+        sql`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`
+      );
       console.log('✅ [API] تم تطبيق فلترة المشروع:', projectId);
+    }
+    
+    // فلترة حسب التاريخ - محسنة لتحسين الأداء
+    if (date) {
+      // فلترة ليوم محدد باستخدام نطاق زمني بدلاً من DATE()
+      const startOfDay = `${date} 00:00:00`;
+      const endOfDay = `${date} 23:59:59.999`;
+      conditions.push(
+        and(
+          gte(projectFundTransfers.transferDate, startOfDay),
+          lte(projectFundTransfers.transferDate, endOfDay)
+        )
+      );
+      console.log('✅ [API] تم تطبيق فلترة تاريخ محدد:', date);
+    } else if (dateFrom && dateTo) {
+      // فلترة لفترة زمنية
+      const startOfPeriod = `${dateFrom} 00:00:00`;
+      const endOfPeriod = `${dateTo} 23:59:59.999`;
+      conditions.push(
+        and(
+          gte(projectFundTransfers.transferDate, startOfPeriod),
+          lte(projectFundTransfers.transferDate, endOfPeriod)
+        )
+      );
+      console.log('✅ [API] تم تطبيق فلترة فترة زمنية:', `${dateFrom} - ${dateTo}`);
+    } else if (dateFrom) {
+      // فلترة من تاريخ معين
+      const startOfPeriod = `${dateFrom} 00:00:00`;
+      conditions.push(gte(projectFundTransfers.transferDate, startOfPeriod));
+      console.log('✅ [API] تم تطبيق فلترة من تاريخ:', dateFrom);
+    } else if (dateTo) {
+      // فلترة حتى تاريخ معين
+      const endOfPeriod = `${dateTo} 23:59:59.999`;
+      conditions.push(lte(projectFundTransfers.transferDate, endOfPeriod));
+      console.log('✅ [API] تم تطبيق فلترة حتى تاريخ:', dateTo);
+    }
+    
+    // تطبيق الشروط والحصول على النتائج
+    let transfers;
+    if (conditions.length > 0) {
+      const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+      transfers = await baseQuery
+        .where(whereClause)
+        .orderBy(desc(projectFundTransfers.transferDate));
+    } else {
+      transfers = await baseQuery.orderBy(desc(projectFundTransfers.transferDate));
     }
     
     const duration = Date.now() - startTime;

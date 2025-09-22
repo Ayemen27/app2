@@ -13881,6 +13881,56 @@ financialRouter.delete("/fund-transfers/:id", async (req, res) => {
     });
   }
 });
+financialRouter.get("/daily-project-transfers", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, date: date2 } = req.query;
+    console.log("\u{1F3D7}\uFE0F [API] \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0623\u0645\u0648\u0627\u0644 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0644\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629");
+    console.log("\u{1F50D} [API] \u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0627\u0644\u0637\u0644\u0628:", { projectId, date: date2 });
+    if (!projectId || !date2) {
+      const duration2 = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0648\u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0645\u0637\u0644\u0648\u0628\u0627\u0646",
+        processingTime: duration2
+      });
+    }
+    const transfers = await db.select({
+      id: projectFundTransfers.id,
+      fromProjectId: projectFundTransfers.fromProjectId,
+      toProjectId: projectFundTransfers.toProjectId,
+      amount: projectFundTransfers.amount,
+      description: projectFundTransfers.description,
+      transferReason: projectFundTransfers.transferReason,
+      transferDate: projectFundTransfers.transferDate,
+      createdAt: projectFundTransfers.createdAt,
+      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(
+      and9(
+        sql7`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
+        eq10(projectFundTransfers.transferDate, date2)
+      )
+    ).orderBy(desc6(projectFundTransfers.createdAt));
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0645\u0634\u0631\u0648\u0639 \u0644\u0644\u0635\u0641\u062D\u0629 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0641\u064A ${duration}ms`);
+    res.json({
+      success: true,
+      data: transfers,
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0623\u0645\u0648\u0627\u0644 \u0645\u0634\u0627\u0631\u064A\u0639 \u0628\u0646\u062C\u0627\u062D`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0623\u0645\u0648\u0627\u0644 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0644\u0644\u0635\u0641\u062D\u0629 \u0627\u0644\u064A\u0648\u0645\u064A\u0629:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0623\u0645\u0648\u0627\u0644 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 financialRouter.get("/project-fund-transfers", async (req, res) => {
   const startTime = Date.now();
   try {
@@ -14420,28 +14470,28 @@ financialRouter.get("/reports/summary", async (req, res) => {
     ] = await Promise.all([
       // إحصائيات تحويلات العهدة
       db.execute(sql7`
-        SELECT 
+        SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM fund_transfers
       `),
       // إحصائيات تحويلات المشاريع
       db.execute(sql7`
-        SELECT 
+        SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM project_fund_transfers
       `),
       // إحصائيات تحويلات العمال
       db.execute(sql7`
-        SELECT 
+        SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM worker_transfers
       `),
       // إحصائيات مصاريف العمال المتنوعة
       db.execute(sql7`
-        SELECT 
+        SELECT
           COUNT(*) as total_expenses,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM worker_misc_expenses

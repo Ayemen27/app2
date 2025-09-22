@@ -393,75 +393,257 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
 
 // جلب تحويلات العمال
 financialRouter.get('/worker-transfers', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    console.log('👷‍♂️ [API] جلب تحويلات العمال');
+    console.log('👷‍♂️ [API] جلب جميع تحويلات العمال من قاعدة البيانات');
+    
+    const transfers = await db.select()
+      .from(workerTransfers)
+      .orderBy(desc(workerTransfers.transferDate));
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب ${transfers.length} تحويل عامل في ${duration}ms`);
     
     res.json({
       success: true,
-      data: [],
-      message: 'تحويلات العمال - سيتم نقل المنطق'
+      data: transfers,
+      message: `تم جلب ${transfers.length} تحويل عامل بنجاح`,
+      processingTime: duration
     });
   } catch (error: any) {
+    const duration = Date.now() - startTime;
     console.error('❌ [Financial] خطأ في جلب تحويلات العمال:', error);
     res.status(500).json({
       success: false,
+      data: [],
       error: 'خطأ في جلب تحويلات العمال',
-      message: error.message
+      message: error.message,
+      processingTime: duration
     });
   }
 });
 
 // إضافة تحويل عامل جديد
 financialRouter.post('/worker-transfers', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    console.log('👷‍♂️ [API] إضافة تحويل عامل جديد');
+    console.log('👷‍♂️ [API] إضافة تحويل عامل جديد:', req.body);
     
-    res.json({
+    // Validation باستخدام insert schema
+    const validationResult = insertWorkerTransferSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] فشل في validation تحويل العامل:', validationResult.error.flatten());
+      
+      const errorMessages = validationResult.error.flatten().fieldErrors;
+      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحويل العامل غير صحيحة';
+      
+      return res.status(400).json({
+        success: false,
+        error: 'بيانات تحويل العامل غير صحيحة',
+        message: firstError,
+        details: errorMessages,
+        processingTime: duration
+      });
+    }
+    
+    console.log('✅ [API] نجح validation تحويل العامل');
+    
+    // إدراج تحويل العامل الجديد في قاعدة البيانات
+    const newTransfer = await db.insert(workerTransfers).values(validationResult.data).returning();
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم إنشاء تحويل العامل بنجاح في ${duration}ms`);
+    
+    res.status(201).json({
       success: true,
-      message: 'إضافة تحويل عامل - سيتم نقل المنطق'
+      data: newTransfer[0],
+      message: `تم إنشاء تحويل عامل بقيمة ${newTransfer[0].amount} بنجاح`,
+      processingTime: duration
     });
   } catch (error: any) {
+    const duration = Date.now() - startTime;
     console.error('❌ [Financial] خطأ في إضافة تحويل العامل:', error);
-    res.status(500).json({
+    
+    let errorMessage = 'فشل في إنشاء تحويل العامل';
+    let statusCode = 500;
+    
+    if (error.code === '23503') errorMessage = 'العامل أو المشروع المحدد غير موجود', statusCode = 400;
+    else if (error.code === '23502') errorMessage = 'بيانات تحويل العامل ناقصة', statusCode = 400;
+    
+    res.status(statusCode).json({
       success: false,
-      error: 'خطأ في إضافة تحويل العامل',
-      message: error.message
+      error: errorMessage,
+      message: error.message,
+      processingTime: duration
     });
   }
 });
 
 // تعديل تحويل عامل
 financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    const { id } = req.params;
-    console.log('👷‍♂️ [API] تعديل تحويل العامل:', id);
+    const transferId = req.params.id;
+    console.log('🔄 [API] طلب تحديث تحويل العامل من المستخدم:', (req as any).user?.email);
+    console.log('📋 [API] ID تحويل العامل:', transferId);
+    console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+    
+    if (!transferId) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'معرف تحويل العامل مطلوب',
+        message: 'لم يتم توفير معرف تحويل العامل للتحديث',
+        processingTime: duration
+      });
+    }
+
+    // التحقق من وجود تحويل العامل أولاً
+    const existingTransfer = await db.select().from(workerTransfers).where(eq(workerTransfers.id, transferId)).limit(1);
+    
+    if (existingTransfer.length === 0) {
+      const duration = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: 'تحويل العامل غير موجود',
+        message: `لم يتم العثور على تحويل عامل بالمعرف: ${transferId}`,
+        processingTime: duration
+      });
+    }
+    
+    // Validation باستخدام insert schema - نسمح بتحديث جزئي
+    const validationResult = insertWorkerTransferSchema.partial().safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] فشل في validation تحديث تحويل العامل:', validationResult.error.flatten());
+      
+      const errorMessages = validationResult.error.flatten().fieldErrors;
+      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث تحويل العامل غير صحيحة';
+      
+      return res.status(400).json({
+        success: false,
+        error: 'بيانات تحديث تحويل العامل غير صحيحة',
+        message: firstError,
+        details: errorMessages,
+        processingTime: duration
+      });
+    }
+
+    // تحديث تحويل العامل
+    const updatedTransfer = await db
+      .update(workerTransfers)
+      .set(validationResult.data)
+      .where(eq(workerTransfers.id, transferId))
+      .returning();
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم تحديث تحويل العامل بنجاح في ${duration}ms`);
     
     res.json({
       success: true,
-      message: `تعديل تحويل العامل ${id} - سيتم نقل المنطق`
+      data: updatedTransfer[0],
+      message: `تم تحديث تحويل العامل بقيمة ${updatedTransfer[0].amount} بنجاح`,
+      processingTime: duration
     });
+    
   } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في تحديث تحويل العامل:', error);
+    
     res.status(500).json({
       success: false,
-      error: 'خطأ في تعديل تحويل العامل'
+      error: 'فشل في تحديث تحويل العامل',
+      message: error.message,
+      processingTime: duration
     });
   }
 });
 
 // حذف تحويل عامل
 financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    const { id } = req.params;
-    console.log('👷‍♂️ [API] حذف تحويل العامل:', id);
+    const transferId = req.params.id;
+    console.log('🗑️ [API] طلب حذف حوالة العامل:', transferId);
+    console.log('👤 [API] المستخدم:', (req as any).user?.email);
+    
+    if (!transferId) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'معرف حوالة العامل مطلوب',
+        message: 'لم يتم توفير معرف الحوالة للحذف',
+        processingTime: duration
+      });
+    }
+
+    // التحقق من وجود الحوالة أولاً
+    const existingTransfer = await db.select().from(workerTransfers).where(eq(workerTransfers.id, transferId)).limit(1);
+    
+    if (existingTransfer.length === 0) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] حوالة العامل غير موجودة:', transferId);
+      return res.status(404).json({
+        success: false,
+        error: 'حوالة العامل غير موجودة',
+        message: `لم يتم العثور على حوالة بالمعرف: ${transferId}`,
+        processingTime: duration
+      });
+    }
+    
+    const transferToDelete = existingTransfer[0];
+    console.log('🗑️ [API] سيتم حذف حوالة العامل:', {
+      id: transferToDelete.id,
+      workerId: transferToDelete.workerId,
+      amount: transferToDelete.amount,
+      recipientName: transferToDelete.recipientName
+    });
+    
+    // حذف حوالة العامل من قاعدة البيانات
+    console.log('🗑️ [API] حذف حوالة العامل من قاعدة البيانات...');
+    const deletedTransfer = await db
+      .delete(workerTransfers)
+      .where(eq(workerTransfers.id, transferId))
+      .returning();
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم حذف حوالة العامل بنجاح في ${duration}ms:`, {
+      id: deletedTransfer[0].id,
+      amount: deletedTransfer[0].amount,
+      recipientName: deletedTransfer[0].recipientName
+    });
     
     res.json({
       success: true,
-      message: `حذف تحويل العامل ${id} - سيتم نقل المنطق`
+      data: deletedTransfer[0],
+      message: `تم حذف حوالة العامل إلى "${deletedTransfer[0].recipientName}" بقيمة ${deletedTransfer[0].amount} بنجاح`,
+      processingTime: duration
     });
+    
   } catch (error: any) {
-    res.status(500).json({
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في حذف حوالة العامل:', error);
+    
+    // تحليل نوع الخطأ لرسالة أفضل
+    let errorMessage = 'فشل في حذف حوالة العامل';
+    let statusCode = 500;
+    
+    if (error.code === '23503') { // foreign key violation
+      errorMessage = 'لا يمكن حذف حوالة العامل - مرتبطة ببيانات أخرى';
+      statusCode = 409;
+    } else if (error.code === '22P02') { // invalid input syntax
+      errorMessage = 'معرف حوالة العامل غير صحيح';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      error: 'خطأ في حذف تحويل العامل'
+      error: errorMessage,
+      message: error.message,
+      processingTime: duration
     });
   }
 });
@@ -503,53 +685,361 @@ financialRouter.get('/worker-misc-expenses', async (req: Request, res: Response)
 
 // إضافة مصروف عامل متنوع جديد
 financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    console.log('💸 [API] إضافة مصروف عامل متنوع جديد');
+    console.log('💸 [API] إضافة مصروف عامل متنوع جديد:', req.body);
     
-    res.json({
+    // Validation باستخدام insert schema
+    const validationResult = insertWorkerMiscExpenseSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] فشل في validation مصروف العامل المتنوع:', validationResult.error.flatten());
+      
+      const errorMessages = validationResult.error.flatten().fieldErrors;
+      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات مصروف العامل المتنوع غير صحيحة';
+      
+      return res.status(400).json({
+        success: false,
+        error: 'بيانات مصروف العامل المتنوع غير صحيحة',
+        message: firstError,
+        details: errorMessages,
+        processingTime: duration
+      });
+    }
+    
+    console.log('✅ [API] نجح validation مصروف العامل المتنوع');
+    
+    // إدراج مصروف العامل المتنوع الجديد في قاعدة البيانات
+    const newExpense = await db.insert(workerMiscExpenses).values(validationResult.data).returning();
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم إنشاء مصروف العامل المتنوع بنجاح في ${duration}ms`);
+    
+    res.status(201).json({
       success: true,
-      message: 'إضافة مصروف عامل متنوع - سيتم نقل المنطق'
+      data: newExpense[0],
+      message: `تم إنشاء مصروف عامل متنوع بقيمة ${newExpense[0].amount} بنجاح`,
+      processingTime: duration
     });
   } catch (error: any) {
-    res.status(500).json({
+    const duration = Date.now() - startTime;
+    console.error('❌ [Financial] خطأ في إضافة مصروف العامل:', error);
+    
+    let errorMessage = 'فشل في إنشاء مصروف العامل المتنوع';
+    let statusCode = 500;
+    
+    if (error.code === '23503') errorMessage = 'العامل أو المشروع المحدد غير موجود', statusCode = 400;
+    else if (error.code === '23502') errorMessage = 'بيانات مصروف العامل المتنوع ناقصة', statusCode = 400;
+    
+    res.status(statusCode).json({
       success: false,
-      error: 'خطأ في إضافة مصروف العامل'
+      error: errorMessage,
+      message: error.message,
+      processingTime: duration
     });
   }
 });
 
 // تعديل مصروف عامل متنوع
 financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    const { id } = req.params;
-    console.log('💸 [API] تعديل مصروف العامل:', id);
+    const expenseId = req.params.id;
+    console.log('🔄 [API] طلب تحديث المصروف المتنوع للعامل من المستخدم:', (req as any).user?.email);
+    console.log('📋 [API] ID المصروف المتنوع:', expenseId);
+    console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+    
+    if (!expenseId) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'معرف المصروف المتنوع للعامل مطلوب',
+        message: 'لم يتم توفير معرف المصروف المتنوع للعامل للتحديث',
+        processingTime: duration
+      });
+    }
+
+    // التحقق من وجود المصروف المتنوع أولاً
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.id, expenseId)).limit(1);
+    
+    if (existingExpense.length === 0) {
+      const duration = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: 'المصروف المتنوع للعامل غير موجود',
+        message: `لم يتم العثور على مصروف متنوع للعامل بالمعرف: ${expenseId}`,
+        processingTime: duration
+      });
+    }
+    
+    // Validation باستخدام insert schema - نسمح بتحديث جزئي
+    const validationResult = insertWorkerMiscExpenseSchema.partial().safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] فشل في validation تحديث المصروف المتنوع للعامل:', validationResult.error.flatten());
+      
+      const errorMessages = validationResult.error.flatten().fieldErrors;
+      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث المصروف المتنوع للعامل غير صحيحة';
+      
+      return res.status(400).json({
+        success: false,
+        error: 'بيانات تحديث المصروف المتنوع للعامل غير صحيحة',
+        message: firstError,
+        details: errorMessages,
+        processingTime: duration
+      });
+    }
+
+    // تحديث المصروف المتنوع للعامل
+    const updatedExpense = await db
+      .update(workerMiscExpenses)
+      .set(validationResult.data)
+      .where(eq(workerMiscExpenses.id, expenseId))
+      .returning();
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم تحديث المصروف المتنوع للعامل بنجاح في ${duration}ms`);
     
     res.json({
       success: true,
-      message: `تعديل مصروف العامل ${id} - سيتم نقل المنطق`
+      data: updatedExpense[0],
+      message: `تم تحديث المصروف المتنوع للعامل بقيمة ${updatedExpense[0].amount} بنجاح`,
+      processingTime: duration
     });
+    
   } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في تحديث المصروف المتنوع للعامل:', error);
+    
     res.status(500).json({
       success: false,
-      error: 'خطأ في تعديل مصروف العامل'
+      error: 'فشل في تحديث المصروف المتنوع للعامل',
+      message: error.message,
+      processingTime: duration
     });
   }
 });
 
 // حذف مصروف عامل متنوع
 financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    const { id } = req.params;
-    console.log('💸 [API] حذف مصروف العامل:', id);
+    const expenseId = req.params.id;
+    console.log('🗑️ [API] طلب حذف مصروف العامل المتنوع:', expenseId);
+    console.log('👤 [API] المستخدم:', (req as any).user?.email);
+    
+    if (!expenseId) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'معرف مصروف العامل المتنوع مطلوب',
+        message: 'لم يتم توفير معرف المصروف للحذف',
+        processingTime: duration
+      });
+    }
+
+    // التحقق من وجود المصروف أولاً
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.id, expenseId)).limit(1);
+    
+    if (existingExpense.length === 0) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] مصروف العامل المتنوع غير موجود:', expenseId);
+      return res.status(404).json({
+        success: false,
+        error: 'مصروف العامل المتنوع غير موجود',
+        message: `لم يتم العثور على مصروف بالمعرف: ${expenseId}`,
+        processingTime: duration
+      });
+    }
+    
+    const expenseToDelete = existingExpense[0];
+    console.log('🗑️ [API] سيتم حذف مصروف العامل المتنوع:', {
+      id: expenseToDelete.id,
+      workerId: expenseToDelete.workerId,
+      amount: expenseToDelete.amount,
+      description: expenseToDelete.description
+    });
+    
+    // حذف مصروف العامل المتنوع من قاعدة البيانات
+    console.log('🗑️ [API] حذف مصروف العامل المتنوع من قاعدة البيانات...');
+    const deletedExpense = await db
+      .delete(workerMiscExpenses)
+      .where(eq(workerMiscExpenses.id, expenseId))
+      .returning();
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم حذف مصروف العامل المتنوع بنجاح في ${duration}ms:`, {
+      id: deletedExpense[0].id,
+      amount: deletedExpense[0].amount,
+      description: deletedExpense[0].description
+    });
     
     res.json({
       success: true,
-      message: `حذف مصروف العامل ${id} - سيتم نقل المنطق`
+      data: deletedExpense[0],
+      message: `تم حذف مصروف العامل المتنوع "${deletedExpense[0].description}" بقيمة ${deletedExpense[0].amount} بنجاح`,
+      processingTime: duration
     });
+    
   } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في حذف مصروف العامل المتنوع:', error);
+    
+    // تحليل نوع الخطأ لرسالة أفضل
+    let errorMessage = 'فشل في حذف مصروف العامل المتنوع';
+    let statusCode = 500;
+    
+    if (error.code === '23503') { // foreign key violation
+      errorMessage = 'لا يمكن حذف مصروف العامل المتنوع - مرتبط ببيانات أخرى';
+      statusCode = 409;
+    } else if (error.code === '22P02') { // invalid input syntax
+      errorMessage = 'معرف مصروف العامل المتنوع غير صحيح';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      error: errorMessage,
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
+ * 📊 التقارير المالية
+ * Financial Reports
+ */
+
+// ملخص التقارير المالية العامة
+financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    console.log('📊 [API] جلب ملخص التقارير المالية العامة');
+    console.log('👤 [API] المستخدم:', (req as any).user?.email);
+    
+    // جلب إحصائيات شاملة من قاعدة البيانات
+    const [
+      fundTransfersStats,
+      projectFundTransfersStats,
+      workerTransfersStats,
+      workerMiscExpensesStats,
+      projectsCount,
+      workersCount
+    ] = await Promise.all([
+      // إحصائيات تحويلات العهدة
+      db.execute(sql`
+        SELECT 
+          COUNT(*) as total_transfers,
+          COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
+        FROM fund_transfers
+      `),
+      // إحصائيات تحويلات المشاريع
+      db.execute(sql`
+        SELECT 
+          COUNT(*) as total_transfers,
+          COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
+        FROM project_fund_transfers
+      `),
+      // إحصائيات تحويلات العمال
+      db.execute(sql`
+        SELECT 
+          COUNT(*) as total_transfers,
+          COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
+        FROM worker_transfers
+      `),
+      // إحصائيات مصاريف العمال المتنوعة
+      db.execute(sql`
+        SELECT 
+          COUNT(*) as total_expenses,
+          COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
+        FROM worker_misc_expenses
+      `),
+      // عدد المشاريع
+      db.execute(sql`SELECT COUNT(*) as total_projects FROM projects`),
+      // عدد العمال
+      db.execute(sql`SELECT COUNT(*) as total_workers FROM workers WHERE is_active = true`)
+    ]);
+
+    // استخراج البيانات وتنظيفها
+    const cleanValue = (value: any): number => {
+      if (value === null || value === undefined) return 0;
+      const parsed = parseFloat(String(value));
+      return isNaN(parsed) ? 0 : Math.max(0, parsed);
+    };
+
+    const cleanCount = (value: any): number => {
+      if (value === null || value === undefined) return 0;
+      const parsed = parseInt(String(value), 10);
+      return isNaN(parsed) ? 0 : Math.max(0, parsed);
+    };
+
+    // تجميع البيانات
+    const summary = {
+      // إحصائيات التحويلات المالية
+      fundTransfers: {
+        totalTransfers: cleanCount(fundTransfersStats.rows[0]?.total_transfers),
+        totalAmount: cleanValue(fundTransfersStats.rows[0]?.total_amount)
+      },
+      // إحصائيات تحويلات المشاريع
+      projectFundTransfers: {
+        totalTransfers: cleanCount(projectFundTransfersStats.rows[0]?.total_transfers),
+        totalAmount: cleanValue(projectFundTransfersStats.rows[0]?.total_amount)
+      },
+      // إحصائيات تحويلات العمال
+      workerTransfers: {
+        totalTransfers: cleanCount(workerTransfersStats.rows[0]?.total_transfers),
+        totalAmount: cleanValue(workerTransfersStats.rows[0]?.total_amount)
+      },
+      // إحصائيات مصاريف العمال المتنوعة
+      workerMiscExpenses: {
+        totalExpenses: cleanCount(workerMiscExpensesStats.rows[0]?.total_expenses),
+        totalAmount: cleanValue(workerMiscExpensesStats.rows[0]?.total_amount)
+      },
+      // إحصائيات عامة
+      general: {
+        totalProjects: cleanCount(projectsCount.rows[0]?.total_projects),
+        totalActiveWorkers: cleanCount(workersCount.rows[0]?.total_workers)
+      }
+    };
+
+    // حساب المجاميع العامة
+    const totalIncome = summary.fundTransfers.totalAmount + summary.projectFundTransfers.totalAmount;
+    const totalExpenses = summary.workerTransfers.totalAmount + summary.workerMiscExpenses.totalAmount;
+    const netBalance = totalIncome - totalExpenses;
+
+    const finalSummary = {
+      ...summary,
+      // ملخص مالي إجمالي
+      financialOverview: {
+        totalIncome,
+        totalExpenses,
+        netBalance,
+        lastUpdated: new Date().toISOString()
+      }
+    };
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب ملخص التقارير المالية بنجاح في ${duration}ms`);
+
+    res.json({
+      success: true,
+      data: finalSummary,
+      message: 'تم جلب ملخص التقارير المالية بنجاح',
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب ملخص التقارير المالية:', error);
+    
     res.status(500).json({
       success: false,
-      error: 'خطأ في حذف مصروف العامل'
+      error: 'فشل في جلب ملخص التقارير المالية',
+      message: error.message,
+      processingTime: duration
     });
   }
 });

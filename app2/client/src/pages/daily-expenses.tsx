@@ -1064,7 +1064,10 @@ function DailyExpensesContent() {
 
       const carriedAmount = cleanNumber(carriedForward);
 
-      const totalIncome = carriedAmount + totalFundTransfers + incomingProjectTransfers;
+      // حساب الدخل الجديد فقط (بدون المبلغ المرحل)
+      const newIncome = totalFundTransfers + incomingProjectTransfers;
+      // إجمالي الدخل = المبلغ المرحل + الدخل الجديد
+      const totalIncome = carriedAmount + newIncome;
       const totalExpenses = totalWorkerWages + totalTransportation + totalMaterialCosts + 
                             totalWorkerTransfers + totalMiscExpenses + outgoingProjectTransfers;
       const remainingBalance = totalIncome - totalExpenses;

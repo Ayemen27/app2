@@ -1339,7 +1339,9 @@ export class DatabaseStorage implements IStorage {
 
       // للملخص اليومي: التحويلات الصادرة لا تُحسب كمصروف، بل كحركة مالية منفصلة
       const netProjectTransfers = incomingTransfers - outgoingTransfers;
-      const totalIncome = carriedForwardAmount + totalFundTransfers + netProjectTransfers;
+      // حساب الدخل الفعلي (المبلغ المرحل + الدخل الجديد)
+      const actualIncome = totalFundTransfers + netProjectTransfers;
+      const totalIncome = carriedForwardAmount + actualIncome;
       const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportationCosts + totalWorkerTransferCosts + totalWorkerMiscCosts;
       const remainingBalance = totalIncome - totalExpenses;
 

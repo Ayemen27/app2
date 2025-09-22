@@ -12344,14 +12344,60 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
     const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
     const totalIncome = totalFundTransfers;
     const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
-    const remainingBalance = totalIncome - totalExpenses;
+    let carriedForward = 0;
+    let carriedForwardSource = "none";
+    try {
+      console.log(`\u{1F4B0} [API] \u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u0631\u062D\u0644 \u0644\u062A\u0627\u0631\u064A\u062E: ${date2}`);
+      const currentDate = new Date(date2);
+      const previousDate = new Date(currentDate);
+      previousDate.setDate(currentDate.getDate() - 1);
+      const previousDateStr = previousDate.toISOString().split("T")[0];
+      console.log(`\u{1F4B0} [API] \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062A\u0628\u0642\u064A \u0644\u064A\u0648\u0645: ${previousDateStr}`);
+      const latestSummary = await db.select({
+        remainingBalance: dailyExpenseSummaries.remainingBalance,
+        date: dailyExpenseSummaries.date
+      }).from(dailyExpenseSummaries).where(and7(
+        eq8(dailyExpenseSummaries.projectId, projectId),
+        lt3(dailyExpenseSummaries.date, date2)
+      )).orderBy(desc5(dailyExpenseSummaries.date)).limit(1);
+      if (latestSummary.length > 0) {
+        const summaryDate = latestSummary[0].date;
+        const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || "0"));
+        if (summaryDate === previousDateStr) {
+          carriedForward = summaryBalance;
+          carriedForwardSource = "summary";
+          console.log(`\u{1F4B0} [API] \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0644\u062E\u0635 \u0644\u0644\u064A\u0648\u0645 \u0627\u0644\u0633\u0627\u0628\u0642: ${carriedForward}`);
+        } else {
+          console.log(`\u{1F4B0} [API] \u0622\u062E\u0631 \u0645\u0644\u062E\u0635 \u0645\u062D\u0641\u0648\u0638 \u0641\u064A ${summaryDate}, \u062D\u0633\u0627\u0628 \u062A\u0631\u0627\u0643\u0645\u064A \u0625\u0644\u0649 ${previousDateStr}`);
+          const startFromDate = new Date(summaryDate);
+          startFromDate.setDate(startFromDate.getDate() + 1);
+          const startFromStr = startFromDate.toISOString().split("T")[0];
+          const cumulativeBalance = await calculateCumulativeBalance(projectId, startFromStr, previousDateStr);
+          carriedForward = summaryBalance + cumulativeBalance;
+          carriedForwardSource = "computed-from-summary";
+          console.log(`\u{1F4B0} [API] \u0631\u0635\u064A\u062F \u062A\u0631\u0627\u0643\u0645\u064A \u0645\u0646 ${summaryDate} (${summaryBalance}) + ${cumulativeBalance} = ${carriedForward}`);
+        }
+      } else {
+        console.log(`\u{1F4B0} [API] \u0644\u0627 \u064A\u0648\u062C\u062F \u0645\u0644\u062E\u0635 \u0645\u062D\u0641\u0648\u0638\u060C \u062D\u0633\u0627\u0628 \u062A\u0631\u0627\u0643\u0645\u064A \u0645\u0646 \u0627\u0644\u0628\u062F\u0627\u064A\u0629`);
+        carriedForward = await calculateCumulativeBalance(projectId, null, previousDateStr);
+        carriedForwardSource = "computed-full";
+        console.log(`\u{1F4B0} [API] \u0631\u0635\u064A\u062F \u062A\u0631\u0627\u0643\u0645\u064A \u0643\u0627\u0645\u0644: ${carriedForward}`);
+      }
+    } catch (error) {
+      console.warn(`\u26A0\uFE0F [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u0631\u062D\u0644\u060C \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0642\u064A\u0645\u0629 \u0627\u0644\u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629 0:`, error);
+      carriedForward = 0;
+      carriedForwardSource = "error";
+    }
+    const remainingBalance = carriedForward + totalIncome - totalExpenses;
     const responseData = {
       date: date2,
       projectName: projectInfo[0]?.name || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641",
       projectId,
+      carriedForward: parseFloat(carriedForward.toFixed(2)),
+      carriedForwardSource,
       totalIncome,
       totalExpenses,
-      remainingBalance,
+      remainingBalance: parseFloat(remainingBalance.toFixed(2)),
       fundTransfers: fundTransfersResult,
       workerAttendance: workerAttendanceResult,
       materialPurchases: materialPurchasesResult,

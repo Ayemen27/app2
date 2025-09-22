@@ -1185,15 +1185,83 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
 
     const totalIncome = totalFundTransfers;
     const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
-    const remainingBalance = totalIncome - totalExpenses;
+    
+    // 💰 جلب الرصيد المرحل من اليوم السابق
+    let carriedForward = 0;
+    let carriedForwardSource = 'none';
+    
+    try {
+      console.log(`💰 [API] حساب الرصيد المرحل لتاريخ: ${date}`);
+      
+      // حساب التاريخ السابق
+      const currentDate = new Date(date);
+      const previousDate = new Date(currentDate);
+      previousDate.setDate(currentDate.getDate() - 1);
+      const previousDateStr = previousDate.toISOString().split('T')[0];
+
+      console.log(`💰 [API] البحث عن الرصيد المتبقي ليوم: ${previousDateStr}`);
+
+      // أولاً: محاولة العثور على أحدث ملخص محفوظ قبل التاريخ المطلوب
+      const latestSummary = await db.select({
+        remainingBalance: dailyExpenseSummaries.remainingBalance,
+        date: dailyExpenseSummaries.date
+      })
+      .from(dailyExpenseSummaries)
+      .where(and(
+        eq(dailyExpenseSummaries.projectId, projectId),
+        lt(dailyExpenseSummaries.date, date)
+      ))
+      .orderBy(desc(dailyExpenseSummaries.date))
+      .limit(1);
+
+      if (latestSummary.length > 0) {
+        const summaryDate = latestSummary[0].date;
+        const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || '0'));
+        
+        // إذا كان الملخص الموجود هو لليوم السابق مباشرة، استخدمه
+        if (summaryDate === previousDateStr) {
+          carriedForward = summaryBalance;
+          carriedForwardSource = 'summary';
+          console.log(`💰 [API] تم العثور على ملخص لليوم السابق: ${carriedForward}`);
+        } else {
+          // إذا كان الملخص لتاريخ أقدم، احسب من ذلك التاريخ إلى اليوم السابق
+          console.log(`💰 [API] آخر ملخص محفوظ في ${summaryDate}, حساب تراكمي إلى ${previousDateStr}`);
+          
+          const startFromDate = new Date(summaryDate);
+          startFromDate.setDate(startFromDate.getDate() + 1);
+          const startFromStr = startFromDate.toISOString().split('T')[0];
+          
+          // حساب تراكمي من startFromStr إلى previousDateStr
+          const cumulativeBalance = await calculateCumulativeBalance(projectId, startFromStr, previousDateStr);
+          carriedForward = summaryBalance + cumulativeBalance;
+          carriedForwardSource = 'computed-from-summary';
+          console.log(`💰 [API] رصيد تراكمي من ${summaryDate} (${summaryBalance}) + ${cumulativeBalance} = ${carriedForward}`);
+        }
+      } else {
+        // لا يوجد ملخص محفوظ، حساب تراكمي من البداية
+        console.log(`💰 [API] لا يوجد ملخص محفوظ، حساب تراكمي من البداية`);
+        carriedForward = await calculateCumulativeBalance(projectId, null, previousDateStr);
+        carriedForwardSource = 'computed-full';
+        console.log(`💰 [API] رصيد تراكمي كامل: ${carriedForward}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ [API] خطأ في حساب الرصيد المرحل، استخدام القيمة الافتراضية 0:`, error);
+      carriedForward = 0;
+      carriedForwardSource = 'error';
+    }
+    
+    // 💡 الحساب الصحيح: الرصيد المرحل + الدخل - المصروفات
+    const remainingBalance = carriedForward + totalIncome - totalExpenses;
 
     const responseData = {
       date,
       projectName: projectInfo[0]?.name || 'مشروع غير معروف',
       projectId,
+      carriedForward: parseFloat(carriedForward.toFixed(2)),
+      carriedForwardSource,
       totalIncome,
       totalExpenses,
-      remainingBalance,
+      remainingBalance: parseFloat(remainingBalance.toFixed(2)),
       fundTransfers: fundTransfersResult,
       workerAttendance: workerAttendanceResult,
       materialPurchases: materialPurchasesResult,

@@ -909,6 +909,118 @@ projectRouter.get('/:projectId/worker-misc-expenses', async (req: Request, res: 
 });
 
 /**
+ * 🔄 جلب التحويلات الواردة لمشروع محدد (من مشاريع أخرى)
+ * GET /api/project-fund-transfers?toProjectId=:projectId
+ */
+projectRouter.get('/fund-transfers/incoming/:projectId', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.params;
+
+    console.log(`📥 [API] جلب التحويلات الواردة للمشروع: ${projectId}`);
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: 'معرف المشروع مطلوب',
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    const transfers = await db.select({
+      id: projectFundTransfers.id,
+      fromProjectId: projectFundTransfers.fromProjectId,
+      toProjectId: projectFundTransfers.toProjectId,
+      amount: projectFundTransfers.amount,
+      transferDate: projectFundTransfers.transferDate,
+      description: projectFundTransfers.description,
+      fromProjectName: sql`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    })
+    .from(projectFundTransfers)
+    .where(eq(projectFundTransfers.toProjectId, projectId))
+    .orderBy(desc(projectFundTransfers.transferDate));
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب ${transfers.length} تحويل وارد في ${duration}ms`);
+
+    res.json({
+      success: true,
+      data: transfers,
+      message: `تم جلب ${transfers.length} تحويل وارد بنجاح`,
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب التحويلات الواردة:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'فشل في جلب التحويلات الواردة',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
+ * 🔄 جلب التحويلات الصادرة لمشروع محدد (إلى مشاريع أخرى)
+ * GET /api/project-fund-transfers?fromProjectId=:projectId
+ */
+projectRouter.get('/fund-transfers/outgoing/:projectId', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.params;
+
+    console.log(`📤 [API] جلب التحويلات الصادرة للمشروع: ${projectId}`);
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: 'معرف المشروع مطلوب',
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    const transfers = await db.select({
+      id: projectFundTransfers.id,
+      fromProjectId: projectFundTransfers.fromProjectId,
+      toProjectId: projectFundTransfers.toProjectId,
+      amount: projectFundTransfers.amount,
+      transferDate: projectFundTransfers.transferDate,
+      description: projectFundTransfers.description,
+      fromProjectName: sql`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    })
+    .from(projectFundTransfers)
+    .where(eq(projectFundTransfers.fromProjectId, projectId))
+    .orderBy(desc(projectFundTransfers.transferDate));
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب ${transfers.length} تحويل صادر في ${duration}ms`);
+
+    res.json({
+      success: true,
+      data: transfers,
+      message: `تم جلب ${transfers.length} تحويل صادر بنجاح`,
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب التحويلات الصادرة:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'فشل في جلب التحويلات الصادرة',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
  * 📊 جلب حوالات العمال لمشروع محدد
  * GET /api/projects/:projectId/worker-transfers
  */

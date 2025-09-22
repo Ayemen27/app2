@@ -70,12 +70,12 @@ export default function ProjectTransactionsSimple() {
 
   // جلب التحويلات بين المشاريع (الواردة) - فقط إذا كانت موجودة فعلياً
   const { data: incomingProjectTransfers = [], isLoading: incomingTransfersLoading, error: incomingTransfersError } = useQuery({
-    queryKey: ['/api/project-fund-transfers', selectedProject, 'incoming'],
+    queryKey: ['/api/projects', selectedProject, 'fund-transfers', 'incoming'],
     queryFn: async () => {
       if (!selectedProject) return [];
       try {
         console.log(`🔄 جلب التحويلات الواردة للمشروع: ${selectedProject}`);
-        const response = await fetch(`/api/project-fund-transfers?toProjectId=${selectedProject}`, {
+        const response = await fetch(`/api/projects/fund-transfers/incoming/${selectedProject}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
             'Content-Type': 'application/json',
@@ -116,12 +116,12 @@ export default function ProjectTransactionsSimple() {
 
   // جلب التحويلات بين المشاريع (الصادرة)
   const { data: outgoingProjectTransfers = [], isLoading: outgoingTransfersLoading, error: outgoingTransfersError } = useQuery({
-    queryKey: ['/api/project-fund-transfers', selectedProject, 'outgoing'],
+    queryKey: ['/api/projects', selectedProject, 'fund-transfers', 'outgoing'],
     queryFn: async () => {
       if (!selectedProject) return [];
       try {
         console.log(`🔄 جلب التحويلات الصادرة للمشروع: ${selectedProject}`);
-        const response = await fetch(`/api/project-fund-transfers?fromProjectId=${selectedProject}`, {
+        const response = await fetch(`/api/projects/fund-transfers/outgoing/${selectedProject}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
             'Content-Type': 'application/json',
@@ -328,7 +328,7 @@ export default function ProjectTransactionsSimple() {
       }
     });
 
-    // إضافة التحويلات الواردة من مشاريع أخرى (دخل) - فقط إذا كانت موجودة فعلياً
+    // إضافة التحويلات الواردة من مشاريع أخرى (دخل)
     if (incomingProjectTransfersArray.length > 0) {
       console.log(`📥 معالجة ${incomingProjectTransfersArray.length} تحويل وارد`);
       incomingProjectTransfersArray.forEach((transfer: any) => {
@@ -567,18 +567,34 @@ export default function ProjectTransactionsSimple() {
     const totals = useMemo(() => {
     const income = filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (t.amount || 0), 0);
     const transferFromProject = filteredTransactions.filter(t => t.type === 'transfer_from_project').reduce((sum, t) => sum + (t.amount || 0), 0);
-    const transferToProject = filteredTransactions.filter(t => t.type === 'transfer_to_project').reduce((sum, t) => sum + (t.amount || 0), 0);
     const expenses = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (t.amount || 0), 0);
 
+    // التحويلات الصادرة إلى مشاريع أخرى تُحسب كمصروفات
+    const transferToProjectExpenses = filteredTransactions.filter(t => t.category === 'تحويل إلى مشروع آخر').reduce((sum, t) => sum + (t.amount || 0), 0);
+    
+    // المصروفات الأخرى (بدون التحويلات)
+    const otherExpenses = expenses - transferToProjectExpenses;
+
     const totalIncome = income + transferFromProject;
-    const totalExpenses = expenses + transferToProject;
+    const totalExpenses = expenses;
+
+    console.log('💰 تفاصيل الحسابات:', {
+      income,
+      transferFromProject,
+      otherExpenses,
+      transferToProjectExpenses,
+      totalIncome,
+      totalExpenses,
+      balance: totalIncome - totalExpenses
+    });
 
     return { 
       income,
       transferFromProject,
-      transferToProject,
+      otherExpenses,
+      transferToProjectExpenses,
       totalIncome,
-      expenses,
+      expenses: totalExpenses,
       totalExpenses,
       balance: totalIncome - totalExpenses
     };

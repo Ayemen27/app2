@@ -11562,20 +11562,33 @@ projectRouter.get("/with-stats", async (req, res) => {
           FROM worker_misc_expenses 
           WHERE project_id = ${projectId}
         `);
+        const outgoingProjectTransfersStats = await db.execute(sql5`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as outgoing_project_transfers
+          FROM project_fund_transfers 
+          WHERE from_project_id = ${projectId}
+        `);
+        const incomingProjectTransfersStats = await db.execute(sql5`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as incoming_project_transfers
+          FROM project_fund_transfers 
+          WHERE to_project_id = ${projectId}
+        `);
         const totalWorkers = cleanDbValue(workersStats.rows[0]?.total_workers || "0", "integer");
         const activeWorkers = cleanDbValue(workersStats.rows[0]?.active_workers || "0", "integer");
         const materialExpenses = cleanDbValue(materialStats.rows[0]?.material_expenses || "0");
         const materialPurchases3 = cleanDbValue(materialStats.rows[0]?.material_purchases || "0", "integer");
         const workerWages = cleanDbValue(workerWagesStats.rows[0]?.worker_wages || "0");
         const completedDays = cleanDbValue(workerWagesStats.rows[0]?.completed_days || "0", "integer");
-        const totalIncome = cleanDbValue(fundTransfersStats.rows[0]?.total_income || "0");
+        const fundTransfersIncome = cleanDbValue(fundTransfersStats.rows[0]?.total_income || "0");
         const transportExpenses = cleanDbValue(transportStats.rows[0]?.transport_expenses || "0");
         const workerTransfers2 = cleanDbValue(workerTransfersStats.rows[0]?.worker_transfers || "0");
         const miscExpenses = cleanDbValue(miscExpensesStats.rows[0]?.misc_expenses || "0");
+        const outgoingProjectTransfers = cleanDbValue(outgoingProjectTransfersStats.rows[0]?.outgoing_project_transfers || "0");
+        const incomingProjectTransfers = cleanDbValue(incomingProjectTransfersStats.rows[0]?.incoming_project_transfers || "0");
         if (totalWorkers > 1e3) {
           console.warn(`\u26A0\uFE0F [API] \u0639\u062F\u062F \u0639\u0645\u0627\u0644 \u063A\u064A\u0631 \u0645\u0646\u0637\u0642\u064A \u0644\u0644\u0645\u0634\u0631\u0648\u0639 ${project.name}: ${totalWorkers}`);
         }
-        const totalExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers2 + miscExpenses;
+        const totalIncome = fundTransfersIncome + incomingProjectTransfers;
+        const totalExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers2 + miscExpenses + outgoingProjectTransfers;
         const currentBalance = totalIncome - totalExpenses;
         if (process.env.NODE_ENV === "development") {
           console.log(`\u{1F4CA} [API] \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0645\u0634\u0631\u0648\u0639 "${project.name}":`, {
@@ -12158,6 +12171,72 @@ projectRouter.get("/:projectId/worker-transfers", async (req, res) => {
     res.status(500).json({
       success: false,
       data: [],
+      error: error.message,
+      processingTime: duration
+    });
+  }
+});
+projectRouter.get("/:projectId/actual-transfers", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.params;
+    console.log(`\u{1F50D} [API] \u062C\u0644\u0628 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u062D\u0642\u064A\u0642\u064A\u0629 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}`);
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const incomingTransfers = await db.select({
+      id: projectFundTransfers.id,
+      fromProjectId: projectFundTransfers.fromProjectId,
+      toProjectId: projectFundTransfers.toProjectId,
+      amount: projectFundTransfers.amount,
+      description: projectFundTransfers.description,
+      transferReason: projectFundTransfers.transferReason,
+      transferDate: projectFundTransfers.transferDate,
+      createdAt: projectFundTransfers.createdAt,
+      direction: sql5`'incoming'`.as("direction"),
+      fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq8(projectFundTransfers.toProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    const outgoingTransfers = await db.select({
+      id: projectFundTransfers.id,
+      fromProjectId: projectFundTransfers.fromProjectId,
+      toProjectId: projectFundTransfers.toProjectId,
+      amount: projectFundTransfers.amount,
+      description: projectFundTransfers.description,
+      transferReason: projectFundTransfers.transferReason,
+      transferDate: projectFundTransfers.transferDate,
+      createdAt: projectFundTransfers.createdAt,
+      direction: sql5`'outgoing'`.as("direction"),
+      fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq8(projectFundTransfers.fromProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${incomingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0648 ${outgoingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
+    res.json({
+      success: true,
+      data: {
+        incoming: incomingTransfers,
+        outgoing: outgoingTransfers,
+        summary: {
+          totalIncoming: incomingTransfers.length,
+          totalOutgoing: outgoingTransfers.length,
+          incomingAmount: incomingTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0),
+          outgoingAmount: outgoingTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0)
+        }
+      },
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${incomingTransfers.length + outgoingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u062D\u0642\u064A\u0642\u064A \u0644\u0644\u0645\u0634\u0631\u0648\u0639`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u062D\u0642\u064A\u0642\u064A\u0629:", error);
+    res.status(500).json({
+      success: false,
+      data: { incoming: [], outgoing: [], summary: {} },
       error: error.message,
       processingTime: duration
     });

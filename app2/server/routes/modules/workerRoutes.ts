@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { Request, Response } from 'express';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 import { db } from '../../db.js';
 import {
   workers, workerAttendance, workerTransfers, workerMiscExpenses, workerBalances,
@@ -713,11 +713,29 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
 workerRouter.get('/worker-misc-expenses', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
+    const { projectId, date } = req.query;
     console.log('📊 [API] جلب مصاريف العمال المتنوعة');
+    console.log('🔍 [API] معاملات الفلترة:', { projectId, date });
     
-    const expenses = await db.select()
-      .from(workerMiscExpenses)
-      .orderBy(workerMiscExpenses.date);
+    // بناء الاستعلام مع الفلترة
+    let query = db.select().from(workerMiscExpenses);
+    
+    // تطبيق الفلترة حسب المعاملات الموجودة
+    if (projectId && date) {
+      // فلترة بكل من المشروع والتاريخ
+      query = query.where(and(
+        eq(workerMiscExpenses.projectId, projectId as string),
+        eq(workerMiscExpenses.date, date as string)
+      ));
+    } else if (projectId) {
+      // فلترة بالمشروع فقط
+      query = query.where(eq(workerMiscExpenses.projectId, projectId as string));
+    } else if (date) {
+      // فلترة بالتاريخ فقط
+      query = query.where(eq(workerMiscExpenses.date, date as string));
+    }
+    
+    const expenses = await query.orderBy(workerMiscExpenses.date);
     
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${expenses.length} مصروف متنوع في ${duration}ms`);

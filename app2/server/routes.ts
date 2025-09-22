@@ -2,7 +2,7 @@ import type { Express } from "express";
 import type { Server } from "http";
 import { createServer } from "http";
 import rateLimit from "express-rate-limit";
-import { eq, and, sql, gte, lt, lte, desc } from "drizzle-orm";
+import { eq, and, or, sql, gte, lt, lte, desc } from "drizzle-orm";
 import { db } from "./db";
 import { 
   projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
@@ -5316,16 +5316,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/project-fund-transfers", requireAuth, async (req, res) => {
     const startTime = Date.now();
     try {
-      const { date } = req.query;
+      const { date, projectId } = req.query;
       
-      console.log(`📊 [API] جلب تحويلات المشاريع للتاريخ: ${date || 'الكل'}`);
+      console.log(`📊 [API] جلب تحويلات المشاريع للمشروع: ${projectId || 'الكل'} والتاريخ: ${date || 'الكل'}`);
       
       let transfers;
+      let whereConditions = [];
       
+      // فلترة بالتاريخ إذا تم توفيره
       if (date) {
+        whereConditions.push(eq(projectFundTransfers.transferDate, date as string));
+      }
+      
+      // فلترة بالمشروع إذا تم توفيره (كمشروع مرسل أو مستقبل)
+      if (projectId) {
+        whereConditions.push(
+          or(
+            eq(projectFundTransfers.fromProjectId, projectId as string),
+            eq(projectFundTransfers.toProjectId, projectId as string)
+          )
+        );
+      }
+      
+      if (whereConditions.length > 0) {
         transfers = await db.select()
           .from(projectFundTransfers)
-          .where(eq(projectFundTransfers.transferDate, date as string))
+          .where(and(...whereConditions))
           .orderBy(projectFundTransfers.transferDate);
       } else {
         transfers = await db.select()

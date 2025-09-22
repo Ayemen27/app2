@@ -3850,7 +3850,7 @@ __export(NotificationService_exports, {
   NotificationStatus: () => NotificationStatus,
   NotificationTypes: () => NotificationTypes
 });
-import { eq as eq4, and as and4, desc as desc2, or as or2, inArray, sql as sql3 } from "drizzle-orm";
+import { eq as eq4, and as and4, desc as desc2, or as or3, inArray, sql as sql3 } from "drizzle-orm";
 var NotificationPriority, NotificationTypes, NotificationStatus, NotificationService;
 var init_NotificationService = __esm({
   "server/services/NotificationService.ts"() {
@@ -4035,7 +4035,7 @@ var init_NotificationService = __esm({
           try {
             const defaultUser = await db.query.users.findFirst({
               columns: { id: true },
-              where: (users2, { eq: eq11, or: or4 }) => or4(
+              where: (users2, { eq: eq11, or: or5 }) => or5(
                 eq11(users2.role, "admin"),
                 eq11(users2.email, "admin")
               )
@@ -4056,7 +4056,7 @@ var init_NotificationService = __esm({
             return true;
           }
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq11, or: or4 }) => or4(
+            where: (users2, { eq: eq11, or: or5 }) => or5(
               eq11(users2.id, userId),
               eq11(users2.email, userId)
             )
@@ -4080,7 +4080,7 @@ var init_NotificationService = __esm({
       async getAllowedNotificationTypes(userId) {
         try {
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq11, or: or4 }) => or4(
+            where: (users2, { eq: eq11, or: or5 }) => or5(
               eq11(users2.id, userId),
               eq11(users2.email, userId)
             )
@@ -4119,7 +4119,7 @@ var init_NotificationService = __esm({
         }
         if (isUserAdmin) {
           conditions.push(
-            or2(
+            or3(
               sql3`${notifications.recipients} @> ARRAY[${userId}]`,
               sql3`${notifications.recipients} @> ARRAY['admin']`,
               sql3`${notifications.recipients} @> ARRAY['مسؤول']`,
@@ -4129,7 +4129,7 @@ var init_NotificationService = __esm({
           );
         } else {
           conditions.push(
-            or2(
+            or3(
               sql3`${notifications.recipients} @> ARRAY[${userId}]`,
               sql3`${notifications.recipients} IS NULL`
               // الإشعارات العامة
@@ -4290,7 +4290,7 @@ var init_NotificationService = __esm({
         const allowedTypes = await this.getAllowedNotificationTypes(userId);
         const conditions = [inArray(notifications.type, allowedTypes)];
         if (isAdmin) {
-          const adminCondition = or2(
+          const adminCondition = or3(
             sql3`${notifications.recipients} @> ARRAY[${userId}]`,
             sql3`${notifications.recipients} @> ARRAY['admin']`,
             sql3`${notifications.recipients} @> ARRAY['مسؤول']`,
@@ -4300,7 +4300,7 @@ var init_NotificationService = __esm({
             conditions.push(adminCondition);
           }
         } else {
-          const userCondition = or2(
+          const userCondition = or3(
             sql3`${notifications.recipients} @> ARRAY[${userId}]`,
             sql3`${notifications.recipients} IS NULL`
           );
@@ -4619,7 +4619,7 @@ init_db();
 init_schema();
 import jwt from "jsonwebtoken";
 import crypto2 from "crypto";
-import { eq, and, lt, or, ne, gte } from "drizzle-orm";
+import { eq, and, lt, or as or2, ne, gte } from "drizzle-orm";
 
 // server/auth/crypto-utils.ts
 import bcrypt from "bcrypt";
@@ -5008,7 +5008,7 @@ async function revokeToken(tokenOrSessionId, reason) {
         revokedAt: /* @__PURE__ */ new Date(),
         revokedReason: reason || "manual_revoke"
       }).where(
-        or(
+        or2(
           eq(authUserSessions.accessTokenHash, tokenOrSessionId),
           eq(authUserSessions.refreshTokenHash, tokenOrSessionId),
           eq(authUserSessions.deviceId, tokenOrSessionId)
@@ -9891,11 +9891,23 @@ async function registerRoutes(app2) {
   app2.get("/api/project-fund-transfers", requireAuth, async (req, res) => {
     const startTime = Date.now();
     try {
-      const { date: date2 } = req.query;
-      console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0644\u0644\u062A\u0627\u0631\u064A\u062E: ${date2 || "\u0627\u0644\u0643\u0644"}`);
+      const { date: date2, projectId } = req.query;
+      console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId || "\u0627\u0644\u0643\u0644"} \u0648\u0627\u0644\u062A\u0627\u0631\u064A\u062E: ${date2 || "\u0627\u0644\u0643\u0644"}`);
       let transfers;
+      let whereConditions = [];
       if (date2) {
-        transfers = await db.select().from(projectFundTransfers).where(eq5(projectFundTransfers.transferDate, date2)).orderBy(projectFundTransfers.transferDate);
+        whereConditions.push(eq5(projectFundTransfers.transferDate, date2));
+      }
+      if (projectId) {
+        whereConditions.push(
+          or(
+            eq5(projectFundTransfers.fromProjectId, projectId),
+            eq5(projectFundTransfers.toProjectId, projectId)
+          )
+        );
+      }
+      if (whereConditions.length > 0) {
+        transfers = await db.select().from(projectFundTransfers).where(and5(...whereConditions)).orderBy(projectFundTransfers.transferDate);
       } else {
         transfers = await db.select().from(projectFundTransfers).orderBy(projectFundTransfers.transferDate);
       }

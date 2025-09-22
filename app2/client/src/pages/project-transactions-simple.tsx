@@ -69,23 +69,71 @@ export default function ProjectTransactionsSimple() {
   });
 
   // جلب التحويلات بين المشاريع (الواردة)
-  const { data: incomingProjectTransfers = [] } = useQuery({
+  const { data: incomingProjectTransfers = [], isLoading: incomingTransfersLoading, error: incomingTransfersError } = useQuery({
     queryKey: ['/api/project-fund-transfers', selectedProject, 'incoming'],
     queryFn: async () => {
-      const response = await fetch(`/api/project-fund-transfers?toProjectId=${selectedProject}`);
-      return response.json();
+      if (!selectedProject) return [];
+      try {
+        console.log(`🔄 جلب التحويلات الواردة للمشروع: ${selectedProject}`);
+        const response = await fetch(`/api/project-fund-transfers?toProjectId=${selectedProject}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json',
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
+            return [];
+          }
+          console.error(`❌ خطأ في جلب التحويلات الواردة: ${response.status}`);
+          return [];
+        }
+        const data = await response.json();
+        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : (Array.isArray(data) ? data.length : 0)} تحويل وارد`);
+        return Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('❌ خطأ في جلب التحويلات الواردة:', error);
+        return [];
+      }
     },
     enabled: !!selectedProject,
+    retry: 1,
+    staleTime: 30000,
   });
 
   // جلب التحويلات بين المشاريع (الصادرة)
-  const { data: outgoingProjectTransfers = [] } = useQuery({
+  const { data: outgoingProjectTransfers = [], isLoading: outgoingTransfersLoading, error: outgoingTransfersError } = useQuery({
     queryKey: ['/api/project-fund-transfers', selectedProject, 'outgoing'],
     queryFn: async () => {
-      const response = await fetch(`/api/project-fund-transfers?fromProjectId=${selectedProject}`);
-      return response.json();
+      if (!selectedProject) return [];
+      try {
+        console.log(`🔄 جلب التحويلات الصادرة للمشروع: ${selectedProject}`);
+        const response = await fetch(`/api/project-fund-transfers?fromProjectId=${selectedProject}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json',
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
+            return [];
+          }
+          console.error(`❌ خطأ في جلب التحويلات الصادرة: ${response.status}`);
+          return [];
+        }
+        const data = await response.json();
+        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : (Array.isArray(data) ? data.length : 0)} تحويل صادر`);
+        return Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('❌ خطأ في جلب التحويلات الصادرة:', error);
+        return [];
+      }
     },
     enabled: !!selectedProject,
+    retry: 1,
+    staleTime: 30000,
   });
 
   // جلب حضور العمال للمشروع
@@ -169,13 +217,37 @@ export default function ProjectTransactionsSimple() {
   });
 
   // جلب حوالات العمال للمشروع
-  const { data: workerTransfers = [] } = useQuery({
-    queryKey: ['/api/worker-transfers', selectedProject],
+  const { data: workerTransfers = [], isLoading: workerTransfersLoading, error: workerTransfersError } = useQuery({
+    queryKey: ['/api/projects', selectedProject, 'worker-transfers'],
     queryFn: async () => {
-      const response = await fetch(`/api/worker-transfers?projectId=${selectedProject}`);
-      return response.json();
+      if (!selectedProject) return [];
+      try {
+        console.log(`🔄 جلب حوالات العمال للمشروع: ${selectedProject}`);
+        const response = await fetch(`/api/projects/${selectedProject}/worker-transfers`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json',
+          }
+        });
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
+            return [];
+          }
+          console.error(`❌ خطأ في جلب حوالات العمال: ${response.status}`);
+          return [];
+        }
+        const data = await response.json();
+        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : (Array.isArray(data) ? data.length : 0)} حولة عمال`);
+        return Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('❌ خطأ في جلب حوالات العمال:', error);
+        return [];
+      }
     },
     enabled: !!selectedProject,
+    retry: 1,
+    staleTime: 30000,
   });
 
   // جلب بيانات العمال لعرض أسمائهم
@@ -537,7 +609,7 @@ export default function ProjectTransactionsSimple() {
         {selectedProject && (
           <>
             {/* عرض الأخطاء إن وجدت */}
-            {(fundTransfersError || attendanceError || materialsError) && (
+            {(fundTransfersError || attendanceError || materialsError || workerTransfersError || incomingTransfersError || outgoingTransfersError) && (
               <Card className="bg-red-50 border-red-200 mb-4">
                 <CardContent className="p-4">
                   <div className="text-red-800">
@@ -545,6 +617,9 @@ export default function ProjectTransactionsSimple() {
                     {fundTransfersError && <p>• خطأ في جلب تحويلات العهدة</p>}
                     {attendanceError && <p>• خطأ في جلب حضور العمال</p>}
                     {materialsError && <p>• خطأ في جلب مشتريات المواد</p>}
+                    {workerTransfersError && <p>• خطأ في جلب حوالات العمال</p>}
+                    {incomingTransfersError && <p>• خطأ في جلب التحويلات الواردة</p>}
+                    {outgoingTransfersError && <p>• خطأ في جلب التحويلات الصادرة</p>}
                     <p className="text-sm mt-2 text-red-600">يرجى التحقق من اتصالك بالإنترنت أو تسجيل الدخول مرة أخرى.</p>
                   </div>
                 </CardContent>
@@ -552,7 +627,7 @@ export default function ProjectTransactionsSimple() {
             )}
 
             {/* مؤشر التحميل */}
-            {(fundTransfersLoading || attendanceLoading || materialsLoading) && (
+            {(fundTransfersLoading || attendanceLoading || materialsLoading || workerTransfersLoading || incomingTransfersLoading || outgoingTransfersLoading) && (
               <Card className="bg-blue-50 border-blue-200 mb-4">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3 text-blue-800">

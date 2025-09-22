@@ -890,6 +890,66 @@ projectRouter.get('/:projectId/worker-misc-expenses', async (req: Request, res: 
 });
 
 /**
+ * 📊 جلب حوالات العمال لمشروع محدد
+ * GET /api/projects/:projectId/worker-transfers
+ */
+projectRouter.get('/:projectId/worker-transfers', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.params;
+
+    console.log(`📊 [API] جلب حوالات العمال للمشروع: ${projectId}`);
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: 'معرف المشروع مطلوب',
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    const transfers = await db.select({
+      id: workerTransfers.id,
+      workerId: workerTransfers.workerId,
+      projectId: workerTransfers.projectId,
+      amount: workerTransfers.amount,
+      recipientName: workerTransfers.recipientName,
+      recipientPhone: workerTransfers.recipientPhone,
+      transferMethod: workerTransfers.transferMethod,
+      transferNumber: workerTransfers.transferNumber,
+      transferDate: workerTransfers.transferDate,
+      notes: workerTransfers.notes,
+      createdAt: workerTransfers.createdAt,
+      workerName: workers.name
+    })
+    .from(workerTransfers)
+    .leftJoin(workers, eq(workerTransfers.workerId, workers.id))
+    .where(eq(workerTransfers.projectId, projectId))
+    .orderBy(workerTransfers.transferDate);
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب ${transfers.length} حولة عمال في ${duration}ms`);
+
+    res.json({
+      success: true,
+      data: transfers,
+      message: `تم جلب ${transfers.length} حولة عمال للمشروع`,
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب حوالات العمال:', error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      error: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
  * 📊 جلب الملخص اليومي للمشروع - جلب الملخص المالي ليوم محدد
  * GET /api/projects/:id/daily-summary/:date
  */

@@ -1224,21 +1224,35 @@ export class DatabaseStorage implements IStorage {
 
 
   async createOrUpdateDailyExpenseSummary(summary: InsertDailyExpenseSummary): Promise<DailyExpenseSummary> {
-    const existing = await this.getDailyExpenseSummary(summary.projectId, summary.date);
-    
-    if (existing) {
-      const [updated] = await db
-        .update(dailyExpenseSummaries)
-        .set(summary)
-        .where(eq(dailyExpenseSummaries.id, existing.id))
-        .returning();
-      return updated;
-    } else {
-      const [newSummary] = await db
+    try {
+      // استخدام UPSERT لمنع التكرار - إذا وُجد مشروع بنفس التاريخ، سيتم التحديث، وإلا سيتم الإنشاء
+      const [result] = await db
         .insert(dailyExpenseSummaries)
         .values(summary)
+        .onConflictDoUpdate({
+          target: [dailyExpenseSummaries.projectId, dailyExpenseSummaries.date],
+          set: {
+            carriedForwardAmount: summary.carriedForwardAmount,
+            totalFundTransfers: summary.totalFundTransfers,
+            totalWorkerWages: summary.totalWorkerWages,
+            totalMaterialCosts: summary.totalMaterialCosts,
+            totalTransportationCosts: summary.totalTransportationCosts,
+            totalIncome: summary.totalIncome,
+            totalExpenses: summary.totalExpenses,
+            remainingBalance: summary.remainingBalance,
+            totalWorkerTransfers: summary.totalWorkerTransfers,
+            totalWorkerMiscExpenses: summary.totalWorkerMiscExpenses,
+            notes: summary.notes,
+            updatedAt: new Date()
+          }
+        })
         .returning();
-      return newSummary;
+      
+      console.log(`✅ Daily summary upserted for project ${summary.projectId} on ${summary.date}`);
+      return result;
+    } catch (error) {
+      console.error('❌ Error upserting daily summary:', error);
+      throw error;
     }
   }
 
@@ -1295,10 +1309,6 @@ export class DatabaseStorage implements IStorage {
   // تحديث الملخص اليومي تلقائياً مع تحسينات الأداء المحسنة
   async updateDailySummaryForDate(projectId: string, date: string): Promise<void> {
     try {
-      // إزالة الملخصات المكررة في الخلفية لتحسين الأداء
-      setImmediate(() => {
-        this.removeDuplicateSummaries(projectId, date).catch(console.error);
-      });
       
       // تشغيل جميع الاستعلامات بشكل متوازي لتحسين الأداء
       const [

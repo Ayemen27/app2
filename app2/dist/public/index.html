@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>نظام إدارة المشاريع الإنشائية</title>
+    <link rel="icon" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏗️%3C/text%3E%3C/svg%3E" type="image/svg+xml" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      /* صفحة التحميل الفورية */
+      #initial-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        direction: rtl;
+      }
+
+      /* الخلفية المتحركة */
+      #initial-loader::before {
+        content: '';
+        position: absolute;
+        top: -10%;
+        right: -10%;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+        border-radius: 50%;
+        animation: float 3s ease-in-out infinite;
+      }
+
+      #initial-loader::after {
+        content: '';
+        position: absolute;
+        bottom: -10%;
+        left: -10%;
+        width: 150px;
+        height: 150px;
+        background: radial-gradient(circle, rgba(251, 191, 36, 0.1) 0%, transparent 70%);
+        border-radius: 50%;
+        animation: float 3s ease-in-out infinite reverse;
+      }
+
+      /* المحتوى الرئيسي */
+      .loader-content {
+        text-align: center;
+        z-index: 1;
+        animation: fadeInUp 0.8s ease-out;
+      }
+
+      /* الشعار المتحرك */
+      .loader-logo {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 24px;
+        position: relative;
+      }
+
+      .logo-ring {
+        position: absolute;
+        border: 3px solid transparent;
+        border-radius: 50%;
+        animation: spin 2s linear infinite;
+      }
+
+      .logo-ring:nth-child(1) {
+        width: 80px;
+        height: 80px;
+        border-top-color: #3b82f6;
+        animation-duration: 2s;
+      }
+
+      .logo-ring:nth-child(2) {
+        width: 60px;
+        height: 60px;
+        top: 10px;
+        left: 10px;
+        border-right-color: #fbbf24;
+        animation-duration: 1.5s;
+        animation-direction: reverse;
+      }
+
+      .logo-ring:nth-child(3) {
+        width: 40px;
+        height: 40px;
+        top: 20px;
+        left: 20px;
+        background: linear-gradient(135deg, #3b82f6, #fbbf24);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: pulse 1s ease-in-out infinite;
+        color: white;
+        font-size: 16px;
+      }
+
+      /* النص */
+      .loader-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 8px;
+        animation: fadeIn 1s ease-out 0.3s both;
+      }
+
+      .loader-subtitle {
+        font-size: 14px;
+        color: #64748b;
+        margin-bottom: 24px;
+        animation: fadeIn 1s ease-out 0.5s both;
+      }
+
+      /* النقاط المتحركة */
+      .loading-dots {
+        display: flex;
+        justify-content: center;
+        gap: 4px;
+        margin-bottom: 16px;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        background: #3b82f6;
+        border-radius: 50%;
+        animation: bounce 1.4s ease-in-out infinite both;
+      }
+
+      .dot:nth-child(1) { animation-delay: -0.32s; }
+      .dot:nth-child(2) { animation-delay: -0.16s; }
+      .dot:nth-child(3) { animation-delay: 0s; }
+
+      /* الرسالة */
+      .loader-message {
+        font-size: 12px;
+        color: #94a3b8;
+        animation: fadeIn 1s ease-out 0.7s both;
+      }
+
+      /* الأنيميشنز */
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+      }
+
+      @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-20px); }
+      }
+
+      @keyframes bounce {
+        0%, 80%, 100% {
+          transform: scale(0);
+        }
+        40% {
+          transform: scale(1);
+        }
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* تأثير الإخفاء */
+      .fade-out {
+        animation: fadeOut 0.5s ease-out forwards;
+      }
+
+      @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+      }
+
+      /* إخفاء المحتوى الأساسي في البداية */
+      #root {
+        opacity: 0;
+        transition: opacity 0.5s ease-in;
+      }
+
+      #root.loaded {
+        opacity: 1;
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-JN67wH9T.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-Bzsngnqy.js">
+    <link rel="modulepreload" crossorigin href="/assets/ui-Dt_a2uwE.js">
+    <link rel="modulepreload" crossorigin href="/assets/router-DOtSV7BF.js">
+    <link rel="modulepreload" crossorigin href="/assets/query-BWmFvT2p.js">
+    <link rel="modulepreload" crossorigin href="/assets/charts-DEPFcbGT.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-CavNnq-m.css">
+  </head>
+  <body>
+    <!-- صفحة التحميل الفورية -->
+    <div id="initial-loader">
+      <div class="loader-content">
+        <div class="loader-logo">
+          <div class="logo-ring"></div>
+          <div class="logo-ring"></div>
+          <div class="logo-ring">🏗️</div>
+        </div>
+        
+        <h1 class="loader-title">نظام إدارة المشاريع الإنشائية</h1>
+        <p class="loader-subtitle">جاري تحميل التطبيق...</p>
+        
+        <div class="loading-dots">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+        
+        <p class="loader-message">نحن نحضر لك أفضل تجربة لإدارة مشاريعك</p>
+      </div>
+    </div>
+
+    <div id="root"></div>
+    
+    <!-- إخفاء صفحة التحميل عند اكتمال التحميل -->
+    <script>
+      // دالة إخفاء صفحة التحميل
+      function hideLoader() {
+        const loader = document.getElementById('initial-loader');
+        const root = document.getElementById('root');
+        
+        if (loader && loader.style.display !== 'none') {
+          console.log('🎯 إخفاء صفحة التحميل...');
+          loader.classList.add('fade-out');
+          setTimeout(() => {
+            loader.style.display = 'none';
+            root.classList.add('loaded');
+          }, 500);
+        }
+      }
+
+      // إخفاء صفحة التحميل عندما يصبح المحتوى جاهزاً
+      window.addEventListener('load', () => {
+        console.log('📦 تم تحميل النافذة، بدء العد التنازلي...');
+        setTimeout(hideLoader, 1200);
+      });
+
+      // إخفاء عند ظهور محتوى React
+      let checkCount = 0;
+      const maxChecks = 50; // فحص لمدة 10 ثوانِ تقريباً
+      
+      function checkForContent() {
+        checkCount++;
+        const root = document.getElementById('root');
+        
+        if (root && root.children.length > 0) {
+          console.log(`✅ تم العثور على محتوى React (محاولة ${checkCount})`);
+          setTimeout(hideLoader, 300);
+          return;
+        }
+        
+        if (checkCount < maxChecks) {
+          setTimeout(checkForContent, 200);
+        } else {
+          console.log('⏱️ انتهت مهلة الانتظار، إخفاء صفحة التحميل');
+          hideLoader();
+        }
+      }
+
+      // بدء الفحص الدوري
+      setTimeout(checkForContent, 500);
+    </script>
+    
+    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
+    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
+  </body>
+</html>

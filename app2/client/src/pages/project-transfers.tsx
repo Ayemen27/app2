@@ -14,7 +14,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertProjectFundTransferSchema } from "@shared/schema";
 import type { InsertProjectFundTransfer, ProjectFundTransfer, Project } from "@shared/schema";
-import { Plus, ArrowRight, Calendar, User, FileText, Edit, Banknote, Building, Trash2, ChartGantt, DollarSign, TrendingUp } from "lucide-react";
+import { Plus, ArrowRight, Calendar, User, FileText, Edit, Banknote, Building, Trash2, ChartGantt, DollarSign, TrendingUp, TrendingDown, Minus, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
 import ProjectSelector from "@/components/project-selector";
 import { useSelectedProject } from "@/hooks/use-selected-project";
@@ -232,7 +234,16 @@ export default function ProjectTransfers() {
     incomingTransfers: currentProjectId && currentProjectId !== 'all' 
       ? filteredTransfers.filter(t => t.toProjectId === currentProjectId).length
       : 0,
+    outgoingAmount: currentProjectId && currentProjectId !== 'all' 
+      ? filteredTransfers.filter(t => t.fromProjectId === currentProjectId).reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0)
+      : 0,
+    incomingAmount: currentProjectId && currentProjectId !== 'all' 
+      ? filteredTransfers.filter(t => t.toProjectId === currentProjectId).reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0)
+      : 0,
   };
+
+  // حساب صافي التدفق (الوارد - الصادر)
+  const netFlow = transferStats.incomingAmount - transferStats.outgoingAmount;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -243,63 +254,147 @@ export default function ProjectTransfers() {
   };
 
   return (
-    <div className="container mx-auto py-6 px-4" dir="rtl">
-      
+    <div className="container mx-auto p-4 md:p-6 space-y-6 md:space-y-8" dir="rtl">
+      {/* Page Header */}
+      <div className="bg-card border rounded-lg p-4 md:p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-2">
+              <ArrowRight className="h-6 w-6 md:h-7 md:w-7 text-primary" />
+              تحويلات العهدة
+            </h1>
+            <p className="text-sm md:text-base text-muted-foreground">
+              إدارة وتتبع عمليات ترحيل الأموال بين المشاريع المختلفة
+            </p>
+          </div>
+          <Button 
+            onClick={() => {
+              setShowForm(true);
+              setEditingTransfer(null);
+            }}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 px-6"
+            data-testid="button-add-transfer-header"
+          >
+            <Plus className="h-4 w-4 ml-2" />
+            إضافة عملية ترحيل
+          </Button>
+        </div>
+      </div>
+
       {/* مكون اختيار المشروع */}
-      <Card className="mb-4">
-        <CardContent className="p-4">
-          <h2 className="text-lg font-bold text-foreground mb-3 flex items-center">
-            <ChartGantt className="ml-2 h-5 w-5 text-primary" />
-            اختر المشروع
-          </h2>
-          <ProjectSelector
-            selectedProjectId={currentProjectId}
-            onProjectChange={(projectId, projectName) => selectProject(projectId, projectName)}
-            showHeader={false}
-            variant="compact"
-          />
-        </CardContent>
-      </Card>
+      <div className="bg-card border rounded-lg p-4">
+        <h2 className="text-lg md:text-xl font-bold text-foreground mb-3 flex items-center">
+          <ChartGantt className="ml-2 h-5 w-5 text-primary" />
+          اختر المشروع
+        </h2>
+        <ProjectSelector
+          selectedProjectId={currentProjectId}
+          onProjectChange={(projectId, projectName) => selectProject(projectId, projectName)}
+          showHeader={false}
+          variant="compact"
+        />
+      </div>
 
       {/* إحصائيات عمليات الترحيل */}
-      <StatsGrid>
-        <StatsCard
-          title="إجمالي العمليات"
-          value={transferStats.totalTransfers.toString()}
-          icon={ArrowRight}
-          color="blue"
-        />
-        <StatsCard
-          title="إجمالي المبالغ"
-          value={formatCurrency(transferStats.totalAmount)}
-          icon={DollarSign}
-          color="green"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div className="bg-card border rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm md:text-base text-muted-foreground">إجمالي العمليات</p>
+              <p className="text-2xl md:text-3xl font-semibold text-foreground">{transferStats.totalTransfers}</p>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <ArrowRight className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-card border rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm md:text-base text-muted-foreground">إجمالي المبالغ</p>
+              <p className="text-xl md:text-2xl font-semibold text-foreground">{formatCurrency(transferStats.totalAmount)}</p>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
+              <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+          </div>
+        </div>
+
         {currentProjectId && currentProjectId !== 'all' && (
           <>
-            <StatsCard
-              title="العمليات الصادرة"
-              value={transferStats.outgoingTransfers.toString()}
-              icon={TrendingUp}
-              color="orange"
-            />
-            <StatsCard
-              title="العمليات الواردة"
-              value={transferStats.incomingTransfers.toString()}
-              icon={TrendingUp}
-              color="purple"
-            />
+            <div className="bg-card border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm md:text-base text-muted-foreground">العمليات الصادرة</p>
+                  <p className="text-2xl md:text-3xl font-semibold text-foreground">{transferStats.outgoingTransfers}</p>
+                  <p className="text-xs md:text-sm text-red-600 dark:text-red-400">{formatCurrency(transferStats.outgoingAmount)}</p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+                  <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-card border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm md:text-base text-muted-foreground">العمليات الواردة</p>
+                  <p className="text-2xl md:text-3xl font-semibold text-foreground">{transferStats.incomingTransfers}</p>
+                  <p className="text-xs md:text-sm text-green-600 dark:text-green-400">{formatCurrency(transferStats.incomingAmount)}</p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+            </div>
           </>
         )}
-      </StatsGrid>
+      </div>
+
+      {/* بطاقة صافي التدفق */}
+      {currentProjectId && currentProjectId !== 'all' && (
+        <div className="bg-card border rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm md:text-base text-muted-foreground">صافي التدفق</p>
+              <p className={`text-2xl md:text-3xl font-semibold ${
+                netFlow > 0 ? 'text-green-600 dark:text-green-400' : 
+                netFlow < 0 ? 'text-red-600 dark:text-red-400' : 
+                'text-foreground'
+              }`}>
+                {netFlow > 0 ? '+' : ''}{formatCurrency(netFlow)}
+              </p>
+              <p className="text-xs md:text-sm text-muted-foreground">
+                {netFlow > 0 ? 'زيادة في الرصيد' : netFlow < 0 ? 'نقص في الرصيد' : 'متزن الرصيد'}
+              </p>
+            </div>
+            <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
+              netFlow > 0 ? 'bg-green-100 dark:bg-green-900/20' : 
+              netFlow < 0 ? 'bg-red-100 dark:bg-red-900/20' : 
+              'bg-gray-100 dark:bg-gray-900/20'
+            }`}>
+              {netFlow > 0 ? (
+                <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
+              ) : netFlow < 0 ? (
+                <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
+              ) : (
+                <Minus className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* نموذج إضافة عملية ترحيل جديدة */}
       {showForm && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>إضافة عملية ترحيل جديدة</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="bg-card border rounded-lg">
+          <div className="p-4 md:p-6 border-b">
+            <h2 className="text-lg md:text-xl font-bold text-foreground">
+              {editingTransfer ? 'تعديل عملية الترحيل' : 'إضافة عملية ترحيل جديدة'}
+            </h2>
+          </div>
+          <div className="p-4 md:p-6">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -444,11 +539,11 @@ export default function ProjectTransfers() {
                   />
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <Button
                     type="submit"
                     disabled={createTransferMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground h-11"
                     data-testid="button-submit-transfer"
                   >
                     {createTransferMutation.isPending ? "جاري الحفظ..." : (editingTransfer ? "تحديث عملية الترحيل" : "حفظ عملية الترحيل")}
@@ -457,6 +552,7 @@ export default function ProjectTransfers() {
                     type="button"
                     variant="outline"
                     onClick={cancelEdit}
+                    className="h-11"
                     data-testid="button-cancel"
                   >
                     إلغاء
@@ -464,124 +560,172 @@ export default function ProjectTransfers() {
                 </div>
               </form>
             </Form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* قائمة عمليات الترحيل */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <div className="bg-card border rounded-lg">
+        <div className="p-4 md:p-6 border-b">
+          <h2 className="text-lg md:text-xl font-bold text-foreground flex items-center gap-2">
             <FileText className="w-5 h-5" />
             سجل عمليات الترحيل
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          </h2>
+        </div>
+        <div className="p-4 md:p-6">
           {transfersLoading ? (
-            <div className="text-center py-8">
-              <p>جاري تحميل عمليات الترحيل...</p>
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-card border rounded-lg p-4">
+                  <div className="flex items-start gap-4">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-6 w-32" />
+                        <Skeleton className="h-8 w-20" />
+                      </div>
+                      <Skeleton className="h-4 w-48" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filteredTransfers.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">
+            <div className="text-center py-12">
+              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                <ArrowRight className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                لا توجد عمليات ترحيل
+              </h3>
+              <p className="text-sm md:text-base text-muted-foreground mb-4">
                 {currentProjectId && currentProjectId !== 'all' 
-                  ? "لا توجد عمليات ترحيل للمشروع المحدد"
-                  : "لا توجد عمليات ترحيل مسجلة"
+                  ? "لم يتم إجراء عمليات ترحيل للمشروع المحدد بعد"
+                  : "لم يتم إجراء عمليات ترحيل بين المشاريع بعد"
                 }
               </p>
+              <Button 
+                onClick={() => {
+                  setShowForm(true);
+                  setEditingTransfer(null);
+                }}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                data-testid="button-add-first-transfer"
+              >
+                <Plus className="h-4 w-4 ml-2" />
+                إضافة عملية ترحيل
+              </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {filteredTransfers.map((transfer: ProjectFundTransfer) => (
-                <Card key={transfer.id} className="relative overflow-hidden bg-gradient-to-r from-green-50 to-green-100 border-r-4 border-green-500 hover:shadow-lg transition-all duration-200" data-testid={`card-transfer-${transfer.id}`}>
-                  <CardContent className="p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      {/* المحتوى الرئيسي */}
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        {/* أيقونة دائرية */}
-                        <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
-                          ت
+            <div className="space-y-4">
+              {filteredTransfers.map((transfer: ProjectFundTransfer) => {
+                // تحديد اتجاه التحويل بالنسبة للمشروع المحدد
+                const isOutgoing = currentProjectId !== 'all' && transfer.fromProjectId === currentProjectId;
+                const isIncoming = currentProjectId !== 'all' && transfer.toProjectId === currentProjectId;
+                
+                return (
+                  <div key={transfer.id} className="bg-card border rounded-lg p-4 hover:shadow-md transition-all duration-200" data-testid={`card-transfer-${transfer.id}`}>
+                    <div className="flex items-start gap-4">
+                      {/* المبلغ البارز */}
+                      <div className="flex flex-col items-center">
+                        <div className="text-2xl md:text-3xl font-semibold text-foreground mb-1">
+                          {parseFloat(transfer.amount).toLocaleString()}
+                        </div>
+                        <div className="text-xs md:text-sm text-muted-foreground">ريال</div>
+                        
+                        {/* Badge الاتجاه */}
+                        {(isOutgoing || isIncoming) && (
+                          <Badge 
+                            variant={isOutgoing ? "destructive" : "default"}
+                            className="mt-2 text-xs"
+                          >
+                            {isOutgoing ? 'صادر' : 'وارد'}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        {/* المسار كثانوي */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm md:text-base font-medium text-muted-foreground">
+                            {getProjectName(transfer.fromProjectId)}
+                          </span>
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm md:text-base font-medium text-muted-foreground">
+                            {getProjectName(transfer.toProjectId)}
+                          </span>
                         </div>
                         
-                        {/* المعلومات */}
-                        <div className="flex-1 min-w-0">
-                          <div className="mb-1">
-                            <h3 className="font-bold text-gray-800 text-xs break-words">
-                              {getProjectName(transfer.fromProjectId)} → {getProjectName(transfer.toProjectId)}
-                            </h3>
+                        {/* التاريخ بنص مخفف */}
+                        <div className="flex items-center gap-1 mb-2">
+                          <Calendar className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-xs md:text-sm text-muted-foreground">
+                            {new Date(transfer.transferDate).toLocaleDateString('ar-EG', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </span>
+                        </div>
+                        
+                        {/* السبب والوصف */}
+                        {(transfer.transferReason || transfer.description) && (
+                          <div className="space-y-1 text-sm md:text-base">
+                            {transfer.transferReason && (
+                              <div className="text-foreground">
+                                <span className="font-medium">السبب:</span> {transfer.transferReason}
+                              </div>
+                            )}
+                            {transfer.description && (
+                              <div className="text-muted-foreground">
+                                <span className="font-medium">ملاحظات:</span> {transfer.description}
+                              </div>
+                            )}
                           </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between mt-3">
+                          <span className="text-xs text-muted-foreground">
+                            ID: {transfer.id.slice(0, 8)}
+                          </span>
                           
-                          <div className="grid grid-cols-2 gap-3 text-xs">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3 text-gray-500" />
-                              <span className="text-gray-600">تاريخ التحويل</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Banknote className="w-3 h-3 text-green-600" />
-                              <span className="text-gray-600">المبلغ المحول</span>
-                            </div>
-                            
-                            <div className="font-medium text-gray-800 text-xs">
-                              {new Date(transfer.transferDate).toLocaleDateString('en-GB')}
-                            </div>
-                            <div className="font-bold text-green-600 text-sm">
-                              {parseFloat(transfer.amount).toLocaleString()} ر.ي
-                            </div>
-                          </div>
-                          
-                          {(transfer.transferReason || transfer.description) && (
-                            <div className="mt-2 text-xs text-gray-600">
-                              {transfer.transferReason && (
-                                <div>السبب: {transfer.transferReason}</div>
+                          {/* أزرار العمليات المحسنة */}
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => startEdit(transfer)}
+                              className="h-11 min-w-11 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                              data-testid={`button-edit-${transfer.id}`}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(
+                                transfer.id, 
+                                getProjectName(transfer.fromProjectId), 
+                                getProjectName(transfer.toProjectId)
                               )}
-                              {transfer.description && (
-                                <div className="truncate">ملاحظات: {transfer.description}</div>
-                              )}
-                            </div>
-                          )}
-                          
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="text-xs text-gray-500">
-                              ID: {transfer.id.slice(0, 8)}
-                            </span>
-                            
-                            {/* أزرار العمليات */}
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => startEdit(transfer)}
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 w-7 h-7 p-0 border"
-                                data-testid={`button-edit-${transfer.id}`}
-                              >
-                                <Edit className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDelete(
-                                  transfer.id, 
-                                  getProjectName(transfer.fromProjectId), 
-                                  getProjectName(transfer.toProjectId)
-                                )}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 w-7 h-7 p-0 border"
-                                disabled={deleteTransferMutation.isPending}
-                                data-testid={`button-delete-${transfer.id}`}
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
+                              className="h-11 min-w-11 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              disabled={deleteTransferMutation.isPending}
+                              data-testid={`button-delete-${transfer.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

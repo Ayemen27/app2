@@ -152,6 +152,20 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
           WHERE project_id = ${projectId}
         `);
 
+        // حساب التحويلات الصادرة إلى مشاريع أخرى (تُحسب كمصاريف)
+        const outgoingProjectTransfersStats = await db.execute(sql`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as outgoing_project_transfers
+          FROM project_fund_transfers 
+          WHERE from_project_id = ${projectId}
+        `);
+
+        // حساب التحويلات الواردة من مشاريع أخرى (تُحسب كدخل إضافي)
+        const incomingProjectTransfersStats = await db.execute(sql`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as incoming_project_transfers
+          FROM project_fund_transfers 
+          WHERE to_project_id = ${projectId}
+        `);
+
         // استخراج القيم مع تنظيف البيانات المحسن
         const totalWorkers = cleanDbValue(workersStats.rows[0]?.total_workers || '0', 'integer');
         const activeWorkers = cleanDbValue(workersStats.rows[0]?.active_workers || '0', 'integer');
@@ -159,18 +173,23 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
         const materialPurchases = cleanDbValue(materialStats.rows[0]?.material_purchases || '0', 'integer');
         const workerWages = cleanDbValue(workerWagesStats.rows[0]?.worker_wages || '0');
         const completedDays = cleanDbValue(workerWagesStats.rows[0]?.completed_days || '0', 'integer');
-        const totalIncome = cleanDbValue(fundTransfersStats.rows[0]?.total_income || '0');
+        const fundTransfersIncome = cleanDbValue(fundTransfersStats.rows[0]?.total_income || '0');
         const transportExpenses = cleanDbValue(transportStats.rows[0]?.transport_expenses || '0');
         const workerTransfers = cleanDbValue(workerTransfersStats.rows[0]?.worker_transfers || '0');
         const miscExpenses = cleanDbValue(miscExpensesStats.rows[0]?.misc_expenses || '0');
+        const outgoingProjectTransfers = cleanDbValue(outgoingProjectTransfersStats.rows[0]?.outgoing_project_transfers || '0');
+        const incomingProjectTransfers = cleanDbValue(incomingProjectTransfersStats.rows[0]?.incoming_project_transfers || '0');
 
         // فحص إضافي للتأكد من منطقية العدد
         if (totalWorkers > 1000) {
           console.warn(`⚠️ [API] عدد عمال غير منطقي للمشروع ${project.name}: ${totalWorkers}`);
         }
 
-        // حساب إجمالي المصروفات والرصيد الحالي
-        const totalExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses;
+        // حساب إجمالي الدخل (تحويلات العهدة + التحويلات من مشاريع أخرى)
+        const totalIncome = fundTransfersIncome + incomingProjectTransfers;
+        
+        // حساب إجمالي المصاريف (تشمل التحويلات إلى مشاريع أخرى)
+        const totalExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
         const currentBalance = totalIncome - totalExpenses;
 
         // تسجيل مفصل في بيئة التطوير

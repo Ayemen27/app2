@@ -3850,7 +3850,7 @@ __export(NotificationService_exports, {
   NotificationStatus: () => NotificationStatus,
   NotificationTypes: () => NotificationTypes
 });
-import { eq as eq4, and as and4, desc as desc2, or as or3, inArray, sql as sql3 } from "drizzle-orm";
+import { eq as eq4, and as and4, desc as desc2, or as or2, inArray, sql as sql3 } from "drizzle-orm";
 var NotificationPriority, NotificationTypes, NotificationStatus, NotificationService;
 var init_NotificationService = __esm({
   "server/services/NotificationService.ts"() {
@@ -4119,7 +4119,7 @@ var init_NotificationService = __esm({
         }
         if (isUserAdmin) {
           conditions.push(
-            or3(
+            or2(
               sql3`${notifications.recipients} @> ARRAY[${userId}]`,
               sql3`${notifications.recipients} @> ARRAY['admin']`,
               sql3`${notifications.recipients} @> ARRAY['مسؤول']`,
@@ -4129,7 +4129,7 @@ var init_NotificationService = __esm({
           );
         } else {
           conditions.push(
-            or3(
+            or2(
               sql3`${notifications.recipients} @> ARRAY[${userId}]`,
               sql3`${notifications.recipients} IS NULL`
               // الإشعارات العامة
@@ -4290,7 +4290,7 @@ var init_NotificationService = __esm({
         const allowedTypes = await this.getAllowedNotificationTypes(userId);
         const conditions = [inArray(notifications.type, allowedTypes)];
         if (isAdmin) {
-          const adminCondition = or3(
+          const adminCondition = or2(
             sql3`${notifications.recipients} @> ARRAY[${userId}]`,
             sql3`${notifications.recipients} @> ARRAY['admin']`,
             sql3`${notifications.recipients} @> ARRAY['مسؤول']`,
@@ -4300,7 +4300,7 @@ var init_NotificationService = __esm({
             conditions.push(adminCondition);
           }
         } else {
-          const userCondition = or3(
+          const userCondition = or2(
             sql3`${notifications.recipients} @> ARRAY[${userId}]`,
             sql3`${notifications.recipients} IS NULL`
           );
@@ -4612,14 +4612,14 @@ init_schema();
 init_secure_data_fetcher();
 import { createServer } from "http";
 import rateLimit2 from "express-rate-limit";
-import { eq as eq5, and as and5, sql as sql4, gte as gte2, lt as lt2, lte, desc as desc3 } from "drizzle-orm";
+import { eq as eq5, and as and5, or as or3, sql as sql4, gte as gte2, lt as lt2, lte, desc as desc3 } from "drizzle-orm";
 
 // server/auth/jwt-utils.ts
 init_db();
 init_schema();
 import jwt from "jsonwebtoken";
 import crypto2 from "crypto";
-import { eq, and, lt, or as or2, ne, gte } from "drizzle-orm";
+import { eq, and, lt, or, ne, gte } from "drizzle-orm";
 
 // server/auth/crypto-utils.ts
 import bcrypt from "bcrypt";
@@ -5008,7 +5008,7 @@ async function revokeToken(tokenOrSessionId, reason) {
         revokedAt: /* @__PURE__ */ new Date(),
         revokedReason: reason || "manual_revoke"
       }).where(
-        or2(
+        or(
           eq(authUserSessions.accessTokenHash, tokenOrSessionId),
           eq(authUserSessions.refreshTokenHash, tokenOrSessionId),
           eq(authUserSessions.deviceId, tokenOrSessionId)
@@ -9900,7 +9900,7 @@ async function registerRoutes(app2) {
       }
       if (projectId) {
         whereConditions.push(
-          or(
+          or3(
             eq5(projectFundTransfers.fromProjectId, projectId),
             eq5(projectFundTransfers.toProjectId, projectId)
           )

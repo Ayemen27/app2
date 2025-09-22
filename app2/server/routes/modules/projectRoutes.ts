@@ -950,6 +950,92 @@ projectRouter.get('/:projectId/worker-transfers', async (req: Request, res: Resp
 });
 
 /**
+ * 🔍 جلب التحويلات الحقيقية بين المشاريع (للتشخيص)
+ * GET /api/projects/:projectId/actual-transfers
+ */
+projectRouter.get('/:projectId/actual-transfers', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.params;
+
+    console.log(`🔍 [API] جلب التحويلات الحقيقية للمشروع: ${projectId}`);
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: 'معرف المشروع مطلوب',
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    // جلب التحويلات الواردة الحقيقية
+    const incomingTransfers = await db.select({
+      id: projectFundTransfers.id,
+      fromProjectId: projectFundTransfers.fromProjectId,
+      toProjectId: projectFundTransfers.toProjectId,
+      amount: projectFundTransfers.amount,
+      description: projectFundTransfers.description,
+      transferReason: projectFundTransfers.transferReason,
+      transferDate: projectFundTransfers.transferDate,
+      createdAt: projectFundTransfers.createdAt,
+      direction: sql`'incoming'`.as('direction'),
+      fromProjectName: sql`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    })
+    .from(projectFundTransfers)
+    .where(eq(projectFundTransfers.toProjectId, projectId))
+    .orderBy(desc(projectFundTransfers.transferDate));
+
+    // جلب التحويلات الصادرة الحقيقية
+    const outgoingTransfers = await db.select({
+      id: projectFundTransfers.id,
+      fromProjectId: projectFundTransfers.fromProjectId,
+      toProjectId: projectFundTransfers.toProjectId,
+      amount: projectFundTransfers.amount,
+      description: projectFundTransfers.description,
+      transferReason: projectFundTransfers.transferReason,
+      transferDate: projectFundTransfers.transferDate,
+      createdAt: projectFundTransfers.createdAt,
+      direction: sql`'outgoing'`.as('direction'),
+      fromProjectName: sql`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    })
+    .from(projectFundTransfers)
+    .where(eq(projectFundTransfers.fromProjectId, projectId))
+    .orderBy(desc(projectFundTransfers.transferDate));
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب ${incomingTransfers.length} تحويل وارد و ${outgoingTransfers.length} تحويل صادر في ${duration}ms`);
+
+    res.json({
+      success: true,
+      data: {
+        incoming: incomingTransfers,
+        outgoing: outgoingTransfers,
+        summary: {
+          totalIncoming: incomingTransfers.length,
+          totalOutgoing: outgoingTransfers.length,
+          incomingAmount: incomingTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0),
+          outgoingAmount: outgoingTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0)
+        }
+      },
+      message: `تم جلب ${incomingTransfers.length + outgoingTransfers.length} تحويل حقيقي للمشروع`,
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب التحويلات الحقيقية:', error);
+    res.status(500).json({
+      success: false,
+      data: { incoming: [], outgoing: [], summary: {} },
+      error: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
  * 📊 جلب الملخص اليومي للمشروع - جلب الملخص المالي ليوم محدد
  * GET /api/projects/:id/daily-summary/:date
  */

@@ -341,7 +341,8 @@ function DailyExpensesContent() {
 
   // تحديث المبلغ المرحل تلقائياً عند جلب الرصيد السابق
   useEffect(() => {
-    if (previousBalance) {
+    if (previousBalance !== null && previousBalance !== undefined) {
+      console.log('🔄 تحديث carriedForward:', { previousBalance, type: typeof previousBalance });
       setCarriedForward(previousBalance);
     }
   }, [previousBalance]);
@@ -1066,27 +1067,37 @@ function DailyExpensesContent() {
           return sum + amount;
         }, 0);
 
+      // تطبيق المنطق الصحيح من النسخة الاحتياطية - استخدام cleanNumber للاتساق
       const carriedAmount = cleanNumber(carriedForward);
-
-      // حساب الدخل الجديد فقط (بدون المبلغ المرحل)
-      const newIncome = totalFundTransfers + incomingProjectTransfers;
-      // إجمالي الدخل = المبلغ المرحل + الدخل الجديد
-      const totalIncome = carriedAmount + newIncome;
+      const totalIncome = carriedAmount + totalFundTransfers + incomingProjectTransfers;
       const totalExpenses = totalWorkerWages + totalTransportation + totalMaterialCosts + 
                             totalWorkerTransfers + totalMiscExpenses + outgoingProjectTransfers;
       const remainingBalance = totalIncome - totalExpenses;
 
+      // تسجيل تفصيلي للحسابات
+      if (process.env.NODE_ENV === 'development') {
+        console.log('💰 تفاصيل الحسابات:', {
+          carriedForward: carriedForward,
+          carriedAmount: carriedAmount,
+          totalFundTransfers: totalFundTransfers,
+          incomingProjectTransfers: incomingProjectTransfers,
+          totalIncome: totalIncome,
+          totalExpenses: totalExpenses,
+          remainingBalance: remainingBalance
+        });
+      }
+
       const result = {
-        totalWorkerWages: Math.max(0, totalWorkerWages),
-        totalTransportation: Math.max(0, totalTransportation),
-        totalMaterialCosts: Math.max(0, totalMaterialCosts),
-        totalWorkerTransfers: Math.max(0, totalWorkerTransfers),
-        totalMiscExpenses: Math.max(0, totalMiscExpenses),
-        totalFundTransfers: Math.max(0, totalFundTransfers),
-        incomingProjectTransfers: Math.max(0, incomingProjectTransfers),
-        outgoingProjectTransfers: Math.max(0, outgoingProjectTransfers),
-        totalIncome: Math.max(0, totalIncome),
-        totalExpenses: Math.max(0, totalExpenses),
+        totalWorkerWages: totalWorkerWages,
+        totalTransportation: totalTransportation,
+        totalMaterialCosts: totalMaterialCosts,
+        totalWorkerTransfers: totalWorkerTransfers,
+        totalMiscExpenses: totalMiscExpenses,
+        totalFundTransfers: totalFundTransfers,
+        incomingProjectTransfers: incomingProjectTransfers,
+        outgoingProjectTransfers: outgoingProjectTransfers,
+        totalIncome: totalIncome, // يمكن أن يكون سالباً حسب المبلغ المرحل
+        totalExpenses: totalExpenses,
         remainingBalance: remainingBalance, // يمكن أن يكون سالباً
       };
 

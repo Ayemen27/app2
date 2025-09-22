@@ -857,7 +857,7 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
     const expenseToDelete = existingExpense[0];
     console.log('🗑️ [API] سيتم حذف مصروف العامل المتنوع:', {
       id: expenseToDelete.id,
-      workerId: expenseToDelete.workerId,
+      projectId: expenseToDelete.projectId,
       amount: expenseToDelete.amount,
       description: expenseToDelete.description
     });

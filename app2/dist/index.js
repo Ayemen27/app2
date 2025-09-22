@@ -12118,6 +12118,51 @@ projectRouter.get("/:projectId/worker-misc-expenses", async (req, res) => {
     });
   }
 });
+projectRouter.get("/:projectId/worker-transfers", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.params;
+    console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u062D\u0648\u0627\u0644\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}`);
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const transfers = await db.select({
+      id: workerTransfers.id,
+      workerId: workerTransfers.workerId,
+      projectId: workerTransfers.projectId,
+      amount: workerTransfers.amount,
+      recipientName: workerTransfers.recipientName,
+      recipientPhone: workerTransfers.recipientPhone,
+      transferMethod: workerTransfers.transferMethod,
+      transferNumber: workerTransfers.transferNumber,
+      transferDate: workerTransfers.transferDate,
+      notes: workerTransfers.notes,
+      createdAt: workerTransfers.createdAt,
+      workerName: workers.name
+    }).from(workerTransfers).leftJoin(workers, eq8(workerTransfers.workerId, workers.id)).where(eq8(workerTransfers.projectId, projectId)).orderBy(workerTransfers.transferDate);
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062D\u0648\u0644\u0629 \u0639\u0645\u0627\u0644 \u0641\u064A ${duration}ms`);
+    res.json({
+      success: true,
+      data: transfers,
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062D\u0648\u0644\u0629 \u0639\u0645\u0627\u0644 \u0644\u0644\u0645\u0634\u0631\u0648\u0639`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u062D\u0648\u0627\u0644\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644:", error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      error: error.message,
+      processingTime: duration
+    });
+  }
+});
 projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
   const startTime = Date.now();
   try {

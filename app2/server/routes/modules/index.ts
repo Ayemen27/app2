@@ -27,8 +27,7 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات الصحة والمراقبة (عامة)
   app.use('/api', healthRouter);
   
-  // مسارات المصادقة (عامة - بدون حماية)
-  app.use('/api/auth', authRouter);
+  // ملاحظة: تم نقل مسارات المصادقة إلى routes/auth.ts لتجنب التضارب
   
   // مسارات autocomplete - منطق مختلط (عام/محمي)
   app.use('/api/autocomplete', autocompleteRouter);

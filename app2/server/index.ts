@@ -112,12 +112,14 @@ app.use((req, res, next) => {
   const { enhancedMigrationJobManager } = await import('./services/migration-job-manager-enhanced');
   await enhancedMigrationJobManager.startupCleanup();
   
-  const server = await registerRoutes(app);
+  // 🔐 تسجيل مسارات المصادقة أولاً - يجب أن تكون عامة وغير محمية
+  app.use('/api/auth', authRoutes);
 
   // 🏗️ تهيئة النظام التنظيمي للمسارات
   initializeRouteOrganizer(app);
 
-  app.use('/api/auth', authRoutes);
+  // 📊 تسجيل باقي المسارات المحمية
+  const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

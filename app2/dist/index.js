@@ -4601,7 +4601,7 @@ var init_old_db = __esm({
 });
 
 // server/index.ts
-import express11 from "express";
+import express10 from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit3 from "express-rate-limit";
@@ -4762,16 +4762,6 @@ var JWT_CONFIG = {
   issuer: "construction-management-app",
   algorithm: "HS256"
 };
-function generateAccessToken(payload) {
-  return jwt.sign(
-    { ...payload, type: "access" },
-    JWT_CONFIG.accessTokenSecret,
-    {
-      expiresIn: JWT_CONFIG.accessTokenExpiry,
-      issuer: JWT_CONFIG.issuer
-    }
-  );
-}
 async function generateTokenPair(userId, email, role, ipAddress, userAgent, deviceInfo) {
   const sessionId = crypto2.randomUUID();
   const deviceId = deviceInfo?.deviceId || crypto2.randomUUID();
@@ -4864,28 +4854,6 @@ async function verifyAccessToken(token) {
     };
   } catch (error) {
     console.error("\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 Access Token");
-    return null;
-  }
-}
-async function verifyRefreshToken(token) {
-  try {
-    const payload = jwt.verify(token, JWT_CONFIG.refreshTokenSecret, {
-      issuer: JWT_CONFIG.issuer
-    });
-    console.log("\u{1F50D} [JWT] \u0641\u0643 \u062A\u0634\u0641\u064A\u0631 refresh token:", {
-      hasUserId: !!payload.userId,
-      hasEmail: !!payload.email,
-      hasType: !!payload.type,
-      exp: payload.exp,
-      iat: payload.iat
-    });
-    if (payload.type && payload.type !== "refresh") {
-      console.log("\u274C [JWT] \u0646\u0648\u0639 \u0631\u0645\u0632 \u062E\u0627\u0637\u0626:", payload.type);
-      return null;
-    }
-    return payload;
-  } catch (error) {
-    console.error("\u274C [JWT] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 refresh token:", error.message);
     return null;
   }
 }
@@ -14915,245 +14883,10 @@ notificationRouter.get("/test/stats", requireRole("admin"), async (req, res) => 
 console.log("\u2705 [NotificationRoutes] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0633\u0627\u0631\u0627\u062A \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0645\u0639 \u0627\u0644\u0645\u0646\u0637\u0642 \u0627\u0644\u0643\u0627\u0645\u0644");
 var notificationRoutes_default = notificationRouter;
 
-// server/routes/modules/authRoutes.ts
-init_db();
-import express10 from "express";
-import bcrypt2 from "bcryptjs";
-import { sql as sql8 } from "drizzle-orm";
-var authRouter = express10.Router();
-authRouter.post("/login", async (req, res) => {
-  try {
-    console.log("\u{1F510} [AUTH] \u0645\u062D\u0627\u0648\u0644\u0629 \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644:", { email: req.body.email, timestamp: (/* @__PURE__ */ new Date()).toISOString() });
-    const { email, password } = req.body;
-    if (!email || !password) {
-      console.log("\u274C [AUTH] \u0628\u064A\u0627\u0646\u0627\u062A \u0646\u0627\u0642\u0635\u0629 - \u0627\u0644\u0628\u0631\u064A\u062F \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0645\u0641\u0642\u0648\u062F\u0629");
-      return res.status(400).json({
-        success: false,
-        message: "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0648\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0645\u0637\u0644\u0648\u0628\u0627\u0646"
-      });
-    }
-    const userResult = await db.execute(sql8`
-      SELECT id, email, password, first_name, last_name, created_at
-      FROM users 
-      WHERE LOWER(email) = LOWER(${email})
-    `);
-    if (userResult.rows.length === 0) {
-      console.log("\u274C [AUTH] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", email);
-      return res.status(401).json({
-        success: false,
-        message: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629"
-      });
-    }
-    const user = userResult.rows[0];
-    const passwordMatch = await bcrypt2.compare(password, String(user.password));
-    if (!passwordMatch) {
-      console.log("\u274C [AUTH] \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u062E\u0627\u0637\u0626\u0629 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", email);
-      return res.status(401).json({
-        success: false,
-        message: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629"
-      });
-    }
-    const tokenPair = await generateTokenPair(
-      String(user.id),
-      String(user.email),
-      "user",
-      // افتراضي
-      req.ip,
-      req.get("user-agent"),
-      { deviceId: "web-browser" }
-    );
-    console.log("\u2705 [AUTH] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0646\u062C\u0627\u062D:", {
-      userId: user.id,
-      email: user.email,
-      fullName: `${user.first_name || ""} ${user.last_name || ""}`.trim()
-    });
-    res.json({
-      success: true,
-      message: "\u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0646\u062C\u0627\u062D",
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
-          role: "admin",
-          // إضافة الدور المطلوب
-          createdAt: user.created_at
-        },
-        tokens: {
-          accessToken: tokenPair.accessToken,
-          refreshToken: tokenPair.refreshToken
-        }
-      }
-    });
-  } catch (error) {
-    console.error("\u274C [AUTH] \u062E\u0637\u0623 \u0641\u064A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644:", error);
-    res.status(500).json({
-      success: false,
-      message: "\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645 \u0623\u062B\u0646\u0627\u0621 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644",
-      error: error.message
-    });
-  }
-});
-authRouter.post("/register", async (req, res) => {
-  try {
-    console.log("\u{1F4DD} [AUTH] \u0645\u062D\u0627\u0648\u0644\u0629 \u062A\u0633\u062C\u064A\u0644 \u062D\u0633\u0627\u0628 \u062C\u062F\u064A\u062F:", { email: req.body.email });
-    const { email, password, fullName } = req.body;
-    if (!email || !password || !fullName) {
-      return res.status(400).json({
-        success: false,
-        message: "\u062C\u0645\u064A\u0639 \u0627\u0644\u062D\u0642\u0648\u0644 \u0645\u0637\u0644\u0648\u0628\u0629 (\u0627\u0644\u0628\u0631\u064A\u062F\u060C \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631\u060C \u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0643\u0627\u0645\u0644)"
-      });
-    }
-    const existingUser = await db.execute(sql8`
-      SELECT id FROM users WHERE LOWER(email) = LOWER(${email})
-    `);
-    if (existingUser.rows.length > 0) {
-      console.log("\u274C [AUTH] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B:", email);
-      return res.status(409).json({
-        success: false,
-        message: "\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0648\u062C\u0648\u062F \u0628\u0627\u0644\u0641\u0639\u0644 \u0628\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A"
-      });
-    }
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt2.hash(password, saltRounds);
-    const names = fullName.trim().split(/\s+/);
-    const firstName = names[0] || "";
-    const lastName = names.slice(1).join(" ") || "";
-    const newUserResult = await db.execute(sql8`
-      INSERT INTO users (email, password, first_name, last_name, created_at)
-      VALUES (${email}, ${hashedPassword}, ${firstName}, ${lastName}, NOW())
-      RETURNING id, email, first_name, last_name, created_at
-    `);
-    const newUser = newUserResult.rows[0];
-    console.log("\u2705 [AUTH] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u062D\u0633\u0627\u0628 \u062C\u062F\u064A\u062F:", {
-      userId: newUser.id,
-      email: newUser.email,
-      fullName: `${newUser.first_name || ""} ${newUser.last_name || ""}`.trim()
-    });
-    res.status(201).json({
-      success: true,
-      message: "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062D\u0633\u0627\u0628 \u0628\u0646\u062C\u0627\u062D",
-      data: {
-        user: {
-          id: newUser.id,
-          email: newUser.email,
-          fullName: `${newUser.first_name || ""} ${newUser.last_name || ""}`.trim(),
-          createdAt: newUser.created_at
-        }
-      }
-    });
-  } catch (error) {
-    console.error("\u274C [AUTH] \u062E\u0637\u0623 \u0641\u064A \u062A\u0633\u062C\u064A\u0644 \u062D\u0633\u0627\u0628 \u062C\u062F\u064A\u062F:", error);
-    res.status(500).json({
-      success: false,
-      message: "\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645 \u0623\u062B\u0646\u0627\u0621 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062D\u0633\u0627\u0628",
-      error: error.message
-    });
-  }
-});
-authRouter.post("/logout", async (req, res) => {
-  try {
-    console.log("\u{1F6AA} [AUTH] \u062A\u0633\u062C\u064A\u0644 \u062E\u0631\u0648\u062C \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645");
-    res.json({
-      success: true,
-      message: "\u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062E\u0631\u0648\u062C \u0628\u0646\u062C\u0627\u062D"
-    });
-  } catch (error) {
-    console.error("\u274C [AUTH] \u062E\u0637\u0623 \u0641\u064A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062E\u0631\u0648\u062C:", error);
-    res.status(500).json({
-      success: false,
-      message: "\u062E\u0637\u0623 \u0641\u064A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062E\u0631\u0648\u062C",
-      error: error.message
-    });
-  }
-});
-authRouter.post("/refresh", async (req, res) => {
-  try {
-    console.log("\u{1F504} [AUTH] \u0637\u0644\u0628 \u062A\u062C\u062F\u064A\u062F Access Token");
-    const { refreshToken } = req.body;
-    if (!refreshToken) {
-      return res.status(401).json({
-        success: false,
-        message: "Refresh token \u0645\u0637\u0644\u0648\u0628"
-      });
-    }
-    try {
-      const decoded = await verifyRefreshToken(refreshToken);
-      if (!decoded) {
-        console.log("\u274C [AUTH] Refresh token \u063A\u064A\u0631 \u0635\u0627\u0644\u062D");
-        return res.status(401).json({
-          success: false,
-          message: "Refresh token \u063A\u064A\u0631 \u0635\u0627\u0644\u062D"
-        });
-      }
-      const userResult = await db.execute(sql8`
-        SELECT id, email, first_name, last_name, created_at
-        FROM users 
-        WHERE id = ${decoded.userId || decoded.id}
-      `);
-      if (userResult.rows.length === 0) {
-        return res.status(401).json({
-          success: false,
-          message: "\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F"
-        });
-      }
-      const user = userResult.rows[0];
-      const newAccessToken = generateAccessToken({
-        userId: String(user.id),
-        email: String(user.email),
-        role: "user"
-      });
-      console.log("\u2705 [AUTH] \u062A\u0645 \u062A\u062C\u062F\u064A\u062F Access Token \u0628\u0646\u062C\u0627\u062D:", { userId: user.id });
-      res.json({
-        success: true,
-        message: "\u062A\u0645 \u062A\u062C\u062F\u064A\u062F Access Token \u0628\u0646\u062C\u0627\u062D",
-        data: {
-          accessToken: newAccessToken
-        }
-      });
-    } catch (tokenError) {
-      console.log("\u274C [AUTH] Refresh token \u063A\u064A\u0631 \u0635\u0627\u0644\u062D:", tokenError.message);
-      return res.status(401).json({
-        success: false,
-        message: "Refresh token \u063A\u064A\u0631 \u0635\u0627\u0644\u062D \u0623\u0648 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629"
-      });
-    }
-  } catch (error) {
-    console.error("\u274C [AUTH] \u062E\u0637\u0623 \u0641\u064A \u062A\u062C\u062F\u064A\u062F Token:", error);
-    res.status(401).json({
-      success: false,
-      message: "\u062E\u0637\u0623 \u0641\u064A \u062A\u062C\u062F\u064A\u062F Access Token",
-      error: error.message
-    });
-  }
-});
-authRouter.get("/me", async (req, res) => {
-  try {
-    console.log("\u{1F464} [AUTH] \u0637\u0644\u0628 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u062D\u0627\u0644\u064A");
-    res.json({
-      success: true,
-      message: "\u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 - \u0633\u064A\u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0645\u0646\u0637\u0642 \u0627\u0644\u0643\u0627\u0645\u0644",
-      data: {
-        user: null
-      }
-    });
-  } catch (error) {
-    console.error("\u274C [AUTH] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", error);
-    res.status(500).json({
-      success: false,
-      message: "\u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645",
-      error: error.message
-    });
-  }
-});
-console.log("\u{1F510} [AuthRouter] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629");
-var authRoutes_default = authRouter;
-
 // server/routes/modules/index.ts
 function registerOrganizedRoutes(app2) {
   console.log("\u{1F3D7}\uFE0F [OrganizedRoutes] \u0628\u062F\u0621 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0646\u0638\u0645\u0629...");
   app2.use("/api", healthRoutes_default);
-  app2.use("/api/auth", authRoutes_default);
   app2.use("/api/autocomplete", autocompleteRoutes_default);
   app2.use("/api/projects", projectRoutes_default);
   app2.use("/api", workerRoutes_default);
@@ -15338,7 +15071,7 @@ function initializeRouteOrganizer(app2) {
 }
 
 // server/index.ts
-var app = express11();
+var app = express10();
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -15389,8 +15122,8 @@ var globalRateLimit = rateLimit3({
   }
 });
 app.use(globalRateLimit);
-app.use(express11.json({ limit: "10mb" }));
-app.use(express11.urlencoded({ extended: false, limit: "10mb" }));
+app.use(express10.json({ limit: "10mb" }));
+app.use(express10.urlencoded({ extended: false, limit: "10mb" }));
 app.use((req, res, next) => {
   const start = Date.now();
   const path4 = req.path;
@@ -15418,9 +15151,9 @@ app.use((req, res, next) => {
 (async () => {
   const { enhancedMigrationJobManager: enhancedMigrationJobManager2 } = await Promise.resolve().then(() => (init_migration_job_manager_enhanced(), migration_job_manager_enhanced_exports));
   await enhancedMigrationJobManager2.startupCleanup();
-  const server = await registerRoutes(app);
-  initializeRouteOrganizer(app);
   app.use("/api/auth", auth_default);
+  initializeRouteOrganizer(app);
+  const server = await registerRoutes(app);
   app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

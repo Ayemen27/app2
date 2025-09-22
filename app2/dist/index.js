@@ -13630,7 +13630,7 @@ var workerRoutes_default = workerRouter;
 init_db();
 init_schema();
 import express7 from "express";
-import { eq as eq10, sql as sql7, desc as desc6 } from "drizzle-orm";
+import { eq as eq10, and as and9, sql as sql7, gte as gte5, lte as lte3, desc as desc6 } from "drizzle-orm";
 var financialRouter = express7.Router();
 financialRouter.use(requireAuth);
 financialRouter.get("/fund-transfers", async (req, res) => {
@@ -13842,27 +13842,40 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
       fromProjectName: sql7`from_project.name`.as("fromProjectName"),
       toProjectName: sql7`to_project.name`.as("toProjectName")
     }).from(projectFundTransfers).leftJoin(sql7`${projects} as from_project`, eq10(projectFundTransfers.fromProjectId, sql7`from_project.id`)).leftJoin(sql7`${projects} as to_project`, eq10(projectFundTransfers.toProjectId, sql7`to_project.id`));
-    let whereConditions = [];
+    const conditions = [];
     if (projectId && projectId !== "all") {
-      whereConditions.push(sql7`${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId}`);
+      conditions.push(sql7`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`);
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", projectId);
     }
     if (date2) {
-      whereConditions.push(sql7`DATE(${projectFundTransfers.transferDate}) = ${date2}`);
+      const startOfDay = `${date2} 00:00:00`;
+      const endOfDay = `${date2} 23:59:59.999`;
+      conditions.push(and9(
+        gte5(projectFundTransfers.transferDate, startOfDay),
+        lte3(projectFundTransfers.transferDate, endOfDay)
+      ));
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u062A\u0627\u0631\u064A\u062E \u0645\u062D\u062F\u062F:", date2);
     } else if (dateFrom && dateTo) {
-      whereConditions.push(sql7`DATE(${projectFundTransfers.transferDate}) >= ${dateFrom} AND DATE(${projectFundTransfers.transferDate}) <= ${dateTo}`);
+      const startOfPeriod = `${dateFrom} 00:00:00`;
+      const endOfPeriod = `${dateTo} 23:59:59.999`;
+      conditions.push(and9(
+        gte5(projectFundTransfers.transferDate, startOfPeriod),
+        lte3(projectFundTransfers.transferDate, endOfPeriod)
+      ));
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0641\u062A\u0631\u0629 \u0632\u0645\u0646\u064A\u0629:", `${dateFrom} - ${dateTo}`);
     } else if (dateFrom) {
-      whereConditions.push(sql7`DATE(${projectFundTransfers.transferDate}) >= ${dateFrom}`);
+      const startOfPeriod = `${dateFrom} 00:00:00`;
+      conditions.push(gte5(projectFundTransfers.transferDate, startOfPeriod));
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0645\u0646 \u062A\u0627\u0631\u064A\u062E:", dateFrom);
     } else if (dateTo) {
-      whereConditions.push(sql7`DATE(${projectFundTransfers.transferDate}) <= ${dateTo}`);
+      const endOfPeriod = `${dateTo} 23:59:59.999`;
+      conditions.push(lte3(projectFundTransfers.transferDate, endOfPeriod));
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u062D\u062A\u0649 \u062A\u0627\u0631\u064A\u062E:", dateTo);
     }
     let transfers;
-    if (whereConditions.length > 0) {
-      transfers = await baseQuery.where(sql7`${whereConditions.join(" AND ")}`).orderBy(desc6(projectFundTransfers.transferDate));
+    if (conditions.length > 0) {
+      const whereClause = conditions.length === 1 ? conditions[0] : and9(...conditions);
+      transfers = await baseQuery.where(whereClause).orderBy(desc6(projectFundTransfers.transferDate));
     } else {
       transfers = await baseQuery.orderBy(desc6(projectFundTransfers.transferDate));
     }

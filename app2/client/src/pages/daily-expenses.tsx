@@ -1069,10 +1069,25 @@ function DailyExpensesContent() {
 
       // تطبيق المنطق الصحيح من النسخة الاحتياطية - استخدام cleanNumber للاتساق
       const carriedAmount = cleanNumber(carriedForward);
+      
+      console.log('🧮 [calculateTotals] تفاصيل الحساب:', {
+        carriedForward,
+        carriedAmount,
+        totalFundTransfers,
+        incomingProjectTransfers,
+        calculation: `${carriedAmount} + ${totalFundTransfers} + ${incomingProjectTransfers}`,
+      });
+      
       const totalIncome = carriedAmount + totalFundTransfers + incomingProjectTransfers;
       const totalExpenses = totalWorkerWages + totalTransportation + totalMaterialCosts + 
                             totalWorkerTransfers + totalMiscExpenses + outgoingProjectTransfers;
       const remainingBalance = totalIncome - totalExpenses;
+      
+      console.log('✅ [calculateTotals] النتيجة النهائية:', {
+        totalIncome,
+        totalExpenses,
+        remainingBalance
+      });
 
       // تسجيل تفصيلي للحسابات
       if (process.env.NODE_ENV === 'development') {

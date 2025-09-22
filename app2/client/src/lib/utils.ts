@@ -50,7 +50,7 @@ export const cleanNumber = (value: any): number => {
     if (isNaN(value) || !isFinite(value)) return 0;
     // فحص القيم غير المنطقية
     if (Math.abs(value) > 100000000000) return 0;
-    return Math.max(0, value);
+    return value;
   }
   
   if (typeof value === 'string') {
@@ -65,7 +65,7 @@ export const cleanNumber = (value: any): number => {
     if (isNaN(parsed) || !isFinite(parsed)) return 0;
     if (Math.abs(parsed) > 100000000000) return 0;
     
-    return Math.max(0, parsed);
+    return parsed;
   }
   
   return 0;

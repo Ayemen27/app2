@@ -597,7 +597,7 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
     const transferToDelete = existingTransfer[0];
     console.log('🗑️ [API] سيتم حذف حوالة العامل:', {
       id: transferToDelete.id,
-      workerId: transferToDelete.workerId,
+      projectId: transferToDelete.projectId,
       amount: transferToDelete.amount,
       recipientName: transferToDelete.recipientName
     });

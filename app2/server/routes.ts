@@ -141,29 +141,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workers", requireAuth, async (req, res) => {
-    try {
-      console.log('👷 [API] جلب قائمة العمال من قاعدة البيانات');
-      
-      const workersList = await db.select().from(workers).orderBy(workers.createdAt);
-      
-      console.log(`✅ [API] تم جلب ${workersList.length} عامل من قاعدة البيانات`);
-      
-      res.json({ 
-        success: true, 
-        data: workersList, 
-        message: `تم جلب ${workersList.length} عامل بنجاح` 
-      });
-    } catch (error: any) {
-      console.error('❌ [API] خطأ في جلب العمال:', error);
-      res.status(500).json({ 
-        success: false, 
-        data: [], 
-        error: error.message,
-        message: "فشل في جلب قائمة العمال" 
-      });
-    }
-  });
 
   // 📊 GET endpoint لجلب تحويلات العهدة لمشروع محدد
   app.get("/api/projects/:projectId/fund-transfers", requireAuth, async (req, res) => {
@@ -208,61 +185,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 📊 GET endpoint لجلب حضور العمال لمشروع محدد
-  app.get("/api/projects/:projectId/worker-attendance", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const { projectId } = req.params;
-      
-      console.log(`📊 [API] جلب حضور العمال للمشروع: ${projectId}`);
-      
-      if (!projectId) {
-        return res.status(400).json({
-          success: false,
-          error: 'معرف المشروع مطلوب',
-          processingTime: Date.now() - startTime
-        });
-      }
-
-      const attendance = await db.select({
-        id: workerAttendance.id,
-        workerId: workerAttendance.workerId,
-        projectId: workerAttendance.projectId,
-        date: workerAttendance.date,
-        workDays: workerAttendance.workDays,
-        dailyWage: workerAttendance.dailyWage,
-        actualWage: workerAttendance.actualWage,
-        paidAmount: workerAttendance.paidAmount,
-        isPresent: workerAttendance.isPresent,
-        createdAt: workerAttendance.createdAt,
-        workerName: workers.name
-      })
-      .from(workerAttendance)
-      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
-      .where(eq(workerAttendance.projectId, projectId))
-      .orderBy(workerAttendance.date);
-      
-      const duration = Date.now() - startTime;
-      console.log(`✅ [API] تم جلب ${attendance.length} سجل حضور في ${duration}ms`);
-      
-      res.json({
-        success: true,
-        data: attendance,
-        message: `تم جلب ${attendance.length} سجل حضور للمشروع`,
-        processingTime: duration
-      });
-      
-    } catch (error: any) {
-      const duration = Date.now() - startTime;
-      console.error('❌ [API] خطأ في جلب حضور العمال:', error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        processingTime: duration
-      });
-    }
-  });
 
   // 📊 GET endpoint لجلب مشتريات المواد لمشروع محدد
   app.get("/api/projects/:projectId/material-purchases", requireAuth, async (req, res) => {
@@ -1089,77 +1011,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 👷 POST endpoint للعمال - إضافة عامل جديد مع validation محسن
-  app.post("/api/workers", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log('👷 [API] طلب إضافة عامل جديد من المستخدم:', req.user?.email);
-      console.log('📋 [API] بيانات العامل المرسلة:', req.body);
-      
-      // Validation باستخدام enhanced schema
-      const validationResult = enhancedInsertWorkerSchema.safeParse(req.body);
-      
-      if (!validationResult.success) {
-        const duration = Date.now() - startTime;
-        console.error('❌ [API] فشل في validation العامل:', validationResult.error.flatten());
-        
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات العامل غير صحيحة';
-        
-        return res.status(400).json({
-          success: false,
-          error: 'بيانات العامل غير صحيحة',
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration
-        });
-      }
-      
-      console.log('✅ [API] نجح validation العامل');
-      
-      // إدراج العامل الجديد في قاعدة البيانات
-      console.log('💾 [API] حفظ العامل في قاعدة البيانات...');
-      const newWorker = await db.insert(workers).values(validationResult.data).returning();
-      
-      const duration = Date.now() - startTime;
-      console.log(`✅ [API] تم إنشاء العامل بنجاح في ${duration}ms:`, {
-        id: newWorker[0].id,
-        name: newWorker[0].name,
-        type: newWorker[0].type,
-        dailyWage: newWorker[0].dailyWage
-      });
-      
-      res.status(201).json({
-        success: true,
-        data: newWorker[0],
-        message: `تم إنشاء العامل "${newWorker[0].name}" (${newWorker[0].type}) بنجاح`,
-        processingTime: duration
-      });
-      
-    } catch (error: any) {
-      const duration = Date.now() - startTime;
-      console.error('❌ [API] خطأ في إنشاء العامل:', error);
-      
-      // تحليل نوع الخطأ لرسالة أفضل
-      let errorMessage = 'فشل في إنشاء العامل';
-      let statusCode = 500;
-      
-      if (error.code === '23505') { // duplicate key
-        errorMessage = 'اسم العامل موجود مسبقاً';
-        statusCode = 409;
-      } else if (error.code === '23502') { // not null violation
-        errorMessage = 'بيانات العامل ناقصة';
-        statusCode = 400;
-      }
-      
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
 
   // 📝 POST endpoint للمواد - إضافة مادة جديدة مع validation محسن
   app.post("/api/materials", requireAuth, async (req, res) => {
@@ -3418,31 +3269,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Worker types endpoint - إرجاع أنواع العمال بالتنسيق المطلوب
-  app.get("/api/worker-types", (req, res) => {
-    try {
-      const workerTypes = [
-        { id: '1', name: 'معلم', usageCount: 1 },
-        { id: '2', name: 'عامل', usageCount: 1 },
-        { id: '3', name: 'مساعد', usageCount: 1 },
-        { id: '4', name: 'سائق', usageCount: 1 },
-        { id: '5', name: 'حارس', usageCount: 1 }
-      ];
-
-      res.json({ 
-        success: true, 
-        data: workerTypes, 
-        message: "Worker types loaded successfully" 
-      });
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        message: "فشل في جلب أنواع العمال"
-      });
-    }
-  });
 
   // 🔄 PATCH endpoints للمشاريع
   app.patch("/api/projects/:id", requireAuth, async (req, res) => {

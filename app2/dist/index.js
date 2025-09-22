@@ -12131,6 +12131,88 @@ projectRouter.get("/:projectId/worker-misc-expenses", async (req, res) => {
     });
   }
 });
+projectRouter.get("/fund-transfers/incoming/:projectId", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.params;
+    console.log(`\u{1F4E5} [API] \u062C\u0644\u0628 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}`);
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const transfers = await db.select({
+      id: projectFundTransfers.id,
+      fromProjectId: projectFundTransfers.fromProjectId,
+      toProjectId: projectFundTransfers.toProjectId,
+      amount: projectFundTransfers.amount,
+      transferDate: projectFundTransfers.transferDate,
+      description: projectFundTransfers.description,
+      fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq8(projectFundTransfers.toProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0641\u064A ${duration}ms`);
+    res.json({
+      success: true,
+      data: transfers,
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0628\u0646\u062C\u0627\u062D`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0648\u0627\u0631\u062F\u0629:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0648\u0627\u0631\u062F\u0629",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+projectRouter.get("/fund-transfers/outgoing/:projectId", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.params;
+    console.log(`\u{1F4E4} [API] \u062C\u0644\u0628 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0635\u0627\u062F\u0631\u0629 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}`);
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const transfers = await db.select({
+      id: projectFundTransfers.id,
+      fromProjectId: projectFundTransfers.fromProjectId,
+      toProjectId: projectFundTransfers.toProjectId,
+      amount: projectFundTransfers.amount,
+      transferDate: projectFundTransfers.transferDate,
+      description: projectFundTransfers.description,
+      fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq8(projectFundTransfers.fromProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
+    res.json({
+      success: true,
+      data: transfers,
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0628\u0646\u062C\u0627\u062D`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0635\u0627\u062F\u0631\u0629:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0635\u0627\u062F\u0631\u0629",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 projectRouter.get("/:projectId/worker-transfers", async (req, res) => {
   const startTime = Date.now();
   try {

@@ -285,32 +285,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * 👤 معلومات المستخدم الحالي
- * GET /api/auth/me
- */
-authRouter.get('/me', async (req: Request, res: Response) => {
-  try {
-    console.log('👤 [AUTH] طلب معلومات المستخدم الحالي');
-    
-    // سيتم إضافة middleware للتحقق من المصادقة هنا لاحقاً
-    res.json({
-      success: true,
-      message: 'معلومات المستخدم - سيتم تطبيق المنطق الكامل',
-      data: {
-        user: null
-      }
-    });
-
-  } catch (error: any) {
-    console.error('❌ [AUTH] خطأ في جلب معلومات المستخدم:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطأ في جلب معلومات المستخدم',
-      error: error.message
-    });
-  }
-});
+// ملاحظة: تم حذف endpoint /me من هنا لتجنب التضارب مع النسخة المحمية في routes/auth.ts
 
 console.log('🔐 [AuthRouter] تم تهيئة مسارات المصادقة');
 

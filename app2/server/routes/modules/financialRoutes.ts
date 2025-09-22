@@ -29,7 +29,22 @@ financialRouter.get('/fund-transfers', async (req: Request, res: Response) => {
   try {
     console.log('💰 [API] جلب جميع تحويلات العهدة من قاعدة البيانات');
     
-    const transfers = await db.select().from(fundTransfers).orderBy(desc(fundTransfers.transferDate));
+    const transfers = await db
+      .select({
+        id: fundTransfers.id,
+        projectId: fundTransfers.projectId,
+        amount: fundTransfers.amount,
+        senderName: fundTransfers.senderName,
+        transferNumber: fundTransfers.transferNumber,
+        transferType: fundTransfers.transferType,
+        transferDate: fundTransfers.transferDate,
+        notes: fundTransfers.notes,
+        createdAt: fundTransfers.createdAt,
+        projectName: projects.name
+      })
+      .from(fundTransfers)
+      .leftJoin(projects, eq(fundTransfers.projectId, projects.id))
+      .orderBy(desc(fundTransfers.transferDate));
     
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل عهدة في ${duration}ms`);
@@ -269,9 +284,11 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
 financialRouter.get('/project-fund-transfers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    console.log('🏗️ [API] جلب جميع تحويلات أموال المشاريع من قاعدة البيانات');
+    const { projectId } = req.query;
+    console.log('🏗️ [API] جلب تحويلات أموال المشاريع من قاعدة البيانات');
+    console.log('🔍 [API] فلترة حسب المشروع:', projectId || 'جميع المشاريع');
     
-    const transfers = await db
+    let baseQuery = db
       .select({
         id: projectFundTransfers.id,
         fromProjectId: projectFundTransfers.fromProjectId,
@@ -286,8 +303,18 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
       })
       .from(projectFundTransfers)
       .leftJoin(sql`${projects} as from_project`, eq(projectFundTransfers.fromProjectId, sql`from_project.id`))
-      .leftJoin(sql`${projects} as to_project`, eq(projectFundTransfers.toProjectId, sql`to_project.id`))
-      .orderBy(desc(projectFundTransfers.transferDate));
+      .leftJoin(sql`${projects} as to_project`, eq(projectFundTransfers.toProjectId, sql`to_project.id`));
+
+    // إضافة فلترة حسب المشروع إذا تم تمريره
+    const transfers = projectId && projectId !== 'all' 
+      ? await baseQuery
+          .where(sql`${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId}`)
+          .orderBy(desc(projectFundTransfers.transferDate))
+      : await baseQuery.orderBy(desc(projectFundTransfers.transferDate));
+      
+    if (projectId && projectId !== 'all') {
+      console.log('✅ [API] تم تطبيق فلترة المشروع:', projectId);
+    }
     
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل مشروع في ${duration}ms`);

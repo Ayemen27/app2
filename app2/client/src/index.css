@@ -1890,3 +1890,108 @@
 .profession-icon-container:hover::after {
   opacity: 1;
 }
+
+/* تحسينات للنصوص العربية وعرض الرسائل */
+.text-right {
+  text-align: right !important;
+}
+
+/* تحسين عرض رسائل الخطأ للواجهة العربية */
+.form-message {
+  text-align: right;
+  direction: rtl;
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.validation-message {
+  direction: rtl;
+  text-align: right;
+}
+
+.validation-success {
+  color: #16a34a;
+  background-color: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.validation-error {
+  color: #dc2626;
+  background-color: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+/* تحسين مظهر الرسائل التفاعلية */
+.interactive-validation {
+  position: relative;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  direction: rtl;
+  text-align: right;
+}
+
+.strength-indicator {
+  margin-top: 0.5rem;
+  direction: rtl;
+}
+
+.strength-bar {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.strength-level {
+  height: 0.25rem;
+  flex: 1;
+  border-radius: 0.125rem;
+  transition: background-color 0.3s ease;
+}
+
+.strength-text {
+  font-size: 0.75rem;
+  text-align: right;
+  color: var(--muted-foreground);
+}
+
+/* تحسين مظهر النماذج */
+.enhanced-form-container {
+  direction: rtl;
+  text-align: right;
+}
+
+.enhanced-form-field {
+  margin-bottom: 1rem;
+}
+
+.enhanced-form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--foreground);
+  text-align: right;
+}
+
+.enhanced-form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background-color: var(--background);
+  color: var(--foreground);
+  transition: all 0.2s ease;
+  direction: rtl;
+  text-align: right;
+}
+
+.enhanced-form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}

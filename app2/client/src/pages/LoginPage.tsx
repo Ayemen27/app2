@@ -430,6 +430,8 @@ export default function AuthPage() {
                                     placeholder="admin@example.com"
                                     leftIcon={<Mail className="h-4 w-4" />}
                                     validator={emailValidator}
+                                    fieldType="email"
+                                    showValidation={true}
                                     enableMemory={true}
                                     memoryKey="login-email"
                                     className="enhanced-input"
@@ -453,6 +455,8 @@ export default function AuthPage() {
                                     type="password"
                                     placeholder="كلمة المرور"
                                     validator={passwordValidator}
+                                    fieldType="password"
+                                    showValidation={false}
                                     enableMemory={true}
                                     memoryKey="login-password"
                                     className="enhanced-input"
@@ -566,6 +570,9 @@ export default function AuthPage() {
                                   type="email"
                                   placeholder="ahmed@example.com"
                                   className="pr-10 enhanced-input"
+                                  validator={emailValidator}
+                                  fieldType="email"
+                                  showValidation={true}
                                   data-testid="input-email"
                                 />
                               </div>
@@ -611,6 +618,10 @@ export default function AuthPage() {
                                   type={showPassword ? "text" : "password"}
                                   placeholder="كلمة المرور"
                                   className="pl-10 enhanced-input"
+                                  validator={passwordValidator}
+                                  fieldType="password"
+                                  showValidation={true}
+                                  strengthIndicator={true}
                                   data-testid="input-password"
                                 />
                                 <button
@@ -710,6 +721,9 @@ export default function AuthPage() {
                                   type="email"
                                   placeholder="أدخل بريدك الإلكتروني"
                                   className="pr-10 enhanced-input"
+                                  validator={emailValidator}
+                                  fieldType="email"
+                                  showValidation={true}
                                   data-testid="input-forgot-email"
                                 />
                               </div>

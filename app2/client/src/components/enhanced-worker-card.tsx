@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
-import { User, Clock, DollarSign, FileText } from "lucide-react";
+import { User, Clock, DollarSign, FileText, MoreHorizontal } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { Worker } from "@shared/schema";
 
@@ -26,13 +27,15 @@ interface EnhancedWorkerCardProps {
   attendance: AttendanceData;
   onAttendanceChange: (attendance: AttendanceData) => void;
   viewMode?: ViewMode;
+  onExpandRequest?: () => void;
 }
 
 export default function EnhancedWorkerCard({ 
   worker, 
   attendance, 
   onAttendanceChange,
-  viewMode = 'compact'
+  viewMode = 'compact',
+  onExpandRequest
 }: EnhancedWorkerCardProps) {
   const [localAttendance, setLocalAttendance] = useState<AttendanceData>(attendance);
 
@@ -64,6 +67,72 @@ export default function EnhancedWorkerCard({
     return parseFloat(worker.dailyWage) * workDays;
   };
 
+  // Render compact view
+  if (viewMode === 'compact') {
+    return (
+      <Card className="mb-3 shadow-sm hover:shadow-md transition-shadow" data-testid={`worker-card-compact-${worker.id}`}>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            {/* Worker info section */}
+            <div className="flex items-center space-x-reverse space-x-4 flex-1">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                worker.type === "معلم" ? "bg-gradient-to-br from-primary to-primary/80" : 
+                worker.type === "حداد" ? "bg-gradient-to-br from-orange-500 to-orange-600" :
+                worker.type === "بلاط" ? "bg-gradient-to-br from-blue-500 to-blue-600" :
+                worker.type === "دهان" ? "bg-gradient-to-br from-green-500 to-green-600" :
+                "bg-gradient-to-br from-gray-500 to-gray-600"
+              }`}>
+                <User className="h-5 w-5" />
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-xl text-foreground truncate" data-testid={`worker-name-${worker.id}`}>
+                  {worker.name}
+                </h4>
+                <div className="flex items-center space-x-reverse space-x-2 text-sm mt-1">
+                  <span className="bg-secondary px-2 py-1 rounded-md text-xs font-medium">
+                    {worker.type}
+                  </span>
+                  <span className="text-primary font-semibold arabic-numbers" data-testid={`worker-wage-${worker.id}`}>
+                    {formatCurrency(worker.dailyWage)}/يوم
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions section */}
+            <div className="flex items-center space-x-reverse space-x-3 mr-4">
+              <div className="flex items-center space-x-reverse space-x-2">
+                <Label htmlFor={`present-compact-${worker.id}`} className="text-sm font-medium text-foreground cursor-pointer">
+                  حاضر
+                </Label>
+                <Checkbox
+                  id={`present-compact-${worker.id}`}
+                  checked={localAttendance.isPresent}
+                  onCheckedChange={handleAttendanceToggle}
+                  className="w-4 h-4"
+                  data-testid={`worker-checkbox-${worker.id}`}
+                />
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onExpandRequest}
+                className="h-8 px-3"
+                data-testid={`worker-details-btn-${worker.id}`}
+              >
+                <MoreHorizontal className="h-4 w-4 ml-2" />
+                تفاصيل أكثر
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Render detailed view for other modes
   return (
     <Card className="mb-4 shadow-sm border-r-4 border-r-primary/20 hover:shadow-md transition-shadow">
       <CardContent className="p-6">

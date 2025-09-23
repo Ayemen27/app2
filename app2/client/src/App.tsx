@@ -13,8 +13,6 @@ import WorkerAttendance from "@/pages/worker-attendance";
 
 import DailyExpenses from "@/pages/daily-expenses";
 import MaterialPurchase from "@/pages/material-purchase";
-import Reports from "@/pages/reports";
-
 import ProjectTransfers from "@/pages/project-transfers";
 import ProjectTransactionsPage from "@/pages/project-transactions-simple";
 
@@ -25,11 +23,8 @@ import SuppliersProPage from "@/pages/suppliers-professional";
 import SupplierAccountsPage from "@/pages/supplier-accounts";
 import AutocompleteAdminPage from "@/pages/autocomplete-admin";
 import { EquipmentManagement } from "@/pages/equipment-management";
-import AdvancedReports from "@/pages/advanced-reports";
-import WorkersUnifiedReports from "@/pages/workers-unified-reports";
 import NotificationsPage from "@/pages/notifications";
 import AdminNotificationsPage from "@/pages/admin-notifications";
-import AISystemDashboard from "@/pages/AISystemDashboard";
 import SmartErrorsPage from "@/pages/SmartErrorsPage";
 import { SecurityPoliciesPage } from "@/pages/SecurityPoliciesPage";
 
@@ -195,29 +190,6 @@ function Router() {
         </AdminRoute>
       </Route>
       
-      <Route path="/reports">
-        <AdminRoute>
-          <AuthLayout>
-            <Reports />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-      
-      <Route path="/advanced-reports">
-        <AdminRoute>
-          <AuthLayout>
-            <AdvancedReports />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-      
-      <Route path="/workers-unified-reports">
-        <AdminRoute>
-          <AuthLayout>
-            <WorkersUnifiedReports />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
       
       <Route path="/notifications">
         <ProtectedRoute>
@@ -235,13 +207,6 @@ function Router() {
         </AdminRoute>
       </Route>
 
-      <Route path="/ai-system">
-        <AdminRoute>
-          <AuthLayout>
-            <AISystemDashboard />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
 
       <Route path="/smart-errors">
         <ProtectedRoute>

@@ -52,15 +52,6 @@ const allPagesData = [
       { path: "/supplier-accounts", icon: CreditCard, label: "حسابات الموردين", description: "إدارة حسابات ودفعات الموردين", requireAdmin: true },
     ]
   },
-  // التقارير والإحصائيات - للمسؤولين فقط
-  {
-    category: "التقارير والإحصائيات",
-    pages: [
-      { path: "/reports", icon: FileSpreadsheet, label: "التقارير الأساسية", description: "التقارير المالية الأساسية", requireAdmin: true },
-      { path: "/advanced-reports", icon: TrendingUp, label: "التقارير المتقدمة", description: "تقارير مالية متقدمة وتحليلات شاملة", requireAdmin: true },
-      { path: "/workers-unified-reports", icon: Users, label: "تقارير العمال الموحدة", description: "تقارير شاملة لحسابات وحضور العمال", requireAdmin: true },
-    ]
-  },
   // الإشعارات والتنبيهات - متاحة للجميع
   {
     category: "الإشعارات والتنبيهات",
@@ -70,9 +61,8 @@ const allPagesData = [
   },
   // النظام الذكي والأمان - للمسؤولين فقط
   {
-    category: "النظام الذكي والأمان",
+    category: "الأمان والمراقبة",
     pages: [
-      { path: "/ai-system", icon: Brain, label: "النظام الذكي", description: "مراقبة ذكية ولوحة تحكم الذكاء الاصطناعي", requireAdmin: true },
       { path: "/security-policies", icon: Shield, label: "السياسات الأمنية", description: "إدارة السياسات الأمنية والامتثال", requireAdmin: true },
       { path: "/smart-errors", icon: Database, label: "كشف الأخطاء الذكي", description: "مراقبة وتحليل أخطاء قاعدة البيانات بذكاء اصطناعي", requireAdmin: true },
     ]

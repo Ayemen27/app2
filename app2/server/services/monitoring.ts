@@ -1,23 +1,23 @@
-import type { SystemMetrics, InsertSystemMetrics } from "@shared/schema";
+// نظام مراقبة مبسط - Basic monitoring service
+interface BasicMetrics {
+  serviceStatus: string;
+  uptime: number;
+  cpuUsage: number;
+  memoryUsage: number;
+}
 
 export class MonitoringService {
   private isMonitoring = false;
   private monitoringInterval: NodeJS.Timeout | null = null;
 
-  async getCurrentSystemMetrics(): Promise<InsertSystemMetrics> {
-    // Simulate real system monitoring - in production, this would call actual system APIs
-    const metrics: InsertSystemMetrics = {
+  async getCurrentSystemMetrics(): Promise<BasicMetrics> {
+    // مراقبة أساسية مبسطة
+    return {
       serviceStatus: await this.checkServiceStatus(),
-      uptime: await this.getUptime(),
-      error502Count: await this.getError502Count(),
-      responseTime: await this.getAverageResponseTime(),
-      activeRequests: await this.getActiveRequestsCount(),
-      requestsPerSecond: await this.getRequestsPerSecond(),
+      uptime: process.uptime(),
       cpuUsage: await this.getCpuUsage(),
       memoryUsage: await this.getMemoryUsage(),
     };
-
-    return metrics;
   }
 
   private async checkServiceStatus(): Promise<string> {

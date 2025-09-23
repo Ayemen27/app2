@@ -47,9 +47,6 @@ __export(schema_exports, {
   insertMaterialPurchaseSchema: () => insertMaterialPurchaseSchema,
   insertMaterialSchema: () => insertMaterialSchema,
   insertMessageSchema: () => insertMessageSchema,
-  insertMigrationBatchLogSchema: () => insertMigrationBatchLogSchema,
-  insertMigrationJobSchema: () => insertMigrationJobSchema,
-  insertMigrationTableProgressSchema: () => insertMigrationTableProgressSchema,
   insertNotificationReadStateSchema: () => insertNotificationReadStateSchema,
   insertNotificationSchema: () => insertNotificationSchema,
   insertPrintSettingsSchema: () => insertPrintSettingsSchema,
@@ -86,9 +83,6 @@ __export(schema_exports, {
   materialPurchases: () => materialPurchases,
   materials: () => materials,
   messages: () => messages,
-  migrationBatchLog: () => migrationBatchLog,
-  migrationJobs: () => migrationJobs,
-  migrationTableProgress: () => migrationTableProgress,
   notificationReadStates: () => notificationReadStates,
   notifications: () => notifications,
   passwordResetTokens: () => passwordResetTokens,
@@ -128,7 +122,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var users, authUserSessions, emailVerificationTokens, passwordResetTokens, projects, workers, fundTransfers, workerAttendance, suppliers, materials, materialPurchases, supplierPayments, transportationExpenses, workerTransfers, workerBalances, dailyExpenseSummaries, workerTypes, autocompleteData, workerMiscExpenses, printSettings, projectFundTransfers, insertProjectSchema, insertWorkerSchema, insertFundTransferSchema, insertWorkerAttendanceSchema, insertMaterialSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertWorkerTransferSchema, insertWorkerBalanceSchema, insertProjectFundTransferSchema, insertDailyExpenseSummarySchema, insertWorkerTypeSchema, insertAutocompleteDataSchema, insertWorkerMiscExpenseSchema, insertUserSchema, enhancedInsertWorkerSchema, enhancedInsertProjectSchema, updateProjectSchema, uuidSchema, insertSupplierSchema, insertSupplierPaymentSchema, insertPrintSettingsSchema, insertAuthUserSessionSchema, reportTemplates, insertReportTemplateSchema, toolCategories, tools, toolStock, toolMovements, toolMaintenanceLogs, toolUsageAnalytics, toolPurchaseItems, maintenanceSchedules, maintenanceTasks, toolCostTracking, toolReservations, systemNotifications, notificationReadStates, insertToolCategorySchema, insertToolSchema, updateToolSchema, insertToolStockSchema, insertToolMovementSchema, insertToolMaintenanceLogSchema, insertToolUsageAnalyticsSchema, insertToolReservationSchema, insertSystemNotificationSchema, insertToolPurchaseItemSchema, insertMaintenanceScheduleSchema, insertMaintenanceTaskSchema, insertToolCostTrackingSchema, toolNotifications, insertToolNotificationSchema, insertNotificationReadStateSchema, approvals, channels, messages, actions, systemEvents, insertApprovalSchema, insertChannelSchema, insertMessageSchema, insertActionSchema, insertSystemEventSchema, accounts, transactions, transactionLines, journals, financePayments, financeEvents, accountBalances, insertAccountSchema, insertTransactionSchema, insertTransactionLineSchema, insertJournalSchema, insertFinancePaymentSchema, insertFinanceEventSchema, migrationJobs, migrationTableProgress, migrationBatchLog, insertMigrationJobSchema, insertMigrationTableProgressSchema, insertMigrationBatchLogSchema, notifications, insertNotificationSchema;
+var users, authUserSessions, emailVerificationTokens, passwordResetTokens, projects, workers, fundTransfers, workerAttendance, suppliers, materials, materialPurchases, supplierPayments, transportationExpenses, workerTransfers, workerBalances, dailyExpenseSummaries, workerTypes, autocompleteData, workerMiscExpenses, printSettings, projectFundTransfers, insertProjectSchema, insertWorkerSchema, insertFundTransferSchema, insertWorkerAttendanceSchema, insertMaterialSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertWorkerTransferSchema, insertWorkerBalanceSchema, insertProjectFundTransferSchema, insertDailyExpenseSummarySchema, insertWorkerTypeSchema, insertAutocompleteDataSchema, insertWorkerMiscExpenseSchema, insertUserSchema, enhancedInsertWorkerSchema, enhancedInsertProjectSchema, updateProjectSchema, uuidSchema, insertSupplierSchema, insertSupplierPaymentSchema, insertPrintSettingsSchema, insertAuthUserSessionSchema, reportTemplates, insertReportTemplateSchema, toolCategories, tools, toolStock, toolMovements, toolMaintenanceLogs, toolUsageAnalytics, toolPurchaseItems, maintenanceSchedules, maintenanceTasks, toolCostTracking, toolReservations, systemNotifications, notificationReadStates, insertToolCategorySchema, insertToolSchema, updateToolSchema, insertToolStockSchema, insertToolMovementSchema, insertToolMaintenanceLogSchema, insertToolUsageAnalyticsSchema, insertToolReservationSchema, insertSystemNotificationSchema, insertToolPurchaseItemSchema, insertMaintenanceScheduleSchema, insertMaintenanceTaskSchema, insertToolCostTrackingSchema, toolNotifications, insertToolNotificationSchema, insertNotificationReadStateSchema, approvals, channels, messages, actions, systemEvents, insertApprovalSchema, insertChannelSchema, insertMessageSchema, insertActionSchema, insertSystemEventSchema, accounts, transactions, transactionLines, journals, financePayments, financeEvents, accountBalances, insertAccountSchema, insertTransactionSchema, insertTransactionLineSchema, insertJournalSchema, insertFinancePaymentSchema, insertFinanceEventSchema, notifications, insertNotificationSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -1669,98 +1663,6 @@ var init_schema = __esm({
       id: true,
       createdAt: true,
       processedAt: true
-    });
-    migrationJobs = pgTable("migration_jobs", {
-      id: varchar("id").primaryKey(),
-      // معرف فريد للمهمة
-      status: text("status").notNull().default("pending"),
-      // pending, running, completed, failed, cancelled
-      startTime: timestamp("start_time").defaultNow().notNull(),
-      endTime: timestamp("end_time"),
-      // null حتى انتهاء المهمة
-      currentTable: text("current_table"),
-      // الجدول الحالي قيد المعالجة
-      tablesProcessed: integer("tables_processed").default(0).notNull(),
-      totalTables: integer("total_tables").default(0).notNull(),
-      totalRowsProcessed: integer("total_rows_processed").default(0).notNull(),
-      totalRowsSaved: integer("total_rows_saved").default(0).notNull(),
-      totalErrors: integer("total_errors").default(0).notNull(),
-      progress: integer("progress").default(0).notNull(),
-      // 0-100
-      errorMessage: text("error_message"),
-      // رسالة الخطأ في حالة الفشل
-      batchSize: integer("batch_size").default(100).notNull(),
-      // حجم الدفعة المستخدم
-      // Metadata للموثوقية
-      userId: varchar("user_id").references(() => users.id),
-      // المستخدم الذي بدأ المهمة
-      resumable: boolean("resumable").default(true).notNull(),
-      // هل يمكن استئناف المهمة؟
-      lastHeartbeat: timestamp("last_heartbeat").defaultNow(),
-      // آخر إشارة حياة للمهمة
-      createdAt: timestamp("created_at").defaultNow().notNull(),
-      updatedAt: timestamp("updated_at").defaultNow().notNull()
-    });
-    migrationTableProgress = pgTable("migration_table_progress", {
-      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      jobId: varchar("job_id").notNull().references(() => migrationJobs.id, { onDelete: "cascade" }),
-      tableName: text("table_name").notNull(),
-      status: text("status").notNull().default("pending"),
-      // pending, processing, completed, failed, skipped
-      totalRows: integer("total_rows").default(0).notNull(),
-      processedRows: integer("processed_rows").default(0).notNull(),
-      savedRows: integer("saved_rows").default(0).notNull(),
-      failedRows: integer("failed_rows").default(0).notNull(),
-      errors: integer("errors").default(0).notNull(),
-      startTime: timestamp("start_time"),
-      endTime: timestamp("end_time"),
-      errorMessage: text("error_message"),
-      // معاملات للاستئناف الآمن
-      lastProcessedId: text("last_processed_id"),
-      // آخر معرف تمت معالجته
-      lastBatchOffset: integer("last_batch_offset").default(0).notNull(),
-      // آخر offset للدفعة
-      checksum: text("checksum"),
-      // checksum للتحقق من سلامة البيانات
-      createdAt: timestamp("created_at").defaultNow().notNull(),
-      updatedAt: timestamp("updated_at").defaultNow().notNull()
-    }, (table) => ({
-      // قيد فريد لمنع تكرار نفس الجدول في نفس المهمة
-      uniqueJobTable: sql`UNIQUE (job_id, table_name)`
-    }));
-    migrationBatchLog = pgTable("migration_batch_log", {
-      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      jobId: varchar("job_id").notNull().references(() => migrationJobs.id, { onDelete: "cascade" }),
-      tableName: text("table_name").notNull(),
-      batchIndex: integer("batch_index").notNull(),
-      batchSize: integer("batch_size").notNull(),
-      batchOffset: integer("batch_offset").notNull(),
-      status: text("status").notNull(),
-      // started, completed, failed, retrying
-      rowsProcessed: integer("rows_processed").default(0).notNull(),
-      rowsSaved: integer("rows_saved").default(0).notNull(),
-      retryCount: integer("retry_count").default(0).notNull(),
-      errorMessage: text("error_message"),
-      // للمعاملات الآمنة
-      transactionId: text("transaction_id"),
-      // معرف المعاملة
-      startTime: timestamp("start_time").defaultNow().notNull(),
-      endTime: timestamp("end_time"),
-      createdAt: timestamp("created_at").defaultNow().notNull()
-    });
-    insertMigrationJobSchema = createInsertSchema(migrationJobs).omit({
-      createdAt: true,
-      updatedAt: true,
-      lastHeartbeat: true
-    });
-    insertMigrationTableProgressSchema = createInsertSchema(migrationTableProgress).omit({
-      id: true,
-      createdAt: true,
-      updatedAt: true
-    });
-    insertMigrationBatchLogSchema = createInsertSchema(migrationBatchLog).omit({
-      id: true,
-      createdAt: true
     });
     notifications = pgTable("notifications", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

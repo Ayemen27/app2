@@ -13,7 +13,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { AddEquipmentDialog } from "@/components/equipment/add-equipment-dialog";
 import { TransferEquipmentDialog } from "@/components/equipment/transfer-equipment-dialog";
 import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment-movement-history-dialog";
-import { Equipment } from "@shared/schema";
+import type { Tool as Equipment } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { saveAs } from 'file-saver';

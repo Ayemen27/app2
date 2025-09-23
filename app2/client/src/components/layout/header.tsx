@@ -31,10 +31,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/autocomplete-admin': { title: 'إعدادات الإكمال التلقائي', icon: Wrench },
   '/tools-management': { title: 'إدارة الأدوات والمعدات', icon: Wrench },
   '/notifications': { title: 'الإشعارات', icon: Bell },
-  '/ai-system': { title: 'النظام الذكي', icon: Shield },
   '/smart-errors': { title: 'كشف الأخطاء الذكي', icon: Shield },
-  '/data-migration': { title: 'هجرة البيانات من Supabase', icon: ArrowLeftRight },
-  '/migration-dashboard': { title: 'لوحة تحكم هجرة البيانات', icon: ArrowLeftRight },
 };
 
 export default function Header() {

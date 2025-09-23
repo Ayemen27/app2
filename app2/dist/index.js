@@ -9691,7 +9691,7 @@ init_db();
 init_schema();
 import { Router } from "express";
 import { z as z2 } from "zod";
-import { eq as eq9 } from "drizzle-orm";
+import { eq as eq9, sql as sql6 } from "drizzle-orm";
 
 // server/auth/crypto-utils.ts
 import bcrypt from "bcrypt";
@@ -11358,8 +11358,10 @@ router.post("/validate-field", async (req, res) => {
           isValid = false;
           message = "\u0635\u064A\u063A\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
         } else {
-          const existingUser = await db.select().from(users).where(eq9(users.email, value.toLowerCase())).limit(1);
-          if (existingUser.length > 0) {
+          const existingUser = await db.execute(sql6`
+            SELECT id FROM users WHERE LOWER(email) = LOWER(${value})
+          `);
+          if (existingUser.rows.length > 0) {
             isValid = false;
             message = "\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0633\u0628\u0642\u0627\u064B";
             suggestions = [
@@ -12585,7 +12587,7 @@ var healthRoutes_default = healthRouter;
 init_db();
 init_schema();
 import express5 from "express";
-import { eq as eq10, and as and9, sql as sql6, gte as gte5, lt as lt3, lte as lte2, desc as desc6 } from "drizzle-orm";
+import { eq as eq10, and as and9, sql as sql7, gte as gte5, lt as lt3, lte as lte2, desc as desc6 } from "drizzle-orm";
 var projectRouter = express5.Router();
 projectRouter.use(requireAuth);
 projectRouter.get("/", async (req, res) => {
@@ -12631,7 +12633,7 @@ projectRouter.get("/with-stats", async (req, res) => {
           }
           return Math.max(0, parsed);
         };
-        const workersStats = await db.execute(sql6`
+        const workersStats = await db.execute(sql7`
           SELECT 
             COUNT(DISTINCT wa.worker_id) as total_workers,
             COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
@@ -12639,46 +12641,46 @@ projectRouter.get("/with-stats", async (req, res) => {
           INNER JOIN workers w ON wa.worker_id = w.id
           WHERE wa.project_id = ${projectId}
         `);
-        const materialStats = await db.execute(sql6`
+        const materialStats = await db.execute(sql7`
           SELECT 
             COUNT(*) as material_purchases,
             COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
           FROM material_purchases 
           WHERE project_id = ${projectId}
         `);
-        const workerWagesStats = await db.execute(sql6`
+        const workerWagesStats = await db.execute(sql7`
           SELECT 
             COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
             COUNT(DISTINCT date) as completed_days
           FROM worker_attendance 
           WHERE project_id = ${projectId} AND is_present = true
         `);
-        const fundTransfersStats = await db.execute(sql6`
+        const fundTransfersStats = await db.execute(sql7`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
           FROM fund_transfers 
           WHERE project_id = ${projectId}
         `);
-        const transportStats = await db.execute(sql6`
+        const transportStats = await db.execute(sql7`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
           FROM transportation_expenses 
           WHERE project_id = ${projectId}
         `);
-        const workerTransfersStats = await db.execute(sql6`
+        const workerTransfersStats = await db.execute(sql7`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
           FROM worker_transfers 
           WHERE project_id = ${projectId}
         `);
-        const miscExpensesStats = await db.execute(sql6`
+        const miscExpensesStats = await db.execute(sql7`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
           FROM worker_misc_expenses 
           WHERE project_id = ${projectId}
         `);
-        const outgoingProjectTransfersStats = await db.execute(sql6`
+        const outgoingProjectTransfersStats = await db.execute(sql7`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as outgoing_project_transfers
           FROM project_fund_transfers 
           WHERE from_project_id = ${projectId}
         `);
-        const incomingProjectTransfersStats = await db.execute(sql6`
+        const incomingProjectTransfersStats = await db.execute(sql7`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as incoming_project_transfers
           FROM project_fund_transfers 
           WHERE to_project_id = ${projectId}
@@ -12861,7 +12863,7 @@ projectRouter.get("/:id", async (req, res) => {
           workerTransfersStats,
           miscExpensesStats
         ] = await Promise.all([
-          db.execute(sql6`
+          db.execute(sql7`
             SELECT 
               COUNT(DISTINCT wa.worker_id) as total_workers,
               COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
@@ -12869,36 +12871,36 @@ projectRouter.get("/:id", async (req, res) => {
             INNER JOIN workers w ON wa.worker_id = w.id
             WHERE wa.project_id = ${id}
           `),
-          db.execute(sql6`
+          db.execute(sql7`
             SELECT 
               COUNT(*) as material_purchases,
               COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
             FROM material_purchases 
             WHERE project_id = ${id}
           `),
-          db.execute(sql6`
+          db.execute(sql7`
             SELECT 
               COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
               COUNT(DISTINCT date) as completed_days
             FROM worker_attendance 
             WHERE project_id = ${id} AND is_present = true
           `),
-          db.execute(sql6`
+          db.execute(sql7`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
             FROM fund_transfers 
             WHERE project_id = ${id}
           `),
-          db.execute(sql6`
+          db.execute(sql7`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
             FROM transportation_expenses 
             WHERE project_id = ${id}
           `),
-          db.execute(sql6`
+          db.execute(sql7`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
             FROM worker_transfers 
             WHERE project_id = ${id}
           `),
-          db.execute(sql6`
+          db.execute(sql7`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
             FROM worker_misc_expenses 
             WHERE project_id = ${id}
@@ -13261,8 +13263,8 @@ projectRouter.get("/fund-transfers/incoming/:projectId", async (req, res) => {
       amount: projectFundTransfers.amount,
       transferDate: projectFundTransfers.transferDate,
       description: projectFundTransfers.description,
-      fromProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
     }).from(projectFundTransfers).where(eq10(projectFundTransfers.toProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0641\u064A ${duration}ms`);
@@ -13302,8 +13304,8 @@ projectRouter.get("/fund-transfers/outgoing/:projectId", async (req, res) => {
       amount: projectFundTransfers.amount,
       transferDate: projectFundTransfers.transferDate,
       description: projectFundTransfers.description,
-      fromProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
     }).from(projectFundTransfers).where(eq10(projectFundTransfers.fromProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
@@ -13390,9 +13392,9 @@ projectRouter.get("/:projectId/actual-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      direction: sql6`'incoming'`.as("direction"),
-      fromProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+      direction: sql7`'incoming'`.as("direction"),
+      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
     }).from(projectFundTransfers).where(eq10(projectFundTransfers.toProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
     const outgoingTransfers = await db.select({
       id: projectFundTransfers.id,
@@ -13403,9 +13405,9 @@ projectRouter.get("/:projectId/actual-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      direction: sql6`'outgoing'`.as("direction"),
-      fromProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+      direction: sql7`'outgoing'`.as("direction"),
+      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
     }).from(projectFundTransfers).where(eq10(projectFundTransfers.fromProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${incomingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0648 ${outgoingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
@@ -13478,7 +13480,7 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
     let dailySummary = null;
     try {
       console.log("\u26A1 [API] \u0645\u062D\u0627\u0648\u0644\u0629 \u062C\u0644\u0628 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 daily_summary_mv...");
-      const mvResult = await db.execute(sql6`
+      const mvResult = await db.execute(sql7`
         SELECT 
           id,
           project_id,
@@ -13516,14 +13518,14 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
         total_worker_wages: dailyExpenseSummaries.totalWorkerWages,
         total_material_costs: dailyExpenseSummaries.totalMaterialCosts,
         total_transportation_expenses: dailyExpenseSummaries.totalTransportationCosts,
-        total_worker_transfers: sql6`COALESCE(${dailyExpenseSummaries.totalWorkerTransfers}, 0)`,
-        total_worker_misc_expenses: sql6`COALESCE(${dailyExpenseSummaries.totalWorkerMiscExpenses}, 0)`,
+        total_worker_transfers: sql7`COALESCE(${dailyExpenseSummaries.totalWorkerTransfers}, 0)`,
+        total_worker_misc_expenses: sql7`COALESCE(${dailyExpenseSummaries.totalWorkerMiscExpenses}, 0)`,
         total_income: dailyExpenseSummaries.totalIncome,
         total_expenses: dailyExpenseSummaries.totalExpenses,
         remaining_balance: dailyExpenseSummaries.remainingBalance,
-        notes: sql6`COALESCE(${dailyExpenseSummaries.notes}, '')`,
+        notes: sql7`COALESCE(${dailyExpenseSummaries.notes}, '')`,
         created_at: dailyExpenseSummaries.createdAt,
-        updated_at: sql6`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
+        updated_at: sql7`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
         project_name: projects.name
       }).from(dailyExpenseSummaries).leftJoin(projects, eq10(dailyExpenseSummaries.projectId, projects.id)).where(and9(
         eq10(dailyExpenseSummaries.projectId, projectId),
@@ -13648,7 +13650,7 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
       miscExpensesResult,
       projectInfo
     ] = await Promise.all([
-      db.select().from(fundTransfers).where(and9(eq10(fundTransfers.projectId, projectId), gte5(fundTransfers.transferDate, sql6`${date2}::date`), lt3(fundTransfers.transferDate, sql6`(${date2}::date + interval '1 day')`))),
+      db.select().from(fundTransfers).where(and9(eq10(fundTransfers.projectId, projectId), gte5(fundTransfers.transferDate, sql7`${date2}::date`), lt3(fundTransfers.transferDate, sql7`(${date2}::date + interval '1 day')`))),
       db.select({
         id: workerAttendance.id,
         workerId: workerAttendance.workerId,
@@ -13851,9 +13853,9 @@ async function calculateCumulativeBalance(projectId, fromDate, toDate) {
   try {
     const whereConditions = [eq10(fundTransfers.projectId, projectId)];
     if (fromDate) {
-      whereConditions.push(gte5(fundTransfers.transferDate, sql6`${fromDate}::date`));
+      whereConditions.push(gte5(fundTransfers.transferDate, sql7`${fromDate}::date`));
     }
-    whereConditions.push(lt3(fundTransfers.transferDate, sql6`(${toDate}::date + interval '1 day')`));
+    whereConditions.push(lt3(fundTransfers.transferDate, sql7`(${toDate}::date + interval '1 day')`));
     const [
       ftRows,
       waRows,
@@ -13869,44 +13871,44 @@ async function calculateCumulativeBalance(projectId, fromDate, toDate) {
       // أجور العمال
       db.select().from(workerAttendance).where(and9(
         eq10(workerAttendance.projectId, projectId),
-        fromDate ? gte5(workerAttendance.date, fromDate) : sql6`true`,
+        fromDate ? gte5(workerAttendance.date, fromDate) : sql7`true`,
         lte2(workerAttendance.date, toDate)
       )),
       // مشتريات المواد النقدية فقط
       db.select().from(materialPurchases).where(and9(
         eq10(materialPurchases.projectId, projectId),
         eq10(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
-        fromDate ? gte5(materialPurchases.purchaseDate, fromDate) : sql6`true`,
+        fromDate ? gte5(materialPurchases.purchaseDate, fromDate) : sql7`true`,
         lte2(materialPurchases.purchaseDate, toDate)
       )),
       // مصاريف النقل
       db.select().from(transportationExpenses).where(and9(
         eq10(transportationExpenses.projectId, projectId),
-        fromDate ? gte5(transportationExpenses.date, fromDate) : sql6`true`,
+        fromDate ? gte5(transportationExpenses.date, fromDate) : sql7`true`,
         lte2(transportationExpenses.date, toDate)
       )),
       // حوالات العمال
       db.select().from(workerTransfers).where(and9(
         eq10(workerTransfers.projectId, projectId),
-        fromDate ? gte5(workerTransfers.transferDate, fromDate) : sql6`true`,
+        fromDate ? gte5(workerTransfers.transferDate, fromDate) : sql7`true`,
         lte2(workerTransfers.transferDate, toDate)
       )),
       // مصاريف متنوعة للعمال
       db.select().from(workerMiscExpenses).where(and9(
         eq10(workerMiscExpenses.projectId, projectId),
-        fromDate ? gte5(workerMiscExpenses.date, fromDate) : sql6`true`,
+        fromDate ? gte5(workerMiscExpenses.date, fromDate) : sql7`true`,
         lte2(workerMiscExpenses.date, toDate)
       )),
       // تحويلات واردة من مشاريع أخرى
       db.select().from(projectFundTransfers).where(and9(
         eq10(projectFundTransfers.toProjectId, projectId),
-        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql6`true`,
+        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql7`true`,
         lte2(projectFundTransfers.transferDate, toDate)
       )),
       // تحويلات صادرة إلى مشاريع أخرى
       db.select().from(projectFundTransfers).where(and9(
         eq10(projectFundTransfers.fromProjectId, projectId),
-        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql6`true`,
+        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql7`true`,
         lte2(projectFundTransfers.transferDate, toDate)
       ))
     ]);
@@ -13935,7 +13937,7 @@ var projectRoutes_default = projectRouter;
 init_db();
 init_schema();
 import express6 from "express";
-import { eq as eq11, sql as sql7, and as and10 } from "drizzle-orm";
+import { eq as eq11, sql as sql8, and as and10 } from "drizzle-orm";
 var workerRouter = express6.Router();
 workerRouter.use(requireAuth);
 workerRouter.get("/workers", async (req, res) => {
@@ -14178,7 +14180,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
     if (attendanceRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalAttendanceCount = await db.select({
-        count: sql7`COUNT(*)`
+        count: sql8`COUNT(*)`
       }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
       const totalCount = totalAttendanceCount[0]?.count || attendanceRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${totalCount} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631`);
@@ -14197,7 +14199,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
     if (transferRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalTransfersCount = await db.select({
-        count: sql7`COUNT(*)`
+        count: sql8`COUNT(*)`
       }).from(workerTransfers).where(eq11(workerTransfers.workerId, workerId));
       const transfersCount = totalTransfersCount[0]?.count || transferRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transfersCount} \u062A\u062D\u0648\u064A\u0644 \u0645\u0627\u0644\u064A`);
@@ -14216,7 +14218,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
     if (transportRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalTransportCount = await db.select({
-        count: sql7`COUNT(*)`
+        count: sql8`COUNT(*)`
       }).from(transportationExpenses).where(eq11(transportationExpenses.workerId, workerId));
       const transportCount = totalTransportCount[0]?.count || transportRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transportCount} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644`);
@@ -14235,7 +14237,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
     if (balanceRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalBalanceCount = await db.select({
-        count: sql7`COUNT(*)`
+        count: sql8`COUNT(*)`
       }).from(workerBalances).where(eq11(workerBalances.workerId, workerId));
       const balanceCount = totalBalanceCount[0]?.count || balanceRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${balanceCount} \u0633\u062C\u0644 \u0631\u0635\u064A\u062F`);
@@ -15037,36 +15039,36 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
       });
     }
     const totalWorkDaysResult = await db.select({
-      totalDays: sql7`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
+      totalDays: sql8`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
     }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
     const lastAttendanceResult = await db.select({
       lastAttendanceDate: workerAttendance.attendanceDate,
       projectId: workerAttendance.projectId
-    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId)).orderBy(sql7`${workerAttendance.attendanceDate} DESC`).limit(1);
+    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId)).orderBy(sql8`${workerAttendance.attendanceDate} DESC`).limit(1);
     const lastAttendanceDate = lastAttendanceResult[0]?.lastAttendanceDate || null;
     const thirtyDaysAgo = /* @__PURE__ */ new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoString = thirtyDaysAgo.toISOString().split("T")[0];
     const monthlyAttendanceResult = await db.select({
-      monthlyDays: sql7`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
+      monthlyDays: sql8`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
     }).from(workerAttendance).where(and10(
       eq11(workerAttendance.workerId, workerId),
-      sql7`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
+      sql8`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
     ));
     const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
     const totalTransfersResult = await db.select({
-      totalTransfers: sql7`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
-      transfersCount: sql7`COUNT(*)`
+      totalTransfers: sql8`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+      transfersCount: sql8`COUNT(*)`
     }).from(workerTransfers).where(eq11(workerTransfers.workerId, workerId));
     const totalTransfers = Number(totalTransfersResult[0]?.totalTransfers) || 0;
     const transfersCount = Number(totalTransfersResult[0]?.transfersCount) || 0;
     const projectsWorkedResult = await db.select({
-      projectsCount: sql7`COUNT(DISTINCT ${workerAttendance.projectId})`
+      projectsCount: sql8`COUNT(DISTINCT ${workerAttendance.projectId})`
     }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
     const projectsWorked = Number(projectsWorkedResult[0]?.projectsCount) || 0;
     const totalEarningsResult = await db.select({
-      totalEarnings: sql7`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`
+      totalEarnings: sql8`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`
     }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
     const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;
     const stats = {
@@ -15117,7 +15119,7 @@ var workerRoutes_default = workerRouter;
 init_db();
 init_schema();
 import express7 from "express";
-import { eq as eq12, and as and11, sql as sql8, gte as gte6, lte as lte3, desc as desc7 } from "drizzle-orm";
+import { eq as eq12, and as and11, sql as sql9, gte as gte6, lte as lte3, desc as desc7 } from "drizzle-orm";
 var financialRouter = express7.Router();
 financialRouter.use(requireAuth);
 financialRouter.get("/fund-transfers", async (req, res) => {
@@ -15333,11 +15335,11 @@ financialRouter.get("/daily-project-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      fromProjectName: sql8`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql8`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+      fromProjectName: sql9`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql9`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
     }).from(projectFundTransfers).where(
       and11(
-        sql8`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
+        sql9`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
         eq12(projectFundTransfers.transferDate, date2)
       )
     ).orderBy(desc7(projectFundTransfers.createdAt));
@@ -15376,12 +15378,12 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      fromProjectName: sql8`from_project.name`.as("fromProjectName"),
-      toProjectName: sql8`to_project.name`.as("toProjectName")
-    }).from(projectFundTransfers).leftJoin(sql8`${projects} as from_project`, eq12(projectFundTransfers.fromProjectId, sql8`from_project.id`)).leftJoin(sql8`${projects} as to_project`, eq12(projectFundTransfers.toProjectId, sql8`to_project.id`));
+      fromProjectName: sql9`from_project.name`.as("fromProjectName"),
+      toProjectName: sql9`to_project.name`.as("toProjectName")
+    }).from(projectFundTransfers).leftJoin(sql9`${projects} as from_project`, eq12(projectFundTransfers.fromProjectId, sql9`from_project.id`)).leftJoin(sql9`${projects} as to_project`, eq12(projectFundTransfers.toProjectId, sql9`to_project.id`));
     const conditions = [];
     if (projectId && projectId !== "all") {
-      conditions.push(sql8`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`);
+      conditions.push(sql9`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`);
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", projectId);
     }
     if (date2) {
@@ -15898,37 +15900,37 @@ financialRouter.get("/reports/summary", async (req, res) => {
       workersCount
     ] = await Promise.all([
       // إحصائيات تحويلات العهدة
-      db.execute(sql8`
+      db.execute(sql9`
         SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM fund_transfers
       `),
       // إحصائيات تحويلات المشاريع
-      db.execute(sql8`
+      db.execute(sql9`
         SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM project_fund_transfers
       `),
       // إحصائيات تحويلات العمال
-      db.execute(sql8`
+      db.execute(sql9`
         SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM worker_transfers
       `),
       // إحصائيات مصاريف العمال المتنوعة
-      db.execute(sql8`
+      db.execute(sql9`
         SELECT
           COUNT(*) as total_expenses,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM worker_misc_expenses
       `),
       // عدد المشاريع
-      db.execute(sql8`SELECT COUNT(*) as total_projects FROM projects`),
+      db.execute(sql9`SELECT COUNT(*) as total_projects FROM projects`),
       // عدد العمال
-      db.execute(sql8`SELECT COUNT(*) as total_workers FROM workers WHERE is_active = true`)
+      db.execute(sql9`SELECT COUNT(*) as total_workers FROM workers WHERE is_active = true`)
     ]);
     const cleanValue = (value) => {
       if (value === null || value === void 0) return 0;

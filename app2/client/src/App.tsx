@@ -66,7 +66,8 @@ function Router() {
     <Switch>
       {/* صفحات غير محمية - بدون شريط علوي أو سفلي */}
       <Route path="/login" component={LoginPage} />
-      <Route path="/register" component={RegisterPage} />
+      <Route path="/register" component={LoginPage} />
+      <Route path="/forgot-password" component={() => import('./pages/ForgotPasswordPage').then(m => m.default)} />
       
       {/* صفحات محمية - مع شريط علوي وسفلي */}
       <Route path="/">

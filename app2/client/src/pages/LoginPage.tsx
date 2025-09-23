@@ -1,8 +1,10 @@
+
 /**
- * صفحة تسجيل الدخول - نظام المصادقة المتقدم
+ * صفحة تسجيل الدخول المتطورة - نظام المصادقة المتقدم
+ * مع تأثيرات بصرية احترافية ونظام التبويبات
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,18 +29,52 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Loader2, Shield, Mail } from "lucide-react";
+import { 
+  Eye, 
+  EyeOff, 
+  Loader2, 
+  Shield, 
+  Mail, 
+  User,
+  UserPlus,
+  KeyRound,
+  ArrowRight,
+  Sparkles,
+  Lock,
+  Phone
+} from "lucide-react";
 
-// مخطط التحقق من البيانات
+// مخططات التحقق من البيانات
 const loginSchema = z.object({
   email: z.string().email("بريد إلكتروني غير صالح").min(1, "البريد الإلكتروني مطلوب"),
   password: z.string().min(1, "كلمة المرور مطلوبة"),
   totpCode: z.string().optional(),
 });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+const registerSchema = z.object({
+  name: z.string().min(2, "الاسم يجب أن يكون حرفين على الأقل").max(50, "الاسم طويل جداً"),
+  email: z.string().email("بريد إلكتروني غير صالح").min(1, "البريد الإلكتروني مطلوب"),
+  phone: z.string().min(9, "رقم الهاتف غير صحيح").optional(),
+  password: z.string()
+    .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "كلمة المرور يجب أن تحتوي على حروف كبيرة وصغيرة وأرقام"),
+  confirmPassword: z.string().min(1, "تأكيد كلمة المرور مطلوب"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "كلمات المرور غير متطابقة",
+  path: ["confirmPassword"],
+});
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email("بريد إلكتروني غير صالح").min(1, "البريد الإلكتروني مطلوب"),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+type RegisterFormData = z.infer<typeof registerSchema>;
+type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+
+// واجهات الاستجابة
 interface LoginResponse {
   success: boolean;
   user?: {
@@ -58,16 +94,58 @@ interface LoginResponse {
   message: string;
 }
 
-export default function LoginPage() {
+interface RegisterResponse {
+  success: boolean;
+  user?: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+  };
+  requireVerification?: boolean;
+  message: string;
+}
+
+// مكون الخلفية المتحركة
+const AnimatedBackground = () => (
+  <div className="fixed inset-0 overflow-hidden pointer-events-none">
+    <div className="absolute -top-40 -right-32 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl animate-blob"></div>
+    <div className="absolute -bottom-32 -left-40 w-96 h-96 bg-gradient-to-tr from-green-400/20 to-blue-600/20 rounded-full blur-3xl animate-blob animation-delay-2000"></div>
+    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-gradient-to-r from-purple-400/20 to-pink-600/20 rounded-full blur-3xl animate-blob animation-delay-4000"></div>
+  </div>
+);
+
+// مكون شعار الشركة المتطور
+const CompanyLogo = () => (
+  <div className="flex flex-col items-center space-y-4 mb-8">
+    <div className="relative">
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur-lg opacity-75 animate-pulse"></div>
+      <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 rounded-full p-4">
+        <Shield className="w-12 h-12 text-white" />
+      </div>
+    </div>
+    <div className="text-center">
+      <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+        نظام إدارة المشاريع
+      </h1>
+      <p className="text-lg text-gray-600 mt-2">الحل الشامل لإدارة المشاريع الإنشائية</p>
+    </div>
+  </div>
+);
+
+export default function AuthPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { login } = useAuth();
 
+  const [activeTab, setActiveTab] = useState<'login' | 'register' | 'forgot'>('login');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loginStep, setLoginStep] = useState<'credentials' | 'mfa' | 'verification'>('credentials');
 
-  const form = useForm<LoginFormData>({
+  // نماذج التحقق
+  const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
@@ -76,53 +154,60 @@ export default function LoginPage() {
     },
   });
 
-  // طفرة تسجيل الدخول المبسطة مع logging مفصل
+  const registerForm = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
+  const forgotPasswordForm = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: "",
+    },
+  });
+
+  // طفرة تسجيل الدخول
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
-      console.log('🚀 [LoginPage.loginMutation] بدء mutationFn:', {
+      console.log('🚀 [AuthPage.loginMutation] بدء عملية تسجيل الدخول:', {
         email: data.email,
         hasPassword: !!data.password,
-        passwordLength: data.password?.length || 0,
         timestamp: new Date().toISOString()
       });
       
       try {
-        console.log('🔑 [LoginPage.loginMutation] استدعاء login من AuthProvider...');
         const result = await login(data.email, data.password);
-        console.log('✅ [LoginPage.loginMutation] تمت عملية login بنجاح:', result);
+        console.log('✅ [AuthPage.loginMutation] تمت عملية login بنجاح:', result);
         return result;
       } catch (error) {
-        console.error('❌ [LoginPage.loginMutation] خطأ في login:', error);
+        console.error('❌ [AuthPage.loginMutation] خطأ في login:', error);
         throw error;
       }
     },
     onSuccess: (result) => {
-      console.log('🎉 [LoginPage.loginMutation] onSuccess triggered:', result);
-      console.log('✅ نجح تسجيل الدخول');
+      console.log('🎉 [AuthPage.loginMutation] نجح تسجيل الدخول');
       toast({
         title: "تم تسجيل الدخول بنجاح",
-        description: "أهلاً وسهلاً",
+        description: "أهلاً وسهلاً بك",
       });
 
-      // التوجه إلى الصفحة الرئيسية مع تأخير بسيط للتأكد من تحديث الحالة
-      console.log('🚀 [LoginPage] بدء التوجيه للصفحة الرئيسية...');
       setTimeout(() => {
-        console.log('🎯 [LoginPage] تنفيذ التوجيه إلى /');
         navigate("/");
-
-        // إجبار إعادة تحميل الصفحة إذا لم يتم التوجيه
         setTimeout(() => {
-          console.log('🔄 [LoginPage] التحقق من التوجيه الناجح...');
           if (window.location.pathname === '/login') {
-            console.log('⚠️ [LoginPage] لم يتم التوجيه، إعادة تحميل الصفحة');
             window.location.href = '/';
           }
         }, 1000);
       }, 500);
     },
     onError: (error: any) => {
-      console.error('❌ [LoginPage.loginMutation] onError triggered:', error);
-      console.error('❌ فشل تسجيل الدخول:', error);
+      console.error('❌ [AuthPage.loginMutation] فشل تسجيل الدخول:', error);
       toast({
         title: "فشل تسجيل الدخول",
         description: error.message || "حدث خطأ أثناء الاتصال بالخادم",
@@ -131,259 +216,523 @@ export default function LoginPage() {
     },
   });
 
-  const onSubmit = (data: LoginFormData) => {
-    console.log('🚀 [LoginPage.onSubmit] استدعاء تسجيل الدخول:', { 
+  // طفرة التسجيل
+  const registerMutation = useMutation({
+    mutationFn: async (data: RegisterFormData): Promise<RegisterResponse> => {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          password: data.password,
+        }),
+      });
+
+      if (!response.ok && response.status !== 201 && response.status !== 202) {
+        throw new Error(`خطأ في الشبكة: ${response.status}`);
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({
+          title: "تم إنشاء الحساب بنجاح",
+          description: data.requireVerification 
+            ? "يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب"
+            : "يمكنك الآن تسجيل الدخول",
+        });
+
+        setActiveTab('login');
+        
+      } else {
+        toast({
+          title: "فشل إنشاء الحساب",
+          description: data.message,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "خطأ في إنشاء الحساب",
+        description: "حدث خطأ أثناء الاتصال بالخادم",
+        variant: "destructive",
+      });
+      console.error('Register error:', error);
+    },
+  });
+
+  // طفرة استرجاع كلمة المرور
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (data: ForgotPasswordFormData) => {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error('فشل في إرسال طلب استرجاع كلمة المرور');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "تم إرسال رابط الاسترجاع",
+        description: "يرجى التحقق من بريدك الإلكتروني",
+      });
+      setActiveTab('login');
+    },
+    onError: (error) => {
+      toast({
+        title: "خطأ في استرجاع كلمة المرور",
+        description: "حدث خطأ أثناء المعالجة",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // دوال التعامل مع النماذج
+  const onLoginSubmit = (data: LoginFormData) => {
+    console.log('🚀 [AuthPage.onLoginSubmit] تسجيل دخول:', { 
       email: data.email, 
       hasPassword: !!data.password,
-      passwordLength: data.password?.length || 0,
-      timestamp: new Date().toISOString(),
-      formValid: form.formState.isValid,
-      formErrors: form.formState.errors
-    });
-    try {
-      loginMutation.mutate(data);
-      console.log('✅ [LoginPage.onSubmit] تم استدعاء mutation بنجاح');
-    } catch (error) {
-      console.error('❌ [LoginPage.onSubmit] خطأ في استدعاء mutation:', error);
-    }
-  };
-
-  // وظيفة لتعيين البريد وكلمة المرور (مستخدمة في زر الدخول التجريبي)
-  const setEmail = (email: string) => form.setValue('email', email);
-  const setPassword = (password: string) => form.setValue('password', password);
-  const handleSubmit = (event?: React.FormEvent<HTMLFormElement>) => {
-    console.log('📝 [LoginPage.handleSubmit] بدء معالجة تسجيل الدخول:', {
-      hasEvent: !!event,
       timestamp: new Date().toISOString()
     });
-    event?.preventDefault(); // منع السلوك الافتراضي إذا تم تمرير الحدث
-    const data = form.getValues();
-    console.log('📋 [LoginPage.handleSubmit] بيانات النموذج:', { 
-      email: data.email, 
-      hasPassword: !!data.password,
-      passwordLength: data.password?.length || 0
-    });
-    onSubmit(data);
+    loginMutation.mutate(data);
+  };
+
+  const onRegisterSubmit = (data: RegisterFormData) => {
+    registerMutation.mutate(data);
+  };
+
+  const onForgotPasswordSubmit = (data: ForgotPasswordFormData) => {
+    forgotPasswordMutation.mutate(data);
+  };
+
+  // دالة الدخول السريع
+  const handleQuickLogin = () => {
+    console.log('🎯 [AuthPage.QuickLogin] الضغط على زر الدخول السريع');
+    loginForm.setValue('email', "test@demo.local");
+    loginForm.setValue('password', "testpassword");
+    
+    setTimeout(() => {
+      const data = loginForm.getValues();
+      onLoginSubmit(data);
+    }, 100);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4" dir="rtl">
-      <div className="w-full max-w-md space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="flex justify-center">
-            <div className="bg-blue-600 rounded-full p-3">
-              <Shield className="w-8 h-8 text-white" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">تسجيل الدخول</h1>
-          <p className="text-gray-600">نظام إدارة المشاريع الإنشائية</p>
-        </div>
+    <div className="min-h-screen relative overflow-hidden" dir="rtl">
+      {/* الخلفية المتحركة */}
+      <AnimatedBackground />
+      
+      {/* تأثير التدرج */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/80 via-white/90 to-purple-50/80 backdrop-blur-sm"></div>
+      
+      {/* المحتوى الرئيسي */}
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-8">
+          
+          {/* شعار الشركة */}
+          <CompanyLogo />
 
-        <Card className="shadow-lg">
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl">أهلاً وسهلاً</CardTitle>
-            <CardDescription>
-              {loginStep === 'credentials' && 'أدخل بيانات تسجيل الدخول'}
-              {loginStep === 'mfa' && 'أدخل رمز التحقق الثنائي'}
-              {loginStep === 'verification' && 'يرجى التحقق من بريدك الإلكتروني'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Form {...form}>
-              <form onSubmit={(e) => {
-                console.log('📤 [LoginPage.Form] إرسال النموذج:', {
-                  timestamp: new Date().toISOString(),
-                  formData: form.getValues()
-                });
-                handleSubmit(e);
-              }} className="space-y-4">
+          {/* البطاقة الرئيسية مع التأثيرات */}
+          <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl">
+            <CardHeader className="space-y-1 text-center pb-8">
+              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                مرحباً بك
+              </CardTitle>
+              <CardDescription className="text-gray-600">
+                اختر العملية المطلوبة من الأسفل
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="space-y-6">
+              {/* نظام التبويبات المتطور */}
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
+                <TabsList className="grid w-full grid-cols-3 glass-tabs">
+                  <TabsTrigger 
+                    value="login" 
+                    className="flex items-center gap-2 tab-trigger"
+                  >
+                    <Shield className="w-4 h-4" />
+                    تسجيل الدخول
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="register" 
+                    className="flex items-center gap-2 tab-trigger"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    حساب جديد
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="forgot" 
+                    className="flex items-center gap-2 tab-trigger"
+                  >
+                    <KeyRound className="w-4 h-4" />
+                    استرجاع
+                  </TabsTrigger>
+                </TabsList>
 
-                {/* خطوة بيانات تسجيل الدخول */}
-                {loginStep === 'credentials' && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>البريد الإلكتروني</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Mail className="absolute right-3 top-3 h-4 w-4 text-gray-400" />
-                              <Input 
-                                {...field} 
-                                type="email"
-                                placeholder="admin@example.com"
-                                className="pr-10"
-                                data-testid="input-email"
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>كلمة المرور</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input
-                                {...field}
-                                type={showPassword ? "text" : "password"}
-                                placeholder="كلمة المرور"
-                                className="pl-10"
-                                data-testid="input-password"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute left-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600"
-                                data-testid="button-toggle-password"
-                              >
-                                {showPassword ? <EyeOff /> : <Eye />}
-                              </button>
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
-                )}
-
-                {/* خطوة التحقق الثنائي */}
-                {loginStep === 'mfa' && (
-                  <FormField
-                    control={form.control}
-                    name="totpCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>رمز التحقق الثنائي</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="text"
-                            placeholder="000000"
-                            maxLength={6}
-                            className="text-center text-2xl tracking-widest"
-                            data-testid="input-totp-code"
+                {/* محتوى تسجيل الدخول */}
+                <TabsContent value="login" className="space-y-4 tab-content">
+                  <Form {...loginForm}>
+                    <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                      
+                      {loginStep === 'credentials' && (
+                        <>
+                          <FormField
+                            control={loginForm.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-gray-700 font-medium">البريد الإلكتروني</FormLabel>
+                                <FormControl>
+                                  <div className="relative group">
+                                    <Mail className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                                    <Input 
+                                      {...field} 
+                                      type="email"
+                                      placeholder="admin@example.com"
+                                      className="pr-10 enhanced-input"
+                                      data-testid="input-email"
+                                    />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
                           />
-                        </FormControl>
-                        <FormMessage />
-                        <p className="text-sm text-gray-500 text-center">
-                          أدخل الرمز من تطبيق المصادقة
-                        </p>
-                      </FormItem>
-                    )}
-                  />
-                )}
 
-                {/* خطوة التحقق من البريد */}
-                {loginStep === 'verification' && (
-                  <Alert>
-                    <Mail className="h-4 w-4" />
-                    <AlertDescription>
-                      يرجى التحقق من بريدك الإلكتروني وإكمال عملية التحقق قبل تسجيل الدخول.
-                    </AlertDescription>
-                  </Alert>
-                )}
+                          <FormField
+                            control={loginForm.control}
+                            name="password"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-gray-700 font-medium">كلمة المرور</FormLabel>
+                                <FormControl>
+                                  <div className="relative group">
+                                    <Input
+                                      {...field}
+                                      type={showPassword ? "text" : "password"}
+                                      placeholder="كلمة المرور"
+                                      className="pl-10 enhanced-input"
+                                      data-testid="input-password"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowPassword(!showPassword)}
+                                      className="absolute left-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600 transition-colors"
+                                      data-testid="button-toggle-password"
+                                    >
+                                      {showPassword ? <EyeOff /> : <Eye />}
+                                    </button>
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
+                      )}
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={loginMutation.isPending}
-                  data-testid="button-login"
-                >
-                  {loginMutation.isPending ? (
-                    <>
-                      <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                      جارِ تسجيل الدخول...
-                    </>
-                  ) : (
-                    <>
-                      {loginStep === 'credentials' && 'تسجيل الدخول'}
-                      {loginStep === 'mfa' && 'تأكيد الرمز'}
-                      {loginStep === 'verification' && 'إعادة إرسال رمز التحقق'}
-                    </>
-                  )}
-                </Button>
+                      {loginStep === 'mfa' && (
+                        <FormField
+                          control={loginForm.control}
+                          name="totpCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-gray-700 font-medium">رمز التحقق الثنائي</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  type="text"
+                                  placeholder="000000"
+                                  maxLength={6}
+                                  className="text-center text-2xl tracking-widest enhanced-input"
+                                  data-testid="input-totp-code"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                              <p className="text-sm text-gray-500 text-center">
+                                أدخل الرمز من تطبيق المصادقة
+                              </p>
+                            </FormItem>
+                          )}
+                        />
+                      )}
 
-                {/* زر دخول تجريبي سريع */}
-                {loginStep === 'credentials' && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full mt-2"
-                    onClick={() => {
-                      console.log('🎯 [LoginPage.QuickLogin] الضغط على زر الدخول السريع');
-                      try {
-                        setEmail("test@demo.local");
-                        setPassword("testpassword");
-                        console.log('✅ [LoginPage.QuickLogin] تم تعيين البيانات التجريبية');
-                        // تفعيل تسجيل الدخول التلقائي
-                        setTimeout(() => {
-                          console.log('⏰ [LoginPage.QuickLogin] تنفيذ handleSubmit بعد التأخير');
-                          handleSubmit({ preventDefault: () => {} } as any);
-                        }, 100);
-                      } catch (error) {
-                        console.error('❌ [LoginPage.QuickLogin] خطأ في الدخول السريع:', error);
-                      }
-                    }}
-                    disabled={loginMutation.isPending}
-                    data-testid="button-quick-login"
-                  >
-                    <Shield className="ml-2 h-4 w-4" />
-                    تسجيل دخول سريع (تجريبي)
-                  </Button>
-                )}
+                      <Button
+                        type="submit"
+                        className="w-full enhanced-button"
+                        disabled={loginMutation.isPending}
+                        data-testid="button-login"
+                      >
+                        {loginMutation.isPending ? (
+                          <>
+                            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                            جارِ تسجيل الدخول...
+                          </>
+                        ) : (
+                          <>
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                            {loginStep === 'credentials' && 'تسجيل الدخول'}
+                            {loginStep === 'mfa' && 'تأكيد الرمز'}
+                          </>
+                        )}
+                      </Button>
 
-                {loginStep !== 'credentials' && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full"
-                    onClick={() => {
-                      setLoginStep('credentials');
-                      form.reset();
-                    }}
-                    data-testid="button-back"
-                  >
-                    العودة لتسجيل الدخول
-                  </Button>
-                )}
-              </form>
-            </Form>
+                      {loginStep === 'credentials' && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full mt-2 enhanced-outline-button"
+                          onClick={handleQuickLogin}
+                          disabled={loginMutation.isPending}
+                          data-testid="button-quick-login"
+                        >
+                          <Sparkles className="ml-2 h-4 w-4" />
+                          تسجيل دخول سريع (تجريبي)
+                        </Button>
+                      )}
+                    </form>
+                  </Form>
+                </TabsContent>
 
-            <div className="text-center space-y-2 pt-4 border-t">
-              <p className="text-sm text-gray-600">
-                ليس لديك حساب؟{" "}
-                <Link href="/register">
-                  <span className="text-blue-600 hover:text-blue-500 font-medium cursor-pointer" data-testid="link-register">
-                    إنشاء حساب جديد
-                  </span>
-                </Link>
-              </p>
-              <p className="text-sm text-gray-600">
-                <Link href="/forgot-password">
-                  <span className="text-blue-600 hover:text-blue-500 cursor-pointer" data-testid="link-forgot-password">
-                    نسيت كلمة المرور؟
-                  </span>
-                </Link>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+                {/* محتوى التسجيل */}
+                <TabsContent value="register" className="space-y-4 tab-content">
+                  <Form {...registerForm}>
+                    <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                      
+                      <FormField
+                        control={registerForm.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 font-medium">الاسم الكامل</FormLabel>
+                            <FormControl>
+                              <div className="relative group">
+                                <User className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                                <Input 
+                                  {...field} 
+                                  type="text"
+                                  placeholder="أحمد محمد"
+                                  className="pr-10 enhanced-input"
+                                  data-testid="input-name"
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-        {/* Footer */}
-        <div className="text-center text-sm text-gray-500">
-          <p>© 2025 نظام إدارة المشاريع الإنشائية</p>
-          <p>جميع الحقوق محفوظة</p>
+                      <FormField
+                        control={registerForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 font-medium">البريد الإلكتروني</FormLabel>
+                            <FormControl>
+                              <div className="relative group">
+                                <Mail className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                                <Input 
+                                  {...field} 
+                                  type="email"
+                                  placeholder="ahmed@example.com"
+                                  className="pr-10 enhanced-input"
+                                  data-testid="input-email"
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={registerForm.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 font-medium">رقم الهاتف (اختياري)</FormLabel>
+                            <FormControl>
+                              <div className="relative group">
+                                <Phone className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                                <Input 
+                                  {...field} 
+                                  type="tel"
+                                  placeholder="771234567"
+                                  className="pr-10 enhanced-input"
+                                  data-testid="input-phone"
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={registerForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 font-medium">كلمة المرور</FormLabel>
+                            <FormControl>
+                              <div className="relative group">
+                                <Input
+                                  {...field}
+                                  type={showPassword ? "text" : "password"}
+                                  placeholder="كلمة المرور"
+                                  className="pl-10 enhanced-input"
+                                  data-testid="input-password"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  className="absolute left-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600 transition-colors"
+                                  data-testid="button-toggle-password"
+                                >
+                                  {showPassword ? <EyeOff /> : <Eye />}
+                                </button>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                            <p className="text-xs text-gray-500">
+                              يجب أن تحتوي على 8 أحرف، حروف كبيرة وصغيرة، وأرقام
+                            </p>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={registerForm.control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 font-medium">تأكيد كلمة المرور</FormLabel>
+                            <FormControl>
+                              <div className="relative group">
+                                <Input
+                                  {...field}
+                                  type={showConfirmPassword ? "text" : "password"}
+                                  placeholder="تأكيد كلمة المرور"
+                                  className="pl-10 enhanced-input"
+                                  data-testid="input-confirm-password"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                  className="absolute left-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600 transition-colors"
+                                  data-testid="button-toggle-confirm-password"
+                                >
+                                  {showConfirmPassword ? <EyeOff /> : <Eye />}
+                                </button>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <Button
+                        type="submit"
+                        className="w-full enhanced-button"
+                        disabled={registerMutation.isPending}
+                        data-testid="button-register"
+                      >
+                        {registerMutation.isPending ? (
+                          <>
+                            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                            جارِ إنشاء الحساب...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="ml-2 h-4 w-4" />
+                            إنشاء حساب جديد
+                          </>
+                        )}
+                      </Button>
+                    </form>
+                  </Form>
+                </TabsContent>
+
+                {/* محتوى استرجاع كلمة المرور */}
+                <TabsContent value="forgot" className="space-y-4 tab-content">
+                  <div className="text-center space-y-2 mb-4">
+                    <Lock className="w-12 h-12 text-blue-500 mx-auto" />
+                    <h3 className="text-lg font-semibold text-gray-900">استرجاع كلمة المرور</h3>
+                    <p className="text-sm text-gray-600">
+                      أدخل بريدك الإلكتروني وسنرسل لك رابط لإعادة تعيين كلمة المرور
+                    </p>
+                  </div>
+
+                  <Form {...forgotPasswordForm}>
+                    <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
+                      
+                      <FormField
+                        control={forgotPasswordForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-gray-700 font-medium">البريد الإلكتروني</FormLabel>
+                            <FormControl>
+                              <div className="relative group">
+                                <Mail className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                                <Input 
+                                  {...field} 
+                                  type="email"
+                                  placeholder="أدخل بريدك الإلكتروني"
+                                  className="pr-10 enhanced-input"
+                                  data-testid="input-forgot-email"
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <Button
+                        type="submit"
+                        className="w-full enhanced-button"
+                        disabled={forgotPasswordMutation.isPending}
+                        data-testid="button-forgot-password"
+                      >
+                        {forgotPasswordMutation.isPending ? (
+                          <>
+                            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                            جارِ الإرسال...
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="ml-2 h-4 w-4" />
+                            إرسال رابط الاسترجاع
+                          </>
+                        )}
+                      </Button>
+                    </form>
+                  </Form>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+
+          {/* Footer */}
+          <div className="text-center text-sm text-gray-500 space-y-1">
+            <p>© 2025 نظام إدارة المشاريع الإنشائية</p>
+            <p>جميع الحقوق محفوظة</p>
+          </div>
         </div>
       </div>
     </div>

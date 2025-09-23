@@ -4,7 +4,7 @@
 
 import { Router, Request } from 'express';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../db.js';
 import { users } from '../../shared/schema.js';
 import { verifyPassword } from '../auth/crypto-utils.js';
@@ -665,13 +665,12 @@ router.post('/validate-field', async (req, res) => {
           isValid = false;
           message = 'صيغة البريد الإلكتروني غير صحيحة';
         } else {
-          // التحقق من وجود البريد في قاعدة البيانات
-          const existingUser = await db.select()
-            .from(users)
-            .where(eq(users.email, value.toLowerCase()))
-            .limit(1);
+          // التحقق من وجود البريد في قاعدة البيانات (case insensitive)
+          const existingUser = await db.execute(sql`
+            SELECT id FROM users WHERE LOWER(email) = LOWER(${value})
+          `);
           
-          if (existingUser.length > 0) {
+          if (existingUser.rows.length > 0) {
             isValid = false;
             message = 'هذا البريد الإلكتروني مستخدم مسبقاً';
             suggestions = [

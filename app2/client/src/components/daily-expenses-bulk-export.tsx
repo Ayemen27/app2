@@ -23,7 +23,7 @@ import {
   CheckCircle,
   Camera
 } from 'lucide-react';
-import ExcelJS from 'exceljs';
+// ExcelJS will be imported dynamically
 import { saveAs } from 'file-saver';
 import html2canvas from 'html2canvas';
 import type { Project } from '@shared/schema';
@@ -148,7 +148,7 @@ export default function DailyExpensesBulkExport() {
   };
 
   // دالة إنشاء ورقة Excel ليوم واحد (مطابقة للصور المرجعية 100%)
-  const createDayWorksheet = (workbook: ExcelJS.Workbook, dayData: DailyExpenseData) => {
+  const createDayWorksheet = (workbook: any, dayData: DailyExpenseData) => {
     const worksheetName = `${formatDate(dayData.date)}`.replace(/\//g, '-');
     const worksheet = workbook.addWorksheet(worksheetName);
     
@@ -837,6 +837,7 @@ export default function DailyExpensesBulkExport() {
 
 
       // إنشاء ملف Excel
+      const ExcelJS = (await import('exceljs')).default;
       const workbook = new ExcelJS.Workbook();
       workbook.creator = 'شركة الفتيني للمقاولات والاستشارات الهندسية';
       workbook.created = new Date();

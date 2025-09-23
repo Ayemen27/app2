@@ -1,5 +1,5 @@
 import React from "react";
-import ExcelJS from "exceljs";
+// ExcelJS will be imported dynamically
 import { saveAs } from "file-saver";
 
 // مكوّن React/TSX لتصدير ملف Excel مطابق للصورة بنسبة عالية
@@ -60,6 +60,7 @@ export default function ExactWorkerStatementTemplate({
   periodTo = "11/08/2025",
 }: Props) {
   const exportExcel = async () => {
+    const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "شركة الفني";
     workbook.created = new Date();

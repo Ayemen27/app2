@@ -1,4 +1,4 @@
-import ExcelJS from 'exceljs';
+// Dynamic import for ExcelJS to improve bundle optimization
 
 // Company Information
 export const COMPANY_INFO = {
@@ -58,7 +58,7 @@ export const EXCEL_STYLES = {
 
 // Add Report Header
 export function addReportHeader(
-  worksheet: ExcelJS.Worksheet,
+  worksheet: any, // ExcelJS.Worksheet
   title: string,
   dateRange?: string
 ): void {
@@ -98,13 +98,15 @@ export function formatCurrency(amount: number): string {
   }).format(amount || 0);
 }
 
-// Export to Excel generic function
+// Export to Excel generic function (now uses dynamic import)
 export async function exportToExcel(
   data: any[],
   fileName: string,
   sheetName: string,
   columns: Array<{ key: string; header: string; width?: number }>
 ): Promise<void> {
+  // Dynamic import for ExcelJS
+  const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(sheetName);
 
@@ -117,7 +119,7 @@ export async function exportToExcel(
 
   // Style header row
   const headerRow = worksheet.getRow(1);
-  headerRow.eachCell(cell => {
+  headerRow.eachCell((cell: any) => {
     Object.assign(cell, EXCEL_STYLES.header);
   });
 
@@ -129,7 +131,7 @@ export async function exportToExcel(
   // Style data rows
   for (let i = 2; i <= worksheet.rowCount; i++) {
     const row = worksheet.getRow(i);
-    row.eachCell(cell => {
+    row.eachCell((cell: any) => {
       Object.assign(cell, EXCEL_STYLES.cell);
     });
   }

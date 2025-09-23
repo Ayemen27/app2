@@ -16,76 +16,10 @@ import {
 } from "@shared/schema";
 import { SecureDataFetcher } from "./services/secure-data-fetcher";
 import { requireAuth, requireRole } from "./middleware/auth";
-import { enhancedMigrationJobManager } from "./services/migration-job-manager-enhanced";
 
-// TypeScript interfaces for migration endpoints
-interface TableInfo {
-  name: string;
-  displayName: string;
-  rows: number;
-  category: string;
-  lastAnalyzed: string | null;
-}
-
-interface CriticalTable {
-  name: string;
-  rows: number;
-  displayName: string;
-}
-
-interface EmptyTable {
-  name: string;
-  displayName: string;
-}
-
-interface GeneralStats {
-  totalTables: number;
-  totalEstimatedRows: number;
-  tablesList: TableInfo[];
-  lastUpdated: string;
-  databaseStatus: string;
-  databaseSize: string;
-  oldestRecord: string | null;
-  newestRecord: string | null;
-  criticalTables: CriticalTable[];
-  emptyTables: EmptyTable[];
-  error?: string; // optional error property
-  userFriendlyMessage?: string; // optional user friendly message
-  // إزالة demoMode flag - لا نستخدم بيانات وهمية
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
-  // Rate limiting middleware للـ migration endpoints
-  const migrationRateLimit = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 دقيقة
-    max: 10, // حد أقصى 10 طلبات لكل IP كل 15 دقيقة
-    message: {
-      success: false,
-      error: 'تم تجاوز الحد المسموح من الطلبات. يرجى المحاولة لاحقاً',
-      message: 'Rate limit exceeded for migration endpoints'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    // تطبيق على endpoints محددة فقط
-    skip: (req) => {
-      // تخطي للمشرفين المعرفين (optional enhancement)
-      return false;
-    }
-  });
-
-  // Rate limiting أكثر صرامة لعمليات بدء الهجرة
-  const migrationStartRateLimit = rateLimit({
-    windowMs: 60 * 60 * 1000, // ساعة واحدة
-    max: 3, // حد أقصى 3 محاولات بدء هجرة كل ساعة
-    message: {
-      success: false,
-      error: 'تم تجاوز الحد المسموح لبدء الهجرة. يمكنك المحاولة بعد ساعة',
-      message: 'Migration start rate limit exceeded'
-    },
-    standardHeaders: true,
-    legacyHeaders: false
-  });
 
   // Health check endpoint
   app.get("/api/health", (req, res) => {

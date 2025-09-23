@@ -32,9 +32,6 @@ import AdminNotificationsPage from "@/pages/admin-notifications";
 import AISystemDashboard from "@/pages/AISystemDashboard";
 import SmartErrorsPage from "@/pages/SmartErrorsPage";
 import { SecurityPoliciesPage } from "@/pages/SecurityPoliciesPage";
-import SupabaseBackupSystem from "@/pages/smart-data-fetcher";
-import DataMigrationPage from "@/pages/data-migration";
-import MigrationDashboard from "@/pages/migration-dashboard";
 
 import Header from "@/components/layout/header";
 import BottomNavigation from "@/components/layout/bottom-navigation";
@@ -262,37 +259,6 @@ function Router() {
         </AdminRoute>
       </Route>
 
-      <Route path="/supabase-backup">
-        <AdminRoute>
-          <AuthLayout>
-            <SupabaseBackupSystem />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-      <Route path="/smart-data-fetcher">
-        <AdminRoute>
-          <AuthLayout>
-            <SupabaseBackupSystem />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-      <Route path="/data-migration">
-        <AdminRoute>
-          <AuthLayout>
-            <DataMigrationPage />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-      <Route path="/migration-dashboard">
-        <AdminRoute>
-          <AuthLayout>
-            <MigrationDashboard />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
 
       <Route component={NotFound} />
     </Switch>

@@ -75,9 +75,6 @@ const allPagesData = [
       { path: "/ai-system", icon: Brain, label: "النظام الذكي", description: "مراقبة ذكية ولوحة تحكم الذكاء الاصطناعي", requireAdmin: true },
       { path: "/security-policies", icon: Shield, label: "السياسات الأمنية", description: "إدارة السياسات الأمنية والامتثال", requireAdmin: true },
       { path: "/smart-errors", icon: Database, label: "كشف الأخطاء الذكي", description: "مراقبة وتحليل أخطاء قاعدة البيانات بذكاء اصطناعي", requireAdmin: true },
-      { path: "/smart-data-fetcher", icon: Database, label: "جلب البيانات الذكي", description: "نظام النسخ الاحتياطي من Supabase إلى قاعدة البيانات المحلية", requireAdmin: true },
-        { path: "/data-migration", icon: Database, label: "هجرة البيانات", description: "نظام النسخ الاحتياطي من Supabase إلى قاعدة البيانات المحلية", requireAdmin: true },
-        { path: "/migration-dashboard", icon: ArrowLeftRight, label: "لوحة تحكم هجرة البيانات", description: "مراقبة وإدارة عمليات هجرة البيانات في الوقت الفعلي مع الإحصائيات التفصيلية", requireAdmin: true },
     ]
   },
   // الإعدادات والإدارة - للمسؤولين فقط

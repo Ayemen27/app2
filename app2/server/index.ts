@@ -126,9 +126,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 
 (async () => {
-  // 🧹 تنظيف المهام العالقة عند بدء التشغيل
-  const { enhancedMigrationJobManager } = await import('./services/migration-job-manager-enhanced');
-  await enhancedMigrationJobManager.startupCleanup();
+  // 🧹 تم حذف نظام تنظيف مهام الهجرة
 
   // 🔐 تسجيل مسارات المصادقة أولاً - يجب أن تكون عامة وغير محمية
   app.use('/api/auth', authRoutes);

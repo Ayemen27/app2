@@ -304,9 +304,9 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
 };
 
 // تنظيف البيانات المؤقتة كل ساعة
+const oneHour = 60 * 60 * 1000;
 setInterval(() => {
   const now = Date.now();
-  const oneHour = 60 * 60 * 1000;
 
   for (const [ip, activity] of suspiciousActivityTracker.entries()) {
     if (now - activity.lastAttempt > oneHour) {

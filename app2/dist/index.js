@@ -6639,16 +6639,22 @@ function generateSecureToken() {
   return crypto3.randomBytes(32).toString("hex");
 }
 function getDynamicDomain() {
+  if (process.env.DOMAIN && process.env.DOMAIN.trim()) {
+    console.log("\u{1F310} [EmailService] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 DOMAIN \u0645\u0646 .env:", process.env.DOMAIN);
+    return process.env.DOMAIN.trim();
+  }
   if (process.env.NODE_ENV === "development") {
+    console.log("\u{1F310} [EmailService] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 localhost \u0644\u0644\u062A\u0637\u0648\u064A\u0631");
     return "localhost:5000";
   }
-  if (process.env.DOMAIN) {
-    return process.env.DOMAIN;
-  }
   if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    return `${process.env.REPL_SLUG}--5000.${process.env.REPL_OWNER}.repl.co`;
+    const replitDomain = `${process.env.REPL_SLUG}--5000.${process.env.REPL_OWNER}.repl.co`;
+    console.log("\u{1F310} [EmailService] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 Replit domain \u0643\u062D\u0644 \u0627\u062D\u062A\u064A\u0627\u0637\u064A:", replitDomain);
+    return replitDomain;
   }
-  return process.env.NODE_ENV === "production" ? "app2.binarjoinanelytic.info" : "localhost:5000";
+  const defaultDomain = process.env.NODE_ENV === "production" ? "app2.binarjoinanelytic.info" : "localhost:5000";
+  console.log("\u{1F310} [EmailService] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0642\u064A\u0645\u0629 \u0627\u0644\u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629:", defaultDomain);
+  return defaultDomain;
 }
 function getProtocol() {
   return process.env.NODE_ENV === "production" ? "https" : "http";
@@ -6832,6 +6838,7 @@ async function sendVerificationEmail(userId, email, ipAddress, userAgent) {
     const domain = getDynamicDomain();
     const protocol = getProtocol();
     const verificationLink = `${protocol}://${domain}/verify-email?token=${verificationCode}&userId=${userId}`;
+    console.log("\u{1F517} [EmailService] \u0631\u0627\u0628\u0637 \u0627\u0644\u062A\u062D\u0642\u0642 \u0627\u0644\u0645\u064F\u0646\u0634\u0623:", verificationLink);
     const expiresAt = /* @__PURE__ */ new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
     await db.insert(emailVerificationTokens).values({
@@ -6933,6 +6940,7 @@ async function sendPasswordResetEmail(email, ipAddress, userAgent) {
     const domain = getDynamicDomain();
     const protocol = getProtocol();
     const resetLink = `${protocol}://${domain}/reset-password?token=${resetToken}`;
+    console.log("\u{1F517} [EmailService] \u0631\u0627\u0628\u0637 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u0645\u064F\u0646\u0634\u0623:", resetLink);
     const expiresAt = /* @__PURE__ */ new Date();
     expiresAt.setHours(expiresAt.getHours() + 1);
     await db.insert(passwordResetTokens).values({

@@ -8,6 +8,7 @@ import React, { useState, useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import LoginPage from "@/pages/LoginPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 
 import WorkerAttendance from "@/pages/worker-attendance";
 
@@ -58,7 +59,7 @@ function Router() {
       {/* صفحات غير محمية - بدون شريط علوي أو سفلي */}
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={LoginPage} />
-      {/* <Route path="/forgot-password" component={ForgotPasswordPage} /> */}
+      <Route path="/reset-password" component={ResetPasswordPage} />
       
       {/* صفحات محمية - مع شريط علوي وسفلي */}
       <Route path="/">

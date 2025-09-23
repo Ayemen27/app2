@@ -4792,11 +4792,11 @@ var authenticate = async (req, res, next) => {
     });
   }
 };
+var oneHour = 60 * 60 * 1e3;
 setInterval(() => {
   const now = Date.now();
-  const oneHour2 = 60 * 60 * 1e3;
   for (const [ip, activity] of suspiciousActivityTracker.entries()) {
-    if (now - activity.lastAttempt > oneHour2) {
+    if (now - activity.lastAttempt > oneHour) {
       suspiciousActivityTracker.delete(ip);
     }
   }

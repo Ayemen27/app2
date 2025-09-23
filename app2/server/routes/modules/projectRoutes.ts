@@ -7,8 +7,8 @@ import express from 'express';
 import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc } from 'drizzle-orm';
 import { db } from '../../db';
-import { 
-  projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
+import {
+  projects, workers, materials, suppliers, materialPurchases, workerAttendance,
   fundTransfers, transportationExpenses, dailyExpenseSummaries, tools, toolMovements,
   workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
@@ -36,18 +36,18 @@ projectRouter.get('/', async (req: Request, res: Response) => {
 
     console.log(`✅ [API] تم جلب ${projectsList.length} مشروع من قاعدة البيانات`);
 
-    res.json({ 
-      success: true, 
-      data: projectsList, 
-      message: `تم جلب ${projectsList.length} مشروع بنجاح` 
+    res.json({
+      success: true,
+      data: projectsList,
+      message: `تم جلب ${projectsList.length} مشروع بنجاح`
     });
   } catch (error: any) {
     console.error('❌ [API] خطأ في جلب المشاريع:', error);
-    res.status(500).json({ 
-      success: false, 
-      data: [], 
+    res.status(500).json({
+      success: false,
+      data: [],
       error: error.message,
-      message: "فشل في جلب قائمة المشاريع" 
+      message: "فشل في جلب قائمة المشاريع"
     });
   }
 });
@@ -85,8 +85,8 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
           if (isNaN(parsed) || !isFinite(parsed)) return 0;
 
           // فحص الحدود المنطقية
-          const maxValue = type === 'integer' ? 
-            (strValue.includes('worker') || strValue.includes('total_workers') ? 10000 : 1000000) : 
+          const maxValue = type === 'integer' ?
+            (strValue.includes('worker') || strValue.includes('total_workers') ? 10000 : 1000000) :
             100000000000; // 100 مليار للمبالغ المالية
 
           if (Math.abs(parsed) > maxValue) {
@@ -99,7 +99,7 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
 
         // حساب إجمالي العمال والعمال النشطين المرتبطين بهذا المشروع فقط
         const workersStats = await db.execute(sql`
-          SELECT 
+          SELECT
             COUNT(DISTINCT wa.worker_id) as total_workers,
             COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
           FROM worker_attendance wa
@@ -109,60 +109,60 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
 
         // حساب مصاريف المواد
         const materialStats = await db.execute(sql`
-          SELECT 
+          SELECT
             COUNT(*) as material_purchases,
             COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
-          FROM material_purchases 
+          FROM material_purchases
           WHERE project_id = ${projectId}
         `);
 
         // حساب أجور العمال وأيام العمل المكتملة
         const workerWagesStats = await db.execute(sql`
-          SELECT 
+          SELECT
             COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
             COUNT(DISTINCT date) as completed_days
-          FROM worker_attendance 
+          FROM worker_attendance
           WHERE project_id = ${projectId} AND is_present = true
         `);
 
         // حساب تحويلات العهدة (الإيرادات)
         const fundTransfersStats = await db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
-          FROM fund_transfers 
+          FROM fund_transfers
           WHERE project_id = ${projectId}
         `);
 
         // حساب مصاريف المواصلات
         const transportStats = await db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
-          FROM transportation_expenses 
+          FROM transportation_expenses
           WHERE project_id = ${projectId}
         `);
 
         // حساب تحويلات العمال والمصاريف المتنوعة
         const workerTransfersStats = await db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
-          FROM worker_transfers 
+          FROM worker_transfers
           WHERE project_id = ${projectId}
         `);
 
         const miscExpensesStats = await db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
-          FROM worker_misc_expenses 
+          FROM worker_misc_expenses
           WHERE project_id = ${projectId}
         `);
 
         // حساب التحويلات الصادرة إلى مشاريع أخرى (تُحسب كمصاريف)
         const outgoingProjectTransfersStats = await db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as outgoing_project_transfers
-          FROM project_fund_transfers 
+          FROM project_fund_transfers
           WHERE from_project_id = ${projectId}
         `);
 
         // حساب التحويلات الواردة من مشاريع أخرى (تُحسب كدخل إضافي)
         const incomingProjectTransfersStats = await db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as incoming_project_transfers
-          FROM project_fund_transfers 
+          FROM project_fund_transfers
           WHERE to_project_id = ${projectId}
         `);
 
@@ -187,7 +187,7 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
 
         // حساب إجمالي الدخل (تحويلات العهدة + التحويلات من مشاريع أخرى)
         const totalIncome = fundTransfersIncome + incomingProjectTransfers;
-        
+
         // حساب إجمالي المصاريف (تشمل التحويلات إلى مشاريع أخرى)
         const totalExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
         const currentBalance = totalIncome - totalExpenses;
@@ -240,18 +240,18 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
 
     console.log(`✅ [API] تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات من قاعدة البيانات`);
 
-    res.json({ 
-      success: true, 
-      data: projectsWithStats, 
-      message: `تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات بنجاح` 
+    res.json({
+      success: true,
+      data: projectsWithStats,
+      message: `تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات بنجاح`
     });
   } catch (error: any) {
     console.error('❌ [API] خطأ في جلب المشاريع مع الإحصائيات:', error);
-    res.status(500).json({ 
-      success: false, 
-      data: [], 
+    res.status(500).json({
+      success: false,
+      data: [],
       error: error.message,
-      message: "فشل في جلب قائمة المشاريع مع الإحصائيات" 
+      message: "فشل في جلب قائمة المشاريع مع الإحصائيات"
     });
   }
 });
@@ -396,7 +396,7 @@ projectRouter.get('/:id', async (req: Request, res: Response) => {
           miscExpensesStats
         ] = await Promise.all([
           db.execute(sql`
-            SELECT 
+            SELECT
               COUNT(DISTINCT wa.worker_id) as total_workers,
               COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
             FROM worker_attendance wa
@@ -404,37 +404,37 @@ projectRouter.get('/:id', async (req: Request, res: Response) => {
             WHERE wa.project_id = ${id}
           `),
           db.execute(sql`
-            SELECT 
+            SELECT
               COUNT(*) as material_purchases,
               COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
-            FROM material_purchases 
+            FROM material_purchases
             WHERE project_id = ${id}
           `),
           db.execute(sql`
-            SELECT 
+            SELECT
               COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
               COUNT(DISTINCT date) as completed_days
-            FROM worker_attendance 
+            FROM worker_attendance
             WHERE project_id = ${id} AND is_present = true
           `),
           db.execute(sql`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
-            FROM fund_transfers 
+            FROM fund_transfers
             WHERE project_id = ${id}
           `),
           db.execute(sql`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
-            FROM transportation_expenses 
+            FROM transportation_expenses
             WHERE project_id = ${id}
           `),
           db.execute(sql`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
-            FROM worker_transfers 
+            FROM worker_transfers
             WHERE project_id = ${id}
           `),
           db.execute(sql`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
-            FROM worker_misc_expenses 
+            FROM worker_misc_expenses
             WHERE project_id = ${id}
           `)
         ]);
@@ -1226,7 +1226,7 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
       // محاولة استخدام Materialized View للأداء الأفضل
       console.log('⚡ [API] محاولة جلب البيانات من daily_summary_mv...');
       const mvResult = await db.execute(sql`
-        SELECT 
+        SELECT
           id,
           project_id,
           summary_date,
@@ -1244,7 +1244,7 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
           created_at,
           updated_at,
           project_name
-        FROM daily_summary_mv 
+        FROM daily_summary_mv
         WHERE project_id = ${projectId} AND summary_date = ${date}
         LIMIT 1
       `);
@@ -1455,13 +1455,16 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
     // حساب المجاميع
     const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
     const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
-    const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
+    // استبعاد المشتريات الآجلة من المصروفات
+      const cashMaterialCosts = materialPurchasesResult.reduce((sum, m) => {
+        return sum + (m.purchaseType === "نقد" ? parseFloat(m.totalAmount) : 0);
+      }, 0);
     const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
     const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
     const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
 
     const totalIncome = totalFundTransfers;
-    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
+    const totalExpenses = totalWorkerWages + cashMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
 
     // 💰 جلب الرصيد المرحل من اليوم السابق
     let carriedForward = 0;

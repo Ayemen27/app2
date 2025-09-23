@@ -13868,17 +13868,13 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const validationResult = { success: true, data: req.body };
-    if (!validationResult.success) {
+    const validationResult = { success: true, data: req.body, error: null };
+    if (!req.body || typeof req.body !== "object") {
       const duration2 = Date.now() - startTime;
-      console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644:", validationResult.error.flatten());
-      const errorMessages = validationResult.error.flatten().fieldErrors;
-      const firstError = "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
       return res.status(400).json({
         success: false,
         error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-        message: firstError,
-        details: errorMessages,
+        message: "\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0631\u0633\u0644\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629 \u0623\u0648 \u0641\u0627\u0631\u063A\u0629",
         processingTime: duration2
       });
     }

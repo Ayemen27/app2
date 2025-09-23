@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("admin"), // admin, manager, user
   isActive: boolean("is_active").default(true).notNull(),
   lastLogin: timestamp("last_login"),
+  emailVerifiedAt: timestamp("email_verified_at"), // متى تم التحقق من البريد الإلكتروني
   totpSecret: text("totp_secret"), // TOTP secret for 2FA
   mfaEnabled: boolean("mfa_enabled").default(false).notNull(), // Multi-factor authentication enabled
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -50,6 +51,35 @@ export const authUserSessions = pgTable("auth_user_sessions", {
   isRevoked: boolean("is_revoked").default(false).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   revokedReason: varchar("revoked_reason"),
+});
+
+// Email Verification Tokens table (جدول رموز التحقق من البريد الإلكتروني)
+export const emailVerificationTokens = pgTable("email_verification_tokens", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  email: text("email").notNull(), // البريد الإلكتروني المراد التحقق منه
+  token: varchar("token").notNull().unique(), // الرمز المرسل للمستخدم (6 أرقام)
+  tokenHash: varchar("token_hash").notNull(), // hash الرمز المحفوظ في قاعدة البيانات
+  verificationLink: text("verification_link").notNull(), // رابط التحقق الكامل
+  expiresAt: timestamp("expires_at").notNull(), // انتهاء صلاحية الرمز (عادة 24 ساعة)
+  verifiedAt: timestamp("verified_at"), // متى تم التحقق من البريد
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  ipAddress: inet("ip_address"), // IP الذي طلب التحقق
+  userAgent: text("user_agent"), // User Agent الذي طلب التحقق
+  attemptsCount: integer("attempts_count").default(0).notNull(), // عدد محاولات استخدام الرمز
+});
+
+// Password Reset Tokens table (جدول رموز استرجاع كلمة المرور)
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  token: varchar("token").notNull().unique(), // الرمز المرسل للمستخدم
+  tokenHash: varchar("token_hash").notNull(), // hash الرمز المحفوظ في قاعدة البيانات
+  expiresAt: timestamp("expires_at").notNull(), // انتهاء صلاحية الرمز (عادة ساعة واحدة)
+  usedAt: timestamp("used_at"), // متى تم استخدام الرمز
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  ipAddress: inet("ip_address"), // IP الذي طلب الاسترجاع
+  userAgent: text("user_agent"), // User Agent الذي طلب الاسترجاع
 });
 
 // Projects table

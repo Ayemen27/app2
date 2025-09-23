@@ -8,15 +8,15 @@ import rateLimit from 'express-rate-limit';
 // تم إزالة express-slow-down لأنه غير مستخدم حالياً
 
 // تعريف نوع الـ Request مع user
-interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends Request {
   user?: {
-    id: string;
+    id?: string;
     userId: string;
     email: string;
     firstName?: string;
     lastName?: string;
     role: string;
-    isActive: boolean;
+    isActive?: boolean;
     mfaEnabled?: boolean;
     sessionId: string;
   };

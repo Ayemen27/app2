@@ -25,6 +25,7 @@ import {
   revokeAllUserSessions,
   getUserActiveSessions
 } from './jwt-utils.js';
+import { sendVerificationEmail } from '../services/email-service.js';
 
 /**
  * دالة ذكية لتقسيم الاسم الكامل إلى firstName و lastName
@@ -240,14 +241,14 @@ export async function loginUser(request: LoginRequest): Promise<LoginResult> {
     }
     */
 
-    // التحقق من التحقق بالبريد الإلكتروني (تم تعطيله مؤقتاً لتسهيل التطوير)
-    // if (!user.emailVerifiedAt) {
-    //   return {
-    //     success: false,
-    //     requireVerification: true,
-    //     message: 'يرجى التحقق من بريدك الإلكتروني أولاً'
-    //   };
-    // }
+    // التحقق من التحقق بالبريد الإلكتروني
+    if (!user.emailVerifiedAt) {
+      return {
+        success: false,
+        requireVerification: true,
+        message: 'يرجى التحقق من بريدك الإلكتروني أولاً'
+      };
+    }
 
     // نظام JWT المتقدم
     console.log('🔑 تسجيل دخول ناجح بنظام JWT المتقدم');
@@ -382,7 +383,7 @@ export async function registerUser(request: RegisterRequest) {
         // phone: phone?.trim() || null, // حقل غير موجود في schema
         role,
         isActive: true,
-        // emailVerifiedAt: new Date(), // تفعيل مباشر للتبسيط - حقل غير موجود في schema
+        // emailVerifiedAt: null, // سيتم تعيينه بعد التحقق من البريد الإلكتروني
       })
       .returning();
 
@@ -392,6 +393,27 @@ export async function registerUser(request: RegisterRequest) {
       firstName: parsedName.firstName, 
       lastName: parsedName.lastName 
     });
+
+    // إرسال رمز التحقق عبر البريد الإلكتروني
+    console.log('📧 [Register] إرسال رمز التحقق عبر البريد الإلكتروني...');
+    const emailResult = await sendVerificationEmail(
+      userId,
+      email.toLowerCase(),
+      ipAddress,
+      userAgent
+    );
+
+    if (!emailResult.success) {
+      console.error('❌ [Register] فشل في إرسال رمز التحقق:', emailResult.message);
+      // حذف المستخدم إذا فشل إرسال البريد الإلكتروني
+      await db.delete(users).where(eq(users.id, userId));
+      return {
+        success: false,
+        message: 'تم إنشاء الحساب لكن فشل في إرسال رمز التحقق. يرجى المحاولة مرة أخرى'
+      };
+    }
+
+    console.log('✅ [Register] تم إرسال رمز التحقق بنجاح');
 
     // تسجيل حدث التسجيل في سجل التدقيق
     await logAuditEvent({
@@ -410,7 +432,8 @@ export async function registerUser(request: RegisterRequest) {
 
     return {
       success: true,
-      message: 'تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول',
+      message: 'تم إنشاء الحساب بنجاح! تم إرسال رمز التحقق إلى بريدك الإلكتروني',
+      requireVerification: true,
       user: {
         id: userId,
         email: email.toLowerCase(),

@@ -25,6 +25,7 @@ __export(schema_exports, {
   autocompleteData: () => autocompleteData,
   channels: () => channels,
   dailyExpenseSummaries: () => dailyExpenseSummaries,
+  emailVerificationTokens: () => emailVerificationTokens,
   enhancedInsertProjectSchema: () => enhancedInsertProjectSchema,
   enhancedInsertWorkerSchema: () => enhancedInsertWorkerSchema,
   financeEvents: () => financeEvents,
@@ -90,6 +91,7 @@ __export(schema_exports, {
   migrationTableProgress: () => migrationTableProgress,
   notificationReadStates: () => notificationReadStates,
   notifications: () => notifications,
+  passwordResetTokens: () => passwordResetTokens,
   printSettings: () => printSettings,
   projectFundTransfers: () => projectFundTransfers,
   projects: () => projects,
@@ -126,7 +128,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var users, authUserSessions, projects, workers, fundTransfers, workerAttendance, suppliers, materials, materialPurchases, supplierPayments, transportationExpenses, workerTransfers, workerBalances, dailyExpenseSummaries, workerTypes, autocompleteData, workerMiscExpenses, printSettings, projectFundTransfers, insertProjectSchema, insertWorkerSchema, insertFundTransferSchema, insertWorkerAttendanceSchema, insertMaterialSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertWorkerTransferSchema, insertWorkerBalanceSchema, insertProjectFundTransferSchema, insertDailyExpenseSummarySchema, insertWorkerTypeSchema, insertAutocompleteDataSchema, insertWorkerMiscExpenseSchema, insertUserSchema, enhancedInsertWorkerSchema, enhancedInsertProjectSchema, updateProjectSchema, uuidSchema, insertSupplierSchema, insertSupplierPaymentSchema, insertPrintSettingsSchema, insertAuthUserSessionSchema, reportTemplates, insertReportTemplateSchema, toolCategories, tools, toolStock, toolMovements, toolMaintenanceLogs, toolUsageAnalytics, toolPurchaseItems, maintenanceSchedules, maintenanceTasks, toolCostTracking, toolReservations, systemNotifications, notificationReadStates, insertToolCategorySchema, insertToolSchema, updateToolSchema, insertToolStockSchema, insertToolMovementSchema, insertToolMaintenanceLogSchema, insertToolUsageAnalyticsSchema, insertToolReservationSchema, insertSystemNotificationSchema, insertToolPurchaseItemSchema, insertMaintenanceScheduleSchema, insertMaintenanceTaskSchema, insertToolCostTrackingSchema, toolNotifications, insertToolNotificationSchema, insertNotificationReadStateSchema, approvals, channels, messages, actions, systemEvents, insertApprovalSchema, insertChannelSchema, insertMessageSchema, insertActionSchema, insertSystemEventSchema, accounts, transactions, transactionLines, journals, financePayments, financeEvents, accountBalances, insertAccountSchema, insertTransactionSchema, insertTransactionLineSchema, insertJournalSchema, insertFinancePaymentSchema, insertFinanceEventSchema, migrationJobs, migrationTableProgress, migrationBatchLog, insertMigrationJobSchema, insertMigrationTableProgressSchema, insertMigrationBatchLogSchema, notifications, insertNotificationSchema;
+var users, authUserSessions, emailVerificationTokens, passwordResetTokens, projects, workers, fundTransfers, workerAttendance, suppliers, materials, materialPurchases, supplierPayments, transportationExpenses, workerTransfers, workerBalances, dailyExpenseSummaries, workerTypes, autocompleteData, workerMiscExpenses, printSettings, projectFundTransfers, insertProjectSchema, insertWorkerSchema, insertFundTransferSchema, insertWorkerAttendanceSchema, insertMaterialSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertWorkerTransferSchema, insertWorkerBalanceSchema, insertProjectFundTransferSchema, insertDailyExpenseSummarySchema, insertWorkerTypeSchema, insertAutocompleteDataSchema, insertWorkerMiscExpenseSchema, insertUserSchema, enhancedInsertWorkerSchema, enhancedInsertProjectSchema, updateProjectSchema, uuidSchema, insertSupplierSchema, insertSupplierPaymentSchema, insertPrintSettingsSchema, insertAuthUserSessionSchema, reportTemplates, insertReportTemplateSchema, toolCategories, tools, toolStock, toolMovements, toolMaintenanceLogs, toolUsageAnalytics, toolPurchaseItems, maintenanceSchedules, maintenanceTasks, toolCostTracking, toolReservations, systemNotifications, notificationReadStates, insertToolCategorySchema, insertToolSchema, updateToolSchema, insertToolStockSchema, insertToolMovementSchema, insertToolMaintenanceLogSchema, insertToolUsageAnalyticsSchema, insertToolReservationSchema, insertSystemNotificationSchema, insertToolPurchaseItemSchema, insertMaintenanceScheduleSchema, insertMaintenanceTaskSchema, insertToolCostTrackingSchema, toolNotifications, insertToolNotificationSchema, insertNotificationReadStateSchema, approvals, channels, messages, actions, systemEvents, insertApprovalSchema, insertChannelSchema, insertMessageSchema, insertActionSchema, insertSystemEventSchema, accounts, transactions, transactionLines, journals, financePayments, financeEvents, accountBalances, insertAccountSchema, insertTransactionSchema, insertTransactionLineSchema, insertJournalSchema, insertFinancePaymentSchema, insertFinanceEventSchema, migrationJobs, migrationTableProgress, migrationBatchLog, insertMigrationJobSchema, insertMigrationTableProgressSchema, insertMigrationBatchLogSchema, notifications, insertNotificationSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -141,6 +143,8 @@ var init_schema = __esm({
       // admin, manager, user
       isActive: boolean("is_active").default(true).notNull(),
       lastLogin: timestamp("last_login"),
+      emailVerifiedAt: timestamp("email_verified_at"),
+      // متى تم التحقق من البريد الإلكتروني
       totpSecret: text("totp_secret"),
       // TOTP secret for 2FA
       mfaEnabled: boolean("mfa_enabled").default(false).notNull(),
@@ -178,6 +182,46 @@ var init_schema = __esm({
       isRevoked: boolean("is_revoked").default(false).notNull(),
       revokedAt: timestamp("revoked_at", { withTimezone: true }),
       revokedReason: varchar("revoked_reason")
+    });
+    emailVerificationTokens = pgTable("email_verification_tokens", {
+      id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+      userId: varchar("user_id").notNull().references(() => users.id),
+      email: text("email").notNull(),
+      // البريد الإلكتروني المراد التحقق منه
+      token: varchar("token").notNull().unique(),
+      // الرمز المرسل للمستخدم (6 أرقام)
+      tokenHash: varchar("token_hash").notNull(),
+      // hash الرمز المحفوظ في قاعدة البيانات
+      verificationLink: text("verification_link").notNull(),
+      // رابط التحقق الكامل
+      expiresAt: timestamp("expires_at").notNull(),
+      // انتهاء صلاحية الرمز (عادة 24 ساعة)
+      verifiedAt: timestamp("verified_at"),
+      // متى تم التحقق من البريد
+      createdAt: timestamp("created_at").defaultNow().notNull(),
+      ipAddress: inet("ip_address"),
+      // IP الذي طلب التحقق
+      userAgent: text("user_agent"),
+      // User Agent الذي طلب التحقق
+      attemptsCount: integer("attempts_count").default(0).notNull()
+      // عدد محاولات استخدام الرمز
+    });
+    passwordResetTokens = pgTable("password_reset_tokens", {
+      id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+      userId: varchar("user_id").notNull().references(() => users.id),
+      token: varchar("token").notNull().unique(),
+      // الرمز المرسل للمستخدم
+      tokenHash: varchar("token_hash").notNull(),
+      // hash الرمز المحفوظ في قاعدة البيانات
+      expiresAt: timestamp("expires_at").notNull(),
+      // انتهاء صلاحية الرمز (عادة ساعة واحدة)
+      usedAt: timestamp("used_at"),
+      // متى تم استخدام الرمز
+      createdAt: timestamp("created_at").defaultNow().notNull(),
+      ipAddress: inet("ip_address"),
+      // IP الذي طلب الاسترجاع
+      userAgent: text("user_agent")
+      // User Agent الذي طلب الاسترجاع
     });
     projects = pgTable("projects", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -4064,9 +4108,9 @@ var init_NotificationService = __esm({
           try {
             const defaultUser = await db.query.users.findFirst({
               columns: { id: true },
-              where: (users2, { eq: eq12, or: or5 }) => or5(
-                eq12(users2.role, "admin"),
-                eq12(users2.email, "admin")
+              where: (users2, { eq: eq13, or: or5 }) => or5(
+                eq13(users2.role, "admin"),
+                eq13(users2.email, "admin")
               )
             });
             return defaultUser ? [defaultUser.id] : [];
@@ -4085,9 +4129,9 @@ var init_NotificationService = __esm({
             return true;
           }
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq12, or: or5 }) => or5(
-              eq12(users2.id, userId),
-              eq12(users2.email, userId)
+            where: (users2, { eq: eq13, or: or5 }) => or5(
+              eq13(users2.id, userId),
+              eq13(users2.email, userId)
             )
           });
           if (!user) {
@@ -4109,9 +4153,9 @@ var init_NotificationService = __esm({
       async getAllowedNotificationTypes(userId) {
         try {
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq12, or: or5 }) => or5(
-              eq12(users2.id, userId),
-              eq12(users2.email, userId)
+            where: (users2, { eq: eq13, or: or5 }) => or5(
+              eq13(users2.id, userId),
+              eq13(users2.email, userId)
             )
           });
           if (!user) {
@@ -4808,7 +4852,14 @@ var authenticate = async (req, res, next) => {
       userAgent: req.get("User-Agent") || "unknown"
     }).where(eq(authUserSessions.sessionToken, decoded.sessionId));
     req.user = {
-      ...user[0],
+      id: user[0].id,
+      userId: user[0].id,
+      email: user[0].email,
+      firstName: user[0].firstName || void 0,
+      lastName: user[0].lastName || void 0,
+      role: user[0].role,
+      isActive: user[0].isActive,
+      mfaEnabled: user[0].mfaEnabled || void 0,
       sessionId: decoded.sessionId
     };
     const duration = Date.now() - startTime;
@@ -4826,7 +4877,7 @@ var authenticate = async (req, res, next) => {
 var oneHour = 60 * 60 * 1e3;
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, activity] of suspiciousActivityTracker.entries()) {
+  for (const [ip, activity] of Array.from(suspiciousActivityTracker.entries())) {
     if (now - activity.lastAttempt > oneHour) {
       suspiciousActivityTracker.delete(ip);
     }
@@ -9640,7 +9691,7 @@ init_db();
 init_schema();
 import { Router } from "express";
 import { z as z2 } from "zod";
-import { eq as eq8 } from "drizzle-orm";
+import { eq as eq9 } from "drizzle-orm";
 
 // server/auth/crypto-utils.ts
 import bcrypt from "bcrypt";
@@ -9772,7 +9823,7 @@ function validatePasswordStrength(password) {
 // server/auth/auth-service.ts
 init_db();
 init_schema();
-import { eq as eq7 } from "drizzle-orm";
+import { eq as eq8 } from "drizzle-orm";
 
 // server/auth/jwt-utils.ts
 init_db();
@@ -10054,6 +10105,416 @@ async function getUserActiveSessions(userId) {
   ).orderBy(authUserSessions.lastActivity);
 }
 
+// server/services/email-service.ts
+init_db();
+init_schema();
+import nodemailer from "nodemailer";
+import { eq as eq7, and as and7 } from "drizzle-orm";
+import crypto3 from "crypto";
+var createTransporter = () => {
+  const smtpConfig = {
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: false,
+    // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  };
+  console.log("\u{1F4E7} [EmailService] \u0625\u0639\u062F\u0627\u062F SMTP:", {
+    host: smtpConfig.host,
+    port: smtpConfig.port,
+    user: smtpConfig.auth.user,
+    hasPassword: !!smtpConfig.auth.pass
+  });
+  return nodemailer.createTransport(smtpConfig);
+};
+async function verifyEmailConfiguration() {
+  try {
+    const transporter = createTransporter();
+    await transporter.verify();
+    console.log("\u2705 [EmailService] \u062A\u0645 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0625\u0639\u062F\u0627\u062F SMTP \u0628\u0646\u062C\u0627\u062D");
+    return true;
+  } catch (error) {
+    console.error("\u274C [EmailService] \u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0625\u0639\u062F\u0627\u062F SMTP:", error);
+    return false;
+  }
+}
+function generateVerificationCode() {
+  return Math.floor(1e5 + Math.random() * 9e5).toString();
+}
+function generateSecureToken() {
+  return crypto3.randomBytes(32).toString("hex");
+}
+async function hashToken2(token) {
+  return crypto3.createHash("sha256").update(token).digest("hex");
+}
+var emailTemplates = {
+  verification: (code, verificationLink) => ({
+    subject: "\u{1F510} \u062A\u062D\u0642\u0642 \u0645\u0646 \u062D\u0633\u0627\u0628\u0643 - \u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639",
+    html: `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>\u062A\u062D\u0642\u0642 \u0645\u0646 \u062D\u0633\u0627\u0628\u0643</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+          .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+          .header { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 40px; text-align: center; }
+          .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
+          .content { padding: 40px; text-align: center; }
+          .verification-code { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 30px 0; display: inline-block; }
+          .button { display: inline-block; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 15px 30px; border-radius: 50px; text-decoration: none; font-weight: bold; margin: 20px 0; transition: transform 0.3s ease; }
+          .button:hover { transform: translateY(-2px); }
+          .footer { background: #f8f9fa; padding: 30px; text-align: center; color: #6c757d; border-top: 1px solid #e9ecef; }
+          .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 10px; margin: 20px 0; color: #856404; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>\u{1F510} \u062A\u062D\u0642\u0642 \u0645\u0646 \u062D\u0633\u0627\u0628\u0643</h1>
+            <p>\u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0627\u0644\u0625\u0646\u0634\u0627\u0626\u064A\u0629</p>
+          </div>
+          <div class="content">
+            <h2>\u0645\u0631\u062D\u0628\u0627\u064B \u0628\u0643!</h2>
+            <p>\u0634\u0643\u0631\u0627\u064B \u0644\u0643 \u0639\u0644\u0649 \u0627\u0644\u062A\u0633\u062C\u064A\u0644 \u0641\u064A \u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639. \u0644\u0625\u0643\u0645\u0627\u0644 \u062A\u0641\u0639\u064A\u0644 \u062D\u0633\u0627\u0628\u0643\u060C \u064A\u0631\u062C\u0649 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0627\u0644\u062A\u0627\u0644\u064A:</p>
+            
+            <div class="verification-code">${code}</div>
+            
+            <p>\u0623\u0648 \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0636\u063A\u0637 \u0639\u0644\u0649 \u0627\u0644\u0631\u0627\u0628\u0637 \u0627\u0644\u062A\u0627\u0644\u064A \u0644\u0644\u062A\u062D\u0642\u0642 \u0645\u0628\u0627\u0634\u0631\u0629:</p>
+            <a href="${verificationLink}" class="button">\u2705 \u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u062D\u0633\u0627\u0628</a>
+            
+            <div class="warning">
+              <strong>\u062A\u0646\u0628\u064A\u0647 \u0623\u0645\u0646\u064A:</strong>
+              <ul style="text-align: right; margin: 10px 0;">
+                <li>\u0647\u0630\u0627 \u0627\u0644\u0631\u0645\u0632 \u0635\u0627\u0644\u062D \u0644\u0645\u062F\u0629 24 \u0633\u0627\u0639\u0629 \u0641\u0642\u0637</li>
+                <li>\u0644\u0627 \u062A\u0634\u0627\u0631\u0643 \u0647\u0630\u0627 \u0627\u0644\u0631\u0645\u0632 \u0645\u0639 \u0623\u064A \u0634\u062E\u0635 \u0622\u062E\u0631</li>
+                <li>\u0625\u0630\u0627 \u0644\u0645 \u062A\u0637\u0644\u0628 \u0647\u0630\u0627 \u0627\u0644\u062A\u062D\u0642\u0642\u060C \u064A\u0631\u062C\u0649 \u062A\u062C\u0627\u0647\u0644 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F</li>
+              </ul>
+            </div>
+          </div>
+          <div class="footer">
+            <p>\xA9 2025 \u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 - \u062C\u0645\u064A\u0639 \u0627\u0644\u062D\u0642\u0648\u0642 \u0645\u062D\u0641\u0648\u0638\u0629</p>
+            <p>\u0647\u0630\u0627 \u0628\u0631\u064A\u062F \u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u062A\u0644\u0642\u0627\u0626\u064A\u060C \u064A\u0631\u062C\u0649 \u0639\u062F\u0645 \u0627\u0644\u0631\u062F \u0639\u0644\u064A\u0647</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+      \u062A\u062D\u0642\u0642 \u0645\u0646 \u062D\u0633\u0627\u0628\u0643 - \u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639
+      
+      \u0645\u0631\u062D\u0628\u0627\u064B \u0628\u0643!
+      \u0634\u0643\u0631\u0627\u064B \u0644\u0643 \u0639\u0644\u0649 \u0627\u0644\u062A\u0633\u062C\u064A\u0644 \u0641\u064A \u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639.
+      
+      \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0627\u0644\u062E\u0627\u0635 \u0628\u0643: ${code}
+      
+      \u0623\u0648 \u0627\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u0631\u0627\u0628\u0637 \u0627\u0644\u062A\u0627\u0644\u064A: ${verificationLink}
+      
+      \u0647\u0630\u0627 \u0627\u0644\u0631\u0645\u0632 \u0635\u0627\u0644\u062D \u0644\u0645\u062F\u0629 24 \u0633\u0627\u0639\u0629 \u0641\u0642\u0637.
+      \u0625\u0630\u0627 \u0644\u0645 \u062A\u0637\u0644\u0628 \u0647\u0630\u0627 \u0627\u0644\u062A\u062D\u0642\u0642\u060C \u064A\u0631\u062C\u0649 \u062A\u062C\u0627\u0647\u0644 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F.
+    `
+  }),
+  passwordReset: (resetLink, userEmail) => ({
+    subject: "\u{1F511} \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 - \u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639",
+    html: `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+          .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+          .header { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; padding: 40px; text-align: center; }
+          .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
+          .content { padding: 40px; text-align: center; }
+          .button { display: inline-block; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; padding: 15px 30px; border-radius: 50px; text-decoration: none; font-weight: bold; margin: 20px 0; transition: transform 0.3s ease; }
+          .button:hover { transform: translateY(-2px); }
+          .footer { background: #f8f9fa; padding: 30px; text-align: center; color: #6c757d; border-top: 1px solid #e9ecef; }
+          .warning { background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 10px; margin: 20px 0; color: #721c24; }
+          .info { background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 10px; margin: 20px 0; color: #0c5460; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>\u{1F511} \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631</h1>
+            <p>\u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0627\u0644\u0625\u0646\u0634\u0627\u0626\u064A\u0629</p>
+          </div>
+          <div class="content">
+            <h2>\u0637\u0644\u0628 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631</h2>
+            <p>\u062A\u0645 \u0627\u0633\u062A\u0644\u0627\u0645 \u0637\u0644\u0628 \u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0644\u0644\u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0631\u062A\u0628\u0637 \u0628\u0640: <strong>${userEmail}</strong></p>
+            
+            <p>\u0644\u0644\u0645\u062A\u0627\u0628\u0639\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0636\u063A\u0637 \u0639\u0644\u0649 \u0627\u0644\u0631\u0627\u0628\u0637 \u0627\u0644\u062A\u0627\u0644\u064A \u0644\u0625\u0646\u0634\u0627\u0621 \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u062C\u062F\u064A\u062F\u0629:</p>
+            <a href="${resetLink}" class="button">\u{1F510} \u0625\u0646\u0634\u0627\u0621 \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u062C\u062F\u064A\u062F\u0629</a>
+            
+            <div class="warning">
+              <strong>\u062A\u0646\u0628\u064A\u0647 \u0623\u0645\u0646\u064A \u0645\u0647\u0645:</strong>
+              <ul style="text-align: right; margin: 10px 0;">
+                <li>\u0647\u0630\u0627 \u0627\u0644\u0631\u0627\u0628\u0637 \u0635\u0627\u0644\u062D \u0644\u0645\u062F\u0629 \u0633\u0627\u0639\u0629 \u0648\u0627\u062D\u062F\u0629 \u0641\u0642\u0637</li>
+                <li>\u064A\u0645\u0643\u0646 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0631\u0627\u0628\u0637 \u0645\u0631\u0629 \u0648\u0627\u062D\u062F\u0629 \u0641\u0642\u0637</li>
+                <li>\u0644\u0627 \u062A\u0634\u0627\u0631\u0643 \u0647\u0630\u0627 \u0627\u0644\u0631\u0627\u0628\u0637 \u0645\u0639 \u0623\u064A \u0634\u062E\u0635 \u0622\u062E\u0631</li>
+              </ul>
+            </div>
+            
+            <div class="info">
+              <strong>\u0625\u0630\u0627 \u0644\u0645 \u062A\u0637\u0644\u0628 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631:</strong>
+              <p>\u064A\u0631\u062C\u0649 \u062A\u062C\u0627\u0647\u0644 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0648\u062A\u063A\u064A\u064A\u0631 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0644\u0644\u0623\u0645\u0627\u0646</p>
+            </div>
+          </div>
+          <div class="footer">
+            <p>\xA9 2025 \u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 - \u062C\u0645\u064A\u0639 \u0627\u0644\u062D\u0642\u0648\u0642 \u0645\u062D\u0641\u0648\u0638\u0629</p>
+            <p>\u0647\u0630\u0627 \u0628\u0631\u064A\u062F \u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u062A\u0644\u0642\u0627\u0626\u064A\u060C \u064A\u0631\u062C\u0649 \u0639\u062F\u0645 \u0627\u0644\u0631\u062F \u0639\u0644\u064A\u0647</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+      \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 - \u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639
+      
+      \u062A\u0645 \u0627\u0633\u062A\u0644\u0627\u0645 \u0637\u0644\u0628 \u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0644\u0644\u062D\u0633\u0627\u0628: ${userEmail}
+      
+      \u0644\u0625\u0646\u0634\u0627\u0621 \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u062C\u062F\u064A\u062F\u0629\u060C \u0627\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u0631\u0627\u0628\u0637 \u0627\u0644\u062A\u0627\u0644\u064A: ${resetLink}
+      
+      \u0647\u0630\u0627 \u0627\u0644\u0631\u0627\u0628\u0637 \u0635\u0627\u0644\u062D \u0644\u0645\u062F\u0629 \u0633\u0627\u0639\u0629 \u0648\u0627\u062D\u062F\u0629 \u0641\u0642\u0637.
+      \u0625\u0630\u0627 \u0644\u0645 \u062A\u0637\u0644\u0628 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631\u060C \u064A\u0631\u062C\u0649 \u062A\u062C\u0627\u0647\u0644 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F.
+    `
+  })
+};
+async function sendVerificationEmail(userId, email, ipAddress, userAgent) {
+  try {
+    console.log("\u{1F4E7} [EmailService] \u0628\u062F\u0621 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", userId);
+    const isConfigValid = await verifyEmailConfiguration();
+    if (!isConfigValid) {
+      return {
+        success: false,
+        message: "\u062E\u0637\u0623 \u0641\u064A \u0625\u0639\u062F\u0627\u062F \u062E\u062F\u0645\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A"
+      };
+    }
+    await db.delete(emailVerificationTokens).where(and7(
+      eq7(emailVerificationTokens.userId, userId),
+      eq7(emailVerificationTokens.email, email)
+    ));
+    const verificationCode = generateVerificationCode();
+    const tokenHash = await hashToken2(verificationCode);
+    const domain = process.env.DOMAIN || "localhost:5000";
+    const verificationLink = `http://${domain}/verify-email?token=${verificationCode}&userId=${userId}`;
+    const expiresAt = /* @__PURE__ */ new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+    await db.insert(emailVerificationTokens).values({
+      userId,
+      email,
+      token: verificationCode,
+      tokenHash,
+      verificationLink,
+      expiresAt,
+      ipAddress,
+      userAgent
+    });
+    const transporter = createTransporter();
+    const emailTemplate = emailTemplates.verification(verificationCode, verificationLink);
+    await transporter.sendMail({
+      from: `"\u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: emailTemplate.subject,
+      html: emailTemplate.html,
+      text: emailTemplate.text
+    });
+    console.log("\u2705 [EmailService] \u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0628\u0646\u062C\u0627\u062D \u0625\u0644\u0649:", email);
+    return {
+      success: true,
+      message: "\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0625\u0644\u0649 \u0628\u0631\u064A\u062F\u0643 \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A"
+    };
+  } catch (error) {
+    console.error("\u274C [EmailService] \u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642:", error);
+    return {
+      success: false,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B"
+    };
+  }
+}
+async function verifyEmailToken(userId, token) {
+  try {
+    console.log("\u{1F50D} [EmailService] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", userId);
+    const tokenRecord = await db.select().from(emailVerificationTokens).where(and7(
+      eq7(emailVerificationTokens.userId, userId),
+      eq7(emailVerificationTokens.token, token)
+    )).limit(1);
+    if (tokenRecord.length === 0) {
+      return {
+        success: false,
+        message: "\u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D"
+      };
+    }
+    const record = tokenRecord[0];
+    if (/* @__PURE__ */ new Date() > record.expiresAt) {
+      await db.delete(emailVerificationTokens).where(eq7(emailVerificationTokens.id, record.id));
+      return {
+        success: false,
+        message: "\u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629. \u064A\u0631\u062C\u0649 \u0637\u0644\u0628 \u0631\u0645\u0632 \u062C\u062F\u064A\u062F"
+      };
+    }
+    if (record.verifiedAt) {
+      return {
+        success: false,
+        message: "\u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0647\u0630\u0627 \u0627\u0644\u0631\u0645\u0632 \u0645\u0633\u0628\u0642\u0627\u064B"
+      };
+    }
+    await db.update(emailVerificationTokens).set({ verifiedAt: /* @__PURE__ */ new Date() }).where(eq7(emailVerificationTokens.id, record.id));
+    await db.update(users).set({ emailVerifiedAt: /* @__PURE__ */ new Date() }).where(eq7(users.id, userId));
+    console.log("\u2705 [EmailService] \u062A\u0645 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0628\u0646\u062C\u0627\u062D \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", userId);
+    return {
+      success: true,
+      message: "\u062A\u0645 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0628\u0631\u064A\u062F\u0643 \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0628\u0646\u062C\u0627\u062D"
+    };
+  } catch (error) {
+    console.error("\u274C [EmailService] \u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A:", error);
+    return {
+      success: false,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0645\u0632. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B"
+    };
+  }
+}
+async function sendPasswordResetEmail(email, ipAddress, userAgent) {
+  try {
+    console.log("\u{1F511} [EmailService] \u0628\u062F\u0621 \u0625\u0631\u0633\u0627\u0644 \u0631\u0627\u0628\u0637 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0644\u0644\u0628\u0631\u064A\u062F:", email);
+    const userResult = await db.select().from(users).where(eq7(users.email, email)).limit(1);
+    if (userResult.length === 0) {
+      return {
+        success: true,
+        message: "\u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0633\u062C\u0644 \u0641\u064A \u0627\u0644\u0646\u0638\u0627\u0645\u060C \u0633\u062A\u062D\u0635\u0644 \u0639\u0644\u0649 \u0631\u0627\u0628\u0637 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631"
+      };
+    }
+    const user = userResult[0];
+    const isConfigValid = await verifyEmailConfiguration();
+    if (!isConfigValid) {
+      return {
+        success: false,
+        message: "\u062E\u0637\u0623 \u0641\u064A \u0625\u0639\u062F\u0627\u062F \u062E\u062F\u0645\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A"
+      };
+    }
+    await db.delete(passwordResetTokens).where(eq7(passwordResetTokens.userId, user.id));
+    const resetToken = generateSecureToken();
+    const tokenHash = await hashToken2(resetToken);
+    const domain = process.env.DOMAIN || "localhost:5000";
+    const resetLink = `http://${domain}/reset-password?token=${resetToken}`;
+    const expiresAt = /* @__PURE__ */ new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1);
+    await db.insert(passwordResetTokens).values({
+      userId: user.id,
+      token: resetToken,
+      tokenHash,
+      expiresAt,
+      ipAddress,
+      userAgent
+    });
+    const transporter = createTransporter();
+    const emailTemplate = emailTemplates.passwordReset(resetLink, email);
+    await transporter.sendMail({
+      from: `"\u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: emailTemplate.subject,
+      html: emailTemplate.html,
+      text: emailTemplate.text
+    });
+    console.log("\u2705 [EmailService] \u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0631\u0627\u0628\u0637 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0628\u0646\u062C\u0627\u062D \u0625\u0644\u0649:", email);
+    return {
+      success: true,
+      message: "\u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0633\u062C\u0644 \u0641\u064A \u0627\u0644\u0646\u0638\u0627\u0645\u060C \u0633\u062A\u062D\u0635\u0644 \u0639\u0644\u0649 \u0631\u0627\u0628\u0637 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631"
+    };
+  } catch (error) {
+    console.error("\u274C [EmailService] \u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0631\u0627\u0628\u0637 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631:", error);
+    return {
+      success: false,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0631\u0627\u0628\u0637 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B"
+    };
+  }
+}
+async function resetPasswordWithToken(token, newPassword) {
+  try {
+    console.log("\u{1F510} [EmailService] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631");
+    const tokenRecord = await db.select().from(passwordResetTokens).where(eq7(passwordResetTokens.token, token)).limit(1);
+    if (tokenRecord.length === 0) {
+      return {
+        success: false,
+        message: "\u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D"
+      };
+    }
+    const record = tokenRecord[0];
+    if (/* @__PURE__ */ new Date() > record.expiresAt) {
+      await db.delete(passwordResetTokens).where(eq7(passwordResetTokens.id, record.id));
+      return {
+        success: false,
+        message: "\u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629. \u064A\u0631\u062C\u0649 \u0637\u0644\u0628 \u0631\u0645\u0632 \u062C\u062F\u064A\u062F"
+      };
+    }
+    if (record.usedAt) {
+      return {
+        success: false,
+        message: "\u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0647\u0630\u0627 \u0627\u0644\u0631\u0645\u0632 \u0645\u0633\u0628\u0642\u0627\u064B"
+      };
+    }
+    const hashedPassword = await hashPassword(newPassword);
+    await db.update(users).set({ password: hashedPassword }).where(eq7(users.id, record.userId));
+    await db.update(passwordResetTokens).set({ usedAt: /* @__PURE__ */ new Date() }).where(eq7(passwordResetTokens.id, record.id));
+    console.log("\u2705 [EmailService] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0628\u0646\u062C\u0627\u062D \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", record.userId);
+    return {
+      success: true,
+      message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0628\u0646\u062C\u0627\u062D"
+    };
+  } catch (error) {
+    console.error("\u274C [EmailService] \u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631:", error);
+    return {
+      success: false,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B"
+    };
+  }
+}
+async function validatePasswordResetToken(token) {
+  try {
+    const tokenRecord = await db.select().from(passwordResetTokens).where(eq7(passwordResetTokens.token, token)).limit(1);
+    if (tokenRecord.length === 0) {
+      return {
+        success: false,
+        message: "\u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D"
+      };
+    }
+    const record = tokenRecord[0];
+    if (/* @__PURE__ */ new Date() > record.expiresAt) {
+      return {
+        success: false,
+        message: "\u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629"
+      };
+    }
+    if (record.usedAt) {
+      return {
+        success: false,
+        message: "\u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0647\u0630\u0627 \u0627\u0644\u0631\u0645\u0632 \u0645\u0633\u0628\u0642\u0627\u064B"
+      };
+    }
+    return {
+      success: true,
+      message: "\u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0635\u0627\u0644\u062D"
+    };
+  } catch (error) {
+    console.error("\u274C [EmailService] \u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639:", error);
+    return {
+      success: false,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0645\u0632"
+    };
+  }
+}
+
 // server/auth/auth-service.ts
 function parseFullName(fullName) {
   if (!fullName || typeof fullName !== "string") {
@@ -10123,7 +10584,7 @@ async function registerUser(request) {
       };
     }
     console.log("\u{1F50D} [Register] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0648\u062C\u0648\u062F \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0633\u0628\u0642\u0627\u064B...");
-    const existingUser = await db.select().from(users).where(eq7(users.email, email.toLowerCase())).limit(1);
+    const existingUser = await db.select().from(users).where(eq8(users.email, email.toLowerCase())).limit(1);
     if (existingUser.length > 0) {
       console.log("\u274C [Register] \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B");
       return {
@@ -10142,7 +10603,7 @@ async function registerUser(request) {
       // phone: phone?.trim() || null, // حقل غير موجود في schema
       role,
       isActive: true
-      // emailVerifiedAt: new Date(), // تفعيل مباشر للتبسيط - حقل غير موجود في schema
+      // emailVerifiedAt: null, // سيتم تعيينه بعد التحقق من البريد الإلكتروني
     }).returning();
     const userId = newUser[0].id;
     console.log("\u2705 [Register] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0646\u062C\u0627\u062D:", {
@@ -10150,6 +10611,22 @@ async function registerUser(request) {
       firstName: parsedName.firstName,
       lastName: parsedName.lastName
     });
+    console.log("\u{1F4E7} [Register] \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0639\u0628\u0631 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A...");
+    const emailResult = await sendVerificationEmail(
+      userId,
+      email.toLowerCase(),
+      ipAddress,
+      userAgent
+    );
+    if (!emailResult.success) {
+      console.error("\u274C [Register] \u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642:", emailResult.message);
+      await db.delete(users).where(eq8(users.id, userId));
+      return {
+        success: false,
+        message: "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062D\u0633\u0627\u0628 \u0644\u0643\u0646 \u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649"
+      };
+    }
+    console.log("\u2705 [Register] \u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0628\u0646\u062C\u0627\u062D");
     await logAuditEvent({
       userId,
       action: "user_registered",
@@ -10165,7 +10642,8 @@ async function registerUser(request) {
     });
     return {
       success: true,
-      message: "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062D\u0633\u0627\u0628 \u0628\u0646\u062C\u0627\u062D! \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0622\u0646 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644",
+      message: "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062D\u0633\u0627\u0628 \u0628\u0646\u062C\u0627\u062D! \u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0625\u0644\u0649 \u0628\u0631\u064A\u062F\u0643 \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A",
+      requireVerification: true,
       user: {
         id: userId,
         email: email.toLowerCase(),
@@ -10222,7 +10700,7 @@ async function setupTOTP(userId, email) {
     await db.update(users).set({
       totpSecret: secret
       // mfaEnabled حقل غير موجود في جدول users
-    }).where(eq7(users.id, userId));
+    }).where(eq8(users.id, userId));
     return {
       success: true,
       secret,
@@ -10240,7 +10718,7 @@ async function setupTOTP(userId, email) {
 }
 async function enableTOTP(userId, totpCode, ipAddress, userAgent) {
   try {
-    const user = await db.select().from(users).where(eq7(users.id, userId)).limit(1);
+    const user = await db.select().from(users).where(eq8(users.id, userId)).limit(1);
     if (user.length === 0 || !user[0].totpSecret) {
       return {
         success: false,
@@ -10297,7 +10775,7 @@ async function terminateAllOtherSessions(userId, exceptSessionId) {
 }
 async function changePassword(userId, currentPassword, newPassword, ipAddress, userAgent) {
   try {
-    const user = await db.select().from(users).where(eq7(users.id, userId)).limit(1);
+    const user = await db.select().from(users).where(eq8(users.id, userId)).limit(1);
     if (user.length === 0) {
       return {
         success: false,
@@ -10332,7 +10810,7 @@ async function changePassword(userId, currentPassword, newPassword, ipAddress, u
     const newPasswordHash = await hashPassword(newPassword);
     await db.update(users).set({
       password: newPasswordHash
-    }).where(eq7(users.id, userId));
+    }).where(eq8(users.id, userId));
     await revokeAllUserSessions(userId);
     await logAuditEvent({
       userId,
@@ -10394,6 +10872,13 @@ var changePasswordSchema = z2.object({
   currentPassword: z2.string().min(1, "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0645\u0637\u0644\u0648\u0628\u0629"),
   newPassword: z2.string().min(8, "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062C\u062F\u064A\u062F\u0629 \u064A\u062C\u0628 \u0623\u0646 \u062A\u0643\u0648\u0646 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 8 \u0623\u062D\u0631\u0641")
 });
+var forgotPasswordSchema = z2.object({
+  email: z2.string().email("\u0628\u0631\u064A\u062F \u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u063A\u064A\u0631 \u0635\u0627\u0644\u062D").min(1, "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0637\u0644\u0648\u0628")
+});
+var resetPasswordSchema = z2.object({
+  token: z2.string().min(1, "\u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0645\u0637\u0644\u0648\u0628"),
+  newPassword: z2.string().min(8, "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062C\u062F\u064A\u062F\u0629 \u064A\u062C\u0628 \u0623\u0646 \u062A\u0643\u0648\u0646 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 8 \u0623\u062D\u0631\u0641")
+});
 function getRequestInfo(req) {
   return {
     ipAddress: req.ip || req.connection.remoteAddress || "unknown",
@@ -10421,7 +10906,7 @@ router.post("/login", async (req, res) => {
     const isBypassLogin = email === "admin@demo.local" && password === "bypass-demo-login";
     if (isBypassLogin && isDevEnvironment && quickLoginEnabled) {
       console.log("\u{1F680} [Auth] \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644 \u0633\u0631\u064A\u0639 \u062A\u062C\u0631\u064A\u0628\u064A (\u0628\u064A\u0626\u0629 \u062A\u0637\u0648\u064A\u0631 \u0641\u0642\u0637)");
-      let user2 = await db.select().from(users).where(eq8(users.role, "admin")).limit(1);
+      let user2 = await db.select().from(users).where(eq9(users.role, "admin")).limit(1);
       if (user2.length === 0) {
         console.log("\u{1F464} [Auth] \u0625\u0646\u0634\u0627\u0621 \u0645\u0633\u062A\u062E\u062F\u0645 admin \u062A\u062C\u0631\u064A\u0628\u064A");
         const newUser = await db.insert(users).values({
@@ -10498,7 +10983,7 @@ router.post("/login", async (req, res) => {
       lastLogin: users.lastLogin,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt
-    }).from(users).where(eq8(users.email, email.toLowerCase())).limit(1);
+    }).from(users).where(eq9(users.email, email.toLowerCase())).limit(1);
     if (userResult.length === 0) {
       console.log("\u274C [Auth] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", email);
       return res.status(401).json({
@@ -10531,7 +11016,7 @@ router.post("/login", async (req, res) => {
       user.role
     );
     console.log("\u{1F4DD} [Auth] \u062A\u062D\u062F\u064A\u062B \u0622\u062E\u0631 \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644...");
-    await db.update(users).set({ lastLogin: /* @__PURE__ */ new Date() }).where(eq8(users.id, user.id));
+    await db.update(users).set({ lastLogin: /* @__PURE__ */ new Date() }).where(eq9(users.id, user.id));
     console.log("\u2705 [Auth] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0646\u062C\u0627\u062D");
     const responseData = {
       success: true,
@@ -10896,7 +11381,7 @@ router.get("/me", requireAuth, async (req, res) => {
     const role = req.user?.role || "user";
     let userData = null;
     try {
-      const userResult = await db.select().from(users).where(eq8(users.id, userId)).limit(1);
+      const userResult = await db.select().from(users).where(eq9(users.id, userId)).limit(1);
       if (userResult.length > 0) {
         userData = userResult[0];
       }
@@ -10925,6 +11410,122 @@ router.get("/me", requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error("\u274C [API/me] \u062E\u0637\u0623 \u0641\u064A API \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", error);
+    res.status(500).json({
+      success: false,
+      message: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645"
+    });
+  }
+});
+router.post("/verify-email", async (req, res) => {
+  try {
+    const validation = verifyEmailSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: "\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629",
+        errors: validation.error.errors
+      });
+    }
+    const { userId, code } = validation.data;
+    const result = await verifyEmailToken(userId, code);
+    const statusCode = result.success ? 200 : 400;
+    res.status(statusCode).json(result);
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A API \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A:", error);
+    res.status(500).json({
+      success: false,
+      message: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645"
+    });
+  }
+});
+router.post("/resend-verification", async (req, res) => {
+  try {
+    const { userId, email } = req.body;
+    if (!userId || !email) {
+      return res.status(400).json({
+        success: false,
+        message: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0648\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0637\u0644\u0648\u0628\u0627\u0646"
+      });
+    }
+    const requestInfo = getRequestInfo(req);
+    const result = await sendVerificationEmail(
+      userId,
+      email,
+      requestInfo.ipAddress,
+      requestInfo.userAgent
+    );
+    const statusCode = result.success ? 200 : 400;
+    res.status(statusCode).json(result);
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A API \u0625\u0639\u0627\u062F\u0629 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642:", error);
+    res.status(500).json({
+      success: false,
+      message: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645"
+    });
+  }
+});
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const validation = forgotPasswordSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: "\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629",
+        errors: validation.error.errors
+      });
+    }
+    const { email } = validation.data;
+    const requestInfo = getRequestInfo(req);
+    const result = await sendPasswordResetEmail(
+      email,
+      requestInfo.ipAddress,
+      requestInfo.userAgent
+    );
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A API \u0637\u0644\u0628 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631:", error);
+    res.status(500).json({
+      success: false,
+      message: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645"
+    });
+  }
+});
+router.post("/reset-password", async (req, res) => {
+  try {
+    const validation = resetPasswordSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: "\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629",
+        errors: validation.error.errors
+      });
+    }
+    const { token, newPassword } = validation.data;
+    const result = await resetPasswordWithToken(token, newPassword);
+    const statusCode = result.success ? 200 : 400;
+    res.status(statusCode).json(result);
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A API \u0625\u0639\u0627\u062F\u0629 \u062A\u0639\u064A\u064A\u0646 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631:", error);
+    res.status(500).json({
+      success: false,
+      message: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645"
+    });
+  }
+});
+router.get("/validate-reset-token", async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "\u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0645\u0637\u0644\u0648\u0628"
+      });
+    }
+    const result = await validatePasswordResetToken(token);
+    const statusCode = result.success ? 200 : 400;
+    res.status(statusCode).json(result);
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A API \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639:", error);
     res.status(500).json({
       success: false,
       message: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645"
@@ -11842,7 +12443,7 @@ var healthRoutes_default = healthRouter;
 init_db();
 init_schema();
 import express5 from "express";
-import { eq as eq9, and as and8, sql as sql5, gte as gte4, lt as lt3, lte as lte2, desc as desc5 } from "drizzle-orm";
+import { eq as eq10, and as and9, sql as sql5, gte as gte5, lt as lt3, lte as lte2, desc as desc6 } from "drizzle-orm";
 var projectRouter = express5.Router();
 projectRouter.use(requireAuth);
 projectRouter.get("/", async (req, res) => {
@@ -12086,7 +12687,7 @@ projectRouter.get("/:id", async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const projectResult = await db.select().from(projects).where(eq9(projects.id, id)).limit(1);
+    const projectResult = await db.select().from(projects).where(eq10(projects.id, id)).limit(1);
     if (projectResult.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", id);
@@ -12233,7 +12834,7 @@ projectRouter.patch("/:id", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const existingProject = await db.select().from(projects).where(eq9(projects.id, projectId)).limit(1);
+    const existingProject = await db.select().from(projects).where(eq10(projects.id, projectId)).limit(1);
     if (existingProject.length === 0) {
       return res.status(404).json({
         success: false,
@@ -12241,7 +12842,7 @@ projectRouter.patch("/:id", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const updatedProject = await db.update(projects).set(req.body).where(eq9(projects.id, projectId)).returning();
+    const updatedProject = await db.update(projects).set(req.body).where(eq10(projects.id, projectId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -12276,7 +12877,7 @@ projectRouter.delete("/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingProject = await db.select().from(projects).where(eq9(projects.id, projectId)).limit(1);
+    const existingProject = await db.select().from(projects).where(eq10(projects.id, projectId)).limit(1);
     if (existingProject.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -12294,7 +12895,7 @@ projectRouter.delete("/:id", async (req, res) => {
       status: projectToDelete.status
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedProject = await db.delete(projects).where(eq9(projects.id, projectId)).returning();
+    const deletedProject = await db.delete(projects).where(eq10(projects.id, projectId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedProject[0].id,
@@ -12339,7 +12940,7 @@ projectRouter.get("/:projectId/fund-transfers", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const transfers = await db.select().from(fundTransfers).where(eq9(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
+    const transfers = await db.select().from(fundTransfers).where(eq10(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12383,7 +12984,7 @@ projectRouter.get("/:projectId/worker-attendance", async (req, res) => {
       isPresent: workerAttendance.isPresent,
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
-    }).from(workerAttendance).leftJoin(workers, eq9(workerAttendance.workerId, workers.id)).where(eq9(workerAttendance.projectId, projectId)).orderBy(workerAttendance.date);
+    }).from(workerAttendance).leftJoin(workers, eq10(workerAttendance.workerId, workers.id)).where(eq10(workerAttendance.projectId, projectId)).orderBy(workerAttendance.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12415,7 +13016,7 @@ projectRouter.get("/:projectId/material-purchases", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const purchases = await db.select().from(materialPurchases).where(eq9(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
+    const purchases = await db.select().from(materialPurchases).where(eq10(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${purchases.length} \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0648\u0627\u062F \u0641\u064A ${duration}ms`);
     res.json({
@@ -12447,7 +13048,7 @@ projectRouter.get("/:projectId/transportation-expenses", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(transportationExpenses).where(eq9(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
+    const expenses = await db.select().from(transportationExpenses).where(eq10(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12479,7 +13080,7 @@ projectRouter.get("/:projectId/worker-misc-expenses", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
+    const expenses = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12520,7 +13121,7 @@ projectRouter.get("/fund-transfers/incoming/:projectId", async (req, res) => {
       description: projectFundTransfers.description,
       fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
       toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq9(projectFundTransfers.toProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    }).from(projectFundTransfers).where(eq10(projectFundTransfers.toProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0641\u064A ${duration}ms`);
     res.json({
@@ -12561,7 +13162,7 @@ projectRouter.get("/fund-transfers/outgoing/:projectId", async (req, res) => {
       description: projectFundTransfers.description,
       fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
       toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq9(projectFundTransfers.fromProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    }).from(projectFundTransfers).where(eq10(projectFundTransfers.fromProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12606,7 +13207,7 @@ projectRouter.get("/:projectId/worker-transfers", async (req, res) => {
       notes: workerTransfers.notes,
       createdAt: workerTransfers.createdAt,
       workerName: workers.name
-    }).from(workerTransfers).leftJoin(workers, eq9(workerTransfers.workerId, workers.id)).where(eq9(workerTransfers.projectId, projectId)).orderBy(workerTransfers.transferDate);
+    }).from(workerTransfers).leftJoin(workers, eq10(workerTransfers.workerId, workers.id)).where(eq10(workerTransfers.projectId, projectId)).orderBy(workerTransfers.transferDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062D\u0648\u0644\u0629 \u0639\u0645\u0627\u0644 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12650,7 +13251,7 @@ projectRouter.get("/:projectId/actual-transfers", async (req, res) => {
       direction: sql5`'incoming'`.as("direction"),
       fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
       toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq9(projectFundTransfers.toProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    }).from(projectFundTransfers).where(eq10(projectFundTransfers.toProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
     const outgoingTransfers = await db.select({
       id: projectFundTransfers.id,
       fromProjectId: projectFundTransfers.fromProjectId,
@@ -12663,7 +13264,7 @@ projectRouter.get("/:projectId/actual-transfers", async (req, res) => {
       direction: sql5`'outgoing'`.as("direction"),
       fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
       toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq9(projectFundTransfers.fromProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    }).from(projectFundTransfers).where(eq10(projectFundTransfers.fromProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${incomingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0648 ${outgoingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12720,7 +13321,7 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0648\u062C\u0648\u062F \u0627\u0644\u0645\u0634\u0631\u0648\u0639...");
-    const projectExists = await db.select().from(projects).where(eq9(projects.id, projectId)).limit(1);
+    const projectExists = await db.select().from(projects).where(eq10(projects.id, projectId)).limit(1);
     if (projectExists.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -12782,9 +13383,9 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
         created_at: dailyExpenseSummaries.createdAt,
         updated_at: sql5`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
         project_name: projects.name
-      }).from(dailyExpenseSummaries).leftJoin(projects, eq9(dailyExpenseSummaries.projectId, projects.id)).where(and8(
-        eq9(dailyExpenseSummaries.projectId, projectId),
-        eq9(dailyExpenseSummaries.date, date2)
+      }).from(dailyExpenseSummaries).leftJoin(projects, eq10(dailyExpenseSummaries.projectId, projects.id)).where(and9(
+        eq10(dailyExpenseSummaries.projectId, projectId),
+        eq10(dailyExpenseSummaries.date, date2)
       )).limit(1);
       if (regularResult.length > 0) {
         dailySummary = regularResult[0];
@@ -12905,7 +13506,7 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
       miscExpensesResult,
       projectInfo
     ] = await Promise.all([
-      db.select().from(fundTransfers).where(and8(eq9(fundTransfers.projectId, projectId), gte4(fundTransfers.transferDate, sql5`${date2}::date`), lt3(fundTransfers.transferDate, sql5`(${date2}::date + interval '1 day')`))),
+      db.select().from(fundTransfers).where(and9(eq10(fundTransfers.projectId, projectId), gte5(fundTransfers.transferDate, sql5`${date2}::date`), lt3(fundTransfers.transferDate, sql5`(${date2}::date + interval '1 day')`))),
       db.select({
         id: workerAttendance.id,
         workerId: workerAttendance.workerId,
@@ -12915,12 +13516,12 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
         actualWage: workerAttendance.actualWage,
         workDays: workerAttendance.workDays,
         workerName: workers.name
-      }).from(workerAttendance).leftJoin(workers, eq9(workerAttendance.workerId, workers.id)).where(and8(eq9(workerAttendance.projectId, projectId), eq9(workerAttendance.date, date2))),
-      db.select().from(materialPurchases).where(and8(eq9(materialPurchases.projectId, projectId), eq9(materialPurchases.purchaseDate, date2))),
-      db.select().from(transportationExpenses).where(and8(eq9(transportationExpenses.projectId, projectId), eq9(transportationExpenses.date, date2))),
-      db.select().from(workerTransfers).where(and8(eq9(workerTransfers.projectId, projectId), eq9(workerTransfers.transferDate, date2))),
-      db.select().from(workerMiscExpenses).where(and8(eq9(workerMiscExpenses.projectId, projectId), eq9(workerMiscExpenses.date, date2))),
-      db.select().from(projects).where(eq9(projects.id, projectId)).limit(1)
+      }).from(workerAttendance).leftJoin(workers, eq10(workerAttendance.workerId, workers.id)).where(and9(eq10(workerAttendance.projectId, projectId), eq10(workerAttendance.date, date2))),
+      db.select().from(materialPurchases).where(and9(eq10(materialPurchases.projectId, projectId), eq10(materialPurchases.purchaseDate, date2))),
+      db.select().from(transportationExpenses).where(and9(eq10(transportationExpenses.projectId, projectId), eq10(transportationExpenses.date, date2))),
+      db.select().from(workerTransfers).where(and9(eq10(workerTransfers.projectId, projectId), eq10(workerTransfers.transferDate, date2))),
+      db.select().from(workerMiscExpenses).where(and9(eq10(workerMiscExpenses.projectId, projectId), eq10(workerMiscExpenses.date, date2))),
+      db.select().from(projects).where(eq10(projects.id, projectId)).limit(1)
     ]);
     const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
     const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
@@ -12942,10 +13543,10 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
       const latestSummary = await db.select({
         remainingBalance: dailyExpenseSummaries.remainingBalance,
         date: dailyExpenseSummaries.date
-      }).from(dailyExpenseSummaries).where(and8(
-        eq9(dailyExpenseSummaries.projectId, projectId),
+      }).from(dailyExpenseSummaries).where(and9(
+        eq10(dailyExpenseSummaries.projectId, projectId),
         lt3(dailyExpenseSummaries.date, date2)
-      )).orderBy(desc5(dailyExpenseSummaries.date)).limit(1);
+      )).orderBy(desc6(dailyExpenseSummaries.date)).limit(1);
       if (latestSummary.length > 0) {
         const summaryDate = latestSummary[0].date;
         const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || "0"));
@@ -13045,10 +13646,10 @@ projectRouter.get("/:projectId/previous-balance/:date", async (req, res) => {
       const latestSummary = await db.select({
         remainingBalance: dailyExpenseSummaries.remainingBalance,
         date: dailyExpenseSummaries.date
-      }).from(dailyExpenseSummaries).where(and8(
-        eq9(dailyExpenseSummaries.projectId, projectId),
+      }).from(dailyExpenseSummaries).where(and9(
+        eq10(dailyExpenseSummaries.projectId, projectId),
         lt3(dailyExpenseSummaries.date, date2)
-      )).orderBy(desc5(dailyExpenseSummaries.date)).limit(1);
+      )).orderBy(desc6(dailyExpenseSummaries.date)).limit(1);
       if (latestSummary.length > 0) {
         const summaryDate = latestSummary[0].date;
         const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || "0"));
@@ -13106,9 +13707,9 @@ projectRouter.get("/:projectId/previous-balance/:date", async (req, res) => {
 });
 async function calculateCumulativeBalance(projectId, fromDate, toDate) {
   try {
-    const whereConditions = [eq9(fundTransfers.projectId, projectId)];
+    const whereConditions = [eq10(fundTransfers.projectId, projectId)];
     if (fromDate) {
-      whereConditions.push(gte4(fundTransfers.transferDate, sql5`${fromDate}::date`));
+      whereConditions.push(gte5(fundTransfers.transferDate, sql5`${fromDate}::date`));
     }
     whereConditions.push(lt3(fundTransfers.transferDate, sql5`(${toDate}::date + interval '1 day')`));
     const [
@@ -13122,48 +13723,48 @@ async function calculateCumulativeBalance(projectId, fromDate, toDate) {
       outgoingPtRows
     ] = await Promise.all([
       // تحويلات العهدة
-      db.select().from(fundTransfers).where(and8(...whereConditions)),
+      db.select().from(fundTransfers).where(and9(...whereConditions)),
       // أجور العمال
-      db.select().from(workerAttendance).where(and8(
-        eq9(workerAttendance.projectId, projectId),
-        fromDate ? gte4(workerAttendance.date, fromDate) : sql5`true`,
+      db.select().from(workerAttendance).where(and9(
+        eq10(workerAttendance.projectId, projectId),
+        fromDate ? gte5(workerAttendance.date, fromDate) : sql5`true`,
         lte2(workerAttendance.date, toDate)
       )),
       // مشتريات المواد النقدية فقط
-      db.select().from(materialPurchases).where(and8(
-        eq9(materialPurchases.projectId, projectId),
-        eq9(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
-        fromDate ? gte4(materialPurchases.purchaseDate, fromDate) : sql5`true`,
+      db.select().from(materialPurchases).where(and9(
+        eq10(materialPurchases.projectId, projectId),
+        eq10(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
+        fromDate ? gte5(materialPurchases.purchaseDate, fromDate) : sql5`true`,
         lte2(materialPurchases.purchaseDate, toDate)
       )),
       // مصاريف النقل
-      db.select().from(transportationExpenses).where(and8(
-        eq9(transportationExpenses.projectId, projectId),
-        fromDate ? gte4(transportationExpenses.date, fromDate) : sql5`true`,
+      db.select().from(transportationExpenses).where(and9(
+        eq10(transportationExpenses.projectId, projectId),
+        fromDate ? gte5(transportationExpenses.date, fromDate) : sql5`true`,
         lte2(transportationExpenses.date, toDate)
       )),
       // حوالات العمال
-      db.select().from(workerTransfers).where(and8(
-        eq9(workerTransfers.projectId, projectId),
-        fromDate ? gte4(workerTransfers.transferDate, fromDate) : sql5`true`,
+      db.select().from(workerTransfers).where(and9(
+        eq10(workerTransfers.projectId, projectId),
+        fromDate ? gte5(workerTransfers.transferDate, fromDate) : sql5`true`,
         lte2(workerTransfers.transferDate, toDate)
       )),
       // مصاريف متنوعة للعمال
-      db.select().from(workerMiscExpenses).where(and8(
-        eq9(workerMiscExpenses.projectId, projectId),
-        fromDate ? gte4(workerMiscExpenses.date, fromDate) : sql5`true`,
+      db.select().from(workerMiscExpenses).where(and9(
+        eq10(workerMiscExpenses.projectId, projectId),
+        fromDate ? gte5(workerMiscExpenses.date, fromDate) : sql5`true`,
         lte2(workerMiscExpenses.date, toDate)
       )),
       // تحويلات واردة من مشاريع أخرى
-      db.select().from(projectFundTransfers).where(and8(
-        eq9(projectFundTransfers.toProjectId, projectId),
-        fromDate ? gte4(projectFundTransfers.transferDate, fromDate) : sql5`true`,
+      db.select().from(projectFundTransfers).where(and9(
+        eq10(projectFundTransfers.toProjectId, projectId),
+        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql5`true`,
         lte2(projectFundTransfers.transferDate, toDate)
       )),
       // تحويلات صادرة إلى مشاريع أخرى
-      db.select().from(projectFundTransfers).where(and8(
-        eq9(projectFundTransfers.fromProjectId, projectId),
-        fromDate ? gte4(projectFundTransfers.transferDate, fromDate) : sql5`true`,
+      db.select().from(projectFundTransfers).where(and9(
+        eq10(projectFundTransfers.fromProjectId, projectId),
+        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql5`true`,
         lte2(projectFundTransfers.transferDate, toDate)
       ))
     ]);
@@ -13192,7 +13793,7 @@ var projectRoutes_default = projectRouter;
 init_db();
 init_schema();
 import express6 from "express";
-import { eq as eq10, sql as sql6, and as and9 } from "drizzle-orm";
+import { eq as eq11, sql as sql6, and as and10 } from "drizzle-orm";
 var workerRouter = express6.Router();
 workerRouter.use(requireAuth);
 workerRouter.get("/workers", async (req, res) => {
@@ -13284,7 +13885,7 @@ workerRouter.get("/workers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const worker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
+    const worker = await db.select().from(workers).where(eq11(workers.id, workerId)).limit(1);
     if (worker.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -13333,7 +13934,7 @@ workerRouter.patch("/workers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingWorker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
+    const existingWorker = await db.select().from(workers).where(eq11(workers.id, workerId)).limit(1);
     if (existingWorker.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -13360,7 +13961,7 @@ workerRouter.patch("/workers/:id", async (req, res) => {
     }
     console.log("\u2705 [API] \u0646\u062C\u062D validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644");
     console.log("\u{1F4BE} [API] \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const updatedWorker = await db.update(workers).set(validationResult.data).where(eq10(workers.id, workerId)).returning();
+    const updatedWorker = await db.update(workers).set(validationResult.data).where(eq11(workers.id, workerId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: updatedWorker[0].id,
@@ -13409,7 +14010,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingWorker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
+    const existingWorker = await db.select().from(workers).where(eq11(workers.id, workerId)).limit(1);
     if (existingWorker.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -13431,12 +14032,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       id: workerAttendance.id,
       date: workerAttendance.date,
       projectId: workerAttendance.projectId
-    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId)).limit(5);
+    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId)).limit(5);
     if (attendanceRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalAttendanceCount = await db.select({
         count: sql6`COUNT(*)`
-      }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
+      }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
       const totalCount = totalAttendanceCount[0]?.count || attendanceRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${totalCount} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631`);
       return res.status(409).json({
@@ -13450,12 +14051,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq10(workerTransfers.workerId, workerId)).limit(1);
+    const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq11(workerTransfers.workerId, workerId)).limit(1);
     if (transferRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalTransfersCount = await db.select({
         count: sql6`COUNT(*)`
-      }).from(workerTransfers).where(eq10(workerTransfers.workerId, workerId));
+      }).from(workerTransfers).where(eq11(workerTransfers.workerId, workerId));
       const transfersCount = totalTransfersCount[0]?.count || transferRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transfersCount} \u062A\u062D\u0648\u064A\u0644 \u0645\u0627\u0644\u064A`);
       return res.status(409).json({
@@ -13469,12 +14070,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq10(transportationExpenses.workerId, workerId)).limit(1);
+    const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq11(transportationExpenses.workerId, workerId)).limit(1);
     if (transportRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalTransportCount = await db.select({
         count: sql6`COUNT(*)`
-      }).from(transportationExpenses).where(eq10(transportationExpenses.workerId, workerId));
+      }).from(transportationExpenses).where(eq11(transportationExpenses.workerId, workerId));
       const transportCount = totalTransportCount[0]?.count || transportRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transportCount} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644`);
       return res.status(409).json({
@@ -13488,12 +14089,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0623\u0631\u0635\u062F\u0629 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq10(workerBalances.workerId, workerId)).limit(1);
+    const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq11(workerBalances.workerId, workerId)).limit(1);
     if (balanceRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalBalanceCount = await db.select({
         count: sql6`COUNT(*)`
-      }).from(workerBalances).where(eq10(workerBalances.workerId, workerId));
+      }).from(workerBalances).where(eq11(workerBalances.workerId, workerId));
       const balanceCount = totalBalanceCount[0]?.count || balanceRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${balanceCount} \u0633\u062C\u0644 \u0631\u0635\u064A\u062F`);
       return res.status(409).json({
@@ -13507,7 +14108,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A (\u0644\u0627 \u062A\u0648\u062C\u062F \u0633\u062C\u0644\u0627\u062A \u0645\u0631\u062A\u0628\u0637\u0629)...");
-    const deletedWorker = await db.delete(workers).where(eq10(workers.id, workerId)).returning();
+    const deletedWorker = await db.delete(workers).where(eq11(workers.id, workerId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedWorker[0].id,
@@ -13573,7 +14174,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -13597,7 +14198,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq10(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq11(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -13632,7 +14233,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -13651,7 +14252,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq10(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq11(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -13692,14 +14293,14 @@ workerRouter.get("/worker-misc-expenses", async (req, res) => {
     console.log("\u{1F50D} [API] \u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0627\u0644\u0641\u0644\u062A\u0631\u0629:", { projectId, date: date2 });
     let query;
     if (projectId && date2) {
-      query = db.select().from(workerMiscExpenses).where(and9(
-        eq10(workerMiscExpenses.projectId, projectId),
-        eq10(workerMiscExpenses.date, date2)
+      query = db.select().from(workerMiscExpenses).where(and10(
+        eq11(workerMiscExpenses.projectId, projectId),
+        eq11(workerMiscExpenses.date, date2)
       ));
     } else if (projectId) {
-      query = db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.projectId, projectId));
+      query = db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.projectId, projectId));
     } else if (date2) {
-      query = db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.date, date2));
+      query = db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.date, date2));
     } else {
       query = db.select().from(workerMiscExpenses);
     }
@@ -13740,7 +14341,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -13764,7 +14365,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq10(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq11(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -13839,12 +14440,12 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
     }
     let whereCondition;
     if (date2) {
-      whereCondition = and9(
-        eq10(workerAttendance.projectId, projectId),
-        eq10(workerAttendance.date, date2)
+      whereCondition = and10(
+        eq11(workerAttendance.projectId, projectId),
+        eq11(workerAttendance.date, date2)
       );
     } else {
-      whereCondition = eq10(workerAttendance.projectId, projectId);
+      whereCondition = eq11(workerAttendance.projectId, projectId);
     }
     const attendance = await db.select({
       id: workerAttendance.id,
@@ -13864,7 +14465,7 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
       isPresent: workerAttendance.isPresent,
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
-    }).from(workerAttendance).leftJoin(workers, eq10(workerAttendance.workerId, workers.id)).where(whereCondition).orderBy(workerAttendance.date);
+    }).from(workerAttendance).leftJoin(workers, eq11(workerAttendance.workerId, workers.id)).where(whereCondition).orderBy(workerAttendance.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -13966,7 +14567,7 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingAttendance = await db.select().from(workerAttendance).where(eq10(workerAttendance.id, attendanceId)).limit(1);
+    const existingAttendance = await db.select().from(workerAttendance).where(eq11(workerAttendance.id, attendanceId)).limit(1);
     if (existingAttendance.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14003,7 +14604,7 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
       updateData.actualWage = actualWageValue.toString();
       updateData.totalPay = actualWageValue.toString();
     }
-    const updatedAttendance = await db.update(workerAttendance).set(updateData).where(eq10(workerAttendance.id, attendanceId)).returning();
+    const updatedAttendance = await db.update(workerAttendance).set(updateData).where(eq11(workerAttendance.id, attendanceId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14051,7 +14652,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14075,7 +14676,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq10(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq11(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14119,7 +14720,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -14138,7 +14739,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq10(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq11(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -14180,7 +14781,7 @@ workerRouter.get("/projects/:projectId/worker-misc-expenses", async (req, res) =
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
+    const expenses = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
     res.json({
@@ -14216,7 +14817,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14240,7 +14841,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq10(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq11(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14283,7 +14884,7 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
         processingTime: duration2
       });
     }
-    const worker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
+    const worker = await db.select().from(workers).where(eq11(workers.id, workerId)).limit(1);
     if (worker.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14295,36 +14896,36 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
     }
     const totalWorkDaysResult = await db.select({
       totalDays: sql6`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
+    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
     const lastAttendanceResult = await db.select({
       lastAttendanceDate: workerAttendance.attendanceDate,
       projectId: workerAttendance.projectId
-    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId)).orderBy(sql6`${workerAttendance.attendanceDate} DESC`).limit(1);
+    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId)).orderBy(sql6`${workerAttendance.attendanceDate} DESC`).limit(1);
     const lastAttendanceDate = lastAttendanceResult[0]?.lastAttendanceDate || null;
     const thirtyDaysAgo = /* @__PURE__ */ new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoString = thirtyDaysAgo.toISOString().split("T")[0];
     const monthlyAttendanceResult = await db.select({
       monthlyDays: sql6`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(and9(
-      eq10(workerAttendance.workerId, workerId),
+    }).from(workerAttendance).where(and10(
+      eq11(workerAttendance.workerId, workerId),
       sql6`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
     ));
     const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
     const totalTransfersResult = await db.select({
       totalTransfers: sql6`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
       transfersCount: sql6`COUNT(*)`
-    }).from(workerTransfers).where(eq10(workerTransfers.workerId, workerId));
+    }).from(workerTransfers).where(eq11(workerTransfers.workerId, workerId));
     const totalTransfers = Number(totalTransfersResult[0]?.totalTransfers) || 0;
     const transfersCount = Number(totalTransfersResult[0]?.transfersCount) || 0;
     const projectsWorkedResult = await db.select({
       projectsCount: sql6`COUNT(DISTINCT ${workerAttendance.projectId})`
-    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
+    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
     const projectsWorked = Number(projectsWorkedResult[0]?.projectsCount) || 0;
     const totalEarningsResult = await db.select({
       totalEarnings: sql6`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
+    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
     const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;
     const stats = {
       totalWorkDays,
@@ -14374,7 +14975,7 @@ var workerRoutes_default = workerRouter;
 init_db();
 init_schema();
 import express7 from "express";
-import { eq as eq11, and as and10, sql as sql7, gte as gte5, lte as lte3, desc as desc6 } from "drizzle-orm";
+import { eq as eq12, and as and11, sql as sql7, gte as gte6, lte as lte3, desc as desc7 } from "drizzle-orm";
 var financialRouter = express7.Router();
 financialRouter.use(requireAuth);
 financialRouter.get("/fund-transfers", async (req, res) => {
@@ -14392,7 +14993,7 @@ financialRouter.get("/fund-transfers", async (req, res) => {
       notes: fundTransfers.notes,
       createdAt: fundTransfers.createdAt,
       projectName: projects.name
-    }).from(fundTransfers).leftJoin(projects, eq11(fundTransfers.projectId, projects.id)).orderBy(desc6(fundTransfers.transferDate));
+    }).from(fundTransfers).leftJoin(projects, eq12(fundTransfers.projectId, projects.id)).orderBy(desc7(fundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
     res.json({
@@ -14473,7 +15074,7 @@ financialRouter.patch("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(fundTransfers).where(eq11(fundTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(fundTransfers).where(eq12(fundTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14497,7 +15098,7 @@ financialRouter.patch("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq11(fundTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq12(fundTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14531,7 +15132,7 @@ financialRouter.delete("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(fundTransfers).where(eq11(fundTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(fundTransfers).where(eq12(fundTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14541,7 +15142,7 @@ financialRouter.delete("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const deletedTransfer = await db.delete(fundTransfers).where(eq11(fundTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(fundTransfers).where(eq12(fundTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14593,11 +15194,11 @@ financialRouter.get("/daily-project-transfers", async (req, res) => {
       fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
       toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
     }).from(projectFundTransfers).where(
-      and10(
+      and11(
         sql7`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
-        eq11(projectFundTransfers.transferDate, date2)
+        eq12(projectFundTransfers.transferDate, date2)
       )
-    ).orderBy(desc6(projectFundTransfers.createdAt));
+    ).orderBy(desc7(projectFundTransfers.createdAt));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0645\u0634\u0631\u0648\u0639 \u0644\u0644\u0635\u0641\u062D\u0629 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0641\u064A ${duration}ms`);
     res.json({
@@ -14635,7 +15236,7 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
       createdAt: projectFundTransfers.createdAt,
       fromProjectName: sql7`from_project.name`.as("fromProjectName"),
       toProjectName: sql7`to_project.name`.as("toProjectName")
-    }).from(projectFundTransfers).leftJoin(sql7`${projects} as from_project`, eq11(projectFundTransfers.fromProjectId, sql7`from_project.id`)).leftJoin(sql7`${projects} as to_project`, eq11(projectFundTransfers.toProjectId, sql7`to_project.id`));
+    }).from(projectFundTransfers).leftJoin(sql7`${projects} as from_project`, eq12(projectFundTransfers.fromProjectId, sql7`from_project.id`)).leftJoin(sql7`${projects} as to_project`, eq12(projectFundTransfers.toProjectId, sql7`to_project.id`));
     const conditions = [];
     if (projectId && projectId !== "all") {
       conditions.push(sql7`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`);
@@ -14644,22 +15245,22 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
     if (date2) {
       const startOfDay = `${date2} 00:00:00`;
       const endOfDay = `${date2} 23:59:59.999`;
-      conditions.push(and10(
-        gte5(projectFundTransfers.transferDate, startOfDay),
+      conditions.push(and11(
+        gte6(projectFundTransfers.transferDate, startOfDay),
         lte3(projectFundTransfers.transferDate, endOfDay)
       ));
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u062A\u0627\u0631\u064A\u062E \u0645\u062D\u062F\u062F:", date2);
     } else if (dateFrom && dateTo) {
       const startOfPeriod = `${dateFrom} 00:00:00`;
       const endOfPeriod = `${dateTo} 23:59:59.999`;
-      conditions.push(and10(
-        gte5(projectFundTransfers.transferDate, startOfPeriod),
+      conditions.push(and11(
+        gte6(projectFundTransfers.transferDate, startOfPeriod),
         lte3(projectFundTransfers.transferDate, endOfPeriod)
       ));
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0641\u062A\u0631\u0629 \u0632\u0645\u0646\u064A\u0629:", `${dateFrom} - ${dateTo}`);
     } else if (dateFrom) {
       const startOfPeriod = `${dateFrom} 00:00:00`;
-      conditions.push(gte5(projectFundTransfers.transferDate, startOfPeriod));
+      conditions.push(gte6(projectFundTransfers.transferDate, startOfPeriod));
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0645\u0646 \u062A\u0627\u0631\u064A\u062E:", dateFrom);
     } else if (dateTo) {
       const endOfPeriod = `${dateTo} 23:59:59.999`;
@@ -14668,10 +15269,10 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
     }
     let transfers;
     if (conditions.length > 0) {
-      const whereClause = conditions.length === 1 ? conditions[0] : and10(...conditions);
-      transfers = await baseQuery.where(whereClause).orderBy(desc6(projectFundTransfers.transferDate));
+      const whereClause = conditions.length === 1 ? conditions[0] : and11(...conditions);
+      transfers = await baseQuery.where(whereClause).orderBy(desc7(projectFundTransfers.transferDate));
     } else {
-      transfers = await baseQuery.orderBy(desc6(projectFundTransfers.transferDate));
+      transfers = await baseQuery.orderBy(desc7(projectFundTransfers.transferDate));
     }
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0645\u0634\u0631\u0648\u0639 \u0641\u064A ${duration}ms`);
@@ -14755,7 +15356,7 @@ financialRouter.get("/worker-transfers", async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("\u{1F477}\u200D\u2642\uFE0F [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-    const transfers = await db.select().from(workerTransfers).orderBy(desc6(workerTransfers.transferDate));
+    const transfers = await db.select().from(workerTransfers).orderBy(desc7(workerTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0627\u0645\u0644 \u0641\u064A ${duration}ms`);
     res.json({
@@ -14835,7 +15436,7 @@ financialRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq12(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14859,7 +15460,7 @@ financialRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq11(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq12(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14894,7 +15495,7 @@ financialRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq12(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -14913,7 +15514,7 @@ financialRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq11(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq12(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -14950,7 +15551,7 @@ financialRouter.get("/worker-misc-expenses", async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("\u{1F4B8} [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-    const expenses = await db.select().from(workerMiscExpenses).orderBy(desc6(workerMiscExpenses.date));
+    const expenses = await db.select().from(workerMiscExpenses).orderBy(desc7(workerMiscExpenses.date));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
     res.json({
@@ -15030,7 +15631,7 @@ financialRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq12(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -15054,7 +15655,7 @@ financialRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq11(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq12(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -15089,7 +15690,7 @@ financialRouter.delete("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq12(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", expenseId);
@@ -15108,7 +15709,7 @@ financialRouter.delete("/worker-misc-expenses/:id", async (req, res) => {
       description: expenseToDelete.description
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedExpense = await db.delete(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).returning();
+    const deletedExpense = await db.delete(workerMiscExpenses).where(eq12(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedExpense[0].id,
@@ -15260,7 +15861,7 @@ financialRouter.get("/suppliers", async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("\u{1F3EA} [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-    const suppliersList = await db.select().from(suppliers).where(eq11(suppliers.isActive, true)).orderBy(suppliers.name);
+    const suppliersList = await db.select().from(suppliers).where(eq12(suppliers.isActive, true)).orderBy(suppliers.name);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${suppliersList.length} \u0645\u0648\u0631\u062F \u0641\u064A ${duration}ms`);
     res.json({

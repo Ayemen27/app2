@@ -22,6 +22,13 @@ import {
   verifyAccessToken,
 } from '../auth/auth-service';
 import {
+  sendVerificationEmail,
+  verifyEmailToken,
+  sendPasswordResetEmail,
+  resetPasswordWithToken,
+  validatePasswordResetToken
+} from '../services/email-service.js';
+import {
   generateTokenPair,
   verifyAccessToken as verifyJWT,
   verifyRefreshToken,
@@ -68,23 +75,17 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(8, 'كلمة المرور الجديدة يجب أن تكون على الأقل 8 أحرف'),
 });
 
-// استيراد middleware وتعريف الأنواع من ملف منفصل
-import { requireAuth, requirePermission, requireRole } from '../middleware/auth';
+const forgotPasswordSchema = z.object({
+  email: z.string().email('بريد إلكتروني غير صالح').min(1, 'البريد الإلكتروني مطلوب'),
+});
 
-// تعريف نوع AuthenticatedRequest من middleware
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    userId: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-    role: string;
-    isActive: boolean;
-    mfaEnabled?: boolean;
-    sessionId: string;
-  };
-}
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'رمز الاسترجاع مطلوب'),
+  newPassword: z.string().min(8, 'كلمة المرور الجديدة يجب أن تكون على الأقل 8 أحرف'),
+});
+
+// استيراد middleware وتعريف الأنواع من ملف منفصل
+import { requireAuth, requirePermission, requireRole, AuthenticatedRequest } from '../middleware/auth';
 
 // دالة مساعدة للحصول على معلومات الطلب
 function getRequestInfo(req: any) {
@@ -790,6 +791,168 @@ router.get('/me', requireAuth, async (req: AuthenticatedRequest, res) => {
     });
   } catch (error) {
     console.error('❌ [API/me] خطأ في API معلومات المستخدم:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ داخلي في الخادم'
+    });
+  }
+});
+
+/**
+ * التحقق من البريد الإلكتروني
+ * POST /api/auth/verify-email
+ */
+router.post('/verify-email', async (req, res) => {
+  try {
+    const validation = verifyEmailSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات غير صالحة',
+        errors: validation.error.errors
+      });
+    }
+
+    const { userId, code } = validation.data;
+
+    const result = await verifyEmailToken(userId, code);
+    const statusCode = result.success ? 200 : 400;
+    
+    res.status(statusCode).json(result);
+
+  } catch (error) {
+    console.error('خطأ في API التحقق من البريد الإلكتروني:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ داخلي في الخادم'
+    });
+  }
+});
+
+/**
+ * إعادة إرسال رمز التحقق من البريد الإلكتروني
+ * POST /api/auth/resend-verification
+ */
+router.post('/resend-verification', async (req, res) => {
+  try {
+    const { userId, email } = req.body;
+
+    if (!userId || !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'معرف المستخدم والبريد الإلكتروني مطلوبان'
+      });
+    }
+
+    const requestInfo = getRequestInfo(req);
+    const result = await sendVerificationEmail(
+      userId,
+      email,
+      requestInfo.ipAddress,
+      requestInfo.userAgent
+    );
+
+    const statusCode = result.success ? 200 : 400;
+    res.status(statusCode).json(result);
+
+  } catch (error) {
+    console.error('خطأ في API إعادة إرسال رمز التحقق:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ داخلي في الخادم'
+    });
+  }
+});
+
+/**
+ * طلب استرجاع كلمة المرور
+ * POST /api/auth/forgot-password
+ */
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const validation = forgotPasswordSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات غير صالحة',
+        errors: validation.error.errors
+      });
+    }
+
+    const { email } = validation.data;
+    const requestInfo = getRequestInfo(req);
+
+    const result = await sendPasswordResetEmail(
+      email,
+      requestInfo.ipAddress,
+      requestInfo.userAgent
+    );
+
+    // دائماً نرسل نفس الرسالة لأغراض الأمان
+    res.status(200).json(result);
+
+  } catch (error) {
+    console.error('خطأ في API طلب استرجاع كلمة المرور:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ داخلي في الخادم'
+    });
+  }
+});
+
+/**
+ * إعادة تعيين كلمة المرور
+ * POST /api/auth/reset-password
+ */
+router.post('/reset-password', async (req, res) => {
+  try {
+    const validation = resetPasswordSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات غير صالحة',
+        errors: validation.error.errors
+      });
+    }
+
+    const { token, newPassword } = validation.data;
+
+    const result = await resetPasswordWithToken(token, newPassword);
+    const statusCode = result.success ? 200 : 400;
+    
+    res.status(statusCode).json(result);
+
+  } catch (error) {
+    console.error('خطأ في API إعادة تعيين كلمة المرور:', error);
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ داخلي في الخادم'
+    });
+  }
+});
+
+/**
+ * التحقق من صحة رمز استرجاع كلمة المرور
+ * GET /api/auth/validate-reset-token
+ */
+router.get('/validate-reset-token', async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'رمز الاسترجاع مطلوب'
+      });
+    }
+
+    const result = await validatePasswordResetToken(token);
+    const statusCode = result.success ? 200 : 400;
+    
+    res.status(statusCode).json(result);
+
+  } catch (error) {
+    console.error('خطأ في API التحقق من رمز الاسترجاع:', error);
     res.status(500).json({
       success: false,
       message: 'حدث خطأ داخلي في الخادم'

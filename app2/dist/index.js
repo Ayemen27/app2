@@ -6949,6 +6949,80 @@ async function registerRoutes(app2) {
       });
     }
   });
+  app2.get("/api/material-purchases/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const purchaseId = req.params.id;
+      console.log(`\u{1F4CA} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0627\u062F\u0629 \u0644\u0644\u062A\u0639\u062F\u064A\u0644: ${purchaseId}`);
+      if (!purchaseId) {
+        const duration2 = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0637\u0644\u0648\u0628",
+          processingTime: duration2
+        });
+      }
+      const purchase = await db.select({
+        id: materialPurchases.id,
+        projectId: materialPurchases.projectId,
+        materialId: materialPurchases.materialId,
+        materialName: materialPurchases.materialName,
+        materialCategory: materialPurchases.materialCategory,
+        materialUnit: materialPurchases.materialUnit,
+        quantity: materialPurchases.quantity,
+        unitPrice: materialPurchases.unitPrice,
+        totalAmount: materialPurchases.totalAmount,
+        purchaseType: materialPurchases.purchaseType,
+        supplierName: materialPurchases.supplierName,
+        invoiceNumber: materialPurchases.invoiceNumber,
+        invoiceDate: materialPurchases.invoiceDate,
+        invoicePhoto: materialPurchases.invoicePhoto,
+        purchaseDate: materialPurchases.purchaseDate,
+        notes: materialPurchases.notes,
+        createdAt: materialPurchases.createdAt,
+        updatedAt: materialPurchases.updatedAt,
+        // بيانات المادة من الجدول المرتبط
+        material: {
+          id: materials.id,
+          name: materials.name,
+          category: materials.category,
+          unit: materials.unit
+        }
+      }).from(materialPurchases).leftJoin(materials, eq5(materialPurchases.materialId, materials.id)).where(eq5(materialPurchases.id, purchaseId)).limit(1);
+      if (purchase.length === 0) {
+        const duration2 = Date.now() - startTime;
+        console.log(`\u{1F4ED} [API] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629: ${purchaseId}`);
+        return res.status(404).json({
+          success: false,
+          error: "\u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
+          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0634\u062A\u0631\u064A\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${purchaseId}`,
+          processingTime: duration2
+        });
+      }
+      const purchaseData = purchase[0];
+      const duration = Date.now() - startTime;
+      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0644\u0644\u062A\u0639\u062F\u064A\u0644 \u0641\u064A ${duration}ms:`, {
+        id: purchaseData.id,
+        materialName: purchaseData.materialName || purchaseData.material?.name,
+        totalAmount: purchaseData.totalAmount
+      });
+      res.json({
+        success: true,
+        data: purchaseData,
+        message: "\u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0628\u0646\u062C\u0627\u062D",
+        processingTime: duration
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629",
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
   app2.post("/api/equipment", requireAuth, async (req, res) => {
     const startTime = Date.now();
     try {

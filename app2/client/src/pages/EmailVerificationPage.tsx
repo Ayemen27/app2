@@ -35,7 +35,9 @@ import {
   RefreshCw,
   ArrowLeft,
   Shield,
-  Clock
+  Clock,
+  Copy,
+  Check
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -68,6 +70,7 @@ export default function EmailVerificationPage() {
   const [step, setStep] = useState<'input' | 'verified' | 'error'>('input');
   const [userInfo, setUserInfo] = useState<{ id?: string; email?: string }>({});
   const [countdown, setCountdown] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   // استخراج المعطيات من URL
   useEffect(() => {
@@ -229,6 +232,33 @@ export default function EmailVerificationPage() {
     }
   };
 
+  const handleCopyCode = async () => {
+    const code = form.getValues('code');
+    if (code && code.length === 6) {
+      try {
+        await navigator.clipboard.writeText(code);
+        setCopied(true);
+        toast({
+          title: "تم النسخ!",
+          description: "تم نسخ رمز التحقق إلى الحافظة",
+        });
+        setTimeout(() => setCopied(false), 2000);
+      } catch (error) {
+        toast({
+          title: "فشل النسخ",
+          description: "حدث خطأ أثناء نسخ الرمز",
+          variant: "destructive",
+        });
+      }
+    } else {
+      toast({
+        title: "لا يوجد رمز للنسخ",
+        description: "يرجى إدخال رمز التحقق أولاً",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (step === 'verified') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4 relative">
@@ -303,24 +333,41 @@ export default function EmailVerificationPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-gray-700 font-medium">رمز التحقق</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={6}
-                        placeholder="000000"
-                        className="text-center text-2xl font-mono tracking-widest h-14 border-2 focus:border-blue-500"
-                        disabled={verifyMutation.isPending}
-                        data-testid="input-verification-code"
-                        onChange={(e) => {
-                          // قبول الأرقام فقط
-                          const value = e.target.value.replace(/\D/g, '');
-                          field.onChange(value);
-                        }}
-                      />
-                    </FormControl>
+                    <div className="relative">
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={6}
+                          placeholder="000000"
+                          className="text-center text-2xl font-mono tracking-widest h-14 border-2 focus:border-blue-500 pr-12"
+                          disabled={verifyMutation.isPending}
+                          data-testid="input-verification-code"
+                          onChange={(e) => {
+                            // قبول الأرقام فقط
+                            const value = e.target.value.replace(/\D/g, '');
+                            field.onChange(value);
+                          }}
+                        />
+                      </FormControl>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleCopyCode}
+                        className="absolute left-2 top-1/2 transform -translate-y-1/2 h-10 w-10 p-0 hover:bg-blue-100"
+                        title="نسخ الرمز إلى الحافظة"
+                        data-testid="button-copy-verification-code"
+                      >
+                        {copied ? (
+                          <Check className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <Copy className="h-4 w-4 text-gray-500" />
+                        )}
+                      </Button>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}

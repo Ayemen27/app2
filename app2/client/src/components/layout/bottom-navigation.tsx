@@ -95,7 +95,7 @@ export default function BottomNavigation() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-primary/95 backdrop-blur-sm border-t border-primary-foreground/20 z-50">
       <div className="grid grid-cols-5 h-16">
         {navigationItems.map((item) => {
           const Icon = item.icon;
@@ -106,7 +106,7 @@ export default function BottomNavigation() {
               key={item.key}
               variant="ghost"
               className={`flex flex-col items-center justify-center space-y-1 h-full rounded-none ${
-                isActive ? "text-primary" : "text-muted-foreground"
+                isActive ? "text-primary-foreground bg-primary-foreground/10" : "text-primary-foreground/70 hover:text-primary-foreground"
               }`}
               onClick={() => setLocation(item.path)}
             >
@@ -121,7 +121,7 @@ export default function BottomNavigation() {
           <SheetTrigger asChild>
             <Button
               variant="ghost"
-              className="flex flex-col items-center justify-center space-y-1 h-full rounded-none text-muted-foreground hover:text-primary"
+              className="flex flex-col items-center justify-center space-y-1 h-full rounded-none text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
             >
               <MoreHorizontal className="h-5 w-5" />
               <span className="text-xs">المزيد</span>

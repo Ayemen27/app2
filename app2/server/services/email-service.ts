@@ -4,7 +4,7 @@
  */
 
 import nodemailer from 'nodemailer';
-import { eq, and, desc, gte } from 'drizzle-orm';
+import { eq, and, desc, gte, sql } from 'drizzle-orm';
 import { db } from '../db.js';
 import { emailVerificationTokens, passwordResetTokens, users } from '../../shared/schema.js';
 import { hashPassword } from '../auth/crypto-utils.js';
@@ -97,7 +97,7 @@ async function hashToken(token: string): Promise<string> {
 
 // قوالب البريد الإلكتروني
 const emailTemplates = {
-  verification: (code: string, verificationLink: string) => ({
+  verification: (code: string, verificationLink: string, userFullName?: string) => ({
     subject: '🔐 تحقق من حسابك - نظام إدارة المشاريع',
     html: `
       <!DOCTYPE html>
@@ -126,10 +126,13 @@ const emailTemplates = {
             <p>نظام إدارة المشاريع الإنشائية</p>
           </div>
           <div class="content">
-            <h2>مرحباً بك!</h2>
+            <h2>${userFullName ? `مرحباً ${userFullName}!` : 'مرحباً بك!'}</h2>
             <p>شكراً لك على التسجيل في نظام إدارة المشاريع. لإكمال تفعيل حسابك، يرجى استخدام رمز التحقق التالي:</p>
             
-            <div class="verification-code">${code}</div>
+            <div class="verification-code" style="cursor: pointer; user-select: all; position: relative;">
+              ${code}
+              <small style="display: block; font-size: 12px; margin-top: 10px; opacity: 0.8;">انقر لتحديد الكود</small>
+            </div>
             
             <p>أو يمكنك الضغط على الرابط التالي للتحقق مباشرة:</p>
             <a href="${verificationLink}" class="button">✅ تحقق من الحساب</a>
@@ -154,7 +157,7 @@ const emailTemplates = {
     text: `
       تحقق من حسابك - نظام إدارة المشاريع
       
-      مرحباً بك!
+      ${userFullName ? `مرحباً ${userFullName}!` : 'مرحباً بك!'}
       شكراً لك على التسجيل في نظام إدارة المشاريع.
       
       رمز التحقق الخاص بك: ${code}
@@ -248,6 +251,25 @@ export async function sendVerificationEmail(
   try {
     console.log('📧 [EmailService] بدء إرسال رمز التحقق للمستخدم:', userId);
 
+    // جلب معلومات المستخدم لإضافة تحية شخصية
+    let userFullName = null;
+    try {
+      const userQuery = await db.execute(sql`
+        SELECT first_name, last_name 
+        FROM users 
+        WHERE id = ${userId}
+      `);
+      
+      if (userQuery.rows.length > 0) {
+        const user = userQuery.rows[0] as any;
+        const firstName = user.first_name?.trim() || '';
+        const lastName = user.last_name?.trim() || '';
+        userFullName = [firstName, lastName].filter(Boolean).join(' ').trim() || null;
+      }
+    } catch (userError) {
+      console.log('ℹ️ [EmailService] لم يتم العثور على اسم المستخدم, سيتم استخدام تحية عامة');
+    }
+
     // التحقق من إعداد البريد الإلكتروني
     const isConfigValid = await verifyEmailConfiguration();
     if (!isConfigValid) {
@@ -290,7 +312,7 @@ export async function sendVerificationEmail(
 
     // إرسال البريد الإلكتروني
     const transporter = createTransporter();
-    const emailTemplate = emailTemplates.verification(verificationCode, verificationLink);
+    const emailTemplate = emailTemplates.verification(verificationCode, verificationLink, userFullName);
 
     const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, '') || '';
     await transporter.sendMail({

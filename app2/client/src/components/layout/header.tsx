@@ -94,7 +94,7 @@ export default function Header() {
                     <div className="text-xs text-muted-foreground mt-1">
                       <span className="inline-flex items-center gap-1">
                         <Shield className="h-3 w-3" />
-                        {user?.role === 'admin' ? 'مدير النظام' : 'مستخدم'}
+                        {user?.role === 'admin' ? 'مدير النظام' : 'عضو مفعل'}
                       </span>
                     </div>
                   </div>

@@ -1,10 +1,10 @@
-
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../db';
 import { users, authUserSessions } from '../../shared/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import rateLimit from 'express-rate-limit';
+
 // تم إزالة express-slow-down لأنه غير مستخدم حالياً
 
 // تعريف نوع الـ Request مع user
@@ -109,15 +109,15 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-  
+
   // CSP Header (مُحسن للتطوير والإنتاج)
   const isDev = process.env.NODE_ENV === 'development';
-  const cspPolicy = isDev 
+  const cspPolicy = isDev
     ? "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src 'self' ws: wss:;"
     : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self';";
-  
+
   res.setHeader('Content-Security-Policy', cspPolicy);
-  
+
   next();
 };
 
@@ -127,20 +127,20 @@ const suspiciousActivityTracker = new Map<string, { attempts: number; lastAttemp
 export const trackSuspiciousActivity = (req: Request, res: Response, next: NextFunction) => {
   const ip = req.ip || req.connection.remoteAddress || 'unknown';
   const userAgent = req.get('User-Agent') || 'unknown';
-  
+
   // تتبع الأنشطة المشبوهة
   const activity = suspiciousActivityTracker.get(ip) || { attempts: 0, lastAttempt: 0 };
   const now = Date.now();
-  
+
   // إعادة تعيين العداد كل ساعة
   if (now - activity.lastAttempt > 60 * 60 * 1000) {
     activity.attempts = 0;
   }
-  
+
   activity.attempts++;
   activity.lastAttempt = now;
   suspiciousActivityTracker.set(ip, activity);
-  
+
   // حظر IP إذا تجاوز 50 محاولة في الساعة
   if (activity.attempts > 50) {
     console.warn(`🚨 نشاط مشبوه من IP: ${ip}, User-Agent: ${userAgent}`);
@@ -149,7 +149,7 @@ export const trackSuspiciousActivity = (req: Request, res: Response, next: NextF
       message: 'تم حظر هذا العنوان مؤقتاً بسبب النشاط المشبوه'
     });
   }
-  
+
   next();
 };
 
@@ -159,7 +159,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     const startTime = Date.now();
     const authHeader = req.headers.authorization;
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
-    
+
     console.log(`🔍 [AUTH] فحص متقدم - المسار: ${req.method} ${req.originalUrl} | IP: ${ip}`);
 
     // التحقق من وجود الـ token
@@ -173,7 +173,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     }
 
     const token = authHeader.substring(7);
-    
+
     // التحقق من صحة الـ token
     let decoded;
     try {
@@ -225,7 +225,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     // تحديث آخر نشاط للجلسة
     await db
       .update(authUserSessions)
-      .set({ 
+      .set({
         lastActivity: new Date(),
         ipAddress: ip,
         userAgent: req.get('User-Agent') || 'unknown'
@@ -240,7 +240,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
 
     const duration = Date.now() - startTime;
     console.log(`✅ [AUTH] مصادقة ناجحة للمستخدم: ${user[0].email} | ${req.method} ${req.originalUrl} | ${duration}ms`);
-    
+
     next();
   } catch (error) {
     console.error('❌ [AUTH] خطأ في المصادقة:', error);
@@ -278,19 +278,19 @@ export const requireAdmin = (req: AuthenticatedRequest, res: Response, next: Nex
 export const optionalAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       const decoded = await verifyToken(token);
       const session = await verifySession(decoded.userId, decoded.sessionId);
-      
+
       if (session) {
         const user = await db
           .select()
           .from(users)
           .where(eq(users.id, decoded.userId))
           .limit(1);
-          
+
         if (user.length && user[0].isActive) {
           req.user = { ...user[0], sessionId: decoded.sessionId };
         }
@@ -299,7 +299,7 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
   } catch (error) {
     console.log('⚠️ [AUTH] خطأ في المصادقة الاختيارية:', error);
   }
-  
+
   next();
 };
 
@@ -307,7 +307,7 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
 setInterval(() => {
   const now = Date.now();
   const oneHour = 60 * 60 * 1000;
-  
+
   for (const [ip, activity] of suspiciousActivityTracker.entries()) {
     if (now - activity.lastAttempt > oneHour) {
       suspiciousActivityTracker.delete(ip);

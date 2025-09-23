@@ -62,6 +62,34 @@ function generateSecureToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
+// دالة لتحديد النطاق حسب البيئة
+function getDynamicDomain(): string {
+  // في بيئة التطوير
+  if (process.env.NODE_ENV === 'development') {
+    return 'localhost:5000';
+  }
+  
+  // في بيئة الإنتاج
+  if (process.env.DOMAIN) {
+    return process.env.DOMAIN;
+  }
+  
+  // إذا كان على Replit
+  if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+    return `${process.env.REPL_SLUG}--5000.${process.env.REPL_OWNER}.repl.co`;
+  }
+  
+  // القيم الافتراضية حسب البيئة
+  return process.env.NODE_ENV === 'production' 
+    ? 'app2.binarjoinanelytic.info' 
+    : 'localhost:5000';
+}
+
+// دالة لتحديد البروتوكول
+function getProtocol(): string {
+  return process.env.NODE_ENV === 'production' ? 'https' : 'http';
+}
+
 // دالة لتشفير الرموز
 async function hashToken(token: string): Promise<string> {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -241,8 +269,9 @@ export async function sendVerificationEmail(
     const tokenHash = await hashToken(verificationCode);
     
     // إنشاء رابط التحقق
-    const domain = process.env.DOMAIN || 'localhost:5000';
-    const verificationLink = `http://${domain}/verify-email?token=${verificationCode}&userId=${userId}`;
+    const domain = getDynamicDomain();
+    const protocol = getProtocol();
+    const verificationLink = `${protocol}://${domain}/verify-email?token=${verificationCode}&userId=${userId}`;
 
     // حفظ الرمز في قاعدة البيانات
     const expiresAt = new Date();
@@ -407,8 +436,9 @@ export async function sendPasswordResetEmail(
     const tokenHash = await hashToken(resetToken);
 
     // إنشاء رابط الاسترجاع
-    const domain = process.env.DOMAIN || 'localhost:5000';
-    const resetLink = `http://${domain}/reset-password?token=${resetToken}`;
+    const domain = getDynamicDomain();
+    const protocol = getProtocol();
+    const resetLink = `${protocol}://${domain}/reset-password?token=${resetToken}`;
 
     // حفظ الرمز في قاعدة البيانات
     const expiresAt = new Date();

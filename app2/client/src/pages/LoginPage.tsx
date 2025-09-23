@@ -104,6 +104,15 @@ interface RegisterResponse {
     role: string;
   };
   requireVerification?: boolean;
+  requireEmailVerification?: boolean;
+  data?: {
+    user: {
+      id: string;
+      email: string;
+      fullName: string;
+      createdAt: string;
+    };
+  };
   message: string;
 }
 
@@ -209,6 +218,23 @@ export default function AuthPage() {
     },
     onError: (error: any) => {
       console.error('❌ [AuthPage.loginMutation] فشل تسجيل الدخول:', error);
+      
+      // التحقق من حالة عدم تفعيل البريد الإلكتروني
+      if (error.response?.data?.requireEmailVerification) {
+        const { userId, email } = error.response.data;
+        toast({
+          title: "البريد الإلكتروني غير مفعل",
+          description: "يرجى تفعيل بريدك الإلكتروني أولاً",
+          variant: "destructive",
+        });
+        
+        // توجيه إلى صفحة التحقق من البريد
+        setTimeout(() => {
+          navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(email)}`);
+        }, 2000);
+        return;
+      }
+      
       toast({
         title: "فشل تسجيل الدخول",
         description: error.message || "حدث خطأ أثناء الاتصال بالخادم",
@@ -243,12 +269,19 @@ export default function AuthPage() {
       if (data.success) {
         toast({
           title: "تم إنشاء الحساب بنجاح",
-          description: data.requireVerification 
-            ? "يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب"
-            : "يمكنك الآن تسجيل الدخول",
+          description: "يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب",
         });
 
-        setActiveTab('login');
+        // توجيه تلقائي إلى صفحة التحقق من البريد الإلكتروني
+        if ((data.requireEmailVerification || data.requireVerification) && data.data?.user) {
+          const userId = data.data.user.id;
+          const userEmail = data.data.user.email;
+          setTimeout(() => {
+            navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(userEmail)}`);
+          }, 1500);
+        } else {
+          setActiveTab('login');
+        }
         
       } else {
         toast({

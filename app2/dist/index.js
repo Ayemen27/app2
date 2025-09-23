@@ -4696,8 +4696,8 @@ import rateLimit from "express-rate-limit";
 var generalRateLimit = rateLimit({
   windowMs: 15 * 60 * 1e3,
   // 15 دقيقة
-  max: 1e3,
-  // 1000 طلب لكل IP
+  max: 2e3,
+  // 2000 طلب لكل IP (زيادة الحد للأداء الأفضل)
   message: {
     success: false,
     message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0645\u0646 \u0627\u0644\u0637\u0644\u0628\u0627\u062A\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F \u0642\u0644\u064A\u0644",
@@ -9698,8 +9698,8 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import speakeasy from "speakeasy";
 var CRYPTO_CONFIG = {
-  saltRounds: 12,
-  // قوة تشفير bcrypt
+  saltRounds: 10,
+  // قوة تشفير bcrypt محسنة للأداء (10 = ~100ms, 12 = ~1.5s)
   totpWindow: 2,
   // نافزة TOTP (عدد الفترات الزمنية المقبولة)
   totpStep: 30,

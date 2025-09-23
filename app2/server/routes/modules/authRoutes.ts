@@ -9,6 +9,7 @@ import { db } from '../../db.js';
 import bcrypt from 'bcryptjs';
 import { sql } from 'drizzle-orm';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, generateTokenPair } from '../../auth/jwt-utils.js';
+import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
 
 export const authRouter = express.Router();
 
@@ -32,7 +33,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     // البحث عن المستخدم في قاعدة البيانات (case insensitive)
     const userResult = await db.execute(sql`
-      SELECT id, email, password, first_name, last_name, created_at
+      SELECT id, email, password, first_name, last_name, email_verified_at, created_at
       FROM users 
       WHERE LOWER(email) = LOWER(${email})
     `);
@@ -46,6 +47,18 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     }
 
     const user = userResult.rows[0] as any;
+
+    // التحقق من تفعيل البريد الإلكتروني
+    if (!user.email_verified_at) {
+      console.log('❌ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email);
+      return res.status(403).json({
+        success: false,
+        requireEmailVerification: true,
+        message: 'يجب تفعيل البريد الإلكتروني أولاً. يرجى التحقق من بريدك الإلكتروني وإدخال رمز التحقق',
+        userId: user.id,
+        email: user.email
+      });
+    }
     
     // التحقق من كلمة المرور
     const passwordMatch = await bcrypt.compare(password, String(user.password));
@@ -71,7 +84,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     console.log('✅ [AUTH] تم تسجيل الدخول بنجاح:', { 
       userId: user.id, 
       email: user.email,
-      fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim()
+      fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+      emailVerified: !!user.email_verified_at
     });
 
     res.json({
@@ -82,7 +96,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
           id: user.id,
           email: user.email,
           name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-          role: 'admin', // إضافة الدور المطلوب
+          role: user.role || 'user', // استخدام الدور الفعلي من قاعدة البيانات
           createdAt: user.created_at
         },
         tokens: {
@@ -156,9 +170,24 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       fullName: `${newUser.first_name || ''} ${newUser.last_name || ''}`.trim()
     });
 
+    // إرسال رمز التحقق من البريد الإلكتروني
+    try {
+      const emailResult = await sendVerificationEmail(
+        newUser.id,
+        newUser.email,
+        req.ip,
+        req.get('user-agent')
+      );
+      
+      console.log('📧 [AUTH] نتيجة إرسال بريد التحقق:', emailResult);
+    } catch (emailError) {
+      console.error('❌ [AUTH] فشل في إرسال بريد التحقق:', emailError);
+    }
+
     res.status(201).json({
       success: true,
-      message: 'تم إنشاء الحساب بنجاح',
+      message: 'تم إنشاء الحساب بنجاح. يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب',
+      requireEmailVerification: true,
       data: {
         user: {
           id: newUser.id,
@@ -280,6 +309,99 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
     res.status(401).json({
       success: false,
       message: 'خطأ في تجديد Access Token',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 📧 تحقق من البريد الإلكتروني
+ * POST /api/auth/verify-email
+ */
+authRouter.post('/verify-email', async (req: Request, res: Response) => {
+  try {
+    console.log('📧 [AUTH] طلب تحقق من البريد الإلكتروني');
+    
+    const { userId, code } = req.body;
+    
+    if (!userId || !code) {
+      return res.status(400).json({
+        success: false,
+        message: 'معرف المستخدم ورمز التحقق مطلوبان'
+      });
+    }
+
+    // التحقق من الرمز
+    const result = await verifyEmailToken(userId, code);
+    
+    if (result.success) {
+      console.log('✅ [AUTH] تم التحقق من البريد بنجاح:', { userId });
+      res.json({
+        success: true,
+        message: result.message
+      });
+    } else {
+      console.log('❌ [AUTH] فشل في التحقق من البريد:', result.message);
+      res.status(400).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+  } catch (error: any) {
+    console.error('❌ [AUTH] خطأ في التحقق من البريد:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في الخادم أثناء التحقق',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 🔄 إعادة إرسال رمز التحقق
+ * POST /api/auth/resend-verification
+ */
+authRouter.post('/resend-verification', async (req: Request, res: Response) => {
+  try {
+    console.log('🔄 [AUTH] طلب إعادة إرسال رمز التحقق');
+    
+    const { userId, email } = req.body;
+    
+    if (!userId || !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'معرف المستخدم والبريد الإلكتروني مطلوبان'
+      });
+    }
+
+    // إرسال رمز تحقق جديد
+    const result = await sendVerificationEmail(
+      userId,
+      email,
+      req.ip,
+      req.get('user-agent')
+    );
+    
+    if (result.success) {
+      console.log('✅ [AUTH] تم إعادة إرسال رمز التحقق بنجاح:', { userId, email });
+      res.json({
+        success: true,
+        message: result.message
+      });
+    } else {
+      console.log('❌ [AUTH] فشل في إعادة إرسال رمز التحقق:', result.message);
+      res.status(400).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+  } catch (error: any) {
+    console.error('❌ [AUTH] خطأ في إعادة إرسال رمز التحقق:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في الخادم أثناء إعادة الإرسال',
       error: error.message
     });
   }

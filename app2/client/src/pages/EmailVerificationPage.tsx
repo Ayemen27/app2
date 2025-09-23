@@ -115,20 +115,24 @@ export default function EmailVerificationPage() {
         throw new Error('معرف المستخدم مطلوب');
       }
 
-      const response = await apiRequest('/api/auth/verify-email', {
+      const response = await fetch('/api/auth/verify-email', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           userId: userInfo.id,
           code: data.code
         })
       });
 
+      const result = await response.json();
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'فشل التحقق من الرمز');
+        throw new Error(result.message || 'فشل التحقق من الرمز');
       }
 
-      return response.json() as Promise<VerificationResponse>;
+      return result as VerificationResponse;
     },
     onSuccess: (data) => {
       console.log('✅ [EmailVerification] تم التحقق بنجاح:', data);
@@ -174,20 +178,24 @@ export default function EmailVerificationPage() {
         throw new Error('بيانات المستخدم مطلوبة');
       }
 
-      const response = await apiRequest('/api/auth/resend-verification', {
+      const response = await fetch('/api/auth/resend-verification', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           userId: userInfo.id,
           email: userInfo.email
         })
       });
 
+      const result = await response.json();
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'فشل إعادة الإرسال');
+        throw new Error(result.message || 'فشل إعادة الإرسال');
       }
 
-      return response.json() as Promise<VerificationResponse>;
+      return result as VerificationResponse;
     },
     onSuccess: (data) => {
       console.log('✅ [EmailVerification] تم إعادة الإرسال بنجاح:', data);

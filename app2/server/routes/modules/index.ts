@@ -13,7 +13,7 @@ import workerRouter from './workerRoutes.js';
 import financialRouter from './financialRoutes.js';
 import autocompleteRouter from './autocompleteRoutes.js';
 import notificationRouter from './notificationRoutes.js';
-import authRouter from './authRoutes.js';
+// authRouter moved to main routes/auth.ts to avoid duplication
 
 /**
  * تسجيل جميع الـ routers المنظمة
@@ -130,6 +130,7 @@ export {
   financialRouter,
   autocompleteRouter,
   notificationRouter
+  // Note: authRouter removed from organized routes to prevent conflicts with main auth.ts
 };
 
 export default {

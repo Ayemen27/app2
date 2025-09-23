@@ -9,7 +9,7 @@ import speakeasy from 'speakeasy';
 
 // إعدادات التشفير
 const CRYPTO_CONFIG = {
-  saltRounds: 12, // قوة تشفير bcrypt
+  saltRounds: 10, // قوة تشفير bcrypt محسنة للأداء (10 = ~100ms, 12 = ~1.5s)
   totpWindow: 2, // نافزة TOTP (عدد الفترات الزمنية المقبولة)
   totpStep: 30, // خطوة TOTP بالثواني
   encryptionKey: process.env.ENCRYPTION_KEY || 'construction-app-encryption-key-2025-very-secret',
@@ -241,9 +241,9 @@ export function generateBackupCodes(count = 8): string[] {
  */
 export function encryptBackupCodes(codes: string[]): string {
   const codesJson = JSON.stringify(codes);
-  const { encrypted, iv } = encryptSensitiveData(codesJson);
+  const { encrypted, iv, authTag } = encryptSensitiveData(codesJson);
   
-  return JSON.stringify({ encrypted, iv });
+  return JSON.stringify({ encrypted, iv, authTag });
 }
 
 /**
@@ -251,8 +251,8 @@ export function encryptBackupCodes(codes: string[]): string {
  */
 export function decryptBackupCodes(encryptedCodes: string): string[] {
   try {
-    const { encrypted, iv } = JSON.parse(encryptedCodes);
-    const decryptedJson = decryptSensitiveData(encrypted, iv);
+    const { encrypted, iv, authTag } = JSON.parse(encryptedCodes);
+    const decryptedJson = decryptSensitiveData(encrypted, iv, authTag);
     return JSON.parse(decryptedJson);
   } catch (error) {
     console.error('خطأ في فك تشفير الرموز الاحتياطية:', error);

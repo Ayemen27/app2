@@ -25,7 +25,7 @@ export interface AuthenticatedRequest extends Request {
 // Rate Limiting للطلبات العامة
 export const generalRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 دقيقة
-  max: 1000, // 1000 طلب لكل IP
+  max: 2000, // 2000 طلب لكل IP (زيادة الحد للأداء الأفضل)
   message: {
     success: false,
     message: 'تم تجاوز الحد المسموح من الطلبات، يرجى المحاولة بعد قليل',

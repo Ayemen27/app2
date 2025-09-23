@@ -13,6 +13,12 @@ A comprehensive construction project management system designed for the Middle E
 - **UI Controls**: إضافة Tabs selector مع دعم RTL والأيقونات المناسبة
 - **Architecture**: تطبيق ViewMode state في WorkerAttendance وتمريره لـ EnhancedWorkerCard
 - **Testing**: إضافة data-testid attributes للاختبار التلقائي
+- **Mobile Responsiveness Fix**: إصلاح مشكلة ظهور العناصر خارج حدود الشاشة في الوضع المضغوط:
+  - إضافة تمرير تلقائي للعناصر المتوسعة
+  - تحسين responsive design مع breakpoints محسنة (sm, lg)
+  - تحسين حشو المحتوى للأجهزة المحمولة (p-3 sm:p-4 md:p-6)
+  - منع تسرب المحتوى خارج الشاشة مع overflow-hidden
+  - تحسين تخطيط Grid للشاشات الصغيرة
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,11 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
-import { User, Clock, DollarSign, FileText, MoreHorizontal, ChevronDown, ChevronUp, Calendar, Activity, AlertCircle, CheckCircle, Timer, Calculator, MessageSquare, Banknote, TrendingUp, Target, Users, Briefcase } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { User, Clock, DollarSign, FileText, Calendar, Activity, AlertCircle, CheckCircle, Timer, Calculator, MessageSquare, Banknote, TrendingUp, Target, Users, Briefcase, Hammer, Wrench, Paintbrush, Grid3X3 } from "lucide-react";
+import { formatCurrency, getCurrentDate } from "@/lib/utils";
+import { apiRequest } from "@/lib/queryClient";
 import type { Worker } from "@shared/schema";
 
-type ViewMode = 'compact' | 'detailed' | 'batch';
 
 interface AttendanceData {
   isPresent: boolean;
@@ -34,52 +35,40 @@ interface EnhancedWorkerCardProps {
   worker: Worker;
   attendance: AttendanceData;
   onAttendanceChange: (attendance: AttendanceData) => void;
-  viewMode?: ViewMode;
-  isExpanded?: boolean;
-  onExpandRequest?: () => void;
+  selectedDate?: string;
 }
 
 export default function EnhancedWorkerCard({ 
   worker, 
   attendance, 
   onAttendanceChange,
-  viewMode = 'compact',
-  isExpanded = false,
-  onExpandRequest
+  selectedDate = getCurrentDate()
 }: EnhancedWorkerCardProps) {
   const [localAttendance, setLocalAttendance] = useState<AttendanceData>(attendance);
-  const cardRef = useRef<HTMLDivElement>(null);
+  
+  // جلب إحصائيات العامل
+  const { data: workerStats } = useQuery({
+    queryKey: ["/api/workers", worker.id, "stats"],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest(`/api/workers/${worker.id}/stats`, "GET");
+        return response || { totalWorkDays: 0, totalProjects: 0, totalEarnings: 0 };
+      } catch (error) {
+        console.error("Error fetching worker stats:", error);
+        return { totalWorkDays: 0, totalProjects: 0, totalEarnings: 0 };
+      }
+    },
+    staleTime: 30000 // حفظ البيانات لمدة 30 ثانية
+  });
+  
+  // فحص إذا كان العامل حاضر اليوم
+  const isPresentToday = localAttendance.isPresent && selectedDate === getCurrentDate();
 
   // تحديث الحالة المحلية عند تغيير props
   useEffect(() => {
     setLocalAttendance(attendance);
   }, [attendance]);
 
-  // تمرير تلقائي للبطاقة عند التوسيع في العرض المضغوط
-  useEffect(() => {
-    if (viewMode === 'compact' && isExpanded && cardRef.current) {
-      // انتظار قصير للسماح للأنيميشن بالانتهاء
-      const timer = setTimeout(() => {
-        const card = cardRef.current;
-        if (card) {
-          // حساب موقع البطاقة بالنسبة للـ viewport
-          const rect = card.getBoundingClientRect();
-          const isOutOfView = rect.top < 0 || rect.bottom > window.innerHeight;
-          
-          if (isOutOfView) {
-            // تمرير سلس للبطاقة مع هامش آمن
-            const offsetTop = card.offsetTop - 80; // هامش علوي 80px
-            window.scrollTo({
-              top: offsetTop,
-              behavior: 'smooth'
-            });
-          }
-        }
-      }, 150);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [viewMode, isExpanded]);
 
   const updateAttendance = (updates: Partial<AttendanceData>) => {
     const newAttendance = { ...localAttendance, ...updates };
@@ -89,6 +78,19 @@ export default function EnhancedWorkerCard({
 
   const handleAttendanceToggle = (checked: boolean | "indeterminate") => {
     const isPresent = checked === true;
+    
+    // إضافة تأثير بصري عند التحديد/الإلغاء
+    if (isPresent) {
+      // تأثير عند التحديد
+      const card = document.querySelector(`[data-testid="worker-card-detailed-${worker.id}"]`) as HTMLElement;
+      if (card) {
+        card.classList.add('animate-bounce-subtle');
+        setTimeout(() => {
+          card.classList.remove('animate-bounce-subtle');
+        }, 600);
+      }
+    }
+    
     updateAttendance({
       isPresent: isPresent,
       startTime: isPresent ? (localAttendance.startTime || "07:00") : undefined,
@@ -180,130 +182,118 @@ export default function EnhancedWorkerCard({
     });
   };
 
-  // Render compact view only if viewMode is compact AND not expanded
-  if (viewMode === 'compact' && !isExpanded) {
-    return (
-      <Card className="mb-3 shadow-sm hover:shadow-md transition-shadow" data-testid={`worker-card-compact-${worker.id}`}>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            {/* Worker info section */}
-            <div className="flex items-center space-x-reverse space-x-4 flex-1">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                worker.type === "معلم" ? "bg-gradient-to-br from-primary to-primary/80" : 
-                worker.type === "حداد" ? "bg-gradient-to-br from-orange-500 to-orange-600" :
-                worker.type === "بلاط" ? "bg-gradient-to-br from-blue-500 to-blue-600" :
-                worker.type === "دهان" ? "bg-gradient-to-br from-green-500 to-green-600" :
-                "bg-gradient-to-br from-gray-500 to-gray-600"
-              }`}>
-                <User className="h-5 w-5" />
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-xl text-foreground truncate" data-testid={`worker-name-${worker.id}`}>
-                  {worker.name}
-                </h4>
-                <div className="flex items-center space-x-reverse space-x-2 text-sm mt-1">
-                  <span className="bg-secondary px-2 py-1 rounded-md text-xs font-medium">
-                    {worker.type}
-                  </span>
-                  <span className="text-primary font-semibold arabic-numbers" data-testid={`worker-wage-${worker.id}`}>
-                    {formatCurrency(worker.dailyWage)}/يوم
-                  </span>
-                </div>
-              </div>
-            </div>
 
-            {/* Actions section */}
-            <div className="flex items-center space-x-reverse space-x-3 mr-4">
-              <div className="flex items-center space-x-reverse space-x-2">
-                <Label htmlFor={`present-compact-${worker.id}`} className="text-sm font-medium text-foreground cursor-pointer">
-                  حاضر
-                </Label>
-                <Checkbox
-                  id={`present-compact-${worker.id}`}
-                  checked={localAttendance.isPresent}
-                  onCheckedChange={handleAttendanceToggle}
-                  className="w-4 h-4"
-                  data-testid={`worker-checkbox-${worker.id}`}
-                />
-              </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onExpandRequest}
-                className="h-8 px-3"
-                data-testid={`worker-toggle-btn-${worker.id}`}
-              >
-                <ChevronDown className="h-4 w-4 ml-2" />
-                تفاصيل أكثر
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Render detailed view for: expanded compact mode, detailed mode, or batch mode
-  const cardTestId = (viewMode === 'compact' && isExpanded) ? `worker-card-expanded-${worker.id}` : `worker-card-detailed-${worker.id}`;
+  // Enhanced unified detailed view with profession-specific styling
+  
+  // دالة لاختيار الأيقونة المناسبة للمهنة
+  const getProfessionIcon = (profession: string) => {
+    switch (profession) {
+      case "معلم":
+        return <Users className="h-6 w-6" />;
+      case "حداد":
+        return <Hammer className="h-6 w-6" />;
+      case "بلاط":
+        return <Grid3X3 className="h-6 w-6" />;
+      case "دهان":
+        return <Paintbrush className="h-6 w-6" />;
+      case "عامل":
+        return <Wrench className="h-6 w-6" />;
+      default:
+        return <User className="h-6 w-6" />;
+    }
+  };
+  
+  // دالة لاختيار لون المهنة
+  const getProfessionColor = (profession: string) => {
+    switch (profession) {
+      case "معلم":
+        return "bg-gradient-to-br from-primary to-primary/80";
+      case "حداد":
+        return "bg-gradient-to-br from-orange-500 to-orange-600";
+      case "بلاط":
+        return "bg-gradient-to-br from-blue-500 to-blue-600";
+      case "دهان":
+        return "bg-gradient-to-br from-green-500 to-green-600";
+      case "عامل":
+        return "bg-gradient-to-br from-purple-500 to-purple-600";
+      default:
+        return "bg-gradient-to-br from-gray-500 to-gray-600";
+    }
+  };
   
   return (
-    <Card ref={cardRef} className="mb-4 shadow-sm border-r-4 border-r-primary/20 hover:shadow-md transition-shadow w-full max-w-full overflow-hidden" data-testid={cardTestId}>
+    <Card className={`mb-4 shadow-sm border-r-4 w-full max-w-full overflow-hidden worker-card-enhanced ${
+      isPresentToday 
+        ? "border-r-green-400 bg-gradient-to-r from-green-50/50 to-green-100/30 dark:from-green-950/20 dark:to-green-900/10 animate-pulse-slow attended-worker-glow" 
+        : "border-r-primary/20 hover:border-r-primary/40"
+    }`} data-testid={`worker-card-detailed-${worker.id}`}>
       <CardContent className="p-3 sm:p-4 md:p-6 max-w-full overflow-hidden">
         {/* رأس البطاقة - معلومات العامل */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 pb-4 border-b border-border/50 gap-3 w-full max-w-full">
           <div className="flex items-center space-x-reverse space-x-3 flex-1 min-w-0 max-w-full overflow-hidden">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${
-              worker.type === "معلم" ? "bg-gradient-to-br from-primary to-primary/80" : 
-              worker.type === "حداد" ? "bg-gradient-to-br from-orange-500 to-orange-600" :
-              worker.type === "بلاط" ? "bg-gradient-to-br from-blue-500 to-blue-600" :
-              worker.type === "دهان" ? "bg-gradient-to-br from-green-500 to-green-600" :
-              "bg-gradient-to-br from-gray-500 to-gray-600"
-            }`}>
-              <User className="h-6 w-6" />
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg profession-icon-container ${getProfessionColor(worker.type)}`}>
+              {getProfessionIcon(worker.type)}
             </div>
-            <div>
-              <div className="flex items-center space-x-reverse space-x-3 mb-2">
-                <h4 className="font-bold text-lg text-foreground" data-testid={`worker-name-detailed-${worker.id}`}>{worker.name}</h4>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-reverse space-x-3 mb-3">
+                <h4 className="font-bold text-xl text-foreground" data-testid={`worker-name-detailed-${worker.id}`}>{worker.name}</h4>
                 <div className="flex items-center space-x-reverse space-x-1">
                   {worker.isActive ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" data-testid={`worker-status-active-${worker.id}`} />
+                    <CheckCircle className="h-5 w-5 text-green-500" data-testid={`worker-status-active-${worker.id}`} />
                   ) : (
-                    <AlertCircle className="h-4 w-4 text-red-500" data-testid={`worker-status-inactive-${worker.id}`} />
+                    <AlertCircle className="h-5 w-5 text-red-500" data-testid={`worker-status-inactive-${worker.id}`} />
                   )}
-                  <span className={`text-xs font-medium ${worker.isActive ? 'text-green-700' : 'text-red-700'}`}>
+                  <span className={`text-sm font-medium px-2 py-1 rounded-full ${worker.isActive ? 'text-green-700 bg-green-100 dark:bg-green-900/20' : 'text-red-700 bg-red-100 dark:bg-red-900/20'}`}>
                     {worker.isActive ? 'نشط' : 'غير نشط'}
                   </span>
                 </div>
               </div>
-              <div className="flex items-center space-x-reverse space-x-2 text-sm text-muted-foreground mb-1">
-                <span className="bg-secondary px-2 py-1 rounded-md">{worker.type}</span>
-                <span className="text-primary font-semibold arabic-numbers" data-testid={`worker-daily-wage-${worker.id}`}>
-                  {formatCurrency(worker.dailyWage)}/يوم
-                </span>
+              
+              {/* معلومات المهنة والراتب */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <div className="flex items-center space-x-reverse space-x-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800 hover:shadow-md transition-all duration-300">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white profession-icon-container ${getProfessionColor(worker.type)}`}>
+                    {getProfessionIcon(worker.type)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">المهنة</p>
+                    <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{worker.type}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-reverse space-x-3 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/30 p-3 rounded-lg border border-green-200 dark:border-green-800 hover:shadow-md transition-all duration-300">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white bg-gradient-to-br from-green-500 to-green-600 profession-icon-container">
+                    <DollarSign className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-green-900 dark:text-green-100">الراتب اليومي</p>
+                    <p className="text-lg font-bold text-green-700 dark:text-green-300 arabic-numbers" data-testid={`worker-daily-wage-${worker.id}`}>
+                      {formatCurrency(worker.dailyWage)}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center space-x-reverse space-x-2 text-xs text-muted-foreground">
-                <Calendar className="h-3 w-3" />
-                <span data-testid={`worker-created-date-${worker.id}`}>مضاف في: {formatDate(worker.createdAt)}</span>
+              
+              {/* معلومات إضافية */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center space-x-reverse space-x-2 text-muted-foreground">
+                  <Calendar className="h-4 w-4 text-indigo-500" />
+                  <span className="font-medium">تاريخ الإضافة:</span>
+                  <span data-testid={`worker-created-date-${worker.id}`} className="font-semibold">{formatDate(worker.createdAt)}</span>
+                </div>
+                
+                <div className="flex items-center space-x-reverse space-x-2 text-muted-foreground">
+                  <Activity className="h-4 w-4 text-purple-500" />
+                  <span className="font-medium">عدد أيام العمل:</span>
+                  <span className="font-semibold arabic-numbers">
+                    {workerStats?.totalWorkDays ? `${workerStats.totalWorkDays} يوم` : 'جاري الحساب...'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
           
           <div className="flex items-center space-x-reverse space-x-3 flex-shrink-0">
-            {/* Show collapse button only when expanded from compact mode */}
-            {viewMode === 'compact' && isExpanded && onExpandRequest && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onExpandRequest}
-                className="h-8 px-3 ml-3"
-                data-testid={`worker-toggle-btn-${worker.id}`}
-              >
-                <ChevronUp className="h-4 w-4 ml-2" />
-                إخفاء التفاصيل
-              </Button>
-            )}
             <Label htmlFor={`present-${worker.id}`} className="text-sm font-medium text-foreground cursor-pointer">
               حاضر
             </Label>

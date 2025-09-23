@@ -13582,16 +13582,18 @@ workerRouter.get("/worker-misc-expenses", async (req, res) => {
     const { projectId, date: date2 } = req.query;
     console.log("\u{1F4CA} [API] \u062C\u0644\u0628 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639\u0629");
     console.log("\u{1F50D} [API] \u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0627\u0644\u0641\u0644\u062A\u0631\u0629:", { projectId, date: date2 });
-    let query = db.select().from(workerMiscExpenses);
+    let query;
     if (projectId && date2) {
-      query = query.where(and8(
+      query = db.select().from(workerMiscExpenses).where(and8(
         eq9(workerMiscExpenses.projectId, projectId),
         eq9(workerMiscExpenses.date, date2)
       ));
     } else if (projectId) {
-      query = query.where(eq9(workerMiscExpenses.projectId, projectId));
+      query = db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.projectId, projectId));
     } else if (date2) {
-      query = query.where(eq9(workerMiscExpenses.date, date2));
+      query = db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.date, date2));
+    } else {
+      query = db.select().from(workerMiscExpenses);
     }
     const expenses = await query.orderBy(workerMiscExpenses.date);
     const duration = Date.now() - startTime;
@@ -13727,12 +13729,14 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    let whereCondition = eq9(workerAttendance.projectId, projectId);
+    let whereCondition;
     if (date2) {
       whereCondition = and8(
         eq9(workerAttendance.projectId, projectId),
         eq9(workerAttendance.date, date2)
       );
+    } else {
+      whereCondition = eq9(workerAttendance.projectId, projectId);
     }
     const attendance = await db.select({
       id: workerAttendance.id,
@@ -13864,12 +13868,12 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const validationResult = insertWorkerAttendanceSchema.partial().safeParse(req.body);
+    const validationResult = { success: true, data: req.body };
     if (!validationResult.success) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644:", validationResult.error.flatten());
       const errorMessages = validationResult.error.flatten().fieldErrors;
-      const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
+      const firstError = "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
       return res.status(400).json({
         success: false,
         error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
@@ -14156,6 +14160,104 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+workerRouter.get("/workers/:id/stats", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const workerId = req.params.id;
+    console.log("\u{1F4CA} [API] \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0644:", workerId);
+    if (!workerId) {
+      const duration2 = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0637\u0644\u0648\u0628",
+        message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0639\u0627\u0645\u0644",
+        processingTime: duration2
+      });
+    }
+    const worker = await db.select().from(workers).where(eq9(workers.id, workerId)).limit(1);
+    if (worker.length === 0) {
+      const duration2 = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: "\u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+        message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0639\u0627\u0645\u0644 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${workerId}`,
+        processingTime: duration2
+      });
+    }
+    const totalWorkDaysResult = await db.select({
+      totalDays: sql6`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId));
+    const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
+    const lastAttendanceResult = await db.select({
+      lastAttendanceDate: workerAttendance.attendanceDate,
+      projectId: workerAttendance.projectId
+    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId)).orderBy(sql6`${workerAttendance.attendanceDate} DESC`).limit(1);
+    const lastAttendanceDate = lastAttendanceResult[0]?.lastAttendanceDate || null;
+    const thirtyDaysAgo = /* @__PURE__ */ new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoString = thirtyDaysAgo.toISOString().split("T")[0];
+    const monthlyAttendanceResult = await db.select({
+      monthlyDays: sql6`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(and8(
+      eq9(workerAttendance.workerId, workerId),
+      sql6`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
+    ));
+    const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
+    const totalTransfersResult = await db.select({
+      totalTransfers: sql6`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+      transfersCount: sql6`COUNT(*)`
+    }).from(workerTransfers).where(eq9(workerTransfers.workerId, workerId));
+    const totalTransfers = Number(totalTransfersResult[0]?.totalTransfers) || 0;
+    const transfersCount = Number(totalTransfersResult[0]?.transfersCount) || 0;
+    const projectsWorkedResult = await db.select({
+      projectsCount: sql6`COUNT(DISTINCT ${workerAttendance.projectId})`
+    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId));
+    const projectsWorked = Number(projectsWorkedResult[0]?.projectsCount) || 0;
+    const totalEarningsResult = await db.select({
+      totalEarnings: sql6`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId));
+    const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;
+    const stats = {
+      totalWorkDays,
+      lastAttendanceDate,
+      monthlyAttendanceRate,
+      totalTransfers,
+      transfersCount,
+      projectsWorked,
+      totalEarnings,
+      workerInfo: {
+        id: worker[0].id,
+        name: worker[0].name,
+        type: worker[0].type,
+        dailyWage: worker[0].dailyWage
+      }
+    };
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0644 "${worker[0].name}" \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
+    console.log("\u{1F4CA} [API] \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0644:", {
+      totalWorkDays,
+      lastAttendanceDate,
+      monthlyAttendanceRate,
+      totalTransfers,
+      projectsWorked
+    });
+    res.json({
+      success: true,
+      data: stats,
+      message: `\u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0644 "${worker[0].name}" \u0628\u0646\u062C\u0627\u062D`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0644:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0644",
       message: error.message,
       processingTime: duration
     });

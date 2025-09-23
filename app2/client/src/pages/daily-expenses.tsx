@@ -1650,13 +1650,17 @@ function DailyExpensesContent() {
           ) : (
             <div className="space-y-2 mb-3">
               {safeMaterialPurchases.map((purchase, index) => {
-                const material = purchase.material || (Array.isArray(materials) ? materials.find((m: any) => m.id === purchase.materialId) : null);
+                // استخدام البيانات المباشرة من المشتريات - البيانات محفوظة مباشرة في الجدول
+                const materialName = purchase.materialName || purchase.material?.name || 'مادة غير محددة';
+                const materialUnit = purchase.unit || purchase.material?.unit || 'وحدة';
+                const materialCategory = purchase.material?.category;
+                
                 return (
                 <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
                   <div className="text-sm flex-1">
-                    <div className="font-medium">{material?.name || 'مادة غير محددة'}</div>
+                    <div className="font-medium">{materialName}</div>
                     <div className="text-xs text-muted-foreground">
-                      {purchase.quantity} {material?.unit || 'وحدة'} × {formatCurrency(purchase.unitPrice)}
+                      {purchase.quantity} {materialUnit} × {formatCurrency(purchase.unitPrice)}
                     </div>
                     {purchase.supplierName && (
                       <div className="text-xs text-muted-foreground">المورد: {purchase.supplierName}</div>
@@ -1666,8 +1670,8 @@ function DailyExpensesContent() {
                         {purchase.purchaseType === 'آجل' ? '⏰ آجل' : '💵 نقد'}
                       </div>
                     )}
-                    {material?.category && (
-                      <div className="text-xs text-muted-foreground">الفئة: {material.category}</div>
+                    {materialCategory && (
+                      <div className="text-xs text-muted-foreground">الفئة: {materialCategory}</div>
                     )}
                   </div>
                   <div className="flex items-center gap-2">

@@ -887,12 +887,11 @@ export class DatabaseStorage implements IStorage {
 
   // Material Purchases
   async getMaterialPurchases(projectId: string, dateFrom?: string, dateTo?: string, purchaseType?: string): Promise<any[]> {
-    // جلب مشتريات المواد مع معلومات المواد
+    // جلب مشتريات المواد - البيانات محفوظة مباشرة بدون انضمام
     const purchases = await db
       .select({
         id: materialPurchases.id,
         projectId: materialPurchases.projectId,
-        materialId: materialPurchases.materialId,
         quantity: materialPurchases.quantity,
         unitPrice: materialPurchases.unitPrice,
         totalAmount: materialPurchases.totalAmount,
@@ -904,14 +903,11 @@ export class DatabaseStorage implements IStorage {
         notes: materialPurchases.notes,
         purchaseDate: materialPurchases.purchaseDate,
         createdAt: materialPurchases.createdAt,
-        // معلومات المادة
-        materialName: materials.name,
-        materialCategory: materials.category,
-        materialUnit: materials.unit,
-        materialCreatedAt: materials.createdAt
+        // بيانات المادة محفوظة مباشرة في الجدول
+        materialName: materialPurchases.materialName,
+        unit: materialPurchases.unit
       })
       .from(materialPurchases)
-      .leftJoin(materials, eq(materialPurchases.materialId, materials.id))
       .where(
         (() => {
           const conditions = [eq(materialPurchases.projectId, projectId)];
@@ -933,7 +929,6 @@ export class DatabaseStorage implements IStorage {
     return purchases.map(purchase => ({
       id: purchase.id,
       projectId: purchase.projectId,
-      materialId: purchase.materialId,
       quantity: purchase.quantity,
       unitPrice: purchase.unitPrice,
       totalAmount: purchase.totalAmount,
@@ -945,13 +940,17 @@ export class DatabaseStorage implements IStorage {
       notes: purchase.notes,
       purchaseDate: purchase.purchaseDate,
       createdAt: purchase.createdAt,
+      // تجهيز بيانات المادة بنفس التنسيق المتوقع
       material: {
-        id: purchase.materialId,
+        id: null, // لا يوجد معرف منفصل للمادة
         name: purchase.materialName,
-        category: purchase.materialCategory,
-        unit: purchase.materialUnit,
-        createdAt: purchase.materialCreatedAt
-      }
+        category: null, // الفئة غير محفوظة في المشتريات
+        unit: purchase.unit,
+        createdAt: null
+      },
+      // إضافة الحقول مباشرة أيضاً للتوافق مع الواجهة
+      materialName: purchase.materialName,
+      unit: purchase.unit
     }));
   }
 

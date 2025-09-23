@@ -11,5 +11,10 @@
   "description": "",
   "dependencies": {
     "drizzle-kit": "^0.31.4"
+  },
+  "devDependencies": {
+    "@rollup/plugin-terser": "^0.4.4",
+    "compression": "^1.8.1",
+    "terser-webpack-plugin": "^5.3.14"
   }
 }

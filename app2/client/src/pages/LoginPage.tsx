@@ -26,8 +26,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { Input, useFormMemory } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import ProfessionalLoader from "@/components/ui/professional-loader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -300,6 +301,32 @@ export default function AuthPage() {
     },
   });
 
+  // دوال التحقق التفاعلي
+  const emailValidator = React.useCallback((value: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!value) return { isValid: false, message: "البريد الإلكتروني مطلوب" };
+    if (!emailRegex.test(value)) return { isValid: false, message: "تنسيق البريد الإلكتروني غير صحيح" };
+    return { isValid: true, message: "البريد الإلكتروني صحيح" };
+  }, []);
+
+  const passwordValidator = React.useCallback((value: string) => {
+    if (!value) return { isValid: false, message: "كلمة المرور مطلوبة" };
+    if (value.length < 8) return { isValid: false, message: "كلمة المرور قصيرة جداً" };
+    
+    let strength = 0;
+    if (value.length >= 8) strength++;
+    if (/[A-Z]/.test(value)) strength++;
+    if (/[a-z]/.test(value)) strength++;
+    if (/\d/.test(value)) strength++;
+    if (/[^A-Za-z0-9]/.test(value)) strength++;
+    
+    return { 
+      isValid: true, 
+      message: "كلمة المرور قوية", 
+      strength: Math.min(strength, 4) 
+    };
+  }, []);
+
   // دوال التعامل مع النماذج
   const onLoginSubmit = (data: LoginFormData) => {
     console.log('🚀 [AuthPage.onLoginSubmit] تسجيل دخول:', { 
@@ -397,16 +424,17 @@ export default function AuthPage() {
                               <FormItem>
                                 <FormLabel className="text-gray-700 font-medium">البريد الإلكتروني</FormLabel>
                                 <FormControl>
-                                  <div className="relative group">
-                                    <Mail className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                                    <Input 
-                                      {...field} 
-                                      type="email"
-                                      placeholder="admin@example.com"
-                                      className="pr-10 enhanced-input"
-                                      data-testid="input-email"
-                                    />
-                                  </div>
+                                  <Input 
+                                    {...field} 
+                                    type="email"
+                                    placeholder="admin@example.com"
+                                    leftIcon={<Mail className="h-4 w-4" />}
+                                    validator={emailValidator}
+                                    enableMemory={true}
+                                    memoryKey="login-email"
+                                    className="enhanced-input"
+                                    data-testid="input-email"
+                                  />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -420,23 +448,16 @@ export default function AuthPage() {
                               <FormItem>
                                 <FormLabel className="text-gray-700 font-medium">كلمة المرور</FormLabel>
                                 <FormControl>
-                                  <div className="relative group">
-                                    <Input
-                                      {...field}
-                                      type={showPassword ? "text" : "password"}
-                                      placeholder="كلمة المرور"
-                                      className="pl-10 enhanced-input"
-                                      data-testid="input-password"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => setShowPassword(!showPassword)}
-                                      className="absolute left-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600 transition-colors"
-                                      data-testid="button-toggle-password"
-                                    >
-                                      {showPassword ? <EyeOff /> : <Eye />}
-                                    </button>
-                                  </div>
+                                  <Input
+                                    {...field}
+                                    type="password"
+                                    placeholder="كلمة المرور"
+                                    validator={passwordValidator}
+                                    enableMemory={true}
+                                    memoryKey="login-password"
+                                    className="enhanced-input"
+                                    data-testid="input-password"
+                                  />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -473,31 +494,26 @@ export default function AuthPage() {
 
                       <Button
                         type="submit"
-                        className="w-full enhanced-button"
-                        disabled={loginMutation.isPending}
+                        loading={loginMutation.isPending}
+                        loadingText="جارِ تسجيل الدخول..."
+                        enableRateLimit={true}
+                        rateLimitDelay={2000}
+                        className="w-full"
                         data-testid="button-login"
                       >
-                        {loginMutation.isPending ? (
-                          <>
-                            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                            جارِ تسجيل الدخول...
-                          </>
-                        ) : (
-                          <>
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                            {loginStep === 'credentials' && 'تسجيل الدخول'}
-                            {loginStep === 'mfa' && 'تأكيد الرمز'}
-                          </>
-                        )}
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                        {loginStep === 'credentials' && 'تسجيل الدخول'}
+                        {loginStep === 'mfa' && 'تأكيد الرمز'}
                       </Button>
 
                       {loginStep === 'credentials' && (
                         <Button
                           type="button"
                           variant="outline"
-                          className="w-full mt-2 enhanced-outline-button"
+                          className="w-full mt-2"
                           onClick={handleQuickLogin}
-                          disabled={loginMutation.isPending}
+                          loading={loginMutation.isPending}
+                          enableRateLimit={true}
                           data-testid="button-quick-login"
                         >
                           <Sparkles className="ml-2 h-4 w-4" />

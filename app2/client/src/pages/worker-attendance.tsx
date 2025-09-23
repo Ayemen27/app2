@@ -32,7 +32,7 @@ interface AttendanceData {
 export default function WorkerAttendance() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
-  
+
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);
   const editId = urlParams.get('edit');
@@ -40,7 +40,7 @@ export default function WorkerAttendance() {
   const dateParam = urlParams.get('date');
   const [selectedDate, setSelectedDate] = useState(dateParam || getCurrentDate());
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({});
-  
+
   // إعدادات مشتركة لجميع العمال
   const [bulkSettings, setBulkSettings] = useState({
     startTime: "07:00",
@@ -50,7 +50,7 @@ export default function WorkerAttendance() {
     paidAmount: "",
     workDescription: ""
   });
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
@@ -62,7 +62,7 @@ export default function WorkerAttendance() {
       const submitButton = document.querySelector('[type="submit"]') as HTMLButtonElement;
       submitButton?.click();
     };
-    
+
     setFloatingAction(handleFloatingSave, "حفظ الحضور");
     return () => setFloatingAction(null);
   }, [setFloatingAction]);
@@ -144,7 +144,7 @@ export default function WorkerAttendance() {
         title: "تم الحذف",
         description: "تم حذف سجل الحضور بنجاح",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
     },
     onError: () => {
       toast({
@@ -180,37 +180,37 @@ export default function WorkerAttendance() {
   const saveAttendanceMutation = useMutation({
     mutationFn: async (attendanceRecords: InsertWorkerAttendance[]) => {
       console.log("💾 بدء حفظ سجلات الحضور للعمال:", attendanceRecords.length);
-      
+
       // حفظ قيم الإكمال التلقائي قبل العملية الأساسية
       const autocompletePromises = attendanceRecords.flatMap(record => [
         saveAutocompleteValue('workDescriptions', record.workDescription),
         saveAutocompleteValue('paymentTypes', record.paymentType)
       ]).filter(Boolean);
-      
+
       if (autocompletePromises.length > 0) {
         await Promise.all(autocompletePromises);
       }
-      
+
       // تحسين منطق الحفظ لتجنب تضارب السجلات الموجودة
       const results = [];
       const errors = [];
-      
+
       for (const record of attendanceRecords) {
         try {
           console.log(`🔄 محاولة حفظ حضور العامل: ${record.workerId} في التاريخ: ${record.date}`);
-          
+
           // أولاً: محاولة التحقق من وجود سجل موجود
           try {
             const existingRecordResponse = await apiRequest(
               `/api/projects/${record.projectId}/attendance?date=${record.date}&workerId=${record.workerId}`, 
               "GET"
             );
-            
+
             const existingRecords = existingRecordResponse?.data || existingRecordResponse || [];
             const existingRecord = Array.isArray(existingRecords) 
               ? existingRecords.find((r: any) => r.workerId === record.workerId)
               : null;
-            
+
             if (existingRecord) {
               console.log(`📝 تحديث سجل موجود للعامل: ${record.workerId}`);
               // تحديث السجل الموجود باستخدام PATCH
@@ -232,7 +232,7 @@ export default function WorkerAttendance() {
             const newRecord = await apiRequest("/api/worker-attendance", "POST", record);
             results.push(newRecord);
           }
-          
+
         } catch (error: any) {
           console.error(`❌ فشل في حفظ حضور العامل ${record.workerId}:`, error);
           errors.push({
@@ -241,12 +241,12 @@ export default function WorkerAttendance() {
           });
         }
       }
-      
+
       console.log(`✅ تم حفظ ${results.length} سجل حضور بنجاح`);
       if (errors.length > 0) {
         console.warn(`⚠️ فشل في حفظ ${errors.length} سجل حضور:`, errors);
       }
-      
+
       return { 
         successful: results, 
         failed: errors,
@@ -256,10 +256,10 @@ export default function WorkerAttendance() {
     onSuccess: async (result) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
 
       const { successful, failed, totalProcessed } = result;
-      
+
       if (failed.length === 0) {
         // جميع العمليات نجحت
         toast({
@@ -282,7 +282,7 @@ export default function WorkerAttendance() {
           variant: "destructive",
         });
       }
-      
+
       // مسح البيانات المحفوظة فقط للعمال الذين تم حفظهم بنجاح
       if (successful.length > 0) {
         setAttendanceData(prevData => {
@@ -303,7 +303,7 @@ export default function WorkerAttendance() {
         saveAutocompleteValue('workDescriptions', record.workDescription),
         saveAutocompleteValue('paymentTypes', record.paymentType)
       ]).filter(Boolean);
-      
+
       if (autocompletePromises.length > 0) {
         await Promise.all(autocompletePromises);
         // تحديث كاش autocomplete
@@ -312,7 +312,7 @@ export default function WorkerAttendance() {
 
       console.error("Error saving attendance:", error);
       let errorMessage = "حدث خطأ أثناء حفظ الحضور";
-      
+
       // التحقق من رسالة الخطأ المحددة
       if (error?.response?.data?.error || error?.message) {
         const serverError = error?.response?.data?.error || error?.message;
@@ -322,7 +322,7 @@ export default function WorkerAttendance() {
           errorMessage = serverError;
         }
       }
-      
+
       toast({
         title: "خطأ",
         description: errorMessage,
@@ -341,15 +341,15 @@ export default function WorkerAttendance() {
   // تطبيق الإعدادات المشتركة على جميع العمال المحددين
   const applyBulkSettings = () => {
     const newAttendanceData = { ...attendanceData };
-    
+
     console.log("=== تطبيق الإعدادات المشتركة ===");
     console.log("الإعدادات المشتركة:", bulkSettings);
-    
+
     Object.keys(newAttendanceData).forEach(workerId => {
       if (newAttendanceData[workerId].isPresent) {
         console.log(`تطبيق الإعدادات على العامل ${workerId}`);
         console.log(`المبلغ المدفوع من الإعدادات: "${bulkSettings.paidAmount}"`);
-        
+
         newAttendanceData[workerId] = {
           ...newAttendanceData[workerId],
           startTime: bulkSettings.startTime,
@@ -359,13 +359,13 @@ export default function WorkerAttendance() {
           paidAmount: bulkSettings.paidAmount,
           workDescription: bulkSettings.workDescription
         };
-        
+
         console.log("البيانات بعد التطبيق:", newAttendanceData[workerId]);
       }
     });
-    
+
     setAttendanceData(newAttendanceData);
-    
+
     toast({
       title: "تم التطبيق",
       description: "تم تطبيق الإعدادات على جميع العمال المحددين",
@@ -375,11 +375,11 @@ export default function WorkerAttendance() {
   // تحديد/إلغاء تحديد جميع العمال
   const toggleAllWorkers = (isPresent: boolean) => {
     const newAttendanceData: AttendanceData = {};
-    
+
     console.log("=== تحديد جميع العمال ===");
     console.log("حالة الحضور:", isPresent);
     console.log("الإعدادات المشتركة:", bulkSettings);
-    
+
     workers.forEach(worker => {
       if (isPresent) {
         console.log(`إضافة العامل ${worker.name} بالمبلغ: "${bulkSettings.paidAmount}"`);
@@ -398,7 +398,7 @@ export default function WorkerAttendance() {
         };
       }
     });
-    
+
     console.log("البيانات النهائية:", newAttendanceData);
     setAttendanceData(newAttendanceData);
   };
@@ -425,12 +425,12 @@ export default function WorkerAttendance() {
         const actualWage = dailyWage * workDays;
         const paidAmount = parseFloat(data.paidAmount || "0");
         const remainingAmount = data.paymentType === 'credit' ? actualWage : (actualWage - paidAmount);
-        
+
         console.log(`العامل ${worker?.name}:`);
         console.log(`  - المبلغ من البيانات: "${data.paidAmount}"`);
         console.log(`  - المبلغ بعد التحويل: ${paidAmount}`);
         console.log(`  - نوع الدفع: ${data.paymentType}`);
-        
+
         return {
           projectId: selectedProjectId,
           workerId,
@@ -523,7 +523,7 @@ export default function WorkerAttendance() {
                 </Button>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
               <div>
                 <Label className="text-xs text-muted-foreground">وقت البدء</Label>

@@ -917,8 +917,9 @@ workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, 
   const startTime = Date.now();
   try {
     const { projectId } = req.params;
+    const { date } = req.query;
     
-    console.log(`📊 [API] جلب حضور العمال للمشروع: ${projectId}`);
+    console.log(`📊 [API] جلب حضور العمال للمشروع: ${projectId}${date ? ` للتاريخ: ${date}` : ''}`);
     
     if (!projectId) {
       return res.status(400).json({
@@ -928,22 +929,38 @@ workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, 
       });
     }
 
+    // بناء الاستعلام مع إمكانية الفلترة بالتاريخ
+    let whereCondition = eq(workerAttendance.projectId, projectId);
+    
+    if (date) {
+      whereCondition = and(
+        eq(workerAttendance.projectId, projectId),
+        eq(workerAttendance.date, date as string)
+      );
+    }
+
     const attendance = await db.select({
       id: workerAttendance.id,
       workerId: workerAttendance.workerId,
       projectId: workerAttendance.projectId,
       date: workerAttendance.date,
+      attendanceDate: workerAttendance.attendanceDate,
+      startTime: workerAttendance.startTime,
+      endTime: workerAttendance.endTime,
+      workDescription: workerAttendance.workDescription,
       workDays: workerAttendance.workDays,
       dailyWage: workerAttendance.dailyWage,
       actualWage: workerAttendance.actualWage,
       paidAmount: workerAttendance.paidAmount,
+      remainingAmount: workerAttendance.remainingAmount,
+      paymentType: workerAttendance.paymentType,
       isPresent: workerAttendance.isPresent,
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
     })
     .from(workerAttendance)
     .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
-    .where(eq(workerAttendance.projectId, projectId))
+    .where(whereCondition)
     .orderBy(workerAttendance.date);
     
     const duration = Date.now() - startTime;
@@ -952,7 +969,7 @@ workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, 
     res.json({
       success: true,
       data: attendance,
-      message: `تم جلب ${attendance.length} سجل حضور للمشروع`,
+      message: `تم جلب ${attendance.length} سجل حضور للمشروع${date ? ` في التاريخ ${date}` : ''}`,
       processingTime: duration
     });
     

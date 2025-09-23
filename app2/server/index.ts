@@ -7,6 +7,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات app2data
 import authRoutes from './routes/auth.js';
 import { initializeRouteOrganizer } from './routes/routerOrganizer.js';
+import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middleware/compression";
 
 const app = express();
 
@@ -27,7 +28,7 @@ app.use(helmet({
 
 // 🌐 **CORS Configuration - يمنع Cross-Origin attacks**
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
+  origin: process.env.NODE_ENV === 'production'
     ? ['https://yourapp.com'] // Replace with your actual domain
     : ['http://localhost:5000', 'http://127.0.0.1:5000'],
   credentials: true,
@@ -57,11 +58,11 @@ const globalRateLimit = rateLimit({
   keyGenerator: (req) => {
     // استخدام express-rate-limit's built-in IP handling
     const forwarded = req.headers['x-forwarded-for'];
-    const ip = (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0]) || 
-               req.connection.remoteAddress || 
-               req.socket.remoteAddress || 
+    const ip = (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0]) ||
+               req.connection.remoteAddress ||
+               req.socket.remoteAddress ||
                'unknown';
-    
+
     // تطهير IPv6 addresses وIPv4-mapped IPv6 addresses
     if (typeof ip === 'string') {
       // إزالة IPv4-mapped IPv6 prefix
@@ -107,11 +108,27 @@ app.use((req, res, next) => {
   next();
 });
 
+// إعداد الـ Middleware الأساسي
+app.use(compressionMiddleware);
+app.use(performanceHeaders);
+app.use(cacheHeaders);
+app.use(generalRateLimit);
+app.use(trackSuspiciousActivity);
+app.use(securityHeaders);
+app.use(cors({
+  origin: ["http://localhost:5000", "http://0.0.0.0:5000", "https://app2--5000.local.webcontainer.io"],
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+
 (async () => {
   // 🧹 تنظيف المهام العالقة عند بدء التشغيل
   const { enhancedMigrationJobManager } = await import('./services/migration-job-manager-enhanced');
   await enhancedMigrationJobManager.startupCleanup();
-  
+
   // 🔐 تسجيل مسارات المصادقة أولاً - يجب أن تكون عامة وغير محمية
   app.use('/api/auth', authRoutes);
 
@@ -155,10 +172,10 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  
+
   // قراءة المنفذ بنفس أولوية قراءة متغيرات البيئة
   const port = parseInt(process.env.PORT || '5000', 10);
-  
+
   console.log('🚀 بدء تشغيل الخادم...');
   console.log('📂 مجلد العمل:', process.cwd());
   console.log('🌐 المنفذ:', port);

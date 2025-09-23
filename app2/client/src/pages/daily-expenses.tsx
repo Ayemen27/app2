@@ -1650,10 +1650,10 @@ function DailyExpensesContent() {
           ) : (
             <div className="space-y-2 mb-3">
               {safeMaterialPurchases.map((purchase, index) => {
-                // استخدام البيانات المباشرة من المشتريات - البيانات محفوظة مباشرة في الجدول
+                // إستخدام البيانات المحفوظة مباشرة في الجدول أولاً
                 const materialName = purchase.materialName || purchase.material?.name || 'مادة غير محددة';
-                const materialUnit = purchase.unit || purchase.material?.unit || 'وحدة';
-                const materialCategory = purchase.material?.category;
+                const materialUnit = purchase.materialUnit || purchase.unit || purchase.material?.unit || 'وحدة';
+                const materialCategory = purchase.materialCategory || purchase.material?.category;
                 
                 return (
                 <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">

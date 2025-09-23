@@ -244,14 +244,14 @@ export default function MaterialPurchase() {
       // استخدام البيانات المحفوظة في الجدول أولاً، ثم البيانات المرتبطة
       const materialName = purchaseToEdit.materialName || purchaseToEdit.material?.name || "";
       const materialCategory = purchaseToEdit.materialCategory || purchaseToEdit.material?.category || "";
-      const materialUnit = purchaseToEdit.materialUnit || purchaseToEdit.material?.unit || "";
+      const materialUnit = purchaseToEdit.materialUnit || purchaseToEdit.unit || purchaseToEdit.material?.unit || "";
       
       setMaterialName(materialName);
       setMaterialCategory(materialCategory);
       setMaterialUnit(materialUnit);
       setQuantity(purchaseToEdit.quantity?.toString() || "");
       setUnitPrice(purchaseToEdit.unitPrice?.toString() || "");
-      setPaymentType(purchaseToEdit.purchaseType || "نقد"); // استخدام purchaseType بدلاً من paymentType
+      setPaymentType(purchaseToEdit.purchaseType || "نقد");
       setSupplierName(purchaseToEdit.supplierName || "");
       setInvoiceNumber(purchaseToEdit.invoiceNumber || "");
       setInvoiceDate(purchaseToEdit.invoiceDate || getCurrentDate());
@@ -394,6 +394,8 @@ export default function MaterialPurchase() {
   // Update Material Purchase Mutation
   const updateMaterialPurchaseMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      console.log('🔄 [PATCH] بدء تحديث المشترية:', { id, data });
+      
       // حفظ القيم في autocomplete_data قبل العملية الأساسية
       await Promise.all([
         saveAutocompleteValue('materialNames', materialName),
@@ -404,7 +406,9 @@ export default function MaterialPurchase() {
         saveAutocompleteValue('notes', notes)
       ]);
       
-      return apiRequest(`/api/material-purchases/${id}`, "PATCH", data);
+      const response = await apiRequest(`/api/material-purchases/${id}`, "PATCH", data);
+      console.log('✅ [PATCH] استجابة تحديث المشترية:', response);
+      return response;
     },
     onSuccess: async () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة

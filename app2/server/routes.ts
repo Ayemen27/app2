@@ -1155,6 +1155,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🔄 PATCH endpoint لتحديث مشتريات المواد
+  app.patch("/api/material-purchases/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const purchaseId = req.params.id;
+      console.log('🔄 [API] طلب تحديث مشترية المواد من المستخدم:', req.user?.email);
+      console.log('📋 [API] ID المشترية:', purchaseId);
+      console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
+      
+      if (!purchaseId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المشترية مطلوب',
+          message: 'لم يتم توفير معرف المشترية للتحديث',
+          processingTime: duration
+        });
+      }
+
+      // التحقق من وجود المشترية أولاً
+      const existingPurchase = await db.select().from(materialPurchases).where(eq(materialPurchases.id, purchaseId)).limit(1);
+      
+      if (existingPurchase.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'المشترية غير موجودة',
+          message: `لم يتم العثور على مشترية بالمعرف: ${purchaseId}`,
+          processingTime: duration
+        });
+      }
+      
+      // Validation باستخدام insert schema - نسمح بتحديث جزئي
+      const validationResult = insertMaterialPurchaseSchema.partial().safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const duration = Date.now() - startTime;
+        console.error('❌ [API] فشل في validation تحديث مشترية المواد:', validationResult.error.flatten());
+        
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث مشترية المواد غير صحيحة';
+        
+        return res.status(400).json({
+          success: false,
+          error: 'بيانات تحديث مشترية المواد غير صحيحة',
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration
+        });
+      }
+
+      // تحديث المشترية
+      const updatedPurchase = await db
+        .update(materialPurchases)
+        .set({
+          ...validationResult.data,
+          updatedAt: new Date()
+        })
+        .where(eq(materialPurchases.id, purchaseId))
+        .returning();
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث مشترية المواد بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: updatedPurchase[0],
+        message: `تم تحديث مشترية المواد بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في تحديث مشترية المواد:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث مشترية المواد',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
   // 📝 POST endpoint لمشتريات المواد - إضافة مشتريات جديدة مع validation محسن
   app.post("/api/material-purchases", requireAuth, async (req, res) => {
     const startTime = Date.now();
@@ -1575,37 +1659,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // جلب المشترية مع بيانات المادة والمورد
+      // جلب المشترية بسيط أولاً
       const purchase = await db
-        .select({
-          id: materialPurchases.id,
-          projectId: materialPurchases.projectId,
-          materialId: materialPurchases.materialId,
-          materialName: materialPurchases.materialName,
-          materialCategory: materialPurchases.materialCategory,
-          materialUnit: materialPurchases.materialUnit,
-          quantity: materialPurchases.quantity,
-          unitPrice: materialPurchases.unitPrice,
-          totalAmount: materialPurchases.totalAmount,
-          purchaseType: materialPurchases.purchaseType,
-          supplierName: materialPurchases.supplierName,
-          invoiceNumber: materialPurchases.invoiceNumber,
-          invoiceDate: materialPurchases.invoiceDate,
-          invoicePhoto: materialPurchases.invoicePhoto,
-          purchaseDate: materialPurchases.purchaseDate,
-          notes: materialPurchases.notes,
-          createdAt: materialPurchases.createdAt,
-          updatedAt: materialPurchases.updatedAt,
-          // بيانات المادة من الجدول المرتبط
-          material: {
-            id: materials.id,
-            name: materials.name,
-            category: materials.category,
-            unit: materials.unit
-          }
-        })
+        .select()
         .from(materialPurchases)
-        .leftJoin(materials, eq(materialPurchases.materialId, materials.id))
         .where(eq(materialPurchases.id, purchaseId))
         .limit(1);
 
@@ -1621,17 +1678,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const purchaseData = purchase[0];
+      
+      // محاولة جلب بيانات المادة إذا كان هناك materialId
+      let materialData = null;
+      if (purchaseData.materialId) {
+        try {
+          const materialResult = await db
+            .select()
+            .from(materials)
+            .where(eq(materials.id, purchaseData.materialId))
+            .limit(1);
+          
+          if (materialResult.length > 0) {
+            materialData = materialResult[0];
+          }
+        } catch (materialError) {
+          console.warn('تحذير: لم يتم العثور على بيانات المادة المرتبطة');
+        }
+      }
+
       const duration = Date.now() - startTime;
       
       console.log(`✅ [API] تم جلب بيانات المشترية للتعديل في ${duration}ms:`, {
         id: purchaseData.id,
-        materialName: purchaseData.materialName || purchaseData.material?.name,
+        materialName: purchaseData.materialName || materialData?.name,
         totalAmount: purchaseData.totalAmount
       });
 
+      // إرجاع البيانات مع المادة المرتبطة إذا وُجدت
+      const responseData = {
+        ...purchaseData,
+        material: materialData
+      };
+
       res.json({
         success: true,
-        data: purchaseData,
+        data: responseData,
         message: 'تم جلب بيانات المشترية بنجاح',
         processingTime: duration
       });

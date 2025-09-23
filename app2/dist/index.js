@@ -283,6 +283,10 @@ var init_schema = __esm({
       // ربط بالمورد
       materialName: text("material_name").notNull(),
       // اسم المادة بدلاً من materialId
+      materialCategory: text("material_category"),
+      // فئة المادة (حديد، أسمنت، إلخ)
+      materialUnit: text("material_unit"),
+      // وحدة المادة الأساسية
       quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
       unit: text("unit").notNull(),
       // وحدة القياس - موجودة في قاعدة البيانات
@@ -7025,7 +7029,25 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const purchase = await db.select().from(materialPurchases).where(eq5(materialPurchases.id, purchaseId)).limit(1);
+      const purchase = await db.select({
+        id: materialPurchases.id,
+        projectId: materialPurchases.projectId,
+        materialName: materialPurchases.materialName,
+        materialCategory: materialPurchases.materialCategory,
+        materialUnit: materialPurchases.materialUnit,
+        quantity: materialPurchases.quantity,
+        unit: materialPurchases.unit,
+        unitPrice: materialPurchases.unitPrice,
+        totalAmount: materialPurchases.totalAmount,
+        purchaseType: materialPurchases.purchaseType,
+        supplierName: materialPurchases.supplierName,
+        invoiceNumber: materialPurchases.invoiceNumber,
+        invoiceDate: materialPurchases.invoiceDate,
+        invoicePhoto: materialPurchases.invoicePhoto,
+        notes: materialPurchases.notes,
+        purchaseDate: materialPurchases.purchaseDate,
+        createdAt: materialPurchases.createdAt
+      }).from(materialPurchases).where(eq5(materialPurchases.id, purchaseId)).limit(1);
       if (purchase.length === 0) {
         const duration2 = Date.now() - startTime;
         console.log(`\u{1F4ED} [API] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629: ${purchaseId}`);
@@ -7038,21 +7060,42 @@ async function registerRoutes(app2) {
       }
       const purchaseData = purchase[0];
       let materialData = null;
-      if (purchaseData.materialId) {
+      let finalMaterialCategory = purchaseData.materialCategory;
+      let finalMaterialUnit = purchaseData.materialUnit || purchaseData.unit;
+      if ((!finalMaterialCategory || !finalMaterialUnit) && purchaseData.materialName) {
         try {
-          const materialResult = await db.select().from(materials).where(eq5(materials.id, purchaseData.materialId)).limit(1);
-          if (materialResult.length > 0) {
-            materialData = materialResult[0];
+          console.log(`\u{1F50D} [API] \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0641\u0626\u0629 \u0627\u0644\u0645\u0627\u062F\u0629 \u0644\u0640: ${purchaseData.materialName}`);
+          let similarMaterial = await db.select().from(materials).where(eq5(materials.name, purchaseData.materialName)).limit(1);
+          if (similarMaterial.length === 0) {
+            similarMaterial = await db.select().from(materials).where(sql4`LOWER(${materials.name}) LIKE LOWER(${`%${purchaseData.materialName}%`})`).limit(1);
+          }
+          if (similarMaterial.length === 0) {
+            const firstWord = purchaseData.materialName.split(" ")[0];
+            if (firstWord.length > 2) {
+              similarMaterial = await db.select().from(materials).where(sql4`LOWER(${materials.name}) LIKE LOWER(${`${firstWord}%`})`).limit(1);
+            }
+          }
+          if (similarMaterial.length > 0) {
+            materialData = similarMaterial[0];
+            finalMaterialCategory = finalMaterialCategory || materialData.category;
+            finalMaterialUnit = finalMaterialUnit || materialData.unit;
+            console.log(`\u2705 [API] \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0627\u062F\u0629 \u0645\u0634\u0627\u0628\u0647\u0629:`, {
+              foundMaterial: materialData.name,
+              category: materialData.category,
+              unit: materialData.unit
+            });
+          } else {
+            console.log(`\u26A0\uFE0F [API] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0627\u062F\u0629 \u0645\u0634\u0627\u0628\u0647\u0629 \u0644\u0640: ${purchaseData.materialName}`);
           }
         } catch (materialError) {
-          console.warn("\u062A\u062D\u0630\u064A\u0631: \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0627\u062F\u0629 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629");
+          console.warn("\u26A0\uFE0F [API] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0645\u0627\u062F\u0629 \u0645\u0634\u0627\u0628\u0647\u0629:", materialError);
         }
       }
       const duration = Date.now() - startTime;
       const completeData = {
         ...purchaseData,
-        materialCategory: purchaseData.materialCategory || materialData?.category || null,
-        materialUnit: purchaseData.materialUnit || materialData?.unit || null,
+        materialCategory: finalMaterialCategory,
+        materialUnit: finalMaterialUnit,
         material: materialData
       };
       console.log(`\u{1F50D} [API] \u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u0631\u062C\u0639\u0629:`, {
@@ -7076,7 +7119,7 @@ async function registerRoutes(app2) {
       });
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0644\u0644\u062A\u0639\u062F\u064A\u0644 \u0641\u064A ${duration}ms:`, {
         id: completeData.id,
-        materialName: completeData.materialName || materialData?.name,
+        materialName: completeData.materialName,
         materialCategory: completeData.materialCategory,
         materialUnit: completeData.materialUnit,
         totalAmount: completeData.totalAmount

@@ -505,16 +505,41 @@ var init_schema = __esm({
       // تحويل إلى string للتوافق مع نوع decimal
       actualWage: z.coerce.string().optional(),
       // nullable في قاعدة البيانات
+      totalPay: z.coerce.string(),
+      // إجمالي الدفع المطلوب
       paidAmount: z.coerce.string().optional(),
       // تحويل إلى string للتوافق مع نوع decimal - nullable
       remainingAmount: z.coerce.string().optional(),
       // تحويل إلى string للتوافق مع نوع decimal - nullable
+      paymentType: z.string().optional().default("partial"),
+      // نوع الدفع
       hoursWorked: z.coerce.string().optional(),
-      // الأعمدة القديمة - اختيارية
+      // ساعات العمل
       overtime: z.coerce.string().optional(),
-      // الأعمدة القديمة - اختيارية
-      overtimeRate: z.coerce.string().optional()
-      // الأعمدة القديمة - اختيارية
+      // ساعات إضافية
+      overtimeRate: z.coerce.string().optional(),
+      // معدل الساعات الإضافية
+      notes: z.string().optional(),
+      // ملاحظات
+      // إضافة validation للأوقات
+      startTime: z.string().optional().refine((val) => {
+        if (!val) return true;
+        return /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(val);
+      }, "\u062A\u0646\u0633\u064A\u0642 \u0627\u0644\u0648\u0642\u062A \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 HH:MM"),
+      endTime: z.string().optional().refine((val) => {
+        if (!val) return true;
+        return /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(val);
+      }, "\u062A\u0646\u0633\u064A\u0642 \u0627\u0644\u0648\u0642\u062A \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 HH:MM")
+    }).refine((data) => {
+      if (data.startTime && data.endTime) {
+        const startMinutes = parseInt(data.startTime.split(":")[0]) * 60 + parseInt(data.startTime.split(":")[1]);
+        const endMinutes = parseInt(data.endTime.split(":")[0]) * 60 + parseInt(data.endTime.split(":")[1]);
+        return startMinutes < endMinutes || endMinutes < startMinutes;
+      }
+      return true;
+    }, {
+      message: "\u0648\u0642\u062A \u0627\u0644\u0628\u062F\u0627\u064A\u0629 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0642\u0628\u0644 \u0648\u0642\u062A \u0627\u0644\u0646\u0647\u0627\u064A\u0629 (\u0644\u0644\u0648\u0631\u062F\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u062F\u064A\u0629)",
+      path: ["endTime"]
     });
     insertMaterialSchema = createInsertSchema(materials).omit({ id: true, createdAt: true });
     insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({ id: true, createdAt: true }).extend({

@@ -27,6 +27,14 @@ interface AttendanceData {
     workDays?: number;
     paidAmount?: string;
     paymentType?: string;
+    // إضافة الحقول الجديدة
+    hoursWorked?: number;
+    overtime?: number;
+    overtimeRate?: number;
+    actualWage?: number;
+    totalPay?: number;
+    remainingAmount?: number;
+    notes?: string;
   };
 }
 
@@ -44,6 +52,7 @@ export default function WorkerAttendance() {
   const [selectedDate, setSelectedDate] = useState(dateParam || getCurrentDate());
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({});
   const [viewMode, setViewMode] = useState<ViewMode>('compact');
+  const [expandedCardIds, setExpandedCardIds] = useState<Set<string>>(new Set());
 
   // إعدادات مشتركة لجميع العمال
   const [bulkSettings, setBulkSettings] = useState({
@@ -335,6 +344,19 @@ export default function WorkerAttendance() {
     },
   });
 
+  // دالة التوسيع/الطي للبطاقات المنفردة
+  const toggleCardExpansion = (workerId: string) => {
+    setExpandedCardIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(workerId)) {
+        newSet.delete(workerId);
+      } else {
+        newSet.add(workerId);
+      }
+      return newSet;
+    });
+  };
+
   const handleAttendanceChange = (workerId: string, attendance: AttendanceData[string]) => {
     setAttendanceData(prev => ({
       ...prev,
@@ -426,14 +448,43 @@ export default function WorkerAttendance() {
         const worker = workers.find(w => w.id === workerId);
         const dailyWage = parseFloat(worker?.dailyWage || "0");
         const workDays = data.workDays || 1.0;
-        const actualWage = dailyWage * workDays;
+        
+        // حساب الأجر الأساسي
+        const baseWage = dailyWage * workDays;
+        
+        // حساب الوقت الإضافي
+        const overtime = data.overtime || 0;
+        const overtimeRate = data.overtimeRate || 0;
+        const overtimePay = overtime * overtimeRate;
+        
+        // حساب إجمالي الدفع (المعادلة الموحدة)
+        const totalPay = Math.max(0, baseWage + overtimePay);
+        
+        // حساب المبلغ المدفوع والمتبقي
         const paidAmount = parseFloat(data.paidAmount || "0");
-        const remainingAmount = data.paymentType === 'credit' ? actualWage : (actualWage - paidAmount);
+        const remainingAmount = data.paymentType === 'credit' ? totalPay : (totalPay - paidAmount);
+
+        // حساب ساعات العمل
+        const calculateWorkingHours = () => {
+          if (!data.startTime || !data.endTime) return 0;
+          const start = new Date(`2000-01-01T${data.startTime}:00`);
+          const end = new Date(`2000-01-01T${data.endTime}:00`);
+          let diffMs = end.getTime() - start.getTime();
+          
+          // التعامل مع الورديات الليلية
+          if (diffMs < 0) {
+            diffMs += 24 * 60 * 60 * 1000;
+          }
+          
+          return Math.max(0, diffMs / (1000 * 60 * 60));
+        };
 
         console.log(`العامل ${worker?.name}:`);
-        console.log(`  - المبلغ من البيانات: "${data.paidAmount}"`);
-        console.log(`  - المبلغ بعد التحويل: ${paidAmount}`);
-        console.log(`  - نوع الدفع: ${data.paymentType}`);
+        console.log(`  - الأجر الأساسي: ${baseWage}`);
+        console.log(`  - الوقت الإضافي: ${overtimePay}`);
+        console.log(`  - إجمالي الدفع: ${totalPay}`);
+        console.log(`  - المبلغ المدفوع: ${paidAmount}`);
+        console.log(`  - المبلغ المتبقي: ${remainingAmount}`);
 
         return {
           projectId: selectedProjectId,
@@ -446,10 +497,16 @@ export default function WorkerAttendance() {
           isPresent: true,
           workDays: workDays,
           dailyWage: worker?.dailyWage || "0",
-          totalPay: actualWage.toString(),
+          // الحقول الجديدة المطلوبة
+          hoursWorked: calculateWorkingHours().toString(),
+          overtime: overtime.toString(),
+          overtimeRate: overtimeRate.toString(),
+          actualWage: baseWage.toString(),
+          totalPay: totalPay.toString(),
           paidAmount: paidAmount.toString(),
           remainingAmount: remainingAmount.toString(),
           paymentType: data.paymentType || "partial",
+          notes: data.notes || "",
         };
       });
 
@@ -670,6 +727,8 @@ export default function WorkerAttendance() {
               attendance={attendanceData[worker.id] || { isPresent: false }}
               onAttendanceChange={(attendance) => handleAttendanceChange(worker.id, attendance)}
               viewMode={viewMode}
+              isExpanded={expandedCardIds.has(worker.id)}
+              onExpandRequest={() => toggleCardExpansion(worker.id)}
             />
           )) : null}
         </div>

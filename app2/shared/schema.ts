@@ -346,11 +346,34 @@ export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance)
   workDays: z.number().min(0.1).max(2.0).default(1.0), // عدد أيام العمل من 0.1 إلى 2.0
   dailyWage: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
   actualWage: z.coerce.string().optional(), // nullable في قاعدة البيانات
+  totalPay: z.coerce.string(), // إجمالي الدفع المطلوب
   paidAmount: z.coerce.string().optional(), // تحويل إلى string للتوافق مع نوع decimal - nullable
   remainingAmount: z.coerce.string().optional(), // تحويل إلى string للتوافق مع نوع decimal - nullable
-  hoursWorked: z.coerce.string().optional(), // الأعمدة القديمة - اختيارية
-  overtime: z.coerce.string().optional(), // الأعمدة القديمة - اختيارية
-  overtimeRate: z.coerce.string().optional(), // الأعمدة القديمة - اختيارية
+  paymentType: z.string().optional().default("partial"), // نوع الدفع
+  hoursWorked: z.coerce.string().optional(), // ساعات العمل
+  overtime: z.coerce.string().optional(), // ساعات إضافية
+  overtimeRate: z.coerce.string().optional(), // معدل الساعات الإضافية
+  notes: z.string().optional(), // ملاحظات
+  // إضافة validation للأوقات
+  startTime: z.string().optional().refine((val) => {
+    if (!val) return true;
+    return /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(val);
+  }, "تنسيق الوقت يجب أن يكون HH:MM"),
+  endTime: z.string().optional().refine((val) => {
+    if (!val) return true;
+    return /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(val);
+  }, "تنسيق الوقت يجب أن يكون HH:MM"),
+}).refine((data) => {
+  // التحقق من أن وقت البداية أقل من وقت النهاية
+  if (data.startTime && data.endTime) {
+    const startMinutes = parseInt(data.startTime.split(':')[0]) * 60 + parseInt(data.startTime.split(':')[1]);
+    const endMinutes = parseInt(data.endTime.split(':')[0]) * 60 + parseInt(data.endTime.split(':')[1]);
+    return startMinutes < endMinutes || (endMinutes < startMinutes); // يدعم الورديات الليلية
+  }
+  return true;
+}, {
+  message: "وقت البداية يجب أن يكون قبل وقت النهاية (للورديات العادية)",
+  path: ["endTime"]
 });
 export const insertMaterialSchema = createInsertSchema(materials).omit({ id: true, createdAt: true });
 export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({ id: true, createdAt: true }).extend({

@@ -3879,7 +3879,7 @@ __export(NotificationService_exports, {
   NotificationStatus: () => NotificationStatus,
   NotificationTypes: () => NotificationTypes
 });
-import { eq as eq4, and as and4, desc as desc2, or as or2, inArray, sql as sql3 } from "drizzle-orm";
+import { eq as eq4, and as and4, desc as desc2, or, inArray, sql as sql3 } from "drizzle-orm";
 var NotificationPriority, NotificationTypes, NotificationStatus, NotificationService;
 var init_NotificationService = __esm({
   "server/services/NotificationService.ts"() {
@@ -4064,9 +4064,9 @@ var init_NotificationService = __esm({
           try {
             const defaultUser = await db.query.users.findFirst({
               columns: { id: true },
-              where: (users2, { eq: eq11, or: or5 }) => or5(
-                eq11(users2.role, "admin"),
-                eq11(users2.email, "admin")
+              where: (users2, { eq: eq12, or: or5 }) => or5(
+                eq12(users2.role, "admin"),
+                eq12(users2.email, "admin")
               )
             });
             return defaultUser ? [defaultUser.id] : [];
@@ -4085,9 +4085,9 @@ var init_NotificationService = __esm({
             return true;
           }
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq11, or: or5 }) => or5(
-              eq11(users2.id, userId),
-              eq11(users2.email, userId)
+            where: (users2, { eq: eq12, or: or5 }) => or5(
+              eq12(users2.id, userId),
+              eq12(users2.email, userId)
             )
           });
           if (!user) {
@@ -4109,9 +4109,9 @@ var init_NotificationService = __esm({
       async getAllowedNotificationTypes(userId) {
         try {
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq11, or: or5 }) => or5(
-              eq11(users2.id, userId),
-              eq11(users2.email, userId)
+            where: (users2, { eq: eq12, or: or5 }) => or5(
+              eq12(users2.id, userId),
+              eq12(users2.email, userId)
             )
           });
           if (!user) {
@@ -4148,7 +4148,7 @@ var init_NotificationService = __esm({
         }
         if (isUserAdmin) {
           conditions.push(
-            or2(
+            or(
               sql3`${notifications.recipients} @> ARRAY[${userId}]`,
               sql3`${notifications.recipients} @> ARRAY['admin']`,
               sql3`${notifications.recipients} @> ARRAY['مسؤول']`,
@@ -4158,7 +4158,7 @@ var init_NotificationService = __esm({
           );
         } else {
           conditions.push(
-            or2(
+            or(
               sql3`${notifications.recipients} @> ARRAY[${userId}]`,
               sql3`${notifications.recipients} IS NULL`
               // الإشعارات العامة
@@ -4319,7 +4319,7 @@ var init_NotificationService = __esm({
         const allowedTypes = await this.getAllowedNotificationTypes(userId);
         const conditions = [inArray(notifications.type, allowedTypes)];
         if (isAdmin) {
-          const adminCondition = or2(
+          const adminCondition = or(
             sql3`${notifications.recipients} @> ARRAY[${userId}]`,
             sql3`${notifications.recipients} @> ARRAY['admin']`,
             sql3`${notifications.recipients} @> ARRAY['مسؤول']`,
@@ -4329,7 +4329,7 @@ var init_NotificationService = __esm({
             conditions.push(adminCondition);
           }
         } else {
-          const userCondition = or2(
+          const userCondition = or(
             sql3`${notifications.recipients} @> ARRAY[${userId}]`,
             sql3`${notifications.recipients} IS NULL`
           );
@@ -4633,7 +4633,7 @@ var init_old_db = __esm({
 import express10 from "express";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit3 from "express-rate-limit";
+import rateLimit4 from "express-rate-limit";
 
 // server/routes.ts
 init_db();
@@ -4641,1165 +4641,195 @@ init_schema();
 init_secure_data_fetcher();
 import { createServer } from "http";
 import rateLimit2 from "express-rate-limit";
-import { eq as eq5, and as and5, or as or3, sql as sql4, gte as gte2, lt as lt2, lte, desc as desc3 } from "drizzle-orm";
+import { eq as eq5, and as and5, or as or2, sql as sql4, gte, lt, lte, desc as desc3 } from "drizzle-orm";
 
-// server/auth/jwt-utils.ts
+// server/middleware/auth.ts
 init_db();
 init_schema();
 import jwt from "jsonwebtoken";
-import crypto2 from "crypto";
-import { eq, and, lt, or, ne, gte } from "drizzle-orm";
-
-// server/auth/crypto-utils.ts
-import bcrypt from "bcrypt";
-import crypto from "crypto";
-import speakeasy from "speakeasy";
-var CRYPTO_CONFIG = {
-  saltRounds: 12,
-  // قوة تشفير bcrypt
-  totpWindow: 2,
-  // نافزة TOTP (عدد الفترات الزمنية المقبولة)
-  totpStep: 30,
-  // خطوة TOTP بالثواني
-  encryptionKey: process.env.ENCRYPTION_KEY || "construction-app-encryption-key-2025-very-secret",
-  algorithm: "aes-256-gcm"
-};
-async function hashPassword(password) {
-  try {
-    return await bcrypt.hash(password, CRYPTO_CONFIG.saltRounds);
-  } catch (error) {
-    console.error("\u062E\u0637\u0623 \u0641\u064A \u062A\u0634\u0641\u064A\u0631 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631:", error);
-    throw new Error("\u0641\u0634\u0644 \u0641\u064A \u062A\u0634\u0641\u064A\u0631 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631");
-  }
-}
-async function verifyPassword(password, hashedPassword) {
-  try {
-    return await bcrypt.compare(password, hashedPassword);
-  } catch (error) {
-    console.error("\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631:", error);
-    return false;
-  }
-}
-function generateTOTPSecret(userEmail, serviceName = "Construction Manager") {
-  const secret = speakeasy.generateSecret({
-    name: userEmail,
-    issuer: serviceName,
-    length: 32
-  });
-  const backupCodes = Array.from(
-    { length: 8 },
-    () => crypto.randomBytes(4).toString("hex").toUpperCase()
-  );
-  return {
-    secret: secret.base32,
-    qrCodeUrl: secret.otpauth_url || "",
-    backupCodes
-  };
-}
-function verifyTOTPCode(secret, token) {
-  try {
-    return speakeasy.totp.verify({
-      secret,
-      encoding: "base32",
-      token,
-      window: CRYPTO_CONFIG.totpWindow,
-      step: CRYPTO_CONFIG.totpStep
-    });
-  } catch (error) {
-    console.error("\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 TOTP:", error);
-    return false;
-  }
-}
-function hashToken(token) {
-  try {
-    return crypto.createHash("sha256").update(token + CRYPTO_CONFIG.encryptionKey).digest("hex");
-  } catch (error) {
-    console.error("\u062E\u0637\u0623 \u0641\u064A \u062A\u0634\u0641\u064A\u0631 \u0627\u0644\u0631\u0645\u0632:", error);
-    throw new Error("\u0641\u0634\u0644 \u0641\u064A \u062A\u0634\u0641\u064A\u0631 \u0627\u0644\u0631\u0645\u0632");
-  }
-}
-function validatePasswordStrength(password) {
-  const issues = [];
-  const suggestions = [];
-  let score = 0;
-  if (password.length < 8) {
-    issues.push("\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0642\u0635\u064A\u0631\u0629 \u062C\u062F\u0627\u064B");
-    suggestions.push("\u0627\u0633\u062A\u062E\u062F\u0645 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 8 \u0623\u062D\u0631\u0641");
-  } else if (password.length >= 12) {
-    score += 2;
-  } else {
-    score += 1;
-  }
-  if (!/[A-Z]/.test(password)) {
-    issues.push("\u0644\u0627 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0623\u062D\u0631\u0641 \u0643\u0628\u064A\u0631\u0629");
-    suggestions.push("\u0623\u0636\u0641 \u062D\u0631\u0641\u0627\u064B \u0643\u0628\u064A\u0631\u0627\u064B \u0648\u0627\u062D\u062F\u0627\u064B \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644");
-  } else {
-    score += 1;
-  }
-  if (!/[a-z]/.test(password)) {
-    issues.push("\u0644\u0627 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0623\u062D\u0631\u0641 \u0635\u063A\u064A\u0631\u0629");
-    suggestions.push("\u0623\u0636\u0641 \u062D\u0631\u0641\u0627\u064B \u0635\u063A\u064A\u0631\u0627\u064B \u0648\u0627\u062D\u062F\u0627\u064B \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644");
-  } else {
-    score += 1;
-  }
-  if (!/[0-9]/.test(password)) {
-    issues.push("\u0644\u0627 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0623\u0631\u0642\u0627\u0645");
-    suggestions.push("\u0623\u0636\u0641 \u0631\u0642\u0645\u0627\u064B \u0648\u0627\u062D\u062F\u0627\u064B \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644");
-  } else {
-    score += 1;
-  }
-  if (!/[^A-Za-z0-9]/.test(password)) {
-    issues.push("\u0644\u0627 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0631\u0645\u0648\u0632 \u062E\u0627\u0635\u0629");
-    suggestions.push("\u0623\u0636\u0641 \u0631\u0645\u0632\u0627\u064B \u062E\u0627\u0635\u0627\u064B \u0645\u062B\u0644 !@#$%");
-  } else {
-    score += 1;
-  }
-  const commonPatterns = [
-    /123456/,
-    /password/i,
-    /qwerty/i,
-    /(.)\1{2,}/
-    // تكرار نفس الحرف 3 مرات أو أكثر
-  ];
-  for (const pattern of commonPatterns) {
-    if (pattern.test(password)) {
-      issues.push("\u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0646\u0645\u0637 \u0634\u0627\u0626\u0639 \u0623\u0648 \u0645\u062A\u0643\u0631\u0631");
-      suggestions.push("\u062A\u062C\u0646\u0628 \u0627\u0644\u0623\u0646\u0645\u0627\u0637 \u0627\u0644\u0634\u0627\u0626\u0639\u0629 \u0648\u0627\u0644\u062A\u0643\u0631\u0627\u0631");
-      score = Math.max(0, score - 1);
-      break;
-    }
-  }
-  return {
-    isValid: issues.length === 0 && score >= 4,
-    score,
-    issues,
-    suggestions
-  };
-}
-
-// server/auth/jwt-utils.ts
-if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
-  throw new Error("JWT_ACCESS_SECRET \u0648 JWT_REFRESH_SECRET \u0645\u0637\u0644\u0648\u0628\u0627\u0646 \u0641\u064A \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629 \u0644\u0644\u0623\u0645\u0627\u0646");
-}
-var JWT_CONFIG = {
-  accessTokenSecret: process.env.JWT_ACCESS_SECRET,
-  refreshTokenSecret: process.env.JWT_REFRESH_SECRET,
-  accessTokenExpiry: "15m",
-  // 15 دقيقة
-  refreshTokenExpiry: "30d",
-  // 30 يوم
-  issuer: "construction-management-app",
-  algorithm: "HS256"
-};
-async function generateTokenPair(userId, email, role, ipAddress, userAgent, deviceInfo) {
-  const sessionId = crypto2.randomUUID();
-  const deviceId = deviceInfo?.deviceId || crypto2.randomUUID();
-  const now = /* @__PURE__ */ new Date();
-  const expiresAt = new Date(now.getTime() + 15 * 60 * 1e3);
-  const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
-  const accessPayload = { userId, email, role, sessionId, type: "access" };
-  const refreshPayload = { userId, email, sessionId, type: "refresh" };
-  const accessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
-    expiresIn: JWT_CONFIG.accessTokenExpiry,
-    issuer: JWT_CONFIG.issuer
-  });
-  const refreshToken = jwt.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
-    expiresIn: JWT_CONFIG.refreshTokenExpiry,
-    issuer: JWT_CONFIG.issuer
-  });
-  const accessTokenHash = hashToken(accessToken);
-  const refreshTokenHash = hashToken(refreshToken);
-  try {
-    await db.insert(authUserSessions).values({
-      userId,
-      deviceId,
-      sessionToken: sessionId,
-      deviceFingerprint: deviceInfo?.fingerprint,
-      userAgent,
-      ipAddress,
-      locationData: deviceInfo?.location,
-      deviceName: deviceInfo?.name,
-      browserName: deviceInfo?.browser?.name,
-      browserVersion: deviceInfo?.browser?.version,
-      osName: deviceInfo?.os?.name,
-      osVersion: deviceInfo?.os?.version,
-      deviceType: deviceInfo?.type || "web",
-      loginMethod: "password",
-      accessTokenHash,
-      refreshTokenHash,
-      expiresAt: refreshExpiresAt,
-      // الجلسة تنتهي مع refresh token
-      isRevoked: false
-    });
-    console.log("\u2705 [JWT] \u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u062C\u0644\u0633\u0629 \u0628\u0646\u062C\u0627\u062D:", { userId, sessionId: sessionId.substring(0, 8) + "..." });
-  } catch (error) {
-    console.error("\u274C [JWT] \u062E\u0637\u0623 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u062C\u0644\u0633\u0629:", error);
-    throw new Error("\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u062C\u0644\u0633\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645");
-  }
-  return {
-    accessToken,
-    refreshToken,
-    sessionId,
-    expiresAt,
-    refreshExpiresAt
-  };
-}
-async function verifyAccessToken(token) {
-  try {
-    const payload = jwt.verify(token, JWT_CONFIG.accessTokenSecret, {
-      issuer: JWT_CONFIG.issuer
-    });
-    if (payload.type !== "access") {
-      return null;
-    }
-    const user = await db.select().from(users).where(eq(users.id, payload.userId)).limit(1);
-    if (user.length === 0 || !user[0].isActive) {
-      return null;
-    }
-    const tokenHash = hashToken(token);
-    const session = await db.select().from(authUserSessions).where(
-      and(
-        eq(authUserSessions.userId, payload.userId),
-        eq(authUserSessions.accessTokenHash, tokenHash),
-        eq(authUserSessions.isRevoked, false),
-        // التحقق من عدم انتهاء صلاحية الجلسة
-        // نستخدم expiresAt للجلسة وليس للـ access token لأن access token ينتهي كل 15 دقيقة
-        // ولكن الجلسة تستمر 30 يوم
-        gte(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
-      )
-    ).limit(1);
-    if (session.length === 0) {
-      return null;
-    }
-    await db.update(authUserSessions).set({ lastActivity: /* @__PURE__ */ new Date() }).where(eq(authUserSessions.id, session[0].id));
-    return {
-      success: true,
-      user: {
-        userId: payload.userId,
-        email: payload.email,
-        role: payload.role,
-        sessionId: session[0].sessionToken
-      }
-    };
-  } catch (error) {
-    console.error("\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 Access Token");
-    return null;
-  }
-}
-async function refreshAccessTokenDev(refreshToken) {
-  const startTime = Date.now();
-  console.log("\u{1F504} [JWT-DEV] \u0628\u062F\u0621 \u062A\u062C\u062F\u064A\u062F \u0645\u0628\u0633\u0637 \u0644\u0644\u062A\u0637\u0648\u064A\u0631...");
-  try {
-    const payload = jwt.verify(refreshToken, JWT_CONFIG.refreshTokenSecret, {
-      issuer: JWT_CONFIG.issuer
-    });
-    if (payload.type !== "refresh") {
-      console.log("\u274C [JWT-DEV] \u0646\u0648\u0639 \u0631\u0645\u0632 \u062E\u0627\u0637\u0626:", payload.type);
-      return null;
-    }
-    const refreshTokenHash = hashToken(refreshToken);
-    const userWithSession = await db.select({
-      user: users,
-      session: authUserSessions
-    }).from(users).leftJoin(authUserSessions, and(
-      eq(authUserSessions.userId, users.id),
-      eq(authUserSessions.refreshTokenHash, refreshTokenHash),
-      eq(authUserSessions.isRevoked, false),
-      gte(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
-    )).where(eq(users.id, payload.userId)).limit(1);
-    if (userWithSession.length === 0 || !userWithSession[0].user || !userWithSession[0].user.isActive) {
-      console.log("\u274C [JWT-DEV] \u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u063A\u064A\u0631 \u0646\u0634\u0637");
-      return null;
-    }
-    if (!userWithSession[0].session) {
-      console.log("\u274C [JWT-DEV] \u062C\u0644\u0633\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629 \u0623\u0648 \u0645\u0646\u062A\u0647\u064A\u0629");
-      return null;
-    }
-    const user = userWithSession[0].user;
-    const session = userWithSession[0].session;
-    const now = /* @__PURE__ */ new Date();
-    const expiresAt = new Date(now.getTime() + 15 * 60 * 1e3);
-    const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
-    const accessPayload = { userId: payload.userId, email: user.email, role: user.role, sessionId: payload.sessionId, type: "access" };
-    const refreshPayload = { userId: payload.userId, email: user.email, sessionId: payload.sessionId, type: "refresh" };
-    const newAccessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
-      expiresIn: JWT_CONFIG.accessTokenExpiry,
-      issuer: JWT_CONFIG.issuer
-    });
-    const newRefreshToken = jwt.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
-      expiresIn: JWT_CONFIG.refreshTokenExpiry,
-      issuer: JWT_CONFIG.issuer
-    });
-    await db.update(authUserSessions).set({
-      lastActivity: /* @__PURE__ */ new Date()
-    }).where(eq(authUserSessions.id, session.id));
-    const duration = Date.now() - startTime;
-    console.log(`\u2705 [JWT-DEV] \u062A\u062C\u062F\u064A\u062F \u0645\u0628\u0633\u0637 \u0645\u0643\u062A\u0645\u0644 \u0641\u064A ${duration}ms`);
-    return {
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-      sessionId: payload.sessionId,
-      expiresAt,
-      refreshExpiresAt
-    };
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    console.error(`\u274C [JWT-DEV] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062C\u062F\u064A\u062F \u0628\u0639\u062F ${duration}ms:`, error instanceof Error ? error.message : error);
-    return null;
-  }
-}
-async function refreshAccessTokenProd(refreshToken) {
-  const startTime = Date.now();
-  console.log("\u{1F504} [JWT-PROD] \u0628\u062F\u0621 \u062A\u062C\u062F\u064A\u062F \u0643\u0627\u0645\u0644 \u0644\u0644\u0625\u0646\u062A\u0627\u062C...");
-  try {
-    const payload = jwt.verify(refreshToken, JWT_CONFIG.refreshTokenSecret, {
-      issuer: JWT_CONFIG.issuer
-    });
-    if (payload.type !== "refresh") {
-      return null;
-    }
-    const user = await db.select().from(users).where(eq(users.id, payload.userId)).limit(1);
-    if (user.length === 0 || !user[0].isActive) {
-      return null;
-    }
-    const refreshTokenHash = hashToken(refreshToken);
-    const session = await db.select().from(authUserSessions).where(
-      and(
-        eq(authUserSessions.userId, payload.userId),
-        eq(authUserSessions.refreshTokenHash, refreshTokenHash),
-        eq(authUserSessions.isRevoked, false),
-        gte(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
-      )
-    ).limit(1);
-    if (session.length === 0) {
-      return null;
-    }
-    const now = /* @__PURE__ */ new Date();
-    const expiresAt = new Date(now.getTime() + 15 * 60 * 1e3);
-    const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
-    const newSessionId = crypto2.randomUUID();
-    const accessPayload = { userId: payload.userId, email: user[0].email, role: user[0].role, sessionId: newSessionId, type: "access" };
-    const refreshPayload = { userId: payload.userId, email: user[0].email, sessionId: newSessionId, type: "refresh" };
-    const newAccessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
-      expiresIn: JWT_CONFIG.accessTokenExpiry,
-      issuer: JWT_CONFIG.issuer
-    });
-    const newRefreshToken = jwt.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
-      expiresIn: JWT_CONFIG.refreshTokenExpiry,
-      issuer: JWT_CONFIG.issuer
-    });
-    const newAccessTokenHash = hashToken(newAccessToken);
-    const newRefreshTokenHash = hashToken(newRefreshToken);
-    await db.update(authUserSessions).set({
-      sessionToken: newSessionId,
-      accessTokenHash: newAccessTokenHash,
-      refreshTokenHash: newRefreshTokenHash,
-      expiresAt: refreshExpiresAt,
-      lastActivity: /* @__PURE__ */ new Date()
-    }).where(eq(authUserSessions.id, session[0].id));
-    const duration = Date.now() - startTime;
-    console.log(`\u2705 [JWT-PROD] \u062A\u0645 \u062A\u062F\u0648\u064A\u0631 \u0627\u0644\u0631\u0645\u0648\u0632 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-      userId: payload.userId,
-      oldSessionId: session[0].sessionToken?.substring(0, 8) + "...",
-      newSessionId: newSessionId.substring(0, 8) + "..."
-    });
-    return {
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-      sessionId: newSessionId,
-      expiresAt,
-      refreshExpiresAt
-    };
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    console.error(`\u274C [JWT-PROD] \u062E\u0637\u0623 \u0641\u064A \u062A\u062C\u062F\u064A\u062F \u0627\u0644\u0631\u0645\u0632 \u0628\u0639\u062F ${duration}ms`);
-    return null;
-  }
-}
-async function refreshAccessToken(refreshToken) {
-  const isDevelopment = process.env.NODE_ENV === "development";
-  if (isDevelopment) {
-    return await refreshAccessTokenDev(refreshToken);
-  } else {
-    return await refreshAccessTokenProd(refreshToken);
-  }
-}
-async function revokeToken(tokenOrSessionId, reason) {
-  try {
-    let updated = await db.update(authUserSessions).set({
-      isRevoked: true,
-      revokedAt: /* @__PURE__ */ new Date(),
-      revokedReason: reason || "manual_revoke"
-    }).where(eq(authUserSessions.sessionToken, tokenOrSessionId));
-    if ((updated.rowCount || 0) === 0) {
-      updated = await db.update(authUserSessions).set({
-        isRevoked: true,
-        revokedAt: /* @__PURE__ */ new Date(),
-        revokedReason: reason || "manual_revoke"
-      }).where(
-        or(
-          eq(authUserSessions.accessTokenHash, tokenOrSessionId),
-          eq(authUserSessions.refreshTokenHash, tokenOrSessionId),
-          eq(authUserSessions.deviceId, tokenOrSessionId)
-        )
-      );
-    }
-    const success = (updated.rowCount || 0) > 0;
-    if (success) {
-      console.log("\u2705 [JWT] \u062A\u0645 \u0625\u0628\u0637\u0627\u0644 \u0627\u0644\u062C\u0644\u0633\u0629 \u0628\u0646\u062C\u0627\u062D:", {
-        sessionId: tokenOrSessionId.length > 32 ? "token" : tokenOrSessionId.substring(0, 8) + "...",
-        reason
-      });
-    }
-    return success;
-  } catch (error) {
-    console.error("\u062E\u0637\u0623 \u0641\u064A \u0625\u0628\u0637\u0627\u0644 \u0627\u0644\u062C\u0644\u0633\u0629");
-    return false;
-  }
-}
-async function revokeAllUserSessions(userId, exceptSessionId) {
-  try {
-    const conditions = [
-      eq(authUserSessions.userId, userId),
-      eq(authUserSessions.isRevoked, false)
-    ];
-    if (exceptSessionId) {
-      conditions.push(ne(authUserSessions.deviceId, exceptSessionId));
-    }
-    const updated = await db.update(authUserSessions).set({
-      isRevoked: true,
-      revokedAt: /* @__PURE__ */ new Date(),
-      revokedReason: "logout_all_devices"
-    }).where(and(...conditions));
-    return updated.rowCount || 0;
-  } catch (error) {
-    console.error("\u062E\u0637\u0623 \u0641\u064A \u0625\u0628\u0637\u0627\u0644 \u062C\u0644\u0633\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", error);
-    return 0;
-  }
-}
-async function getUserActiveSessions(userId) {
-  return db.select({
-    sessionId: authUserSessions.deviceId,
-    ipAddress: authUserSessions.ipAddress,
-    userAgent: authUserSessions.browserName,
-    deviceInfo: authUserSessions.deviceType,
-    issuedAt: authUserSessions.createdAt,
-    lastUsedAt: authUserSessions.lastActivity,
-    expiresAt: authUserSessions.expiresAt
-  }).from(authUserSessions).where(
-    and(
-      eq(authUserSessions.userId, userId),
-      eq(authUserSessions.isRevoked, false)
-    )
-  ).orderBy(authUserSessions.lastActivity);
-}
-
-// server/config/routes.ts
+import { eq, and, gt } from "drizzle-orm";
 import rateLimit from "express-rate-limit";
-var PUBLIC_ROUTES = [
-  {
-    name: "auth",
-    description: "\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u0648\u0627\u0644\u062A\u0633\u062C\u064A\u0644",
-    routes: [
-      {
-        path: "/api/auth/login",
-        methods: ["POST"],
-        description: "\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644"
-      },
-      {
-        path: "/api/auth/register",
-        methods: ["POST"],
-        description: "\u0625\u0646\u0634\u0627\u0621 \u062D\u0633\u0627\u0628 \u062C\u062F\u064A\u062F"
-      },
-      {
-        path: "/api/auth/refresh",
-        methods: ["POST"],
-        description: "\u062A\u062C\u062F\u064A\u062F \u0631\u0645\u0632 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629"
-      },
-      {
-        path: "/api/auth/logout",
-        methods: ["POST"],
-        description: "\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062E\u0631\u0648\u062C"
-      }
-    ],
-    globalRateLimit: {
-      windowMs: 15 * 60 * 1e3,
-      // 15 دقيقة
-      max: 20,
-      // 20 محاولة كل 15 دقيقة
-      message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629"
-    }
-  },
-  {
-    name: "health_monitoring",
-    description: "\u0645\u0633\u0627\u0631\u0627\u062A \u0645\u0631\u0627\u0642\u0628\u0629 \u0635\u062D\u0629 \u0627\u0644\u0646\u0638\u0627\u0645",
-    routes: [
-      {
-        path: "/api/health",
-        methods: ["GET", "HEAD"],
-        description: "\u0641\u062D\u0635 \u0635\u062D\u0629 \u0627\u0644\u0646\u0638\u0627\u0645"
-      },
-      {
-        path: "/api/status",
-        methods: ["GET"],
-        description: "\u062D\u0627\u0644\u0629 \u0627\u0644\u0646\u0638\u0627\u0645 \u0627\u0644\u062A\u0641\u0635\u064A\u0644\u064A\u0629"
-      }
-    ]
-  },
-  {
-    name: "autocomplete_preflight",
-    description: "\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0640 preflight \u0648\u0627\u0644\u0641\u062D\u0635 \u0644\u0644\u0640 autocomplete",
-    routes: [
-      {
-        path: "/api/autocomplete",
-        methods: ["HEAD", "OPTIONS"],
-        description: "\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0641\u062D\u0635 \u0627\u0644\u0645\u0633\u0628\u0642 \u0644\u0644\u0640 autocomplete"
-      }
-    ],
-    globalRateLimit: {
-      windowMs: 1 * 60 * 1e3,
-      // دقيقة واحدة
-      max: 100,
-      // 100 طلب فحص كل دقيقة
-      message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0641\u062D\u0635"
-    }
-  },
-  {
-    name: "public_data",
-    description: "\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0629 \u063A\u064A\u0631 \u0627\u0644\u062D\u0633\u0627\u0633\u0629",
-    routes: [
-      {
-        path: "/api/worker-types",
-        methods: ["GET"],
-        description: "\u0642\u0627\u0626\u0645\u0629 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644 - \u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u062D\u0633\u0627\u0633\u0629"
-      }
-    ]
-  },
-  {
-    name: "cors_preflight",
-    description: "\u0637\u0644\u0628\u0627\u062A CORS \u0627\u0644\u0645\u0633\u0628\u0642\u0629",
-    routes: [
-      {
-        path: "/api/*",
-        methods: ["OPTIONS"],
-        description: "\u0637\u0644\u0628\u0627\u062A OPTIONS \u0644\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A",
-        isWildcard: true
-      }
-    ]
-  }
-];
-var PROTECTED_ROUTES = [
-  {
-    name: "autocomplete_data",
-    description: "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0640 autocomplete - \u0645\u062D\u0645\u064A\u0629",
-    routes: [
-      {
-        path: "/api/autocomplete",
-        methods: ["GET", "POST"],
-        description: "\u062C\u0644\u0628 \u0648\u0625\u0631\u0633\u0627\u0644 \u0628\u064A\u0627\u0646\u0627\u062A autocomplete"
-      },
-      {
-        path: "/api/autocomplete/senderNames",
-        methods: ["GET"],
-        description: "\u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0631\u0633\u0644\u064A\u0646 \u0644\u0644\u0640 autocomplete"
-      },
-      {
-        path: "/api/autocomplete/transferNumbers",
-        methods: ["GET"],
-        description: "\u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0644\u0644\u0640 autocomplete"
-      },
-      {
-        path: "/api/autocomplete/transferTypes",
-        methods: ["GET"],
-        description: "\u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0644\u0644\u0640 autocomplete"
-      },
-      {
-        path: "/api/autocomplete/transportDescriptions",
-        methods: ["GET"],
-        description: "\u0623\u0648\u0635\u0627\u0641 \u0627\u0644\u0646\u0642\u0644 \u0644\u0644\u0640 autocomplete"
-      },
-      {
-        path: "/api/autocomplete/notes",
-        methods: ["GET"],
-        description: "\u0627\u0644\u0645\u0644\u0627\u062D\u0638\u0627\u062A \u0644\u0644\u0640 autocomplete"
-      },
-      {
-        path: "/api/autocomplete/workerMiscDescriptions",
-        methods: ["GET"],
-        description: "\u0623\u0648\u0635\u0627\u0641 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0639\u0645\u0627\u0644 \u0644\u0644\u0640 autocomplete"
-      }
-    ],
-    globalRateLimit: {
-      windowMs: 1 * 60 * 1e3,
-      // دقيقة واحدة
-      max: 200,
-      // 200 طلب autocomplete كل دقيقة
-      message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0637\u0644\u0628\u0627\u062A autocomplete"
-    }
-  },
-  {
-    name: "core_data",
-    description: "\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u0629 \u0627\u0644\u0645\u062D\u0645\u064A\u0629",
-    routes: [
-      {
-        path: "/api/projects",
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
-      },
-      {
-        path: "/api/projects/with-stats",
-        methods: ["GET"],
-        description: "\u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0645\u0639 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A"
-      },
-      {
-        path: "/api/projects/:id",
-        methods: ["GET", "PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u062F\u062F",
-        parameters: ["id"]
-      },
-      {
-        path: "/api/projects/:projectId/fund-transfers",
-        methods: ["GET"],
-        description: "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0639\u0647\u062F\u0629 \u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u062F\u062F",
-        parameters: ["projectId"]
-      },
-      {
-        path: "/api/projects/:projectId/worker-attendance",
-        methods: ["GET"],
-        description: "\u062D\u0636\u0648\u0631 \u0639\u0645\u0627\u0644 \u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u062F\u062F",
-        parameters: ["projectId"]
-      },
-      {
-        path: "/api/projects/:projectId/material-purchases",
-        methods: ["GET"],
-        description: "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0645\u0648\u0627\u062F \u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u062F\u062F",
-        parameters: ["projectId"]
-      },
-      {
-        path: "/api/projects/:projectId/transportation-expenses",
-        methods: ["GET"],
-        description: "\u0645\u0635\u0627\u0631\u064A\u0641 \u0646\u0642\u0644 \u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u062F\u062F",
-        parameters: ["projectId"]
-      },
-      {
-        path: "/api/projects/:projectId/worker-misc-expenses",
-        methods: ["GET"],
-        description: "\u0645\u0635\u0627\u0631\u064A\u0641 \u0639\u0645\u0627\u0644 \u0645\u062A\u0646\u0648\u0639\u0629 \u0644\u0645\u0634\u0631\u0648\u0639",
-        parameters: ["projectId"]
-      },
-      {
-        path: "/api/projects/:id/daily-summary/:date",
-        methods: ["GET"],
-        description: "\u0645\u0644\u062E\u0635 \u064A\u0648\u0645\u064A \u0644\u0645\u0634\u0631\u0648\u0639 \u0641\u064A \u062A\u0627\u0631\u064A\u062E \u0645\u062D\u062F\u062F",
-        parameters: ["id", "date"]
-      },
-      {
-        path: "/api/projects/:projectId/daily-expenses/:date",
-        methods: ["GET"],
-        description: "\u0645\u0635\u0627\u0631\u064A\u0641 \u064A\u0648\u0645\u064A\u0629 \u0644\u0645\u0634\u0631\u0648\u0639",
-        parameters: ["projectId", "date"]
-      },
-      {
-        path: "/api/projects/:projectId/previous-balance/:date",
-        methods: ["GET"],
-        description: "\u0631\u0635\u064A\u062F \u0633\u0627\u0628\u0642 \u0644\u0645\u0634\u0631\u0648\u0639",
-        parameters: ["projectId", "date"]
-      },
-      {
-        path: "/api/workers",
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0639\u0645\u0627\u0644"
-      },
-      {
-        path: "/api/workers/:id",
-        methods: ["GET", "PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0639\u0627\u0645\u0644 \u0645\u062D\u062F\u062F",
-        parameters: ["id"]
-      },
-      {
-        path: "/api/materials",
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0648\u0627\u062F"
-      },
-      {
-        path: "/api/materials/:id",
-        methods: ["GET", "PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0627\u062F\u0629 \u0645\u062D\u062F\u062F\u0629",
-        parameters: ["id"]
-      },
-      {
-        path: "/api/suppliers",
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646"
-      },
-      {
-        path: "/api/suppliers/:id",
-        methods: ["GET", "PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0648\u0631\u062F \u0645\u062D\u062F\u062F",
-        parameters: ["id"]
-      },
-      {
-        path: "/api/material-purchases",
-        methods: ["GET", "POST"],
-        description: "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F"
-      },
-      {
-        path: "/api/material-purchases/:id",
-        methods: ["PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0648\u0627\u062F \u0645\u062D\u062F\u062F\u0629",
-        parameters: ["id"]
-      },
-      {
-        path: "/api/worker-attendance",
-        methods: ["GET", "POST"],
-        description: "\u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644"
-      },
-      {
-        path: "/api/worker-attendance/:id",
-        methods: ["PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0645\u062D\u062F\u062F",
-        parameters: ["id"]
-      },
-      {
-        path: "/api/transportation-expenses",
-        methods: ["GET", "POST"],
-        description: "\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A"
-      },
-      {
-        path: "/api/transportation-expenses/:id",
-        methods: ["PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0635\u0631\u0648\u0641 \u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0645\u062D\u062F\u062F",
-        parameters: ["id"]
-      },
-      {
-        path: "/api/daily-expense-summaries",
-        methods: ["GET", "POST"],
-        description: "\u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629"
-      },
-      {
-        path: "/api/daily-expense-summaries/:id",
-        methods: ["PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0644\u062E\u0635 \u0645\u0635\u0631\u0648\u0641 \u064A\u0648\u0645\u064A \u0645\u062D\u062F\u062F",
-        parameters: ["id"]
-      }
-    ]
-  },
-  {
-    name: "financial_data",
-    description: "\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0648\u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A",
-    routes: [
-      {
-        path: "/api/project-fund-transfers",
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        description: "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0623\u0645\u0648\u0627\u0644 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
-      },
-      {
-        path: "/api/fund-transfers",
-        methods: ["GET", "POST", "PATCH", "DELETE"],
-        description: "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0623\u0645\u0648\u0627\u0644 \u0627\u0644\u0639\u0627\u0645\u0629"
-      },
-      {
-        path: "/api/fund-transfers/:id",
-        methods: ["PATCH", "DELETE"],
-        description: "\u062A\u0639\u062F\u064A\u0644 \u0648\u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0645\u062D\u062F\u062F",
-        parameters: ["id"]
-      },
-      {
-        path: "/api/worker-misc-expenses",
-        methods: ["GET", "POST", "PATCH", "DELETE"],
-        description: "\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639\u0629"
-      },
-      {
-        path: "/api/worker-transfers",
-        methods: ["GET", "POST", "PATCH", "DELETE"],
-        description: "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644"
-      },
-      {
-        path: "/api/worker-transfers/:id",
-        methods: ["PATCH", "DELETE"],
-        description: "\u062A\u0639\u062F\u064A\u0644 \u0648\u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0639\u0627\u0645\u0644 \u0645\u062D\u062F\u062F",
-        parameters: ["id"]
-      },
-      {
-        path: "/api/worker-misc-expenses/:id",
-        methods: ["PATCH", "DELETE"],
-        description: "\u062A\u0639\u062F\u064A\u0644 \u0648\u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0639\u0627\u0645\u0644 \u0645\u062D\u062F\u062F",
-        parameters: ["id"]
-      }
-    ],
-    globalRateLimit: {
-      windowMs: 1 * 60 * 1e3,
-      // دقيقة واحدة
-      max: 60,
-      // 60 طلب مالي كل دقيقة
-      message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629"
-    }
-  },
-  {
-    name: "auth_protected",
-    description: "\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u0627\u0644\u0645\u062D\u0645\u064A\u0629",
-    routes: [
-      {
-        path: "/api/auth/me",
-        methods: ["GET"],
-        description: "\u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u062D\u0627\u0644\u064A"
-      },
-      {
-        path: "/api/auth/sessions",
-        methods: ["GET", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u062C\u0644\u0633\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645"
-      },
-      {
-        path: "/api/auth/sessions/:sessionId",
-        methods: ["DELETE"],
-        description: "\u0625\u0646\u0647\u0627\u0621 \u062C\u0644\u0633\u0629 \u0645\u062D\u062F\u062F\u0629",
-        parameters: ["sessionId"]
-      },
-      {
-        path: "/api/auth/password",
-        methods: ["PUT"],
-        description: "\u062A\u063A\u064A\u064A\u0631 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631"
-      },
-      {
-        path: "/api/auth/logout",
-        methods: ["POST"],
-        description: "\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062E\u0631\u0648\u062C"
-      }
-    ],
-    globalRateLimit: {
-      windowMs: 15 * 60 * 1e3,
-      // 15 دقيقة
-      max: 50,
-      // 50 طلب مصادقة كل 15 دقيقة
-      message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629"
-    }
-  },
-  {
-    name: "management_data",
-    description: "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0625\u062F\u0627\u0631\u0629 \u0648\u0627\u0644\u062A\u0642\u0627\u0631\u064A\u0631",
-    routes: [
-      {
-        path: "/api/notifications",
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A"
-      },
-      {
-        path: "/api/notifications/:id/read",
-        methods: ["POST"],
-        description: "\u0648\u0636\u0639 \u0639\u0644\u0627\u0645\u0629 \u0642\u0631\u0627\u0621\u0629 \u0639\u0644\u0649 \u0625\u0634\u0639\u0627\u0631",
-        parameters: ["id"]
-      },
-      {
-        path: "/api/notifications/mark-all-read",
-        methods: ["POST"],
-        description: "\u0648\u0636\u0639 \u0639\u0644\u0627\u0645\u0629 \u0642\u0631\u0627\u0621\u0629 \u0639\u0644\u0649 \u062C\u0645\u064A\u0639 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A"
-      },
-      {
-        path: "/api/tools",
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0623\u062F\u0648\u0627\u062A"
-      },
-      {
-        path: "/api/tool-movements",
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        description: "\u062D\u0631\u0643\u0627\u062A \u0627\u0644\u0623\u062F\u0648\u0627\u062A"
-      }
-    ]
-  }
-];
-var AdvancedRouteManager = class {
-  publicRouteMap;
-  protectedRouteMap;
-  wildcardRoutes;
-  rateLimiters;
-  constructor() {
-    this.publicRouteMap = /* @__PURE__ */ new Map();
-    this.protectedRouteMap = /* @__PURE__ */ new Map();
-    this.wildcardRoutes = [];
-    this.rateLimiters = /* @__PURE__ */ new Map();
-    this.initializeRoutes();
-  }
-  /**
-   * تهيئة المسارات وإنشاء خرائط البحث السريع
-   */
-  initializeRoutes() {
-    PUBLIC_ROUTES.forEach((group) => {
-      group.routes.forEach((route) => {
-        this.processRoute(route, true, group.globalRateLimit);
-      });
-    });
-    PROTECTED_ROUTES.forEach((group) => {
-      group.routes.forEach((route) => {
-        this.processRoute(route, false, group.globalRateLimit);
-      });
-    });
-    console.log(`\u{1F5FA}\uFE0F [RouteManager] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 ${this.publicRouteMap.size} \u0645\u0633\u0627\u0631 \u0639\u0627\u0645 \u0648 ${this.protectedRouteMap.size} \u0645\u0633\u0627\u0631 \u0645\u062D\u0645\u064A`);
-    console.log(`\u{1F50D} [RouteManager] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 ${this.wildcardRoutes.length} \u0645\u0633\u0627\u0631 wildcard`);
-  }
-  /**
-   * معالجة مسار واحد وإضافته للخرائط المناسبة
-   */
-  processRoute(route, isPublic, globalRateLimit2) {
-    if (route.isWildcard || route.path.includes("*")) {
-      const regexPattern = route.path.replace(/\*/g, ".*").replace(/:[^/]+/g, "[^/]+");
-      this.wildcardRoutes.push({
-        pattern: new RegExp(`^${regexPattern}$`),
-        methods: new Set(route.methods),
-        isPublic
-      });
-    } else {
-      const targetMap = isPublic ? this.publicRouteMap : this.protectedRouteMap;
-      const methodSet = targetMap.get(route.path) || /* @__PURE__ */ new Set();
-      route.methods.forEach((method) => {
-        if (method === "*") {
-          ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"].forEach(
-            (m) => methodSet.add(m)
-          );
-        } else {
-          methodSet.add(method);
-        }
-      });
-      targetMap.set(route.path, methodSet);
-    }
-    if (route.rateLimit || globalRateLimit2) {
-      const rateLimitConfig = route.rateLimit || globalRateLimit2;
-      const limiterId = `${route.path}:${route.methods.join(",")}`;
-      this.rateLimiters.set(limiterId, rateLimit({
-        windowMs: rateLimitConfig.windowMs,
-        max: rateLimitConfig.max,
-        message: {
-          success: false,
-          error: rateLimitConfig.message,
-          code: "RATE_LIMIT_EXCEEDED"
-        },
-        standardHeaders: true,
-        legacyHeaders: false
-      }));
-    }
-  }
-  /**
-   * فحص ما إذا كان المسار عامًا (لا يحتاج مصادقة)
-   */
-  isPublicRoute(path4, method) {
-    const publicMethods = this.publicRouteMap.get(path4);
-    if (publicMethods && (publicMethods.has(method) || publicMethods.has("*"))) {
-      return true;
-    }
-    for (const wildcardRoute of this.wildcardRoutes) {
-      if (wildcardRoute.isPublic && wildcardRoute.pattern.test(path4) && (wildcardRoute.methods.has(method) || wildcardRoute.methods.has("*"))) {
-        return true;
-      }
-    }
-    return false;
-  }
-  /**
-   * فحص ما إذا كان المسار محميًا (يحتاج مصادقة)
-   */
-  isProtectedRoute(path4, method) {
-    const protectedMethods = this.protectedRouteMap.get(path4);
-    if (protectedMethods && (protectedMethods.has(method) || protectedMethods.has("*"))) {
-      return true;
-    }
-    for (const wildcardRoute of this.wildcardRoutes) {
-      if (!wildcardRoute.isPublic && wildcardRoute.pattern.test(path4) && (wildcardRoute.methods.has(method) || wildcardRoute.methods.has("*"))) {
-        return true;
-      }
-    }
-    return false;
-  }
-  /**
-   * الحصول على rate limiter للمسار إذا وجد - محسن لدعم المعاملات
-   */
-  getRateLimiter(path4, method) {
-    for (const [limiterId, limiter] of Array.from(this.rateLimiters.entries())) {
-      const [limiterPath, methods] = limiterId.split(":");
-      const methodsList = methods.split(",");
-      const isPathMatch = limiterPath === path4 || this.matchesPatternWithParams(path4, limiterPath);
-      const isMethodMatch = methodsList.includes(method) || methodsList.includes("*");
-      if (isPathMatch && isMethodMatch) {
-        return limiter;
-      }
-    }
-    return null;
-  }
-  /**
-   * فحص مطابقة المسار مع نمط يحتوي على معاملات
-   */
-  matchesPatternWithParams(actualPath, patternPath) {
-    const regexPattern = patternPath.replace(/\*/g, ".*").replace(/:[^/]+/g, "[^/]+");
-    const regex = new RegExp(`^${regexPattern}$`);
-    return regex.test(actualPath);
-  }
-  /**
-   * استخراج المعاملات من المسار
-   */
-  extractParameters(routePath, actualPath) {
-    const parameters = {};
-    const routeParts = routePath.split("/");
-    const actualParts = actualPath.split("/");
-    if (routeParts.length !== actualParts.length) {
-      return parameters;
-    }
-    for (let i = 0; i < routeParts.length; i++) {
-      const routePart = routeParts[i];
-      const actualPart = actualParts[i];
-      if (routePart.startsWith(":")) {
-        const paramName = routePart.substring(1);
-        parameters[paramName] = actualPart;
-      }
-    }
-    return parameters;
-  }
-  /**
-   * الحصول على إحصائيات المسارات
-   */
-  getRouteStats() {
-    return {
-      publicRoutes: this.publicRouteMap.size,
-      protectedRoutes: this.protectedRouteMap.size,
-      wildcardRoutes: this.wildcardRoutes.length,
-      rateLimiters: this.rateLimiters.size,
-      totalRoutes: this.publicRouteMap.size + this.protectedRouteMap.size + this.wildcardRoutes.length
-    };
-  }
-  /**
-   * طباعة تفاصيل المسارات للتتبع
-   */
-  logRouteDetails() {
-    console.log("\u{1F5FA}\uFE0F [RouteManager] \u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A:");
-    console.log("\u{1F4C2} \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0629:", Array.from(this.publicRouteMap.keys()));
-    console.log("\u{1F512} \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u062D\u0645\u064A\u0629:", Array.from(this.protectedRouteMap.keys()));
-    console.log("\u{1F50D} \u0645\u0633\u0627\u0631\u0627\u062A Wildcard:", this.wildcardRoutes.map((r) => r.pattern.source));
-  }
-};
-var routeManager = new AdvancedRouteManager();
-var publicRouteRateLimit = rateLimit({
+import slowDown from "express-slow-down";
+var generalRateLimit2 = rateLimit({
   windowMs: 15 * 60 * 1e3,
   // 15 دقيقة
-  max: 100,
-  // 100 طلب كل 15 دقيقة للمسارات العامة
+  max: 1e3,
+  // 1000 طلب لكل IP
   message: {
     success: false,
-    error: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0629",
-    code: "PUBLIC_RATE_LIMIT_EXCEEDED"
+    message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0645\u0646 \u0627\u0644\u0637\u0644\u0628\u0627\u062A\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F \u0642\u0644\u064A\u0644",
+    retryAfter: 15 * 60
+    // 15 دقيقة
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // تطبيق فقط على المسارات العامة
   skip: (req) => {
-    const path4 = req.path || req.url || "";
-    const method = req.method || "GET";
-    return !routeManager.isPublicRoute(path4, method);
+    return req.path === "/api/health" || req.path === "/health";
   }
 });
-var authRouteRateLimit = rateLimit({
+var authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1e3,
   // 15 دقيقة
   max: 10,
-  // 10 محاولات مصادقة كل 15 دقيقة
+  // 10 محاولات تسجيل دخول لكل IP
   message: {
     success: false,
-    error: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0645\u062D\u0627\u0648\u0644\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629",
-    code: "AUTH_RATE_LIMIT_EXCEEDED"
+    message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0639\u062F\u062F \u0645\u062D\u0627\u0648\u0644\u0627\u062A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0627\u0644\u0645\u0633\u0645\u0648\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F 15 \u062F\u0642\u064A\u0642\u0629",
+    retryAfter: 15 * 60
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // تطبيق فقط على مسارات المصادقة
-  skip: (req) => {
-    const path4 = req.path || req.url || "";
-    return !path4.startsWith("/api/auth/");
+  skipSuccessfulRequests: true
+  // لا تحسب الطلبات الناجحة
+});
+var sensitiveOperationsRateLimit = rateLimit({
+  windowMs: 5 * 60 * 1e3,
+  // 5 دقائق
+  max: 5,
+  // 5 عمليات فقط
+  message: {
+    success: false,
+    message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u062D\u0633\u0627\u0633\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F 5 \u062F\u0642\u0627\u0626\u0642",
+    retryAfter: 5 * 60
   }
 });
-
-// server/middleware/auth.ts
-var requireAuth = async (req, res, next) => {
-  const startTime = Date.now();
+var speedLimiter = slowDown({
+  windowMs: 15 * 60 * 1e3,
+  // 15 دقيقة
+  delayAfter: 100,
+  // السماح بـ 100 طلب بدون تأخير
+  delayMs: (used, req) => {
+    const delayAfter = req.slowDown?.delayAfter || 100;
+    return (used - delayAfter) * 100;
+  },
+  maxDelayMs: 5e3
+  // الحد الأقصى 5 ثوان
+});
+var verifyToken = async (token) => {
   try {
-    const path4 = req.path || req.url || "";
-    const method = req.method || "GET";
-    const clientIP = req.ip || req.socket.remoteAddress || "unknown";
-    console.log(`\u{1F50D} [AUTH] \u0641\u062D\u0635 \u0645\u062A\u0642\u062F\u0645 - \u0627\u0644\u0645\u0633\u0627\u0631: ${method} ${path4} | IP: ${clientIP}`);
-    const isPublicRoute = routeManager.isPublicRoute(path4, method);
-    if (isPublicRoute) {
-      const processingTime = Date.now() - startTime;
-      console.log(`\u2705 [AUTH] \u0645\u0633\u0627\u0631 \u0639\u0627\u0645 \u0645\u0639\u062A\u0645\u062F: ${method} ${path4} | \u0645\u0639\u0627\u0644\u062C \u0641\u064A ${processingTime}ms`);
-      if (path4.startsWith("/api/auth/")) {
-        console.log(`\u{1F6E1}\uFE0F [AUTH] \u062A\u0637\u0628\u064A\u0642 rate limiting \u0644\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u0639\u0644\u0649: ${method} ${path4}`);
-        return authRouteRateLimit(req, res, next);
-      } else {
-        return publicRouteRateLimit(req, res, next);
-      }
+    if (!process.env.JWT_ACCESS_SECRET) {
+      throw new Error("JWT_ACCESS_SECRET \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F");
     }
-    console.log(`\u{1F510} [AUTH] \u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u0627\u0644\u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629 \u0639\u0644\u0649 \u0627\u0644\u0645\u0633\u0627\u0631: ${method} ${path4}`);
-    const routeRateLimiter = routeManager.getRateLimiter(path4, method);
-    if (routeRateLimiter) {
-      console.log(`\u{1F6E1}\uFE0F [AUTH] \u062A\u0637\u0628\u064A\u0642 rate limiting \u0645\u062E\u0635\u0635 \u0644\u0644\u0645\u0633\u0627\u0631: ${method} ${path4}`);
-      routeRateLimiter(req, res, () => {
-        authenticateUser(req, res, next, path4, method, startTime, clientIP);
-      });
-    } else {
-      authenticateUser(req, res, next, path4, method, startTime, clientIP);
-    }
+    return jwt.verify(token, process.env.JWT_ACCESS_SECRET);
   } catch (error) {
-    const processingTime = Date.now() - startTime;
-    console.error(`\u274C [AUTH] \u062E\u0637\u0623 \u0641\u064A \u0645\u0639\u0627\u0644\u062C\u0629 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629: ${error.message} | ${processingTime}ms`);
-    return res.status(500).json({
-      success: false,
-      message: "\u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0646\u0638\u0627\u0645 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629",
-      code: "AUTH_SYSTEM_ERROR"
-    });
+    throw new Error("\u0631\u0645\u0632 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D");
   }
 };
-async function authenticateUser(req, res, next, path4, method, startTime, clientIP) {
+var verifySession = async (userId, sessionId) => {
   try {
+    const session = await db.select().from(authUserSessions).where(
+      and(
+        eq(authUserSessions.userId, userId),
+        eq(authUserSessions.sessionToken, sessionId),
+        eq(authUserSessions.isRevoked, false),
+        gt(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
+      )
+    ).limit(1);
+    return session.length > 0 ? session[0] : null;
+  } catch (error) {
+    console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u062C\u0644\u0633\u0629:", error);
+    return null;
+  }
+};
+var suspiciousActivityTracker = /* @__PURE__ */ new Map();
+var authenticate = async (req, res, next) => {
+  try {
+    const startTime = Date.now();
     const authHeader = req.headers.authorization;
+    const ip = req.ip || req.connection.remoteAddress || "unknown";
+    console.log(`\u{1F50D} [AUTH] \u0641\u062D\u0635 \u0645\u062A\u0642\u062F\u0645 - \u0627\u0644\u0645\u0633\u0627\u0631: ${req.method} ${req.originalUrl} | IP: ${ip}`);
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      const processingTime2 = Date.now() - startTime;
-      console.warn(`\u{1F6AB} [AUTH] \u0631\u0645\u0632 \u0645\u0635\u0627\u062F\u0642\u0629 \u0645\u0641\u0642\u0648\u062F: ${method} ${path4} | IP: ${clientIP} | ${processingTime2}ms`);
+      console.log("\u274C [AUTH] \u0644\u0627 \u064A\u0648\u062C\u062F token \u0641\u064A \u0627\u0644\u0637\u0644\u0628");
       return res.status(401).json({
         success: false,
-        message: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0631\u0645\u0632 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629",
-        code: "MISSING_AUTH_TOKEN"
+        message: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0644\u0643 \u0628\u0627\u0644\u0648\u0635\u0648\u0644 - \u0644\u0627 \u064A\u0648\u062C\u062F \u0631\u0645\u0632 \u0645\u0635\u0627\u062F\u0642\u0629",
+        code: "NO_TOKEN"
       });
     }
     const token = authHeader.substring(7);
-    const decoded = await verifyAccessToken(token);
-    if (!decoded || !decoded.success || !decoded.user) {
-      const processingTime2 = Date.now() - startTime;
-      console.warn(`\u{1F6AB} [AUTH] \u0631\u0645\u0632 \u0645\u0635\u0627\u062F\u0642\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D: ${method} ${path4} | IP: ${clientIP} | ${processingTime2}ms`);
+    let decoded;
+    try {
+      decoded = await verifyToken(token);
+    } catch (error) {
+      console.log("\u274C [AUTH] token \u063A\u064A\u0631 \u0635\u0627\u0644\u062D:", error);
       return res.status(401).json({
         success: false,
         message: "\u0631\u0645\u0632 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D \u0623\u0648 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629",
-        code: "INVALID_AUTH_TOKEN"
+        code: "INVALID_TOKEN"
       });
     }
-    req.user = decoded.user;
-    const processingTime = Date.now() - startTime;
-    console.log(`\u2705 [AUTH] \u0645\u0635\u0627\u062F\u0642\u0629 \u0646\u0627\u062C\u062D\u0629 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${decoded.user.email} | ${method} ${path4} | ${processingTime}ms`);
+    const session = await verifySession(decoded.userId, decoded.sessionId);
+    if (!session) {
+      console.log("\u274C [AUTH] \u0627\u0644\u062C\u0644\u0633\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629 \u0623\u0648 \u0645\u0646\u062A\u0647\u064A\u0629");
+      return res.status(401).json({
+        success: false,
+        message: "\u0627\u0644\u062C\u0644\u0633\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629 \u0623\u0648 \u0645\u0646\u062A\u0647\u064A\u0629 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629",
+        code: "INVALID_SESSION"
+      });
+    }
+    const user = await db.select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      role: users.role,
+      isActive: users.isActive,
+      mfaEnabled: users.mfaEnabled
+    }).from(users).where(eq(users.id, decoded.userId)).limit(1);
+    if (!user.length || !user[0].isActive) {
+      console.log("\u274C [AUTH] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u063A\u064A\u0631 \u0646\u0634\u0637");
+      return res.status(401).json({
+        success: false,
+        message: "\u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0646\u0634\u0637 \u0623\u0648 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+        code: "USER_INACTIVE"
+      });
+    }
+    await db.update(authUserSessions).set({
+      lastActivity: /* @__PURE__ */ new Date(),
+      ipAddress: ip,
+      userAgent: req.get("User-Agent") || "unknown"
+    }).where(eq(authUserSessions.sessionToken, decoded.sessionId));
+    req.user = {
+      ...user[0],
+      sessionId: decoded.sessionId
+    };
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [AUTH] \u0645\u0635\u0627\u062F\u0642\u0629 \u0646\u0627\u062C\u062D\u0629 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${user[0].email} | ${req.method} ${req.originalUrl} | ${duration}ms`);
     next();
   } catch (error) {
-    const processingTime = Date.now() - startTime;
-    console.error(`\u274C [AUTH] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0645\u0632: ${error.message} | ${processingTime}ms`);
-    return res.status(401).json({
+    console.error("\u274C [AUTH] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629:", error);
+    res.status(500).json({
       success: false,
-      message: "\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629",
-      code: "AUTH_VERIFICATION_ERROR"
+      message: "\u062E\u0637\u0623 \u0641\u064A \u062E\u0627\u062F\u0645 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629",
+      code: "AUTH_SERVER_ERROR"
     });
   }
-}
-var requireRole = (roles) => {
+};
+setInterval(() => {
+  const now = Date.now();
+  const oneHour2 = 60 * 60 * 1e3;
+  for (const [ip, activity] of suspiciousActivityTracker.entries()) {
+    if (now - activity.lastAttempt > oneHour2) {
+      suspiciousActivityTracker.delete(ip);
+    }
+  }
+}, oneHour);
+var requireAuth = authenticate;
+var requireRole = (role) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
         success: false,
-        message: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D"
+        message: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0644\u0643 \u0628\u0627\u0644\u0648\u0635\u0648\u0644",
+        code: "UNAUTHORIZED"
       });
     }
-    const allowedRoles = Array.isArray(roles) ? roles : [roles];
-    if (!allowedRoles.includes(req.user.role)) {
+    if (req.user.role !== role) {
+      console.log(`\u{1F6AB} [AUTH] \u0645\u062D\u0627\u0648\u0644\u0629 \u0648\u0635\u0648\u0644 \u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0628\u0647\u0627 \u0645\u0646: ${req.user.email} \u0644\u0644\u062F\u0648\u0631: ${role}`);
       return res.status(403).json({
         success: false,
-        message: "\u0645\u0645\u0646\u0648\u0639 - \u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0627\u0644\u062F\u0648\u0631 \u0627\u0644\u0645\u0637\u0644\u0648\u0628"
+        message: `\u062A\u062D\u062A\u0627\u062C \u0635\u0644\u0627\u062D\u064A\u0627\u062A ${role} \u0644\u0644\u0648\u0635\u0648\u0644 \u0644\u0647\u0630\u0627 \u0627\u0644\u0645\u062D\u062A\u0648\u0649`,
+        code: "ROLE_REQUIRED"
       });
     }
     next();
@@ -6366,7 +5396,7 @@ async function registerRoutes(app2) {
           date: dailyExpenseSummaries.date
         }).from(dailyExpenseSummaries).where(and5(
           eq5(dailyExpenseSummaries.projectId, projectId),
-          lt2(dailyExpenseSummaries.date, date2)
+          lt(dailyExpenseSummaries.date, date2)
         )).orderBy(desc3(dailyExpenseSummaries.date)).limit(1);
         if (latestSummary.length > 0) {
           const summaryDate = latestSummary[0].date;
@@ -6427,9 +5457,9 @@ async function registerRoutes(app2) {
     try {
       const whereConditions = [eq5(fundTransfers.projectId, projectId)];
       if (fromDate) {
-        whereConditions.push(gte2(fundTransfers.transferDate, sql4`${fromDate}::date`));
+        whereConditions.push(gte(fundTransfers.transferDate, sql4`${fromDate}::date`));
       }
-      whereConditions.push(lt2(fundTransfers.transferDate, sql4`(${toDate}::date + interval '1 day')`));
+      whereConditions.push(lt(fundTransfers.transferDate, sql4`(${toDate}::date + interval '1 day')`));
       const [
         ftRows,
         waRows,
@@ -6445,44 +5475,44 @@ async function registerRoutes(app2) {
         // أجور العمال
         db.select().from(workerAttendance).where(and5(
           eq5(workerAttendance.projectId, projectId),
-          fromDate ? gte2(workerAttendance.date, fromDate) : sql4`true`,
+          fromDate ? gte(workerAttendance.date, fromDate) : sql4`true`,
           lte(workerAttendance.date, toDate)
         )),
         // مشتريات المواد النقدية فقط
         db.select().from(materialPurchases).where(and5(
           eq5(materialPurchases.projectId, projectId),
           eq5(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
-          fromDate ? gte2(materialPurchases.purchaseDate, fromDate) : sql4`true`,
+          fromDate ? gte(materialPurchases.purchaseDate, fromDate) : sql4`true`,
           lte(materialPurchases.purchaseDate, toDate)
         )),
         // مصاريف النقل
         db.select().from(transportationExpenses).where(and5(
           eq5(transportationExpenses.projectId, projectId),
-          fromDate ? gte2(transportationExpenses.date, fromDate) : sql4`true`,
+          fromDate ? gte(transportationExpenses.date, fromDate) : sql4`true`,
           lte(transportationExpenses.date, toDate)
         )),
         // حوالات العمال
         db.select().from(workerTransfers).where(and5(
           eq5(workerTransfers.projectId, projectId),
-          fromDate ? gte2(workerTransfers.transferDate, fromDate) : sql4`true`,
+          fromDate ? gte(workerTransfers.transferDate, fromDate) : sql4`true`,
           lte(workerTransfers.transferDate, toDate)
         )),
         // مصاريف متنوعة للعمال
         db.select().from(workerMiscExpenses).where(and5(
           eq5(workerMiscExpenses.projectId, projectId),
-          fromDate ? gte2(workerMiscExpenses.date, fromDate) : sql4`true`,
+          fromDate ? gte(workerMiscExpenses.date, fromDate) : sql4`true`,
           lte(workerMiscExpenses.date, toDate)
         )),
         // تحويلات واردة من مشاريع أخرى
         db.select().from(projectFundTransfers).where(and5(
           eq5(projectFundTransfers.toProjectId, projectId),
-          fromDate ? gte2(projectFundTransfers.transferDate, fromDate) : sql4`true`,
+          fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql4`true`,
           lte(projectFundTransfers.transferDate, toDate)
         )),
         // تحويلات صادرة إلى مشاريع أخرى
         db.select().from(projectFundTransfers).where(and5(
           eq5(projectFundTransfers.fromProjectId, projectId),
-          fromDate ? gte2(projectFundTransfers.transferDate, fromDate) : sql4`true`,
+          fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql4`true`,
           lte(projectFundTransfers.transferDate, toDate)
         ))
       ]);
@@ -6817,7 +5847,7 @@ async function registerRoutes(app2) {
         miscExpensesResult,
         projectInfo
       ] = await Promise.all([
-        db.select().from(fundTransfers).where(and5(eq5(fundTransfers.projectId, projectId), gte2(fundTransfers.transferDate, sql4`${date2}::date`), lt2(fundTransfers.transferDate, sql4`(${date2}::date + interval '1 day')`))),
+        db.select().from(fundTransfers).where(and5(eq5(fundTransfers.projectId, projectId), gte(fundTransfers.transferDate, sql4`${date2}::date`), lt(fundTransfers.transferDate, sql4`(${date2}::date + interval '1 day')`))),
         db.select({
           id: workerAttendance.id,
           workerId: workerAttendance.workerId,
@@ -10160,7 +9190,7 @@ async function registerRoutes(app2) {
       }
       if (projectId) {
         whereConditions.push(
-          or3(
+          or2(
             eq5(projectFundTransfers.fromProjectId, projectId),
             eq5(projectFundTransfers.toProjectId, projectId)
           )
@@ -10454,6 +9484,21 @@ var vite_config_default = defineConfig({
     outDir: "../dist/public",
     emptyOutDir: true,
     target: "es2020",
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ["console.log", "console.info"],
+        passes: 2
+      },
+      mangle: {
+        safari10: true
+      },
+      format: {
+        comments: false
+      }
+    },
     rollupOptions: {
       output: {
         manualChunks: {
@@ -10463,10 +9508,27 @@ var vite_config_default = defineConfig({
           excel: ["exceljs"],
           query: ["@tanstack/react-query"],
           router: ["wouter"]
+        },
+        chunkFileNames: (chunkInfo) => {
+          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split("/").pop().replace(".tsx", "").replace(".ts", "") : "chunk";
+          return `assets/[name]-[hash].js`;
+        },
+        assetFileNames: (assetInfo) => {
+          const info = assetInfo.name.split(".");
+          const ext = info[info.length - 1];
+          if (/\.(png|jpe?g|gif|svg|ico|webp)$/i.test(assetInfo.name)) {
+            return `assets/img/[name]-[hash].${ext}`;
+          }
+          if (/\.(css)$/i.test(assetInfo.name)) {
+            return `assets/css/[name]-[hash].${ext}`;
+          }
+          return `assets/[name]-[hash].${ext}`;
         }
       }
     },
-    chunkSizeWarningLimit: 1e3
+    chunkSizeWarningLimit: 1e3,
+    reportCompressedSize: false,
+    sourcemap: false
   },
   resolve: {
     alias: {
@@ -10560,12 +9622,421 @@ init_db();
 init_schema();
 import { Router } from "express";
 import { z as z2 } from "zod";
-import { eq as eq7 } from "drizzle-orm";
+import { eq as eq8 } from "drizzle-orm";
+
+// server/auth/crypto-utils.ts
+import bcrypt from "bcrypt";
+import crypto from "crypto";
+import speakeasy from "speakeasy";
+var CRYPTO_CONFIG = {
+  saltRounds: 12,
+  // قوة تشفير bcrypt
+  totpWindow: 2,
+  // نافزة TOTP (عدد الفترات الزمنية المقبولة)
+  totpStep: 30,
+  // خطوة TOTP بالثواني
+  encryptionKey: process.env.ENCRYPTION_KEY || "construction-app-encryption-key-2025-very-secret",
+  algorithm: "aes-256-gcm"
+};
+async function hashPassword(password) {
+  try {
+    return await bcrypt.hash(password, CRYPTO_CONFIG.saltRounds);
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A \u062A\u0634\u0641\u064A\u0631 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631:", error);
+    throw new Error("\u0641\u0634\u0644 \u0641\u064A \u062A\u0634\u0641\u064A\u0631 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631");
+  }
+}
+async function verifyPassword(password, hashedPassword) {
+  try {
+    return await bcrypt.compare(password, hashedPassword);
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631:", error);
+    return false;
+  }
+}
+function generateTOTPSecret(userEmail, serviceName = "Construction Manager") {
+  const secret = speakeasy.generateSecret({
+    name: userEmail,
+    issuer: serviceName,
+    length: 32
+  });
+  const backupCodes = Array.from(
+    { length: 8 },
+    () => crypto.randomBytes(4).toString("hex").toUpperCase()
+  );
+  return {
+    secret: secret.base32,
+    qrCodeUrl: secret.otpauth_url || "",
+    backupCodes
+  };
+}
+function verifyTOTPCode(secret, token) {
+  try {
+    return speakeasy.totp.verify({
+      secret,
+      encoding: "base32",
+      token,
+      window: CRYPTO_CONFIG.totpWindow,
+      step: CRYPTO_CONFIG.totpStep
+    });
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 TOTP:", error);
+    return false;
+  }
+}
+function hashToken(token) {
+  try {
+    return crypto.createHash("sha256").update(token + CRYPTO_CONFIG.encryptionKey).digest("hex");
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A \u062A\u0634\u0641\u064A\u0631 \u0627\u0644\u0631\u0645\u0632:", error);
+    throw new Error("\u0641\u0634\u0644 \u0641\u064A \u062A\u0634\u0641\u064A\u0631 \u0627\u0644\u0631\u0645\u0632");
+  }
+}
+function validatePasswordStrength(password) {
+  const issues = [];
+  const suggestions = [];
+  let score = 0;
+  if (password.length < 8) {
+    issues.push("\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0642\u0635\u064A\u0631\u0629 \u062C\u062F\u0627\u064B");
+    suggestions.push("\u0627\u0633\u062A\u062E\u062F\u0645 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 8 \u0623\u062D\u0631\u0641");
+  } else if (password.length >= 12) {
+    score += 2;
+  } else {
+    score += 1;
+  }
+  if (!/[A-Z]/.test(password)) {
+    issues.push("\u0644\u0627 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0623\u062D\u0631\u0641 \u0643\u0628\u064A\u0631\u0629");
+    suggestions.push("\u0623\u0636\u0641 \u062D\u0631\u0641\u0627\u064B \u0643\u0628\u064A\u0631\u0627\u064B \u0648\u0627\u062D\u062F\u0627\u064B \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644");
+  } else {
+    score += 1;
+  }
+  if (!/[a-z]/.test(password)) {
+    issues.push("\u0644\u0627 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0623\u062D\u0631\u0641 \u0635\u063A\u064A\u0631\u0629");
+    suggestions.push("\u0623\u0636\u0641 \u062D\u0631\u0641\u0627\u064B \u0635\u063A\u064A\u0631\u0627\u064B \u0648\u0627\u062D\u062F\u0627\u064B \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644");
+  } else {
+    score += 1;
+  }
+  if (!/[0-9]/.test(password)) {
+    issues.push("\u0644\u0627 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0623\u0631\u0642\u0627\u0645");
+    suggestions.push("\u0623\u0636\u0641 \u0631\u0642\u0645\u0627\u064B \u0648\u0627\u062D\u062F\u0627\u064B \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644");
+  } else {
+    score += 1;
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    issues.push("\u0644\u0627 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0631\u0645\u0648\u0632 \u062E\u0627\u0635\u0629");
+    suggestions.push("\u0623\u0636\u0641 \u0631\u0645\u0632\u0627\u064B \u062E\u0627\u0635\u0627\u064B \u0645\u062B\u0644 !@#$%");
+  } else {
+    score += 1;
+  }
+  const commonPatterns = [
+    /123456/,
+    /password/i,
+    /qwerty/i,
+    /(.)\1{2,}/
+    // تكرار نفس الحرف 3 مرات أو أكثر
+  ];
+  for (const pattern of commonPatterns) {
+    if (pattern.test(password)) {
+      issues.push("\u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0646\u0645\u0637 \u0634\u0627\u0626\u0639 \u0623\u0648 \u0645\u062A\u0643\u0631\u0631");
+      suggestions.push("\u062A\u062C\u0646\u0628 \u0627\u0644\u0623\u0646\u0645\u0627\u0637 \u0627\u0644\u0634\u0627\u0626\u0639\u0629 \u0648\u0627\u0644\u062A\u0643\u0631\u0627\u0631");
+      score = Math.max(0, score - 1);
+      break;
+    }
+  }
+  return {
+    isValid: issues.length === 0 && score >= 4,
+    score,
+    issues,
+    suggestions
+  };
+}
 
 // server/auth/auth-service.ts
 init_db();
 init_schema();
-import { eq as eq6 } from "drizzle-orm";
+import { eq as eq7 } from "drizzle-orm";
+
+// server/auth/jwt-utils.ts
+init_db();
+init_schema();
+import jwt2 from "jsonwebtoken";
+import crypto2 from "crypto";
+import { eq as eq6, and as and6, lt as lt2, or as or3, ne, gte as gte2 } from "drizzle-orm";
+if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
+  throw new Error("JWT_ACCESS_SECRET \u0648 JWT_REFRESH_SECRET \u0645\u0637\u0644\u0648\u0628\u0627\u0646 \u0641\u064A \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629 \u0644\u0644\u0623\u0645\u0627\u0646");
+}
+var JWT_CONFIG = {
+  accessTokenSecret: process.env.JWT_ACCESS_SECRET,
+  refreshTokenSecret: process.env.JWT_REFRESH_SECRET,
+  accessTokenExpiry: "15m",
+  // 15 دقيقة
+  refreshTokenExpiry: "30d",
+  // 30 يوم
+  issuer: "construction-management-app",
+  algorithm: "HS256"
+};
+async function generateTokenPair(userId, email, role, ipAddress, userAgent, deviceInfo) {
+  const sessionId = crypto2.randomUUID();
+  const deviceId = deviceInfo?.deviceId || crypto2.randomUUID();
+  const now = /* @__PURE__ */ new Date();
+  const expiresAt = new Date(now.getTime() + 15 * 60 * 1e3);
+  const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
+  const accessPayload = { userId, email, role, sessionId, type: "access" };
+  const refreshPayload = { userId, email, sessionId, type: "refresh" };
+  const accessToken = jwt2.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
+    expiresIn: JWT_CONFIG.accessTokenExpiry,
+    issuer: JWT_CONFIG.issuer
+  });
+  const refreshToken = jwt2.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
+    expiresIn: JWT_CONFIG.refreshTokenExpiry,
+    issuer: JWT_CONFIG.issuer
+  });
+  const accessTokenHash = hashToken(accessToken);
+  const refreshTokenHash = hashToken(refreshToken);
+  try {
+    await db.insert(authUserSessions).values({
+      userId,
+      deviceId,
+      sessionToken: sessionId,
+      deviceFingerprint: deviceInfo?.fingerprint,
+      userAgent,
+      ipAddress,
+      locationData: deviceInfo?.location,
+      deviceName: deviceInfo?.name,
+      browserName: deviceInfo?.browser?.name,
+      browserVersion: deviceInfo?.browser?.version,
+      osName: deviceInfo?.os?.name,
+      osVersion: deviceInfo?.os?.version,
+      deviceType: deviceInfo?.type || "web",
+      loginMethod: "password",
+      accessTokenHash,
+      refreshTokenHash,
+      expiresAt: refreshExpiresAt,
+      // الجلسة تنتهي مع refresh token
+      isRevoked: false
+    });
+    console.log("\u2705 [JWT] \u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u062C\u0644\u0633\u0629 \u0628\u0646\u062C\u0627\u062D:", { userId, sessionId: sessionId.substring(0, 8) + "..." });
+  } catch (error) {
+    console.error("\u274C [JWT] \u062E\u0637\u0623 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u062C\u0644\u0633\u0629:", error);
+    throw new Error("\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u062C\u0644\u0633\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645");
+  }
+  return {
+    accessToken,
+    refreshToken,
+    sessionId,
+    expiresAt,
+    refreshExpiresAt
+  };
+}
+async function refreshAccessTokenDev(refreshToken) {
+  const startTime = Date.now();
+  console.log("\u{1F504} [JWT-DEV] \u0628\u062F\u0621 \u062A\u062C\u062F\u064A\u062F \u0645\u0628\u0633\u0637 \u0644\u0644\u062A\u0637\u0648\u064A\u0631...");
+  try {
+    const payload = jwt2.verify(refreshToken, JWT_CONFIG.refreshTokenSecret, {
+      issuer: JWT_CONFIG.issuer
+    });
+    if (payload.type !== "refresh") {
+      console.log("\u274C [JWT-DEV] \u0646\u0648\u0639 \u0631\u0645\u0632 \u062E\u0627\u0637\u0626:", payload.type);
+      return null;
+    }
+    const refreshTokenHash = hashToken(refreshToken);
+    const userWithSession = await db.select({
+      user: users,
+      session: authUserSessions
+    }).from(users).leftJoin(authUserSessions, and6(
+      eq6(authUserSessions.userId, users.id),
+      eq6(authUserSessions.refreshTokenHash, refreshTokenHash),
+      eq6(authUserSessions.isRevoked, false),
+      gte2(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
+    )).where(eq6(users.id, payload.userId)).limit(1);
+    if (userWithSession.length === 0 || !userWithSession[0].user || !userWithSession[0].user.isActive) {
+      console.log("\u274C [JWT-DEV] \u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u063A\u064A\u0631 \u0646\u0634\u0637");
+      return null;
+    }
+    if (!userWithSession[0].session) {
+      console.log("\u274C [JWT-DEV] \u062C\u0644\u0633\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629 \u0623\u0648 \u0645\u0646\u062A\u0647\u064A\u0629");
+      return null;
+    }
+    const user = userWithSession[0].user;
+    const session = userWithSession[0].session;
+    const now = /* @__PURE__ */ new Date();
+    const expiresAt = new Date(now.getTime() + 15 * 60 * 1e3);
+    const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
+    const accessPayload = { userId: payload.userId, email: user.email, role: user.role, sessionId: payload.sessionId, type: "access" };
+    const refreshPayload = { userId: payload.userId, email: user.email, sessionId: payload.sessionId, type: "refresh" };
+    const newAccessToken = jwt2.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
+      expiresIn: JWT_CONFIG.accessTokenExpiry,
+      issuer: JWT_CONFIG.issuer
+    });
+    const newRefreshToken = jwt2.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
+      expiresIn: JWT_CONFIG.refreshTokenExpiry,
+      issuer: JWT_CONFIG.issuer
+    });
+    await db.update(authUserSessions).set({
+      lastActivity: /* @__PURE__ */ new Date()
+    }).where(eq6(authUserSessions.id, session.id));
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [JWT-DEV] \u062A\u062C\u062F\u064A\u062F \u0645\u0628\u0633\u0637 \u0645\u0643\u062A\u0645\u0644 \u0641\u064A ${duration}ms`);
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      sessionId: payload.sessionId,
+      expiresAt,
+      refreshExpiresAt
+    };
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error(`\u274C [JWT-DEV] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062C\u062F\u064A\u062F \u0628\u0639\u062F ${duration}ms:`, error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+async function refreshAccessTokenProd(refreshToken) {
+  const startTime = Date.now();
+  console.log("\u{1F504} [JWT-PROD] \u0628\u062F\u0621 \u062A\u062C\u062F\u064A\u062F \u0643\u0627\u0645\u0644 \u0644\u0644\u0625\u0646\u062A\u0627\u062C...");
+  try {
+    const payload = jwt2.verify(refreshToken, JWT_CONFIG.refreshTokenSecret, {
+      issuer: JWT_CONFIG.issuer
+    });
+    if (payload.type !== "refresh") {
+      return null;
+    }
+    const user = await db.select().from(users).where(eq6(users.id, payload.userId)).limit(1);
+    if (user.length === 0 || !user[0].isActive) {
+      return null;
+    }
+    const refreshTokenHash = hashToken(refreshToken);
+    const session = await db.select().from(authUserSessions).where(
+      and6(
+        eq6(authUserSessions.userId, payload.userId),
+        eq6(authUserSessions.refreshTokenHash, refreshTokenHash),
+        eq6(authUserSessions.isRevoked, false),
+        gte2(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
+      )
+    ).limit(1);
+    if (session.length === 0) {
+      return null;
+    }
+    const now = /* @__PURE__ */ new Date();
+    const expiresAt = new Date(now.getTime() + 15 * 60 * 1e3);
+    const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
+    const newSessionId = crypto2.randomUUID();
+    const accessPayload = { userId: payload.userId, email: user[0].email, role: user[0].role, sessionId: newSessionId, type: "access" };
+    const refreshPayload = { userId: payload.userId, email: user[0].email, sessionId: newSessionId, type: "refresh" };
+    const newAccessToken = jwt2.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
+      expiresIn: JWT_CONFIG.accessTokenExpiry,
+      issuer: JWT_CONFIG.issuer
+    });
+    const newRefreshToken = jwt2.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
+      expiresIn: JWT_CONFIG.refreshTokenExpiry,
+      issuer: JWT_CONFIG.issuer
+    });
+    const newAccessTokenHash = hashToken(newAccessToken);
+    const newRefreshTokenHash = hashToken(newRefreshToken);
+    await db.update(authUserSessions).set({
+      sessionToken: newSessionId,
+      accessTokenHash: newAccessTokenHash,
+      refreshTokenHash: newRefreshTokenHash,
+      expiresAt: refreshExpiresAt,
+      lastActivity: /* @__PURE__ */ new Date()
+    }).where(eq6(authUserSessions.id, session[0].id));
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [JWT-PROD] \u062A\u0645 \u062A\u062F\u0648\u064A\u0631 \u0627\u0644\u0631\u0645\u0648\u0632 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
+      userId: payload.userId,
+      oldSessionId: session[0].sessionToken?.substring(0, 8) + "...",
+      newSessionId: newSessionId.substring(0, 8) + "..."
+    });
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      sessionId: newSessionId,
+      expiresAt,
+      refreshExpiresAt
+    };
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error(`\u274C [JWT-PROD] \u062E\u0637\u0623 \u0641\u064A \u062A\u062C\u062F\u064A\u062F \u0627\u0644\u0631\u0645\u0632 \u0628\u0639\u062F ${duration}ms`);
+    return null;
+  }
+}
+async function refreshAccessToken(refreshToken) {
+  const isDevelopment = process.env.NODE_ENV === "development";
+  if (isDevelopment) {
+    return await refreshAccessTokenDev(refreshToken);
+  } else {
+    return await refreshAccessTokenProd(refreshToken);
+  }
+}
+async function revokeToken(tokenOrSessionId, reason) {
+  try {
+    let updated = await db.update(authUserSessions).set({
+      isRevoked: true,
+      revokedAt: /* @__PURE__ */ new Date(),
+      revokedReason: reason || "manual_revoke"
+    }).where(eq6(authUserSessions.sessionToken, tokenOrSessionId));
+    if ((updated.rowCount || 0) === 0) {
+      updated = await db.update(authUserSessions).set({
+        isRevoked: true,
+        revokedAt: /* @__PURE__ */ new Date(),
+        revokedReason: reason || "manual_revoke"
+      }).where(
+        or3(
+          eq6(authUserSessions.accessTokenHash, tokenOrSessionId),
+          eq6(authUserSessions.refreshTokenHash, tokenOrSessionId),
+          eq6(authUserSessions.deviceId, tokenOrSessionId)
+        )
+      );
+    }
+    const success = (updated.rowCount || 0) > 0;
+    if (success) {
+      console.log("\u2705 [JWT] \u062A\u0645 \u0625\u0628\u0637\u0627\u0644 \u0627\u0644\u062C\u0644\u0633\u0629 \u0628\u0646\u062C\u0627\u062D:", {
+        sessionId: tokenOrSessionId.length > 32 ? "token" : tokenOrSessionId.substring(0, 8) + "...",
+        reason
+      });
+    }
+    return success;
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A \u0625\u0628\u0637\u0627\u0644 \u0627\u0644\u062C\u0644\u0633\u0629");
+    return false;
+  }
+}
+async function revokeAllUserSessions(userId, exceptSessionId) {
+  try {
+    const conditions = [
+      eq6(authUserSessions.userId, userId),
+      eq6(authUserSessions.isRevoked, false)
+    ];
+    if (exceptSessionId) {
+      conditions.push(ne(authUserSessions.deviceId, exceptSessionId));
+    }
+    const updated = await db.update(authUserSessions).set({
+      isRevoked: true,
+      revokedAt: /* @__PURE__ */ new Date(),
+      revokedReason: "logout_all_devices"
+    }).where(and6(...conditions));
+    return updated.rowCount || 0;
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A \u0625\u0628\u0637\u0627\u0644 \u062C\u0644\u0633\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", error);
+    return 0;
+  }
+}
+async function getUserActiveSessions(userId) {
+  return db.select({
+    sessionId: authUserSessions.deviceId,
+    ipAddress: authUserSessions.ipAddress,
+    userAgent: authUserSessions.browserName,
+    deviceInfo: authUserSessions.deviceType,
+    issuedAt: authUserSessions.createdAt,
+    lastUsedAt: authUserSessions.lastActivity,
+    expiresAt: authUserSessions.expiresAt
+  }).from(authUserSessions).where(
+    and6(
+      eq6(authUserSessions.userId, userId),
+      eq6(authUserSessions.isRevoked, false)
+    )
+  ).orderBy(authUserSessions.lastActivity);
+}
+
+// server/auth/auth-service.ts
 function parseFullName(fullName) {
   if (!fullName || typeof fullName !== "string") {
     return { firstName: fullName || "" };
@@ -10634,7 +10105,7 @@ async function registerUser(request) {
       };
     }
     console.log("\u{1F50D} [Register] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0648\u062C\u0648\u062F \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0633\u0628\u0642\u0627\u064B...");
-    const existingUser = await db.select().from(users).where(eq6(users.email, email.toLowerCase())).limit(1);
+    const existingUser = await db.select().from(users).where(eq7(users.email, email.toLowerCase())).limit(1);
     if (existingUser.length > 0) {
       console.log("\u274C [Register] \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B");
       return {
@@ -10733,7 +10204,7 @@ async function setupTOTP(userId, email) {
     await db.update(users).set({
       totpSecret: secret
       // mfaEnabled حقل غير موجود في جدول users
-    }).where(eq6(users.id, userId));
+    }).where(eq7(users.id, userId));
     return {
       success: true,
       secret,
@@ -10751,7 +10222,7 @@ async function setupTOTP(userId, email) {
 }
 async function enableTOTP(userId, totpCode, ipAddress, userAgent) {
   try {
-    const user = await db.select().from(users).where(eq6(users.id, userId)).limit(1);
+    const user = await db.select().from(users).where(eq7(users.id, userId)).limit(1);
     if (user.length === 0 || !user[0].totpSecret) {
       return {
         success: false,
@@ -10808,7 +10279,7 @@ async function terminateAllOtherSessions(userId, exceptSessionId) {
 }
 async function changePassword(userId, currentPassword, newPassword, ipAddress, userAgent) {
   try {
-    const user = await db.select().from(users).where(eq6(users.id, userId)).limit(1);
+    const user = await db.select().from(users).where(eq7(users.id, userId)).limit(1);
     if (user.length === 0) {
       return {
         success: false,
@@ -10843,7 +10314,7 @@ async function changePassword(userId, currentPassword, newPassword, ipAddress, u
     const newPasswordHash = await hashPassword(newPassword);
     await db.update(users).set({
       password: newPasswordHash
-    }).where(eq6(users.id, userId));
+    }).where(eq7(users.id, userId));
     await revokeAllUserSessions(userId);
     await logAuditEvent({
       userId,
@@ -10932,7 +10403,7 @@ router.post("/login", async (req, res) => {
     const isBypassLogin = email === "admin@demo.local" && password === "bypass-demo-login";
     if (isBypassLogin && isDevEnvironment && quickLoginEnabled) {
       console.log("\u{1F680} [Auth] \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644 \u0633\u0631\u064A\u0639 \u062A\u062C\u0631\u064A\u0628\u064A (\u0628\u064A\u0626\u0629 \u062A\u0637\u0648\u064A\u0631 \u0641\u0642\u0637)");
-      let user2 = await db.select().from(users).where(eq7(users.role, "admin")).limit(1);
+      let user2 = await db.select().from(users).where(eq8(users.role, "admin")).limit(1);
       if (user2.length === 0) {
         console.log("\u{1F464} [Auth] \u0625\u0646\u0634\u0627\u0621 \u0645\u0633\u062A\u062E\u062F\u0645 admin \u062A\u062C\u0631\u064A\u0628\u064A");
         const newUser = await db.insert(users).values({
@@ -11009,7 +10480,7 @@ router.post("/login", async (req, res) => {
       lastLogin: users.lastLogin,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt
-    }).from(users).where(eq7(users.email, email.toLowerCase())).limit(1);
+    }).from(users).where(eq8(users.email, email.toLowerCase())).limit(1);
     if (userResult.length === 0) {
       console.log("\u274C [Auth] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", email);
       return res.status(401).json({
@@ -11042,7 +10513,7 @@ router.post("/login", async (req, res) => {
       user.role
     );
     console.log("\u{1F4DD} [Auth] \u062A\u062D\u062F\u064A\u062B \u0622\u062E\u0631 \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644...");
-    await db.update(users).set({ lastLogin: /* @__PURE__ */ new Date() }).where(eq7(users.id, user.id));
+    await db.update(users).set({ lastLogin: /* @__PURE__ */ new Date() }).where(eq8(users.id, user.id));
     console.log("\u2705 [Auth] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0646\u062C\u0627\u062D");
     const responseData = {
       success: true,
@@ -11407,7 +10878,7 @@ router.get("/me", requireAuth, async (req, res) => {
     const role = req.user?.role || "user";
     let userData = null;
     try {
-      const userResult = await db.select().from(users).where(eq7(users.id, userId)).limit(1);
+      const userResult = await db.select().from(users).where(eq8(users.id, userId)).limit(1);
       if (userResult.length > 0) {
         userData = userResult[0];
       }
@@ -11446,6 +10917,625 @@ var auth_default = router;
 
 // server/routes/publicRouter.ts
 import express2 from "express";
+
+// server/config/routes.ts
+import rateLimit3 from "express-rate-limit";
+var PUBLIC_ROUTES = [
+  {
+    name: "auth",
+    description: "\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u0648\u0627\u0644\u062A\u0633\u062C\u064A\u0644",
+    routes: [
+      {
+        path: "/api/auth/login",
+        methods: ["POST"],
+        description: "\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644"
+      },
+      {
+        path: "/api/auth/register",
+        methods: ["POST"],
+        description: "\u0625\u0646\u0634\u0627\u0621 \u062D\u0633\u0627\u0628 \u062C\u062F\u064A\u062F"
+      },
+      {
+        path: "/api/auth/refresh",
+        methods: ["POST"],
+        description: "\u062A\u062C\u062F\u064A\u062F \u0631\u0645\u0632 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629"
+      },
+      {
+        path: "/api/auth/logout",
+        methods: ["POST"],
+        description: "\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062E\u0631\u0648\u062C"
+      }
+    ],
+    globalRateLimit: {
+      windowMs: 15 * 60 * 1e3,
+      // 15 دقيقة
+      max: 20,
+      // 20 محاولة كل 15 دقيقة
+      message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629"
+    }
+  },
+  {
+    name: "health_monitoring",
+    description: "\u0645\u0633\u0627\u0631\u0627\u062A \u0645\u0631\u0627\u0642\u0628\u0629 \u0635\u062D\u0629 \u0627\u0644\u0646\u0638\u0627\u0645",
+    routes: [
+      {
+        path: "/api/health",
+        methods: ["GET", "HEAD"],
+        description: "\u0641\u062D\u0635 \u0635\u062D\u0629 \u0627\u0644\u0646\u0638\u0627\u0645"
+      },
+      {
+        path: "/api/status",
+        methods: ["GET"],
+        description: "\u062D\u0627\u0644\u0629 \u0627\u0644\u0646\u0638\u0627\u0645 \u0627\u0644\u062A\u0641\u0635\u064A\u0644\u064A\u0629"
+      }
+    ]
+  },
+  {
+    name: "autocomplete_preflight",
+    description: "\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0640 preflight \u0648\u0627\u0644\u0641\u062D\u0635 \u0644\u0644\u0640 autocomplete",
+    routes: [
+      {
+        path: "/api/autocomplete",
+        methods: ["HEAD", "OPTIONS"],
+        description: "\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0641\u062D\u0635 \u0627\u0644\u0645\u0633\u0628\u0642 \u0644\u0644\u0640 autocomplete"
+      }
+    ],
+    globalRateLimit: {
+      windowMs: 1 * 60 * 1e3,
+      // دقيقة واحدة
+      max: 100,
+      // 100 طلب فحص كل دقيقة
+      message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0641\u062D\u0635"
+    }
+  },
+  {
+    name: "public_data",
+    description: "\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0629 \u063A\u064A\u0631 \u0627\u0644\u062D\u0633\u0627\u0633\u0629",
+    routes: [
+      {
+        path: "/api/worker-types",
+        methods: ["GET"],
+        description: "\u0642\u0627\u0626\u0645\u0629 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644 - \u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u062D\u0633\u0627\u0633\u0629"
+      }
+    ]
+  },
+  {
+    name: "cors_preflight",
+    description: "\u0637\u0644\u0628\u0627\u062A CORS \u0627\u0644\u0645\u0633\u0628\u0642\u0629",
+    routes: [
+      {
+        path: "/api/*",
+        methods: ["OPTIONS"],
+        description: "\u0637\u0644\u0628\u0627\u062A OPTIONS \u0644\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A",
+        isWildcard: true
+      }
+    ]
+  }
+];
+var PROTECTED_ROUTES = [
+  {
+    name: "autocomplete_data",
+    description: "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0640 autocomplete - \u0645\u062D\u0645\u064A\u0629",
+    routes: [
+      {
+        path: "/api/autocomplete",
+        methods: ["GET", "POST"],
+        description: "\u062C\u0644\u0628 \u0648\u0625\u0631\u0633\u0627\u0644 \u0628\u064A\u0627\u0646\u0627\u062A autocomplete"
+      },
+      {
+        path: "/api/autocomplete/senderNames",
+        methods: ["GET"],
+        description: "\u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0631\u0633\u0644\u064A\u0646 \u0644\u0644\u0640 autocomplete"
+      },
+      {
+        path: "/api/autocomplete/transferNumbers",
+        methods: ["GET"],
+        description: "\u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0644\u0644\u0640 autocomplete"
+      },
+      {
+        path: "/api/autocomplete/transferTypes",
+        methods: ["GET"],
+        description: "\u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0644\u0644\u0640 autocomplete"
+      },
+      {
+        path: "/api/autocomplete/transportDescriptions",
+        methods: ["GET"],
+        description: "\u0623\u0648\u0635\u0627\u0641 \u0627\u0644\u0646\u0642\u0644 \u0644\u0644\u0640 autocomplete"
+      },
+      {
+        path: "/api/autocomplete/notes",
+        methods: ["GET"],
+        description: "\u0627\u0644\u0645\u0644\u0627\u062D\u0638\u0627\u062A \u0644\u0644\u0640 autocomplete"
+      },
+      {
+        path: "/api/autocomplete/workerMiscDescriptions",
+        methods: ["GET"],
+        description: "\u0623\u0648\u0635\u0627\u0641 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0639\u0645\u0627\u0644 \u0644\u0644\u0640 autocomplete"
+      }
+    ],
+    globalRateLimit: {
+      windowMs: 1 * 60 * 1e3,
+      // دقيقة واحدة
+      max: 200,
+      // 200 طلب autocomplete كل دقيقة
+      message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0637\u0644\u0628\u0627\u062A autocomplete"
+    }
+  },
+  {
+    name: "core_data",
+    description: "\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u0629 \u0627\u0644\u0645\u062D\u0645\u064A\u0629",
+    routes: [
+      {
+        path: "/api/projects",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
+      },
+      {
+        path: "/api/projects/with-stats",
+        methods: ["GET"],
+        description: "\u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0645\u0639 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A"
+      },
+      {
+        path: "/api/projects/:id",
+        methods: ["GET", "PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u062F\u062F",
+        parameters: ["id"]
+      },
+      {
+        path: "/api/projects/:projectId/fund-transfers",
+        methods: ["GET"],
+        description: "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0639\u0647\u062F\u0629 \u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u062F\u062F",
+        parameters: ["projectId"]
+      },
+      {
+        path: "/api/projects/:projectId/worker-attendance",
+        methods: ["GET"],
+        description: "\u062D\u0636\u0648\u0631 \u0639\u0645\u0627\u0644 \u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u062F\u062F",
+        parameters: ["projectId"]
+      },
+      {
+        path: "/api/projects/:projectId/material-purchases",
+        methods: ["GET"],
+        description: "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0645\u0648\u0627\u062F \u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u062F\u062F",
+        parameters: ["projectId"]
+      },
+      {
+        path: "/api/projects/:projectId/transportation-expenses",
+        methods: ["GET"],
+        description: "\u0645\u0635\u0627\u0631\u064A\u0641 \u0646\u0642\u0644 \u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u062F\u062F",
+        parameters: ["projectId"]
+      },
+      {
+        path: "/api/projects/:projectId/worker-misc-expenses",
+        methods: ["GET"],
+        description: "\u0645\u0635\u0627\u0631\u064A\u0641 \u0639\u0645\u0627\u0644 \u0645\u062A\u0646\u0648\u0639\u0629 \u0644\u0645\u0634\u0631\u0648\u0639",
+        parameters: ["projectId"]
+      },
+      {
+        path: "/api/projects/:id/daily-summary/:date",
+        methods: ["GET"],
+        description: "\u0645\u0644\u062E\u0635 \u064A\u0648\u0645\u064A \u0644\u0645\u0634\u0631\u0648\u0639 \u0641\u064A \u062A\u0627\u0631\u064A\u062E \u0645\u062D\u062F\u062F",
+        parameters: ["id", "date"]
+      },
+      {
+        path: "/api/projects/:projectId/daily-expenses/:date",
+        methods: ["GET"],
+        description: "\u0645\u0635\u0627\u0631\u064A\u0641 \u064A\u0648\u0645\u064A\u0629 \u0644\u0645\u0634\u0631\u0648\u0639",
+        parameters: ["projectId", "date"]
+      },
+      {
+        path: "/api/projects/:projectId/previous-balance/:date",
+        methods: ["GET"],
+        description: "\u0631\u0635\u064A\u062F \u0633\u0627\u0628\u0642 \u0644\u0645\u0634\u0631\u0648\u0639",
+        parameters: ["projectId", "date"]
+      },
+      {
+        path: "/api/workers",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0639\u0645\u0627\u0644"
+      },
+      {
+        path: "/api/workers/:id",
+        methods: ["GET", "PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0639\u0627\u0645\u0644 \u0645\u062D\u062F\u062F",
+        parameters: ["id"]
+      },
+      {
+        path: "/api/materials",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0648\u0627\u062F"
+      },
+      {
+        path: "/api/materials/:id",
+        methods: ["GET", "PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0627\u062F\u0629 \u0645\u062D\u062F\u062F\u0629",
+        parameters: ["id"]
+      },
+      {
+        path: "/api/suppliers",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646"
+      },
+      {
+        path: "/api/suppliers/:id",
+        methods: ["GET", "PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0648\u0631\u062F \u0645\u062D\u062F\u062F",
+        parameters: ["id"]
+      },
+      {
+        path: "/api/material-purchases",
+        methods: ["GET", "POST"],
+        description: "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F"
+      },
+      {
+        path: "/api/material-purchases/:id",
+        methods: ["PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0648\u0627\u062F \u0645\u062D\u062F\u062F\u0629",
+        parameters: ["id"]
+      },
+      {
+        path: "/api/worker-attendance",
+        methods: ["GET", "POST"],
+        description: "\u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644"
+      },
+      {
+        path: "/api/worker-attendance/:id",
+        methods: ["PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0645\u062D\u062F\u062F",
+        parameters: ["id"]
+      },
+      {
+        path: "/api/transportation-expenses",
+        methods: ["GET", "POST"],
+        description: "\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A"
+      },
+      {
+        path: "/api/transportation-expenses/:id",
+        methods: ["PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0635\u0631\u0648\u0641 \u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0645\u062D\u062F\u062F",
+        parameters: ["id"]
+      },
+      {
+        path: "/api/daily-expense-summaries",
+        methods: ["GET", "POST"],
+        description: "\u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629"
+      },
+      {
+        path: "/api/daily-expense-summaries/:id",
+        methods: ["PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0644\u062E\u0635 \u0645\u0635\u0631\u0648\u0641 \u064A\u0648\u0645\u064A \u0645\u062D\u062F\u062F",
+        parameters: ["id"]
+      }
+    ]
+  },
+  {
+    name: "financial_data",
+    description: "\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0648\u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A",
+    routes: [
+      {
+        path: "/api/project-fund-transfers",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        description: "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0623\u0645\u0648\u0627\u0644 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
+      },
+      {
+        path: "/api/fund-transfers",
+        methods: ["GET", "POST", "PATCH", "DELETE"],
+        description: "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0623\u0645\u0648\u0627\u0644 \u0627\u0644\u0639\u0627\u0645\u0629"
+      },
+      {
+        path: "/api/fund-transfers/:id",
+        methods: ["PATCH", "DELETE"],
+        description: "\u062A\u0639\u062F\u064A\u0644 \u0648\u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0645\u062D\u062F\u062F",
+        parameters: ["id"]
+      },
+      {
+        path: "/api/worker-misc-expenses",
+        methods: ["GET", "POST", "PATCH", "DELETE"],
+        description: "\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639\u0629"
+      },
+      {
+        path: "/api/worker-transfers",
+        methods: ["GET", "POST", "PATCH", "DELETE"],
+        description: "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644"
+      },
+      {
+        path: "/api/worker-transfers/:id",
+        methods: ["PATCH", "DELETE"],
+        description: "\u062A\u0639\u062F\u064A\u0644 \u0648\u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0639\u0627\u0645\u0644 \u0645\u062D\u062F\u062F",
+        parameters: ["id"]
+      },
+      {
+        path: "/api/worker-misc-expenses/:id",
+        methods: ["PATCH", "DELETE"],
+        description: "\u062A\u0639\u062F\u064A\u0644 \u0648\u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0639\u0627\u0645\u0644 \u0645\u062D\u062F\u062F",
+        parameters: ["id"]
+      }
+    ],
+    globalRateLimit: {
+      windowMs: 1 * 60 * 1e3,
+      // دقيقة واحدة
+      max: 60,
+      // 60 طلب مالي كل دقيقة
+      message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629"
+    }
+  },
+  {
+    name: "auth_protected",
+    description: "\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u0627\u0644\u0645\u062D\u0645\u064A\u0629",
+    routes: [
+      {
+        path: "/api/auth/me",
+        methods: ["GET"],
+        description: "\u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u062D\u0627\u0644\u064A"
+      },
+      {
+        path: "/api/auth/sessions",
+        methods: ["GET", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u062C\u0644\u0633\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645"
+      },
+      {
+        path: "/api/auth/sessions/:sessionId",
+        methods: ["DELETE"],
+        description: "\u0625\u0646\u0647\u0627\u0621 \u062C\u0644\u0633\u0629 \u0645\u062D\u062F\u062F\u0629",
+        parameters: ["sessionId"]
+      },
+      {
+        path: "/api/auth/password",
+        methods: ["PUT"],
+        description: "\u062A\u063A\u064A\u064A\u0631 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631"
+      },
+      {
+        path: "/api/auth/logout",
+        methods: ["POST"],
+        description: "\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062E\u0631\u0648\u062C"
+      }
+    ],
+    globalRateLimit: {
+      windowMs: 15 * 60 * 1e3,
+      // 15 دقيقة
+      max: 50,
+      // 50 طلب مصادقة كل 15 دقيقة
+      message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629"
+    }
+  },
+  {
+    name: "management_data",
+    description: "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0625\u062F\u0627\u0631\u0629 \u0648\u0627\u0644\u062A\u0642\u0627\u0631\u064A\u0631",
+    routes: [
+      {
+        path: "/api/notifications",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A"
+      },
+      {
+        path: "/api/notifications/:id/read",
+        methods: ["POST"],
+        description: "\u0648\u0636\u0639 \u0639\u0644\u0627\u0645\u0629 \u0642\u0631\u0627\u0621\u0629 \u0639\u0644\u0649 \u0625\u0634\u0639\u0627\u0631",
+        parameters: ["id"]
+      },
+      {
+        path: "/api/notifications/mark-all-read",
+        methods: ["POST"],
+        description: "\u0648\u0636\u0639 \u0639\u0644\u0627\u0645\u0629 \u0642\u0631\u0627\u0621\u0629 \u0639\u0644\u0649 \u062C\u0645\u064A\u0639 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A"
+      },
+      {
+        path: "/api/tools",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        description: "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0623\u062F\u0648\u0627\u062A"
+      },
+      {
+        path: "/api/tool-movements",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        description: "\u062D\u0631\u0643\u0627\u062A \u0627\u0644\u0623\u062F\u0648\u0627\u062A"
+      }
+    ]
+  }
+];
+var AdvancedRouteManager = class {
+  publicRouteMap;
+  protectedRouteMap;
+  wildcardRoutes;
+  rateLimiters;
+  constructor() {
+    this.publicRouteMap = /* @__PURE__ */ new Map();
+    this.protectedRouteMap = /* @__PURE__ */ new Map();
+    this.wildcardRoutes = [];
+    this.rateLimiters = /* @__PURE__ */ new Map();
+    this.initializeRoutes();
+  }
+  /**
+   * تهيئة المسارات وإنشاء خرائط البحث السريع
+   */
+  initializeRoutes() {
+    PUBLIC_ROUTES.forEach((group) => {
+      group.routes.forEach((route) => {
+        this.processRoute(route, true, group.globalRateLimit);
+      });
+    });
+    PROTECTED_ROUTES.forEach((group) => {
+      group.routes.forEach((route) => {
+        this.processRoute(route, false, group.globalRateLimit);
+      });
+    });
+    console.log(`\u{1F5FA}\uFE0F [RouteManager] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 ${this.publicRouteMap.size} \u0645\u0633\u0627\u0631 \u0639\u0627\u0645 \u0648 ${this.protectedRouteMap.size} \u0645\u0633\u0627\u0631 \u0645\u062D\u0645\u064A`);
+    console.log(`\u{1F50D} [RouteManager] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 ${this.wildcardRoutes.length} \u0645\u0633\u0627\u0631 wildcard`);
+  }
+  /**
+   * معالجة مسار واحد وإضافته للخرائط المناسبة
+   */
+  processRoute(route, isPublic, globalRateLimit2) {
+    if (route.isWildcard || route.path.includes("*")) {
+      const regexPattern = route.path.replace(/\*/g, ".*").replace(/:[^/]+/g, "[^/]+");
+      this.wildcardRoutes.push({
+        pattern: new RegExp(`^${regexPattern}$`),
+        methods: new Set(route.methods),
+        isPublic
+      });
+    } else {
+      const targetMap = isPublic ? this.publicRouteMap : this.protectedRouteMap;
+      const methodSet = targetMap.get(route.path) || /* @__PURE__ */ new Set();
+      route.methods.forEach((method) => {
+        if (method === "*") {
+          ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"].forEach(
+            (m) => methodSet.add(m)
+          );
+        } else {
+          methodSet.add(method);
+        }
+      });
+      targetMap.set(route.path, methodSet);
+    }
+    if (route.rateLimit || globalRateLimit2) {
+      const rateLimitConfig = route.rateLimit || globalRateLimit2;
+      const limiterId = `${route.path}:${route.methods.join(",")}`;
+      this.rateLimiters.set(limiterId, rateLimit3({
+        windowMs: rateLimitConfig.windowMs,
+        max: rateLimitConfig.max,
+        message: {
+          success: false,
+          error: rateLimitConfig.message,
+          code: "RATE_LIMIT_EXCEEDED"
+        },
+        standardHeaders: true,
+        legacyHeaders: false
+      }));
+    }
+  }
+  /**
+   * فحص ما إذا كان المسار عامًا (لا يحتاج مصادقة)
+   */
+  isPublicRoute(path4, method) {
+    const publicMethods = this.publicRouteMap.get(path4);
+    if (publicMethods && (publicMethods.has(method) || publicMethods.has("*"))) {
+      return true;
+    }
+    for (const wildcardRoute of this.wildcardRoutes) {
+      if (wildcardRoute.isPublic && wildcardRoute.pattern.test(path4) && (wildcardRoute.methods.has(method) || wildcardRoute.methods.has("*"))) {
+        return true;
+      }
+    }
+    return false;
+  }
+  /**
+   * فحص ما إذا كان المسار محميًا (يحتاج مصادقة)
+   */
+  isProtectedRoute(path4, method) {
+    const protectedMethods = this.protectedRouteMap.get(path4);
+    if (protectedMethods && (protectedMethods.has(method) || protectedMethods.has("*"))) {
+      return true;
+    }
+    for (const wildcardRoute of this.wildcardRoutes) {
+      if (!wildcardRoute.isPublic && wildcardRoute.pattern.test(path4) && (wildcardRoute.methods.has(method) || wildcardRoute.methods.has("*"))) {
+        return true;
+      }
+    }
+    return false;
+  }
+  /**
+   * الحصول على rate limiter للمسار إذا وجد - محسن لدعم المعاملات
+   */
+  getRateLimiter(path4, method) {
+    for (const [limiterId, limiter] of Array.from(this.rateLimiters.entries())) {
+      const [limiterPath, methods] = limiterId.split(":");
+      const methodsList = methods.split(",");
+      const isPathMatch = limiterPath === path4 || this.matchesPatternWithParams(path4, limiterPath);
+      const isMethodMatch = methodsList.includes(method) || methodsList.includes("*");
+      if (isPathMatch && isMethodMatch) {
+        return limiter;
+      }
+    }
+    return null;
+  }
+  /**
+   * فحص مطابقة المسار مع نمط يحتوي على معاملات
+   */
+  matchesPatternWithParams(actualPath, patternPath) {
+    const regexPattern = patternPath.replace(/\*/g, ".*").replace(/:[^/]+/g, "[^/]+");
+    const regex = new RegExp(`^${regexPattern}$`);
+    return regex.test(actualPath);
+  }
+  /**
+   * استخراج المعاملات من المسار
+   */
+  extractParameters(routePath, actualPath) {
+    const parameters = {};
+    const routeParts = routePath.split("/");
+    const actualParts = actualPath.split("/");
+    if (routeParts.length !== actualParts.length) {
+      return parameters;
+    }
+    for (let i = 0; i < routeParts.length; i++) {
+      const routePart = routeParts[i];
+      const actualPart = actualParts[i];
+      if (routePart.startsWith(":")) {
+        const paramName = routePart.substring(1);
+        parameters[paramName] = actualPart;
+      }
+    }
+    return parameters;
+  }
+  /**
+   * الحصول على إحصائيات المسارات
+   */
+  getRouteStats() {
+    return {
+      publicRoutes: this.publicRouteMap.size,
+      protectedRoutes: this.protectedRouteMap.size,
+      wildcardRoutes: this.wildcardRoutes.length,
+      rateLimiters: this.rateLimiters.size,
+      totalRoutes: this.publicRouteMap.size + this.protectedRouteMap.size + this.wildcardRoutes.length
+    };
+  }
+  /**
+   * طباعة تفاصيل المسارات للتتبع
+   */
+  logRouteDetails() {
+    console.log("\u{1F5FA}\uFE0F [RouteManager] \u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A:");
+    console.log("\u{1F4C2} \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0629:", Array.from(this.publicRouteMap.keys()));
+    console.log("\u{1F512} \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u062D\u0645\u064A\u0629:", Array.from(this.protectedRouteMap.keys()));
+    console.log("\u{1F50D} \u0645\u0633\u0627\u0631\u0627\u062A Wildcard:", this.wildcardRoutes.map((r) => r.pattern.source));
+  }
+};
+var routeManager = new AdvancedRouteManager();
+var publicRouteRateLimit = rateLimit3({
+  windowMs: 15 * 60 * 1e3,
+  // 15 دقيقة
+  max: 100,
+  // 100 طلب كل 15 دقيقة للمسارات العامة
+  message: {
+    success: false,
+    error: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0629",
+    code: "PUBLIC_RATE_LIMIT_EXCEEDED"
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // تطبيق فقط على المسارات العامة
+  skip: (req) => {
+    const path4 = req.path || req.url || "";
+    const method = req.method || "GET";
+    return !routeManager.isPublicRoute(path4, method);
+  }
+});
+var authRouteRateLimit = rateLimit3({
+  windowMs: 15 * 60 * 1e3,
+  // 15 دقيقة
+  max: 10,
+  // 10 محاولات مصادقة كل 15 دقيقة
+  message: {
+    success: false,
+    error: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0645\u062D\u0627\u0648\u0644\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629",
+    code: "AUTH_RATE_LIMIT_EXCEEDED"
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // تطبيق فقط على مسارات المصادقة
+  skip: (req) => {
+    const path4 = req.path || req.url || "";
+    return !path4.startsWith("/api/auth/");
+  }
+});
+
+// server/routes/publicRouter.ts
 var publicRouter = express2.Router();
 publicRouter.get("/health", (req, res) => {
   res.json({
@@ -11734,7 +11824,7 @@ var healthRoutes_default = healthRouter;
 init_db();
 init_schema();
 import express5 from "express";
-import { eq as eq8, and as and7, sql as sql5, gte as gte4, lt as lt3, lte as lte2, desc as desc5 } from "drizzle-orm";
+import { eq as eq9, and as and8, sql as sql5, gte as gte4, lt as lt3, lte as lte2, desc as desc5 } from "drizzle-orm";
 var projectRouter = express5.Router();
 projectRouter.use(requireAuth);
 projectRouter.get("/", async (req, res) => {
@@ -11978,7 +12068,7 @@ projectRouter.get("/:id", async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const projectResult = await db.select().from(projects).where(eq8(projects.id, id)).limit(1);
+    const projectResult = await db.select().from(projects).where(eq9(projects.id, id)).limit(1);
     if (projectResult.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", id);
@@ -12125,7 +12215,7 @@ projectRouter.patch("/:id", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const existingProject = await db.select().from(projects).where(eq8(projects.id, projectId)).limit(1);
+    const existingProject = await db.select().from(projects).where(eq9(projects.id, projectId)).limit(1);
     if (existingProject.length === 0) {
       return res.status(404).json({
         success: false,
@@ -12133,7 +12223,7 @@ projectRouter.patch("/:id", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const updatedProject = await db.update(projects).set(req.body).where(eq8(projects.id, projectId)).returning();
+    const updatedProject = await db.update(projects).set(req.body).where(eq9(projects.id, projectId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -12168,7 +12258,7 @@ projectRouter.delete("/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingProject = await db.select().from(projects).where(eq8(projects.id, projectId)).limit(1);
+    const existingProject = await db.select().from(projects).where(eq9(projects.id, projectId)).limit(1);
     if (existingProject.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -12186,7 +12276,7 @@ projectRouter.delete("/:id", async (req, res) => {
       status: projectToDelete.status
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedProject = await db.delete(projects).where(eq8(projects.id, projectId)).returning();
+    const deletedProject = await db.delete(projects).where(eq9(projects.id, projectId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedProject[0].id,
@@ -12231,7 +12321,7 @@ projectRouter.get("/:projectId/fund-transfers", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const transfers = await db.select().from(fundTransfers).where(eq8(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
+    const transfers = await db.select().from(fundTransfers).where(eq9(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12275,7 +12365,7 @@ projectRouter.get("/:projectId/worker-attendance", async (req, res) => {
       isPresent: workerAttendance.isPresent,
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
-    }).from(workerAttendance).leftJoin(workers, eq8(workerAttendance.workerId, workers.id)).where(eq8(workerAttendance.projectId, projectId)).orderBy(workerAttendance.date);
+    }).from(workerAttendance).leftJoin(workers, eq9(workerAttendance.workerId, workers.id)).where(eq9(workerAttendance.projectId, projectId)).orderBy(workerAttendance.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12307,7 +12397,7 @@ projectRouter.get("/:projectId/material-purchases", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const purchases = await db.select().from(materialPurchases).where(eq8(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
+    const purchases = await db.select().from(materialPurchases).where(eq9(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${purchases.length} \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0648\u0627\u062F \u0641\u064A ${duration}ms`);
     res.json({
@@ -12339,7 +12429,7 @@ projectRouter.get("/:projectId/transportation-expenses", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(transportationExpenses).where(eq8(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
+    const expenses = await db.select().from(transportationExpenses).where(eq9(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12371,7 +12461,7 @@ projectRouter.get("/:projectId/worker-misc-expenses", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(workerMiscExpenses).where(eq8(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
+    const expenses = await db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12412,7 +12502,7 @@ projectRouter.get("/fund-transfers/incoming/:projectId", async (req, res) => {
       description: projectFundTransfers.description,
       fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
       toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq8(projectFundTransfers.toProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    }).from(projectFundTransfers).where(eq9(projectFundTransfers.toProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0641\u064A ${duration}ms`);
     res.json({
@@ -12453,7 +12543,7 @@ projectRouter.get("/fund-transfers/outgoing/:projectId", async (req, res) => {
       description: projectFundTransfers.description,
       fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
       toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq8(projectFundTransfers.fromProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    }).from(projectFundTransfers).where(eq9(projectFundTransfers.fromProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12498,7 +12588,7 @@ projectRouter.get("/:projectId/worker-transfers", async (req, res) => {
       notes: workerTransfers.notes,
       createdAt: workerTransfers.createdAt,
       workerName: workers.name
-    }).from(workerTransfers).leftJoin(workers, eq8(workerTransfers.workerId, workers.id)).where(eq8(workerTransfers.projectId, projectId)).orderBy(workerTransfers.transferDate);
+    }).from(workerTransfers).leftJoin(workers, eq9(workerTransfers.workerId, workers.id)).where(eq9(workerTransfers.projectId, projectId)).orderBy(workerTransfers.transferDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062D\u0648\u0644\u0629 \u0639\u0645\u0627\u0644 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12542,7 +12632,7 @@ projectRouter.get("/:projectId/actual-transfers", async (req, res) => {
       direction: sql5`'incoming'`.as("direction"),
       fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
       toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq8(projectFundTransfers.toProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    }).from(projectFundTransfers).where(eq9(projectFundTransfers.toProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
     const outgoingTransfers = await db.select({
       id: projectFundTransfers.id,
       fromProjectId: projectFundTransfers.fromProjectId,
@@ -12555,7 +12645,7 @@ projectRouter.get("/:projectId/actual-transfers", async (req, res) => {
       direction: sql5`'outgoing'`.as("direction"),
       fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
       toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq8(projectFundTransfers.fromProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
+    }).from(projectFundTransfers).where(eq9(projectFundTransfers.fromProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${incomingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0648 ${outgoingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12612,7 +12702,7 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0648\u062C\u0648\u062F \u0627\u0644\u0645\u0634\u0631\u0648\u0639...");
-    const projectExists = await db.select().from(projects).where(eq8(projects.id, projectId)).limit(1);
+    const projectExists = await db.select().from(projects).where(eq9(projects.id, projectId)).limit(1);
     if (projectExists.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -12674,9 +12764,9 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
         created_at: dailyExpenseSummaries.createdAt,
         updated_at: sql5`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
         project_name: projects.name
-      }).from(dailyExpenseSummaries).leftJoin(projects, eq8(dailyExpenseSummaries.projectId, projects.id)).where(and7(
-        eq8(dailyExpenseSummaries.projectId, projectId),
-        eq8(dailyExpenseSummaries.date, date2)
+      }).from(dailyExpenseSummaries).leftJoin(projects, eq9(dailyExpenseSummaries.projectId, projects.id)).where(and8(
+        eq9(dailyExpenseSummaries.projectId, projectId),
+        eq9(dailyExpenseSummaries.date, date2)
       )).limit(1);
       if (regularResult.length > 0) {
         dailySummary = regularResult[0];
@@ -12797,7 +12887,7 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
       miscExpensesResult,
       projectInfo
     ] = await Promise.all([
-      db.select().from(fundTransfers).where(and7(eq8(fundTransfers.projectId, projectId), gte4(fundTransfers.transferDate, sql5`${date2}::date`), lt3(fundTransfers.transferDate, sql5`(${date2}::date + interval '1 day')`))),
+      db.select().from(fundTransfers).where(and8(eq9(fundTransfers.projectId, projectId), gte4(fundTransfers.transferDate, sql5`${date2}::date`), lt3(fundTransfers.transferDate, sql5`(${date2}::date + interval '1 day')`))),
       db.select({
         id: workerAttendance.id,
         workerId: workerAttendance.workerId,
@@ -12807,12 +12897,12 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
         actualWage: workerAttendance.actualWage,
         workDays: workerAttendance.workDays,
         workerName: workers.name
-      }).from(workerAttendance).leftJoin(workers, eq8(workerAttendance.workerId, workers.id)).where(and7(eq8(workerAttendance.projectId, projectId), eq8(workerAttendance.date, date2))),
-      db.select().from(materialPurchases).where(and7(eq8(materialPurchases.projectId, projectId), eq8(materialPurchases.purchaseDate, date2))),
-      db.select().from(transportationExpenses).where(and7(eq8(transportationExpenses.projectId, projectId), eq8(transportationExpenses.date, date2))),
-      db.select().from(workerTransfers).where(and7(eq8(workerTransfers.projectId, projectId), eq8(workerTransfers.transferDate, date2))),
-      db.select().from(workerMiscExpenses).where(and7(eq8(workerMiscExpenses.projectId, projectId), eq8(workerMiscExpenses.date, date2))),
-      db.select().from(projects).where(eq8(projects.id, projectId)).limit(1)
+      }).from(workerAttendance).leftJoin(workers, eq9(workerAttendance.workerId, workers.id)).where(and8(eq9(workerAttendance.projectId, projectId), eq9(workerAttendance.date, date2))),
+      db.select().from(materialPurchases).where(and8(eq9(materialPurchases.projectId, projectId), eq9(materialPurchases.purchaseDate, date2))),
+      db.select().from(transportationExpenses).where(and8(eq9(transportationExpenses.projectId, projectId), eq9(transportationExpenses.date, date2))),
+      db.select().from(workerTransfers).where(and8(eq9(workerTransfers.projectId, projectId), eq9(workerTransfers.transferDate, date2))),
+      db.select().from(workerMiscExpenses).where(and8(eq9(workerMiscExpenses.projectId, projectId), eq9(workerMiscExpenses.date, date2))),
+      db.select().from(projects).where(eq9(projects.id, projectId)).limit(1)
     ]);
     const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
     const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
@@ -12834,8 +12924,8 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
       const latestSummary = await db.select({
         remainingBalance: dailyExpenseSummaries.remainingBalance,
         date: dailyExpenseSummaries.date
-      }).from(dailyExpenseSummaries).where(and7(
-        eq8(dailyExpenseSummaries.projectId, projectId),
+      }).from(dailyExpenseSummaries).where(and8(
+        eq9(dailyExpenseSummaries.projectId, projectId),
         lt3(dailyExpenseSummaries.date, date2)
       )).orderBy(desc5(dailyExpenseSummaries.date)).limit(1);
       if (latestSummary.length > 0) {
@@ -12937,8 +13027,8 @@ projectRouter.get("/:projectId/previous-balance/:date", async (req, res) => {
       const latestSummary = await db.select({
         remainingBalance: dailyExpenseSummaries.remainingBalance,
         date: dailyExpenseSummaries.date
-      }).from(dailyExpenseSummaries).where(and7(
-        eq8(dailyExpenseSummaries.projectId, projectId),
+      }).from(dailyExpenseSummaries).where(and8(
+        eq9(dailyExpenseSummaries.projectId, projectId),
         lt3(dailyExpenseSummaries.date, date2)
       )).orderBy(desc5(dailyExpenseSummaries.date)).limit(1);
       if (latestSummary.length > 0) {
@@ -12998,7 +13088,7 @@ projectRouter.get("/:projectId/previous-balance/:date", async (req, res) => {
 });
 async function calculateCumulativeBalance(projectId, fromDate, toDate) {
   try {
-    const whereConditions = [eq8(fundTransfers.projectId, projectId)];
+    const whereConditions = [eq9(fundTransfers.projectId, projectId)];
     if (fromDate) {
       whereConditions.push(gte4(fundTransfers.transferDate, sql5`${fromDate}::date`));
     }
@@ -13014,47 +13104,47 @@ async function calculateCumulativeBalance(projectId, fromDate, toDate) {
       outgoingPtRows
     ] = await Promise.all([
       // تحويلات العهدة
-      db.select().from(fundTransfers).where(and7(...whereConditions)),
+      db.select().from(fundTransfers).where(and8(...whereConditions)),
       // أجور العمال
-      db.select().from(workerAttendance).where(and7(
-        eq8(workerAttendance.projectId, projectId),
+      db.select().from(workerAttendance).where(and8(
+        eq9(workerAttendance.projectId, projectId),
         fromDate ? gte4(workerAttendance.date, fromDate) : sql5`true`,
         lte2(workerAttendance.date, toDate)
       )),
       // مشتريات المواد النقدية فقط
-      db.select().from(materialPurchases).where(and7(
-        eq8(materialPurchases.projectId, projectId),
-        eq8(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
+      db.select().from(materialPurchases).where(and8(
+        eq9(materialPurchases.projectId, projectId),
+        eq9(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
         fromDate ? gte4(materialPurchases.purchaseDate, fromDate) : sql5`true`,
         lte2(materialPurchases.purchaseDate, toDate)
       )),
       // مصاريف النقل
-      db.select().from(transportationExpenses).where(and7(
-        eq8(transportationExpenses.projectId, projectId),
+      db.select().from(transportationExpenses).where(and8(
+        eq9(transportationExpenses.projectId, projectId),
         fromDate ? gte4(transportationExpenses.date, fromDate) : sql5`true`,
         lte2(transportationExpenses.date, toDate)
       )),
       // حوالات العمال
-      db.select().from(workerTransfers).where(and7(
-        eq8(workerTransfers.projectId, projectId),
+      db.select().from(workerTransfers).where(and8(
+        eq9(workerTransfers.projectId, projectId),
         fromDate ? gte4(workerTransfers.transferDate, fromDate) : sql5`true`,
         lte2(workerTransfers.transferDate, toDate)
       )),
       // مصاريف متنوعة للعمال
-      db.select().from(workerMiscExpenses).where(and7(
-        eq8(workerMiscExpenses.projectId, projectId),
+      db.select().from(workerMiscExpenses).where(and8(
+        eq9(workerMiscExpenses.projectId, projectId),
         fromDate ? gte4(workerMiscExpenses.date, fromDate) : sql5`true`,
         lte2(workerMiscExpenses.date, toDate)
       )),
       // تحويلات واردة من مشاريع أخرى
-      db.select().from(projectFundTransfers).where(and7(
-        eq8(projectFundTransfers.toProjectId, projectId),
+      db.select().from(projectFundTransfers).where(and8(
+        eq9(projectFundTransfers.toProjectId, projectId),
         fromDate ? gte4(projectFundTransfers.transferDate, fromDate) : sql5`true`,
         lte2(projectFundTransfers.transferDate, toDate)
       )),
       // تحويلات صادرة إلى مشاريع أخرى
-      db.select().from(projectFundTransfers).where(and7(
-        eq8(projectFundTransfers.fromProjectId, projectId),
+      db.select().from(projectFundTransfers).where(and8(
+        eq9(projectFundTransfers.fromProjectId, projectId),
         fromDate ? gte4(projectFundTransfers.transferDate, fromDate) : sql5`true`,
         lte2(projectFundTransfers.transferDate, toDate)
       ))
@@ -13084,7 +13174,7 @@ var projectRoutes_default = projectRouter;
 init_db();
 init_schema();
 import express6 from "express";
-import { eq as eq9, sql as sql6, and as and8 } from "drizzle-orm";
+import { eq as eq10, sql as sql6, and as and9 } from "drizzle-orm";
 var workerRouter = express6.Router();
 workerRouter.use(requireAuth);
 workerRouter.get("/workers", async (req, res) => {
@@ -13176,7 +13266,7 @@ workerRouter.get("/workers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const worker = await db.select().from(workers).where(eq9(workers.id, workerId)).limit(1);
+    const worker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
     if (worker.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -13225,7 +13315,7 @@ workerRouter.patch("/workers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingWorker = await db.select().from(workers).where(eq9(workers.id, workerId)).limit(1);
+    const existingWorker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
     if (existingWorker.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -13252,7 +13342,7 @@ workerRouter.patch("/workers/:id", async (req, res) => {
     }
     console.log("\u2705 [API] \u0646\u062C\u062D validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644");
     console.log("\u{1F4BE} [API] \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const updatedWorker = await db.update(workers).set(validationResult.data).where(eq9(workers.id, workerId)).returning();
+    const updatedWorker = await db.update(workers).set(validationResult.data).where(eq10(workers.id, workerId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: updatedWorker[0].id,
@@ -13301,7 +13391,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingWorker = await db.select().from(workers).where(eq9(workers.id, workerId)).limit(1);
+    const existingWorker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
     if (existingWorker.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -13323,12 +13413,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       id: workerAttendance.id,
       date: workerAttendance.date,
       projectId: workerAttendance.projectId
-    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId)).limit(5);
+    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId)).limit(5);
     if (attendanceRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalAttendanceCount = await db.select({
         count: sql6`COUNT(*)`
-      }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId));
+      }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
       const totalCount = totalAttendanceCount[0]?.count || attendanceRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${totalCount} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631`);
       return res.status(409).json({
@@ -13342,12 +13432,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq9(workerTransfers.workerId, workerId)).limit(1);
+    const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq10(workerTransfers.workerId, workerId)).limit(1);
     if (transferRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalTransfersCount = await db.select({
         count: sql6`COUNT(*)`
-      }).from(workerTransfers).where(eq9(workerTransfers.workerId, workerId));
+      }).from(workerTransfers).where(eq10(workerTransfers.workerId, workerId));
       const transfersCount = totalTransfersCount[0]?.count || transferRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transfersCount} \u062A\u062D\u0648\u064A\u0644 \u0645\u0627\u0644\u064A`);
       return res.status(409).json({
@@ -13361,12 +13451,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq9(transportationExpenses.workerId, workerId)).limit(1);
+    const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq10(transportationExpenses.workerId, workerId)).limit(1);
     if (transportRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalTransportCount = await db.select({
         count: sql6`COUNT(*)`
-      }).from(transportationExpenses).where(eq9(transportationExpenses.workerId, workerId));
+      }).from(transportationExpenses).where(eq10(transportationExpenses.workerId, workerId));
       const transportCount = totalTransportCount[0]?.count || transportRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transportCount} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644`);
       return res.status(409).json({
@@ -13380,12 +13470,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0623\u0631\u0635\u062F\u0629 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq9(workerBalances.workerId, workerId)).limit(1);
+    const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq10(workerBalances.workerId, workerId)).limit(1);
     if (balanceRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalBalanceCount = await db.select({
         count: sql6`COUNT(*)`
-      }).from(workerBalances).where(eq9(workerBalances.workerId, workerId));
+      }).from(workerBalances).where(eq10(workerBalances.workerId, workerId));
       const balanceCount = totalBalanceCount[0]?.count || balanceRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${balanceCount} \u0633\u062C\u0644 \u0631\u0635\u064A\u062F`);
       return res.status(409).json({
@@ -13399,7 +13489,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A (\u0644\u0627 \u062A\u0648\u062C\u062F \u0633\u062C\u0644\u0627\u062A \u0645\u0631\u062A\u0628\u0637\u0629)...");
-    const deletedWorker = await db.delete(workers).where(eq9(workers.id, workerId)).returning();
+    const deletedWorker = await db.delete(workers).where(eq10(workers.id, workerId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedWorker[0].id,
@@ -13465,7 +13555,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq9(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -13489,7 +13579,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq9(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq10(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -13524,7 +13614,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq9(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -13543,7 +13633,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq9(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq10(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -13584,14 +13674,14 @@ workerRouter.get("/worker-misc-expenses", async (req, res) => {
     console.log("\u{1F50D} [API] \u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0627\u0644\u0641\u0644\u062A\u0631\u0629:", { projectId, date: date2 });
     let query;
     if (projectId && date2) {
-      query = db.select().from(workerMiscExpenses).where(and8(
-        eq9(workerMiscExpenses.projectId, projectId),
-        eq9(workerMiscExpenses.date, date2)
+      query = db.select().from(workerMiscExpenses).where(and9(
+        eq10(workerMiscExpenses.projectId, projectId),
+        eq10(workerMiscExpenses.date, date2)
       ));
     } else if (projectId) {
-      query = db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.projectId, projectId));
+      query = db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.projectId, projectId));
     } else if (date2) {
-      query = db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.date, date2));
+      query = db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.date, date2));
     } else {
       query = db.select().from(workerMiscExpenses);
     }
@@ -13632,7 +13722,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -13656,7 +13746,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq9(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq10(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -13731,12 +13821,12 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
     }
     let whereCondition;
     if (date2) {
-      whereCondition = and8(
-        eq9(workerAttendance.projectId, projectId),
-        eq9(workerAttendance.date, date2)
+      whereCondition = and9(
+        eq10(workerAttendance.projectId, projectId),
+        eq10(workerAttendance.date, date2)
       );
     } else {
-      whereCondition = eq9(workerAttendance.projectId, projectId);
+      whereCondition = eq10(workerAttendance.projectId, projectId);
     }
     const attendance = await db.select({
       id: workerAttendance.id,
@@ -13756,7 +13846,7 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
       isPresent: workerAttendance.isPresent,
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
-    }).from(workerAttendance).leftJoin(workers, eq9(workerAttendance.workerId, workers.id)).where(whereCondition).orderBy(workerAttendance.date);
+    }).from(workerAttendance).leftJoin(workers, eq10(workerAttendance.workerId, workers.id)).where(whereCondition).orderBy(workerAttendance.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -13858,7 +13948,7 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingAttendance = await db.select().from(workerAttendance).where(eq9(workerAttendance.id, attendanceId)).limit(1);
+    const existingAttendance = await db.select().from(workerAttendance).where(eq10(workerAttendance.id, attendanceId)).limit(1);
     if (existingAttendance.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -13895,7 +13985,7 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
       updateData.actualWage = actualWageValue.toString();
       updateData.totalPay = actualWageValue.toString();
     }
-    const updatedAttendance = await db.update(workerAttendance).set(updateData).where(eq9(workerAttendance.id, attendanceId)).returning();
+    const updatedAttendance = await db.update(workerAttendance).set(updateData).where(eq10(workerAttendance.id, attendanceId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -13943,7 +14033,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq9(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -13967,7 +14057,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq9(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq10(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14011,7 +14101,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq9(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -14030,7 +14120,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq9(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq10(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -14072,7 +14162,7 @@ workerRouter.get("/projects/:projectId/worker-misc-expenses", async (req, res) =
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
+    const expenses = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
     res.json({
@@ -14108,7 +14198,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14132,7 +14222,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq9(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq10(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14175,7 +14265,7 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
         processingTime: duration2
       });
     }
-    const worker = await db.select().from(workers).where(eq9(workers.id, workerId)).limit(1);
+    const worker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
     if (worker.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14187,36 +14277,36 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
     }
     const totalWorkDaysResult = await db.select({
       totalDays: sql6`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId));
+    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
     const lastAttendanceResult = await db.select({
       lastAttendanceDate: workerAttendance.attendanceDate,
       projectId: workerAttendance.projectId
-    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId)).orderBy(sql6`${workerAttendance.attendanceDate} DESC`).limit(1);
+    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId)).orderBy(sql6`${workerAttendance.attendanceDate} DESC`).limit(1);
     const lastAttendanceDate = lastAttendanceResult[0]?.lastAttendanceDate || null;
     const thirtyDaysAgo = /* @__PURE__ */ new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoString = thirtyDaysAgo.toISOString().split("T")[0];
     const monthlyAttendanceResult = await db.select({
       monthlyDays: sql6`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(and8(
-      eq9(workerAttendance.workerId, workerId),
+    }).from(workerAttendance).where(and9(
+      eq10(workerAttendance.workerId, workerId),
       sql6`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
     ));
     const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
     const totalTransfersResult = await db.select({
       totalTransfers: sql6`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
       transfersCount: sql6`COUNT(*)`
-    }).from(workerTransfers).where(eq9(workerTransfers.workerId, workerId));
+    }).from(workerTransfers).where(eq10(workerTransfers.workerId, workerId));
     const totalTransfers = Number(totalTransfersResult[0]?.totalTransfers) || 0;
     const transfersCount = Number(totalTransfersResult[0]?.transfersCount) || 0;
     const projectsWorkedResult = await db.select({
       projectsCount: sql6`COUNT(DISTINCT ${workerAttendance.projectId})`
-    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId));
+    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
     const projectsWorked = Number(projectsWorkedResult[0]?.projectsCount) || 0;
     const totalEarningsResult = await db.select({
       totalEarnings: sql6`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId));
+    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
     const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;
     const stats = {
       totalWorkDays,
@@ -14266,7 +14356,7 @@ var workerRoutes_default = workerRouter;
 init_db();
 init_schema();
 import express7 from "express";
-import { eq as eq10, and as and9, sql as sql7, gte as gte5, lte as lte3, desc as desc6 } from "drizzle-orm";
+import { eq as eq11, and as and10, sql as sql7, gte as gte5, lte as lte3, desc as desc6 } from "drizzle-orm";
 var financialRouter = express7.Router();
 financialRouter.use(requireAuth);
 financialRouter.get("/fund-transfers", async (req, res) => {
@@ -14284,7 +14374,7 @@ financialRouter.get("/fund-transfers", async (req, res) => {
       notes: fundTransfers.notes,
       createdAt: fundTransfers.createdAt,
       projectName: projects.name
-    }).from(fundTransfers).leftJoin(projects, eq10(fundTransfers.projectId, projects.id)).orderBy(desc6(fundTransfers.transferDate));
+    }).from(fundTransfers).leftJoin(projects, eq11(fundTransfers.projectId, projects.id)).orderBy(desc6(fundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
     res.json({
@@ -14365,7 +14455,7 @@ financialRouter.patch("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(fundTransfers).where(eq10(fundTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(fundTransfers).where(eq11(fundTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14389,7 +14479,7 @@ financialRouter.patch("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq10(fundTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq11(fundTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14423,7 +14513,7 @@ financialRouter.delete("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(fundTransfers).where(eq10(fundTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(fundTransfers).where(eq11(fundTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14433,7 +14523,7 @@ financialRouter.delete("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const deletedTransfer = await db.delete(fundTransfers).where(eq10(fundTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(fundTransfers).where(eq11(fundTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14485,9 +14575,9 @@ financialRouter.get("/daily-project-transfers", async (req, res) => {
       fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
       toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
     }).from(projectFundTransfers).where(
-      and9(
+      and10(
         sql7`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
-        eq10(projectFundTransfers.transferDate, date2)
+        eq11(projectFundTransfers.transferDate, date2)
       )
     ).orderBy(desc6(projectFundTransfers.createdAt));
     const duration = Date.now() - startTime;
@@ -14527,7 +14617,7 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
       createdAt: projectFundTransfers.createdAt,
       fromProjectName: sql7`from_project.name`.as("fromProjectName"),
       toProjectName: sql7`to_project.name`.as("toProjectName")
-    }).from(projectFundTransfers).leftJoin(sql7`${projects} as from_project`, eq10(projectFundTransfers.fromProjectId, sql7`from_project.id`)).leftJoin(sql7`${projects} as to_project`, eq10(projectFundTransfers.toProjectId, sql7`to_project.id`));
+    }).from(projectFundTransfers).leftJoin(sql7`${projects} as from_project`, eq11(projectFundTransfers.fromProjectId, sql7`from_project.id`)).leftJoin(sql7`${projects} as to_project`, eq11(projectFundTransfers.toProjectId, sql7`to_project.id`));
     const conditions = [];
     if (projectId && projectId !== "all") {
       conditions.push(sql7`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`);
@@ -14536,7 +14626,7 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
     if (date2) {
       const startOfDay = `${date2} 00:00:00`;
       const endOfDay = `${date2} 23:59:59.999`;
-      conditions.push(and9(
+      conditions.push(and10(
         gte5(projectFundTransfers.transferDate, startOfDay),
         lte3(projectFundTransfers.transferDate, endOfDay)
       ));
@@ -14544,7 +14634,7 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
     } else if (dateFrom && dateTo) {
       const startOfPeriod = `${dateFrom} 00:00:00`;
       const endOfPeriod = `${dateTo} 23:59:59.999`;
-      conditions.push(and9(
+      conditions.push(and10(
         gte5(projectFundTransfers.transferDate, startOfPeriod),
         lte3(projectFundTransfers.transferDate, endOfPeriod)
       ));
@@ -14560,7 +14650,7 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
     }
     let transfers;
     if (conditions.length > 0) {
-      const whereClause = conditions.length === 1 ? conditions[0] : and9(...conditions);
+      const whereClause = conditions.length === 1 ? conditions[0] : and10(...conditions);
       transfers = await baseQuery.where(whereClause).orderBy(desc6(projectFundTransfers.transferDate));
     } else {
       transfers = await baseQuery.orderBy(desc6(projectFundTransfers.transferDate));
@@ -14727,7 +14817,7 @@ financialRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14751,7 +14841,7 @@ financialRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq10(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq11(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14786,7 +14876,7 @@ financialRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -14805,7 +14895,7 @@ financialRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq10(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq11(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -14922,7 +15012,7 @@ financialRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14946,7 +15036,7 @@ financialRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq10(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq11(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14981,7 +15071,7 @@ financialRouter.delete("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", expenseId);
@@ -15000,7 +15090,7 @@ financialRouter.delete("/worker-misc-expenses/:id", async (req, res) => {
       description: expenseToDelete.description
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedExpense = await db.delete(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).returning();
+    const deletedExpense = await db.delete(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedExpense[0].id,
@@ -15152,7 +15242,7 @@ financialRouter.get("/suppliers", async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("\u{1F3EA} [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-    const suppliersList = await db.select().from(suppliers).where(eq10(suppliers.isActive, true)).orderBy(suppliers.name);
+    const suppliersList = await db.select().from(suppliers).where(eq11(suppliers.isActive, true)).orderBy(suppliers.name);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${suppliersList.length} \u0645\u0648\u0631\u062F \u0641\u064A ${duration}ms`);
     res.json({
@@ -15790,6 +15880,45 @@ function initializeRouteOrganizer(app2) {
   }
 }
 
+// server/middleware/compression.ts
+import compression from "compression";
+var compressionMiddleware = compression({
+  // مستوى الضغط (1-9، 6 هو الافتراضي)
+  level: 6,
+  // حد أدنى لحجم الملف للضغط (بالبايت)
+  threshold: 1024,
+  // تصفية الملفات التي يجب ضغطها
+  filter: (req, res) => {
+    if (req.headers["x-no-compression"]) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+  // إعدادات إضافية للأداء
+  windowBits: 15,
+  memLevel: 8,
+  strategy: compression.constants.Z_DEFAULT_STRATEGY,
+  // ضغط الاستجابات الصغيرة أيضاً
+  chunkSize: 1024
+});
+var cacheHeaders = (req, res, next) => {
+  if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  } else if (req.url.match(/\.(html|htm)$/)) {
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  } else {
+    res.setHeader("Cache-Control", "public, max-age=300");
+  }
+  next();
+};
+var performanceHeaders = (req, res, next) => {
+  res.setHeader("X-DNS-Prefetch-Control", "on");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  next();
+};
+
 // server/index.ts
 var app = express10();
 app.use(helmet({
@@ -15818,7 +15947,7 @@ if (process.env.NODE_ENV === "production") {
 } else {
   app.set("trust proxy", true);
 }
-var globalRateLimit = rateLimit3({
+var globalRateLimit = rateLimit4({
   windowMs: 15 * 60 * 1e3,
   // 15 دقيقة
   max: 1e3,
@@ -15868,6 +15997,19 @@ app.use((req, res, next) => {
   });
   next();
 });
+app.use(compressionMiddleware);
+app.use(performanceHeaders);
+app.use(cacheHeaders);
+app.use(generalRateLimit);
+app.use(trackSuspiciousActivity);
+app.use(securityHeaders);
+app.use(cors({
+  origin: ["http://localhost:5000", "http://0.0.0.0:5000", "https://app2--5000.local.webcontainer.io"],
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
+app.use(express10.json({ limit: "50mb" }));
+app.use(express10.urlencoded({ extended: true, limit: "50mb" }));
 (async () => {
   const { enhancedMigrationJobManager: enhancedMigrationJobManager2 } = await Promise.resolve().then(() => (init_migration_job_manager_enhanced(), migration_job_manager_enhanced_exports));
   await enhancedMigrationJobManager2.startupCleanup();

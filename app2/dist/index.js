@@ -7055,6 +7055,25 @@ async function registerRoutes(app2) {
         materialUnit: purchaseData.materialUnit || materialData?.unit || null,
         material: materialData
       };
+      console.log(`\u{1F50D} [API] \u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u0631\u062C\u0639\u0629:`, {
+        purchaseData: {
+          id: purchaseData.id,
+          materialName: purchaseData.materialName,
+          materialCategory: purchaseData.materialCategory,
+          materialUnit: purchaseData.materialUnit,
+          unit: purchaseData.unit
+        },
+        materialData: materialData ? {
+          id: materialData.id,
+          name: materialData.name,
+          category: materialData.category,
+          unit: materialData.unit
+        } : "\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0627\u062F\u0629 \u0645\u0631\u062A\u0628\u0637\u0629",
+        completeData: {
+          materialCategory: completeData.materialCategory,
+          materialUnit: completeData.materialUnit
+        }
+      });
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0644\u0644\u062A\u0639\u062F\u064A\u0644 \u0641\u064A ${duration}ms:`, {
         id: completeData.id,
         materialName: completeData.materialName || materialData?.name,

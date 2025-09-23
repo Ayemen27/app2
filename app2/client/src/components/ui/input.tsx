@@ -39,7 +39,8 @@ const useFormMemory = (key: string, initialValue: string = "") => {
 const useInteractiveValidation = (
   value: string,
   fieldType?: string,
-  validator?: (value: string) => { isValid: boolean; message?: string; strength?: number }
+  validator?: (value: string) => { isValid: boolean; message?: string; strength?: number },
+  context?: string
 ) => {
   const [validation, setValidation] = React.useState<{
     isValid: boolean;
@@ -80,7 +81,8 @@ const useInteractiveValidation = (
             },
             body: JSON.stringify({
               field: fieldType,
-              value: value
+              value: value,
+              context: context || 'register'
             })
           });
 
@@ -114,7 +116,7 @@ const useInteractiveValidation = (
       return () => clearTimeout(timeoutId);
     }
 
-  }, [value, validator, fieldType]);
+  }, [value, validator, fieldType, context]);
 
   return validation;
 };
@@ -129,6 +131,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   loading?: boolean;
   strengthIndicator?: boolean;
   fieldType?: string;
+  validationContext?: string;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -144,6 +147,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     loading = false,
     strengthIndicator = false,
     fieldType,
+    validationContext,
     onChange,
     value: controlledValue,
     ...props 
@@ -156,7 +160,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     );
 
     const currentValue = controlledValue !== undefined ? String(controlledValue) : memoryValue;
-    const validation = useInteractiveValidation(currentValue, fieldType, validator);
+    const validation = useInteractiveValidation(currentValue, fieldType, validator, validationContext);
 
     const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = e.target.value;

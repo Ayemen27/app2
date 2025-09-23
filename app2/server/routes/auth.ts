@@ -643,7 +643,7 @@ router.delete('/sessions/:sessionId', requireAuth, async (req: AuthenticatedRequ
  */
 router.post('/validate-field', async (req, res) => {
   try {
-    const { field, value } = req.body;
+    const { field, value, context = 'register' } = req.body;
     
     if (!field || !value) {
       return res.json({
@@ -670,16 +670,49 @@ router.post('/validate-field', async (req, res) => {
             SELECT id FROM users WHERE LOWER(email) = LOWER(${value})
           `);
           
-          if (existingUser.rows.length > 0) {
-            isValid = false;
-            message = 'هذا البريد الإلكتروني مستخدم مسبقاً';
-            suggestions = [
-              'جرب بريد إلكتروني مختلف',
-              'هل تحاول تسجيل الدخول بدلاً من إنشاء حساب جديد؟'
-            ];
-          } else {
-            isValid = true;
-            message = 'البريد الإلكتروني متاح ✓';
+          const emailExists = existingUser.rows.length > 0;
+          
+          // تحديد النتيجة حسب السياق
+          switch (context) {
+            case 'register':
+              // للتسجيل: أحمر إذا كان موجود، أخضر إذا كان غير موجود
+              isValid = !emailExists;
+              message = emailExists 
+                ? 'هذا البريد الإلكتروني مستخدم مسبقاً' 
+                : 'البريد الإلكتروني متاح ✓';
+              suggestions = emailExists 
+                ? ['جرب بريد إلكتروني مختلف', 'هل تحاول تسجيل الدخول بدلاً من إنشاء حساب جديد؟']
+                : [];
+              break;
+              
+            case 'login':
+              // لتسجيل الدخول: أخضر إذا كان موجود، أحمر إذا كان غير موجود
+              isValid = emailExists;
+              message = emailExists 
+                ? 'البريد الإلكتروني مسجل ✓' 
+                : 'البريد الإلكتروني غير مسجل';
+              suggestions = !emailExists 
+                ? ['تحقق من كتابة البريد الإلكتروني', 'هل تحتاج لإنشاء حساب جديد؟']
+                : [];
+              break;
+              
+            case 'forgot-password':
+              // لاسترجاع كلمة المرور: أخضر إذا كان موجود، أحمر إذا كان غير موجود
+              isValid = emailExists;
+              message = emailExists 
+                ? 'البريد الإلكتروني مسجل، يمكن إرسال رابط الاسترجاع ✓' 
+                : 'البريد الإلكتروني غير مسجل في النظام';
+              suggestions = !emailExists 
+                ? ['تحقق من كتابة البريد الإلكتروني', 'تحتاج لإنشاء حساب جديد أولاً']
+                : [];
+              break;
+              
+            default:
+              // الافتراضي (للتسجيل)
+              isValid = !emailExists;
+              message = emailExists 
+                ? 'هذا البريد الإلكتروني مستخدم مسبقاً' 
+                : 'البريد الإلكتروني متاح ✓';
           }
         }
         break;

@@ -464,6 +464,7 @@ export default function AuthPage() {
                                     leftIcon={<Mail className="h-4 w-4" />}
                                     validator={emailValidator}
                                     fieldType="email"
+                                    validationContext="login"
                                     showValidation={true}
                                     enableMemory={true}
                                     memoryKey="login-email"
@@ -500,6 +501,25 @@ export default function AuthPage() {
                               </FormItem>
                             )}
                           />
+
+                          {/* خيارات تسجيل الدخول */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                              <input
+                                type="checkbox"
+                                id="remember-me"
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              <label htmlFor="remember-me" className="text-sm text-gray-600">
+                                تذكرني
+                              </label>
+                            </div>
+                            <Link href="/forgot-password">
+                              <span className="text-sm text-blue-600 hover:text-blue-500 cursor-pointer">
+                                نسيت كلمة المرور؟
+                              </span>
+                            </Link>
+                          </div>
                         </>
                       )}
 
@@ -605,6 +625,7 @@ export default function AuthPage() {
                                   className="pr-10 enhanced-input"
                                   validator={emailValidator}
                                   fieldType="email"
+                                  validationContext="register"
                                   showValidation={true}
                                   data-testid="input-email"
                                 />

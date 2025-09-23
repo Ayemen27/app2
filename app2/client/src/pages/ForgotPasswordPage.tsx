@@ -247,6 +247,9 @@ export default function ForgotPasswordPage() {
                               {...field} 
                               type="email"
                               placeholder="أدخل بريدك الإلكتروني"
+                              fieldType="email"
+                              validationContext="forgot-password"
+                              showValidation={true}
                               className="pr-10 enhanced-input"
                               data-testid="input-forgot-email"
                             />

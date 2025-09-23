@@ -4,7 +4,7 @@
  * مع تأثيرات بصرية احترافية ونظام التبويبات
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -302,14 +302,14 @@ export default function AuthPage() {
   });
 
   // دوال التحقق التفاعلي
-  const emailValidator = React.useCallback((value: string) => {
+  const emailValidator = useCallback((value: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!value) return { isValid: false, message: "البريد الإلكتروني مطلوب" };
     if (!emailRegex.test(value)) return { isValid: false, message: "تنسيق البريد الإلكتروني غير صحيح" };
     return { isValid: true, message: "البريد الإلكتروني صحيح" };
   }, []);
 
-  const passwordValidator = React.useCallback((value: string) => {
+  const passwordValidator = useCallback((value: string) => {
     if (!value) return { isValid: false, message: "كلمة المرور مطلوبة" };
     if (value.length < 8) return { isValid: false, message: "كلمة المرور قصيرة جداً" };
     

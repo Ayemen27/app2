@@ -234,7 +234,14 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
 
     // إضافة بيانات المستخدم للـ request
     req.user = {
-      ...user[0],
+      id: user[0].id,
+      userId: user[0].id,
+      email: user[0].email,
+      firstName: user[0].firstName || undefined,
+      lastName: user[0].lastName || undefined,
+      role: user[0].role,
+      isActive: user[0].isActive,
+      mfaEnabled: user[0].mfaEnabled || undefined,
       sessionId: decoded.sessionId
     };
 
@@ -292,7 +299,17 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
           .limit(1);
 
         if (user.length && user[0].isActive) {
-          req.user = { ...user[0], sessionId: decoded.sessionId };
+          req.user = {
+            id: user[0].id,
+            userId: user[0].id,
+            email: user[0].email,
+            firstName: user[0].firstName || undefined,
+            lastName: user[0].lastName || undefined,
+            role: user[0].role,
+            isActive: user[0].isActive,
+            mfaEnabled: user[0].mfaEnabled || undefined,
+            sessionId: decoded.sessionId
+          };
         }
       }
     }
@@ -308,7 +325,7 @@ const oneHour = 60 * 60 * 1000;
 setInterval(() => {
   const now = Date.now();
 
-  for (const [ip, activity] of suspiciousActivityTracker.entries()) {
+  for (const [ip, activity] of Array.from(suspiciousActivityTracker.entries())) {
     if (now - activity.lastAttempt > oneHour) {
       suspiciousActivityTracker.delete(ip);
     }

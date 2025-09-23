@@ -68,19 +68,23 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(8, 'كلمة المرور الجديدة يجب أن تكون على الأقل 8 أحرف'),
 });
 
-// تعريف الأنواع المخصصة
+// استيراد middleware وتعريف الأنواع من ملف منفصل
+import { requireAuth, requirePermission, requireRole } from '../middleware/auth';
+
+// تعريف نوع AuthenticatedRequest من middleware
 interface AuthenticatedRequest extends Request {
   user?: {
+    id: string;
     userId: string;
     email: string;
+    firstName?: string;
+    lastName?: string;
     role: string;
+    isActive: boolean;
+    mfaEnabled?: boolean;
     sessionId: string;
   };
 }
-
-// استيراد middleware من ملف منفصل
-
-import { requireAuth, requirePermission, requireRole } from '../middleware/auth';
 
 // دالة مساعدة للحصول على معلومات الطلب
 function getRequestInfo(req: any) {

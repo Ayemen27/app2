@@ -38,6 +38,7 @@ const useFormMemory = (key: string, initialValue: string = "") => {
 // Hook للتحقق التفاعلي
 const useInteractiveValidation = (
   value: string,
+  fieldType?: string,
   validator?: (value: string) => { isValid: boolean; message?: string; strength?: number }
 ) => {
   const [validation, setValidation] = React.useState<{
@@ -45,23 +46,75 @@ const useInteractiveValidation = (
     message?: string;
     strength?: number;
     isValidating?: boolean;
+    suggestions?: string[];
   }>({ isValid: true });
 
   React.useEffect(() => {
-    if (!validator || !value) {
+    if (!value) {
       setValidation({ isValid: true });
       return;
     }
 
-    setValidation(prev => ({ ...prev, isValidating: true }));
-    
-    const timeoutId = setTimeout(() => {
-      const result = validator(value);
-      setValidation({ ...result, isValidating: false });
-    }, 300);
+    // التحقق المحلي أولاً
+    if (validator && !fieldType) {
+      setValidation(prev => ({ ...prev, isValidating: true }));
+      
+      const timeoutId = setTimeout(() => {
+        const result = validator(value);
+        setValidation({ ...result, isValidating: false });
+      }, 300);
 
-    return () => clearTimeout(timeoutId);
-  }, [value, validator]);
+      return () => clearTimeout(timeoutId);
+    }
+
+    // التحقق مع الخادم للحقول المدعومة
+    if (fieldType && (fieldType === 'email' || fieldType === 'password')) {
+      setValidation(prev => ({ ...prev, isValidating: true }));
+      
+      const timeoutId = setTimeout(async () => {
+        try {
+          const response = await fetch('/api/auth/validate-field', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              field: fieldType,
+              value: value
+            })
+          });
+
+          const result = await response.json();
+          
+          if (result.success) {
+            setValidation({
+              isValid: result.isValid,
+              message: result.message,
+              strength: result.strength,
+              suggestions: result.suggestions,
+              isValidating: false
+            });
+          } else {
+            setValidation({
+              isValid: false,
+              message: 'حدث خطأ في التحقق',
+              isValidating: false
+            });
+          }
+        } catch (error) {
+          console.error('خطأ في التحقق:', error);
+          setValidation({
+            isValid: false,
+            message: 'حدث خطأ في التحقق',
+            isValidating: false
+          });
+        }
+      }, 500); // تأخير أطول قليلاً للطلبات الخادم
+
+      return () => clearTimeout(timeoutId);
+    }
+
+  }, [value, validator, fieldType]);
 
   return validation;
 };
@@ -75,6 +128,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   rightIcon?: React.ReactNode;
   loading?: boolean;
   strengthIndicator?: boolean;
+  fieldType?: string;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -89,6 +143,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     rightIcon,
     loading = false,
     strengthIndicator = false,
+    fieldType,
     onChange,
     value: controlledValue,
     ...props 
@@ -101,7 +156,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     );
 
     const currentValue = controlledValue !== undefined ? String(controlledValue) : memoryValue;
-    const validation = useInteractiveValidation(currentValue, validator);
+    const validation = useInteractiveValidation(currentValue, fieldType, validator);
 
     const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = e.target.value;
@@ -132,9 +187,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="relative w-full">
         <motion.div
-          className="relative"
           animate={{ scale: isFocused ? 1.01 : 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          style={{ position: "relative" }}
         >
           <input
             type={inputType}
@@ -174,14 +229,21 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
               {/* أيقونة إظهار/إخفاء كلمة المرور */}
               {type === 'password' && (
-                <motion.button
-                  type="button"
-                  onClick={togglePasswordVisibility}
-                  className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted/50"
+                <motion.div
                   whileTap={{ scale: 0.95 }}
+                  style={{ 
+                    background: "none",
+                    border: "none",
+                    padding: "4px",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    color: "var(--muted-foreground)",
+                    transition: "colors 0.2s"
+                  }}
+                  onTap={togglePasswordVisibility}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </motion.button>
+                </motion.div>
               )}
 
               {/* أيقونة التحقق */}
@@ -211,33 +273,36 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         </motion.div>
 
         {/* مؤشر قوة كلمة المرور */}
-        {strengthIndicator && type === 'password' && currentValue && validation.strength !== undefined && (
+        {strengthIndicator && type === 'password' && currentValue && typeof validation.strength === 'number' && (
           <motion.div
-            className="mt-2 space-y-1"
+            style={{ marginTop: "8px" }}
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
           >
-            <div className="flex space-x-1 rtl:space-x-reverse">
+            <div className="flex space-x-1 rtl:space-x-reverse" style={{ marginBottom: "4px" }}>
               {[1, 2, 3, 4].map((level) => (
                 <div
                   key={level}
-                  className={cn(
-                    "h-1 flex-1 rounded-full transition-all duration-300",
-                    validation.strength >= level
+                  style={{
+                    height: "4px",
+                    flex: 1,
+                    borderRadius: "2px",
+                    transition: "all 0.3s",
+                    backgroundColor: validation.strength! >= level
                       ? level <= 2
-                        ? "bg-red-500"
+                        ? "#ef4444"
                         : level === 3
-                        ? "bg-yellow-500"
-                        : "bg-green-500"
-                      : "bg-gray-200"
-                  )}
+                        ? "#eab308"
+                        : "#22c55e"
+                      : "#e5e7eb"
+                  }}
                 />
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
               قوة كلمة المرور: {
-                validation.strength <= 2 ? "ضعيفة" :
+                validation.strength! <= 2 ? "ضعيفة" :
                 validation.strength === 3 ? "متوسطة" : "قوية"
               }
             </p>
@@ -252,12 +317,19 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               animate={{ opacity: 1, y: 0, height: "auto" }}
               exit={{ opacity: 0, y: -10, height: 0 }}
               transition={{ duration: 0.2 }}
-              className={cn(
-                "mt-2 text-xs px-3 py-2 rounded-lg border flex items-center gap-2",
-                validation.isValid 
-                  ? "text-green-700 bg-green-50 border-green-200" 
-                  : "text-red-700 bg-red-50 border-red-200"
-              )}
+              style={{
+                marginTop: "8px",
+                fontSize: "12px",
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: "1px solid",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                color: validation.isValid ? "#15803d" : "#dc2626",
+                backgroundColor: validation.isValid ? "#f0fdf4" : "#fef2f2",
+                borderColor: validation.isValid ? "#bbf7d0" : "#fecaca"
+              }}
             >
               {validation.isValid ? (
                 <CheckCircle className="h-3 w-3 text-green-500" />

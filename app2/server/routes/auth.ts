@@ -638,6 +638,135 @@ router.delete('/sessions/:sessionId', requireAuth, async (req: AuthenticatedRequ
 });
 
 /**
+ * التحقق من البيانات فوري (Real-time validation)
+ * POST /api/auth/validate-field
+ */
+router.post('/validate-field', async (req, res) => {
+  try {
+    const { field, value } = req.body;
+    
+    if (!field || !value) {
+      return res.json({
+        success: false,
+        isValid: false,
+        message: 'البيانات مطلوبة'
+      });
+    }
+
+    let isValid = false;
+    let message = '';
+    let suggestions: string[] = [];
+
+    switch (field) {
+      case 'email':
+        // فحص صيغة البريد الإلكتروني
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) {
+          isValid = false;
+          message = 'صيغة البريد الإلكتروني غير صحيحة';
+        } else {
+          // التحقق من وجود البريد في قاعدة البيانات
+          const existingUser = await db.select()
+            .from(users)
+            .where(eq(users.email, value.toLowerCase()))
+            .limit(1);
+          
+          if (existingUser.length > 0) {
+            isValid = false;
+            message = 'هذا البريد الإلكتروني مستخدم مسبقاً';
+            suggestions = [
+              'جرب بريد إلكتروني مختلف',
+              'هل تحاول تسجيل الدخول بدلاً من إنشاء حساب جديد؟'
+            ];
+          } else {
+            isValid = true;
+            message = 'البريد الإلكتروني متاح ✓';
+          }
+        }
+        break;
+
+      case 'password':
+        const minLength = 8;
+        const hasUpperCase = /[A-Z]/.test(value);
+        const hasLowerCase = /[a-z]/.test(value);
+        const hasNumbers = /\d/.test(value);
+        const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(value);
+        
+        let strength = 0;
+        const issues: string[] = [];
+        
+        if (value.length < minLength) {
+          issues.push(`يجب أن تكون ${minLength} أحرف على الأقل`);
+        } else {
+          strength += 1;
+        }
+        
+        if (!hasUpperCase) {
+          issues.push('يجب أن تحتوي على حرف كبير');
+        } else {
+          strength += 1;
+        }
+        
+        if (!hasLowerCase) {
+          issues.push('يجب أن تحتوي على حرف صغير');
+        } else {
+          strength += 1;
+        }
+        
+        if (!hasNumbers) {
+          issues.push('يجب أن تحتوي على رقم');
+        } else {
+          strength += 1;
+        }
+        
+        if (hasSpecial) {
+          strength += 1;
+        }
+        
+        isValid = issues.length === 0;
+        
+        if (isValid) {
+          const strengthLevels = ['ضعيفة جداً', 'ضعيفة', 'متوسطة', 'قوية', 'قوية جداً'];
+          message = `كلمة المرور ${strengthLevels[Math.min(strength, 4)]} ✓`;
+        } else {
+          message = issues.join('، ');
+        }
+        
+        res.json({
+          success: true,
+          isValid,
+          message,
+          suggestions: isValid ? [] : ['استخدم مزيج من الحروف والأرقام', 'أضف رموز خاصة لزيادة القوة'],
+          strength: Math.min(strength, 4)
+        });
+        return;
+
+      default:
+        return res.json({
+          success: false,
+          isValid: false,
+          message: 'نوع الحقل غير مدعوم'
+        });
+    }
+
+    res.json({
+      success: true,
+      isValid,
+      message,
+      suggestions
+    });
+
+  } catch (error) {
+    console.error('خطأ في التحقق من الحقل:', error);
+    res.json({
+      success: false,
+      isValid: false,
+      message: 'حدث خطأ أثناء التحقق'
+    });
+  }
+});
+
+/**
  * إنهاء جميع الجلسات الأخرى
  * DELETE /api/auth/sessions (Protected)
  */

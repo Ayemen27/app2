@@ -10112,13 +10112,14 @@ import nodemailer from "nodemailer";
 import { eq as eq7, and as and7 } from "drizzle-orm";
 import crypto3 from "crypto";
 var createTransporter = () => {
+  const smtpUser = process.env.SMTP_USER?.trim().replace(/\s+/g, "") || "";
   const smtpConfig = {
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || "587"),
     secure: false,
     // true for 465, false for other ports
     auth: {
-      user: process.env.SMTP_USER,
+      user: smtpUser,
       pass: process.env.SMTP_PASS
     },
     tls: {
@@ -10128,7 +10129,8 @@ var createTransporter = () => {
   console.log("\u{1F4E7} [EmailService] \u0625\u0639\u062F\u0627\u062F SMTP:", {
     host: smtpConfig.host,
     port: smtpConfig.port,
-    user: smtpConfig.auth.user,
+    user: smtpUser,
+    originalUser: process.env.SMTP_USER,
     hasPassword: !!smtpConfig.auth.pass
   });
   return nodemailer.createTransport(smtpConfig);
@@ -10323,8 +10325,9 @@ async function sendVerificationEmail(userId, email, ipAddress, userAgent) {
     });
     const transporter = createTransporter();
     const emailTemplate = emailTemplates.verification(verificationCode, verificationLink);
+    const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, "") || "";
     await transporter.sendMail({
-      from: `"\u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639" <${process.env.SMTP_USER}>`,
+      from: `"\u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639" <${cleanEmail}>`,
       to: email,
       subject: emailTemplate.subject,
       html: emailTemplate.html,
@@ -10420,8 +10423,9 @@ async function sendPasswordResetEmail(email, ipAddress, userAgent) {
     });
     const transporter = createTransporter();
     const emailTemplate = emailTemplates.passwordReset(resetLink, email);
+    const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, "") || "";
     await transporter.sendMail({
-      from: `"\u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639" <${process.env.SMTP_USER}>`,
+      from: `"\u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639" <${cleanEmail}>`,
       to: email,
       subject: emailTemplate.subject,
       html: emailTemplate.html,
@@ -11295,6 +11299,108 @@ router.delete("/sessions/:sessionId", requireAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645"
+    });
+  }
+});
+router.post("/validate-field", async (req, res) => {
+  try {
+    const { field, value } = req.body;
+    if (!field || !value) {
+      return res.json({
+        success: false,
+        isValid: false,
+        message: "\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0637\u0644\u0648\u0628\u0629"
+      });
+    }
+    let isValid = false;
+    let message = "";
+    let suggestions = [];
+    switch (field) {
+      case "email":
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) {
+          isValid = false;
+          message = "\u0635\u064A\u063A\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
+        } else {
+          const existingUser = await db.select().from(users).where(eq9(users.email, value.toLowerCase())).limit(1);
+          if (existingUser.length > 0) {
+            isValid = false;
+            message = "\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0633\u0628\u0642\u0627\u064B";
+            suggestions = [
+              "\u062C\u0631\u0628 \u0628\u0631\u064A\u062F \u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u062E\u062A\u0644\u0641",
+              "\u0647\u0644 \u062A\u062D\u0627\u0648\u0644 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u062F\u0644\u0627\u064B \u0645\u0646 \u0625\u0646\u0634\u0627\u0621 \u062D\u0633\u0627\u0628 \u062C\u062F\u064A\u062F\u061F"
+            ];
+          } else {
+            isValid = true;
+            message = "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u062A\u0627\u062D \u2713";
+          }
+        }
+        break;
+      case "password":
+        const minLength = 8;
+        const hasUpperCase = /[A-Z]/.test(value);
+        const hasLowerCase = /[a-z]/.test(value);
+        const hasNumbers = /\d/.test(value);
+        const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(value);
+        let strength = 0;
+        const issues = [];
+        if (value.length < minLength) {
+          issues.push(`\u064A\u062C\u0628 \u0623\u0646 \u062A\u0643\u0648\u0646 ${minLength} \u0623\u062D\u0631\u0641 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644`);
+        } else {
+          strength += 1;
+        }
+        if (!hasUpperCase) {
+          issues.push("\u064A\u062C\u0628 \u0623\u0646 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u062D\u0631\u0641 \u0643\u0628\u064A\u0631");
+        } else {
+          strength += 1;
+        }
+        if (!hasLowerCase) {
+          issues.push("\u064A\u062C\u0628 \u0623\u0646 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u062D\u0631\u0641 \u0635\u063A\u064A\u0631");
+        } else {
+          strength += 1;
+        }
+        if (!hasNumbers) {
+          issues.push("\u064A\u062C\u0628 \u0623\u0646 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0631\u0642\u0645");
+        } else {
+          strength += 1;
+        }
+        if (hasSpecial) {
+          strength += 1;
+        }
+        isValid = issues.length === 0;
+        if (isValid) {
+          const strengthLevels = ["\u0636\u0639\u064A\u0641\u0629 \u062C\u062F\u0627\u064B", "\u0636\u0639\u064A\u0641\u0629", "\u0645\u062A\u0648\u0633\u0637\u0629", "\u0642\u0648\u064A\u0629", "\u0642\u0648\u064A\u0629 \u062C\u062F\u0627\u064B"];
+          message = `\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 ${strengthLevels[Math.min(strength, 4)]} \u2713`;
+        } else {
+          message = issues.join("\u060C ");
+        }
+        res.json({
+          success: true,
+          isValid,
+          message,
+          suggestions: isValid ? [] : ["\u0627\u0633\u062A\u062E\u062F\u0645 \u0645\u0632\u064A\u062C \u0645\u0646 \u0627\u0644\u062D\u0631\u0648\u0641 \u0648\u0627\u0644\u0623\u0631\u0642\u0627\u0645", "\u0623\u0636\u0641 \u0631\u0645\u0648\u0632 \u062E\u0627\u0635\u0629 \u0644\u0632\u064A\u0627\u062F\u0629 \u0627\u0644\u0642\u0648\u0629"],
+          strength: Math.min(strength, 4)
+        });
+        return;
+      default:
+        return res.json({
+          success: false,
+          isValid: false,
+          message: "\u0646\u0648\u0639 \u0627\u0644\u062D\u0642\u0644 \u063A\u064A\u0631 \u0645\u062F\u0639\u0648\u0645"
+        });
+    }
+    res.json({
+      success: true,
+      isValid,
+      message,
+      suggestions
+    });
+  } catch (error) {
+    console.error("\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u062D\u0642\u0644:", error);
+    res.json({
+      success: false,
+      isValid: false,
+      message: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0623\u062B\u0646\u0627\u0621 \u0627\u0644\u062A\u062D\u0642\u0642"
     });
   }
 });

@@ -12,12 +12,15 @@ import crypto from 'crypto';
 
 // إعداد transporter للبريد الإلكتروني
 const createTransporter = () => {
+  // تنظيف البريد الإلكتروني من المسافات الزائدة
+  const smtpUser = process.env.SMTP_USER?.trim().replace(/\s+/g, '') || '';
+  
   const smtpConfig = {
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || '587'),
     secure: false, // true for 465, false for other ports
     auth: {
-      user: process.env.SMTP_USER,
+      user: smtpUser,
       pass: process.env.SMTP_PASS,
     },
     tls: {
@@ -28,7 +31,8 @@ const createTransporter = () => {
   console.log('📧 [EmailService] إعداد SMTP:', {
     host: smtpConfig.host,
     port: smtpConfig.port,
-    user: smtpConfig.auth.user,
+    user: smtpUser,
+    originalUser: process.env.SMTP_USER,
     hasPassword: !!smtpConfig.auth.pass
   });
 
@@ -259,8 +263,9 @@ export async function sendVerificationEmail(
     const transporter = createTransporter();
     const emailTemplate = emailTemplates.verification(verificationCode, verificationLink);
 
+    const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, '') || '';
     await transporter.sendMail({
-      from: `"نظام إدارة المشاريع" <${process.env.SMTP_USER}>`,
+      from: `"نظام إدارة المشاريع" <${cleanEmail}>`,
       to: email,
       subject: emailTemplate.subject,
       html: emailTemplate.html,
@@ -422,8 +427,9 @@ export async function sendPasswordResetEmail(
     const transporter = createTransporter();
     const emailTemplate = emailTemplates.passwordReset(resetLink, email);
 
+    const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, '') || '';
     await transporter.sendMail({
-      from: `"نظام إدارة المشاريع" <${process.env.SMTP_USER}>`,
+      from: `"نظام إدارة المشاريع" <${cleanEmail}>`,
       to: email,
       subject: emailTemplate.subject,
       html: emailTemplate.html,

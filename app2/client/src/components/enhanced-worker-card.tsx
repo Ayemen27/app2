@@ -9,6 +9,8 @@ import { User, Clock, DollarSign, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { Worker } from "@shared/schema";
 
+type ViewMode = 'compact' | 'detailed' | 'batch';
+
 interface AttendanceData {
   isPresent: boolean;
   startTime?: string;
@@ -23,12 +25,14 @@ interface EnhancedWorkerCardProps {
   worker: Worker;
   attendance: AttendanceData;
   onAttendanceChange: (attendance: AttendanceData) => void;
+  viewMode?: ViewMode;
 }
 
 export default function EnhancedWorkerCard({ 
   worker, 
   attendance, 
-  onAttendanceChange 
+  onAttendanceChange,
+  viewMode = 'compact'
 }: EnhancedWorkerCardProps) {
   const [localAttendance, setLocalAttendance] = useState<AttendanceData>(attendance);
 

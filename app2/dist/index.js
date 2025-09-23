@@ -8473,6 +8473,49 @@ async function registerRoutes(app2) {
       });
     }
   });
+  app2.get("/api/worker-attendance/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const attendanceId = req.params.id;
+      console.log("\u{1F4D6} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u0633\u062C\u0644 \u062D\u0636\u0648\u0631:", attendanceId);
+      if (!attendanceId) {
+        const duration2 = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: "\u0645\u0639\u0631\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u0645\u0637\u0644\u0648\u0628",
+          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631",
+          processingTime: duration2
+        });
+      }
+      const attendanceRecord = await db.select().from(workerAttendance).where(eq5(workerAttendance.id, attendanceId)).limit(1);
+      if (attendanceRecord.length === 0) {
+        const duration2 = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: "\u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${attendanceId}`,
+          processingTime: duration2
+        });
+      }
+      const duration = Date.now() - startTime;
+      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
+      res.json({
+        success: true,
+        data: attendanceRecord[0],
+        message: "\u062A\u0645 \u062C\u0644\u0628 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u0628\u0646\u062C\u0627\u062D",
+        processingTime: duration
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631",
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
   app2.patch("/api/worker-attendance/:id", requireAuth, async (req, res) => {
     const startTime = Date.now();
     try {
@@ -13650,7 +13693,8 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
   const startTime = Date.now();
   try {
     const { projectId } = req.params;
-    console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}`);
+    const { date: date2 } = req.query;
+    console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}${date2 ? ` \u0644\u0644\u062A\u0627\u0631\u064A\u062E: ${date2}` : ""}`);
     if (!projectId) {
       return res.status(400).json({
         success: false,
@@ -13658,25 +13702,38 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
+    let whereCondition = eq9(workerAttendance.projectId, projectId);
+    if (date2) {
+      whereCondition = and8(
+        eq9(workerAttendance.projectId, projectId),
+        eq9(workerAttendance.date, date2)
+      );
+    }
     const attendance = await db.select({
       id: workerAttendance.id,
       workerId: workerAttendance.workerId,
       projectId: workerAttendance.projectId,
       date: workerAttendance.date,
+      attendanceDate: workerAttendance.attendanceDate,
+      startTime: workerAttendance.startTime,
+      endTime: workerAttendance.endTime,
+      workDescription: workerAttendance.workDescription,
       workDays: workerAttendance.workDays,
       dailyWage: workerAttendance.dailyWage,
       actualWage: workerAttendance.actualWage,
       paidAmount: workerAttendance.paidAmount,
+      remainingAmount: workerAttendance.remainingAmount,
+      paymentType: workerAttendance.paymentType,
       isPresent: workerAttendance.isPresent,
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
-    }).from(workerAttendance).leftJoin(workers, eq9(workerAttendance.workerId, workers.id)).where(eq9(workerAttendance.projectId, projectId)).orderBy(workerAttendance.date);
+    }).from(workerAttendance).leftJoin(workers, eq9(workerAttendance.workerId, workers.id)).where(whereCondition).orderBy(workerAttendance.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0641\u064A ${duration}ms`);
     res.json({
       success: true,
       data: attendance,
-      message: `\u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0644\u0644\u0645\u0634\u0631\u0648\u0639`,
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0644\u0644\u0645\u0634\u0631\u0648\u0639${date2 ? ` \u0641\u064A \u0627\u0644\u062A\u0627\u0631\u064A\u062E ${date2}` : ""}`,
       processingTime: duration
     });
   } catch (error) {

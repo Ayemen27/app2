@@ -3594,6 +3594,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 📖 GET endpoint للحصول على سجل حضور واحد
+  app.get("/api/worker-attendance/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const attendanceId = req.params.id;
+      console.log('📖 [API] طلب جلب سجل حضور:', attendanceId);
+      
+      if (!attendanceId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف سجل الحضور مطلوب',
+          message: 'لم يتم توفير معرف سجل الحضور',
+          processingTime: duration
+        });
+      }
+
+      // البحث عن سجل الحضور في قاعدة البيانات
+      const attendanceRecord = await db
+        .select()
+        .from(workerAttendance)
+        .where(eq(workerAttendance.id, attendanceId))
+        .limit(1);
+
+      if (attendanceRecord.length === 0) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'سجل الحضور غير موجود',
+          message: `لم يتم العثور على سجل حضور بالمعرف: ${attendanceId}`,
+          processingTime: duration
+        });
+      }
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب سجل الحضور بنجاح في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: attendanceRecord[0],
+        message: 'تم جلب سجل الحضور بنجاح',
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب سجل الحضور:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في جلب سجل الحضور',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
   // 🔄 PATCH endpoints للحضور
   app.patch("/api/worker-attendance/:id", requireAuth, async (req, res) => {
     const startTime = Date.now();

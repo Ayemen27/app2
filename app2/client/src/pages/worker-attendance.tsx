@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, Save, ChartGantt } from "lucide-react";
+import { ArrowRight, Save, ChartGantt, LayoutGrid, List, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
@@ -29,6 +30,8 @@ interface AttendanceData {
   };
 }
 
+type ViewMode = 'compact' | 'detailed' | 'batch';
+
 export default function WorkerAttendance() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
@@ -40,6 +43,7 @@ export default function WorkerAttendance() {
   const dateParam = urlParams.get('date');
   const [selectedDate, setSelectedDate] = useState(dateParam || getCurrentDate());
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({});
+  const [viewMode, setViewMode] = useState<ViewMode>('compact');
 
   // إعدادات مشتركة لجميع العمال
   const [bulkSettings, setBulkSettings] = useState({
@@ -435,6 +439,7 @@ export default function WorkerAttendance() {
           projectId: selectedProjectId,
           workerId,
           date: selectedDate,
+          attendanceDate: selectedDate,
           startTime: data.startTime || "07:00",
           endTime: data.endTime || "15:00",
           workDescription: data.workDescription || "",
@@ -490,6 +495,50 @@ export default function WorkerAttendance() {
           />
         </CardContent>
       </Card>
+
+      {/* View Mode Selector */}
+      {workers.length > 0 && (
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-foreground">وضع العرض</h3>
+            </div>
+            <Tabs 
+              value={viewMode} 
+              onValueChange={(value) => setViewMode(value as ViewMode)}
+              className="w-full"
+              data-testid="view-mode-selector"
+            >
+              <TabsList className="grid w-full grid-cols-3 rtl:space-x-reverse">
+                <TabsTrigger 
+                  value="compact" 
+                  className="flex items-center gap-2"
+                  data-testid="view-mode-compact"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  عرض مضغوط
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="detailed" 
+                  className="flex items-center gap-2"
+                  data-testid="view-mode-detailed"
+                >
+                  <List className="h-4 w-4" />
+                  عرض تفصيلي
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="batch" 
+                  className="flex items-center gap-2"
+                  data-testid="view-mode-batch"
+                >
+                  <Layers className="h-4 w-4" />
+                  عرض جماعي
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
 
       {/* الإعدادات المشتركة */}
       {workers.length > 0 && (
@@ -620,6 +669,7 @@ export default function WorkerAttendance() {
               worker={worker}
               attendance={attendanceData[worker.id] || { isPresent: false }}
               onAttendanceChange={(attendance) => handleAttendanceChange(worker.id, attendance)}
+              viewMode={viewMode}
             />
           )) : null}
         </div>

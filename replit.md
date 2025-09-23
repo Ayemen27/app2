@@ -3,6 +3,17 @@
 ## Overview
 A comprehensive construction project management system designed for the Middle East, featuring a full Arabic interface with RTL (Right-to-Left) support. The system provides advanced financial management tools, project tracking, worker management, material purchasing, and intelligent reporting capabilities. Built as a full-stack web application with a matching mobile app, it serves as a complete solution for construction companies to manage their operations efficiently.
 
+## Recent Changes
+
+### September 2025 - Worker Attendance UI Enhancements
+- **View Mode System**: إضافة نظام أوضاع العرض الثلاثة في صفحة حضور العمال:
+  - **عرض مضغوط** (افتراضي): عرض مختصر للمعلومات الأساسية
+  - **عرض تفصيلي**: عرض كامل لجميع التفاصيل 
+  - **عرض جماعي**: للعمليات الجماعية مع التحديد المتعدد
+- **UI Controls**: إضافة Tabs selector مع دعم RTL والأيقونات المناسبة
+- **Architecture**: تطبيق ViewMode state في WorkerAttendance وتمريره لـ EnhancedWorkerCard
+- **Testing**: إضافة data-testid attributes للاختبار التلقائي
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 

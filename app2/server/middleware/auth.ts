@@ -2,10 +2,25 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../db';
-import { users, userSessions } from '../../shared/schema';
+import { users, authUserSessions } from '../../shared/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import rateLimit from 'express-rate-limit';
 import slowDown from 'express-slow-down';
+
+// تعريف نوع الـ Request مع user
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    userId: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    role: string;
+    isActive: boolean;
+    mfaEnabled?: boolean;
+    sessionId: string;
+  };
+}
 
 // Rate Limiting للطلبات العامة
 export const generalRateLimit = rateLimit({
@@ -77,13 +92,13 @@ const verifySession = async (userId: string, sessionId: string) => {
   try {
     const session = await db
       .select()
-      .from(userSessions)
+      .from(authUserSessions)
       .where(
         and(
-          eq(userSessions.userId, userId),
-          eq(userSessions.sessionId, sessionId),
-          eq(userSessions.isActive, true),
-          gt(userSessions.expiresAt, new Date())
+          eq(authUserSessions.userId, userId),
+          eq(authUserSessions.sessionToken, sessionId),
+          eq(authUserSessions.isRevoked, false),
+          gt(authUserSessions.expiresAt, new Date())
         )
       )
       .limit(1);
@@ -148,7 +163,7 @@ export const trackSuspiciousActivity = (req: Request, res: Response, next: NextF
 };
 
 // Middleware المصادقة الأساسي
-export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+export const authenticate = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const startTime = Date.now();
     const authHeader = req.headers.authorization;
@@ -218,13 +233,13 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     // تحديث آخر نشاط للجلسة
     await db
-      .update(userSessions)
+      .update(authUserSessions)
       .set({ 
         lastActivity: new Date(),
         ipAddress: ip,
         userAgent: req.get('User-Agent') || 'unknown'
       })
-      .where(eq(userSessions.sessionId, decoded.sessionId));
+      .where(eq(authUserSessions.sessionToken, decoded.sessionId));
 
     // إضافة بيانات المستخدم للـ request
     req.user = {
@@ -247,7 +262,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 };
 
 // Middleware للتحقق من صلاحيات الإدارة
-export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+export const requireAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,
@@ -269,7 +284,7 @@ export const requireAdmin = (req: Request, res: Response, next: NextFunction) =>
 };
 
 // Middleware للطلبات الاختيارية (لا تتطلب مصادقة إجبارية)
-export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
+export const optionalAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
     
@@ -308,5 +323,57 @@ setInterval(() => {
     }
   }
 }, oneHour);
+
+// تصدير middleware الأساسي
+export const requireAuth = authenticate;
+
+// تصدير middleware للأدوار
+export const requireRole = (role: string) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'غير مصرح لك بالوصول',
+        code: 'UNAUTHORIZED'
+      });
+    }
+
+    if (req.user.role !== role) {
+      console.log(`🚫 [AUTH] محاولة وصول غير مصرح بها من: ${req.user.email} للدور: ${role}`);
+      return res.status(403).json({
+        success: false,
+        message: `تحتاج صلاحيات ${role} للوصول لهذا المحتوى`,
+        code: 'ROLE_REQUIRED'
+      });
+    }
+
+    next();
+  };
+};
+
+// تصدير middleware للصلاحيات
+export const requirePermission = (permission: string) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'غير مصرح لك بالوصول',
+        code: 'UNAUTHORIZED'
+      });
+    }
+
+    // يمكن إضافة منطق الصلاحيات هنا حسب الحاجة
+    // حالياً نسمح للـ admin بكل شيء
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: `تحتاج صلاحية ${permission} للوصول لهذا المحتوى`,
+      code: 'PERMISSION_REQUIRED'
+    });
+  };
+};
 
 export default authenticate;

@@ -36,7 +36,6 @@ import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
-import RegisterPage from "@/pages/RegisterPage";
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -59,7 +58,7 @@ function Router() {
       {/* صفحات غير محمية - بدون شريط علوي أو سفلي */}
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={LoginPage} />
-      <Route path="/forgot-password" component={() => import('./pages/ForgotPasswordPage').then(m => m.default)} />
+      {/* <Route path="/forgot-password" component={ForgotPasswordPage} /> */}
       
       {/* صفحات محمية - مع شريط علوي وسفلي */}
       <Route path="/">

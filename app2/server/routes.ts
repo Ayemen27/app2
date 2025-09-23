@@ -1697,27 +1697,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const purchaseData = purchase[0];
       
-      // إذا لم تكن فئة المادة محفوظة، نحاول جلبها من جدول المواد
+      // البحث الذكي عن فئة المادة - تحسين مع عدة استراتيجيات
       let materialData = null;
       let finalMaterialCategory = purchaseData.materialCategory;
       let finalMaterialUnit = purchaseData.materialUnit || purchaseData.unit;
       
-      if (!finalMaterialCategory && purchaseData.materialName) {
+      if ((!finalMaterialCategory || !finalMaterialUnit) && purchaseData.materialName) {
         try {
-          // البحث عن مادة مشابهة بالاسم
-          const similarMaterial = await db
+          console.log(`🔍 [API] البحث عن فئة المادة لـ: ${purchaseData.materialName}`);
+          
+          // البحث الدقيق أولاً
+          let similarMaterial = await db
             .select()
             .from(materials)
             .where(eq(materials.name, purchaseData.materialName))
             .limit(1);
           
+          // إذا لم نجد تطابق دقيق، نبحث بالتشابه الجزئي
+          if (similarMaterial.length === 0) {
+            similarMaterial = await db
+              .select()
+              .from(materials)
+              .where(sql`LOWER(${materials.name}) LIKE LOWER(${`%${purchaseData.materialName}%`})`)
+              .limit(1);
+          }
+          
+          // إذا لم نجد تطابق جزئي، نبحث بالكلمات الأولى
+          if (similarMaterial.length === 0) {
+            const firstWord = purchaseData.materialName.split(' ')[0];
+            if (firstWord.length > 2) {
+              similarMaterial = await db
+                .select()
+                .from(materials)
+                .where(sql`LOWER(${materials.name}) LIKE LOWER(${`${firstWord}%`})`)
+                .limit(1);
+            }
+          }
+          
           if (similarMaterial.length > 0) {
             materialData = similarMaterial[0];
-            finalMaterialCategory = materialData.category;
+            finalMaterialCategory = finalMaterialCategory || materialData.category;
             finalMaterialUnit = finalMaterialUnit || materialData.unit;
+            
+            console.log(`✅ [API] تم العثور على مادة مشابهة:`, {
+              foundMaterial: materialData.name,
+              category: materialData.category,
+              unit: materialData.unit
+            });
+          } else {
+            console.log(`⚠️ [API] لم يتم العثور على مادة مشابهة لـ: ${purchaseData.materialName}`);
           }
         } catch (materialError) {
-          console.warn('تحذير: لم يتم العثور على مادة مشابهة');
+          console.warn('⚠️ [API] خطأ في البحث عن مادة مشابهة:', materialError);
         }
       }
 

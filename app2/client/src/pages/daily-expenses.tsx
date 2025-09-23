@@ -27,9 +27,9 @@ import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import type {
-  WorkerAttendance,
-  TransportationExpense,
+import type { 
+  WorkerAttendance, 
+  TransportationExpense, 
   FundTransfer,
   MaterialPurchase,
   WorkerTransfer,
@@ -38,7 +38,7 @@ import type {
   InsertFundTransfer,
   InsertTransportationExpense,
   InsertDailyExpenseSummary,
-  ProjectFundTransfer
+  ProjectFundTransfer 
 } from "@shared/schema";
 
 // إزالة تعريف ErrorBoundary المحلي لتجنب التكرار - يتم استيراده من components/ErrorBoundary
@@ -250,7 +250,7 @@ function DailyExpensesContent() {
         if (!Array.isArray(transferData)) return [];
 
         console.log(`✅ [ProjectTransfers] تم جلب ${transferData.length} ترحيل لليوم ${selectedDate} في الصفحة اليومية`);
-
+        
         // البيانات تأتي مع أسماء المشاريع من الخادم مباشرة
         return transferData;
       } catch (error) {
@@ -367,11 +367,11 @@ function DailyExpensesContent() {
     },
     onSuccess: async (newTransfer) => {
       // ✅ إصلاح: تحديث فوري للبيانات الأساسية
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] 
       });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", selectedProjectId, "previous-balance"]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", selectedProjectId, "previous-balance"] 
       });
 
       toast({
@@ -429,11 +429,11 @@ function DailyExpensesContent() {
     },
     onSuccess: async (newExpense) => {
       // ✅ إصلاح: تحديث فوري للبيانات الأساسية
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] 
       });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", selectedProjectId, "previous-balance"]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", selectedProjectId, "previous-balance"] 
       });
 
       toast({
@@ -476,8 +476,8 @@ function DailyExpensesContent() {
       });
 
       // تحديث ملخص اليوم
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", selectedProjectId, "daily-summary", selectedDate]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", selectedProjectId, "daily-summary", selectedDate] 
       });
     },
     onError: () => {
@@ -502,7 +502,7 @@ function DailyExpensesContent() {
     onSuccess: (_, id, context) => {
       // استخدام القيم المحفوظة من onMutate
       const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
-
+      
       // تحديث فوري للقائمة باستخدام setQueryData
       queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
         if (!oldData) return oldData;
@@ -511,18 +511,18 @@ function DailyExpensesContent() {
           fundTransfers: oldData.fundTransfers?.filter((transfer: any) => transfer.id !== id) || []
         };
       });
-
+      
       // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "daily-expenses", date]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
       });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "previous-balance"]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "previous-balance"] 
       });
-
-      toast({
-        title: "تم الحذف",
-        description: "تم حذف العهدة بنجاح"
+      
+      toast({ 
+        title: "تم الحذف", 
+        description: "تم حذف العهدة بنجاح" 
       });
     },
     onError: (error: any) => {
@@ -541,10 +541,10 @@ function DailyExpensesContent() {
         errorMessage = error;
       }
 
-      toast({
-        title: "فشل في حذف الحولة",
-        description: errorMessage,
-        variant: "destructive"
+      toast({ 
+        title: "فشل في حذف الحولة", 
+        description: errorMessage, 
+        variant: "destructive" 
       });
     }
   });
@@ -561,7 +561,7 @@ function DailyExpensesContent() {
     onSuccess: (_, id, context) => {
       // استخدام القيم المحفوظة من onMutate
       const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
-
+      
       // تحديث فوري للقائمة باستخدام setQueryData
       queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
         if (!oldData) return oldData;
@@ -570,18 +570,18 @@ function DailyExpensesContent() {
           transportationExpenses: oldData.transportationExpenses?.filter((expense: any) => expense.id !== id) || []
         };
       });
-
+      
       // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "daily-expenses", date]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
       });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "previous-balance"]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "previous-balance"] 
       });
-
-      toast({
-        title: "تم الحذف",
-        description: "تم حذف مصروف المواصلات بنجاح"
+      
+      toast({ 
+        title: "تم الحذف", 
+        description: "تم حذف مصروف المواصلات بنجاح" 
       });
     },
     onError: (error: any) => {
@@ -600,10 +600,10 @@ function DailyExpensesContent() {
         errorMessage = error;
       }
 
-      toast({
-        title: "فشل في حذف مصروف المواصلات",
-        description: errorMessage,
-        variant: "destructive",
+      toast({ 
+        title: "فشل في حذف مصروف المواصلات", 
+        description: errorMessage, 
+        variant: "destructive" 
       });
     }
   });
@@ -620,7 +620,7 @@ function DailyExpensesContent() {
     onSuccess: (_, id, context) => {
       // استخدام القيم المحفوظة من onMutate
       const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
-
+      
       // تحديث فوري للقائمة باستخدام setQueryData
       queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
         if (!oldData) return oldData;
@@ -629,21 +629,21 @@ function DailyExpensesContent() {
           materialPurchases: oldData.materialPurchases?.filter((purchase: any) => purchase.id !== id) || []
         };
       });
-
+      
       // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "daily-expenses", date]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
       });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "material-purchases"]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "material-purchases"] 
       });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "previous-balance"]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "previous-balance"] 
       });
-
-      toast({
-        title: "تم الحذف",
-        description: "تم حذف شراء المواد بنجاح"
+      
+      toast({ 
+        title: "تم الحذف", 
+        description: "تم حذف شراء المواد بنجاح" 
       });
     },
     onError: (error: any) => {
@@ -662,10 +662,10 @@ function DailyExpensesContent() {
         errorMessage = error;
       }
 
-      toast({
-        title: "فشل في حذف شراء المواد",
-        description: errorMessage,
-        variant: "destructive",
+      toast({ 
+        title: "فشل في حذف شراء المواد", 
+        description: errorMessage, 
+        variant: "destructive" 
       });
     }
   });
@@ -682,7 +682,7 @@ function DailyExpensesContent() {
     onSuccess: (_, id, context) => {
       // استخدام القيم المحفوظة من onMutate
       const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
-
+      
       // تحديث فوري للقائمة باستخدام setQueryData
       queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
         if (!oldData) return oldData;
@@ -691,21 +691,21 @@ function DailyExpensesContent() {
           workerAttendance: oldData.workerAttendance?.filter((attendance: any) => attendance.id !== id) || []
         };
       });
-
+      
       // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "daily-expenses", date]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
       });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "attendance"]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "attendance"] 
       });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "previous-balance"]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "previous-balance"] 
       });
-
-      toast({
-        title: "تم الحذف",
-        description: "تم حذف حضور العامل بنجاح"
+      
+      toast({ 
+        title: "تم الحذف", 
+        description: "تم حذف حضور العامل بنجاح" 
       });
     },
     onError: (error: any) => {
@@ -724,10 +724,10 @@ function DailyExpensesContent() {
         errorMessage = error;
       }
 
-      toast({
-        title: "فشل في حذف حضور العامل",
-        description: errorMessage,
-        variant: "destructive",
+      toast({ 
+        title: "فشل في حذف حضور العامل", 
+        description: errorMessage, 
+        variant: "destructive" 
       });
     }
   });
@@ -744,7 +744,7 @@ function DailyExpensesContent() {
     onSuccess: (_, id, context) => {
       // استخدام القيم المحفوظة من onMutate
       const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
-
+      
       // تحديث فوري للقائمة باستخدام setQueryData
       queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
         if (!oldData) return oldData;
@@ -753,18 +753,18 @@ function DailyExpensesContent() {
           workerTransfers: oldData.workerTransfers?.filter((transfer: any) => transfer.id !== id) || []
         };
       });
-
+      
       // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "daily-expenses", date]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
       });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/projects", projectId, "previous-balance"]
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", projectId, "previous-balance"] 
       });
-
-      toast({
-        title: "تم الحذف",
-        description: "تم حذف حوالة العامل بنجاح"
+      
+      toast({ 
+        title: "تم الحذف", 
+        description: "تم حذف حوالة العامل بنجاح" 
       });
     },
     onError: (error: any) => {
@@ -783,17 +783,17 @@ function DailyExpensesContent() {
         errorMessage = error;
       }
 
-      toast({
-        title: "فشل في حذف حوالة العامل",
-        description: errorMessage,
-        variant: "destructive",
+      toast({ 
+        title: "فشل في حذف حوالة العامل", 
+        description: errorMessage, 
+        variant: "destructive" 
       });
     }
   });
 
   // Fund Transfer Update Mutation
   const updateFundTransferMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
       apiRequest(`/api/fund-transfers/${id}`, "PATCH", data),
     onSuccess: async (updatedTransfer, { id }) => {
       // تحديث daily-expenses query حيث تأتي بيانات fund transfers
@@ -900,7 +900,7 @@ function DailyExpensesContent() {
 
   // Transportation Update Mutation
   const updateTransportationMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
       apiRequest(`/api/transportation-expenses/${id}`, "PATCH", data),
     onSuccess: async (updatedExpense, { id }) => {
       // تحديث daily-expenses query حيث تأتي بيانات transportation expenses
@@ -972,19 +972,19 @@ function DailyExpensesContent() {
   const calculateTotals = () => {
     try {
       // إنشاء متغيرات آمنة لجميع البيانات مع فحص إضافي
-      const safeAttendance = Array.isArray(todayWorkerAttendance) ?
+      const safeAttendance = Array.isArray(todayWorkerAttendance) ? 
         todayWorkerAttendance.filter(item => item && typeof item === 'object') : [];
-      const safeTransportation = Array.isArray(todayTransportation) ?
+      const safeTransportation = Array.isArray(todayTransportation) ? 
         todayTransportation.filter(item => item && typeof item === 'object') : [];
-      const safeMaterialPurchases = Array.isArray(todayMaterialPurchases) ?
+      const safeMaterialPurchases = Array.isArray(todayMaterialPurchases) ? 
         todayMaterialPurchases.filter(item => item && typeof item === 'object') : [];
-      const safeWorkerTransfers = Array.isArray(todayWorkerTransfers) ?
+      const safeWorkerTransfers = Array.isArray(todayWorkerTransfers) ? 
         todayWorkerTransfers.filter(item => item && typeof item === 'object') : [];
-      const safeMiscExpenses = Array.isArray(todayMiscExpenses) ?
+      const safeMiscExpenses = Array.isArray(todayMiscExpenses) ? 
         todayMiscExpenses.filter(item => item && typeof item === 'object') : [];
-      const safeFundTransfers = Array.isArray(todayFundTransfers) ?
+      const safeFundTransfers = Array.isArray(todayFundTransfers) ? 
         todayFundTransfers.filter(item => item && typeof item === 'object') : [];
-      const safeProjectTransfers = Array.isArray(projectTransfers) ?
+      const safeProjectTransfers = Array.isArray(projectTransfers) ? 
         projectTransfers.filter(item => item && typeof item === 'object') : [];
 
       // تسجيل مبسط للحسابات المالية
@@ -1005,7 +1005,7 @@ function DailyExpensesContent() {
         (sum, attendance) => {
           const amount = cleanNumber(attendance.paidAmount);
           return sum + amount;
-        },
+        }, 
         0
       );
 
@@ -1013,7 +1013,7 @@ function DailyExpensesContent() {
         (sum, expense) => {
           const amount = cleanNumber(expense.amount);
           return sum + amount;
-        },
+        }, 
         0
       );
 
@@ -1060,7 +1060,7 @@ function DailyExpensesContent() {
 
       // تطبيق المنطق الصحيح من النسخة الاحتياطية - استخدام cleanNumber للاتساق
       const carriedAmount = cleanNumber(carriedForward);
-
+      
       console.log('🧮 [calculateTotals] تفاصيل الحساب:', {
         carriedForward,
         carriedAmount,
@@ -1068,12 +1068,12 @@ function DailyExpensesContent() {
         incomingProjectTransfers,
         calculation: `${carriedAmount} + ${totalFundTransfers} + ${incomingProjectTransfers}`,
       });
-
+      
       const totalIncome = carriedAmount + totalFundTransfers + incomingProjectTransfers;
-      const totalExpenses = totalWorkerWages + totalTransportation + totalMaterialCosts +
+      const totalExpenses = totalWorkerWages + totalTransportation + totalMaterialCosts + 
                             totalWorkerTransfers + totalMiscExpenses + outgoingProjectTransfers;
       const remainingBalance = totalIncome - totalExpenses;
-
+      
       console.log('✅ [calculateTotals] النتيجة النهائية:', {
         totalIncome,
         totalExpenses,
@@ -1236,20 +1236,20 @@ function DailyExpensesContent() {
       {/* Data Overview Indicator */}
       {selectedProjectId && (
         <Card className={`mb-3 border-l-4 ${
-          sectionsWithData === 0
-            ? 'border-l-amber-400 bg-amber-50/30'
-            : sectionsWithData === totalDataSections
-              ? 'border-l-green-500 bg-green-50/30'
+          sectionsWithData === 0 
+            ? 'border-l-amber-400 bg-amber-50/30' 
+            : sectionsWithData === totalDataSections 
+              ? 'border-l-green-500 bg-green-50/30' 
               : 'border-l-blue-500 bg-blue-50/30'
         }`}>
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className={`h-3 w-3 rounded-full ${
-                  sectionsWithData === 0
-                    ? 'bg-amber-400'
-                    : sectionsWithData === totalDataSections
-                      ? 'bg-green-500'
+                  sectionsWithData === 0 
+                    ? 'bg-amber-400' 
+                    : sectionsWithData === totalDataSections 
+                      ? 'bg-green-500' 
                       : 'bg-blue-500'
                 }`}></div>
                 <span className="text-sm font-medium">
@@ -1374,9 +1374,9 @@ function DailyExpensesContent() {
                 placeholder="نوع التحويل *"
                 className="flex-1"
               />
-              <Button
-                onClick={handleAddFundTransfer}
-                size="sm"
+              <Button 
+                onClick={handleAddFundTransfer} 
+                size="sm" 
                 className="bg-primary"
                 disabled={addFundTransferMutation.isPending || updateFundTransferMutation.isPending}
                 data-testid="button-add-fund-transfer"
@@ -1413,18 +1413,18 @@ function DailyExpensesContent() {
                       <div className="flex items-center gap-2">
                         <span className="font-medium arabic-numbers">{formatCurrency(transfer.amount)}</span>
                         <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
                             className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                             onClick={() => handleEditFundTransfer(transfer)}
                             data-testid="button-edit-fund-transfer"
                           >
                             <Edit2 className="h-3 w-3" />
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
                             className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                             onClick={() => deleteFundTransferMutation.mutate(transfer.id)}
                             disabled={deleteFundTransferMutation.isPending}
@@ -1484,37 +1484,37 @@ function DailyExpensesContent() {
                 return (
                   <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
                     <span className="text-sm">{worker?.name || `عامل ${index + 1}`}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium arabic-numbers">{formatCurrency(attendance.paidAmount)}</span>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                          onClick={() => {
-                            // توجيه إلى صفحة حضور العمال مع معرف العامل والتاريخ للتعديل
-                            setLocation(`/worker-attendance?edit=${attendance.id}&worker=${attendance.workerId}&date=${selectedDate}`);
-                          }}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => deleteWorkerAttendanceMutation.mutate(attendance.id)}
-                          disabled={deleteWorkerAttendanceMutation.isPending}
-                          data-testid="button-delete-worker-attendance"
-                        >
-                          {deleteWorkerAttendanceMutation.isPending ? (
-                            <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
-                          ) : (
-                            <Trash2 className="h-3 w-3" />
-                          )}
-                        </Button>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium arabic-numbers">{formatCurrency(attendance.paidAmount)}</span>
+                        <div className="flex gap-1">
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => {
+                              // توجيه إلى صفحة حضور العمال مع معرف العامل والتاريخ للتعديل
+                              setLocation(`/worker-attendance?edit=${attendance.id}&worker=${attendance.workerId}&date=${selectedDate}`);
+                            }}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => deleteWorkerAttendanceMutation.mutate(attendance.id)}
+                            disabled={deleteWorkerAttendanceMutation.isPending}
+                            data-testid="button-delete-worker-attendance"
+                          >
+                            {deleteWorkerAttendanceMutation.isPending ? (
+                              <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
                 );
               })}
               <div className="text-left mt-2 pt-2 border-t">
@@ -1560,9 +1560,9 @@ function DailyExpensesContent() {
                 placeholder="ملاحظات"
                 className="flex-1"
               />
-              <Button
-                onClick={handleAddTransportation}
-                size="sm"
+              <Button 
+                onClick={handleAddTransportation} 
+                size="sm" 
                 className="bg-secondary"
                 disabled={addTransportationMutation.isPending || updateTransportationMutation.isPending}
                 data-testid="button-add-transportation"
@@ -1595,18 +1595,18 @@ function DailyExpensesContent() {
                     <div className="flex items-center gap-2">
                       <span className="font-medium arabic-numbers">{formatCurrency(expense.amount)}</span>
                       <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
                           className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                           onClick={() => handleEditTransportation(expense)}
                           data-testid="button-edit-transportation"
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
                           className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                           onClick={() => deleteTransportationMutation.mutate(expense.id)}
                           disabled={deleteTransportationMutation.isPending}
@@ -1641,7 +1641,7 @@ function DailyExpensesContent() {
             <Package className="text-success ml-2 h-5 w-5" />
             شراء مواد
           </h4>
-          {safeMaterialPurchases.length === 0 ? (
+          {!Array.isArray(todayMaterialPurchases) || todayMaterialPurchases.length === 0 ? (
             <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
               <Package className="mx-auto h-8 w-8 text-gray-400 mb-2" />
               <p className="text-sm text-gray-600">لا توجد مشتريات مواد للتاريخ {selectedDate}</p>
@@ -1651,44 +1651,81 @@ function DailyExpensesContent() {
             <div className="space-y-2 mb-3">
               {safeMaterialPurchases.map((purchase, index) => {
                 const material = purchase.material || (Array.isArray(materials) ? materials.find((m: any) => m.id === purchase.materialId) : null);
-                const isPaid = purchase.purchaseType === 'نقد' || purchase.purchaseType === 'cash';
-                const isCredit = purchase.purchaseType === 'آجل' || purchase.purchaseType === 'credit';
-
                 return (
-                  <div key={purchase.id} className={`flex justify-between items-center p-3 rounded border ${
-                    isCredit ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'
-                  }`}>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">
-                        {purchase.materialName || purchase.material?.name || 'مادة غير محددة'} ({purchase.quantity} {purchase.unit || purchase.material?.unit || 'وحدة'})
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {purchase.supplierName && `المورد: ${purchase.supplierName}`}
-                        {purchase.invoiceNumber && ` • فاتورة: ${purchase.invoiceNumber}`}
-                      </p>
+                <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
+                  <div className="text-sm flex-1">
+                    <div className="font-medium">{material?.name || 'مادة غير محددة'}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {purchase.quantity} {material?.unit || 'وحدة'} × {formatCurrency(purchase.unitPrice)}
                     </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-semibold ${isCredit ? 'text-orange-600' : 'text-gray-900'}`}>
-                        {formatCurrency(purchase.totalAmount)}
-                      </p>
-                      <p className={`text-xs ${isCredit ? 'text-orange-500 font-medium' : 'text-muted-foreground'}`}>
-                        {purchase.purchaseType || 'نقد'} {isCredit && '(غير محسوب)'}
-                      </p>
+                    {purchase.supplierName && (
+                      <div className="text-xs text-muted-foreground">المورد: {purchase.supplierName}</div>
+                    )}
+                    {purchase.purchaseType && (
+                      <div className={`text-xs font-medium ${purchase.purchaseType === 'آجل' ? 'text-orange-600' : 'text-green-600'}`}>
+                        {purchase.purchaseType === 'آجل' ? '⏰ آجل' : '💵 نقد'}
+                      </div>
+                    )}
+                    {material?.category && (
+                      <div className="text-xs text-muted-foreground">الفئة: {material.category}</div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-medium arabic-numbers ${purchase.purchaseType === 'آجل' ? 'text-orange-600' : 'text-green-600'}`}>
+                      {formatCurrency(purchase.totalAmount)}
+                    </span>
+                    <div className="flex gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={() => {
+                          // توجيه إلى صفحة شراء المواد مع معرف الشراء للتعديل
+                          setLocation(`/material-purchase?edit=${purchase.id}`);
+                        }}
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => deleteMaterialPurchaseMutation.mutate(purchase.id)}
+                        disabled={deleteMaterialPurchaseMutation.isPending}
+                        data-testid="button-delete-material-purchase"
+                      >
+                        {deleteMaterialPurchaseMutation.isPending ? (
+                          <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
+                      </Button>
                     </div>
                   </div>
+                </div>
                 );
               })}
               <div className="text-left mt-2 pt-2 border-t space-y-1">
                 <div>
-                  <span className="text-sm text-muted-foreground">
-                    شراء مواد (مدفوع): {formatCurrency(totals.totalMaterialCosts)}
+                  <span className="text-sm text-muted-foreground">المشتريات النقدية (تؤثر على الرصيد): </span>
+                  <span className="font-bold text-success arabic-numbers">
+                    {formatCurrency(totals.totalMaterialCosts)}
                   </span>
-                  {safeMaterialPurchases.some(p => p.purchaseType === 'آجل') && (
-                    <span className="text-orange-600 block text-xs">
-                      * المشتريات الآجلة غير محسوبة في المجموع
-                    </span>
-                  )}
                 </div>
+                {(() => {
+                  const deferredAmount = Array.isArray(todayMaterialPurchases) ? 
+                    todayMaterialPurchases
+                      .filter(purchase => purchase.purchaseType === "آجل")
+                      .reduce((sum, purchase) => sum + parseFloat(purchase.totalAmount || "0"), 0) : 0;
+                  return deferredAmount > 0 ? (
+                    <div>
+                      <span className="text-sm text-muted-foreground">المشتريات الآجلة (لا تؤثر على الرصيد): </span>
+                      <span className="font-bold text-orange-600 arabic-numbers">
+                        {formatCurrency(deferredAmount)}
+                      </span>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             </div>
           )}
@@ -1740,9 +1777,9 @@ function DailyExpensesContent() {
                       </div>
                     </div>
                     <div className="flex gap-1 mr-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
                         className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                         onClick={() => {
                           // توجيه إلى صفحة حسابات العمال مع معرف التحويل للتعديل
@@ -1751,9 +1788,9 @@ function DailyExpensesContent() {
                       >
                         <Edit2 className="h-3 w-3" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
                         className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         onClick={() => {
                           // نقل التأكيد خارج mutationFn لإصلاح مشكلة onSuccess
@@ -1796,9 +1833,9 @@ function DailyExpensesContent() {
 
       {/* Worker Miscellaneous Expenses */}
       {selectedProjectId && (
-        <WorkerMiscExpenses
-          projectId={selectedProjectId}
-          selectedDate={selectedDate}
+        <WorkerMiscExpenses 
+          projectId={selectedProjectId} 
+          selectedDate={selectedDate} 
         />
       )}
 
@@ -1833,11 +1870,11 @@ function DailyExpensesContent() {
           {showProjectTransfers && (
             <div className="space-y-3">
               {safeProjectTransfers.map((transfer) => (
-                <div
-                  key={transfer.id}
+                <div 
+                  key={transfer.id} 
                   className={`p-3 rounded border-r-4 ${
-                    transfer.toProjectId === selectedProjectId
-                      ? 'bg-green-50 border-green-500'
+                    transfer.toProjectId === selectedProjectId 
+                      ? 'bg-green-50 border-green-500' 
                       : 'bg-red-50 border-red-500'
                   }`}
                 >

@@ -64,25 +64,32 @@ function generateSecureToken(): string {
 
 // دالة لتحديد النطاق حسب البيئة
 function getDynamicDomain(): string {
+  // أولوية أولى: استخدام DOMAIN من ملف .env
+  if (process.env.DOMAIN && process.env.DOMAIN.trim()) {
+    console.log('🌐 [EmailService] استخدام DOMAIN من .env:', process.env.DOMAIN);
+    return process.env.DOMAIN.trim();
+  }
+  
   // في بيئة التطوير
   if (process.env.NODE_ENV === 'development') {
+    console.log('🌐 [EmailService] استخدام localhost للتطوير');
     return 'localhost:5000';
   }
   
-  // في بيئة الإنتاج
-  if (process.env.DOMAIN) {
-    return process.env.DOMAIN;
-  }
-  
-  // إذا كان على Replit
+  // إذا كان على Replit (كحل احتياطي فقط)
   if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    return `${process.env.REPL_SLUG}--5000.${process.env.REPL_OWNER}.repl.co`;
+    const replitDomain = `${process.env.REPL_SLUG}--5000.${process.env.REPL_OWNER}.repl.co`;
+    console.log('🌐 [EmailService] استخدام Replit domain كحل احتياطي:', replitDomain);
+    return replitDomain;
   }
   
   // القيم الافتراضية حسب البيئة
-  return process.env.NODE_ENV === 'production' 
+  const defaultDomain = process.env.NODE_ENV === 'production' 
     ? 'app2.binarjoinanelytic.info' 
     : 'localhost:5000';
+  
+  console.log('🌐 [EmailService] استخدام القيمة الافتراضية:', defaultDomain);
+  return defaultDomain;
 }
 
 // دالة لتحديد البروتوكول
@@ -294,6 +301,8 @@ export async function sendVerificationEmail(
     const domain = getDynamicDomain();
     const protocol = getProtocol();
     const verificationLink = `${protocol}://${domain}/verify-email?token=${verificationCode}&userId=${userId}`;
+    
+    console.log('🔗 [EmailService] رابط التحقق المُنشأ:', verificationLink);
 
     // حفظ الرمز في قاعدة البيانات
     const expiresAt = new Date();
@@ -461,6 +470,8 @@ export async function sendPasswordResetEmail(
     const domain = getDynamicDomain();
     const protocol = getProtocol();
     const resetLink = `${protocol}://${domain}/reset-password?token=${resetToken}`;
+    
+    console.log('🔗 [EmailService] رابط استرجاع كلمة المرور المُنشأ:', resetLink);
 
     // حفظ الرمز في قاعدة البيانات
     const expiresAt = new Date();

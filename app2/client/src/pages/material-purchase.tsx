@@ -621,12 +621,12 @@ export default function MaterialPurchase() {
 
   // Edit Function
   const handleEdit = (purchase: any) => {
-    setMaterialName(purchase.material?.name || "");
-    setMaterialCategory(purchase.material?.category || "");
-    setMaterialUnit(purchase.material?.unit || "");
+    setMaterialName(purchase.materialName || purchase.material?.name || "");
+    setMaterialCategory(purchase.materialCategory || purchase.material?.category || "");
+    setMaterialUnit(purchase.materialUnit || purchase.material?.unit || purchase.unit || "");
     setQuantity(purchase.quantity);
     setUnitPrice(purchase.unitPrice);
-    setPaymentType(purchase.paymentType || "نقد");
+    setPaymentType(purchase.purchaseType || purchase.paymentType || "نقد");
     setSupplierName(purchase.supplierName || "");
     setInvoiceNumber(purchase.invoiceNumber || "");
     setInvoiceDate(purchase.invoiceDate || getCurrentDate());
@@ -1065,10 +1065,17 @@ export default function MaterialPurchase() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="font-medium text-foreground">{purchase.material?.name}</span>
-                        <span className="text-sm text-muted-foreground">({purchase.material?.unit})</span>
+                        <span className="font-medium text-foreground">
+                          {purchase.materialName || purchase.material?.name || "غير محدد"}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          ({purchase.materialUnit || purchase.material?.unit || purchase.unit || "غير محدد"})
+                        </span>
                       </div>
                       <div className="text-sm text-muted-foreground space-y-1">
+                        {(purchase.materialCategory || purchase.material?.category) && (
+                          <p>الفئة: {purchase.materialCategory || purchase.material?.category}</p>
+                        )}
                         <p>الكمية: {purchase.quantity} | السعر: {formatCurrency(purchase.unitPrice)}</p>
                         <p className="font-medium">الإجمالي: {formatCurrency(purchase.totalAmount)}</p>
                         {purchase.supplierName && <p>المورد: {purchase.supplierName}</p>}

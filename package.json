@@ -10,7 +10,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "drizzle-kit": "^0.31.4"
+    "drizzle-kit": "^0.31.4",
+    "express-slow-down": "^3.0.0"
   },
   "devDependencies": {
     "@rollup/plugin-terser": "^0.4.4",

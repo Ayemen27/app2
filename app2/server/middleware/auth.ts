@@ -5,7 +5,7 @@ import { db } from '../db';
 import { users, authUserSessions } from '../../shared/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import rateLimit from 'express-rate-limit';
-import slowDown from 'express-slow-down';
+// تم إزالة express-slow-down لأنه غير مستخدم حالياً
 
 // تعريف نوع الـ Request مع user
 interface AuthenticatedRequest extends Request {
@@ -64,16 +64,7 @@ export const sensitiveOperationsRateLimit = rateLimit({
   }
 });
 
-// Slow Down للطلبات المتكررة
-export const speedLimiter = slowDown({
-  windowMs: 15 * 60 * 1000, // 15 دقيقة
-  delayAfter: 100, // السماح بـ 100 طلب بدون تأخير
-  delayMs: (used, req) => {
-    const delayAfter = req.slowDown?.delayAfter || 100;
-    return (used - delayAfter) * 100; // زيادة 100ms لكل طلب إضافي
-  },
-  maxDelayMs: 5000, // الحد الأقصى 5 ثوان
-});
+// تم إزالة speedLimiter مؤقتاً - يمكن إضافته لاحقاً عند الحاجة
 
 // التحقق من صحة الـ Token
 const verifyToken = async (token: string): Promise<any> => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, Save, ChartGantt } from "lucide-react";
+import { ArrowRight, Save, ChartGantt, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,7 @@ export default function WorkerAttendance() {
   const dateParam = urlParams.get('date');
   const [selectedDate, setSelectedDate] = useState(dateParam || getCurrentDate());
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({});
+  const [showSharedSettings, setShowSharedSettings] = useState(false);
 
   // إعدادات مشتركة لجميع العمال
   const [bulkSettings, setBulkSettings] = useState({
@@ -543,35 +544,50 @@ export default function WorkerAttendance() {
         <Card className="mb-4">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">الإعدادات المشتركة</h3>
-              <div className="flex gap-2">
+              <div className="flex items-center space-x-reverse space-x-2">
+                <h3 className="text-lg font-semibold text-foreground">الإعدادات المشتركة</h3>
                 <Button
+                  variant="ghost"
                   size="sm"
-                  variant="outline"
-                  onClick={() => toggleAllWorkers(true)}
-                  className="text-xs"
+                  onClick={() => setShowSharedSettings(!showSharedSettings)}
+                  className="px-2 py-1 h-8"
+                  data-testid="toggle-shared-settings"
                 >
-                  تحديد الكل
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => toggleAllWorkers(false)}
-                  className="text-xs"
-                >
-                  إلغاء الكل
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={applyBulkSettings}
-                  className="text-xs"
-                >
-                  تطبيق على المحدد
+                  {showSharedSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
               </div>
+              {showSharedSettings && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => toggleAllWorkers(true)}
+                    className="text-xs"
+                  >
+                    تحديد الكل
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => toggleAllWorkers(false)}
+                    className="text-xs"
+                  >
+                    إلغاء الكل
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={applyBulkSettings}
+                    className="text-xs"
+                  >
+                    تطبيق على المحدد
+                  </Button>
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            {showSharedSettings && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
               <div>
                 <Label className="text-xs text-muted-foreground">وقت البدء</Label>
                 <Input
@@ -645,7 +661,9 @@ export default function WorkerAttendance() {
                   className="mt-1"
                 />
               </div>
-            </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

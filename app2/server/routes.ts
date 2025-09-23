@@ -1699,21 +1699,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const duration = Date.now() - startTime;
       
-      console.log(`✅ [API] تم جلب بيانات المشترية للتعديل في ${duration}ms:`, {
-        id: purchaseData.id,
-        materialName: purchaseData.materialName || materialData?.name,
-        totalAmount: purchaseData.totalAmount
-      });
-
-      // إرجاع البيانات مع المادة المرتبطة إذا وُجدت
-      const responseData = {
+      // تكوين البيانات الكاملة مع ضمان وجود materialCategory و materialUnit
+      const completeData = {
         ...purchaseData,
+        materialCategory: purchaseData.materialCategory || materialData?.category || null,
+        materialUnit: purchaseData.materialUnit || materialData?.unit || null,
         material: materialData
       };
+      
+      console.log(`✅ [API] تم جلب بيانات المشترية للتعديل في ${duration}ms:`, {
+        id: completeData.id,
+        materialName: completeData.materialName || materialData?.name,
+        materialCategory: completeData.materialCategory,
+        materialUnit: completeData.materialUnit,
+        totalAmount: completeData.totalAmount
+      });
 
       res.json({
         success: true,
-        data: responseData,
+        data: completeData,
         message: 'تم جلب بيانات المشترية بنجاح',
         processingTime: duration
       });

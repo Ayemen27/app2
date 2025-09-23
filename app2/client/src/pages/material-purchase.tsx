@@ -241,10 +241,31 @@ export default function MaterialPurchase() {
     if (purchaseToEdit && editId) {
       console.log('🔄 ملء النموذج ببيانات التعديل:', purchaseToEdit);
       
+      // تشخيص مفصل لحقول المادة
+      console.log('🔍 تحليل البيانات المسترجعة:', {
+        purchaseToEdit: {
+          materialName: purchaseToEdit.materialName,
+          materialCategory: purchaseToEdit.materialCategory,
+          materialUnit: purchaseToEdit.materialUnit,
+          unit: purchaseToEdit.unit
+        },
+        material: purchaseToEdit.material ? {
+          name: purchaseToEdit.material.name,
+          category: purchaseToEdit.material.category,
+          unit: purchaseToEdit.material.unit
+        } : 'لا توجد بيانات مادة مرتبطة'
+      });
+      
       // استخدام البيانات المحفوظة في الجدول أولاً، ثم البيانات المرتبطة
       const materialName = purchaseToEdit.materialName || purchaseToEdit.material?.name || "";
       const materialCategory = purchaseToEdit.materialCategory || purchaseToEdit.material?.category || "";
       const materialUnit = purchaseToEdit.materialUnit || purchaseToEdit.unit || purchaseToEdit.material?.unit || "";
+      
+      console.log('📝 القيم النهائية التي سيتم ملؤها:', {
+        materialName,
+        materialCategory,
+        materialUnit
+      });
       
       setMaterialName(materialName);
       setMaterialCategory(materialCategory);
@@ -539,7 +560,7 @@ export default function MaterialPurchase() {
     const purchaseData = {
       projectId: selectedProjectId,
       materialName: materialName.trim(),
-      materialCategory: materialCategory.trim(),
+      materialCategory: materialCategory.trim() || null, // تأكد من حفظ null بدلاً من سلسلة فارغة
       materialUnit: materialUnit.trim(),
       quantity: parseFloat(quantity),
       unitPrice: parseFloat(unitPrice),
@@ -552,6 +573,13 @@ export default function MaterialPurchase() {
       notes: notes?.trim() || '',
       purchaseDate: purchaseDate,
     };
+
+    console.log('💾 بيانات المشترية قبل الحفظ:', {
+      materialName: purchaseData.materialName,
+      materialCategory: purchaseData.materialCategory,
+      materialUnit: purchaseData.materialUnit,
+      isEditing: !!editingPurchaseId
+    });
 
     if (editingPurchaseId) {
       updateMaterialPurchaseMutation.mutate({

@@ -1707,6 +1707,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         material: materialData
       };
       
+      // تسجيل مفصل لتشخيص المشكلة
+      console.log(`🔍 [API] تفاصيل البيانات المسترجعة:`, {
+        purchaseData: {
+          id: purchaseData.id,
+          materialName: purchaseData.materialName,
+          materialCategory: purchaseData.materialCategory,
+          materialUnit: purchaseData.materialUnit,
+          unit: purchaseData.unit
+        },
+        materialData: materialData ? {
+          id: materialData.id,
+          name: materialData.name,
+          category: materialData.category,
+          unit: materialData.unit
+        } : 'لا توجد بيانات مادة مرتبطة',
+        completeData: {
+          materialCategory: completeData.materialCategory,
+          materialUnit: completeData.materialUnit
+        }
+      });
+      
       console.log(`✅ [API] تم جلب بيانات المشترية للتعديل في ${duration}ms:`, {
         id: completeData.id,
         materialName: completeData.materialName || materialData?.name,

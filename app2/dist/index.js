@@ -15884,7 +15884,6 @@ var compressionMiddleware = compression({
   // إعدادات إضافية للأداء
   windowBits: 15,
   memLevel: 8,
-  strategy: compression.constants.Z_DEFAULT_STRATEGY,
   // ضغط الاستجابات الصغيرة أيضاً
   chunkSize: 1024
 });

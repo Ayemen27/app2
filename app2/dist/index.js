@@ -7049,18 +7049,22 @@ async function registerRoutes(app2) {
         }
       }
       const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0644\u0644\u062A\u0639\u062F\u064A\u0644 \u0641\u064A ${duration}ms:`, {
-        id: purchaseData.id,
-        materialName: purchaseData.materialName || materialData?.name,
-        totalAmount: purchaseData.totalAmount
-      });
-      const responseData = {
+      const completeData = {
         ...purchaseData,
+        materialCategory: purchaseData.materialCategory || materialData?.category || null,
+        materialUnit: purchaseData.materialUnit || materialData?.unit || null,
         material: materialData
       };
+      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0644\u0644\u062A\u0639\u062F\u064A\u0644 \u0641\u064A ${duration}ms:`, {
+        id: completeData.id,
+        materialName: completeData.materialName || materialData?.name,
+        materialCategory: completeData.materialCategory,
+        materialUnit: completeData.materialUnit,
+        totalAmount: completeData.totalAmount
+      });
       res.json({
         success: true,
-        data: responseData,
+        data: completeData,
         message: "\u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0628\u0646\u062C\u0627\u062D",
         processingTime: duration
       });

@@ -253,6 +253,17 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // التحقق من التحقق من البريد الإلكتروني - أمان مهم
+    if (!user.emailVerifiedAt) {
+      console.log('❌ [Auth] البريد الإلكتروني غير مُحقق:', email);
+      return res.status(403).json({
+        success: false,
+        message: "يجب تأكيد البريد الإلكتروني أولاً. تحقق من بريدك الإلكتروني لإكمال التسجيل.",
+        requiresEmailVerification: true,
+        userEmail: email
+      });
+    }
+
     console.log('🎯 [Auth] إنشاء التوكينات...');
 
     // إنشاء التوكينات باستخدام jwt-utils

@@ -266,6 +266,8 @@ export default function AuthPage() {
       return response.json();
     },
     onSuccess: (data) => {
+      console.log('✅ [RegisterMutation] استجابة التسجيل:', data);
+      
       if (data.success) {
         toast({
           title: "تم إنشاء الحساب بنجاح",
@@ -273,13 +275,26 @@ export default function AuthPage() {
         });
 
         // توجيه تلقائي إلى صفحة التحقق من البريد الإلكتروني
-        if ((data.requireEmailVerification || data.requireVerification) && data.data?.user) {
+        // استخراج معرف المستخدم والإيميل من الاستجابة
+        if (data.user?.id && data.user?.email) {
+          const userId = data.user.id;
+          const userEmail = data.user.email;
+          console.log('🔄 [RegisterMutation] التوجيه إلى صفحة التحقق:', { userId, userEmail });
+          
+          setTimeout(() => {
+            navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(userEmail)}`);
+          }, 1500);
+        } else if (data.data?.user?.id && data.data?.user?.email) {
+          // احتياطي في حال كان في data.data
           const userId = data.data.user.id;
           const userEmail = data.data.user.email;
+          console.log('🔄 [RegisterMutation] التوجيه إلى صفحة التحقق (احتياطي):', { userId, userEmail });
+          
           setTimeout(() => {
             navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(userEmail)}`);
           }, 1500);
         } else {
+          console.log('⚠️ [RegisterMutation] لم يتم العثور على بيانات المستخدم للتوجيه');
           setActiveTab('login');
         }
         

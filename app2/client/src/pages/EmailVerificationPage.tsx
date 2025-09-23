@@ -83,9 +83,10 @@ export default function EmailVerificationPage() {
       setUserInfo({ id: userId, email });
     }
 
-    // إذا كان هناك token في URL، تحقق تلقائي
+    // إذا كان هناك token في URL، تحقق تلقائي مع تمرير userId مباشرة
     if (token && userId) {
-      verifyMutation.mutate({ code: token });
+      console.log('🔄 [EmailVerification] التحقق التلقائي من الرابط:', { token, userId });
+      verifyMutation.mutate({ code: token, userId: userId });
     }
   }, []);
 
@@ -108,13 +109,14 @@ export default function EmailVerificationPage() {
 
   // طفرة التحقق من الرمز
   const verifyMutation = useMutation({
-    mutationFn: async (data: VerificationFormData) => {
+    mutationFn: async (data: VerificationFormData & { userId?: string }) => {
       console.log('🔍 [EmailVerification] بدء التحقق من الرمز:', {
         code: data.code,
-        userId: userInfo.id
+        userId: data.userId || userInfo.id
       });
 
-      if (!userInfo.id) {
+      const userId = data.userId || userInfo.id;
+      if (!userId) {
         throw new Error('معرف المستخدم مطلوب');
       }
 
@@ -124,7 +126,7 @@ export default function EmailVerificationPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: userInfo.id,
+          userId: userId,
           code: data.code
         })
       });

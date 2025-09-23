@@ -9,6 +9,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import EmailVerificationPage from "@/pages/EmailVerificationPage";
 
 import WorkerAttendance from "@/pages/worker-attendance";
 
@@ -60,6 +61,7 @@ function Router() {
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={LoginPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route path="/verify-email" component={EmailVerificationPage} />
       
       {/* صفحات محمية - مع شريط علوي وسفلي */}
       <Route path="/">

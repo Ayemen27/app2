@@ -143,6 +143,8 @@ export const materialPurchases = pgTable("material_purchases", {
   projectId: varchar("project_id").notNull().references(() => projects.id),
   supplierId: varchar("supplier_id").references(() => suppliers.id), // ربط بالمورد
   materialName: text("material_name").notNull(), // اسم المادة بدلاً من materialId
+  materialCategory: text("material_category"), // فئة المادة (حديد، أسمنت، إلخ)
+  materialUnit: text("material_unit"), // وحدة المادة الأساسية
   quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
   unit: text("unit").notNull(), // وحدة القياس - موجودة في قاعدة البيانات
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),

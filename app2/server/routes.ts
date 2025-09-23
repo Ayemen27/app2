@@ -1659,9 +1659,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // جلب المشترية بسيط أولاً
+      // جلب المشترية مع جميع الحقول المطلوبة
       const purchase = await db
-        .select()
+        .select({
+          id: materialPurchases.id,
+          projectId: materialPurchases.projectId,
+          materialName: materialPurchases.materialName,
+          materialCategory: materialPurchases.materialCategory,
+          materialUnit: materialPurchases.materialUnit,
+          quantity: materialPurchases.quantity,
+          unit: materialPurchases.unit,
+          unitPrice: materialPurchases.unitPrice,
+          totalAmount: materialPurchases.totalAmount,
+          purchaseType: materialPurchases.purchaseType,
+          supplierName: materialPurchases.supplierName,
+          invoiceNumber: materialPurchases.invoiceNumber,
+          invoiceDate: materialPurchases.invoiceDate,
+          invoicePhoto: materialPurchases.invoicePhoto,
+          notes: materialPurchases.notes,
+          purchaseDate: materialPurchases.purchaseDate,
+          createdAt: materialPurchases.createdAt
+        })
         .from(materialPurchases)
         .where(eq(materialPurchases.id, purchaseId))
         .limit(1);
@@ -1679,31 +1697,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const purchaseData = purchase[0];
       
-      // محاولة جلب بيانات المادة إذا كان هناك materialId
+      // إذا لم تكن فئة المادة محفوظة، نحاول جلبها من جدول المواد
       let materialData = null;
-      if (purchaseData.materialId) {
+      let finalMaterialCategory = purchaseData.materialCategory;
+      let finalMaterialUnit = purchaseData.materialUnit || purchaseData.unit;
+      
+      if (!finalMaterialCategory && purchaseData.materialName) {
         try {
-          const materialResult = await db
+          // البحث عن مادة مشابهة بالاسم
+          const similarMaterial = await db
             .select()
             .from(materials)
-            .where(eq(materials.id, purchaseData.materialId))
+            .where(eq(materials.name, purchaseData.materialName))
             .limit(1);
           
-          if (materialResult.length > 0) {
-            materialData = materialResult[0];
+          if (similarMaterial.length > 0) {
+            materialData = similarMaterial[0];
+            finalMaterialCategory = materialData.category;
+            finalMaterialUnit = finalMaterialUnit || materialData.unit;
           }
         } catch (materialError) {
-          console.warn('تحذير: لم يتم العثور على بيانات المادة المرتبطة');
+          console.warn('تحذير: لم يتم العثور على مادة مشابهة');
         }
       }
 
       const duration = Date.now() - startTime;
       
-      // تكوين البيانات الكاملة مع ضمان وجود materialCategory و materialUnit
+      // تكوين البيانات الكاملة
       const completeData = {
         ...purchaseData,
-        materialCategory: purchaseData.materialCategory || materialData?.category || null,
-        materialUnit: purchaseData.materialUnit || materialData?.unit || null,
+        materialCategory: finalMaterialCategory,
+        materialUnit: finalMaterialUnit,
         material: materialData
       };
       
@@ -1730,7 +1754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`✅ [API] تم جلب بيانات المشترية للتعديل في ${duration}ms:`, {
         id: completeData.id,
-        materialName: completeData.materialName || materialData?.name,
+        materialName: completeData.materialName,
         materialCategory: completeData.materialCategory,
         materialUnit: completeData.materialUnit,
         totalAmount: completeData.totalAmount

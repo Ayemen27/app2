@@ -6638,6 +6638,69 @@ async function registerRoutes(app2) {
       });
     }
   });
+  app2.patch("/api/material-purchases/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const purchaseId = req.params.id;
+      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
+      console.log("\u{1F4CB} [API] ID \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629:", purchaseId);
+      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
+      if (!purchaseId) {
+        const duration2 = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0637\u0644\u0648\u0628",
+          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
+          processingTime: duration2
+        });
+      }
+      const existingPurchase = await db.select().from(materialPurchases).where(eq5(materialPurchases.id, purchaseId)).limit(1);
+      if (existingPurchase.length === 0) {
+        const duration2 = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: "\u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
+          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0634\u062A\u0631\u064A\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${purchaseId}`,
+          processingTime: duration2
+        });
+      }
+      const validationResult = insertMaterialPurchaseSchema.partial().safeParse(req.body);
+      if (!validationResult.success) {
+        const duration2 = Date.now() - startTime;
+        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F:", validationResult.error.flatten());
+        const errorMessages = validationResult.error.flatten().fieldErrors;
+        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
+        return res.status(400).json({
+          success: false,
+          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
+          message: firstError,
+          details: errorMessages,
+          processingTime: duration2
+        });
+      }
+      const updatedPurchase = await db.update(materialPurchases).set({
+        ...validationResult.data,
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq5(materialPurchases.id, purchaseId)).returning();
+      const duration = Date.now() - startTime;
+      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
+      res.json({
+        success: true,
+        data: updatedPurchase[0],
+        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D`,
+        processingTime: duration
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F",
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
   app2.post("/api/material-purchases", requireAuth, async (req, res) => {
     const startTime = Date.now();
     try {
@@ -6962,33 +7025,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const purchase = await db.select({
-        id: materialPurchases.id,
-        projectId: materialPurchases.projectId,
-        materialId: materialPurchases.materialId,
-        materialName: materialPurchases.materialName,
-        materialCategory: materialPurchases.materialCategory,
-        materialUnit: materialPurchases.materialUnit,
-        quantity: materialPurchases.quantity,
-        unitPrice: materialPurchases.unitPrice,
-        totalAmount: materialPurchases.totalAmount,
-        purchaseType: materialPurchases.purchaseType,
-        supplierName: materialPurchases.supplierName,
-        invoiceNumber: materialPurchases.invoiceNumber,
-        invoiceDate: materialPurchases.invoiceDate,
-        invoicePhoto: materialPurchases.invoicePhoto,
-        purchaseDate: materialPurchases.purchaseDate,
-        notes: materialPurchases.notes,
-        createdAt: materialPurchases.createdAt,
-        updatedAt: materialPurchases.updatedAt,
-        // بيانات المادة من الجدول المرتبط
-        material: {
-          id: materials.id,
-          name: materials.name,
-          category: materials.category,
-          unit: materials.unit
-        }
-      }).from(materialPurchases).leftJoin(materials, eq5(materialPurchases.materialId, materials.id)).where(eq5(materialPurchases.id, purchaseId)).limit(1);
+      const purchase = await db.select().from(materialPurchases).where(eq5(materialPurchases.id, purchaseId)).limit(1);
       if (purchase.length === 0) {
         const duration2 = Date.now() - startTime;
         console.log(`\u{1F4ED} [API] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629: ${purchaseId}`);
@@ -7000,15 +7037,30 @@ async function registerRoutes(app2) {
         });
       }
       const purchaseData = purchase[0];
+      let materialData = null;
+      if (purchaseData.materialId) {
+        try {
+          const materialResult = await db.select().from(materials).where(eq5(materials.id, purchaseData.materialId)).limit(1);
+          if (materialResult.length > 0) {
+            materialData = materialResult[0];
+          }
+        } catch (materialError) {
+          console.warn("\u062A\u062D\u0630\u064A\u0631: \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0627\u062F\u0629 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629");
+        }
+      }
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0644\u0644\u062A\u0639\u062F\u064A\u0644 \u0641\u064A ${duration}ms:`, {
         id: purchaseData.id,
-        materialName: purchaseData.materialName || purchaseData.material?.name,
+        materialName: purchaseData.materialName || materialData?.name,
         totalAmount: purchaseData.totalAmount
       });
+      const responseData = {
+        ...purchaseData,
+        material: materialData
+      };
       res.json({
         success: true,
-        data: purchaseData,
+        data: responseData,
         message: "\u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0628\u0646\u062C\u0627\u062D",
         processingTime: duration
       });

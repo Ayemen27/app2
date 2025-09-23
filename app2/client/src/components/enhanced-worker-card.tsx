@@ -302,8 +302,8 @@ export default function EnhancedWorkerCard({
                 <h5 className="font-medium text-slate-800 dark:text-slate-200 text-sm" data-testid={`work-time-section-${worker.id}`}>تفاصيل العمل والدفع</h5>
               </div>
               
-              {/* الصف الأول: أوقات العمل */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+              {/* الصف الأول: أوقات العمل - 3 حقول */}
+              <div className="grid grid-cols-3 gap-2 mb-3">
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">من</Label>
                   <Input
@@ -327,15 +327,6 @@ export default function EnhancedWorkerCard({
                 </div>
                 
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">ساعات</Label>
-                  <div className="h-8 px-2 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-md flex items-center justify-center">
-                    <span className="font-bold text-slate-700 dark:text-slate-300 arabic-numbers text-sm" data-testid={`working-hours-display-${worker.id}`}>
-                      {calculateWorkingHours().toFixed(1)}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">أيام</Label>
                   <Input
                     type="number"
@@ -351,8 +342,17 @@ export default function EnhancedWorkerCard({
                 </div>
               </div>
               
-              {/* الصف الثاني: الوقت الإضافي ووصف العمل */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+              {/* الصف الثاني: ساعات ووقت إضافي - 3 حقول */}
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">ساعات</Label>
+                  <div className="h-8 px-2 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-md flex items-center justify-center">
+                    <span className="font-bold text-slate-700 dark:text-slate-300 arabic-numbers text-sm" data-testid={`working-hours-display-${worker.id}`}>
+                      {calculateWorkingHours().toFixed(1)}
+                    </span>
+                  </div>
+                </div>
+                
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">ساعات إضافية</Label>
                   <Input
@@ -383,7 +383,7 @@ export default function EnhancedWorkerCard({
               </div>
               
               {/* وصف العمل */}
-              <div className="space-y-1 mb-3">
+              <div className="space-y-1 mb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
                 <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">وصف العمل</Label>
                 <AutocompleteInput
                   value={localAttendance.workDescription || ""}
@@ -402,7 +402,8 @@ export default function EnhancedWorkerCard({
                   <h6 className="font-medium text-slate-800 dark:text-slate-200 text-sm" data-testid={`payment-section-${worker.id}`}>معلومات الدفع</h6>
                 </div>
               
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
+                {/* الصف الأول: معلومات أساسية - 3 حقول */}
+                <div className="grid grid-cols-3 gap-2 mb-3">
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">نوع الدفع</Label>
                     <Select
@@ -429,7 +430,7 @@ export default function EnhancedWorkerCard({
                     </div>
                   </div>
                   
-                  {localAttendance.paymentType !== "credit" && (
+                  {localAttendance.paymentType !== "credit" ? (
                     <div className="space-y-1">
                       <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">المبلغ المدفوع</Label>
                       <Input
@@ -442,7 +443,26 @@ export default function EnhancedWorkerCard({
                         data-testid={`paid-amount-input-${worker.id}`}
                       />
                     </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">المبلغ المدفوع</Label>
+                      <div className="h-8 px-2 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-md flex items-center justify-center">
+                        <span className="text-xs text-slate-500">على الحساب</span>
+                      </div>
+                    </div>
                   )}
+                </div>
+                
+                {/* الصف الثاني: المبلغ المتبقي وإجمالي الدفع - 3 حقول */}
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">إجمالي الدفع</Label>
+                    <div className="h-8 px-2 py-1 bg-slate-200/50 dark:bg-slate-700/50 rounded-md flex items-center justify-center">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 arabic-numbers text-sm" data-testid={`total-pay-display-${worker.id}`}>
+                        {formatCurrency(calculateTotalPay())}
+                      </span>
+                    </div>
+                  </div>
                   
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">المبلغ المتبقي</Label>
@@ -453,6 +473,15 @@ export default function EnhancedWorkerCard({
                         {formatCurrency(Math.abs(calculateRemainingAmount()))}
                         {calculateRemainingAmount() > 0 && ' (مستحق)'}
                         {calculateRemainingAmount() < 0 && ' (فائض)'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">الوقت الإضافي</Label>
+                    <div className="h-8 px-2 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-md flex items-center justify-center">
+                      <span className="font-bold text-slate-700 dark:text-slate-300 arabic-numbers text-sm">
+                        {formatCurrency(calculateOvertimePay())}
                       </span>
                     </div>
                   </div>

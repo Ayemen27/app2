@@ -2003,22 +2003,9 @@ var init_credentials = __esm({
 });
 
 // server/services/smart-connection-manager.ts
-var smart_connection_manager_exports = {};
-__export(smart_connection_manager_exports, {
-  SmartConnectionManager: () => SmartConnectionManager,
-  getConnectionStatus: () => getConnectionStatus,
-  getSmartConnection: () => getSmartConnection,
-  smartConnectionManager: () => smartConnectionManager
-});
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import fs2 from "fs";
-function getSmartConnection(operationType = "read") {
-  return smartConnectionManager.getSmartConnection(operationType);
-}
-function getConnectionStatus() {
-  return smartConnectionManager.getConnectionStatus();
-}
 var SmartConnectionManager, smartConnectionManager;
 var init_smart_connection_manager = __esm({
   "server/services/smart-connection-manager.ts"() {
@@ -2367,11 +2354,6 @@ function setupSSLConfig() {
   }
   return sslConfig2;
 }
-function getSmartPool(operationType = "read") {
-  const connection = smartConnectionManager.getSmartConnection(operationType);
-  console.log(`\u{1F3AF} [Smart Pool] \u062A\u0648\u062C\u064A\u0647 ${operationType} \u0625\u0644\u0649: ${connection.source || "\u0644\u0627 \u064A\u0648\u062C\u062F \u0627\u062A\u0635\u0627\u0644"}`);
-  return connection.pool || pool;
-}
 var connectionString, sslConfig, cleanConnectionString, pool, db;
 var init_db = __esm({
   "server/db.ts"() {
@@ -2411,1510 +2393,6 @@ var init_db = __esm({
   }
 });
 
-// server/services/secure-data-fetcher.ts
-import { Client as Client2 } from "pg";
-import fs3 from "fs";
-var ALLOWED_TABLES, MISSING_TABLES, ALLOWED_ORDER_COLUMNS, SecureDataFetcher;
-var init_secure_data_fetcher = __esm({
-  "server/services/secure-data-fetcher.ts"() {
-    "use strict";
-    init_db();
-    ALLOWED_TABLES = [
-      "actions",
-      "ai_system_decisions",
-      "ai_system_logs",
-      "ai_system_metrics",
-      "ai_system_recommendations",
-      "approvals",
-      "auth_audit_log",
-      "auth_permissions",
-      "auth_role_permissions",
-      "auth_roles",
-      "auth_user_permissions",
-      "auth_user_roles",
-      "auth_user_security_settings",
-      "auth_user_sessions",
-      "auth_verification_codes",
-      "autocomplete_data",
-      "autocomplete_stats_mv",
-      "channels",
-      "daily_expense_summaries",
-      "equipment",
-      "equipment_movements",
-      "error_logs",
-      "fund_transfers",
-      "material_purchases",
-      "materials",
-      "messages",
-      "notification_metrics",
-      "notification_queue",
-      "notification_read_states",
-      "notification_settings",
-      "notification_templates",
-      "notifications",
-      "print_settings",
-      "project_fund_transfers",
-      "projects",
-      "report_templates",
-      "security_policies",
-      "security_policy_implementations",
-      "security_policy_suggestions",
-      "security_policy_violations",
-      "supplier_payments",
-      "suppliers",
-      "system_events",
-      "transportation_expenses",
-      "users",
-      "worker_attendance",
-      "worker_balances",
-      "worker_misc_expenses",
-      "worker_transfers",
-      "worker_types",
-      "workers"
-    ];
-    MISSING_TABLES = [];
-    ALLOWED_ORDER_COLUMNS = [
-      "id",
-      "name",
-      "date",
-      "created_at",
-      "updated_at",
-      "amount",
-      "status"
-    ];
-    SecureDataFetcher = class {
-      constructor(connectionString2) {
-        this.connectionString = connectionString2;
-      }
-      externalClient = null;
-      isConnected = false;
-      // التحقق من أن الجدول مسموح
-      validateTable(tableName) {
-        return ALLOWED_TABLES.includes(tableName);
-      }
-      // إنشاء اتصال آمن بقاعدة البيانات الخارجية
-      async connect() {
-        if (this.isConnected && this.externalClient) return;
-        console.log("\u{1F517} \u0625\u0646\u0634\u0627\u0621 \u0627\u062A\u0635\u0627\u0644 \u0622\u0645\u0646 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629...");
-        const config = { connectionString: this.connectionString };
-        const certPath = "./pg_cert.pem";
-        try {
-          if (fs3.existsSync(certPath)) {
-            const ca = fs3.readFileSync(certPath, { encoding: "utf8" });
-            config.ssl = {
-              rejectUnauthorized: false,
-              // مرونة مع شهادة Supabase
-              ca,
-              minVersion: "TLSv1.2",
-              checkServerIdentity: () => void 0
-              // تخطي التحقق من hostname للتوافق
-            };
-            console.log("\u{1F512} \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u0634\u0647\u0627\u062F\u0629 SSL \u0644\u0640 Supabase");
-          } else {
-            console.error("\u274C \u0645\u0644\u0641 \u0634\u0647\u0627\u062F\u0629 SSL \u0645\u0641\u0642\u0648\u062F: pg_cert.pem");
-            throw new Error("\u0634\u0647\u0627\u062F\u0629 SSL \u0645\u0637\u0644\u0648\u0628\u0629 \u0644\u0644\u0627\u062A\u0635\u0627\u0644\u0627\u062A \u0627\u0644\u0622\u0645\u0646\u0629");
-          }
-        } catch (error) {
-          console.error("\u274C \u0641\u0634\u0644 \u0641\u064A \u0625\u0639\u062F\u0627\u062F SSL \u0627\u0644\u0622\u0645\u0646:", error);
-          throw new Error("\u0644\u0627 \u064A\u0645\u0643\u0646 \u0625\u0646\u0634\u0627\u0621 \u0627\u062A\u0635\u0627\u0644 \u0622\u0645\u0646 \u0628\u062F\u0648\u0646 \u0634\u0647\u0627\u062F\u0629 SSL \u0635\u0627\u0644\u062D\u0629");
-        }
-        this.externalClient = new Client2(config);
-        await this.externalClient.connect();
-        this.isConnected = true;
-        console.log("\u2705 \u062A\u0645 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0627\u0644\u0622\u0645\u0646 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629");
-      }
-      // جلب البيانات بطريقة آمنة
-      async fetchData(tableName, options = {}) {
-        if (!this.validateTable(tableName)) {
-          throw new Error(`\u0627\u0644\u062C\u062F\u0648\u0644 '${tableName}' \u063A\u064A\u0631 \u0645\u0633\u0645\u0648\u062D \u0628\u0647`);
-        }
-        await this.connect();
-        const {
-          limit = 100,
-          offset = 0,
-          orderBy,
-          orderDirection = "ASC"
-        } = options;
-        if (limit > 1e3) throw new Error("\u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649 \u0644\u0644\u0635\u0641\u0648\u0641 \u0647\u0648 1000");
-        if (offset < 0) throw new Error("\u0627\u0644\u0625\u0632\u0627\u062D\u0629 \u064A\u062C\u0628 \u0623\u0646 \u062A\u0643\u0648\u0646 \u0645\u0648\u062C\u0628\u0629");
-        let query = `SELECT * FROM public."${tableName}"`;
-        const params = [];
-        let paramIndex = 1;
-        if (orderBy && ALLOWED_ORDER_COLUMNS.includes(orderBy)) {
-          const direction = orderDirection === "DESC" ? "DESC" : "ASC";
-          query += ` ORDER BY "${orderBy}" ${direction}`;
-        }
-        query += ` LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
-        params.push(limit, offset);
-        console.log(`\u{1F4CA} \u062C\u0644\u0628 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0622\u0645\u0646\u0629 \u0645\u0646 ${tableName} (${limit} \u0635\u0641 \u0645\u0646 ${offset})`);
-        try {
-          const result = await this.externalClient.query(query, params);
-          console.log(`\u2705 \u062A\u0645 \u062C\u0644\u0628 ${result.rows.length} \u0635\u0641 \u0645\u0646 ${tableName}`);
-          return result.rows;
-        } catch (error) {
-          console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 ${tableName}:`, error);
-          throw error;
-        }
-      }
-      // التحقق من وجود الجدول قبل الوصول إليه
-      async checkTableExists(tableName) {
-        try {
-          await this.connect();
-          const result = await this.externalClient.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = $1
-        );
-      `, [tableName]);
-          return result.rows[0].exists;
-        } catch (error) {
-          console.warn(`\u26A0\uFE0F \u062E\u0637\u0623 \u0641\u064A \u0641\u062D\u0635 \u0648\u062C\u0648\u062F \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName}:`, error);
-          return false;
-        }
-      }
-      // جلب عدد الصفوف بطريقة آمنة
-      async getRowCount(tableName) {
-        if (!this.validateTable(tableName)) {
-          throw new Error(`\u0627\u0644\u062C\u062F\u0648\u0644 '${tableName}' \u063A\u064A\u0631 \u0645\u0633\u0645\u0648\u062D \u0628\u0647`);
-        }
-        const exists = await this.checkTableExists(tableName);
-        if (!exists) {
-          console.warn(`\u26A0\uFE0F \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A Supabase`);
-          return 0;
-        }
-        await this.connect();
-        const query = `SELECT COUNT(*) as count FROM public."${tableName}"`;
-        try {
-          const result = await this.externalClient.query(query);
-          return parseInt(result.rows[0].count, 10);
-        } catch (error) {
-          console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u0639\u062F \u0627\u0644\u0635\u0641\u0648\u0641 \u0645\u0646 ${tableName}:`, error);
-          return 0;
-        }
-      }
-      // جلب معلومات الجدول بطريقة آمنة
-      async getTableInfo(tableName) {
-        if (!this.validateTable(tableName)) {
-          throw new Error(`\u0627\u0644\u062C\u062F\u0648\u0644 '${tableName}' \u063A\u064A\u0631 \u0645\u0633\u0645\u0648\u062D \u0628\u0647`);
-        }
-        const exists = await this.checkTableExists(tableName);
-        if (!exists) {
-          console.warn(`\u26A0\uFE0F \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A Supabase`);
-          return { columns: [], rowCount: 0, exists: false };
-        }
-        await this.connect();
-        try {
-          const columnsQuery = `
-        SELECT column_name, data_type, is_nullable
-        FROM information_schema.columns 
-        WHERE table_schema='public' AND table_name=$1 
-        ORDER BY ordinal_position
-      `;
-          const columnsResult = await this.externalClient.query(columnsQuery, [tableName]);
-          const columns = columnsResult.rows.map((row) => row.column_name);
-          const rowCount = await this.getRowCount(tableName);
-          return { columns, rowCount, exists: true };
-        } catch (error) {
-          console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName}:`, error);
-          return { columns: [], rowCount: 0, exists: false };
-        }
-      }
-      // مزامنة آمنة مع حفظ محلي فعلي
-      async syncTableData(tableName, batchSize = 100) {
-        if (!this.validateTable(tableName)) {
-          throw new Error(`\u0627\u0644\u062C\u062F\u0648\u0644 '${tableName}' \u063A\u064A\u0631 \u0645\u0633\u0645\u0648\u062D \u0628\u0647`);
-        }
-        console.log(`\u{1F504} \u0628\u062F\u0621 \u0627\u0644\u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0622\u0645\u0646\u0629 \u0644\u062C\u062F\u0648\u0644 ${tableName}...`);
-        try {
-          const tableInfo = await this.getTableInfo(tableName);
-          if (tableInfo.columns.length === 0) {
-            console.log(`\u26A0\uFE0F \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u0641\u0627\u0631\u063A`);
-            return { success: false, synced: 0, errors: 1, savedLocally: 0 };
-          }
-          let totalSynced = 0;
-          let totalErrors = 0;
-          let totalSavedLocally = 0;
-          const totalRows = tableInfo.rowCount;
-          console.log(`\u{1F4CA} \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${totalRows} \u0635\u0641`);
-          for (let offset = 0; offset < totalRows; offset += batchSize) {
-            try {
-              const batch = await this.fetchData(tableName, {
-                limit: batchSize,
-                offset,
-                orderBy: "id"
-                // ترتيب آمن
-              });
-              if (batch.length > 0) {
-                totalSynced += batch.length;
-                try {
-                  const savedCount = await this.saveDataLocally(tableName, batch);
-                  totalSavedLocally += savedCount;
-                  console.log(`\u2705 \u062A\u0645 \u062D\u0641\u0638 ${savedCount} \u0645\u0646 ${batch.length} \u0635\u0641 \u0645\u062D\u0644\u064A\u0627\u064B - \u062F\u0641\u0639\u0629 ${Math.floor(offset / batchSize) + 1}`);
-                } catch (saveError) {
-                  console.error(`\u26A0\uFE0F \u062E\u0637\u0623 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u062D\u0644\u064A\u0627\u064B:`, saveError);
-                }
-              }
-            } catch (error) {
-              console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u062F\u0641\u0639\u0629 ${Math.floor(offset / batchSize) + 1}:`, error);
-              totalErrors++;
-            }
-          }
-          console.log(`\u{1F3AF} \u0627\u0646\u062A\u0647\u0627\u0621 \u0645\u0632\u0627\u0645\u0646\u0629 ${tableName}: ${totalSynced} \u0635\u0641 \u062A\u0645\u060C ${totalSavedLocally} \u0635\u0641 \u062D\u064F\u0641\u0638 \u0645\u062D\u0644\u064A\u0627\u064B\u060C ${totalErrors} \u0623\u062E\u0637\u0627\u0621`);
-          return {
-            success: totalErrors === 0,
-            synced: totalSynced,
-            errors: totalErrors,
-            savedLocally: totalSavedLocally
-          };
-        } catch (error) {
-          console.error(`\u274C \u062E\u0637\u0623 \u0639\u0627\u0645 \u0641\u064A \u0645\u0632\u0627\u0645\u0646\u0629 ${tableName}:`, error);
-          return { success: false, synced: 0, errors: 1, savedLocally: 0 };
-        }
-      }
-      // حفظ البيانات محلياً في قاعدة البيانات المحلية
-      async saveDataLocally(tableName, data) {
-        if (data.length === 0) return 0;
-        try {
-          console.log(`\u{1F4BE} \u062D\u0641\u0638 ${data.length} \u0635\u0641 \u0645\u0646 ${tableName} \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u062D\u0644\u064A\u0629...`);
-          const localPool = getSmartPool("write");
-          if (!localPool) {
-            console.error("\u274C \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062D\u0635\u0648\u0644 \u0639\u0644\u0649 \u0627\u062A\u0635\u0627\u0644 \u0645\u062D\u0644\u064A \u0644\u0644\u062D\u0641\u0638");
-            return 0;
-          }
-          const backupTableName = `backup_${tableName}`;
-          const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS "${backupTableName}" (
-          id SERIAL PRIMARY KEY,
-          original_id TEXT,
-          source_table VARCHAR(100) DEFAULT '${tableName}',
-          data JSONB NOT NULL,
-          synced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(original_id, source_table)
-        );
-      `;
-          await localPool.query(createTableQuery);
-          let savedCount = 0;
-          for (const row of data) {
-            try {
-              const upsertQuery = `
-            INSERT INTO "${backupTableName}" (original_id, data, source_table)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (original_id, source_table) 
-            DO UPDATE SET 
-              data = EXCLUDED.data,
-              synced_at = CURRENT_TIMESTAMP;
-          `;
-              const originalId = row.id?.toString() || row.uuid?.toString() || `${tableName}_${savedCount}_${Date.now()}`;
-              await localPool.query(upsertQuery, [
-                originalId,
-                JSON.stringify(row),
-                tableName
-              ]);
-              savedCount++;
-            } catch (saveError) {
-              console.warn(`\u26A0\uFE0F \u062A\u062E\u0637\u064A \u0635\u0641 \u0641\u064A ${tableName}:`, saveError);
-            }
-          }
-          console.log(`\u2705 \u062A\u0645 \u062D\u0641\u0638 ${savedCount}/${data.length} \u0635\u0641 \u0645\u0646 ${tableName} \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u062D\u0644\u064A\u0629`);
-          try {
-            await localPool.query(`
-          CREATE INDEX IF NOT EXISTS idx_${backupTableName}_synced_at 
-          ON "${backupTableName}" (synced_at);
-        `);
-            await localPool.query(`
-          CREATE INDEX IF NOT EXISTS idx_${backupTableName}_source 
-          ON "${backupTableName}" (source_table);
-        `);
-          } catch (indexError) {
-            console.log(`\u2139\uFE0F \u062A\u062E\u0637\u064A \u0625\u0646\u0634\u0627\u0621 \u0641\u0647\u0627\u0631\u0633 \u0644\u0640 ${backupTableName}`);
-          }
-          return savedCount;
-        } catch (error) {
-          console.error(`\u274C \u0641\u0634\u0644 \u062D\u0641\u0638 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u062D\u0644\u064A\u0627\u064B \u0641\u064A ${tableName}:`, error);
-          return 0;
-        }
-      }
-      // اختبار الاتصال بـ Supabase
-      async testConnection() {
-        const startTime = Date.now();
-        try {
-          await this.connect();
-          const result = await this.externalClient.query(`
-        SELECT 
-          current_database() as database,
-          current_user as user,
-          version() as version,
-          now() as server_time
-      `);
-          const responseTime = Date.now() - startTime;
-          return {
-            success: true,
-            responseTime,
-            details: {
-              database: result.rows[0].database,
-              user: result.rows[0].user,
-              version: result.rows[0].version.split(" ")[0],
-              serverTime: result.rows[0].server_time,
-              tablesCount: ALLOWED_TABLES.length
-            }
-          };
-        } catch (error) {
-          const responseTime = Date.now() - startTime;
-          console.error("\u274C \u0641\u0634\u0644 \u0627\u062E\u062A\u0628\u0627\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640 Supabase:", error);
-          return {
-            success: false,
-            responseTime,
-            error: error.message
-          };
-        }
-      }
-      // إغلاق الاتصال الآمن
-      async disconnect() {
-        if (this.externalClient && this.isConnected) {
-          await this.externalClient.end();
-          this.isConnected = false;
-          console.log("\u{1F50C} \u062A\u0645 \u0642\u0637\u0639 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0627\u0644\u0622\u0645\u0646 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629");
-        }
-      }
-      // الحصول على قائمة الجداول المسموحة
-      static getAllowedTables() {
-        return ALLOWED_TABLES;
-      }
-      // الحصول على قائمة الجداول المفقودة
-      static getMissingTables() {
-        return MISSING_TABLES;
-      }
-      // فحص الجداول المتاحة فعلياً في Supabase
-      async getAvailableTables() {
-        try {
-          await this.connect();
-          const result = await this.externalClient.query(`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = ANY($1)
-        ORDER BY table_name
-      `, [ALLOWED_TABLES]);
-          return result.rows.map((row) => row.table_name);
-        } catch (error) {
-          console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u062C\u062F\u0627\u0648\u0644 \u0627\u0644\u0645\u062A\u0627\u062D\u0629:`, error);
-          return [];
-        }
-      }
-    };
-  }
-});
-
-// server/services/json-migration-handler.ts
-var json_migration_handler_exports = {};
-__export(json_migration_handler_exports, {
-  JsonMigrationHandler: () => JsonMigrationHandler
-});
-import { eq as eq2 } from "drizzle-orm";
-var JsonMigrationHandler;
-var init_json_migration_handler = __esm({
-  "server/services/json-migration-handler.ts"() {
-    "use strict";
-    init_secure_data_fetcher();
-    init_db();
-    init_schema();
-    JsonMigrationHandler = class {
-      fetcher;
-      constructor(connectionString2) {
-        this.fetcher = new SecureDataFetcher(connectionString2);
-      }
-      /**
-       * 🔍 تحليل شامل لجدول material_purchases
-       */
-      async analyzeMaterialPurchasesStructure(limit = 20) {
-        console.log("\u{1F50D} [JSON Handler] \u0628\u062F\u0621 \u062A\u062D\u0644\u064A\u0644 \u0647\u064A\u0643\u0644 \u062C\u062F\u0648\u0644 material_purchases...");
-        try {
-          const totalRows = await this.fetcher.getRowCount("material_purchases");
-          console.log(`\u{1F4CA} [JSON Handler] \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0635\u0641\u0648\u0641: ${totalRows}`);
-          if (totalRows === 0) {
-            return {
-              totalRows: 0,
-              sampleData: [],
-              jsonFields: [],
-              dataTypes: {},
-              hasComplexJson: false,
-              migrationStrategy: "simple",
-              recommendations: ["\u0627\u0644\u062C\u062F\u0648\u0644 \u0641\u0627\u0631\u063A - \u0644\u0627 \u064A\u062D\u062A\u0627\u062C \u0645\u0639\u0627\u0644\u062C\u0629 \u062E\u0627\u0635\u0629"]
-            };
-          }
-          const sampleData = await this.fetcher.fetchData("material_purchases", {
-            limit: Math.min(limit, totalRows)
-          });
-          console.log(`\u{1F52C} [JSON Handler] \u062A\u062D\u0644\u064A\u0644 ${sampleData.length} \u0639\u064A\u0646\u0629...`);
-          const jsonFields = [];
-          const dataTypes = {};
-          let hasComplexJson = false;
-          sampleData.forEach((row, index) => {
-            Object.entries(row).forEach(([fieldName, value]) => {
-              if (!dataTypes[fieldName]) {
-                dataTypes[fieldName] = [];
-              }
-              const valueType = this.getDetailedType(value);
-              if (!dataTypes[fieldName].includes(valueType)) {
-                dataTypes[fieldName].push(valueType);
-              }
-              if (typeof value === "object" && value !== null) {
-                if (!jsonFields.includes(fieldName)) {
-                  jsonFields.push(fieldName);
-                  console.log(`\u{1F50D} [JSON Handler] \u0639\u062B\u0631 \u0639\u0644\u0649 \u0628\u064A\u0627\u0646\u0627\u062A JSON \u0641\u064A \u0627\u0644\u062D\u0642\u0644: ${fieldName}`);
-                }
-                const complexity = this.analyzeJsonComplexity(value);
-                if (complexity.isComplex) {
-                  hasComplexJson = true;
-                  console.log(`\u26A0\uFE0F [JSON Handler] \u0628\u064A\u0627\u0646\u0627\u062A JSON \u0645\u0639\u0642\u062F\u0629 \u0641\u064A ${fieldName} (\u0627\u0644\u0635\u0641 ${index + 1}):`, {
-                    depth: complexity.depth,
-                    arrayCount: complexity.arrayCount,
-                    objectCount: complexity.objectCount
-                  });
-                }
-              }
-            });
-          });
-          let migrationStrategy = "simple";
-          if (jsonFields.length > 0) {
-            migrationStrategy = hasComplexJson ? "complex" : "mixed";
-          }
-          const recommendations = this.generateMigrationRecommendations({
-            totalRows,
-            jsonFields,
-            hasComplexJson,
-            migrationStrategy
-          });
-          const analysis = {
-            totalRows,
-            sampleData: sampleData.slice(0, 3),
-            // عرض 3 عينات فقط
-            jsonFields,
-            dataTypes,
-            hasComplexJson,
-            migrationStrategy,
-            recommendations
-          };
-          console.log("\u2705 [JSON Handler] \u062A\u0645 \u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0647\u064A\u0643\u0644 \u0628\u0646\u062C\u0627\u062D:", {
-            totalRows: analysis.totalRows,
-            jsonFieldsCount: analysis.jsonFields.length,
-            strategy: analysis.migrationStrategy
-          });
-          return analysis;
-        } catch (error) {
-          console.error("\u274C [JSON Handler] \u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0647\u064A\u0643\u0644:", error);
-          throw new Error(`\u0641\u0634\u0644 \u062A\u062D\u0644\u064A\u0644 \u0647\u064A\u0643\u0644 material_purchases: ${error.message}`);
-        }
-      }
-      /**
-       * 🔄 هجرة آمنة لجدول material_purchases مع معالجة JSON
-       */
-      async migrateMaterialPurchasesSafely(batchSize = 50) {
-        console.log("\u{1F680} [JSON Handler] \u0628\u062F\u0621 \u0647\u062C\u0631\u0629 \u0622\u0645\u0646\u0629 \u0644\u062C\u062F\u0648\u0644 material_purchases...");
-        const stats = {
-          totalProcessed: 0,
-          successfullyMigrated: 0,
-          errors: 0,
-          errorDetails: [],
-          duplicatesSkipped: 0,
-          jsonConversions: 0
-        };
-        try {
-          const totalRows = await this.fetcher.getRowCount("material_purchases");
-          console.log(`\u{1F4CA} [JSON Handler] \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0635\u0641\u0648\u0641 \u0644\u0644\u0647\u062C\u0631\u0629: ${totalRows}`);
-          if (totalRows === 0) {
-            console.log("\u2139\uFE0F [JSON Handler] \u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0644\u0644\u0647\u062C\u0631\u0629");
-            return stats;
-          }
-          const totalBatches = Math.ceil(totalRows / batchSize);
-          for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-            const offset = batchIndex * batchSize;
-            console.log(`\u{1F4E6} [JSON Handler] \u0645\u0639\u0627\u0644\u062C\u0629 \u0627\u0644\u062F\u0641\u0639\u0629 ${batchIndex + 1}/${totalBatches} (\u0627\u0644\u0635\u0641\u0648\u0641 ${offset + 1}-${Math.min(offset + batchSize, totalRows)})`);
-            try {
-              const batchData = await this.fetcher.fetchData("material_purchases", {
-                limit: batchSize,
-                offset,
-                orderBy: "id"
-              });
-              for (const row of batchData) {
-                stats.totalProcessed++;
-                try {
-                  const existingRecord = await db.select().from(materialPurchases).where(eq2(materialPurchases.id, row.id)).limit(1);
-                  if (existingRecord.length > 0) {
-                    stats.duplicatesSkipped++;
-                    console.log(`\u26A0\uFE0F [JSON Handler] \u062A\u0645 \u062A\u062E\u0637\u064A \u0627\u0644\u0633\u062C\u0644 \u0627\u0644\u0645\u0643\u0631\u0631: ${row.id}`);
-                    continue;
-                  }
-                  const processedRow = await this.processJsonFields(row);
-                  if (processedRow.hadJsonConversions) {
-                    stats.jsonConversions++;
-                  }
-                  await db.insert(materialPurchases).values(processedRow.data);
-                  stats.successfullyMigrated++;
-                  if (stats.totalProcessed % 10 === 0) {
-                    console.log(`\u{1F4C8} [JSON Handler] \u062A\u0642\u062F\u0645: ${stats.totalProcessed}/${totalRows} (${Math.round(stats.totalProcessed / totalRows * 100)}%)`);
-                  }
-                } catch (rowError) {
-                  stats.errors++;
-                  const errorMsg = `\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0635\u0641 ${row.id}: ${rowError.message}`;
-                  stats.errorDetails.push(errorMsg);
-                  console.error(`\u274C [JSON Handler] ${errorMsg}`);
-                }
-              }
-            } catch (batchError) {
-              stats.errors++;
-              const errorMsg = `\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062F\u0641\u0639\u0629 ${batchIndex + 1}: ${batchError.message}`;
-              stats.errorDetails.push(errorMsg);
-              console.error(`\u274C [JSON Handler] ${errorMsg}`);
-            }
-          }
-          console.log("\u2705 [JSON Handler] \u062A\u0645 \u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u0647\u062C\u0631\u0629:", stats);
-          return stats;
-        } catch (error) {
-          console.error("\u274C [JSON Handler] \u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u0647\u062C\u0631\u0629 \u0627\u0644\u0639\u0627\u0645\u0629:", error);
-          throw error;
-        }
-      }
-      /**
-       * 🔧 معالجة الحقول الـ JSON في السجل
-       */
-      async processJsonFields(row) {
-        const processedRow = { ...row };
-        let hadJsonConversions = false;
-        Object.entries(row).forEach(([fieldName, value]) => {
-          if (typeof value === "object" && value !== null) {
-            hadJsonConversions = true;
-            if (["notes", "description", "metadata"].includes(fieldName.toLowerCase())) {
-              processedRow[fieldName] = JSON.stringify(value);
-              console.log(`\u{1F504} [JSON Handler] \u062A\u0645 \u062A\u062D\u0648\u064A\u0644 ${fieldName} \u0645\u0646 JSON \u0625\u0644\u0649 string`);
-            } else {
-              processedRow[fieldName] = value;
-            }
-          }
-        });
-        if (processedRow.purchase_date) {
-          processedRow.purchaseDate = processedRow.purchase_date;
-          delete processedRow.purchase_date;
-        }
-        if (processedRow.invoice_date) {
-          processedRow.invoiceDate = processedRow.invoice_date;
-          delete processedRow.invoice_date;
-        }
-        ["quantity", "unit_price", "total_amount", "paid_amount", "remaining_amount"].forEach((field) => {
-          if (processedRow[field] !== void 0) {
-            processedRow[field] = String(processedRow[field]);
-          }
-        });
-        return {
-          data: processedRow,
-          hadJsonConversions
-        };
-      }
-      /**
-       * 🔍 تحليل تعقيد البيانات JSON
-       */
-      analyzeJsonComplexity(obj, depth = 0) {
-        const stats = {
-          isComplex: false,
-          depth,
-          arrayCount: 0,
-          objectCount: 0
-        };
-        if (Array.isArray(obj)) {
-          stats.arrayCount++;
-          if (obj.length > 5) stats.isComplex = true;
-          obj.forEach((item) => {
-            const subStats = this.analyzeJsonComplexity(item, depth + 1);
-            stats.arrayCount += subStats.arrayCount;
-            stats.objectCount += subStats.objectCount;
-            if (subStats.isComplex) stats.isComplex = true;
-            stats.depth = Math.max(stats.depth, subStats.depth);
-          });
-        } else if (typeof obj === "object" && obj !== null) {
-          stats.objectCount++;
-          const keys = Object.keys(obj);
-          if (keys.length > 10) stats.isComplex = true;
-          keys.forEach((key) => {
-            const subStats = this.analyzeJsonComplexity(obj[key], depth + 1);
-            stats.arrayCount += subStats.arrayCount;
-            stats.objectCount += subStats.objectCount;
-            if (subStats.isComplex) stats.isComplex = true;
-            stats.depth = Math.max(stats.depth, subStats.depth);
-          });
-        }
-        if (depth > 3) stats.isComplex = true;
-        return stats;
-      }
-      /**
-       * 📋 تحديد نوع البيانات المفصل
-       */
-      getDetailedType(value) {
-        if (value === null) return "null";
-        if (value === void 0) return "undefined";
-        if (Array.isArray(value)) return `array[${value.length}]`;
-        if (typeof value === "object") return `object[${Object.keys(value).length}]`;
-        if (typeof value === "string") {
-          if (value.length > 255) return "long_string";
-          if (/^\d{4}-\d{2}-\d{2}/.test(value)) return "date_string";
-          return "string";
-        }
-        return typeof value;
-      }
-      /**
-       * 💡 توليد توصيات للهجرة
-       */
-      generateMigrationRecommendations(analysis) {
-        const recommendations = [];
-        if (analysis.totalRows > 1e3) {
-          recommendations.push("\u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u062F\u0641\u0639\u0627\u062A \u0635\u063A\u064A\u0631\u0629 (50-100 \u0633\u062C\u0644) \u0644\u062A\u062C\u0646\u0628 timeout");
-        }
-        if (analysis.jsonFields.length > 0) {
-          recommendations.push(`\u0645\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062D\u0642\u0648\u0644 JSON: ${analysis.jsonFields.join(", ")}`);
-          if (analysis.hasComplexJson) {
-            recommendations.push("\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A JSON \u0645\u0639\u0642\u062F\u0629 - \u062A\u0637\u0628\u064A\u0642 \u062A\u062D\u0648\u064A\u0644 \u062E\u0627\u0635");
-            recommendations.push("\u0645\u0631\u0627\u062C\u0639\u0629 Schema \u0644\u0644\u062D\u0642\u0648\u0644 JSON \u0642\u0628\u0644 \u0627\u0644\u0647\u062C\u0631\u0629");
-          } else {
-            recommendations.push("\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A JSON \u0628\u0633\u064A\u0637\u0629 - \u064A\u0645\u0643\u0646 \u0627\u0644\u0647\u062C\u0631\u0629 \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629");
-          }
-        } else {
-          recommendations.push("\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A JSON \u0645\u0639\u0642\u062F\u0629 - \u0647\u062C\u0631\u0629 \u0639\u0627\u062F\u064A\u0629");
-        }
-        switch (analysis.migrationStrategy) {
-          case "simple":
-            recommendations.push("\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0628\u0633\u064A\u0637\u0629: \u0646\u0633\u062E \u0645\u0628\u0627\u0634\u0631 \u0644\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-            break;
-          case "mixed":
-            recommendations.push("\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0645\u062E\u062A\u0644\u0637\u0629: \u0645\u0639\u0627\u0644\u062C\u0629 \u062E\u0627\u0635\u0629 \u0644\u0644\u062D\u0642\u0648\u0644 JSON");
-            break;
-          case "complex":
-            recommendations.push("\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0645\u0639\u0642\u062F\u0629: \u062A\u062D\u0648\u064A\u0644 \u0634\u0627\u0645\u0644 \u0644\u0644\u0628\u064A\u0627\u0646\u0627\u062A JSON");
-            recommendations.push("\u0627\u062E\u062A\u0628\u0627\u0631 \u062F\u0641\u0639\u0629 \u0635\u063A\u064A\u0631\u0629 \u0623\u0648\u0644\u0627\u064B");
-            break;
-        }
-        return recommendations;
-      }
-      /**
-       * 🔌 قطع الاتصال
-       */
-      async disconnect() {
-        await this.fetcher.disconnect();
-      }
-    };
-  }
-});
-
-// server/services/migration-job-manager-enhanced.ts
-var migration_job_manager_enhanced_exports = {};
-__export(migration_job_manager_enhanced_exports, {
-  EnhancedMigrationJobManager: () => EnhancedMigrationJobManager,
-  enhancedMigrationJobManager: () => enhancedMigrationJobManager
-});
-import { eq as eq3, desc, and as and3, sql as sql2 } from "drizzle-orm";
-var EnhancedMigrationJobManager, enhancedMigrationJobManager;
-var init_migration_job_manager_enhanced = __esm({
-  "server/services/migration-job-manager-enhanced.ts"() {
-    "use strict";
-    init_secure_data_fetcher();
-    init_json_migration_handler();
-    init_db();
-    init_schema();
-    EnhancedMigrationJobManager = class {
-      // تخزين مؤقت للأداء - قاعدة البيانات هي المصدر الحقيقي
-      jobsCache = /* @__PURE__ */ new Map();
-      activeJobId = null;
-      heartbeatInterval = null;
-      constructor() {
-      }
-      generateJobId() {
-        return `migration_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      }
-      // التحقق من صحة معرف المهمة (دعم النمطين القديم والجديد)
-      isValidJobId(jobId) {
-        return jobId.startsWith("migration_") || jobId.startsWith("batch_migration_");
-      }
-      /**
-       * نظام Heartbeat للتأكد من أن المهام النشطة لا تزال تعمل
-       * يعمل فقط عند وجود مهام نشطة
-       */
-      startHeartbeatSystem() {
-        if (this.heartbeatInterval) {
-          return;
-        }
-        console.log("\u{1F7E2} \u0628\u062F\u0621 \u0646\u0638\u0627\u0645 heartbeat \u0644\u0644\u0645\u0647\u0627\u0645 \u0627\u0644\u0646\u0634\u0637\u0629");
-        this.heartbeatInterval = setInterval(async () => {
-          if (this.activeJobId) {
-            try {
-              await db.update(migrationJobs).set({
-                lastHeartbeat: /* @__PURE__ */ new Date(),
-                updatedAt: /* @__PURE__ */ new Date()
-              }).where(eq3(migrationJobs.id, this.activeJobId));
-            } catch (error) {
-              console.error("\u274C \u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B heartbeat:", error.message);
-            }
-          } else {
-            this.stopHeartbeatSystem();
-          }
-        }, 3e4);
-      }
-      /**
-       * إيقاف نظام heartbeat عندما لا توجد مهام نشطة
-       */
-      stopHeartbeatSystem() {
-        if (this.heartbeatInterval) {
-          console.log("\u{1F534} \u0625\u064A\u0642\u0627\u0641 \u0646\u0638\u0627\u0645 heartbeat - \u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0647\u0627\u0645 \u0646\u0634\u0637\u0629");
-          clearInterval(this.heartbeatInterval);
-          this.heartbeatInterval = null;
-        }
-      }
-      /**
-       * الحصول على المهمة النشطة من قاعدة البيانات
-       */
-      async getActiveJobFromDB() {
-        try {
-          const activeJobs = await db.select().from(migrationJobs).where(eq3(migrationJobs.status, "running")).limit(1);
-          return activeJobs.length > 0 ? activeJobs[0] : null;
-        } catch (error) {
-          console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0627\u0644\u0645\u0647\u0645\u0629 \u0627\u0644\u0646\u0634\u0637\u0629:", error.message);
-          return null;
-        }
-      }
-      /**
-       * كشف المهام العالقة بناءً على آخر heartbeat
-       * مهمة تعتبر عالقة إذا كان آخر heartbeat أقدم من 90 ثانية
-       */
-      async detectStuckJobs() {
-        try {
-          const stuckJobsThreshold = new Date(Date.now() - 9e4);
-          const stuckJobs = await db.select().from(migrationJobs).where(
-            and3(
-              eq3(migrationJobs.status, "running"),
-              // إذا كان lastHeartbeat null أو أقدم من threshold
-              sql2`(last_heartbeat IS NULL OR last_heartbeat < ${stuckJobsThreshold})`
-            )
-          );
-          console.log(`\u{1F50D} \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 ${stuckJobs.length} \u0645\u0647\u0645\u0629 \u0639\u0627\u0644\u0642\u0629`);
-          return stuckJobs;
-        } catch (error) {
-          console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u0643\u0634\u0641 \u0627\u0644\u0645\u0647\u0627\u0645 \u0627\u0644\u0639\u0627\u0644\u0642\u0629:", error.message);
-          return [];
-        }
-      }
-      /**
-       * إلغاء المهام العالقة قسراً
-       */
-      async forceUnlockStuckJobs() {
-        try {
-          const stuckJobs = await this.detectStuckJobs();
-          if (stuckJobs.length === 0) {
-            console.log("\u2705 \u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0647\u0627\u0645 \u0639\u0627\u0644\u0642\u0629 \u0644\u0644\u0625\u0644\u063A\u0627\u0621");
-            return { unlockedCount: 0, jobIds: [] };
-          }
-          const jobIds = stuckJobs.map((job) => job.id);
-          await db.transaction(async (tx) => {
-            for (const job of stuckJobs) {
-              await tx.update(migrationJobs).set({
-                status: "cancelled",
-                endTime: /* @__PURE__ */ new Date(),
-                updatedAt: /* @__PURE__ */ new Date(),
-                errorMessage: "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0645\u0647\u0645\u0629 \u0642\u0633\u0631\u0627\u064B - \u0645\u0647\u0645\u0629 \u0639\u0627\u0644\u0642\u0629"
-              }).where(eq3(migrationJobs.id, job.id));
-            }
-          });
-          for (const jobId of jobIds) {
-            this.jobsCache.delete(jobId);
-          }
-          if (this.activeJobId && jobIds.includes(this.activeJobId)) {
-            this.activeJobId = null;
-            this.stopHeartbeatSystem();
-          }
-          console.log(`\u{1F527} \u062A\u0645 \u0625\u0644\u063A\u0627\u0621 ${stuckJobs.length} \u0645\u0647\u0645\u0629 \u0639\u0627\u0644\u0642\u0629 \u0642\u0633\u0631\u0627\u064B: ${jobIds.join(", ")}`);
-          return { unlockedCount: stuckJobs.length, jobIds };
-        } catch (error) {
-          console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0645\u0647\u0627\u0645 \u0627\u0644\u0639\u0627\u0644\u0642\u0629:", error.message);
-          throw error;
-        }
-      }
-      /**
-       * تنظيف تلقائي للمهام العالقة عند بدء التشغيل
-       */
-      async startupCleanup() {
-        try {
-          console.log("\u{1F9F9} \u0628\u062F\u0621 \u0627\u0644\u062A\u0646\u0638\u064A\u0641 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0644\u0644\u0645\u0647\u0627\u0645 \u0627\u0644\u0639\u0627\u0644\u0642\u0629...");
-          const result = await this.forceUnlockStuckJobs();
-          if (result.unlockedCount > 0) {
-            console.log(`\u2705 \u062A\u0645 \u062A\u0646\u0638\u064A\u0641 ${result.unlockedCount} \u0645\u0647\u0645\u0629 \u0639\u0627\u0644\u0642\u0629 \u0623\u062B\u0646\u0627\u0621 \u0628\u062F\u0621 \u0627\u0644\u062A\u0634\u063A\u064A\u0644`);
-          } else {
-            console.log("\u2705 \u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0647\u0627\u0645 \u0639\u0627\u0644\u0642\u0629 - \u0627\u0644\u0646\u0638\u0627\u0645 \u0646\u0638\u064A\u0641");
-          }
-        } catch (error) {
-          console.error("\u274C \u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u062A\u0646\u0638\u064A\u0641 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A:", error.message);
-        }
-      }
-      /**
-       * تحويل من نموذج قاعدة البيانات إلى نموذج الواجهة
-       */
-      async convertDBJobToInterface(dbJob) {
-        const tableProgressRows = await db.select().from(migrationTableProgress).where(eq3(migrationTableProgress.jobId, dbJob.id));
-        const tableProgress = tableProgressRows.map((tp) => ({
-          tableName: tp.tableName,
-          status: tp.status,
-          totalRows: tp.totalRows,
-          processedRows: tp.processedRows,
-          savedRows: tp.savedRows,
-          errors: tp.errors,
-          startTime: tp.startTime || void 0,
-          endTime: tp.endTime || void 0,
-          errorMessage: tp.errorMessage || void 0
-        }));
-        return {
-          id: dbJob.id,
-          status: dbJob.status,
-          startTime: dbJob.startTime,
-          endTime: dbJob.endTime || void 0,
-          currentTable: dbJob.currentTable || void 0,
-          tablesProcessed: dbJob.tablesProcessed,
-          totalTables: dbJob.totalTables,
-          totalRowsProcessed: dbJob.totalRowsProcessed,
-          totalRowsSaved: dbJob.totalRowsSaved,
-          totalErrors: dbJob.totalErrors,
-          progress: dbJob.progress,
-          tableProgress,
-          error: dbJob.errorMessage || void 0
-        };
-      }
-      /**
-       * إنشاء مهمة هجرة جديدة مع التخزين الدائم
-       */
-      async createJob(userId) {
-        const activeJob = await this.getActiveJobFromDB();
-        if (activeJob) {
-          throw new Error("\u0647\u0646\u0627\u0643 \u0645\u0647\u0645\u0629 \u0647\u062C\u0631\u0629 \u0646\u0634\u0637\u0629 \u0628\u0627\u0644\u0641\u0639\u0644");
-        }
-        const jobId = this.generateJobId();
-        try {
-          await db.transaction(async (tx) => {
-            await tx.insert(migrationJobs).values({
-              id: jobId,
-              status: "pending",
-              tablesProcessed: 0,
-              totalTables: 0,
-              totalRowsProcessed: 0,
-              totalRowsSaved: 0,
-              totalErrors: 0,
-              progress: 0,
-              userId: userId || null,
-              batchSize: 100,
-              resumable: true
-            });
-          });
-          this.activeJobId = jobId;
-          this.startHeartbeatSystem();
-          const job = {
-            id: jobId,
-            status: "pending",
-            startTime: /* @__PURE__ */ new Date(),
-            tablesProcessed: 0,
-            totalTables: 0,
-            totalRowsProcessed: 0,
-            totalRowsSaved: 0,
-            totalErrors: 0,
-            progress: 0,
-            tableProgress: []
-          };
-          this.jobsCache.set(jobId, job);
-          console.log(`\u2728 \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0647\u0645\u0629 \u0647\u062C\u0631\u0629 \u062C\u062F\u064A\u062F\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A: ${jobId}`);
-          return jobId;
-        } catch (error) {
-          console.error(`\u274C \u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629: ${error.message}`);
-          throw new Error(`\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629: ${error.message}`);
-        }
-      }
-      /**
-       * استعلام المهمة مع أولوية للتخزين المؤقت ثم قاعدة البيانات
-       */
-      async getJob(jobId) {
-        console.log(`\u{1F50D} EnhancedMigrationJobManager.getJob called with: ${jobId}`);
-        if (!this.isValidJobId(jobId)) {
-          console.log(`\u274C Invalid job ID format: ${jobId}`);
-          return void 0;
-        }
-        console.log(`\u2705 Valid job ID format: ${jobId}`);
-        let job = this.jobsCache.get(jobId);
-        if (job) {
-          console.log(`\u{1F50D} Job found in cache: ${jobId}`);
-          return job;
-        }
-        try {
-          const dbJobRows = await db.select().from(migrationJobs).where(eq3(migrationJobs.id, jobId)).limit(1);
-          if (dbJobRows.length > 0) {
-            const dbJob = dbJobRows[0];
-            job = await this.convertDBJobToInterface(dbJob);
-            this.jobsCache.set(jobId, job);
-            console.log(`\u{1F50D} Job found in database and cached: ${jobId}`);
-            return job;
-          }
-        } catch (error) {
-          console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u0627\u0633\u062A\u0639\u0644\u0627\u0645 \u0627\u0644\u0645\u0647\u0645\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A: ${error.message}`);
-        }
-        if (jobId.startsWith("batch_migration_")) {
-          console.log(`\u{1F4CB} \u0625\u0646\u0634\u0627\u0621 placeholder \u0644\u0644\u0645\u0647\u0645\u0629 \u0627\u0644\u0642\u062F\u064A\u0645\u0629: ${jobId}`);
-          job = this.createLegacyJobPlaceholder(jobId);
-          this.jobsCache.set(jobId, job);
-          console.log(`\u2705 Placeholder created and cached for: ${jobId}`);
-          return job;
-        }
-        console.log(`\u{1F3C1} Job not found: ${jobId}`);
-        return void 0;
-      }
-      // إنشاء مهمة وهمية للمهام القديمة المفقودة
-      createLegacyJobPlaceholder(jobId) {
-        const timestamp2 = this.extractTimestampFromJobId(jobId);
-        const startTime = timestamp2 ? new Date(timestamp2) : /* @__PURE__ */ new Date();
-        return {
-          id: jobId,
-          status: "completed",
-          // افتراض أن المهام القديمة مكتملة
-          startTime,
-          endTime: new Date(startTime.getTime() + 3e5),
-          // إضافة 5 دقائق
-          tablesProcessed: 0,
-          totalTables: 0,
-          totalRowsProcessed: 0,
-          totalRowsSaved: 0,
-          totalErrors: 0,
-          progress: 100,
-          tableProgress: [],
-          error: "\u0645\u0647\u0645\u0629 \u0642\u062F\u064A\u0645\u0629 - \u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644 \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631\u0629"
-        };
-      }
-      // استخراج الطابع الزمني من معرف المهمة
-      extractTimestampFromJobId(jobId) {
-        const matches = jobId.match(/_(\d{13})/);
-        return matches ? parseInt(matches[1]) : null;
-      }
-      /**
-       * الحصول على جميع المهام من قاعدة البيانات
-       */
-      async getAllJobs() {
-        try {
-          const dbJobRows = await db.select().from(migrationJobs).orderBy(desc(migrationJobs.createdAt)).limit(50);
-          const jobs = await Promise.all(
-            dbJobRows.map((dbJob) => this.convertDBJobToInterface(dbJob))
-          );
-          return jobs;
-        } catch (error) {
-          console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0647\u0627\u0645: ${error.message}`);
-          return Array.from(this.jobsCache.values()).sort(
-            (a, b) => b.startTime.getTime() - a.startTime.getTime()
-          );
-        }
-      }
-      /**
-       * الحصول على المهمة النشطة
-       */
-      async getActiveJob() {
-        if (!this.activeJobId) return null;
-        const job = await this.getJob(this.activeJobId);
-        return job || null;
-      }
-      /**
-       * تحديث المهمة مع التخزين الدائم
-       */
-      async updateJob(jobId, updates) {
-        try {
-          const dbUpdates = {
-            updatedAt: /* @__PURE__ */ new Date()
-          };
-          if (updates.status) dbUpdates.status = updates.status;
-          if (updates.currentTable !== void 0) dbUpdates.currentTable = updates.currentTable;
-          if (updates.tablesProcessed !== void 0) dbUpdates.tablesProcessed = updates.tablesProcessed;
-          if (updates.totalTables !== void 0) dbUpdates.totalTables = updates.totalTables;
-          if (updates.totalRowsProcessed !== void 0) dbUpdates.totalRowsProcessed = updates.totalRowsProcessed;
-          if (updates.totalRowsSaved !== void 0) dbUpdates.totalRowsSaved = updates.totalRowsSaved;
-          if (updates.totalErrors !== void 0) dbUpdates.totalErrors = updates.totalErrors;
-          if (updates.progress !== void 0) dbUpdates.progress = updates.progress;
-          if (updates.error !== void 0) dbUpdates.errorMessage = updates.error;
-          if (updates.endTime !== void 0) dbUpdates.endTime = updates.endTime;
-          await db.update(migrationJobs).set(dbUpdates).where(eq3(migrationJobs.id, jobId));
-          const job = this.jobsCache.get(jobId);
-          if (job) {
-            Object.assign(job, updates);
-            if (job.totalTables > 0) {
-              job.progress = Math.round(job.tablesProcessed / job.totalTables * 100);
-            }
-          }
-          console.log(`\u{1F4DD} \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0647\u0645\u0629 ${jobId} \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A`);
-        } catch (error) {
-          console.error(`\u274C \u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0647\u0645\u0629 ${jobId}: ${error.message}`);
-          throw error;
-        }
-      }
-      /**
-       * تحديث تقدم جدول معين مع معاملات آمنة
-       */
-      async updateTableProgress(jobId, tableName, updates) {
-        try {
-          const progressData = {
-            jobId,
-            tableName,
-            updatedAt: /* @__PURE__ */ new Date()
-          };
-          if (updates.status) progressData.status = updates.status;
-          if (updates.totalRows !== void 0) progressData.totalRows = updates.totalRows;
-          if (updates.processedRows !== void 0) progressData.processedRows = updates.processedRows;
-          if (updates.savedRows !== void 0) progressData.savedRows = updates.savedRows;
-          if (updates.errors !== void 0) progressData.errors = updates.errors;
-          if (updates.startTime !== void 0) progressData.startTime = updates.startTime;
-          if (updates.endTime !== void 0) progressData.endTime = updates.endTime;
-          if (updates.errorMessage !== void 0) progressData.errorMessage = updates.errorMessage;
-          await db.insert(migrationTableProgress).values(progressData).onConflictDoUpdate({
-            target: [migrationTableProgress.jobId, migrationTableProgress.tableName],
-            set: progressData
-          });
-          const job = this.jobsCache.get(jobId);
-          if (job) {
-            const tableIndex = job.tableProgress.findIndex((t) => t.tableName === tableName);
-            if (tableIndex === -1) {
-              const newTableProgress = {
-                tableName,
-                status: "pending",
-                totalRows: 0,
-                processedRows: 0,
-                savedRows: 0,
-                errors: 0,
-                ...updates
-              };
-              job.tableProgress.push(newTableProgress);
-            } else {
-              Object.assign(job.tableProgress[tableIndex], updates);
-            }
-          }
-        } catch (error) {
-          console.error(`\u274C \u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u062A\u0642\u062F\u0645 \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName}: ${error.message}`);
-          throw error;
-        }
-      }
-      /**
-       * إنهاء المهمة مع التخزين الدائم
-       */
-      async completeJob(jobId, success = true, error) {
-        try {
-          const endTime = /* @__PURE__ */ new Date();
-          const status = success ? "completed" : "failed";
-          await db.update(migrationJobs).set({
-            status,
-            endTime,
-            progress: 100,
-            errorMessage: error || null,
-            updatedAt: endTime
-          }).where(eq3(migrationJobs.id, jobId));
-          const job = this.jobsCache.get(jobId);
-          if (job) {
-            job.status = status;
-            job.endTime = endTime;
-            job.progress = 100;
-            if (error) {
-              job.error = error;
-            }
-          }
-          if (this.activeJobId === jobId) {
-            this.activeJobId = null;
-            this.stopHeartbeatSystem();
-          }
-          const duration = job ? endTime.getTime() - job.startTime.getTime() : 0;
-          console.log(`\u{1F3C1} \u0627\u0646\u062A\u0647\u062A \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 ${jobId} - ${success ? "\u0646\u062C\u062D" : "\u0641\u0634\u0644"} (${Math.round(duration / 1e3)}s)`);
-        } catch (error2) {
-          console.error(`\u274C \u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0647\u0627\u0621 \u0627\u0644\u0645\u0647\u0645\u0629 ${jobId}: ${error2.message}`);
-          throw error2;
-        }
-      }
-      /**
-       * إلغاء المهمة مع التخزين الدائم
-       */
-      async cancelJob(jobId) {
-        try {
-          const job = await this.getJob(jobId);
-          if (!job || job.status === "completed" || job.status === "failed") {
-            return false;
-          }
-          const endTime = /* @__PURE__ */ new Date();
-          await db.update(migrationJobs).set({
-            status: "cancelled",
-            endTime,
-            updatedAt: endTime
-          }).where(eq3(migrationJobs.id, jobId));
-          if (job) {
-            job.status = "cancelled";
-            job.endTime = endTime;
-          }
-          if (this.activeJobId === jobId) {
-            this.activeJobId = null;
-            this.stopHeartbeatSystem();
-          }
-          console.log(`\u26D4 \u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 ${jobId}`);
-          return true;
-        } catch (error) {
-          console.error(`\u274C \u0641\u0634\u0644 \u0641\u064A \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0645\u0647\u0645\u0629 ${jobId}: ${error.message}`);
-          return false;
-        }
-      }
-      /**
-       * تشغيل الهجرة مع التخزين الدائم والمعاملات الآمنة
-       */
-      async runMigration(jobId, batchSize = 100) {
-        const job = await this.getJob(jobId);
-        if (!job) {
-          throw new Error("\u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629");
-        }
-        const externalUrl = process.env.OLD_DB_URL;
-        if (!externalUrl) {
-          throw new Error("\u0631\u0627\u0628\u0637 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629 \u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u064E\u0651\u0646");
-        }
-        try {
-          await this.updateJob(jobId, { status: "running" });
-          console.log(`\u{1F680} \u0628\u062F\u0621 \u062A\u0634\u063A\u064A\u0644 \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 ${jobId} \u0645\u0639 \u0627\u0644\u062A\u062E\u0632\u064A\u0646 \u0627\u0644\u062F\u0627\u0626\u0645...`);
-          const fetcher = new SecureDataFetcher(externalUrl);
-          const availableTables = await fetcher.getAvailableTables();
-          await this.updateJob(jobId, {
-            totalTables: availableTables.length,
-            currentTable: availableTables[0] || void 0
-          });
-          console.log(`\u{1F4CA} \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 ${availableTables.length} \u062C\u062F\u0648\u0644 \u0644\u0644\u0647\u062C\u0631\u0629`);
-          for (const tableName of availableTables) {
-            await this.updateTableProgress(jobId, tableName, {
-              status: "pending",
-              totalRows: 0,
-              processedRows: 0,
-              savedRows: 0,
-              errors: 0
-            });
-          }
-          const SUPPORTED_TABLES = ["workers", "projects", "suppliers", "equipment", "worker_attendance", "fund_transfers", "material_purchases"];
-          const BLACKLISTED_TABLES = ["notifications", "users", "transportation_expenses", "auth_users", "auth_sessions", "auth_permissions"];
-          const supportedTables = availableTables.filter((tableName) => {
-            if (BLACKLISTED_TABLES.includes(tableName)) {
-              console.log(`\u23ED\uFE0F \u062A\u062E\u0637\u064A \u0627\u0644\u062C\u062F\u0648\u0644 \u0627\u0644\u0645\u062D\u0638\u0648\u0631: ${tableName}`);
-              return false;
-            }
-            if (!SUPPORTED_TABLES.includes(tableName)) {
-              console.warn(`\u26A0\uFE0F \u062C\u062F\u0648\u0644 \u063A\u064A\u0631 \u0645\u062F\u0639\u0648\u0645: ${tableName} - \u0633\u064A\u062A\u0645 \u062A\u062E\u0637\u064A\u0647`);
-              return false;
-            }
-            return true;
-          });
-          console.log(`\u{1F4CB} \u0633\u064A\u062A\u0645 \u0645\u0639\u0627\u0644\u062C\u0629 ${supportedTables.length} \u062C\u062F\u0648\u0644 \u0645\u0646 \u0623\u0635\u0644 ${availableTables.length} \u062C\u062F\u0648\u0644`);
-          for (let i = 0; i < supportedTables.length; i++) {
-            const tableName = supportedTables[i];
-            let tableResult = null;
-            const currentJob = await this.getJob(jobId);
-            if (currentJob?.status === "cancelled") {
-              console.log("\u26D4 \u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0645\u0647\u0645\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645");
-              return;
-            }
-            await this.updateJob(jobId, { currentTable: tableName });
-            await this.updateTableProgress(jobId, tableName, {
-              status: "processing",
-              startTime: /* @__PURE__ */ new Date()
-            });
-            console.log(`\u{1F504} \u0645\u0639\u0627\u0644\u062C\u0629 \u0627\u0644\u062C\u062F\u0648\u0644 ${i + 1}/${supportedTables.length}: ${tableName}...`);
-            try {
-              const tableInfo = await fetcher.getTableInfo(tableName);
-              if (!tableInfo.exists) {
-                console.warn(`\u26A0\uFE0F \u062A\u062E\u0637\u064A \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} - \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A Supabase`);
-                await this.updateTableProgress(jobId, tableName, {
-                  status: "skipped",
-                  endTime: /* @__PURE__ */ new Date(),
-                  errorMessage: "\u0627\u0644\u062C\u062F\u0648\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A Supabase"
-                });
-                continue;
-              }
-              await this.updateTableProgress(jobId, tableName, {
-                totalRows: tableInfo.rowCount
-              });
-              if (tableName === "material_purchases") {
-                console.log("\u{1F50D} [Migration] \u062A\u0637\u0628\u064A\u0642 \u0645\u0639\u0627\u0644\u062C\u0629 \u062E\u0627\u0635\u0629 \u0644\u062C\u062F\u0648\u0644 material_purchases...");
-                const jsonHandler = new JsonMigrationHandler(externalUrl);
-                try {
-                  tableResult = await jsonHandler.migrateMaterialPurchasesSafely(batchSize);
-                  await this.updateTableProgress(jobId, tableName, {
-                    status: "completed",
-                    processedRows: tableResult.totalProcessed,
-                    savedRows: tableResult.successfullyMigrated,
-                    errors: tableResult.errors,
-                    endTime: /* @__PURE__ */ new Date(),
-                    errorMessage: tableResult.errors > 0 ? `${tableResult.errors} \u0623\u062E\u0637\u0627\u0621 - \u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644: ${tableResult.errorDetails.slice(0, 3).join("; ")}` : void 0
-                  });
-                  console.log(`\u2705 [Migration] \u0627\u0646\u062A\u0647\u062A \u0647\u062C\u0631\u0629 ${tableName}:`, {
-                    success: true,
-                    totalProcessed: tableResult.totalProcessed,
-                    totalSaved: tableResult.successfullyMigrated,
-                    duplicatesSkipped: tableResult.duplicatesSkipped,
-                    jsonConversions: tableResult.jsonConversions,
-                    errors: tableResult.errors
-                  });
-                } catch (jsonError) {
-                  console.error(`\u274C [Migration] \u062E\u0637\u0623 \u0641\u064A \u0645\u0639\u0627\u0644\u062C\u0629 \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName}: ${jsonError.message}`);
-                  await this.updateTableProgress(jobId, tableName, {
-                    status: "failed",
-                    endTime: /* @__PURE__ */ new Date(),
-                    errorMessage: `\u0641\u0634\u0644 \u0645\u0639\u0627\u0644\u062C\u0629 JSON: ${jsonError.message}`
-                  });
-                  tableResult = {
-                    success: false,
-                    totalProcessed: 0,
-                    totalSaved: 0,
-                    successfullyMigrated: 0,
-                    errors: 1
-                  };
-                } finally {
-                  await jsonHandler.disconnect();
-                }
-              } else {
-                tableResult = await this.migrateSafeTable(fetcher, tableName, batchSize, jobId);
-                await this.updateTableProgress(jobId, tableName, {
-                  status: tableResult.success ? "completed" : "failed",
-                  processedRows: tableResult.totalProcessed,
-                  savedRows: tableResult.totalSaved,
-                  errors: tableResult.errors,
-                  endTime: /* @__PURE__ */ new Date(),
-                  errorMessage: tableResult.errors > 0 ? `${tableResult.errors} \u0623\u062E\u0637\u0627\u0621` : void 0
-                });
-                console.log(`\u2705 [Migration] \u0627\u0646\u062A\u0647\u062A \u0647\u062C\u0631\u0629 ${tableName}:`, {
-                  success: tableResult.success,
-                  totalProcessed: tableResult.totalProcessed,
-                  totalSaved: tableResult.totalSaved,
-                  errors: tableResult.errors
-                });
-              }
-              try {
-                if (tableResult) {
-                  await db.insert(migrationBatchLog).values({
-                    jobId,
-                    tableName,
-                    batchIndex: 1,
-                    batchSize,
-                    batchOffset: 0,
-                    status: tableResult.success ? "completed" : "failed",
-                    rowsProcessed: tableResult.totalProcessed || 0,
-                    rowsSaved: tableResult.totalSaved || tableResult.successfullyMigrated || 0,
-                    retryCount: 0,
-                    transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-                    endTime: /* @__PURE__ */ new Date()
-                  });
-                }
-              } catch (logError) {
-                console.warn(`\u26A0\uFE0F [Migration] \u062A\u062D\u0630\u064A\u0631 \u0641\u064A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u0639\u0645\u0644\u064A\u0629 \u0644\u0644\u062C\u062F\u0648\u0644 ${tableName}: ${logError.message}`);
-              }
-              if (tableResult) {
-                await this.updateJob(jobId, {
-                  tablesProcessed: i + 1,
-                  totalRowsProcessed: (currentJob?.totalRowsProcessed || 0) + (tableResult.totalProcessed || 0),
-                  totalRowsSaved: (currentJob?.totalRowsSaved || 0) + (tableResult.totalSaved || tableResult.successfullyMigrated || 0),
-                  totalErrors: (currentJob?.totalErrors || 0) + (tableResult.errors || 0)
-                });
-              }
-            } catch (tableError) {
-              console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u0645\u0639\u0627\u0644\u062C\u0629 \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName}:`, tableError.message);
-              await this.updateTableProgress(jobId, tableName, {
-                status: "failed",
-                endTime: /* @__PURE__ */ new Date(),
-                errorMessage: tableError.message,
-                errors: 1
-              });
-              await this.updateJob(jobId, {
-                totalErrors: (currentJob?.totalErrors || 0) + 1
-              });
-            }
-          }
-          await this.completeJob(jobId, true);
-          console.log(`\u{1F389} \u0627\u0646\u062A\u0647\u062A \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 ${jobId} \u0628\u0646\u062C\u0627\u062D`);
-        } catch (error) {
-          console.error(`\u274C \u0641\u0634\u0644 \u0641\u064A \u062A\u0634\u063A\u064A\u0644 \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 ${jobId}:`, error.message);
-          await this.completeJob(jobId, false, error.message);
-          throw error;
-        }
-      }
-      /**
-       * 🔄 هجرة آمنة للجداول العادية مع حماية من التكرار
-       */
-      async migrateSafeTable(fetcher, tableName, batchSize, jobId) {
-        console.log(`\u{1F504} [Migration] \u0628\u062F\u0621 \u0627\u0644\u0647\u062C\u0631\u0629 \u0627\u0644\u0622\u0645\u0646\u0629 \u0644\u0644\u062C\u062F\u0648\u0644: ${tableName}`);
-        const result = {
-          success: true,
-          totalProcessed: 0,
-          totalSaved: 0,
-          errors: 0,
-          duplicatesSkipped: 0
-        };
-        try {
-          const totalRows = await fetcher.getRowCount(tableName);
-          const totalBatches = Math.ceil(totalRows / batchSize);
-          for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-            const offset = batchIndex * batchSize;
-            try {
-              const batchData = await fetcher.fetchData(tableName, {
-                limit: batchSize,
-                offset,
-                orderBy: "id"
-              });
-              for (const row of batchData) {
-                result.totalProcessed++;
-                try {
-                  const isDuplicate = await this.checkDuplicateRecord(tableName, row);
-                  if (isDuplicate) {
-                    result.duplicatesSkipped++;
-                    continue;
-                  }
-                  await this.insertSafeRecord(tableName, row);
-                  result.totalSaved++;
-                } catch (rowError) {
-                  result.errors++;
-                  console.error(`\u274C [Migration] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0633\u062C\u0644 ${row.id}:`, rowError.message);
-                }
-              }
-              if (batchIndex % 5 === 0) {
-                await this.updateTableProgress(jobId, tableName, {
-                  processedRows: result.totalProcessed,
-                  savedRows: result.totalSaved,
-                  errors: result.errors
-                });
-              }
-            } catch (batchError) {
-              result.errors++;
-              console.error(`\u274C [Migration] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062F\u0641\u0639\u0629 ${batchIndex + 1}:`, batchError.message);
-              result.success = false;
-            }
-          }
-        } catch (error) {
-          console.error(`\u274C [Migration] \u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u0647\u062C\u0631\u0629 \u0627\u0644\u0622\u0645\u0646\u0629 \u0644\u0640 ${tableName}:`, error.message);
-          result.success = false;
-          result.errors++;
-        }
-        console.log(`\u2705 [Migration] \u0627\u0646\u062A\u0647\u062A \u0647\u062C\u0631\u0629 ${tableName}:`, result);
-        return result;
-      }
-      /**
-       * 🔍 فحص تكرار السجل
-       */
-      async checkDuplicateRecord(tableName, row) {
-        try {
-          let existingRecord;
-          switch (tableName) {
-            case "workers":
-              existingRecord = await db.select().from(workers).where(eq3(workers.id, row.id)).limit(1);
-              break;
-            case "projects":
-              existingRecord = await db.select().from(projects).where(eq3(projects.id, row.id)).limit(1);
-              break;
-            case "suppliers":
-              existingRecord = await db.select().from(suppliers).where(eq3(suppliers.id, row.id)).limit(1);
-              break;
-            case "equipment":
-              console.warn("\u26A0\uFE0F [Migration] Equipment table not implemented in schema");
-              return false;
-            case "worker_attendance":
-              existingRecord = await db.select().from(workerAttendance).where(eq3(workerAttendance.id, row.id)).limit(1);
-              break;
-            case "fund_transfers":
-              existingRecord = await db.select().from(fundTransfers).where(eq3(fundTransfers.id, row.id)).limit(1);
-              break;
-            default:
-              console.warn(`\u26A0\uFE0F [Migration] \u062C\u062F\u0648\u0644 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641 \u0644\u0644\u0641\u062D\u0635: ${tableName}`);
-              return false;
-          }
-          return existingRecord && existingRecord.length > 0;
-        } catch (error) {
-          console.error(`\u274C [Migration] \u062E\u0637\u0623 \u0641\u064A \u0641\u062D\u0635 \u0627\u0644\u062A\u0643\u0631\u0627\u0631 \u0644\u0640 ${tableName}:`, error.message);
-          return false;
-        }
-      }
-      /**
-       * 💾 إدراج آمن للسجل
-       */
-      async insertSafeRecord(tableName, row) {
-        try {
-          const cleanedRow = this.cleanRowData(tableName, row);
-          switch (tableName) {
-            case "workers":
-              await db.insert(workers).values(cleanedRow);
-              break;
-            case "projects":
-              await db.insert(projects).values(cleanedRow);
-              break;
-            case "suppliers":
-              await db.insert(suppliers).values(cleanedRow);
-              break;
-            case "equipment":
-              console.warn("\u26A0\uFE0F [Migration] Equipment table not implemented in schema");
-              throw new Error("Equipment table not available in current schema");
-            case "worker_attendance":
-              await db.insert(workerAttendance).values(cleanedRow);
-              break;
-            case "fund_transfers":
-              await db.insert(fundTransfers).values(cleanedRow);
-              break;
-            default:
-              throw new Error(`\u062C\u062F\u0648\u0644 \u063A\u064A\u0631 \u0645\u062F\u0639\u0648\u0645 \u0644\u0644\u0625\u062F\u0631\u0627\u062C: ${tableName}`);
-          }
-        } catch (error) {
-          console.error(`\u274C [Migration] \u0641\u0634\u0644 \u0625\u062F\u0631\u0627\u062C \u0627\u0644\u0633\u062C\u0644 \u0641\u064A ${tableName}:`, error.message);
-          throw error;
-        }
-      }
-      /**
-       * 🧹 تنظيف بيانات السجل حسب الجدول
-       */
-      cleanRowData(tableName, row) {
-        const cleaned = { ...row };
-        delete cleaned._count;
-        delete cleaned.__typename;
-        if (cleaned.created_at) {
-          cleaned.createdAt = cleaned.created_at;
-          delete cleaned.created_at;
-        }
-        if (cleaned.updated_at) {
-          cleaned.updatedAt = cleaned.updated_at;
-          delete cleaned.updated_at;
-        }
-        const decimalFields = ["daily_wage", "amount", "quantity", "unit_price", "total_amount", "paid_amount", "remaining_amount"];
-        decimalFields.forEach((field) => {
-          if (cleaned[field] !== void 0 && cleaned[field] !== null) {
-            cleaned[field] = String(cleaned[field]);
-          }
-        });
-        switch (tableName) {
-          case "worker_attendance":
-            if (cleaned.work_days !== void 0) {
-              cleaned.workDays = String(cleaned.work_days);
-              delete cleaned.work_days;
-            }
-            break;
-          case "fund_transfers":
-            if (cleaned.transfer_date) {
-              cleaned.transferDate = cleaned.transfer_date;
-              delete cleaned.transfer_date;
-            }
-            break;
-        }
-        return cleaned;
-      }
-      /**
-       * تنظيف الموارد
-       */
-      cleanup() {
-        if (this.heartbeatInterval) {
-          clearInterval(this.heartbeatInterval);
-          this.heartbeatInterval = null;
-        }
-        this.jobsCache.clear();
-        this.activeJobId = null;
-      }
-    };
-    enhancedMigrationJobManager = new EnhancedMigrationJobManager();
-  }
-});
-
 // server/services/NotificationService.ts
 var NotificationService_exports = {};
 __export(NotificationService_exports, {
@@ -3923,7 +2401,7 @@ __export(NotificationService_exports, {
   NotificationStatus: () => NotificationStatus,
   NotificationTypes: () => NotificationTypes
 });
-import { eq as eq4, and as and4, desc as desc2, or, inArray, sql as sql3 } from "drizzle-orm";
+import { eq as eq2, and as and2, desc, or, inArray, sql as sql2 } from "drizzle-orm";
 var NotificationPriority, NotificationTypes, NotificationStatus, NotificationService;
 var init_NotificationService = __esm({
   "server/services/NotificationService.ts"() {
@@ -4108,9 +2586,9 @@ var init_NotificationService = __esm({
           try {
             const defaultUser = await db.query.users.findFirst({
               columns: { id: true },
-              where: (users2, { eq: eq13, or: or5 }) => or5(
-                eq13(users2.role, "admin"),
-                eq13(users2.email, "admin")
+              where: (users2, { eq: eq11, or: or5 }) => or5(
+                eq11(users2.role, "admin"),
+                eq11(users2.email, "admin")
               )
             });
             return defaultUser ? [defaultUser.id] : [];
@@ -4129,9 +2607,9 @@ var init_NotificationService = __esm({
             return true;
           }
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq13, or: or5 }) => or5(
-              eq13(users2.id, userId),
-              eq13(users2.email, userId)
+            where: (users2, { eq: eq11, or: or5 }) => or5(
+              eq11(users2.id, userId),
+              eq11(users2.email, userId)
             )
           });
           if (!user) {
@@ -4153,9 +2631,9 @@ var init_NotificationService = __esm({
       async getAllowedNotificationTypes(userId) {
         try {
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq13, or: or5 }) => or5(
-              eq13(users2.id, userId),
-              eq13(users2.email, userId)
+            where: (users2, { eq: eq11, or: or5 }) => or5(
+              eq11(users2.id, userId),
+              eq11(users2.email, userId)
             )
           });
           if (!user) {
@@ -4185,36 +2663,36 @@ var init_NotificationService = __esm({
           conditions.push(inArray(notifications.type, allowedTypes));
         }
         if (filters.type && allowedTypes.includes(filters.type)) {
-          conditions.push(eq4(notifications.type, filters.type));
+          conditions.push(eq2(notifications.type, filters.type));
         }
         if (filters.projectId) {
-          conditions.push(eq4(notifications.projectId, filters.projectId));
+          conditions.push(eq2(notifications.projectId, filters.projectId));
         }
         if (isUserAdmin) {
           conditions.push(
             or(
-              sql3`${notifications.recipients} @> ARRAY[${userId}]`,
-              sql3`${notifications.recipients} @> ARRAY['admin']`,
-              sql3`${notifications.recipients} @> ARRAY['مسؤول']`,
-              sql3`${notifications.recipients} IS NULL`
+              sql2`${notifications.recipients} @> ARRAY[${userId}]`,
+              sql2`${notifications.recipients} @> ARRAY['admin']`,
+              sql2`${notifications.recipients} @> ARRAY['مسؤول']`,
+              sql2`${notifications.recipients} IS NULL`
               // الإشعارات العامة
             )
           );
         } else {
           conditions.push(
             or(
-              sql3`${notifications.recipients} @> ARRAY[${userId}]`,
-              sql3`${notifications.recipients} IS NULL`
+              sql2`${notifications.recipients} @> ARRAY[${userId}]`,
+              sql2`${notifications.recipients} IS NULL`
               // الإشعارات العامة
             )
           );
         }
-        const notificationList = await db.select().from(notifications).where(and4(...conditions)).orderBy(desc2(notifications.createdAt)).limit(filters.limit || 50).offset(filters.offset || 0);
+        const notificationList = await db.select().from(notifications).where(and2(...conditions)).orderBy(desc(notifications.createdAt)).limit(filters.limit || 50).offset(filters.offset || 0);
         console.log(`\u{1F50D} \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 ${notificationList.length} \u0625\u0634\u0639\u0627\u0631 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId}`);
         const notificationIds = notificationList.map((n) => n.id);
         const readStates = notificationIds.length > 0 ? await db.select().from(notificationReadStates).where(
-          and4(
-            eq4(notificationReadStates.userId, userId),
+          and2(
+            eq2(notificationReadStates.userId, userId),
             // مهم: حالة القراءة مخصصة للمستخدم
             inArray(notificationReadStates.notificationId, notificationIds)
           )
@@ -4244,9 +2722,9 @@ var init_NotificationService = __esm({
         try {
           console.log(`\u{1F50D} \u0628\u062F\u0621 \u0641\u062D\u0635 \u062D\u0627\u0644\u0629 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 ${notificationId} \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId}`);
           const readState = await db.select().from(notificationReadStates).where(
-            and4(
-              eq4(notificationReadStates.userId, userId),
-              eq4(notificationReadStates.notificationId, notificationId)
+            and2(
+              eq2(notificationReadStates.userId, userId),
+              eq2(notificationReadStates.notificationId, notificationId)
             )
           ).limit(1);
           console.log(`\u{1F4D6} \u0646\u062A\u0627\u0626\u062C \u0641\u062D\u0635 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 ${notificationId}:`, readState);
@@ -4264,7 +2742,7 @@ var init_NotificationService = __esm({
       async recreateReadStatesTable() {
         try {
           console.log("\u{1F527} \u0627\u0644\u062A\u0623\u0643\u062F \u0645\u0646 \u0648\u062C\u0648\u062F \u062C\u062F\u0648\u0644 notification_read_states (\u0628\u062F\u0648\u0646 \u062D\u0630\u0641 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A)...");
-          await db.execute(sql3`
+          await db.execute(sql2`
         CREATE TABLE IF NOT EXISTS notification_read_states (
           id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
           user_id VARCHAR NOT NULL,
@@ -4288,17 +2766,17 @@ var init_NotificationService = __esm({
       async markAsRead(notificationId, userId) {
         console.log(`\u2705 \u0628\u062F\u0621 \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0643\u0645\u0642\u0631\u0648\u0621: ${notificationId} \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
         try {
-          const deleteResult = await db.execute(sql3`
+          const deleteResult = await db.execute(sql2`
         DELETE FROM notification_read_states 
         WHERE user_id = ${userId} AND notification_id = ${notificationId}
       `);
           console.log(`\u{1F5D1}\uFE0F \u062A\u0645 \u062D\u0630\u0641 ${deleteResult.rowCount || 0} \u0633\u062C\u0644 \u0633\u0627\u0628\u0642`);
-          const insertResult = await db.execute(sql3`
+          const insertResult = await db.execute(sql2`
         INSERT INTO notification_read_states (user_id, notification_id, is_read, read_at)
         VALUES (${userId}, ${notificationId}, true, NOW())
       `);
           console.log(`\u2795 \u062A\u0645 \u0625\u062F\u0631\u0627\u062C \u0633\u062C\u0644 \u062C\u062F\u064A\u062F: ${insertResult.rowCount || 0} \u0635\u0641`);
-          const verifyResult = await db.execute(sql3`
+          const verifyResult = await db.execute(sql2`
         SELECT * FROM notification_read_states 
         WHERE user_id = ${userId} AND notification_id = ${notificationId}
       `);
@@ -4329,9 +2807,9 @@ var init_NotificationService = __esm({
         })));
         const conditions = [];
         if (projectId) {
-          conditions.push(eq4(notifications.projectId, projectId));
+          conditions.push(eq2(notifications.projectId, projectId));
         }
-        const userNotifications = conditions.length > 0 ? await db.select({ id: notifications.id }).from(notifications).where(and4(...conditions)) : await db.select({ id: notifications.id }).from(notifications);
+        const userNotifications = conditions.length > 0 ? await db.select({ id: notifications.id }).from(notifications).where(and2(...conditions)) : await db.select({ id: notifications.id }).from(notifications);
         console.log(`\u{1F3AF} \u0639\u062F\u062F \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u064F\u0641\u0644\u062A\u0631\u0629: ${userNotifications.length}`);
         let markedCount = 0;
         for (const notification of userNotifications) {
@@ -4350,8 +2828,8 @@ var init_NotificationService = __esm({
        */
       async deleteNotification(notificationId) {
         console.log(`\u{1F5D1}\uFE0F \u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631: ${notificationId}`);
-        await db.delete(notificationReadStates).where(eq4(notificationReadStates.notificationId, notificationId));
-        await db.delete(notifications).where(eq4(notifications.id, notificationId));
+        await db.delete(notificationReadStates).where(eq2(notificationReadStates.notificationId, notificationId));
+        await db.delete(notifications).where(eq2(notifications.id, notificationId));
         console.log(`\u2705 \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631: ${notificationId}`);
       }
       /**
@@ -4364,25 +2842,25 @@ var init_NotificationService = __esm({
         const conditions = [inArray(notifications.type, allowedTypes)];
         if (isAdmin) {
           const adminCondition = or(
-            sql3`${notifications.recipients} @> ARRAY[${userId}]`,
-            sql3`${notifications.recipients} @> ARRAY['admin']`,
-            sql3`${notifications.recipients} @> ARRAY['مسؤول']`,
-            sql3`${notifications.recipients} IS NULL`
+            sql2`${notifications.recipients} @> ARRAY[${userId}]`,
+            sql2`${notifications.recipients} @> ARRAY['admin']`,
+            sql2`${notifications.recipients} @> ARRAY['مسؤول']`,
+            sql2`${notifications.recipients} IS NULL`
           );
           if (adminCondition) {
             conditions.push(adminCondition);
           }
         } else {
           const userCondition = or(
-            sql3`${notifications.recipients} @> ARRAY[${userId}]`,
-            sql3`${notifications.recipients} IS NULL`
+            sql2`${notifications.recipients} @> ARRAY[${userId}]`,
+            sql2`${notifications.recipients} IS NULL`
           );
           if (userCondition) {
             conditions.push(userCondition);
           }
         }
-        const userNotifications = await db.select().from(notifications).where(and4(...conditions));
-        const readStates = await db.select().from(notificationReadStates).where(eq4(notificationReadStates.userId, userId));
+        const userNotifications = await db.select().from(notifications).where(and2(...conditions));
+        const readStates = await db.select().from(notificationReadStates).where(eq2(notificationReadStates.userId, userId));
         const readNotificationIds = readStates.filter((rs) => rs.isRead).map((rs) => rs.notificationId);
         const unread = userNotifications.filter((n) => !readNotificationIds.includes(n.id));
         const byType = {};
@@ -4408,284 +2886,17 @@ var init_NotificationService = __esm({
   }
 });
 
-// server/old-db.ts
-var old_db_exports = {};
-__export(old_db_exports, {
-  db: () => db2,
-  getOldDbClient: () => getOldDbClient,
-  isOldDatabaseAvailable: () => isOldDatabaseAvailable,
-  pool: () => pool2,
-  testOldDatabaseConnection: () => testOldDatabaseConnection
-});
-import { Pool as Pool3, Client as Client3 } from "pg";
-import { drizzle as drizzle3 } from "drizzle-orm/node-postgres";
-function isOldDatabaseAvailable() {
-  try {
-    const supabaseUrl = getCredential("SUPABASE_URL");
-    const supabasePassword = getCredential("SUPABASE_DATABASE_PASSWORD");
-    return Boolean(supabaseUrl && supabasePassword && supabaseUrl !== "https://placeholder.supabase.co");
-  } catch {
-    return false;
-  }
-}
-async function testOldDatabaseConnection() {
-  if (!isOldDatabaseAvailable()) {
-    return {
-      success: false,
-      message: "\u0628\u064A\u0627\u0646\u0627\u062A Supabase \u063A\u064A\u0631 \u0645\u0643\u0648\u0651\u0646\u0629 \u0641\u064A \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629",
-      details: {
-        error: "SUPABASE_URL \u0623\u0648 SUPABASE_DATABASE_PASSWORD \u0645\u0641\u0642\u0648\u062F",
-        troubleshooting: [
-          "\u062A\u062D\u0642\u0642 \u0645\u0646 \u0645\u0644\u0641 .env",
-          "\u062A\u0623\u0643\u062F \u0645\u0646 \u0648\u062C\u0648\u062F SUPABASE_URL \u0648 SUPABASE_DATABASE_PASSWORD",
-          "\u062A\u062D\u0642\u0642 \u0645\u0646 \u0645\u0644\u0641 credentials.ts"
-        ]
-      }
-    };
-  }
-  const supabaseUrl = getCredential("SUPABASE_URL");
-  const supabasePassword = getCredential("SUPABASE_DATABASE_PASSWORD");
-  console.log("\n\u{1F50D} \u0628\u062F\u0621 \u062A\u0634\u062E\u064A\u0635 \u0634\u0627\u0645\u0644 \u0644\u0627\u062A\u0635\u0627\u0644 Supabase...");
-  console.log(`\u{1F4CB} URL: ${supabaseUrl}`);
-  console.log(`\u{1F511} Password: ${supabasePassword ? "[\u0645\u0648\u062C\u0648\u062F]" : "[\u0645\u0641\u0642\u0648\u062F]"}`);
-  const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
-  if (!project) {
-    return {
-      success: false,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0627\u0633\u0645 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 SUPABASE_URL",
-      details: {
-        url: supabaseUrl,
-        error: "URL \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u060C \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0628\u0627\u0644\u0634\u0643\u0644: https://project.supabase.co",
-        troubleshooting: [
-          "\u062A\u062D\u0642\u0642 \u0645\u0646 \u0635\u062D\u0629 SUPABASE_URL",
-          "\u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0628\u0627\u0644\u0634\u0643\u0644: https://[project-id].supabase.co",
-          "\u062A\u0623\u0643\u062F \u0645\u0646 \u0639\u062F\u0645 \u0648\u062C\u0648\u062F \u0645\u0633\u0627\u0641\u0627\u062A \u0623\u0648 \u0623\u062D\u0631\u0641 \u0625\u0636\u0627\u0641\u064A\u0629"
-        ]
-      }
-    };
-  }
-  console.log(`\u{1F4CA} \u0627\u0633\u0645 \u0627\u0644\u0645\u0634\u0631\u0648\u0639: ${project}`);
-  try {
-    const client = await getOldDbClient(1);
-    const startTime = Date.now();
-    const result = await client.query("SELECT version(), current_database(), current_user, now()");
-    const responseTime = Date.now() - startTime;
-    await client.end();
-    console.log("\u2705 \u062A\u0645 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0646\u062C\u0627\u062D");
-    return {
-      success: true,
-      message: "\u062A\u0645 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u0628\u0646\u062C\u0627\u062D",
-      details: {
-        project,
-        database: result.rows[0].current_database,
-        user: result.rows[0].current_user,
-        serverTime: result.rows[0].now,
-        version: result.rows[0].version.split(" ")[0] + " " + result.rows[0].version.split(" ")[1],
-        responseTime: `${responseTime}ms`,
-        connectionMethod: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062F \u0623\u0641\u0636\u0644 \u0637\u0631\u064A\u0642\u0629 \u0627\u062A\u0635\u0627\u0644 \u062A\u0644\u0642\u0627\u0626\u064A\u0627\u064B"
-      }
-    };
-  } catch (error) {
-    console.error("\u274C \u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644:", error.message);
-    const troubleshooting = [];
-    if (error.message.includes("Tenant or user not found")) {
-      troubleshooting.push("\u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u062A\u0645 \u062D\u0630\u0641\u0647 \u0645\u0646 Supabase");
-      troubleshooting.push("\u062A\u062D\u0642\u0642 \u0645\u0646 \u0644\u0648\u062D\u0629 \u062A\u062D\u0643\u0645 Supabase");
-      troubleshooting.push("\u062A\u0623\u0643\u062F \u0645\u0646 \u0635\u062D\u0629 project ID \u0641\u064A \u0627\u0644\u0640 URL");
-    } else if (error.message.includes("password authentication failed")) {
-      troubleshooting.push("\u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u062E\u0627\u0637\u0626\u0629");
-      troubleshooting.push("\u0627\u062D\u0635\u0644 \u0639\u0644\u0649 \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u062C\u062F\u064A\u062F\u0629 \u0645\u0646 Supabase Settings");
-    } else if (error.message.includes("timeout")) {
-      troubleshooting.push("\u0645\u0647\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0627\u0646\u062A\u0647\u062A");
-      troubleshooting.push("\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u062A\u0635\u0627\u0644 \u0627\u0644\u0625\u0646\u062A\u0631\u0646\u062A");
-      troubleshooting.push("\u0642\u062F \u062A\u0643\u0648\u0646 \u062E\u062F\u0645\u0627\u062A Supabase \u0628\u0637\u064A\u0626\u0629");
-    } else if (error.message.includes("ENOTFOUND")) {
-      troubleshooting.push("\u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062E\u0627\u062F\u0645 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-      troubleshooting.push("\u062A\u062D\u0642\u0642 \u0645\u0646 \u0635\u062D\u0629 \u0627\u0644\u0640 URL");
-      troubleshooting.push("\u062A\u062D\u0642\u0642 \u0645\u0646 \u062D\u0627\u0644\u0629 \u062E\u062F\u0645\u0627\u062A Supabase");
-    }
-    troubleshooting.push("\u062A\u062D\u0642\u0642 \u0645\u0646 https://status.supabase.com");
-    return {
-      success: false,
-      message: error.message || "\u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629",
-      details: {
-        project,
-        error: error.message,
-        code: error.code,
-        troubleshooting
-      }
-    };
-  }
-}
-async function getOldDbClient(maxRetries = 1) {
-  if (!isOldDatabaseAvailable()) {
-    throw new Error("\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u0643\u0648\u0651\u0646\u0629");
-  }
-  const supabaseUrl = getCredential("SUPABASE_URL");
-  const supabasePassword = getCredential("SUPABASE_DATABASE_PASSWORD");
-  console.log("\u{1F50D} \u062A\u0634\u062E\u064A\u0635 \u0634\u0627\u0645\u0644 \u0644\u0645\u0635\u0627\u062F\u0631 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0627\u062A\u0635\u0627\u0644:");
-  console.log("\u{1F4C4} \u0645\u0646 \u0645\u0644\u0641 .env:");
-  console.log(`   SUPABASE_URL: ${process.env.SUPABASE_URL || "\u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F"}`);
-  console.log(`   OLD_DB_URL: ${process.env.OLD_DB_URL || "\u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F"}`);
-  console.log("\u{1F4C4} \u0645\u0646 credentials.ts:");
-  console.log(`   SUPABASE_URL: ${supabaseUrl}`);
-  console.log(`   SUPABASE_DATABASE_URL: ${getCredential("SUPABASE_DATABASE_URL") || "\u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F"}`);
-  console.log(`   Password status: ${supabasePassword ? "\u0645\u0648\u062C\u0648\u062F" : "\u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F"}`);
-  const oldDbUrl = process.env.OLD_DB_URL;
-  if (oldDbUrl) {
-    const regionMatch = oldDbUrl.match(/aws-0-[^.]+/);
-    if (regionMatch) {
-      console.log(`\u{1F30D} \u0645\u0646\u0637\u0642\u0629 \u062C\u063A\u0631\u0627\u0641\u064A\u0629 \u0645\u0646 OLD_DB_URL: ${regionMatch[0]}`);
-    }
-  }
-  const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
-  if (!project) {
-    console.error("\u274C \u0641\u0634\u0644 \u0641\u064A \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0627\u0633\u0645 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 SUPABASE_URL");
-    console.log(`   URL \u0627\u0644\u0645\u064F\u0633\u062A\u062E\u062F\u0645: ${supabaseUrl}`);
-    throw new Error("\u0641\u0634\u0644 \u0641\u064A \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0627\u0633\u0645 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 SUPABASE_URL");
-  }
-  console.log(`   \u0627\u0633\u0645 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0627\u0644\u0645\u0633\u062A\u062E\u0631\u062C: ${project}`);
-  const regions = [
-    "aws-0-us-east-1",
-    // المنطقة الصحيحة أولاً
-    "aws-0-eu-central-1",
-    "aws-0-us-west-1",
-    "aws-0-ap-southeast-1"
-  ];
-  const connectionOptions = [];
-  for (const region of regions) {
-    connectionOptions.push(
-      {
-        name: `Pooler Connection ${region} (Port 6543)`,
-        config: {
-          host: `${region}.pooler.supabase.com`,
-          port: 6543,
-          database: "postgres",
-          user: `postgres.${project}`,
-          password: supabasePassword,
-          ssl: { rejectUnauthorized: false },
-          connectionTimeoutMillis: 15e3
-        }
-      },
-      {
-        name: `Pooler Connection ${region} (Port 5432)`,
-        config: {
-          host: `${region}.pooler.supabase.com`,
-          port: 5432,
-          database: "postgres",
-          user: `postgres.${project}`,
-          password: supabasePassword,
-          ssl: { rejectUnauthorized: false },
-          connectionTimeoutMillis: 15e3
-        }
-      },
-      {
-        name: `Alternative User Format ${region}`,
-        config: {
-          host: `${region}.pooler.supabase.com`,
-          port: 6543,
-          database: "postgres",
-          user: `postgres`,
-          password: supabasePassword,
-          ssl: { rejectUnauthorized: false },
-          connectionTimeoutMillis: 15e3
-        }
-      }
-    );
-  }
-  connectionOptions.push({
-    name: "Direct Connection (Port 5432)",
-    config: {
-      host: `db.${project}.supabase.co`,
-      port: 5432,
-      database: "postgres",
-      user: `postgres.${project}`,
-      password: supabasePassword,
-      ssl: { rejectUnauthorized: false },
-      connectionTimeoutMillis: 15e3
-    }
-  });
-  for (const option of connectionOptions) {
-    console.log(`\u{1F504} \u062A\u062C\u0631\u0628\u0629 ${option.name}...`);
-    console.log(`\u{1F517} Connection: postgresql://${option.config.user}:***@${option.config.host}:${option.config.port}/${option.config.database}`);
-    try {
-      const client = new Client3(option.config);
-      await client.connect();
-      const result = await client.query("SELECT version(), current_database(), current_user");
-      console.log("\u2705 \u0646\u062C\u062D \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0645\u0639 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629");
-      console.log(`   \u0627\u0644\u0637\u0631\u064A\u0642\u0629: ${option.name}`);
-      console.log(`   \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${result.rows[0].current_user}`);
-      console.log(`   \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A: ${result.rows[0].current_database}`);
-      return client;
-    } catch (error) {
-      console.warn(`\u26A0\uFE0F \u0641\u0634\u0644 ${option.name}:`, error.message);
-      if (error.message.includes("Tenant or user not found")) {
-        console.error("\u274C \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F \u062E\u0627\u0637\u0626\u0629");
-      } else if (error.message.includes("password authentication failed")) {
-        console.error("\u274C \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u062E\u0627\u0637\u0626\u0629");
-      } else if (error.message.includes("timeout")) {
-        console.error("\u274C \u0627\u0646\u062A\u0647\u062A \u0645\u0647\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644");
-      } else if (error.message.includes("ENOTFOUND") || error.message.includes("getaddrinfo")) {
-        console.error("\u274C \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645");
-      }
-      continue;
-    }
-  }
-  console.error("\u274C \u0641\u0634\u0644\u062A \u062C\u0645\u064A\u0639 \u0645\u062D\u0627\u0648\u0644\u0627\u062A \u0627\u0644\u0627\u062A\u0635\u0627\u0644");
-  console.log("\n\u{1F50D} \u062E\u0637\u0648\u0627\u062A \u0627\u0633\u062A\u0643\u0634\u0627\u0641 \u0627\u0644\u0623\u062E\u0637\u0627\u0621:");
-  console.log("1. \u062A\u062D\u0642\u0642 \u0645\u0646 \u0623\u0646 \u0645\u0634\u0631\u0648\u0639 Supabase \u0644\u0627 \u064A\u0632\u0627\u0644 \u0645\u0648\u062C\u0648\u062F\u0627\u064B");
-  console.log("2. \u062A\u062D\u0642\u0642 \u0645\u0646 \u0635\u062D\u0629 \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-  console.log("3. \u062A\u062D\u0642\u0642 \u0645\u0646 \u0625\u0639\u062F\u0627\u062F\u0627\u062A \u0627\u0644\u0634\u0628\u0643\u0629 \u0648\u0627\u0644\u062C\u062F\u0627\u0631 \u0627\u0644\u0646\u0627\u0631\u064A");
-  console.log("4. \u062A\u062D\u0642\u0642 \u0645\u0646 \u062D\u0627\u0644\u0629 \u062E\u062F\u0645\u0627\u062A Supabase");
-  throw new Error("\u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 - \u062C\u0645\u064A\u0639 \u0627\u0644\u0637\u0631\u0642 \u0641\u0634\u0644\u062A");
-}
-var pool2, db2;
-var init_old_db = __esm({
-  "server/old-db.ts"() {
-    "use strict";
-    init_schema();
-    init_credentials();
-    pool2 = null;
-    db2 = null;
-    if (isOldDatabaseAvailable()) {
-      try {
-        const supabaseUrl = getCredential("SUPABASE_URL");
-        const supabasePassword = getCredential("SUPABASE_DATABASE_PASSWORD");
-        const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
-        if (project) {
-          pool2 = new Pool3({
-            host: "aws-0-us-east-1.pooler.supabase.com",
-            port: 6543,
-            database: "postgres",
-            user: `postgres.${project}`,
-            password: supabasePassword,
-            ssl: { rejectUnauthorized: false },
-            max: 10,
-            idleTimeoutMillis: 3e4,
-            connectionTimeoutMillis: 1e4
-          });
-          db2 = drizzle3(pool2, { schema: schema_exports });
-        }
-      } catch (error) {
-        console.warn("\u26A0\uFE0F \u0641\u0634\u0644 \u0641\u064A \u062A\u0643\u0648\u064A\u0646 pool \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629:", error);
-      }
-    }
-  }
-});
-
 // server/index.ts
 import express10 from "express";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit4 from "express-rate-limit";
+import rateLimit3 from "express-rate-limit";
 
 // server/routes.ts
 init_db();
 init_schema();
-init_secure_data_fetcher();
 import { createServer } from "http";
-import rateLimit2 from "express-rate-limit";
-import { eq as eq5, and as and5, or as or2, sql as sql4, gte, lt, lte, desc as desc3 } from "drizzle-orm";
+import { eq as eq3, and as and3, sql as sql3, gte, lt, lte, desc as desc2 } from "drizzle-orm";
 
 // server/middleware/auth.ts
 init_db();
@@ -4906,38 +3117,7 @@ var requireRole = (role) => {
 };
 
 // server/routes.ts
-init_migration_job_manager_enhanced();
 async function registerRoutes(app2) {
-  const migrationRateLimit = rateLimit2({
-    windowMs: 15 * 60 * 1e3,
-    // 15 دقيقة
-    max: 10,
-    // حد أقصى 10 طلبات لكل IP كل 15 دقيقة
-    message: {
-      success: false,
-      error: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0645\u0646 \u0627\u0644\u0637\u0644\u0628\u0627\u062A. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B",
-      message: "Rate limit exceeded for migration endpoints"
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    // تطبيق على endpoints محددة فقط
-    skip: (req) => {
-      return false;
-    }
-  });
-  const migrationStartRateLimit = rateLimit2({
-    windowMs: 60 * 60 * 1e3,
-    // ساعة واحدة
-    max: 3,
-    // حد أقصى 3 محاولات بدء هجرة كل ساعة
-    message: {
-      success: false,
-      error: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0628\u062F\u0621 \u0627\u0644\u0647\u062C\u0631\u0629. \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F \u0633\u0627\u0639\u0629",
-      message: "Migration start rate limit exceeded"
-    },
-    standardHeaders: true,
-    legacyHeaders: false
-  });
   app2.get("/api/health", (req, res) => {
     res.json({ status: "healthy", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
   });
@@ -4994,7 +3174,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const transfers = await db.select().from(fundTransfers).where(eq5(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
+      const transfers = await db.select().from(fundTransfers).where(eq3(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
       res.json({
@@ -5026,7 +3206,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const purchases = await db.select().from(materialPurchases).where(eq5(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
+      const purchases = await db.select().from(materialPurchases).where(eq3(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${purchases.length} \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0648\u0627\u062F \u0641\u064A ${duration}ms`);
       res.json({
@@ -5058,7 +3238,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const expenses = await db.select().from(transportationExpenses).where(eq5(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
+      const expenses = await db.select().from(transportationExpenses).where(eq3(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644 \u0641\u064A ${duration}ms`);
       res.json({
@@ -5090,7 +3270,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const expenses = await db.select().from(workerMiscExpenses).where(eq5(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
+      const expenses = await db.select().from(workerMiscExpenses).where(eq3(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
       res.json({
@@ -5133,7 +3313,7 @@ async function registerRoutes(app2) {
             }
             return Math.max(0, parsed);
           };
-          const workersStats = await db.execute(sql4`
+          const workersStats = await db.execute(sql3`
             SELECT 
               COUNT(DISTINCT wa.worker_id) as total_workers,
               COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
@@ -5141,36 +3321,36 @@ async function registerRoutes(app2) {
             INNER JOIN workers w ON wa.worker_id = w.id
             WHERE wa.project_id = ${projectId}
           `);
-          const materialStats = await db.execute(sql4`
+          const materialStats = await db.execute(sql3`
             SELECT 
               COUNT(*) as material_purchases,
               COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
             FROM material_purchases 
             WHERE project_id = ${projectId}
           `);
-          const workerWagesStats = await db.execute(sql4`
+          const workerWagesStats = await db.execute(sql3`
             SELECT 
               COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
               COUNT(DISTINCT date) as completed_days
             FROM worker_attendance 
             WHERE project_id = ${projectId} AND is_present = true
           `);
-          const fundTransfersStats = await db.execute(sql4`
+          const fundTransfersStats = await db.execute(sql3`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
             FROM fund_transfers 
             WHERE project_id = ${projectId}
           `);
-          const transportStats = await db.execute(sql4`
+          const transportStats = await db.execute(sql3`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
             FROM transportation_expenses 
             WHERE project_id = ${projectId}
           `);
-          const workerTransfersStats = await db.execute(sql4`
+          const workerTransfersStats = await db.execute(sql3`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
             FROM worker_transfers 
             WHERE project_id = ${projectId}
           `);
-          const miscExpensesStats = await db.execute(sql4`
+          const miscExpensesStats = await db.execute(sql3`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
             FROM worker_misc_expenses 
             WHERE project_id = ${projectId}
@@ -5178,7 +3358,7 @@ async function registerRoutes(app2) {
           const totalWorkers = cleanDbValue(workersStats.rows[0]?.total_workers || "0", "integer");
           const activeWorkers = cleanDbValue(workersStats.rows[0]?.active_workers || "0", "integer");
           const materialExpenses = cleanDbValue(materialStats.rows[0]?.material_expenses || "0");
-          const materialPurchases3 = cleanDbValue(materialStats.rows[0]?.material_purchases || "0", "integer");
+          const materialPurchases2 = cleanDbValue(materialStats.rows[0]?.material_purchases || "0", "integer");
           const workerWages = cleanDbValue(workerWagesStats.rows[0]?.worker_wages || "0");
           const completedDays = cleanDbValue(workerWagesStats.rows[0]?.completed_days || "0", "integer");
           const totalIncome = cleanDbValue(fundTransfersStats.rows[0]?.total_income || "0");
@@ -5198,7 +3378,7 @@ async function registerRoutes(app2) {
               totalExpenses,
               currentBalance,
               completedDays,
-              materialPurchases: materialPurchases3
+              materialPurchases: materialPurchases2
             });
           }
           return {
@@ -5211,7 +3391,7 @@ async function registerRoutes(app2) {
               // يمكن أن يكون سالباً
               activeWorkers: Math.max(0, activeWorkers),
               completedDays: Math.max(0, completedDays),
-              materialPurchases: Math.max(0, materialPurchases3),
+              materialPurchases: Math.max(0, materialPurchases2),
               lastActivity: project.createdAt.toISOString()
             }
           };
@@ -5276,7 +3456,7 @@ async function registerRoutes(app2) {
         });
       }
       console.log("\u{1F50D} [API] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0648\u062C\u0648\u062F \u0627\u0644\u0645\u0634\u0631\u0648\u0639...");
-      const projectExists = await db.select().from(projects).where(eq5(projects.id, projectId)).limit(1);
+      const projectExists = await db.select().from(projects).where(eq3(projects.id, projectId)).limit(1);
       if (projectExists.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -5291,7 +3471,7 @@ async function registerRoutes(app2) {
       let dailySummary = null;
       try {
         console.log("\u26A1 [API] \u0645\u062D\u0627\u0648\u0644\u0629 \u062C\u0644\u0628 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 daily_summary_mv...");
-        const mvResult = await db.execute(sql4`
+        const mvResult = await db.execute(sql3`
           SELECT 
             id,
             project_id,
@@ -5329,18 +3509,18 @@ async function registerRoutes(app2) {
           total_worker_wages: dailyExpenseSummaries.totalWorkerWages,
           total_material_costs: dailyExpenseSummaries.totalMaterialCosts,
           total_transportation_expenses: dailyExpenseSummaries.totalTransportationCosts,
-          total_worker_transfers: sql4`COALESCE(${dailyExpenseSummaries.totalWorkerTransfers}, 0)`,
-          total_worker_misc_expenses: sql4`COALESCE(${dailyExpenseSummaries.totalWorkerMiscExpenses}, 0)`,
+          total_worker_transfers: sql3`COALESCE(${dailyExpenseSummaries.totalWorkerTransfers}, 0)`,
+          total_worker_misc_expenses: sql3`COALESCE(${dailyExpenseSummaries.totalWorkerMiscExpenses}, 0)`,
           total_income: dailyExpenseSummaries.totalIncome,
           total_expenses: dailyExpenseSummaries.totalExpenses,
           remaining_balance: dailyExpenseSummaries.remainingBalance,
-          notes: sql4`COALESCE(${dailyExpenseSummaries.notes}, '')`,
+          notes: sql3`COALESCE(${dailyExpenseSummaries.notes}, '')`,
           created_at: dailyExpenseSummaries.createdAt,
-          updated_at: sql4`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
+          updated_at: sql3`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
           project_name: projects.name
-        }).from(dailyExpenseSummaries).leftJoin(projects, eq5(dailyExpenseSummaries.projectId, projects.id)).where(and5(
-          eq5(dailyExpenseSummaries.projectId, projectId),
-          eq5(dailyExpenseSummaries.date, date2)
+        }).from(dailyExpenseSummaries).leftJoin(projects, eq3(dailyExpenseSummaries.projectId, projects.id)).where(and3(
+          eq3(dailyExpenseSummaries.projectId, projectId),
+          eq3(dailyExpenseSummaries.date, date2)
         )).limit(1);
         if (regularResult.length > 0) {
           dailySummary = regularResult[0];
@@ -5463,10 +3643,10 @@ async function registerRoutes(app2) {
         const latestSummary = await db.select({
           remainingBalance: dailyExpenseSummaries.remainingBalance,
           date: dailyExpenseSummaries.date
-        }).from(dailyExpenseSummaries).where(and5(
-          eq5(dailyExpenseSummaries.projectId, projectId),
+        }).from(dailyExpenseSummaries).where(and3(
+          eq3(dailyExpenseSummaries.projectId, projectId),
           lt(dailyExpenseSummaries.date, date2)
-        )).orderBy(desc3(dailyExpenseSummaries.date)).limit(1);
+        )).orderBy(desc2(dailyExpenseSummaries.date)).limit(1);
         if (latestSummary.length > 0) {
           const summaryDate = latestSummary[0].date;
           const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || "0"));
@@ -5524,11 +3704,11 @@ async function registerRoutes(app2) {
   });
   async function calculateCumulativeBalance2(projectId, fromDate, toDate) {
     try {
-      const whereConditions = [eq5(fundTransfers.projectId, projectId)];
+      const whereConditions = [eq3(fundTransfers.projectId, projectId)];
       if (fromDate) {
-        whereConditions.push(gte(fundTransfers.transferDate, sql4`${fromDate}::date`));
+        whereConditions.push(gte(fundTransfers.transferDate, sql3`${fromDate}::date`));
       }
-      whereConditions.push(lt(fundTransfers.transferDate, sql4`(${toDate}::date + interval '1 day')`));
+      whereConditions.push(lt(fundTransfers.transferDate, sql3`(${toDate}::date + interval '1 day')`));
       const [
         ftRows,
         waRows,
@@ -5540,48 +3720,48 @@ async function registerRoutes(app2) {
         outgoingPtRows
       ] = await Promise.all([
         // تحويلات العهدة
-        db.select().from(fundTransfers).where(and5(...whereConditions)),
+        db.select().from(fundTransfers).where(and3(...whereConditions)),
         // أجور العمال
-        db.select().from(workerAttendance).where(and5(
-          eq5(workerAttendance.projectId, projectId),
-          fromDate ? gte(workerAttendance.date, fromDate) : sql4`true`,
+        db.select().from(workerAttendance).where(and3(
+          eq3(workerAttendance.projectId, projectId),
+          fromDate ? gte(workerAttendance.date, fromDate) : sql3`true`,
           lte(workerAttendance.date, toDate)
         )),
         // مشتريات المواد النقدية فقط
-        db.select().from(materialPurchases).where(and5(
-          eq5(materialPurchases.projectId, projectId),
-          eq5(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
-          fromDate ? gte(materialPurchases.purchaseDate, fromDate) : sql4`true`,
+        db.select().from(materialPurchases).where(and3(
+          eq3(materialPurchases.projectId, projectId),
+          eq3(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
+          fromDate ? gte(materialPurchases.purchaseDate, fromDate) : sql3`true`,
           lte(materialPurchases.purchaseDate, toDate)
         )),
         // مصاريف النقل
-        db.select().from(transportationExpenses).where(and5(
-          eq5(transportationExpenses.projectId, projectId),
-          fromDate ? gte(transportationExpenses.date, fromDate) : sql4`true`,
+        db.select().from(transportationExpenses).where(and3(
+          eq3(transportationExpenses.projectId, projectId),
+          fromDate ? gte(transportationExpenses.date, fromDate) : sql3`true`,
           lte(transportationExpenses.date, toDate)
         )),
         // حوالات العمال
-        db.select().from(workerTransfers).where(and5(
-          eq5(workerTransfers.projectId, projectId),
-          fromDate ? gte(workerTransfers.transferDate, fromDate) : sql4`true`,
+        db.select().from(workerTransfers).where(and3(
+          eq3(workerTransfers.projectId, projectId),
+          fromDate ? gte(workerTransfers.transferDate, fromDate) : sql3`true`,
           lte(workerTransfers.transferDate, toDate)
         )),
         // مصاريف متنوعة للعمال
-        db.select().from(workerMiscExpenses).where(and5(
-          eq5(workerMiscExpenses.projectId, projectId),
-          fromDate ? gte(workerMiscExpenses.date, fromDate) : sql4`true`,
+        db.select().from(workerMiscExpenses).where(and3(
+          eq3(workerMiscExpenses.projectId, projectId),
+          fromDate ? gte(workerMiscExpenses.date, fromDate) : sql3`true`,
           lte(workerMiscExpenses.date, toDate)
         )),
         // تحويلات واردة من مشاريع أخرى
-        db.select().from(projectFundTransfers).where(and5(
-          eq5(projectFundTransfers.toProjectId, projectId),
-          fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql4`true`,
+        db.select().from(projectFundTransfers).where(and3(
+          eq3(projectFundTransfers.toProjectId, projectId),
+          fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql3`true`,
           lte(projectFundTransfers.transferDate, toDate)
         )),
         // تحويلات صادرة إلى مشاريع أخرى
-        db.select().from(projectFundTransfers).where(and5(
-          eq5(projectFundTransfers.fromProjectId, projectId),
-          fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql4`true`,
+        db.select().from(projectFundTransfers).where(and3(
+          eq3(projectFundTransfers.fromProjectId, projectId),
+          fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql3`true`,
           lte(projectFundTransfers.transferDate, toDate)
         ))
       ]);
@@ -5782,7 +3962,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq5(materialPurchases.id, purchaseId)).limit(1);
+      const existingPurchase = await db.select().from(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).limit(1);
       if (existingPurchase.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -5809,7 +3989,7 @@ async function registerRoutes(app2) {
       const updatedPurchase = await db.update(materialPurchases).set({
         ...validationResult.data,
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq5(materialPurchases.id, purchaseId)).returning();
+      }).where(eq3(materialPurchases.id, purchaseId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -5916,7 +4096,7 @@ async function registerRoutes(app2) {
         miscExpensesResult,
         projectInfo
       ] = await Promise.all([
-        db.select().from(fundTransfers).where(and5(eq5(fundTransfers.projectId, projectId), gte(fundTransfers.transferDate, sql4`${date2}::date`), lt(fundTransfers.transferDate, sql4`(${date2}::date + interval '1 day')`))),
+        db.select().from(fundTransfers).where(and3(eq3(fundTransfers.projectId, projectId), gte(fundTransfers.transferDate, sql3`${date2}::date`), lt(fundTransfers.transferDate, sql3`(${date2}::date + interval '1 day')`))),
         db.select({
           id: workerAttendance.id,
           workerId: workerAttendance.workerId,
@@ -5926,12 +4106,12 @@ async function registerRoutes(app2) {
           actualWage: workerAttendance.actualWage,
           workDays: workerAttendance.workDays,
           workerName: workers.name
-        }).from(workerAttendance).leftJoin(workers, eq5(workerAttendance.workerId, workers.id)).where(and5(eq5(workerAttendance.projectId, projectId), eq5(workerAttendance.date, date2))),
-        db.select().from(materialPurchases).where(and5(eq5(materialPurchases.projectId, projectId), eq5(materialPurchases.purchaseDate, date2))),
-        db.select().from(transportationExpenses).where(and5(eq5(transportationExpenses.projectId, projectId), eq5(transportationExpenses.date, date2))),
-        db.select().from(workerTransfers).where(and5(eq5(workerTransfers.projectId, projectId), eq5(workerTransfers.transferDate, date2))),
-        db.select().from(workerMiscExpenses).where(and5(eq5(workerMiscExpenses.projectId, projectId), eq5(workerMiscExpenses.date, date2))),
-        db.select().from(projects).where(eq5(projects.id, projectId)).limit(1)
+        }).from(workerAttendance).leftJoin(workers, eq3(workerAttendance.workerId, workers.id)).where(and3(eq3(workerAttendance.projectId, projectId), eq3(workerAttendance.date, date2))),
+        db.select().from(materialPurchases).where(and3(eq3(materialPurchases.projectId, projectId), eq3(materialPurchases.purchaseDate, date2))),
+        db.select().from(transportationExpenses).where(and3(eq3(transportationExpenses.projectId, projectId), eq3(transportationExpenses.date, date2))),
+        db.select().from(workerTransfers).where(and3(eq3(workerTransfers.projectId, projectId), eq3(workerTransfers.transferDate, date2))),
+        db.select().from(workerMiscExpenses).where(and3(eq3(workerMiscExpenses.projectId, projectId), eq3(workerMiscExpenses.date, date2))),
+        db.select().from(projects).where(eq3(projects.id, projectId)).limit(1)
       ]);
       const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
       const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
@@ -6171,7 +4351,7 @@ async function registerRoutes(app2) {
         notes: materialPurchases.notes,
         purchaseDate: materialPurchases.purchaseDate,
         createdAt: materialPurchases.createdAt
-      }).from(materialPurchases).where(eq5(materialPurchases.id, purchaseId)).limit(1);
+      }).from(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).limit(1);
       if (purchase.length === 0) {
         const duration2 = Date.now() - startTime;
         console.log(`\u{1F4ED} [API] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629: ${purchaseId}`);
@@ -6189,14 +4369,14 @@ async function registerRoutes(app2) {
       if ((!finalMaterialCategory || !finalMaterialUnit) && purchaseData.materialName) {
         try {
           console.log(`\u{1F50D} [API] \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0641\u0626\u0629 \u0627\u0644\u0645\u0627\u062F\u0629 \u0644\u0640: ${purchaseData.materialName}`);
-          let similarMaterial = await db.select().from(materials).where(eq5(materials.name, purchaseData.materialName)).limit(1);
+          let similarMaterial = await db.select().from(materials).where(eq3(materials.name, purchaseData.materialName)).limit(1);
           if (similarMaterial.length === 0) {
-            similarMaterial = await db.select().from(materials).where(sql4`LOWER(${materials.name}) LIKE LOWER(${`%${purchaseData.materialName}%`})`).limit(1);
+            similarMaterial = await db.select().from(materials).where(sql3`LOWER(${materials.name}) LIKE LOWER(${`%${purchaseData.materialName}%`})`).limit(1);
           }
           if (similarMaterial.length === 0) {
             const firstWord = purchaseData.materialName.split(" ")[0];
             if (firstWord.length > 2) {
-              similarMaterial = await db.select().from(materials).where(sql4`LOWER(${materials.name}) LIKE LOWER(${`${firstWord}%`})`).limit(1);
+              similarMaterial = await db.select().from(materials).where(sql3`LOWER(${materials.name}) LIKE LOWER(${`${firstWord}%`})`).limit(1);
             }
           }
           if (similarMaterial.length > 0) {
@@ -6389,7 +4569,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingMaterial = await db.select().from(materials).where(eq5(materials.id, materialId)).limit(1);
+      const existingMaterial = await db.select().from(materials).where(eq3(materials.id, materialId)).limit(1);
       if (existingMaterial.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -6413,7 +4593,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedMaterial = await db.update(materials).set(validationResult.data).where(eq5(materials.id, materialId)).returning();
+      const updatedMaterial = await db.update(materials).set(validationResult.data).where(eq3(materials.id, materialId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -6449,7 +4629,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingSupplier = await db.select().from(suppliers).where(eq5(suppliers.id, supplierId)).limit(1);
+      const existingSupplier = await db.select().from(suppliers).where(eq3(suppliers.id, supplierId)).limit(1);
       if (existingSupplier.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -6473,7 +4653,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedSupplier = await db.update(suppliers).set(validationResult.data).where(eq5(suppliers.id, supplierId)).returning();
+      const updatedSupplier = await db.update(suppliers).set(validationResult.data).where(eq3(suppliers.id, supplierId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -6509,7 +4689,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq5(materialPurchases.id, purchaseId)).limit(1);
+      const existingPurchase = await db.select().from(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).limit(1);
       if (existingPurchase.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -6533,7 +4713,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedPurchase = await db.update(materialPurchases).set(validationResult.data).where(eq5(materialPurchases.id, purchaseId)).returning();
+      const updatedPurchase = await db.update(materialPurchases).set(validationResult.data).where(eq3(materialPurchases.id, purchaseId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -6569,7 +4749,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingTransfer = await db.select().from(fundTransfers).where(eq5(fundTransfers.id, transferId)).limit(1);
+      const existingTransfer = await db.select().from(fundTransfers).where(eq3(fundTransfers.id, transferId)).limit(1);
       if (existingTransfer.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -6593,7 +4773,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq5(fundTransfers.id, transferId)).returning();
+      const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq3(fundTransfers.id, transferId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -6629,7 +4809,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingExpense = await db.select().from(transportationExpenses).where(eq5(transportationExpenses.id, expenseId)).limit(1);
+      const existingExpense = await db.select().from(transportationExpenses).where(eq3(transportationExpenses.id, expenseId)).limit(1);
       if (existingExpense.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -6653,7 +4833,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedExpense = await db.update(transportationExpenses).set(validationResult.data).where(eq5(transportationExpenses.id, expenseId)).returning();
+      const updatedExpense = await db.update(transportationExpenses).set(validationResult.data).where(eq3(transportationExpenses.id, expenseId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -6689,7 +4869,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingSummary = await db.select().from(dailyExpenseSummaries).where(eq5(dailyExpenseSummaries.id, summaryId)).limit(1);
+      const existingSummary = await db.select().from(dailyExpenseSummaries).where(eq3(dailyExpenseSummaries.id, summaryId)).limit(1);
       if (existingSummary.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -6713,7 +4893,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedSummary = await db.update(dailyExpenseSummaries).set(validationResult.data).where(eq5(dailyExpenseSummaries.id, summaryId)).returning();
+      const updatedSummary = await db.update(dailyExpenseSummaries).set(validationResult.data).where(eq3(dailyExpenseSummaries.id, summaryId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -6749,7 +4929,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingEquipment = await db.select().from(tools).where(eq5(tools.id, equipmentId)).limit(1);
+      const existingEquipment = await db.select().from(tools).where(eq3(tools.id, equipmentId)).limit(1);
       if (existingEquipment.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -6773,7 +4953,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedEquipment = await db.update(tools).set(validationResult.data).where(eq5(tools.id, equipmentId)).returning();
+      const updatedEquipment = await db.update(tools).set(validationResult.data).where(eq3(tools.id, equipmentId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0639\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -6809,7 +4989,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingTransfer = await db.select().from(toolMovements).where(eq5(toolMovements.id, transferId)).limit(1);
+      const existingTransfer = await db.select().from(toolMovements).where(eq3(toolMovements.id, transferId)).limit(1);
       if (existingTransfer.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -6833,7 +5013,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedTransfer = await db.update(toolMovements).set(validationResult.data).where(eq5(toolMovements.id, transferId)).returning();
+      const updatedTransfer = await db.update(toolMovements).set(validationResult.data).where(eq3(toolMovements.id, transferId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -6868,7 +5048,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq5(materialPurchases.id, purchaseId)).limit(1);
+      const existingPurchase = await db.select().from(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).limit(1);
       if (existingPurchase.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", purchaseId);
@@ -6886,7 +5066,7 @@ async function registerRoutes(app2) {
         totalAmount: purchaseToDelete.totalAmount
       });
       console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedPurchase = await db.delete(materialPurchases).where(eq5(materialPurchases.id, purchaseId)).returning();
+      const deletedPurchase = await db.delete(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: deletedPurchase[0].id,
@@ -6933,7 +5113,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingSupplier = await db.select().from(suppliers).where(eq5(suppliers.id, supplierId)).limit(1);
+      const existingSupplier = await db.select().from(suppliers).where(eq3(suppliers.id, supplierId)).limit(1);
       if (existingSupplier.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0645\u0648\u0631\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", supplierId);
@@ -6951,7 +5131,7 @@ async function registerRoutes(app2) {
         contactPerson: supplierToDelete.contactPerson
       });
       console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedSupplier = await db.delete(suppliers).where(eq5(suppliers.id, supplierId)).returning();
+      const deletedSupplier = await db.delete(suppliers).where(eq3(suppliers.id, supplierId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: deletedSupplier[0].id,
@@ -6999,7 +5179,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingWorker = await db.select().from(workers).where(eq5(workers.id, workerId)).limit(1);
+      const existingWorker = await db.select().from(workers).where(eq3(workers.id, workerId)).limit(1);
       if (existingWorker.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -7026,7 +5206,7 @@ async function registerRoutes(app2) {
       }
       console.log("\u2705 [API] \u0646\u062C\u062D validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644");
       console.log("\u{1F4BE} [API] \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const updatedWorker = await db.update(workers).set(validationResult.data).where(eq5(workers.id, workerId)).returning();
+      const updatedWorker = await db.update(workers).set(validationResult.data).where(eq3(workers.id, workerId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: updatedWorker[0].id,
@@ -7079,7 +5259,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingWorker = await db.select().from(workers).where(eq5(workers.id, workerId)).limit(1);
+      const existingWorker = await db.select().from(workers).where(eq3(workers.id, workerId)).limit(1);
       if (existingWorker.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -7101,12 +5281,12 @@ async function registerRoutes(app2) {
         id: workerAttendance.id,
         date: workerAttendance.date,
         projectId: workerAttendance.projectId
-      }).from(workerAttendance).where(eq5(workerAttendance.workerId, workerId)).limit(5);
+      }).from(workerAttendance).where(eq3(workerAttendance.workerId, workerId)).limit(5);
       if (attendanceRecords.length > 0) {
         const duration2 = Date.now() - startTime;
         const totalAttendanceCount = await db.select({
-          count: sql4`COUNT(*)`
-        }).from(workerAttendance).where(eq5(workerAttendance.workerId, workerId));
+          count: sql3`COUNT(*)`
+        }).from(workerAttendance).where(eq3(workerAttendance.workerId, workerId));
         const totalCount = totalAttendanceCount[0]?.count || attendanceRecords.length;
         console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${totalCount} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631`);
         return res.status(409).json({
@@ -7120,12 +5300,12 @@ async function registerRoutes(app2) {
         });
       }
       console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-      const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq5(workerTransfers.workerId, workerId)).limit(1);
+      const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq3(workerTransfers.workerId, workerId)).limit(1);
       if (transferRecords.length > 0) {
         const duration2 = Date.now() - startTime;
         const totalTransfersCount = await db.select({
-          count: sql4`COUNT(*)`
-        }).from(workerTransfers).where(eq5(workerTransfers.workerId, workerId));
+          count: sql3`COUNT(*)`
+        }).from(workerTransfers).where(eq3(workerTransfers.workerId, workerId));
         const transfersCount = totalTransfersCount[0]?.count || transferRecords.length;
         console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transfersCount} \u062A\u062D\u0648\u064A\u0644 \u0645\u0627\u0644\u064A`);
         return res.status(409).json({
@@ -7139,12 +5319,12 @@ async function registerRoutes(app2) {
         });
       }
       console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-      const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq5(transportationExpenses.workerId, workerId)).limit(1);
+      const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq3(transportationExpenses.workerId, workerId)).limit(1);
       if (transportRecords.length > 0) {
         const duration2 = Date.now() - startTime;
         const totalTransportCount = await db.select({
-          count: sql4`COUNT(*)`
-        }).from(transportationExpenses).where(eq5(transportationExpenses.workerId, workerId));
+          count: sql3`COUNT(*)`
+        }).from(transportationExpenses).where(eq3(transportationExpenses.workerId, workerId));
         const transportCount = totalTransportCount[0]?.count || transportRecords.length;
         console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transportCount} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644`);
         return res.status(409).json({
@@ -7158,12 +5338,12 @@ async function registerRoutes(app2) {
         });
       }
       console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0623\u0631\u0635\u062F\u0629 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-      const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq5(workerBalances.workerId, workerId)).limit(1);
+      const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq3(workerBalances.workerId, workerId)).limit(1);
       if (balanceRecords.length > 0) {
         const duration2 = Date.now() - startTime;
         const totalBalanceCount = await db.select({
-          count: sql4`COUNT(*)`
-        }).from(workerBalances).where(eq5(workerBalances.workerId, workerId));
+          count: sql3`COUNT(*)`
+        }).from(workerBalances).where(eq3(workerBalances.workerId, workerId));
         const balanceCount = totalBalanceCount[0]?.count || balanceRecords.length;
         console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${balanceCount} \u0633\u062C\u0644 \u0631\u0635\u064A\u062F`);
         return res.status(409).json({
@@ -7177,7 +5357,7 @@ async function registerRoutes(app2) {
         });
       }
       console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A (\u0644\u0627 \u062A\u0648\u062C\u062F \u0633\u062C\u0644\u0627\u062A \u0645\u0631\u062A\u0628\u0637\u0629)...");
-      const deletedWorker = await db.delete(workers).where(eq5(workers.id, workerId)).returning();
+      const deletedWorker = await db.delete(workers).where(eq3(workers.id, workerId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: deletedWorker[0].id,
@@ -7296,7 +5476,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const existingProject = await db.select().from(projects).where(eq5(projects.id, projectId)).limit(1);
+      const existingProject = await db.select().from(projects).where(eq3(projects.id, projectId)).limit(1);
       if (existingProject.length === 0) {
         return res.status(404).json({
           success: false,
@@ -7304,7 +5484,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const updatedProject = await db.update(projects).set(req.body).where(eq5(projects.id, projectId)).returning();
+      const updatedProject = await db.update(projects).set(req.body).where(eq3(projects.id, projectId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -7340,7 +5520,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingMaterial = await db.select().from(materials).where(eq5(materials.id, materialId)).limit(1);
+      const existingMaterial = await db.select().from(materials).where(eq3(materials.id, materialId)).limit(1);
       if (existingMaterial.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -7364,7 +5544,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedMaterial = await db.update(materials).set(validationResult.data).where(eq5(materials.id, materialId)).returning();
+      const updatedMaterial = await db.update(materials).set(validationResult.data).where(eq3(materials.id, materialId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -7399,7 +5579,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingProject = await db.select().from(projects).where(eq5(projects.id, projectId)).limit(1);
+      const existingProject = await db.select().from(projects).where(eq3(projects.id, projectId)).limit(1);
       if (existingProject.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -7417,7 +5597,7 @@ async function registerRoutes(app2) {
         status: projectToDelete.status
       });
       console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedProject = await db.delete(projects).where(eq5(projects.id, projectId)).returning();
+      const deletedProject = await db.delete(projects).where(eq3(projects.id, projectId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: deletedProject[0].id,
@@ -7465,7 +5645,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingMaterial = await db.select().from(materials).where(eq5(materials.id, materialId)).limit(1);
+      const existingMaterial = await db.select().from(materials).where(eq3(materials.id, materialId)).limit(1);
       if (existingMaterial.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", materialId);
@@ -7483,7 +5663,7 @@ async function registerRoutes(app2) {
         category: materialToDelete.category
       });
       console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedMaterial = await db.delete(materials).where(eq5(materials.id, materialId)).returning();
+      const deletedMaterial = await db.delete(materials).where(eq3(materials.id, materialId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: deletedMaterial[0].id,
@@ -7532,7 +5712,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq5(materialPurchases.id, purchaseId)).limit(1);
+      const existingPurchase = await db.select().from(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).limit(1);
       if (existingPurchase.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -7556,7 +5736,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedPurchase = await db.update(materialPurchases).set(validationResult.data).where(eq5(materialPurchases.id, purchaseId)).returning();
+      const updatedPurchase = await db.update(materialPurchases).set(validationResult.data).where(eq3(materialPurchases.id, purchaseId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -7611,7 +5791,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const attendanceRecord = await db.select().from(workerAttendance).where(eq5(workerAttendance.id, attendanceId)).limit(1);
+      const attendanceRecord = await db.select().from(workerAttendance).where(eq3(workerAttendance.id, attendanceId)).limit(1);
       if (attendanceRecord.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -7923,1602 +6103,6 @@ async function registerRoutes(app2) {
       });
     }
   });
-  app2.get("/api/backup/table/:tableName/info", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { tableName } = req.params;
-      const externalUrl = process.env.OLD_DB_URL;
-      if (!externalUrl) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0643\u0648\u064A\u0646 \u0627\u062A\u0635\u0627\u0644 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629"
-        });
-      }
-      const fetcher = new SecureDataFetcher(externalUrl);
-      const tableInfo = await fetcher.getTableInfo(tableName);
-      await fetcher.disconnect();
-      res.json({
-        success: true,
-        data: tableInfo,
-        message: `\u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629`
-      });
-    } catch (error) {
-      console.error("\u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u062C\u062F\u0648\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-  app2.get("/api/backup/table/:tableName/preview", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { tableName } = req.params;
-      const { limit = 50, offset = 0, orderBy, orderDirection } = req.query;
-      const externalUrl = process.env.OLD_DB_URL;
-      if (!externalUrl) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0643\u0648\u064A\u0646 \u0627\u062A\u0635\u0627\u0644 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629"
-        });
-      }
-      const fetcher = new SecureDataFetcher(externalUrl);
-      const options = {
-        limit: Math.min(parseInt(limit), 100),
-        // حد أقصى للأمان
-        offset: Math.max(parseInt(offset), 0)
-      };
-      if (orderBy) options.orderBy = orderBy;
-      if (orderDirection) options.orderDirection = orderDirection;
-      const data = await fetcher.fetchData(tableName, options);
-      await fetcher.disconnect();
-      res.json({
-        success: true,
-        data,
-        count: data.length,
-        message: `\u0645\u0639\u0627\u064A\u0646\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 ${tableName} (\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629)`
-      });
-    } catch (error) {
-      console.error("\u062E\u0637\u0623 \u0641\u064A \u0645\u0639\u0627\u064A\u0646\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-  app2.post("/api/backup/table/:tableName/backup", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { tableName } = req.params;
-      const { batchSize = 100 } = req.body;
-      const externalUrl = process.env.OLD_DB_URL;
-      if (!externalUrl) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0643\u0648\u064A\u0646 \u0627\u062A\u0635\u0627\u0644 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629"
-        });
-      }
-      console.log(`\u{1F680} \u0628\u062F\u0621 \u0639\u0645\u0644\u064A\u0629 \u0627\u0644\u0646\u0633\u062E \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A \u0644\u0644\u062C\u062F\u0648\u0644 ${tableName} \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629...`);
-      const fetcher = new SecureDataFetcher(externalUrl);
-      const result = await fetcher.syncTableData(tableName, Math.min(batchSize, 200));
-      await fetcher.disconnect();
-      res.json({
-        success: result.success,
-        data: result,
-        message: `\u0646\u0633\u062E \u0627\u062D\u062A\u064A\u0627\u0637\u064A \u0644\u0644\u062C\u062F\u0648\u0644 ${tableName}: ${result.synced} \u0635\u0641 \u062A\u0645 \u062C\u0644\u0628\u0647 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629\u060C ${result.savedLocally} \u0635\u0641 \u062A\u0645 \u062D\u0641\u0638\u0647 \u0645\u062D\u0644\u064A\u0627\u064B\u060C ${result.errors} \u0623\u062E\u0637\u0627\u0621`
-      });
-    } catch (error) {
-      console.error("\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0646\u0633\u062E \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-  app2.get("/api/backup/tables", requireAuth, requireRole("admin"), (req, res) => {
-    const availableTables = SecureDataFetcher.getAllowedTables();
-    res.json({
-      success: true,
-      data: Array.from(availableTables),
-      message: "\u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u062C\u062F\u0627\u0648\u0644 \u0627\u0644\u0645\u062A\u0627\u062D\u0629 \u0644\u0644\u0646\u0633\u062E \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629"
-    });
-  });
-  app2.post("/api/backup/full-backup", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { batchSize = 100 } = req.body;
-      const externalUrl = process.env.OLD_DB_URL;
-      if (!externalUrl) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0643\u0648\u064A\u0646 \u0627\u062A\u0635\u0627\u0644 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629"
-        });
-      }
-      console.log("\u{1F680} \u0628\u062F\u0621 \u0627\u0644\u0646\u0633\u062E \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A \u0627\u0644\u0634\u0627\u0645\u0644 \u0645\u0646 Supabase...");
-      const fetcher = new SecureDataFetcher(externalUrl);
-      const availableTables = await fetcher.getAvailableTables();
-      await fetcher.disconnect();
-      console.log(`\u{1F4CA} \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 ${availableTables.length} \u062C\u062F\u0648\u0644 \u0645\u062A\u0627\u062D \u0641\u064A Supabase:`, availableTables);
-      const results = [];
-      for (const tableName of availableTables) {
-        try {
-          console.log(`\u{1F504} \u0646\u0633\u062E \u0627\u062D\u062A\u064A\u0627\u0637\u064A \u0644\u0644\u062C\u062F\u0648\u0644 ${tableName}...`);
-          const fetcher2 = new SecureDataFetcher(externalUrl);
-          const tableInfo = await fetcher2.getTableInfo(tableName);
-          if (!tableInfo.exists) {
-            console.warn(`\u26A0\uFE0F \u062A\u062E\u0637\u064A \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} - \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A Supabase`);
-            results.push({
-              tableName,
-              success: false,
-              synced: 0,
-              savedLocally: 0,
-              errors: 0,
-              skipped: true,
-              reason: "\u0627\u0644\u062C\u062F\u0648\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A Supabase"
-            });
-            await fetcher2.disconnect();
-            continue;
-          }
-          const result = await fetcher2.syncTableData(tableName, Math.min(batchSize, 200));
-          await fetcher2.disconnect();
-          results.push({
-            tableName,
-            success: result.success,
-            synced: result.synced,
-            savedLocally: result.savedLocally,
-            errors: result.errors
-          });
-          await new Promise((resolve) => setTimeout(resolve, 1e3));
-        } catch (error) {
-          console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u0646\u0633\u062E \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName}:`, error);
-          results.push({
-            tableName,
-            success: false,
-            synced: 0,
-            savedLocally: 0,
-            errors: 1,
-            error: error.message
-          });
-        }
-      }
-      const totalSynced = results.reduce((sum, r) => sum + r.synced, 0);
-      const totalSaved = results.reduce((sum, r) => sum + r.savedLocally, 0);
-      const totalErrors = results.reduce((sum, r) => sum + r.errors, 0);
-      res.json({
-        success: totalErrors === 0,
-        data: {
-          results,
-          summary: {
-            tablesProcessed: results.length,
-            totalSynced,
-            totalSaved,
-            totalErrors
-          }
-        },
-        message: `\u0646\u0633\u062E \u0627\u062D\u062A\u064A\u0627\u0637\u064A \u0634\u0627\u0645\u0644: ${totalSynced} \u0635\u0641 \u062A\u0645 \u062C\u0644\u0628\u0647\u060C ${totalSaved} \u0635\u0641 \u062A\u0645 \u062D\u0641\u0638\u0647 \u0645\u062D\u0644\u064A\u0627\u064B\u060C ${totalErrors} \u0623\u062E\u0637\u0627\u0621`
-      });
-    } catch (error) {
-      console.error("\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0646\u0633\u062E \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A \u0627\u0644\u0634\u0627\u0645\u0644:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-  app2.get("/api/migration/supabase-stats", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      console.log("\u{1F4CA} [Migration] \u0628\u062F\u0621 \u0641\u062D\u0635 \u0634\u0627\u0645\u0644 \u0644\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0641\u064A Supabase...");
-      const supabaseUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DATABASE_URL;
-      if (!supabaseUrl) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0643\u0648\u064A\u0646 \u0627\u062A\u0635\u0627\u0644 Supabase",
-          userFriendlyMessage: "\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u0643\u0648\u064A\u0646 - \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640 Supabase"
-        });
-      }
-      const fetcher = new SecureDataFetcher(supabaseUrl);
-      const requiredTables = [
-        "workers",
-        "projects",
-        "suppliers",
-        "material_purchases",
-        "equipment",
-        "worker_attendance",
-        "fund_transfers"
-      ];
-      const tableStats = [];
-      const criticalTables = [];
-      const emptyTables = [];
-      let totalEstimatedRows = 0;
-      let hasErrors = false;
-      let errorDetails = "";
-      console.log("\u{1F50D} [Migration] \u0641\u062D\u0635 \u0627\u0644\u062C\u062F\u0627\u0648\u0644 \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629:", requiredTables);
-      for (const tableName of requiredTables) {
-        try {
-          console.log(`\u{1F4CB} [Migration] \u0641\u062D\u0635 \u0627\u0644\u062C\u062F\u0648\u0644: ${tableName}`);
-          const rowCount = await fetcher.getRowCount(tableName);
-          const displayNames = {
-            "workers": "\u0627\u0644\u0639\u0645\u0627\u0644",
-            "projects": "\u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639",
-            "suppliers": "\u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646",
-            "material_purchases": "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F",
-            "equipment": "\u0627\u0644\u0645\u0639\u062F\u0627\u062A",
-            "worker_attendance": "\u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644",
-            "fund_transfers": "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0647\u062F\u0629"
-          };
-          const tableData = {
-            name: tableName,
-            displayName: displayNames[tableName] || tableName,
-            rows: rowCount,
-            category: tableName.includes("worker") ? "\u0639\u0645\u0627\u0644" : tableName.includes("material") ? "\u0645\u0648\u0627\u062F" : "\u0639\u0627\u0645",
-            lastAnalyzed: (/* @__PURE__ */ new Date()).toISOString()
-          };
-          tableStats.push(tableData);
-          totalEstimatedRows += rowCount;
-          if (rowCount > 100) {
-            criticalTables.push({
-              name: tableName,
-              displayName: tableData.displayName,
-              rows: rowCount
-            });
-          } else if (rowCount === 0) {
-            emptyTables.push({
-              name: tableName,
-              displayName: tableData.displayName
-            });
-          }
-          console.log(`\u2705 [Migration] ${tableData.displayName}: ${rowCount} \u0635\u0641`);
-          if (tableName === "material_purchases" && rowCount > 0) {
-            try {
-              const sampleData = await fetcher.fetchData(tableName, { limit: 5 });
-              let hasJsonData = false;
-              sampleData.forEach((row) => {
-                Object.entries(row).forEach(([key, value]) => {
-                  if (typeof value === "object" && value !== null) {
-                    hasJsonData = true;
-                    console.log(`\u{1F50D} [Migration] \u0639\u062B\u0631 \u0639\u0644\u0649 \u0628\u064A\u0627\u0646\u0627\u062A JSON \u0641\u064A ${tableName}.${key}`);
-                  }
-                });
-              });
-              if (hasJsonData) {
-                console.log(`\u26A0\uFE0F [Migration] \u062C\u062F\u0648\u0644 ${tableName} \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0628\u064A\u0627\u0646\u0627\u062A JSON - \u0633\u064A\u062A\u0637\u0644\u0628 \u0645\u0639\u0627\u0644\u062C\u0629 \u062E\u0627\u0635\u0629`);
-              }
-            } catch (jsonError) {
-              console.warn(`\u26A0\uFE0F [Migration] \u0644\u0627 \u064A\u0645\u0643\u0646 \u0641\u062D\u0635 JSON \u0641\u064A ${tableName}:`, jsonError.message);
-            }
-          }
-        } catch (tableError) {
-          console.error(`\u274C [Migration] \u062E\u0637\u0623 \u0641\u064A \u0641\u062D\u0635 \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName}:`, tableError.message);
-          hasErrors = true;
-          errorDetails += `${tableName}: ${tableError.message}; `;
-          const displayNames = {
-            "workers": "\u0627\u0644\u0639\u0645\u0627\u0644",
-            "projects": "\u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639",
-            "suppliers": "\u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646",
-            "material_purchases": "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F",
-            "equipment": "\u0627\u0644\u0645\u0639\u062F\u0627\u062A",
-            "worker_attendance": "\u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644",
-            "fund_transfers": "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0647\u062F\u0629"
-          };
-          emptyTables.push({
-            name: tableName,
-            displayName: displayNames[tableName] || tableName
-          });
-        }
-      }
-      await fetcher.disconnect();
-      const stats = {
-        totalTables: requiredTables.length,
-        totalEstimatedRows,
-        tablesList: tableStats,
-        lastUpdated: (/* @__PURE__ */ new Date()).toISOString(),
-        databaseStatus: hasErrors ? "\u062A\u062D\u0630\u064A\u0631 - \u062A\u0648\u062C\u062F \u0623\u062E\u0637\u0627\u0621" : "\u0645\u062A\u0635\u0644 \u0628\u0646\u062C\u0627\u062D",
-        databaseSize: `${Math.round(totalEstimatedRows / 1e3)}K \u0635\u0641 \u062A\u0642\u0631\u064A\u0628\u0627\u064B`,
-        oldestRecord: null,
-        newestRecord: null,
-        criticalTables,
-        emptyTables
-      };
-      if (hasErrors) {
-        stats.error = errorDetails;
-        stats.userFriendlyMessage = "\u062A\u0645 \u0627\u0644\u0641\u062D\u0635 \u0645\u0639 \u0648\u062C\u0648\u062F \u0628\u0639\u0636 \u0627\u0644\u062A\u062D\u0630\u064A\u0631\u0627\u062A";
-      }
-      console.log("\u{1F4CA} [Migration] \u062A\u0645 \u0625\u0643\u0645\u0627\u0644 \u0641\u062D\u0635 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A:", {
-        totalTables: stats.totalTables,
-        totalRows: stats.totalEstimatedRows,
-        criticalTables: stats.criticalTables.length,
-        emptyTables: stats.emptyTables.length
-      });
-      res.json({
-        success: true,
-        data: stats,
-        message: hasErrors ? "\u0641\u062D\u0635 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0643\u062A\u0645\u0644 \u0645\u0639 \u062A\u062D\u0630\u064A\u0631\u0627\u062A" : "\u062A\u0645 \u0641\u062D\u0635 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      console.error("\u274C [Migration] \u0641\u0634\u0644 \u0641\u062D\u0635 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0641\u064A Supabase:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        userFriendlyMessage: "\u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640 Supabase \u0623\u0648 \u0641\u062D\u0635 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A",
-        message: "\u062E\u0637\u0623 \u0641\u064A \u0641\u062D\u0635 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A"
-      });
-    }
-  });
-  app2.get("/api/migration/analyze-material-purchases", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      console.log("\u{1F52C} [Migration] \u0628\u062F\u0621 \u062A\u062D\u0644\u064A\u0644 \u062C\u062F\u0648\u0644 material_purchases...");
-      const supabaseUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DATABASE_URL;
-      if (!supabaseUrl) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0643\u0648\u064A\u0646 \u0627\u062A\u0635\u0627\u0644 Supabase"
-        });
-      }
-      const { JsonMigrationHandler: JsonMigrationHandler2 } = await Promise.resolve().then(() => (init_json_migration_handler(), json_migration_handler_exports));
-      const jsonHandler = new JsonMigrationHandler2(supabaseUrl);
-      try {
-        const analysis = await jsonHandler.analyzeMaterialPurchasesStructure(20);
-        res.json({
-          success: true,
-          data: analysis,
-          message: `\u062A\u062D\u0644\u064A\u0644 \u062C\u062F\u0648\u0644 material_purchases \u0645\u0643\u062A\u0645\u0644 - \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629: ${analysis.migrationStrategy}`
-        });
-      } finally {
-        await jsonHandler.disconnect();
-      }
-    } catch (error) {
-      console.error("\u274C [Migration] \u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u0644\u064A\u0644 material_purchases:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u0644\u064A\u0644 \u062C\u062F\u0648\u0644 material_purchases"
-      });
-    }
-  });
-  app2.post("/api/migration/test-small", migrationRateLimit, requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      console.log("\u{1F9EA} [Migration] \u0628\u062F\u0621 \u0647\u062C\u0631\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629 \u0635\u063A\u064A\u0631\u0629...");
-      const { tableName = "projects", batchSize = 10 } = req.body;
-      if (!["projects", "workers", "suppliers"].includes(tableName)) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0627\u0644\u062C\u062F\u0648\u0644 \u0627\u0644\u0645\u062D\u062F\u062F \u063A\u064A\u0631 \u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0627\u062E\u062A\u0628\u0627\u0631. \u0627\u0644\u0645\u0633\u0645\u0648\u062D: projects, workers, suppliers"
-        });
-      }
-      const supabaseUrl = process.env.OLD_DB_URL || process.env.SUPABASE_DATABASE_URL;
-      if (!supabaseUrl) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0643\u0648\u064A\u0646 \u0627\u062A\u0635\u0627\u0644 Supabase"
-        });
-      }
-      const userId = req.user?.id || void 0;
-      const jobId = await enhancedMigrationJobManager.createJob(userId);
-      const fetcher = new SecureDataFetcher(supabaseUrl);
-      try {
-        const tableInfo = await fetcher.getTableInfo(tableName);
-        if (!tableInfo.exists || tableInfo.rowCount === 0) {
-          await enhancedMigrationJobManager.completeJob(jobId, false, `\u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} \u0641\u0627\u0631\u063A \u0623\u0648 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F`);
-          return res.status(404).json({
-            success: false,
-            message: `\u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} \u0641\u0627\u0631\u063A \u0623\u0648 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A Supabase`
-          });
-        }
-        const testData = await fetcher.fetchData(tableName, {
-          limit: Math.min(batchSize, 5),
-          orderBy: "id"
-        });
-        console.log(`\u{1F50D} [Migration] \u0627\u062E\u062A\u0628\u0627\u0631 ${testData.length} \u0633\u062C\u0644 \u0645\u0646 ${tableName}`);
-        let successCount = 0;
-        let duplicateCount = 0;
-        let errorCount = 0;
-        const errors = [];
-        for (const row of testData) {
-          try {
-            successCount++;
-          } catch (error) {
-            errorCount++;
-            errors.push(`\u0627\u0644\u0635\u0641 ${row.id}: ${error.message}`);
-          }
-        }
-        await enhancedMigrationJobManager.completeJob(jobId, errorCount === 0);
-        res.json({
-          success: errorCount === 0,
-          data: {
-            jobId,
-            tableName,
-            totalTested: testData.length,
-            successCount,
-            duplicateCount,
-            errorCount,
-            errors: errors.slice(0, 3),
-            // أول 3 أخطاء فقط
-            sampleData: testData.slice(0, 2)
-            // عينتان للمراجعة
-          },
-          message: `\u0627\u062E\u062A\u0628\u0627\u0631 ${tableName} \u0645\u0643\u062A\u0645\u0644: ${successCount} \u0646\u062C\u062D\u060C ${errorCount} \u0641\u0634\u0644`
-        });
-      } finally {
-        await fetcher.disconnect();
-      }
-    } catch (error) {
-      console.error("\u274C [Migration] \u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u0627\u062E\u062A\u0628\u0627\u0631 \u0627\u0644\u0635\u063A\u064A\u0631:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062A\u0634\u063A\u064A\u0644 \u0627\u0644\u0627\u062E\u062A\u0628\u0627\u0631 \u0627\u0644\u0635\u063A\u064A\u0631"
-      });
-    }
-  });
-  app2.post("/api/migration/unlock", migrationRateLimit, requireAuth, async (req, res) => {
-    try {
-      console.log("\u{1F527} \u0637\u0644\u0628 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0645\u0647\u0627\u0645 \u0627\u0644\u0639\u0627\u0644\u0642\u0629 \u0642\u0633\u0631\u0627\u064B");
-      const result = await enhancedMigrationJobManager.forceUnlockStuckJobs();
-      res.json({
-        success: true,
-        data: result,
-        message: result.unlockedCount > 0 ? `\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 ${result.unlockedCount} \u0645\u0647\u0645\u0629 \u0639\u0627\u0644\u0642\u0629 \u0628\u0646\u062C\u0627\u062D` : "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0647\u0627\u0645 \u0639\u0627\u0644\u0642\u0629"
-      });
-    } catch (error) {
-      console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0645\u0647\u0627\u0645 \u0627\u0644\u0639\u0627\u0644\u0642\u0629:", error.message);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0645\u0647\u0627\u0645 \u0627\u0644\u0639\u0627\u0644\u0642\u0629"
-      });
-    }
-  });
-  app2.post("/api/migration/start", migrationStartRateLimit, requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { batchSize = 100 } = req.body;
-      const activeJob = await enhancedMigrationJobManager.getActiveJob();
-      if (activeJob) {
-        return res.status(409).json({
-          success: false,
-          error: "\u0647\u0646\u0627\u0643 \u0645\u0647\u0645\u0629 \u0647\u062C\u0631\u0629 \u0646\u0634\u0637\u0629 \u0628\u0627\u0644\u0641\u0639\u0644",
-          jobId: activeJob.id
-        });
-      }
-      const userId = req.user?.id || void 0;
-      const jobId = await enhancedMigrationJobManager.createJob(userId);
-      enhancedMigrationJobManager.runMigration(jobId, batchSize).catch((error) => {
-        console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u062A\u0634\u063A\u064A\u0644 \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 ${jobId}:`, error);
-        enhancedMigrationJobManager.completeJob(jobId, false, error.message);
-      });
-      res.json({
-        success: true,
-        jobId,
-        message: "\u062A\u0645 \u0628\u062F\u0621 \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      console.error("\u062E\u0637\u0623 \u0641\u064A \u0628\u062F\u0621 \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-  app2.get("/api/migration/status/:jobId", migrationRateLimit, requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { jobId } = req.params;
-      console.log(`\u{1F3AF} Status endpoint called for jobId: ${jobId}`);
-      console.log(`\u{1F4DE} Calling enhancedMigrationJobManager.getJob(${jobId})`);
-      const job = await enhancedMigrationJobManager.getJob(jobId);
-      console.log(`\u{1F4CB} Job result:`, job ? `Found job ${job.id}` : "Job not found");
-      if (!job) {
-        console.log(`\u274C Returning 404 for jobId: ${jobId}`);
-        return res.status(404).json({
-          success: false,
-          error: "\u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629"
-        });
-      }
-      console.log(`\u2705 Returning job data for: ${job.id}`);
-      let estimatedTimeRemaining = 0;
-      if (job.status === "running" && job.tablesProcessed > 0) {
-        const elapsedTime = Date.now() - job.startTime.getTime();
-        const avgTimePerTable = elapsedTime / job.tablesProcessed;
-        const remainingTables = job.totalTables - job.tablesProcessed;
-        estimatedTimeRemaining = Math.round(avgTimePerTable * remainingTables / 1e3);
-      }
-      res.json({
-        success: true,
-        data: {
-          ...job,
-          estimatedTimeRemaining,
-          duration: job.endTime ? job.endTime.getTime() - job.startTime.getTime() : Date.now() - job.startTime.getTime()
-        }
-      });
-    } catch (error) {
-      console.error("\u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u062D\u0627\u0644\u0629 \u0627\u0644\u0645\u0647\u0645\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-  app2.post("/api/migration/stop/:jobId", migrationRateLimit, requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { jobId } = req.params;
-      const success = await enhancedMigrationJobManager.cancelJob(jobId);
-      if (!success) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0625\u0644\u063A\u0627\u0621 \u0647\u0630\u0647 \u0627\u0644\u0645\u0647\u0645\u0629"
-        });
-      }
-      res.json({
-        success: true,
-        message: "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      console.error("\u062E\u0637\u0623 \u0641\u064A \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0645\u0647\u0645\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-  app2.get("/api/migration/jobs", migrationRateLimit, requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const jobs = await enhancedMigrationJobManager.getAllJobs();
-      res.json({
-        success: true,
-        data: jobs,
-        count: jobs.length
-      });
-    } catch (error) {
-      console.error("\u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0647\u0627\u0645:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-  app2.get("/api/migration/connection-status", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      console.log("\u{1F50D} \u0641\u062D\u0635 \u062D\u0627\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629...");
-      const { isOldDatabaseAvailable: isOldDatabaseAvailable2, testOldDatabaseConnection: testOldDatabaseConnection2 } = await Promise.resolve().then(() => (init_old_db(), old_db_exports));
-      if (!isOldDatabaseAvailable2()) {
-        console.warn("\u26A0\uFE0F \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629 \u0623\u0648 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629");
-        const connectionStatus = {
-          connected: false,
-          database: "\u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629",
-          user: "\u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629",
-          version: "\u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641",
-          host: "\u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629",
-          port: "\u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629",
-          ssl: false,
-          responseTime: 0,
-          error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629 \u0641\u064A \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629 (OLD_DB_URL \u0645\u0641\u0642\u0648\u062F \u0623\u0648 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D)",
-          configStatus: "missing_config"
-        };
-        return res.json({
-          success: false,
-          data: connectionStatus,
-          message: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629. \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0625\u0639\u062F\u0627\u062F\u0627\u062A OLD_DB_URL \u0641\u064A \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629.",
-          userFriendlyMessage: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u062A\u0635\u0644\u0629 \u062D\u0627\u0644\u064A\u0627\u064B. \u0627\u0644\u0646\u0638\u0627\u0645 \u064A\u0639\u0645\u0644 \u0628\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u062D\u0644\u064A\u0629 \u0641\u0642\u0637."
-        });
-      }
-      const connectionTest = await testOldDatabaseConnection2();
-      if (connectionTest.success) {
-        console.log("\u2705 \u0646\u062C\u062D \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629");
-        const connectionStatus = {
-          connected: true,
-          database: connectionTest.details?.database || "\u0645\u062A\u0635\u0644",
-          user: connectionTest.details?.user || "\u0645\u062E\u0641\u064A \u0644\u0623\u0633\u0628\u0627\u0628 \u0623\u0645\u0646\u064A\u0629",
-          version: connectionTest.details?.version || "PostgreSQL",
-          host: connectionTest.details?.host || "\u0645\u062E\u0641\u064A \u0644\u0623\u0633\u0628\u0627\u0628 \u0623\u0645\u0646\u064A\u0629",
-          port: connectionTest.details?.port || "\u0645\u062E\u0641\u064A \u0644\u0623\u0633\u0628\u0627\u0628 \u0623\u0645\u0646\u064A\u0629",
-          ssl: true,
-          responseTime: connectionTest.details?.responseTime || 0,
-          error: null,
-          configStatus: "configured"
-        };
-        res.json({
-          success: true,
-          data: connectionStatus,
-          message: connectionTest.message,
-          userFriendlyMessage: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u0645\u062A\u0635\u0644\u0629 \u0628\u0646\u062C\u0627\u062D \u0648\u0645\u062A\u0627\u062D\u0629 \u0644\u0644\u0647\u062C\u0631\u0629."
-        });
-      } else {
-        console.error("\u274C \u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629:", connectionTest.message);
-        let userFriendlyMessage = "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629 \u062D\u0627\u0644\u064A\u0627\u064B.";
-        let configStatus = "connection_failed";
-        if (connectionTest.message.includes("ENOTFOUND")) {
-          userFriendlyMessage = "\u0639\u0646\u0648\u0627\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D \u0623\u0648 \u0627\u0644\u062E\u0627\u062F\u0645 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D.";
-          configStatus = "dns_failed";
-        } else if (connectionTest.message.includes("ECONNREFUSED")) {
-          userFriendlyMessage = "\u062A\u0645 \u0631\u0641\u0636 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629. \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A.";
-          configStatus = "connection_refused";
-        } else if (connectionTest.message.includes("timeout")) {
-          userFriendlyMessage = "\u0627\u0646\u062A\u0647\u062A \u0645\u0647\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629.";
-          configStatus = "timeout";
-        }
-        const connectionStatus = {
-          connected: false,
-          database: "\u063A\u064A\u0631 \u0645\u062A\u0627\u062D",
-          user: "\u063A\u064A\u0631 \u0645\u062A\u0627\u062D",
-          version: "\u063A\u064A\u0631 \u0645\u062A\u0627\u062D",
-          host: "\u063A\u064A\u0631 \u0645\u062A\u0627\u062D",
-          port: "\u063A\u064A\u0631 \u0645\u062A\u0627\u062D",
-          ssl: false,
-          responseTime: 0,
-          error: connectionTest.message,
-          configStatus
-        };
-        res.json({
-          success: false,
-          data: connectionStatus,
-          message: connectionTest.message,
-          userFriendlyMessage
-        });
-      }
-    } catch (error) {
-      console.error("\u274C \u062E\u0637\u0623 \u0639\u0627\u0645 \u0641\u064A \u0641\u062D\u0635 \u062D\u0627\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644:", error);
-      res.status(500).json({
-        success: false,
-        data: {
-          connected: false,
-          error: error.message,
-          configStatus: "system_error"
-        },
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u0641\u062D\u0635 \u062D\u0627\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629",
-        userFriendlyMessage: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062A\u0642\u0646\u064A \u0623\u062B\u0646\u0627\u0621 \u0641\u062D\u0635 \u062D\u0627\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
-      });
-    }
-  });
-  app2.get("/api/migration/general-stats", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      console.log("\u{1F4CA} \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629...");
-      const { isOldDatabaseAvailable: isOldDatabaseAvailable2, getOldDbClient: getOldDbClient2 } = await Promise.resolve().then(() => (init_old_db(), old_db_exports));
-      let generalStats = {
-        totalTables: 0,
-        totalEstimatedRows: 0,
-        tablesList: [],
-        lastUpdated: (/* @__PURE__ */ new Date()).toLocaleString("en-GB", {
-          timeZone: "Europe/London",
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false
-        }),
-        databaseStatus: "unknown",
-        databaseSize: "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F",
-        oldestRecord: null,
-        newestRecord: null,
-        criticalTables: [],
-        emptyTables: []
-      };
-      if (!isOldDatabaseAvailable2()) {
-        console.warn("\u26A0\uFE0F \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629\u060C \u0633\u064A\u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629");
-        generalStats = {
-          totalTables: 0,
-          totalEstimatedRows: 0,
-          tablesList: [],
-          lastUpdated: (/* @__PURE__ */ new Date()).toLocaleString("en-GB", {
-            timeZone: "Europe/London",
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: false
-          }),
-          databaseStatus: "not_configured",
-          databaseSize: "\u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629",
-          oldestRecord: null,
-          newestRecord: null,
-          criticalTables: [],
-          emptyTables: [],
-          error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629 \u0641\u064A \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629"
-        };
-        return res.json({
-          success: false,
-          data: generalStats,
-          message: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629. \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629.",
-          userFriendlyMessage: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0644\u0644\u0647\u062C\u0631\u0629 \u062D\u0627\u0644\u064A\u0627\u064B. \u0627\u0644\u0646\u0638\u0627\u0645 \u064A\u0639\u0645\u0644 \u0628\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u062D\u0644\u064A\u0629 \u0641\u0642\u0637."
-        });
-      }
-      try {
-        const client = await getOldDbClient2(1);
-        const tablesQuery = await client.query(`
-          SELECT 
-            schemaname,
-            relname as tablename,
-            n_tup_ins as inserts,
-            n_tup_upd as updates,
-            n_tup_del as deletes,
-            n_live_tup as live_rows,
-            n_dead_tup as dead_rows,
-            last_vacuum,
-            last_autovacuum,
-            last_analyze,
-            last_autoanalyze
-          FROM pg_stat_user_tables 
-          WHERE schemaname = 'public'
-          ORDER BY n_live_tup DESC
-        `);
-        const dbSizeQuery = await client.query(`
-          SELECT pg_size_pretty(pg_database_size(current_database())) as database_size
-        `);
-        const dbInfoQuery = await client.query(`
-          SELECT 
-            current_database() as db_name,
-            current_user as current_user,
-            version() as version,
-            now() as current_timestamp
-        `);
-        await client.end();
-        const tables = tablesQuery.rows || [];
-        const totalRows = tables.reduce((sum, table) => sum + parseInt(table.live_rows || 0), 0);
-        const criticalTables = tables.filter((table) => parseInt(table.live_rows || 0) > 1e3).map((table) => ({
-          name: table.tablename,
-          rows: parseInt(table.live_rows || 0),
-          displayName: getTableDisplayName(table.tablename)
-        }));
-        const emptyTables = tables.filter((table) => parseInt(table.live_rows || 0) === 0).map((table) => ({
-          name: table.tablename,
-          displayName: getTableDisplayName(table.tablename)
-        }));
-        let oldestRecord = null;
-        let newestRecord = null;
-        try {
-          const dateSearchTables = ["projects", "users", "daily_expenses", "workers"];
-          const dateSearchClient = await getOldDbClient2();
-          for (const tableName of dateSearchTables) {
-            try {
-              const dateColumnsQuery = await dateSearchClient.query(`
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = $1 
-                AND (column_name ILIKE '%created%' OR column_name ILIKE '%date%' OR column_name ILIKE '%time%')
-                AND data_type IN ('timestamp', 'timestamptz', 'date')
-                LIMIT 1
-              `, [tableName]);
-              if (dateColumnsQuery.rows.length > 0) {
-                const dateColumn = dateColumnsQuery.rows[0].column_name;
-                const minMaxQuery = await dateSearchClient.query(`
-                  SELECT 
-                    MIN(${dateColumn}) as oldest,
-                    MAX(${dateColumn}) as newest,
-                    COUNT(*) as record_count
-                  FROM "${tableName}"
-                  WHERE ${dateColumn} IS NOT NULL
-                `);
-                if (minMaxQuery.rows[0] && minMaxQuery.rows[0].record_count > 0) {
-                  if (!oldestRecord || new Date(minMaxQuery.rows[0].oldest) < new Date(oldestRecord)) {
-                    oldestRecord = minMaxQuery.rows[0].oldest;
-                  }
-                  if (!newestRecord || new Date(minMaxQuery.rows[0].newest) > new Date(newestRecord)) {
-                    newestRecord = minMaxQuery.rows[0].newest;
-                  }
-                }
-              }
-            } catch (tableError) {
-              console.log(`\u062A\u062C\u0627\u0647\u0644 \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} \u0641\u064A \u0628\u062D\u062B \u0627\u0644\u062A\u0648\u0627\u0631\u064A\u062E`);
-            }
-          }
-          await dateSearchClient.end();
-        } catch (dateError) {
-          console.log("\u062A\u0639\u0630\u0631 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062A\u0648\u0627\u0631\u064A\u062E \u0627\u0644\u0633\u062C\u0644\u0627\u062A:", dateError);
-        }
-        generalStats = {
-          totalTables: tables.length,
-          totalEstimatedRows: totalRows,
-          tablesList: tables.map((table) => ({
-            name: table.tablename,
-            displayName: getTableDisplayName(table.tablename),
-            rows: parseInt(table.live_rows || 0),
-            category: getTableCategory(table.tablename),
-            lastAnalyzed: table.last_analyze || table.last_autoanalyze
-          })),
-          lastUpdated: dbInfoQuery.rows[0]?.current_timestamp || (/* @__PURE__ */ new Date()).toISOString(),
-          databaseStatus: "healthy",
-          databaseSize: dbSizeQuery.rows[0]?.database_size || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F",
-          oldestRecord,
-          newestRecord,
-          criticalTables: criticalTables.slice(0, 10),
-          // أول 10 جداول
-          emptyTables
-        };
-        console.log(`\u2705 \u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A ${tables.length} \u062C\u062F\u0648\u0644 \u0628\u0625\u062C\u0645\u0627\u0644\u064A ${totalRows} \u0635\u0641`);
-      } catch (dbError) {
-        console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629:", dbError);
-        let databaseStatus = "error";
-        let userFriendlyMessage = "\u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629.";
-        if (dbError.message.includes("ENOTFOUND")) {
-          databaseStatus = "unreachable";
-          userFriendlyMessage = "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u0648\u0635\u0648\u0644 \u062D\u0627\u0644\u064A\u0627\u064B.";
-        } else if (dbError.message.includes("ECONNREFUSED")) {
-          databaseStatus = "connection_refused";
-          userFriendlyMessage = "\u062A\u0645 \u0631\u0641\u0636 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629.";
-        } else if (dbError.message.includes("timeout")) {
-          databaseStatus = "timeout";
-          userFriendlyMessage = "\u0627\u0646\u062A\u0647\u062A \u0645\u0647\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629.";
-        }
-        console.log("\u274C \u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 - \u0639\u062F\u0645 \u062A\u0648\u0641\u064A\u0631 \u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0647\u0645\u064A\u0629");
-        generalStats = {
-          totalTables: 0,
-          totalEstimatedRows: 0,
-          tablesList: [],
-          lastUpdated: (/* @__PURE__ */ new Date()).toLocaleString("en-GB", {
-            timeZone: "Europe/London",
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: false
-          }),
-          databaseStatus,
-          databaseSize: "\u063A\u064A\u0631 \u0645\u062A\u0627\u062D",
-          oldestRecord: null,
-          newestRecord: null,
-          criticalTables: [],
-          emptyTables: [],
-          error: dbError.message,
-          userFriendlyMessage
-        };
-      }
-      const isSuccess = !["error", "not_configured", "unreachable", "connection_refused", "timeout"].includes(generalStats.databaseStatus);
-      res.json({
-        success: isSuccess,
-        data: generalStats,
-        message: isSuccess ? `\u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0629 \u0628\u0646\u062C\u0627\u062D: ${generalStats.totalTables} \u062C\u062F\u0648\u0644\u060C ${generalStats.totalEstimatedRows} \u0635\u0641` : `\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A: ${generalStats.error}`,
-        userFriendlyMessage: generalStats.userFriendlyMessage || (isSuccess ? `\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u062A\u0627\u062D\u0629 \u0644\u0644\u0647\u062C\u0631\u0629: ${generalStats.totalTables} \u062C\u062F\u0648\u0644 \u0628\u0625\u062C\u0645\u0627\u0644\u064A ${generalStats.totalEstimatedRows.toLocaleString()} \u0635\u0641` : "\u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629 \u062D\u0627\u0644\u064A\u0627\u064B. \u0627\u0644\u0646\u0638\u0627\u0645 \u064A\u0639\u0645\u0644 \u0628\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u062D\u0644\u064A\u0629 \u0641\u0642\u0637.")
-      });
-    } catch (error) {
-      console.error("\u274C \u062E\u0637\u0623 \u0639\u0627\u0645 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0629:", error);
-      res.status(500).json({
-        success: false,
-        data: {
-          totalTables: 0,
-          totalEstimatedRows: 0,
-          tablesList: [],
-          lastUpdated: (/* @__PURE__ */ new Date()).toLocaleString("en-GB", {
-            timeZone: "Europe/London",
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: false
-          }),
-          databaseStatus: "system_error",
-          databaseSize: "\u063A\u064A\u0631 \u0645\u062A\u0627\u062D",
-          oldestRecord: null,
-          newestRecord: null,
-          criticalTables: [],
-          emptyTables: [],
-          error: error.message
-        },
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629",
-        userFriendlyMessage: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062A\u0642\u0646\u064A \u0623\u062B\u0646\u0627\u0621 \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
-      });
-    }
-  });
-  app2.get("/api/migration/tables", migrationRateLimit, requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { isOldDatabaseAvailable: isOldDatabaseAvailable2, getOldDbClient: getOldDbClient2 } = await Promise.resolve().then(() => (init_old_db(), old_db_exports));
-      const defaultTables = [
-        "account_balances",
-        "accounts",
-        "actions",
-        "approvals",
-        "autocomplete_data",
-        "channels",
-        "daily_expense_summaries",
-        "daily_expenses",
-        "equipment",
-        "finance_events",
-        "finance_payments",
-        "fund_transfers",
-        "journals",
-        "maintenance_schedules",
-        "maintenance_tasks",
-        "material_purchases",
-        "materials",
-        "messages",
-        "notification_read_states",
-        "print_settings",
-        "project_fund_transfers",
-        "projects",
-        "report_templates",
-        "supplier_payments",
-        "suppliers",
-        "system_events",
-        "system_notifications",
-        "tool_categories",
-        "tool_cost_tracking",
-        "tool_maintenance_logs",
-        "tool_movements",
-        "tool_notifications",
-        "tool_purchase_items",
-        "tool_reservations",
-        "tool_stock",
-        "tool_usage_analytics",
-        "tools",
-        "transaction_lines",
-        "transactions",
-        "users",
-        "worker_attendance",
-        "workers"
-      ];
-      let tablesWithInfo = [];
-      let dataSource = "default";
-      let connectionMessage = "";
-      if (!isOldDatabaseAvailable2()) {
-        console.warn("\u26A0\uFE0F \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629\u060C \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0642\u0627\u0626\u0645\u0629 \u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629");
-        tablesWithInfo = defaultTables.map((tableName) => ({
-          name: tableName,
-          displayName: getTableDisplayName(tableName),
-          category: getTableCategory(tableName),
-          estimatedRows: 0,
-          status: "ready",
-          priority: getTablePriority(tableName),
-          columnCount: 0
-        }));
-        dataSource = "default";
-        connectionMessage = "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u064F\u0643\u0648\u0651\u0646\u0629 - \u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0642\u0627\u0626\u0645\u0629 \u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629";
-      } else {
-        try {
-          const client = await getOldDbClient2(1);
-          const tablesQuery = await client.query(`
-            SELECT table_name
-            FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            AND table_type = 'BASE TABLE'
-            ORDER BY table_name
-            LIMIT 100
-          `);
-          await client.end();
-          if (tablesQuery.rows && tablesQuery.rows.length > 0) {
-            tablesWithInfo = tablesQuery.rows.map((row) => ({
-              name: row.table_name,
-              displayName: getTableDisplayName(row.table_name),
-              category: getTableCategory(row.table_name),
-              estimatedRows: 0,
-              // سيتم تحديثها لاحقاً
-              status: "ready",
-              priority: getTablePriority(row.table_name),
-              columnCount: 0
-              // لا نحسبها الآن لتوفير الوقت
-            }));
-            dataSource = "database";
-            connectionMessage = `\u062A\u0645 \u062C\u0644\u0628 ${tablesQuery.rows.length} \u062C\u062F\u0648\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629`;
-          } else {
-            tablesWithInfo = defaultTables.map((tableName) => ({
-              name: tableName,
-              displayName: getTableDisplayName(tableName),
-              category: getTableCategory(tableName),
-              estimatedRows: 0,
-              status: "ready",
-              priority: getTablePriority(tableName),
-              columnCount: 0
-            }));
-            dataSource = "default";
-            connectionMessage = "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u0641\u0627\u0631\u063A\u0629 - \u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0642\u0627\u0626\u0645\u0629 \u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629";
-          }
-        } catch (dbError) {
-          console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629:", dbError);
-          console.log("\u274C \u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A - \u0639\u062F\u0645 \u062A\u0648\u0641\u064A\u0631 \u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0647\u0645\u064A\u0629");
-          tablesWithInfo = [];
-          dataSource = "default";
-          if (dbError.message.includes("ENOTFOUND")) {
-            connectionMessage = "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u0648\u0635\u0648\u0644 - \u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0642\u0627\u0626\u0645\u0629 \u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629";
-          } else if (dbError.message.includes("ECONNREFUSED")) {
-            connectionMessage = "\u062A\u0645 \u0631\u0641\u0636 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 - \u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0642\u0627\u0626\u0645\u0629 \u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629";
-          } else if (dbError.message.includes("timeout")) {
-            connectionMessage = "\u0627\u0646\u062A\u0647\u062A \u0645\u0647\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 - \u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0642\u0627\u0626\u0645\u0629 \u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629";
-          } else {
-            connectionMessage = `\u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 - \u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0642\u0627\u0626\u0645\u0629 \u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629`;
-          }
-        }
-      }
-      res.json({
-        success: true,
-        data: tablesWithInfo,
-        message: `\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 ${tablesWithInfo.length} \u062C\u062F\u0648\u0644 \u0645\u062A\u0627\u062D \u0644\u0644\u0647\u062C\u0631\u0629`,
-        dataSource,
-        connectionMessage,
-        userFriendlyMessage: dataSource === "database" ? `\u062A\u0648\u0641\u0631 ${tablesWithInfo.length} \u062C\u062F\u0648\u0644 \u0644\u0644\u0647\u062C\u0631\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629` : "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u063A\u064A\u0631 \u0645\u062A\u0635\u0644\u0629. \u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u062A\u0627\u062D\u0629 \u0644\u0644\u0647\u062C\u0631\u0629."
-      });
-    } catch (error) {
-      console.error("\u274C \u062E\u0637\u0623 \u0639\u0627\u0645 \u0641\u064A \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u062C\u062F\u0627\u0648\u0644:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u062C\u062F\u0627\u0648\u0644 \u0644\u0644\u0647\u062C\u0631\u0629",
-        userFriendlyMessage: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062A\u0642\u0646\u064A \u0623\u062B\u0646\u0627\u0621 \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u062C\u062F\u0627\u0648\u0644. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
-      });
-    }
-  });
-  app2.get("/api/migration/table/:tableName/info", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { tableName } = req.params;
-      const { getOldDbClient: getOldDbClient2 } = await Promise.resolve().then(() => (init_old_db(), old_db_exports));
-      let tableInfo = {
-        name: tableName,
-        displayName: getTableDisplayName(tableName),
-        estimatedRows: 0,
-        columns: [],
-        lastUpdated: (/* @__PURE__ */ new Date()).toLocaleString("en-GB", {
-          timeZone: "Europe/London",
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false
-        }),
-        status: "ready"
-      };
-      try {
-        const client = await getOldDbClient2();
-        const tableInfoQuery = await client.query(`
-          SELECT 
-            column_name,
-            data_type,
-            is_nullable,
-            column_default
-          FROM information_schema.columns 
-          WHERE table_name = $1 
-          AND table_schema = 'public'
-          ORDER BY ordinal_position
-        `, [tableName]);
-        const rowCountQuery = await client.query(`
-          SELECT COUNT(*) as row_count 
-          FROM "${tableName}"
-        `);
-        await client.end();
-        tableInfo = {
-          name: tableName,
-          displayName: getTableDisplayName(tableName),
-          estimatedRows: parseInt(rowCountQuery.rows[0]?.row_count || "0"),
-          columns: tableInfoQuery.rows || [],
-          lastUpdated: (/* @__PURE__ */ new Date()).toLocaleString("en-GB", {
-            timeZone: "Europe/London",
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: false
-          }),
-          status: "ready"
-        };
-      } catch (dbError) {
-        console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629:`, dbError);
-      }
-      res.json({
-        success: true,
-        data: tableInfo,
-        message: `\u062A\u0645 \u062C\u0644\u0628 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName} \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0642\u062F\u064A\u0645\u0629`
-      });
-    } catch (error) {
-      console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u062C\u062F\u0648\u0644 ${req.params.tableName}:`, error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u062C\u062F\u0648\u0644"
-      });
-    }
-  });
-  app2.post("/api/migration/extract/:tableName", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { tableName } = req.params;
-      const { batchSize = 100, maxRetries = 3 } = req.body;
-      console.log(`\u{1F680} \u0628\u062F\u0621 \u0639\u0645\u0644\u064A\u0629 \u0647\u062C\u0631\u0629 \u0627\u0644\u062C\u062F\u0648\u0644: ${tableName}`);
-      const migrationJob = {
-        id: `migration_${tableName}_${Date.now()}`,
-        tableName,
-        status: "started",
-        batchSize,
-        maxRetries,
-        startedAt: (/* @__PURE__ */ new Date()).toISOString(),
-        progress: 0,
-        totalRows: 0,
-        processedRows: 0,
-        errors: []
-      };
-      res.json({
-        success: true,
-        data: migrationJob,
-        message: `\u062A\u0645 \u0628\u062F\u0621 \u0639\u0645\u0644\u064A\u0629 \u0647\u062C\u0631\u0629 \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName}`
-      });
-      processMigrationInBackground(migrationJob).catch((error) => {
-        console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u0647\u062C\u0631\u0629 \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName}:`, error);
-      });
-    } catch (error) {
-      console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u0628\u062F\u0621 \u0647\u062C\u0631\u0629 \u0627\u0644\u062C\u062F\u0648\u0644 ${req.params.tableName}:`, error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u0628\u062F\u0621 \u0639\u0645\u0644\u064A\u0629 \u0627\u0644\u0647\u062C\u0631\u0629"
-      });
-    }
-  });
-  app2.post("/api/migration/transfer", migrationStartRateLimit, requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { tables = [], batchSize = 50 } = req.body;
-      if (!tables.length) {
-        return res.status(400).json({
-          success: false,
-          error: "\u064A\u062C\u0628 \u062A\u062D\u062F\u064A\u062F \u062C\u062F\u0648\u0644 \u0648\u0627\u062D\u062F \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 \u0644\u0644\u0647\u062C\u0631\u0629"
-        });
-      }
-      const activeJob = await enhancedMigrationJobManager.getActiveJob();
-      if (activeJob) {
-        return res.status(409).json({
-          success: false,
-          error: "\u0647\u0646\u0627\u0643 \u0645\u0647\u0645\u0629 \u0647\u062C\u0631\u0629 \u0646\u0634\u0637\u0629 \u0628\u0627\u0644\u0641\u0639\u0644",
-          jobId: activeJob.id
-        });
-      }
-      console.log(`\u{1F680} \u0628\u062F\u0621 \u0627\u0644\u0647\u062C\u0631\u0629 \u0627\u0644\u0634\u0627\u0645\u0644\u0629 \u0644\u0640 ${tables.length} \u062C\u062F\u0648\u0644 \u0628\u0627\u0633\u062A\u062E\u062F\u0627\u0645 MigrationJobManager`);
-      const userId = req.user?.id || void 0;
-      const jobId = await enhancedMigrationJobManager.createJob(userId);
-      enhancedMigrationJobManager.runMigration(jobId, batchSize).catch((error) => {
-        console.error(`\u274C \u062E\u0637\u0623 \u0641\u064A \u062A\u0634\u063A\u064A\u0644 \u0645\u0647\u0645\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 ${jobId}:`, error);
-        enhancedMigrationJobManager.completeJob(jobId, false, error.message);
-      });
-      res.json({
-        success: true,
-        data: {
-          id: jobId,
-          status: "started",
-          startedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          totalTables: tables.length
-        },
-        jobId,
-        message: `\u062A\u0645 \u0628\u062F\u0621 \u0627\u0644\u0647\u062C\u0631\u0629 \u0627\u0644\u0634\u0627\u0645\u0644\u0629 \u0644\u0640 ${tables.length} \u062C\u062F\u0648\u0644`
-      });
-    } catch (error) {
-      console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u0628\u062F\u0621 \u0627\u0644\u0647\u062C\u0631\u0629 \u0627\u0644\u0634\u0627\u0645\u0644\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u0628\u062F\u0621 \u0639\u0645\u0644\u064A\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 \u0627\u0644\u0634\u0627\u0645\u0644\u0629"
-      });
-    }
-  });
-  app2.get("/api/connections/status", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { smartConnectionManager: smartConnectionManager2 } = await Promise.resolve().then(() => (init_smart_connection_manager(), smart_connection_manager_exports));
-      const status = smartConnectionManager2.getConnectionStatus();
-      const testResults = await smartConnectionManager2.runConnectionTest();
-      res.json({
-        success: true,
-        data: {
-          status,
-          testResults,
-          recommendations: {
-            local: status.local ? "\u2705 \u062C\u0627\u0647\u0632 \u0644\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u0645\u062D\u0644\u064A\u0629" : "\u274C \u064A\u062D\u062A\u0627\u062C \u0625\u0639\u0627\u062F\u0629 \u062A\u0643\u0648\u064A\u0646",
-            supabase: status.supabase ? "\u2705 \u062C\u0627\u0647\u0632 \u0644\u0644\u0646\u0633\u062E \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A" : "\u26A0\uFE0F \u062A\u062D\u0642\u0642 \u0645\u0646 \u0625\u0639\u062F\u0627\u062F\u0627\u062A Supabase"
-          }
-        },
-        message: `\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0627\u062A\u0635\u0627\u0644\u0627\u062A \u0627\u0644\u0646\u0634\u0637\u0629: ${status.totalConnections}/2`
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-  app2.post("/api/connections/reconnect", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { target = "both" } = req.body;
-      const { smartConnectionManager: smartConnectionManager2 } = await Promise.resolve().then(() => (init_smart_connection_manager(), smart_connection_manager_exports));
-      await smartConnectionManager2.reconnect(target);
-      const newStatus = smartConnectionManager2.getConnectionStatus();
-      res.json({
-        success: true,
-        data: newStatus,
-        message: `\u062A\u0645 \u0625\u0639\u0627\u062F\u0629 \u062A\u0647\u064A\u0626\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644: ${target}`
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-  app2.get("/api/backup/connection-test", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const externalUrl = process.env.OLD_DB_URL;
-      if (!externalUrl) {
-        return res.status(400).json({
-          success: false,
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0643\u0648\u064A\u0646 \u0627\u062A\u0635\u0627\u0644 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062E\u0627\u0631\u062C\u064A\u0629 (OLD_DB_URL \u0645\u0641\u0642\u0648\u062F)"
-        });
-      }
-      console.log("\u{1F680} \u0628\u062F\u0621 \u0627\u062E\u062A\u0628\u0627\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640 Supabase...");
-      const fetcher = new SecureDataFetcher(externalUrl);
-      const connectionStatus = await fetcher.testConnection();
-      await fetcher.disconnect();
-      res.json({
-        success: connectionStatus.success,
-        data: connectionStatus,
-        message: connectionStatus.success ? `\u062A\u0645 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640 Supabase \u0628\u0646\u062C\u0627\u062D (${connectionStatus.responseTime}ms)` : `\u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640 Supabase: ${connectionStatus.error}`
-      });
-    } catch (error) {
-      console.error("\u062E\u0637\u0623 \u0641\u064A \u0627\u062E\u062A\u0628\u0627\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640 Supabase:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0627\u062E\u062A\u0628\u0627\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640 Supabase"
-      });
-    }
-  });
-  function getTableDisplayName(tableName) {
-    const displayNames = {
-      "users": "\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646",
-      "projects": "\u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639",
-      "workers": "\u0627\u0644\u0639\u0645\u0627\u0644",
-      "worker_attendance": "\u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644",
-      "daily_expenses": "\u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629",
-      "material_purchases": "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F",
-      "materials": "\u0627\u0644\u0645\u0648\u0627\u062F",
-      "suppliers": "\u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646",
-      "fund_transfers": "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0647\u062F\u0629",
-      "equipment": "\u0627\u0644\u0645\u0639\u062F\u0627\u062A",
-      "tools": "\u0627\u0644\u0623\u062F\u0648\u0627\u062A",
-      "transactions": "\u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0627\u062A",
-      "accounts": "\u0627\u0644\u062D\u0633\u0627\u0628\u0627\u062A"
-    };
-    return displayNames[tableName] || tableName;
-  }
-  function getTableCategory(tableName) {
-    const categories = {
-      "users": "system",
-      "projects": "core",
-      "workers": "core",
-      "worker_attendance": "core",
-      "daily_expenses": "financial",
-      "material_purchases": "financial",
-      "materials": "inventory",
-      "suppliers": "external",
-      "fund_transfers": "financial",
-      "equipment": "assets",
-      "tools": "assets"
-    };
-    return categories[tableName] || "other";
-  }
-  function getTablePriority(tableName) {
-    const priorities = {
-      "users": 1,
-      "projects": 2,
-      "workers": 3,
-      "materials": 4,
-      "suppliers": 5
-    };
-    return priorities[tableName] || 10;
-  }
-  function getTableColumns(tableName) {
-    const columnsMap = {
-      "workers": ["id", "name", "phone", "salary", "project_id", "created_at"],
-      "daily_expenses": ["id", "description", "amount", "date", "worker_id", "project_id"],
-      "projects": ["id", "name", "description", "status", "start_date", "end_date"],
-      "materials": ["id", "name", "unit", "price", "quantity", "supplier_id"],
-      "suppliers": ["id", "name", "contact_info", "address", "payment_terms"],
-      "accounts": ["id", "name", "type", "balance", "created_at"],
-      "transactions": ["id", "amount", "description", "date", "from_account", "to_account"],
-      "tools": ["id", "name", "category", "status", "purchase_date", "condition"],
-      "users": ["id", "email", "name", "role", "created_at"],
-      "equipment": ["id", "name", "model", "serial_number", "location", "status"]
-    };
-    return columnsMap[tableName] || ["id", "name", "created_at", "updated_at"];
-  }
-  async function processMigrationInBackground(migrationJob) {
-    console.log(`\u{1F504} \u0645\u0639\u0627\u0644\u062C\u0629 \u0647\u062C\u0631\u0629 \u0627\u0644\u062C\u062F\u0648\u0644 ${migrationJob.tableName} \u0641\u064A \u0627\u0644\u062E\u0644\u0641\u064A\u0629...`);
-  }
-  async function processBatchMigrationInBackground(migrationSession) {
-    console.log(`\u{1F504} \u0645\u0639\u0627\u0644\u062C\u0629 \u0627\u0644\u0647\u062C\u0631\u0629 \u0627\u0644\u0634\u0627\u0645\u0644\u0629 \u0644\u0640 ${migrationSession.totalTables} \u062C\u062F\u0648\u0644 \u0641\u064A \u0627\u0644\u062E\u0644\u0641\u064A\u0629...`);
-  }
-  app2.get("/api/fund-transfers", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4CA} [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0647\u062F\u0629");
-      const transfers = await db.select().from(fundTransfers).orderBy(fundTransfers.transferDate);
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: transfers,
-        message: `\u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0647\u062F\u0629:", error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0647\u062F\u0629",
-        processingTime: duration
-      });
-    }
-  });
-  app2.get("/api/project-fund-transfers", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const { date: date2, projectId } = req.query;
-      console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId || "\u0627\u0644\u0643\u0644"} \u0648\u0627\u0644\u062A\u0627\u0631\u064A\u062E: ${date2 || "\u0627\u0644\u0643\u0644"}`);
-      let transfers;
-      let whereConditions = [];
-      if (date2) {
-        whereConditions.push(eq5(projectFundTransfers.transferDate, date2));
-      }
-      if (projectId) {
-        whereConditions.push(
-          or2(
-            eq5(projectFundTransfers.fromProjectId, projectId),
-            eq5(projectFundTransfers.toProjectId, projectId)
-          )
-        );
-      }
-      if (whereConditions.length > 0) {
-        transfers = await db.select().from(projectFundTransfers).where(and5(...whereConditions)).orderBy(projectFundTransfers.transferDate);
-      } else {
-        transfers = await db.select().from(projectFundTransfers).orderBy(projectFundTransfers.transferDate);
-      }
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0645\u0634\u0631\u0648\u0639 \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: transfers,
-        message: `\u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639:", error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639",
-        processingTime: duration
-      });
-    }
-  });
-  app2.get("/api/autocomplete", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4CA} [API] \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A");
-      const duration = Date.now() - startTime;
-      res.json({
-        success: true,
-        data: {
-          senderNames: [],
-          transferNumbers: [],
-          transferTypes: [],
-          transportDescriptions: [],
-          notes: []
-        },
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D",
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A:", error);
-      res.status(500).json({
-        success: false,
-        data: {},
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A",
-        processingTime: duration
-      });
-    }
-  });
-  app2.post("/api/autocomplete", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4DD} [API] \u062D\u0641\u0638 \u0642\u064A\u0645\u0629 \u0625\u0643\u0645\u0627\u0644 \u062A\u0644\u0642\u0627\u0626\u064A:", req.body);
-      const duration = Date.now() - startTime;
-      res.json({
-        success: true,
-        data: req.body,
-        message: "\u062A\u0645 \u062D\u0641\u0638 \u0642\u064A\u0645\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D",
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062D\u0641\u0638 \u0642\u064A\u0645\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A",
-        processingTime: duration
-      });
-    }
-  });
-  app2.head("/api/autocomplete", (req, res) => {
-    res.status(200).end();
-  });
-  app2.get("/api/autocomplete/senderNames", requireAuth, async (req, res) => {
-    try {
-      res.json({
-        success: true,
-        data: [],
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0631\u0633\u0644\u064A\u0646 \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0631\u0633\u0644\u064A\u0646"
-      });
-    }
-  });
-  app2.get("/api/autocomplete/transferNumbers", requireAuth, async (req, res) => {
-    try {
-      res.json({
-        success: true,
-        data: [],
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A"
-      });
-    }
-  });
-  app2.get("/api/autocomplete/transferTypes", requireAuth, async (req, res) => {
-    try {
-      res.json({
-        success: true,
-        data: [],
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A"
-      });
-    }
-  });
-  app2.get("/api/autocomplete/transportDescriptions", requireAuth, async (req, res) => {
-    try {
-      res.json({
-        success: true,
-        data: [],
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0648\u0635\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0648\u0635\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A"
-      });
-    }
-  });
-  app2.get("/api/autocomplete/notes", requireAuth, async (req, res) => {
-    try {
-      res.json({
-        success: true,
-        data: [],
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u0627\u062D\u0638\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u0627\u062D\u0638\u0627\u062A"
-      });
-    }
-  });
-  app2.delete("/api/fund-transfers/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const transferId = req.params.id;
-      console.log("\u{1F5D1}\uFE0F [API] \u0637\u0644\u0628 \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629:", transferId);
-      if (!transferId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0644\u0644\u062D\u0630\u0641",
-          processingTime: duration2
-        });
-      }
-      const existingTransfer = await db.select().from(fundTransfers).where(eq5(fundTransfers.id, transferId)).limit(1);
-      if (existingTransfer.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${transferId}`,
-          processingTime: duration2
-        });
-      }
-      const deletedTransfer = await db.delete(fundTransfers).where(eq5(fundTransfers.id, transferId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: deletedTransfer[0],
-        message: `\u062A\u0645 \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0642\u064A\u0645\u0629 ${deletedTransfer[0]?.amount || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F"} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629";
-      let statusCode = 500;
-      if (error.code === "23503") {
-        errorMessage = "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0644\u0648\u062C\u0648\u062F \u0645\u0631\u0627\u062C\u0639 \u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0647";
-        statusCode = 409;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.delete("/api/transportation-expenses/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const expenseId = req.params.id;
-      console.log("\u{1F5D1}\uFE0F [API] \u0637\u0644\u0628 \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A:", expenseId);
-      if (!expenseId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0644\u0644\u062D\u0630\u0641",
-          processingTime: duration2
-        });
-      }
-      const existingExpense = await db.select().from(transportationExpenses).where(eq5(transportationExpenses.id, expenseId)).limit(1);
-      if (existingExpense.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0635\u0631\u0648\u0641 \u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${expenseId}`,
-          processingTime: duration2
-        });
-      }
-      const deletedExpense = await db.delete(transportationExpenses).where(eq5(transportationExpenses.id, expenseId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: deletedExpense[0],
-        message: `\u062A\u0645 \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0642\u064A\u0645\u0629 ${deletedExpense[0]?.amount || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F"} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A";
-      let statusCode = 500;
-      if (error.code === "23503") {
-        errorMessage = "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0644\u0648\u062C\u0648\u062F \u0645\u0631\u0627\u062C\u0639 \u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0647";
-        statusCode = 409;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
   app2.use((error, req, res, next) => {
     console.error(`\u{1F4A5} [\u062E\u0637\u0623 \u062E\u0627\u062F\u0645] ${req.method} ${req.originalUrl}:`, error);
     if (!res.headersSent) {
@@ -9538,7 +6122,7 @@ async function registerRoutes(app2) {
 
 // server/vite.ts
 import express from "express";
-import fs4 from "fs";
+import fs3 from "fs";
 import path3 from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 
@@ -9657,7 +6241,7 @@ async function setupVite(app2, server) {
         "client",
         "index.html"
       );
-      let template = await fs4.promises.readFile(clientTemplate, "utf-8");
+      let template = await fs3.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`
@@ -9672,7 +6256,7 @@ async function setupVite(app2, server) {
 }
 function serveStatic(app2) {
   const distPath = path3.resolve(import.meta.dirname, "..", "dist", "public");
-  if (!fs4.existsSync(distPath)) {
+  if (!fs3.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`
     );
@@ -9691,7 +6275,7 @@ init_db();
 init_schema();
 import { Router } from "express";
 import { z as z2 } from "zod";
-import { eq as eq9, sql as sql6 } from "drizzle-orm";
+import { eq as eq7, sql as sql5 } from "drizzle-orm";
 
 // server/auth/crypto-utils.ts
 import bcrypt from "bcrypt";
@@ -9823,14 +6407,14 @@ function validatePasswordStrength(password) {
 // server/auth/auth-service.ts
 init_db();
 init_schema();
-import { eq as eq8 } from "drizzle-orm";
+import { eq as eq6 } from "drizzle-orm";
 
 // server/auth/jwt-utils.ts
 init_db();
 init_schema();
 import jwt2 from "jsonwebtoken";
 import crypto2 from "crypto";
-import { eq as eq6, and as and6, lt as lt2, or as or3, ne, gte as gte2 } from "drizzle-orm";
+import { eq as eq4, and as and4, lt as lt2, or as or3, ne, gte as gte2 } from "drizzle-orm";
 if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
   throw new Error("JWT_ACCESS_SECRET \u0648 JWT_REFRESH_SECRET \u0645\u0637\u0644\u0648\u0628\u0627\u0646 \u0641\u064A \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629 \u0644\u0644\u0623\u0645\u0627\u0646");
 }
@@ -9912,12 +6496,12 @@ async function refreshAccessTokenDev(refreshToken) {
     const userWithSession = await db.select({
       user: users,
       session: authUserSessions
-    }).from(users).leftJoin(authUserSessions, and6(
-      eq6(authUserSessions.userId, users.id),
-      eq6(authUserSessions.refreshTokenHash, refreshTokenHash),
-      eq6(authUserSessions.isRevoked, false),
+    }).from(users).leftJoin(authUserSessions, and4(
+      eq4(authUserSessions.userId, users.id),
+      eq4(authUserSessions.refreshTokenHash, refreshTokenHash),
+      eq4(authUserSessions.isRevoked, false),
       gte2(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
-    )).where(eq6(users.id, payload.userId)).limit(1);
+    )).where(eq4(users.id, payload.userId)).limit(1);
     if (userWithSession.length === 0 || !userWithSession[0].user || !userWithSession[0].user.isActive) {
       console.log("\u274C [JWT-DEV] \u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u063A\u064A\u0631 \u0646\u0634\u0637");
       return null;
@@ -9943,7 +6527,7 @@ async function refreshAccessTokenDev(refreshToken) {
     });
     await db.update(authUserSessions).set({
       lastActivity: /* @__PURE__ */ new Date()
-    }).where(eq6(authUserSessions.id, session.id));
+    }).where(eq4(authUserSessions.id, session.id));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [JWT-DEV] \u062A\u062C\u062F\u064A\u062F \u0645\u0628\u0633\u0637 \u0645\u0643\u062A\u0645\u0644 \u0641\u064A ${duration}ms`);
     return {
@@ -9969,16 +6553,16 @@ async function refreshAccessTokenProd(refreshToken) {
     if (payload.type !== "refresh") {
       return null;
     }
-    const user = await db.select().from(users).where(eq6(users.id, payload.userId)).limit(1);
+    const user = await db.select().from(users).where(eq4(users.id, payload.userId)).limit(1);
     if (user.length === 0 || !user[0].isActive) {
       return null;
     }
     const refreshTokenHash = hashToken(refreshToken);
     const session = await db.select().from(authUserSessions).where(
-      and6(
-        eq6(authUserSessions.userId, payload.userId),
-        eq6(authUserSessions.refreshTokenHash, refreshTokenHash),
-        eq6(authUserSessions.isRevoked, false),
+      and4(
+        eq4(authUserSessions.userId, payload.userId),
+        eq4(authUserSessions.refreshTokenHash, refreshTokenHash),
+        eq4(authUserSessions.isRevoked, false),
         gte2(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
       )
     ).limit(1);
@@ -10007,7 +6591,7 @@ async function refreshAccessTokenProd(refreshToken) {
       refreshTokenHash: newRefreshTokenHash,
       expiresAt: refreshExpiresAt,
       lastActivity: /* @__PURE__ */ new Date()
-    }).where(eq6(authUserSessions.id, session[0].id));
+    }).where(eq4(authUserSessions.id, session[0].id));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [JWT-PROD] \u062A\u0645 \u062A\u062F\u0648\u064A\u0631 \u0627\u0644\u0631\u0645\u0648\u0632 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       userId: payload.userId,
@@ -10041,7 +6625,7 @@ async function revokeToken(tokenOrSessionId, reason) {
       isRevoked: true,
       revokedAt: /* @__PURE__ */ new Date(),
       revokedReason: reason || "manual_revoke"
-    }).where(eq6(authUserSessions.sessionToken, tokenOrSessionId));
+    }).where(eq4(authUserSessions.sessionToken, tokenOrSessionId));
     if ((updated.rowCount || 0) === 0) {
       updated = await db.update(authUserSessions).set({
         isRevoked: true,
@@ -10049,9 +6633,9 @@ async function revokeToken(tokenOrSessionId, reason) {
         revokedReason: reason || "manual_revoke"
       }).where(
         or3(
-          eq6(authUserSessions.accessTokenHash, tokenOrSessionId),
-          eq6(authUserSessions.refreshTokenHash, tokenOrSessionId),
-          eq6(authUserSessions.deviceId, tokenOrSessionId)
+          eq4(authUserSessions.accessTokenHash, tokenOrSessionId),
+          eq4(authUserSessions.refreshTokenHash, tokenOrSessionId),
+          eq4(authUserSessions.deviceId, tokenOrSessionId)
         )
       );
     }
@@ -10071,8 +6655,8 @@ async function revokeToken(tokenOrSessionId, reason) {
 async function revokeAllUserSessions(userId, exceptSessionId) {
   try {
     const conditions = [
-      eq6(authUserSessions.userId, userId),
-      eq6(authUserSessions.isRevoked, false)
+      eq4(authUserSessions.userId, userId),
+      eq4(authUserSessions.isRevoked, false)
     ];
     if (exceptSessionId) {
       conditions.push(ne(authUserSessions.deviceId, exceptSessionId));
@@ -10081,7 +6665,7 @@ async function revokeAllUserSessions(userId, exceptSessionId) {
       isRevoked: true,
       revokedAt: /* @__PURE__ */ new Date(),
       revokedReason: "logout_all_devices"
-    }).where(and6(...conditions));
+    }).where(and4(...conditions));
     return updated.rowCount || 0;
   } catch (error) {
     console.error("\u062E\u0637\u0623 \u0641\u064A \u0625\u0628\u0637\u0627\u0644 \u062C\u0644\u0633\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", error);
@@ -10098,9 +6682,9 @@ async function getUserActiveSessions(userId) {
     lastUsedAt: authUserSessions.lastActivity,
     expiresAt: authUserSessions.expiresAt
   }).from(authUserSessions).where(
-    and6(
-      eq6(authUserSessions.userId, userId),
-      eq6(authUserSessions.isRevoked, false)
+    and4(
+      eq4(authUserSessions.userId, userId),
+      eq4(authUserSessions.isRevoked, false)
     )
   ).orderBy(authUserSessions.lastActivity);
 }
@@ -10109,7 +6693,7 @@ async function getUserActiveSessions(userId) {
 init_db();
 init_schema();
 import nodemailer from "nodemailer";
-import { eq as eq7, and as and7, sql as sql5 } from "drizzle-orm";
+import { eq as eq5, and as and5, sql as sql4 } from "drizzle-orm";
 import crypto3 from "crypto";
 var createTransporter = () => {
   const smtpUser = process.env.SMTP_USER?.trim().replace(/\s+/g, "") || "";
@@ -10316,7 +6900,7 @@ async function sendVerificationEmail(userId, email, ipAddress, userAgent) {
     console.log("\u{1F4E7} [EmailService] \u0628\u062F\u0621 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", userId);
     let userFullName = null;
     try {
-      const userQuery = await db.execute(sql5`
+      const userQuery = await db.execute(sql4`
         SELECT first_name, last_name 
         FROM users 
         WHERE id = ${userId}
@@ -10337,9 +6921,9 @@ async function sendVerificationEmail(userId, email, ipAddress, userAgent) {
         message: "\u062E\u0637\u0623 \u0641\u064A \u0625\u0639\u062F\u0627\u062F \u062E\u062F\u0645\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A"
       };
     }
-    await db.delete(emailVerificationTokens).where(and7(
-      eq7(emailVerificationTokens.userId, userId),
-      eq7(emailVerificationTokens.email, email)
+    await db.delete(emailVerificationTokens).where(and5(
+      eq5(emailVerificationTokens.userId, userId),
+      eq5(emailVerificationTokens.email, email)
     ));
     const verificationCode = generateVerificationCode();
     const tokenHash = await hashToken2(verificationCode);
@@ -10384,9 +6968,9 @@ async function sendVerificationEmail(userId, email, ipAddress, userAgent) {
 async function verifyEmailToken(userId, token) {
   try {
     console.log("\u{1F50D} [EmailService] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", userId);
-    const tokenRecord = await db.select().from(emailVerificationTokens).where(and7(
-      eq7(emailVerificationTokens.userId, userId),
-      eq7(emailVerificationTokens.token, token)
+    const tokenRecord = await db.select().from(emailVerificationTokens).where(and5(
+      eq5(emailVerificationTokens.userId, userId),
+      eq5(emailVerificationTokens.token, token)
     )).limit(1);
     if (tokenRecord.length === 0) {
       return {
@@ -10396,7 +6980,7 @@ async function verifyEmailToken(userId, token) {
     }
     const record = tokenRecord[0];
     if (/* @__PURE__ */ new Date() > record.expiresAt) {
-      await db.delete(emailVerificationTokens).where(eq7(emailVerificationTokens.id, record.id));
+      await db.delete(emailVerificationTokens).where(eq5(emailVerificationTokens.id, record.id));
       return {
         success: false,
         message: "\u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629. \u064A\u0631\u062C\u0649 \u0637\u0644\u0628 \u0631\u0645\u0632 \u062C\u062F\u064A\u062F"
@@ -10408,8 +6992,8 @@ async function verifyEmailToken(userId, token) {
         message: "\u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0647\u0630\u0627 \u0627\u0644\u0631\u0645\u0632 \u0645\u0633\u0628\u0642\u0627\u064B"
       };
     }
-    await db.update(emailVerificationTokens).set({ verifiedAt: /* @__PURE__ */ new Date() }).where(eq7(emailVerificationTokens.id, record.id));
-    await db.update(users).set({ emailVerifiedAt: /* @__PURE__ */ new Date() }).where(eq7(users.id, userId));
+    await db.update(emailVerificationTokens).set({ verifiedAt: /* @__PURE__ */ new Date() }).where(eq5(emailVerificationTokens.id, record.id));
+    await db.update(users).set({ emailVerifiedAt: /* @__PURE__ */ new Date() }).where(eq5(users.id, userId));
     console.log("\u2705 [EmailService] \u062A\u0645 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0628\u0646\u062C\u0627\u062D \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", userId);
     return {
       success: true,
@@ -10426,7 +7010,7 @@ async function verifyEmailToken(userId, token) {
 async function sendPasswordResetEmail(email, ipAddress, userAgent) {
   try {
     console.log("\u{1F511} [EmailService] \u0628\u062F\u0621 \u0625\u0631\u0633\u0627\u0644 \u0631\u0627\u0628\u0637 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0644\u0644\u0628\u0631\u064A\u062F:", email);
-    const userResult = await db.select().from(users).where(eq7(users.email, email)).limit(1);
+    const userResult = await db.select().from(users).where(eq5(users.email, email)).limit(1);
     if (userResult.length === 0) {
       return {
         success: true,
@@ -10441,7 +7025,7 @@ async function sendPasswordResetEmail(email, ipAddress, userAgent) {
         message: "\u062E\u0637\u0623 \u0641\u064A \u0625\u0639\u062F\u0627\u062F \u062E\u062F\u0645\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A"
       };
     }
-    await db.delete(passwordResetTokens).where(eq7(passwordResetTokens.userId, user.id));
+    await db.delete(passwordResetTokens).where(eq5(passwordResetTokens.userId, user.id));
     const resetToken = generateSecureToken();
     const tokenHash = await hashToken2(resetToken);
     const domain = getDynamicDomain();
@@ -10483,7 +7067,7 @@ async function sendPasswordResetEmail(email, ipAddress, userAgent) {
 async function resetPasswordWithToken(token, newPassword) {
   try {
     console.log("\u{1F510} [EmailService] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631");
-    const tokenRecord = await db.select().from(passwordResetTokens).where(eq7(passwordResetTokens.token, token)).limit(1);
+    const tokenRecord = await db.select().from(passwordResetTokens).where(eq5(passwordResetTokens.token, token)).limit(1);
     if (tokenRecord.length === 0) {
       return {
         success: false,
@@ -10492,7 +7076,7 @@ async function resetPasswordWithToken(token, newPassword) {
     }
     const record = tokenRecord[0];
     if (/* @__PURE__ */ new Date() > record.expiresAt) {
-      await db.delete(passwordResetTokens).where(eq7(passwordResetTokens.id, record.id));
+      await db.delete(passwordResetTokens).where(eq5(passwordResetTokens.id, record.id));
       return {
         success: false,
         message: "\u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629. \u064A\u0631\u062C\u0649 \u0637\u0644\u0628 \u0631\u0645\u0632 \u062C\u062F\u064A\u062F"
@@ -10505,8 +7089,8 @@ async function resetPasswordWithToken(token, newPassword) {
       };
     }
     const hashedPassword = await hashPassword(newPassword);
-    await db.update(users).set({ password: hashedPassword }).where(eq7(users.id, record.userId));
-    await db.update(passwordResetTokens).set({ usedAt: /* @__PURE__ */ new Date() }).where(eq7(passwordResetTokens.id, record.id));
+    await db.update(users).set({ password: hashedPassword }).where(eq5(users.id, record.userId));
+    await db.update(passwordResetTokens).set({ usedAt: /* @__PURE__ */ new Date() }).where(eq5(passwordResetTokens.id, record.id));
     console.log("\u2705 [EmailService] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0628\u0646\u062C\u0627\u062D \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", record.userId);
     return {
       success: true,
@@ -10522,7 +7106,7 @@ async function resetPasswordWithToken(token, newPassword) {
 }
 async function validatePasswordResetToken(token) {
   try {
-    const tokenRecord = await db.select().from(passwordResetTokens).where(eq7(passwordResetTokens.token, token)).limit(1);
+    const tokenRecord = await db.select().from(passwordResetTokens).where(eq5(passwordResetTokens.token, token)).limit(1);
     if (tokenRecord.length === 0) {
       return {
         success: false,
@@ -10624,7 +7208,7 @@ async function registerUser(request) {
       };
     }
     console.log("\u{1F50D} [Register] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0648\u062C\u0648\u062F \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0633\u0628\u0642\u0627\u064B...");
-    const existingUser = await db.select().from(users).where(eq8(users.email, email.toLowerCase())).limit(1);
+    const existingUser = await db.select().from(users).where(eq6(users.email, email.toLowerCase())).limit(1);
     if (existingUser.length > 0) {
       console.log("\u274C [Register] \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B");
       return {
@@ -10660,7 +7244,7 @@ async function registerUser(request) {
     );
     if (!emailResult.success) {
       console.error("\u274C [Register] \u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642:", emailResult.message);
-      await db.delete(users).where(eq8(users.id, userId));
+      await db.delete(users).where(eq6(users.id, userId));
       return {
         success: false,
         message: "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062D\u0633\u0627\u0628 \u0644\u0643\u0646 \u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649"
@@ -10740,7 +7324,7 @@ async function setupTOTP(userId, email) {
     await db.update(users).set({
       totpSecret: secret
       // mfaEnabled حقل غير موجود في جدول users
-    }).where(eq8(users.id, userId));
+    }).where(eq6(users.id, userId));
     return {
       success: true,
       secret,
@@ -10758,7 +7342,7 @@ async function setupTOTP(userId, email) {
 }
 async function enableTOTP(userId, totpCode, ipAddress, userAgent) {
   try {
-    const user = await db.select().from(users).where(eq8(users.id, userId)).limit(1);
+    const user = await db.select().from(users).where(eq6(users.id, userId)).limit(1);
     if (user.length === 0 || !user[0].totpSecret) {
       return {
         success: false,
@@ -10815,7 +7399,7 @@ async function terminateAllOtherSessions(userId, exceptSessionId) {
 }
 async function changePassword(userId, currentPassword, newPassword, ipAddress, userAgent) {
   try {
-    const user = await db.select().from(users).where(eq8(users.id, userId)).limit(1);
+    const user = await db.select().from(users).where(eq6(users.id, userId)).limit(1);
     if (user.length === 0) {
       return {
         success: false,
@@ -10850,7 +7434,7 @@ async function changePassword(userId, currentPassword, newPassword, ipAddress, u
     const newPasswordHash = await hashPassword(newPassword);
     await db.update(users).set({
       password: newPasswordHash
-    }).where(eq8(users.id, userId));
+    }).where(eq6(users.id, userId));
     await revokeAllUserSessions(userId);
     await logAuditEvent({
       userId,
@@ -10946,7 +7530,7 @@ router.post("/login", async (req, res) => {
     const isBypassLogin = email === "admin@demo.local" && password === "bypass-demo-login";
     if (isBypassLogin && isDevEnvironment && quickLoginEnabled) {
       console.log("\u{1F680} [Auth] \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644 \u0633\u0631\u064A\u0639 \u062A\u062C\u0631\u064A\u0628\u064A (\u0628\u064A\u0626\u0629 \u062A\u0637\u0648\u064A\u0631 \u0641\u0642\u0637)");
-      let user2 = await db.select().from(users).where(eq9(users.role, "admin")).limit(1);
+      let user2 = await db.select().from(users).where(eq7(users.role, "admin")).limit(1);
       if (user2.length === 0) {
         console.log("\u{1F464} [Auth] \u0625\u0646\u0634\u0627\u0621 \u0645\u0633\u062A\u062E\u062F\u0645 admin \u062A\u062C\u0631\u064A\u0628\u064A");
         const newUser = await db.insert(users).values({
@@ -11023,7 +7607,7 @@ router.post("/login", async (req, res) => {
       lastLogin: users.lastLogin,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt
-    }).from(users).where(eq9(users.email, email.toLowerCase())).limit(1);
+    }).from(users).where(eq7(users.email, email.toLowerCase())).limit(1);
     if (userResult.length === 0) {
       console.log("\u274C [Auth] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", email);
       return res.status(401).json({
@@ -11056,7 +7640,7 @@ router.post("/login", async (req, res) => {
       user.role
     );
     console.log("\u{1F4DD} [Auth] \u062A\u062D\u062F\u064A\u062B \u0622\u062E\u0631 \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644...");
-    await db.update(users).set({ lastLogin: /* @__PURE__ */ new Date() }).where(eq9(users.id, user.id));
+    await db.update(users).set({ lastLogin: /* @__PURE__ */ new Date() }).where(eq7(users.id, user.id));
     console.log("\u2705 [Auth] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0646\u062C\u0627\u062D");
     const responseData = {
       success: true,
@@ -11358,7 +7942,7 @@ router.post("/validate-field", async (req, res) => {
           isValid = false;
           message = "\u0635\u064A\u063A\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
         } else {
-          const existingUser = await db.execute(sql6`
+          const existingUser = await db.execute(sql5`
             SELECT id FROM users WHERE LOWER(email) = LOWER(${value})
           `);
           if (existingUser.rows.length > 0) {
@@ -11525,7 +8109,7 @@ router.get("/me", requireAuth, async (req, res) => {
     const role = req.user?.role || "user";
     let userData = null;
     try {
-      const userResult = await db.select().from(users).where(eq9(users.id, userId)).limit(1);
+      const userResult = await db.select().from(users).where(eq7(users.id, userId)).limit(1);
       if (userResult.length > 0) {
         userData = userResult[0];
       }
@@ -11682,7 +8266,7 @@ var auth_default = router;
 import express2 from "express";
 
 // server/config/routes.ts
-import rateLimit3 from "express-rate-limit";
+import rateLimit2 from "express-rate-limit";
 var PUBLIC_ROUTES = [
   {
     name: "auth",
@@ -12151,7 +8735,7 @@ var AdvancedRouteManager = class {
     if (route.rateLimit || globalRateLimit2) {
       const rateLimitConfig = route.rateLimit || globalRateLimit2;
       const limiterId = `${route.path}:${route.methods.join(",")}`;
-      this.rateLimiters.set(limiterId, rateLimit3({
+      this.rateLimiters.set(limiterId, rateLimit2({
         windowMs: rateLimitConfig.windowMs,
         max: rateLimitConfig.max,
         message: {
@@ -12260,7 +8844,7 @@ var AdvancedRouteManager = class {
   }
 };
 var routeManager = new AdvancedRouteManager();
-var publicRouteRateLimit = rateLimit3({
+var publicRouteRateLimit = rateLimit2({
   windowMs: 15 * 60 * 1e3,
   // 15 دقيقة
   max: 100,
@@ -12279,7 +8863,7 @@ var publicRouteRateLimit = rateLimit3({
     return !routeManager.isPublicRoute(path4, method);
   }
 });
-var authRouteRateLimit = rateLimit3({
+var authRouteRateLimit = rateLimit2({
   windowMs: 15 * 60 * 1e3,
   // 15 دقيقة
   max: 10,
@@ -12587,7 +9171,7 @@ var healthRoutes_default = healthRouter;
 init_db();
 init_schema();
 import express5 from "express";
-import { eq as eq10, and as and9, sql as sql7, gte as gte5, lt as lt3, lte as lte2, desc as desc6 } from "drizzle-orm";
+import { eq as eq8, and as and7, sql as sql6, gte as gte5, lt as lt3, lte as lte2, desc as desc5 } from "drizzle-orm";
 var projectRouter = express5.Router();
 projectRouter.use(requireAuth);
 projectRouter.get("/", async (req, res) => {
@@ -12633,7 +9217,7 @@ projectRouter.get("/with-stats", async (req, res) => {
           }
           return Math.max(0, parsed);
         };
-        const workersStats = await db.execute(sql7`
+        const workersStats = await db.execute(sql6`
           SELECT 
             COUNT(DISTINCT wa.worker_id) as total_workers,
             COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
@@ -12641,46 +9225,46 @@ projectRouter.get("/with-stats", async (req, res) => {
           INNER JOIN workers w ON wa.worker_id = w.id
           WHERE wa.project_id = ${projectId}
         `);
-        const materialStats = await db.execute(sql7`
+        const materialStats = await db.execute(sql6`
           SELECT 
             COUNT(*) as material_purchases,
             COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
           FROM material_purchases 
           WHERE project_id = ${projectId}
         `);
-        const workerWagesStats = await db.execute(sql7`
+        const workerWagesStats = await db.execute(sql6`
           SELECT 
             COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
             COUNT(DISTINCT date) as completed_days
           FROM worker_attendance 
           WHERE project_id = ${projectId} AND is_present = true
         `);
-        const fundTransfersStats = await db.execute(sql7`
+        const fundTransfersStats = await db.execute(sql6`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
           FROM fund_transfers 
           WHERE project_id = ${projectId}
         `);
-        const transportStats = await db.execute(sql7`
+        const transportStats = await db.execute(sql6`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
           FROM transportation_expenses 
           WHERE project_id = ${projectId}
         `);
-        const workerTransfersStats = await db.execute(sql7`
+        const workerTransfersStats = await db.execute(sql6`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
           FROM worker_transfers 
           WHERE project_id = ${projectId}
         `);
-        const miscExpensesStats = await db.execute(sql7`
+        const miscExpensesStats = await db.execute(sql6`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
           FROM worker_misc_expenses 
           WHERE project_id = ${projectId}
         `);
-        const outgoingProjectTransfersStats = await db.execute(sql7`
+        const outgoingProjectTransfersStats = await db.execute(sql6`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as outgoing_project_transfers
           FROM project_fund_transfers 
           WHERE from_project_id = ${projectId}
         `);
-        const incomingProjectTransfersStats = await db.execute(sql7`
+        const incomingProjectTransfersStats = await db.execute(sql6`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as incoming_project_transfers
           FROM project_fund_transfers 
           WHERE to_project_id = ${projectId}
@@ -12688,7 +9272,7 @@ projectRouter.get("/with-stats", async (req, res) => {
         const totalWorkers = cleanDbValue(workersStats.rows[0]?.total_workers || "0", "integer");
         const activeWorkers = cleanDbValue(workersStats.rows[0]?.active_workers || "0", "integer");
         const materialExpenses = cleanDbValue(materialStats.rows[0]?.material_expenses || "0");
-        const materialPurchases3 = cleanDbValue(materialStats.rows[0]?.material_purchases || "0", "integer");
+        const materialPurchases2 = cleanDbValue(materialStats.rows[0]?.material_purchases || "0", "integer");
         const workerWages = cleanDbValue(workerWagesStats.rows[0]?.worker_wages || "0");
         const completedDays = cleanDbValue(workerWagesStats.rows[0]?.completed_days || "0", "integer");
         const fundTransfersIncome = cleanDbValue(fundTransfersStats.rows[0]?.total_income || "0");
@@ -12711,7 +9295,7 @@ projectRouter.get("/with-stats", async (req, res) => {
             totalExpenses,
             currentBalance,
             completedDays,
-            materialPurchases: materialPurchases3
+            materialPurchases: materialPurchases2
           });
         }
         return {
@@ -12724,7 +9308,7 @@ projectRouter.get("/with-stats", async (req, res) => {
             // يمكن أن يكون سالباً
             activeWorkers: Math.max(0, activeWorkers),
             completedDays: Math.max(0, completedDays),
-            materialPurchases: Math.max(0, materialPurchases3),
+            materialPurchases: Math.max(0, materialPurchases2),
             lastActivity: project.createdAt.toISOString()
           }
         };
@@ -12831,7 +9415,7 @@ projectRouter.get("/:id", async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const projectResult = await db.select().from(projects).where(eq10(projects.id, id)).limit(1);
+    const projectResult = await db.select().from(projects).where(eq8(projects.id, id)).limit(1);
     if (projectResult.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", id);
@@ -12863,7 +9447,7 @@ projectRouter.get("/:id", async (req, res) => {
           workerTransfersStats,
           miscExpensesStats
         ] = await Promise.all([
-          db.execute(sql7`
+          db.execute(sql6`
             SELECT 
               COUNT(DISTINCT wa.worker_id) as total_workers,
               COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
@@ -12871,36 +9455,36 @@ projectRouter.get("/:id", async (req, res) => {
             INNER JOIN workers w ON wa.worker_id = w.id
             WHERE wa.project_id = ${id}
           `),
-          db.execute(sql7`
+          db.execute(sql6`
             SELECT 
               COUNT(*) as material_purchases,
               COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
             FROM material_purchases 
             WHERE project_id = ${id}
           `),
-          db.execute(sql7`
+          db.execute(sql6`
             SELECT 
               COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
               COUNT(DISTINCT date) as completed_days
             FROM worker_attendance 
             WHERE project_id = ${id} AND is_present = true
           `),
-          db.execute(sql7`
+          db.execute(sql6`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
             FROM fund_transfers 
             WHERE project_id = ${id}
           `),
-          db.execute(sql7`
+          db.execute(sql6`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
             FROM transportation_expenses 
             WHERE project_id = ${id}
           `),
-          db.execute(sql7`
+          db.execute(sql6`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
             FROM worker_transfers 
             WHERE project_id = ${id}
           `),
-          db.execute(sql7`
+          db.execute(sql6`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
             FROM worker_misc_expenses 
             WHERE project_id = ${id}
@@ -12909,7 +9493,7 @@ projectRouter.get("/:id", async (req, res) => {
         const totalWorkers = cleanDbValue(workersStats.rows[0]?.total_workers || "0", "integer");
         const activeWorkers = cleanDbValue(workersStats.rows[0]?.active_workers || "0", "integer");
         const materialExpenses = cleanDbValue(materialStats.rows[0]?.material_expenses || "0");
-        const materialPurchases3 = cleanDbValue(materialStats.rows[0]?.material_purchases || "0", "integer");
+        const materialPurchases2 = cleanDbValue(materialStats.rows[0]?.material_purchases || "0", "integer");
         const workerWages = cleanDbValue(workerWagesStats.rows[0]?.worker_wages || "0");
         const completedDays = cleanDbValue(workerWagesStats.rows[0]?.completed_days || "0", "integer");
         const totalIncome = cleanDbValue(fundTransfersStats.rows[0]?.total_income || "0");
@@ -12927,7 +9511,7 @@ projectRouter.get("/:id", async (req, res) => {
             currentBalance,
             activeWorkers: Math.max(0, activeWorkers),
             completedDays: Math.max(0, completedDays),
-            materialPurchases: Math.max(0, materialPurchases3),
+            materialPurchases: Math.max(0, materialPurchases2),
             lastActivity: project.createdAt.toISOString()
           }
         };
@@ -12978,7 +9562,7 @@ projectRouter.patch("/:id", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const existingProject = await db.select().from(projects).where(eq10(projects.id, projectId)).limit(1);
+    const existingProject = await db.select().from(projects).where(eq8(projects.id, projectId)).limit(1);
     if (existingProject.length === 0) {
       return res.status(404).json({
         success: false,
@@ -12986,7 +9570,7 @@ projectRouter.patch("/:id", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const updatedProject = await db.update(projects).set(req.body).where(eq10(projects.id, projectId)).returning();
+    const updatedProject = await db.update(projects).set(req.body).where(eq8(projects.id, projectId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -13021,7 +9605,7 @@ projectRouter.delete("/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingProject = await db.select().from(projects).where(eq10(projects.id, projectId)).limit(1);
+    const existingProject = await db.select().from(projects).where(eq8(projects.id, projectId)).limit(1);
     if (existingProject.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -13039,7 +9623,7 @@ projectRouter.delete("/:id", async (req, res) => {
       status: projectToDelete.status
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedProject = await db.delete(projects).where(eq10(projects.id, projectId)).returning();
+    const deletedProject = await db.delete(projects).where(eq8(projects.id, projectId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedProject[0].id,
@@ -13084,7 +9668,7 @@ projectRouter.get("/:projectId/fund-transfers", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const transfers = await db.select().from(fundTransfers).where(eq10(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
+    const transfers = await db.select().from(fundTransfers).where(eq8(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
     res.json({
@@ -13128,7 +9712,7 @@ projectRouter.get("/:projectId/worker-attendance", async (req, res) => {
       isPresent: workerAttendance.isPresent,
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
-    }).from(workerAttendance).leftJoin(workers, eq10(workerAttendance.workerId, workers.id)).where(eq10(workerAttendance.projectId, projectId)).orderBy(workerAttendance.date);
+    }).from(workerAttendance).leftJoin(workers, eq8(workerAttendance.workerId, workers.id)).where(eq8(workerAttendance.projectId, projectId)).orderBy(workerAttendance.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -13160,7 +9744,7 @@ projectRouter.get("/:projectId/material-purchases", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const purchases = await db.select().from(materialPurchases).where(eq10(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
+    const purchases = await db.select().from(materialPurchases).where(eq8(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${purchases.length} \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0648\u0627\u062F \u0641\u064A ${duration}ms`);
     res.json({
@@ -13192,7 +9776,7 @@ projectRouter.get("/:projectId/transportation-expenses", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(transportationExpenses).where(eq10(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
+    const expenses = await db.select().from(transportationExpenses).where(eq8(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644 \u0641\u064A ${duration}ms`);
     res.json({
@@ -13224,7 +9808,7 @@ projectRouter.get("/:projectId/worker-misc-expenses", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
+    const expenses = await db.select().from(workerMiscExpenses).where(eq8(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
     res.json({
@@ -13263,9 +9847,9 @@ projectRouter.get("/fund-transfers/incoming/:projectId", async (req, res) => {
       amount: projectFundTransfers.amount,
       transferDate: projectFundTransfers.transferDate,
       description: projectFundTransfers.description,
-      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq10(projectFundTransfers.toProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
+      fromProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq8(projectFundTransfers.toProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0641\u064A ${duration}ms`);
     res.json({
@@ -13304,9 +9888,9 @@ projectRouter.get("/fund-transfers/outgoing/:projectId", async (req, res) => {
       amount: projectFundTransfers.amount,
       transferDate: projectFundTransfers.transferDate,
       description: projectFundTransfers.description,
-      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq10(projectFundTransfers.fromProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
+      fromProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq8(projectFundTransfers.fromProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -13351,7 +9935,7 @@ projectRouter.get("/:projectId/worker-transfers", async (req, res) => {
       notes: workerTransfers.notes,
       createdAt: workerTransfers.createdAt,
       workerName: workers.name
-    }).from(workerTransfers).leftJoin(workers, eq10(workerTransfers.workerId, workers.id)).where(eq10(workerTransfers.projectId, projectId)).orderBy(workerTransfers.transferDate);
+    }).from(workerTransfers).leftJoin(workers, eq8(workerTransfers.workerId, workers.id)).where(eq8(workerTransfers.projectId, projectId)).orderBy(workerTransfers.transferDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062D\u0648\u0644\u0629 \u0639\u0645\u0627\u0644 \u0641\u064A ${duration}ms`);
     res.json({
@@ -13392,10 +9976,10 @@ projectRouter.get("/:projectId/actual-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      direction: sql7`'incoming'`.as("direction"),
-      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq10(projectFundTransfers.toProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
+      direction: sql6`'incoming'`.as("direction"),
+      fromProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq8(projectFundTransfers.toProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
     const outgoingTransfers = await db.select({
       id: projectFundTransfers.id,
       fromProjectId: projectFundTransfers.fromProjectId,
@@ -13405,10 +9989,10 @@ projectRouter.get("/:projectId/actual-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      direction: sql7`'outgoing'`.as("direction"),
-      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq10(projectFundTransfers.fromProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
+      direction: sql6`'outgoing'`.as("direction"),
+      fromProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql6`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq8(projectFundTransfers.fromProjectId, projectId)).orderBy(desc5(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${incomingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0648 ${outgoingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -13465,7 +10049,7 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0648\u062C\u0648\u062F \u0627\u0644\u0645\u0634\u0631\u0648\u0639...");
-    const projectExists = await db.select().from(projects).where(eq10(projects.id, projectId)).limit(1);
+    const projectExists = await db.select().from(projects).where(eq8(projects.id, projectId)).limit(1);
     if (projectExists.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -13480,7 +10064,7 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
     let dailySummary = null;
     try {
       console.log("\u26A1 [API] \u0645\u062D\u0627\u0648\u0644\u0629 \u062C\u0644\u0628 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 daily_summary_mv...");
-      const mvResult = await db.execute(sql7`
+      const mvResult = await db.execute(sql6`
         SELECT 
           id,
           project_id,
@@ -13518,18 +10102,18 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
         total_worker_wages: dailyExpenseSummaries.totalWorkerWages,
         total_material_costs: dailyExpenseSummaries.totalMaterialCosts,
         total_transportation_expenses: dailyExpenseSummaries.totalTransportationCosts,
-        total_worker_transfers: sql7`COALESCE(${dailyExpenseSummaries.totalWorkerTransfers}, 0)`,
-        total_worker_misc_expenses: sql7`COALESCE(${dailyExpenseSummaries.totalWorkerMiscExpenses}, 0)`,
+        total_worker_transfers: sql6`COALESCE(${dailyExpenseSummaries.totalWorkerTransfers}, 0)`,
+        total_worker_misc_expenses: sql6`COALESCE(${dailyExpenseSummaries.totalWorkerMiscExpenses}, 0)`,
         total_income: dailyExpenseSummaries.totalIncome,
         total_expenses: dailyExpenseSummaries.totalExpenses,
         remaining_balance: dailyExpenseSummaries.remainingBalance,
-        notes: sql7`COALESCE(${dailyExpenseSummaries.notes}, '')`,
+        notes: sql6`COALESCE(${dailyExpenseSummaries.notes}, '')`,
         created_at: dailyExpenseSummaries.createdAt,
-        updated_at: sql7`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
+        updated_at: sql6`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
         project_name: projects.name
-      }).from(dailyExpenseSummaries).leftJoin(projects, eq10(dailyExpenseSummaries.projectId, projects.id)).where(and9(
-        eq10(dailyExpenseSummaries.projectId, projectId),
-        eq10(dailyExpenseSummaries.date, date2)
+      }).from(dailyExpenseSummaries).leftJoin(projects, eq8(dailyExpenseSummaries.projectId, projects.id)).where(and7(
+        eq8(dailyExpenseSummaries.projectId, projectId),
+        eq8(dailyExpenseSummaries.date, date2)
       )).limit(1);
       if (regularResult.length > 0) {
         dailySummary = regularResult[0];
@@ -13650,7 +10234,7 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
       miscExpensesResult,
       projectInfo
     ] = await Promise.all([
-      db.select().from(fundTransfers).where(and9(eq10(fundTransfers.projectId, projectId), gte5(fundTransfers.transferDate, sql7`${date2}::date`), lt3(fundTransfers.transferDate, sql7`(${date2}::date + interval '1 day')`))),
+      db.select().from(fundTransfers).where(and7(eq8(fundTransfers.projectId, projectId), gte5(fundTransfers.transferDate, sql6`${date2}::date`), lt3(fundTransfers.transferDate, sql6`(${date2}::date + interval '1 day')`))),
       db.select({
         id: workerAttendance.id,
         workerId: workerAttendance.workerId,
@@ -13660,12 +10244,12 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
         actualWage: workerAttendance.actualWage,
         workDays: workerAttendance.workDays,
         workerName: workers.name
-      }).from(workerAttendance).leftJoin(workers, eq10(workerAttendance.workerId, workers.id)).where(and9(eq10(workerAttendance.projectId, projectId), eq10(workerAttendance.date, date2))),
-      db.select().from(materialPurchases).where(and9(eq10(materialPurchases.projectId, projectId), eq10(materialPurchases.purchaseDate, date2))),
-      db.select().from(transportationExpenses).where(and9(eq10(transportationExpenses.projectId, projectId), eq10(transportationExpenses.date, date2))),
-      db.select().from(workerTransfers).where(and9(eq10(workerTransfers.projectId, projectId), eq10(workerTransfers.transferDate, date2))),
-      db.select().from(workerMiscExpenses).where(and9(eq10(workerMiscExpenses.projectId, projectId), eq10(workerMiscExpenses.date, date2))),
-      db.select().from(projects).where(eq10(projects.id, projectId)).limit(1)
+      }).from(workerAttendance).leftJoin(workers, eq8(workerAttendance.workerId, workers.id)).where(and7(eq8(workerAttendance.projectId, projectId), eq8(workerAttendance.date, date2))),
+      db.select().from(materialPurchases).where(and7(eq8(materialPurchases.projectId, projectId), eq8(materialPurchases.purchaseDate, date2))),
+      db.select().from(transportationExpenses).where(and7(eq8(transportationExpenses.projectId, projectId), eq8(transportationExpenses.date, date2))),
+      db.select().from(workerTransfers).where(and7(eq8(workerTransfers.projectId, projectId), eq8(workerTransfers.transferDate, date2))),
+      db.select().from(workerMiscExpenses).where(and7(eq8(workerMiscExpenses.projectId, projectId), eq8(workerMiscExpenses.date, date2))),
+      db.select().from(projects).where(eq8(projects.id, projectId)).limit(1)
     ]);
     const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
     const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
@@ -13687,10 +10271,10 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
       const latestSummary = await db.select({
         remainingBalance: dailyExpenseSummaries.remainingBalance,
         date: dailyExpenseSummaries.date
-      }).from(dailyExpenseSummaries).where(and9(
-        eq10(dailyExpenseSummaries.projectId, projectId),
+      }).from(dailyExpenseSummaries).where(and7(
+        eq8(dailyExpenseSummaries.projectId, projectId),
         lt3(dailyExpenseSummaries.date, date2)
-      )).orderBy(desc6(dailyExpenseSummaries.date)).limit(1);
+      )).orderBy(desc5(dailyExpenseSummaries.date)).limit(1);
       if (latestSummary.length > 0) {
         const summaryDate = latestSummary[0].date;
         const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || "0"));
@@ -13790,10 +10374,10 @@ projectRouter.get("/:projectId/previous-balance/:date", async (req, res) => {
       const latestSummary = await db.select({
         remainingBalance: dailyExpenseSummaries.remainingBalance,
         date: dailyExpenseSummaries.date
-      }).from(dailyExpenseSummaries).where(and9(
-        eq10(dailyExpenseSummaries.projectId, projectId),
+      }).from(dailyExpenseSummaries).where(and7(
+        eq8(dailyExpenseSummaries.projectId, projectId),
         lt3(dailyExpenseSummaries.date, date2)
-      )).orderBy(desc6(dailyExpenseSummaries.date)).limit(1);
+      )).orderBy(desc5(dailyExpenseSummaries.date)).limit(1);
       if (latestSummary.length > 0) {
         const summaryDate = latestSummary[0].date;
         const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || "0"));
@@ -13851,11 +10435,11 @@ projectRouter.get("/:projectId/previous-balance/:date", async (req, res) => {
 });
 async function calculateCumulativeBalance(projectId, fromDate, toDate) {
   try {
-    const whereConditions = [eq10(fundTransfers.projectId, projectId)];
+    const whereConditions = [eq8(fundTransfers.projectId, projectId)];
     if (fromDate) {
-      whereConditions.push(gte5(fundTransfers.transferDate, sql7`${fromDate}::date`));
+      whereConditions.push(gte5(fundTransfers.transferDate, sql6`${fromDate}::date`));
     }
-    whereConditions.push(lt3(fundTransfers.transferDate, sql7`(${toDate}::date + interval '1 day')`));
+    whereConditions.push(lt3(fundTransfers.transferDate, sql6`(${toDate}::date + interval '1 day')`));
     const [
       ftRows,
       waRows,
@@ -13867,48 +10451,48 @@ async function calculateCumulativeBalance(projectId, fromDate, toDate) {
       outgoingPtRows
     ] = await Promise.all([
       // تحويلات العهدة
-      db.select().from(fundTransfers).where(and9(...whereConditions)),
+      db.select().from(fundTransfers).where(and7(...whereConditions)),
       // أجور العمال
-      db.select().from(workerAttendance).where(and9(
-        eq10(workerAttendance.projectId, projectId),
-        fromDate ? gte5(workerAttendance.date, fromDate) : sql7`true`,
+      db.select().from(workerAttendance).where(and7(
+        eq8(workerAttendance.projectId, projectId),
+        fromDate ? gte5(workerAttendance.date, fromDate) : sql6`true`,
         lte2(workerAttendance.date, toDate)
       )),
       // مشتريات المواد النقدية فقط
-      db.select().from(materialPurchases).where(and9(
-        eq10(materialPurchases.projectId, projectId),
-        eq10(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
-        fromDate ? gte5(materialPurchases.purchaseDate, fromDate) : sql7`true`,
+      db.select().from(materialPurchases).where(and7(
+        eq8(materialPurchases.projectId, projectId),
+        eq8(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
+        fromDate ? gte5(materialPurchases.purchaseDate, fromDate) : sql6`true`,
         lte2(materialPurchases.purchaseDate, toDate)
       )),
       // مصاريف النقل
-      db.select().from(transportationExpenses).where(and9(
-        eq10(transportationExpenses.projectId, projectId),
-        fromDate ? gte5(transportationExpenses.date, fromDate) : sql7`true`,
+      db.select().from(transportationExpenses).where(and7(
+        eq8(transportationExpenses.projectId, projectId),
+        fromDate ? gte5(transportationExpenses.date, fromDate) : sql6`true`,
         lte2(transportationExpenses.date, toDate)
       )),
       // حوالات العمال
-      db.select().from(workerTransfers).where(and9(
-        eq10(workerTransfers.projectId, projectId),
-        fromDate ? gte5(workerTransfers.transferDate, fromDate) : sql7`true`,
+      db.select().from(workerTransfers).where(and7(
+        eq8(workerTransfers.projectId, projectId),
+        fromDate ? gte5(workerTransfers.transferDate, fromDate) : sql6`true`,
         lte2(workerTransfers.transferDate, toDate)
       )),
       // مصاريف متنوعة للعمال
-      db.select().from(workerMiscExpenses).where(and9(
-        eq10(workerMiscExpenses.projectId, projectId),
-        fromDate ? gte5(workerMiscExpenses.date, fromDate) : sql7`true`,
+      db.select().from(workerMiscExpenses).where(and7(
+        eq8(workerMiscExpenses.projectId, projectId),
+        fromDate ? gte5(workerMiscExpenses.date, fromDate) : sql6`true`,
         lte2(workerMiscExpenses.date, toDate)
       )),
       // تحويلات واردة من مشاريع أخرى
-      db.select().from(projectFundTransfers).where(and9(
-        eq10(projectFundTransfers.toProjectId, projectId),
-        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql7`true`,
+      db.select().from(projectFundTransfers).where(and7(
+        eq8(projectFundTransfers.toProjectId, projectId),
+        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql6`true`,
         lte2(projectFundTransfers.transferDate, toDate)
       )),
       // تحويلات صادرة إلى مشاريع أخرى
-      db.select().from(projectFundTransfers).where(and9(
-        eq10(projectFundTransfers.fromProjectId, projectId),
-        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql7`true`,
+      db.select().from(projectFundTransfers).where(and7(
+        eq8(projectFundTransfers.fromProjectId, projectId),
+        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql6`true`,
         lte2(projectFundTransfers.transferDate, toDate)
       ))
     ]);
@@ -13937,7 +10521,7 @@ var projectRoutes_default = projectRouter;
 init_db();
 init_schema();
 import express6 from "express";
-import { eq as eq11, sql as sql8, and as and10 } from "drizzle-orm";
+import { eq as eq9, sql as sql7, and as and8 } from "drizzle-orm";
 var workerRouter = express6.Router();
 workerRouter.use(requireAuth);
 workerRouter.get("/workers", async (req, res) => {
@@ -14029,7 +10613,7 @@ workerRouter.get("/workers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const worker = await db.select().from(workers).where(eq11(workers.id, workerId)).limit(1);
+    const worker = await db.select().from(workers).where(eq9(workers.id, workerId)).limit(1);
     if (worker.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14078,7 +10662,7 @@ workerRouter.patch("/workers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingWorker = await db.select().from(workers).where(eq11(workers.id, workerId)).limit(1);
+    const existingWorker = await db.select().from(workers).where(eq9(workers.id, workerId)).limit(1);
     if (existingWorker.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -14105,7 +10689,7 @@ workerRouter.patch("/workers/:id", async (req, res) => {
     }
     console.log("\u2705 [API] \u0646\u062C\u062D validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644");
     console.log("\u{1F4BE} [API] \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const updatedWorker = await db.update(workers).set(validationResult.data).where(eq11(workers.id, workerId)).returning();
+    const updatedWorker = await db.update(workers).set(validationResult.data).where(eq9(workers.id, workerId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: updatedWorker[0].id,
@@ -14154,7 +10738,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingWorker = await db.select().from(workers).where(eq11(workers.id, workerId)).limit(1);
+    const existingWorker = await db.select().from(workers).where(eq9(workers.id, workerId)).limit(1);
     if (existingWorker.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -14176,12 +10760,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       id: workerAttendance.id,
       date: workerAttendance.date,
       projectId: workerAttendance.projectId
-    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId)).limit(5);
+    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId)).limit(5);
     if (attendanceRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalAttendanceCount = await db.select({
-        count: sql8`COUNT(*)`
-      }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
+        count: sql7`COUNT(*)`
+      }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId));
       const totalCount = totalAttendanceCount[0]?.count || attendanceRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${totalCount} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631`);
       return res.status(409).json({
@@ -14195,12 +10779,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq11(workerTransfers.workerId, workerId)).limit(1);
+    const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq9(workerTransfers.workerId, workerId)).limit(1);
     if (transferRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalTransfersCount = await db.select({
-        count: sql8`COUNT(*)`
-      }).from(workerTransfers).where(eq11(workerTransfers.workerId, workerId));
+        count: sql7`COUNT(*)`
+      }).from(workerTransfers).where(eq9(workerTransfers.workerId, workerId));
       const transfersCount = totalTransfersCount[0]?.count || transferRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transfersCount} \u062A\u062D\u0648\u064A\u0644 \u0645\u0627\u0644\u064A`);
       return res.status(409).json({
@@ -14214,12 +10798,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq11(transportationExpenses.workerId, workerId)).limit(1);
+    const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq9(transportationExpenses.workerId, workerId)).limit(1);
     if (transportRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalTransportCount = await db.select({
-        count: sql8`COUNT(*)`
-      }).from(transportationExpenses).where(eq11(transportationExpenses.workerId, workerId));
+        count: sql7`COUNT(*)`
+      }).from(transportationExpenses).where(eq9(transportationExpenses.workerId, workerId));
       const transportCount = totalTransportCount[0]?.count || transportRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transportCount} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644`);
       return res.status(409).json({
@@ -14233,12 +10817,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0623\u0631\u0635\u062F\u0629 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq11(workerBalances.workerId, workerId)).limit(1);
+    const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq9(workerBalances.workerId, workerId)).limit(1);
     if (balanceRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalBalanceCount = await db.select({
-        count: sql8`COUNT(*)`
-      }).from(workerBalances).where(eq11(workerBalances.workerId, workerId));
+        count: sql7`COUNT(*)`
+      }).from(workerBalances).where(eq9(workerBalances.workerId, workerId));
       const balanceCount = totalBalanceCount[0]?.count || balanceRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${balanceCount} \u0633\u062C\u0644 \u0631\u0635\u064A\u062F`);
       return res.status(409).json({
@@ -14252,7 +10836,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A (\u0644\u0627 \u062A\u0648\u062C\u062F \u0633\u062C\u0644\u0627\u062A \u0645\u0631\u062A\u0628\u0637\u0629)...");
-    const deletedWorker = await db.delete(workers).where(eq11(workers.id, workerId)).returning();
+    const deletedWorker = await db.delete(workers).where(eq9(workers.id, workerId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedWorker[0].id,
@@ -14318,7 +10902,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq9(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14342,7 +10926,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq11(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq9(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14377,7 +10961,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq9(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -14396,7 +10980,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq11(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq9(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -14437,14 +11021,14 @@ workerRouter.get("/worker-misc-expenses", async (req, res) => {
     console.log("\u{1F50D} [API] \u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0627\u0644\u0641\u0644\u062A\u0631\u0629:", { projectId, date: date2 });
     let query;
     if (projectId && date2) {
-      query = db.select().from(workerMiscExpenses).where(and10(
-        eq11(workerMiscExpenses.projectId, projectId),
-        eq11(workerMiscExpenses.date, date2)
+      query = db.select().from(workerMiscExpenses).where(and8(
+        eq9(workerMiscExpenses.projectId, projectId),
+        eq9(workerMiscExpenses.date, date2)
       ));
     } else if (projectId) {
-      query = db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.projectId, projectId));
+      query = db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.projectId, projectId));
     } else if (date2) {
-      query = db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.date, date2));
+      query = db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.date, date2));
     } else {
       query = db.select().from(workerMiscExpenses);
     }
@@ -14485,7 +11069,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14509,7 +11093,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq11(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq9(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14584,12 +11168,12 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
     }
     let whereCondition;
     if (date2) {
-      whereCondition = and10(
-        eq11(workerAttendance.projectId, projectId),
-        eq11(workerAttendance.date, date2)
+      whereCondition = and8(
+        eq9(workerAttendance.projectId, projectId),
+        eq9(workerAttendance.date, date2)
       );
     } else {
-      whereCondition = eq11(workerAttendance.projectId, projectId);
+      whereCondition = eq9(workerAttendance.projectId, projectId);
     }
     const attendance = await db.select({
       id: workerAttendance.id,
@@ -14609,7 +11193,7 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
       isPresent: workerAttendance.isPresent,
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
-    }).from(workerAttendance).leftJoin(workers, eq11(workerAttendance.workerId, workers.id)).where(whereCondition).orderBy(workerAttendance.date);
+    }).from(workerAttendance).leftJoin(workers, eq9(workerAttendance.workerId, workers.id)).where(whereCondition).orderBy(workerAttendance.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -14711,7 +11295,7 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingAttendance = await db.select().from(workerAttendance).where(eq11(workerAttendance.id, attendanceId)).limit(1);
+    const existingAttendance = await db.select().from(workerAttendance).where(eq9(workerAttendance.id, attendanceId)).limit(1);
     if (existingAttendance.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14748,7 +11332,7 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
       updateData.actualWage = actualWageValue.toString();
       updateData.totalPay = actualWageValue.toString();
     }
-    const updatedAttendance = await db.update(workerAttendance).set(updateData).where(eq11(workerAttendance.id, attendanceId)).returning();
+    const updatedAttendance = await db.update(workerAttendance).set(updateData).where(eq9(workerAttendance.id, attendanceId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14796,7 +11380,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq9(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14820,7 +11404,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq11(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq9(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -14864,7 +11448,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq9(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -14883,7 +11467,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq11(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq9(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -14925,7 +11509,7 @@ workerRouter.get("/projects/:projectId/worker-misc-expenses", async (req, res) =
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
+    const expenses = await db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
     res.json({
@@ -14961,7 +11545,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -14985,7 +11569,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq11(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq9(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -15028,7 +11612,7 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
         processingTime: duration2
       });
     }
-    const worker = await db.select().from(workers).where(eq11(workers.id, workerId)).limit(1);
+    const worker = await db.select().from(workers).where(eq9(workers.id, workerId)).limit(1);
     if (worker.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -15039,37 +11623,37 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
       });
     }
     const totalWorkDaysResult = await db.select({
-      totalDays: sql8`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
+      totalDays: sql7`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId));
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
     const lastAttendanceResult = await db.select({
       lastAttendanceDate: workerAttendance.attendanceDate,
       projectId: workerAttendance.projectId
-    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId)).orderBy(sql8`${workerAttendance.attendanceDate} DESC`).limit(1);
+    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId)).orderBy(sql7`${workerAttendance.attendanceDate} DESC`).limit(1);
     const lastAttendanceDate = lastAttendanceResult[0]?.lastAttendanceDate || null;
     const thirtyDaysAgo = /* @__PURE__ */ new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoString = thirtyDaysAgo.toISOString().split("T")[0];
     const monthlyAttendanceResult = await db.select({
-      monthlyDays: sql8`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(and10(
-      eq11(workerAttendance.workerId, workerId),
-      sql8`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
+      monthlyDays: sql7`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(and8(
+      eq9(workerAttendance.workerId, workerId),
+      sql7`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
     ));
     const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
     const totalTransfersResult = await db.select({
-      totalTransfers: sql8`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
-      transfersCount: sql8`COUNT(*)`
-    }).from(workerTransfers).where(eq11(workerTransfers.workerId, workerId));
+      totalTransfers: sql7`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+      transfersCount: sql7`COUNT(*)`
+    }).from(workerTransfers).where(eq9(workerTransfers.workerId, workerId));
     const totalTransfers = Number(totalTransfersResult[0]?.totalTransfers) || 0;
     const transfersCount = Number(totalTransfersResult[0]?.transfersCount) || 0;
     const projectsWorkedResult = await db.select({
-      projectsCount: sql8`COUNT(DISTINCT ${workerAttendance.projectId})`
-    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
+      projectsCount: sql7`COUNT(DISTINCT ${workerAttendance.projectId})`
+    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId));
     const projectsWorked = Number(projectsWorkedResult[0]?.projectsCount) || 0;
     const totalEarningsResult = await db.select({
-      totalEarnings: sql8`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq11(workerAttendance.workerId, workerId));
+      totalEarnings: sql7`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(eq9(workerAttendance.workerId, workerId));
     const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;
     const stats = {
       totalWorkDays,
@@ -15119,7 +11703,7 @@ var workerRoutes_default = workerRouter;
 init_db();
 init_schema();
 import express7 from "express";
-import { eq as eq12, and as and11, sql as sql9, gte as gte6, lte as lte3, desc as desc7 } from "drizzle-orm";
+import { eq as eq10, and as and9, sql as sql8, gte as gte6, lte as lte3, desc as desc6 } from "drizzle-orm";
 var financialRouter = express7.Router();
 financialRouter.use(requireAuth);
 financialRouter.get("/fund-transfers", async (req, res) => {
@@ -15137,7 +11721,7 @@ financialRouter.get("/fund-transfers", async (req, res) => {
       notes: fundTransfers.notes,
       createdAt: fundTransfers.createdAt,
       projectName: projects.name
-    }).from(fundTransfers).leftJoin(projects, eq12(fundTransfers.projectId, projects.id)).orderBy(desc7(fundTransfers.transferDate));
+    }).from(fundTransfers).leftJoin(projects, eq10(fundTransfers.projectId, projects.id)).orderBy(desc6(fundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
     res.json({
@@ -15218,7 +11802,7 @@ financialRouter.patch("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(fundTransfers).where(eq12(fundTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(fundTransfers).where(eq10(fundTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -15242,7 +11826,7 @@ financialRouter.patch("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq12(fundTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq10(fundTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -15276,7 +11860,7 @@ financialRouter.delete("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(fundTransfers).where(eq12(fundTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(fundTransfers).where(eq10(fundTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -15286,7 +11870,7 @@ financialRouter.delete("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const deletedTransfer = await db.delete(fundTransfers).where(eq12(fundTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(fundTransfers).where(eq10(fundTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -15335,14 +11919,14 @@ financialRouter.get("/daily-project-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      fromProjectName: sql9`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql9`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+      fromProjectName: sql8`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql8`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
     }).from(projectFundTransfers).where(
-      and11(
-        sql9`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
-        eq12(projectFundTransfers.transferDate, date2)
+      and9(
+        sql8`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
+        eq10(projectFundTransfers.transferDate, date2)
       )
-    ).orderBy(desc7(projectFundTransfers.createdAt));
+    ).orderBy(desc6(projectFundTransfers.createdAt));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0645\u0634\u0631\u0648\u0639 \u0644\u0644\u0635\u0641\u062D\u0629 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0641\u064A ${duration}ms`);
     res.json({
@@ -15378,18 +11962,18 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      fromProjectName: sql9`from_project.name`.as("fromProjectName"),
-      toProjectName: sql9`to_project.name`.as("toProjectName")
-    }).from(projectFundTransfers).leftJoin(sql9`${projects} as from_project`, eq12(projectFundTransfers.fromProjectId, sql9`from_project.id`)).leftJoin(sql9`${projects} as to_project`, eq12(projectFundTransfers.toProjectId, sql9`to_project.id`));
+      fromProjectName: sql8`from_project.name`.as("fromProjectName"),
+      toProjectName: sql8`to_project.name`.as("toProjectName")
+    }).from(projectFundTransfers).leftJoin(sql8`${projects} as from_project`, eq10(projectFundTransfers.fromProjectId, sql8`from_project.id`)).leftJoin(sql8`${projects} as to_project`, eq10(projectFundTransfers.toProjectId, sql8`to_project.id`));
     const conditions = [];
     if (projectId && projectId !== "all") {
-      conditions.push(sql9`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`);
+      conditions.push(sql8`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`);
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", projectId);
     }
     if (date2) {
       const startOfDay = `${date2} 00:00:00`;
       const endOfDay = `${date2} 23:59:59.999`;
-      conditions.push(and11(
+      conditions.push(and9(
         gte6(projectFundTransfers.transferDate, startOfDay),
         lte3(projectFundTransfers.transferDate, endOfDay)
       ));
@@ -15397,7 +11981,7 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
     } else if (dateFrom && dateTo) {
       const startOfPeriod = `${dateFrom} 00:00:00`;
       const endOfPeriod = `${dateTo} 23:59:59.999`;
-      conditions.push(and11(
+      conditions.push(and9(
         gte6(projectFundTransfers.transferDate, startOfPeriod),
         lte3(projectFundTransfers.transferDate, endOfPeriod)
       ));
@@ -15413,10 +11997,10 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
     }
     let transfers;
     if (conditions.length > 0) {
-      const whereClause = conditions.length === 1 ? conditions[0] : and11(...conditions);
-      transfers = await baseQuery.where(whereClause).orderBy(desc7(projectFundTransfers.transferDate));
+      const whereClause = conditions.length === 1 ? conditions[0] : and9(...conditions);
+      transfers = await baseQuery.where(whereClause).orderBy(desc6(projectFundTransfers.transferDate));
     } else {
-      transfers = await baseQuery.orderBy(desc7(projectFundTransfers.transferDate));
+      transfers = await baseQuery.orderBy(desc6(projectFundTransfers.transferDate));
     }
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0645\u0634\u0631\u0648\u0639 \u0641\u064A ${duration}ms`);
@@ -15500,7 +12084,7 @@ financialRouter.get("/worker-transfers", async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("\u{1F477}\u200D\u2642\uFE0F [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-    const transfers = await db.select().from(workerTransfers).orderBy(desc7(workerTransfers.transferDate));
+    const transfers = await db.select().from(workerTransfers).orderBy(desc6(workerTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0627\u0645\u0644 \u0641\u064A ${duration}ms`);
     res.json({
@@ -15580,7 +12164,7 @@ financialRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq12(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -15604,7 +12188,7 @@ financialRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq12(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq10(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -15639,7 +12223,7 @@ financialRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq12(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -15658,7 +12242,7 @@ financialRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq12(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq10(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -15695,7 +12279,7 @@ financialRouter.get("/worker-misc-expenses", async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("\u{1F4B8} [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-    const expenses = await db.select().from(workerMiscExpenses).orderBy(desc7(workerMiscExpenses.date));
+    const expenses = await db.select().from(workerMiscExpenses).orderBy(desc6(workerMiscExpenses.date));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
     res.json({
@@ -15775,7 +12359,7 @@ financialRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq12(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -15799,7 +12383,7 @@ financialRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq12(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq10(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -15834,7 +12418,7 @@ financialRouter.delete("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq12(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", expenseId);
@@ -15853,7 +12437,7 @@ financialRouter.delete("/worker-misc-expenses/:id", async (req, res) => {
       description: expenseToDelete.description
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedExpense = await db.delete(workerMiscExpenses).where(eq12(workerMiscExpenses.id, expenseId)).returning();
+    const deletedExpense = await db.delete(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedExpense[0].id,
@@ -15900,37 +12484,37 @@ financialRouter.get("/reports/summary", async (req, res) => {
       workersCount
     ] = await Promise.all([
       // إحصائيات تحويلات العهدة
-      db.execute(sql9`
+      db.execute(sql8`
         SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM fund_transfers
       `),
       // إحصائيات تحويلات المشاريع
-      db.execute(sql9`
+      db.execute(sql8`
         SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM project_fund_transfers
       `),
       // إحصائيات تحويلات العمال
-      db.execute(sql9`
+      db.execute(sql8`
         SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM worker_transfers
       `),
       // إحصائيات مصاريف العمال المتنوعة
-      db.execute(sql9`
+      db.execute(sql8`
         SELECT
           COUNT(*) as total_expenses,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM worker_misc_expenses
       `),
       // عدد المشاريع
-      db.execute(sql9`SELECT COUNT(*) as total_projects FROM projects`),
+      db.execute(sql8`SELECT COUNT(*) as total_projects FROM projects`),
       // عدد العمال
-      db.execute(sql9`SELECT COUNT(*) as total_workers FROM workers WHERE is_active = true`)
+      db.execute(sql8`SELECT COUNT(*) as total_workers FROM workers WHERE is_active = true`)
     ]);
     const cleanValue = (value) => {
       if (value === null || value === void 0) return 0;
@@ -16005,7 +12589,7 @@ financialRouter.get("/suppliers", async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("\u{1F3EA} [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-    const suppliersList = await db.select().from(suppliers).where(eq12(suppliers.isActive, true)).orderBy(suppliers.name);
+    const suppliersList = await db.select().from(suppliers).where(eq10(suppliers.isActive, true)).orderBy(suppliers.name);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${suppliersList.length} \u0645\u0648\u0631\u062F \u0641\u064A ${duration}ms`);
     res.json({
@@ -16709,7 +13293,7 @@ if (process.env.NODE_ENV === "production") {
 } else {
   app.set("trust proxy", true);
 }
-var globalRateLimit = rateLimit4({
+var globalRateLimit = rateLimit3({
   windowMs: 15 * 60 * 1e3,
   // 15 دقيقة
   max: 1e3,
@@ -16773,8 +13357,6 @@ app.use(cors({
 app.use(express10.json({ limit: "50mb" }));
 app.use(express10.urlencoded({ extended: true, limit: "50mb" }));
 (async () => {
-  const { enhancedMigrationJobManager: enhancedMigrationJobManager2 } = await Promise.resolve().then(() => (init_migration_job_manager_enhanced(), migration_job_manager_enhanced_exports));
-  await enhancedMigrationJobManager2.startupCleanup();
   app.use("/api/auth", auth_default);
   initializeRouteOrganizer(app);
   const server = await registerRoutes(app);

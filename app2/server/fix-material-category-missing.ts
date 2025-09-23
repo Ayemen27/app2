@@ -125,7 +125,7 @@ async function fixMissingMaterialCategories() {
 }
 
 // تشغيل الإصلاح
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   fixMissingMaterialCategories()
     .then(() => {
       console.log('✅ تم إنجاز إصلاح فئات المواد بنجاح');

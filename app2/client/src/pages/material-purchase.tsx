@@ -202,33 +202,56 @@ export default function MaterialPurchase() {
   });
 
   // Fetch purchase data for editing
-  const { data: purchaseToEdit } = useQuery({
+  const { data: purchaseToEdit, isLoading: isLoadingEdit } = useQuery({
     queryKey: ["/api/material-purchases", editId],
     queryFn: async () => {
+      if (!editId) return null;
+      
       try {
+        console.log(`🔄 جلب بيانات المشترية للتعديل: ${editId}`);
         const response = await apiRequest(`/api/material-purchases/${editId}`, "GET");
+        
+        console.log('📊 استجابة جلب بيانات التعديل:', response);
+        
         // معالجة الهيكل المتداخل للاستجابة
+        let purchaseData = null;
         if (response && response.data) {
-          return response.data;
+          purchaseData = response.data;
+        } else if (response && response.id) {
+          purchaseData = response;
+        } else {
+          console.warn('⚠️ لا توجد بيانات في الاستجابة');
+          return null;
         }
-        return response || null;
+        
+        console.log('✅ تم جلب بيانات المشترية للتعديل:', purchaseData);
+        return purchaseData;
       } catch (error) {
-        console.error("Error fetching purchase data for editing:", error);
+        console.error("❌ خطأ في جلب بيانات المشترية للتعديل:", error);
         return null;
       }
     },
     enabled: !!editId,
+    retry: 1,
+    staleTime: 0, // Always fetch fresh data for editing
   });
 
   // Effect to populate form when editing
   useEffect(() => {
-    if (purchaseToEdit) {
-      setMaterialName(purchaseToEdit.material?.name || "");
-      setMaterialCategory(purchaseToEdit.material?.category || "");
-      setMaterialUnit(purchaseToEdit.material?.unit || "");
+    if (purchaseToEdit && editId) {
+      console.log('🔄 ملء النموذج ببيانات التعديل:', purchaseToEdit);
+      
+      // استخدام البيانات المحفوظة في الجدول أولاً، ثم البيانات المرتبطة
+      const materialName = purchaseToEdit.materialName || purchaseToEdit.material?.name || "";
+      const materialCategory = purchaseToEdit.materialCategory || purchaseToEdit.material?.category || "";
+      const materialUnit = purchaseToEdit.materialUnit || purchaseToEdit.material?.unit || "";
+      
+      setMaterialName(materialName);
+      setMaterialCategory(materialCategory);
+      setMaterialUnit(materialUnit);
       setQuantity(purchaseToEdit.quantity?.toString() || "");
       setUnitPrice(purchaseToEdit.unitPrice?.toString() || "");
-      setPaymentType(purchaseToEdit.paymentType || "نقد");
+      setPaymentType(purchaseToEdit.purchaseType || "نقد"); // استخدام purchaseType بدلاً من paymentType
       setSupplierName(purchaseToEdit.supplierName || "");
       setInvoiceNumber(purchaseToEdit.invoiceNumber || "");
       setInvoiceDate(purchaseToEdit.invoiceDate || getCurrentDate());
@@ -236,8 +259,17 @@ export default function MaterialPurchase() {
       setNotes(purchaseToEdit.notes || "");
       setInvoicePhoto(purchaseToEdit.invoicePhoto || "");
       setEditingPurchaseId(purchaseToEdit.id);
+      
+      console.log('✅ تم ملء النموذج بالبيانات:', {
+        materialName,
+        materialCategory,
+        materialUnit,
+        quantity: purchaseToEdit.quantity,
+        unitPrice: purchaseToEdit.unitPrice,
+        purchaseType: purchaseToEdit.purchaseType
+      });
     }
-  }, [purchaseToEdit]);
+  }, [purchaseToEdit, editId]);
 
   const addMaterialMutation = useMutation({
     mutationFn: (data: InsertMaterial) => apiRequest("/api/materials", "POST", data),
@@ -576,12 +608,23 @@ export default function MaterialPurchase() {
 
   return (
     <div className="p-4 slide-in">
+      {/* مؤشر التحميل لبيانات التعديل */}
+      {isLoadingEdit && editId && (
+        <Card className="mb-4 border-blue-200 bg-blue-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-center space-x-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+              <span className="text-blue-700">جاري تحميل بيانات المشترية للتعديل...</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="mb-4">
         <CardContent className="p-4">
           <h2 className="text-lg font-bold text-foreground mb-3 flex items-center">
             <ChartGantt className="ml-2 h-5 w-5 text-primary" />
-            اختر المشروع
+            {editingPurchaseId ? "تعديل مشترية المواد" : "اختر المشروع"}
           </h2>
           <ProjectSelector
             selectedProjectId={selectedProjectId}

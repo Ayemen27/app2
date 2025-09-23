@@ -1559,6 +1559,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 📊 GET endpoint لجلب مشترية مادة واحدة للتعديل
+  app.get("/api/material-purchases/:id", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const purchaseId = req.params.id;
+      console.log(`📊 [API] طلب جلب مشترية مادة للتعديل: ${purchaseId}`);
+      
+      if (!purchaseId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف المشترية مطلوب',
+          processingTime: duration
+        });
+      }
+
+      // جلب المشترية مع بيانات المادة والمورد
+      const purchase = await db
+        .select({
+          id: materialPurchases.id,
+          projectId: materialPurchases.projectId,
+          materialId: materialPurchases.materialId,
+          materialName: materialPurchases.materialName,
+          materialCategory: materialPurchases.materialCategory,
+          materialUnit: materialPurchases.materialUnit,
+          quantity: materialPurchases.quantity,
+          unitPrice: materialPurchases.unitPrice,
+          totalAmount: materialPurchases.totalAmount,
+          purchaseType: materialPurchases.purchaseType,
+          supplierName: materialPurchases.supplierName,
+          invoiceNumber: materialPurchases.invoiceNumber,
+          invoiceDate: materialPurchases.invoiceDate,
+          invoicePhoto: materialPurchases.invoicePhoto,
+          purchaseDate: materialPurchases.purchaseDate,
+          notes: materialPurchases.notes,
+          createdAt: materialPurchases.createdAt,
+          updatedAt: materialPurchases.updatedAt,
+          // بيانات المادة من الجدول المرتبط
+          material: {
+            id: materials.id,
+            name: materials.name,
+            category: materials.category,
+            unit: materials.unit
+          }
+        })
+        .from(materialPurchases)
+        .leftJoin(materials, eq(materialPurchases.materialId, materials.id))
+        .where(eq(materialPurchases.id, purchaseId))
+        .limit(1);
+
+      if (purchase.length === 0) {
+        const duration = Date.now() - startTime;
+        console.log(`📭 [API] لم يتم العثور على المشترية: ${purchaseId}`);
+        return res.status(404).json({
+          success: false,
+          error: 'المشترية غير موجودة',
+          message: `لم يتم العثور على مشترية بالمعرف: ${purchaseId}`,
+          processingTime: duration
+        });
+      }
+
+      const purchaseData = purchase[0];
+      const duration = Date.now() - startTime;
+      
+      console.log(`✅ [API] تم جلب بيانات المشترية للتعديل في ${duration}ms:`, {
+        id: purchaseData.id,
+        materialName: purchaseData.materialName || purchaseData.material?.name,
+        totalAmount: purchaseData.totalAmount
+      });
+
+      res.json({
+        success: true,
+        data: purchaseData,
+        message: 'تم جلب بيانات المشترية بنجاح',
+        processingTime: duration
+      });
+
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب بيانات المشترية:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'فشل في جلب بيانات المشترية',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
   // 📝 POST endpoint للمعدات (equipment = tools) - إضافة معدة جديدة مع validation محسن
   app.post("/api/equipment", requireAuth, async (req, res) => {
     const startTime = Date.now();

@@ -4649,7 +4649,6 @@ init_schema();
 import jwt from "jsonwebtoken";
 import { eq, and, gt } from "drizzle-orm";
 import rateLimit from "express-rate-limit";
-import slowDown from "express-slow-down";
 var generalRateLimit2 = rateLimit({
   windowMs: 15 * 60 * 1e3,
   // 15 دقيقة
@@ -4692,18 +4691,6 @@ var sensitiveOperationsRateLimit = rateLimit({
     message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u062D\u0633\u0627\u0633\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F 5 \u062F\u0642\u0627\u0626\u0642",
     retryAfter: 5 * 60
   }
-});
-var speedLimiter = slowDown({
-  windowMs: 15 * 60 * 1e3,
-  // 15 دقيقة
-  delayAfter: 100,
-  // السماح بـ 100 طلب بدون تأخير
-  delayMs: (used, req) => {
-    const delayAfter = req.slowDown?.delayAfter || 100;
-    return (used - delayAfter) * 100;
-  },
-  maxDelayMs: 5e3
-  // الحد الأقصى 5 ثوان
 });
 var verifyToken = async (token) => {
   try {

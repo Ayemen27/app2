@@ -11,6 +11,9 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { showSuccessToast, showErrorToast } from "@/utils/enhanced-toast";
+
 
 interface Notification {
   id: string;
@@ -64,13 +67,13 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     try {
       // استخدام نظام المصادقة المتقدم JWT
       const token = localStorage.getItem('accessToken');
-      
+
       if (!token) {
         console.warn('لا يوجد رمز مصادقة - تخطي جلب الإشعارات');
         setLoading(false);
         return;
       }
-      
+
       const response = await fetch('/api/notifications?limit=50', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -79,7 +82,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
       if (response.ok) {
         const data = await response.json();
         console.log('🔍 [NotificationCenter] استجابة API:', data);
-        
+
         // التعامل مع الشكل الجديد للاستجابة { success, data, unreadCount }
         if (data.success && Array.isArray(data.data)) {
           // تحويل البيانات للشكل المتوقع من NotificationCenter
@@ -96,7 +99,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
             isRead: n.status === 'read',
             actionRequired: n.actionRequired || false
           }));
-          
+
           setNotifications(transformedNotifications);
           setUnreadCount(data.unreadCount || 0);
           console.log('✅ [NotificationCenter] تم تحويل وحفظ الإشعارات:', transformedNotifications.length);
@@ -137,12 +140,13 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     try {
       // استخدام نظام المصادقة المتقدم JWT
       const token = localStorage.getItem('accessToken');
-      
+
       if (!token) {
         console.warn('لا يوجد رمز مصادقة - لا يمكن تحديد الإشعار كمقروء');
+        showErrorToast("لا يمكنك تحديد الإشعارات كمقروءة بدون تسجيل الدخول.");
         return;
       }
-      
+
       const response = await fetch(`/api/notifications/${notificationId}/read`, {
         method: 'POST',
         headers: {
@@ -150,7 +154,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
           'Authorization': `Bearer ${token}`
         },
       });
-      
+
       if (response.ok) {
         setNotifications(prev =>
           prev.map(n =>
@@ -158,9 +162,13 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
           )
         );
         setUnreadCount(prev => Math.max(0, prev - 1));
+        showSuccessToast("تم تحديد الإشعار كمقروء.");
+      } else {
+        showErrorToast("فشل في تحديد الإشعار كمقروء.");
       }
     } catch (error) {
       console.error('خطأ في تعليم الإشعار كمقروء:', error);
+      showErrorToast("حدث خطأ أثناء تحديد الإشعار كمقروء.");
     }
   };
 
@@ -169,12 +177,13 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     try {
       // استخدام نظام المصادقة المتقدم JWT
       const token = localStorage.getItem('accessToken');
-      
+
       if (!token) {
         console.warn('لا يوجد رمز مصادقة - لا يمكن تعليم الإشعارات كمقروءة');
+        showErrorToast("لا يمكنك تحديد جميع الإشعارات كمقروءة بدون تسجيل الدخول.");
         return;
       }
-      
+
       const response = await fetch('/api/notifications/mark-all-read', {
         method: 'POST',
         headers: {
@@ -182,20 +191,24 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
           'Authorization': `Bearer ${token}`
         },
       });
-      
+
       if (response.ok) {
         // إعادة جلب البيانات من الخادم لضمان التزامن
         await fetchNotifications();
+        showSuccessToast("تم تحديد جميع الإشعارات كمقروءة.");
+      } else {
+        showErrorToast("فشل في تحديد جميع الإشعارات كمقروءة.");
       }
     } catch (error) {
       console.error('خطأ في تعليم جميع الإشعارات كمقروءة:', error);
+      showErrorToast("حدث خطأ أثناء تحديد جميع الإشعارات كمقروءة.");
     }
   };
 
   // جلب الإشعارات عند تحميل المكون
   useEffect(() => {
     fetchNotifications();
-    
+
     // تحديث الإشعارات كل 5 دقائق لتقليل الحمولة
     const interval = setInterval(fetchNotifications, 300000);
     return () => clearInterval(interval);
@@ -205,7 +218,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 1) {
       const diffInMinutes = Math.floor(diffInHours * 60);
       return `منذ ${diffInMinutes} دقيقة`;
@@ -244,7 +257,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
           )}
         </Button>
       </PopoverTrigger>
-      
+
       <PopoverContent className="w-80 sm:w-96 p-0 border-0 shadow-2xl rounded-2xl bg-white" align="end" data-testid="notification-popover">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 rounded-t-2xl">
           <div className="flex items-center justify-between">
@@ -305,14 +318,14 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                 const Icon = notificationIcons[notification.type] || Bell;
                 const colorClasses = notificationColors[notification.type] || notificationColors.system;
                 const priority = priorityLabels[notification.priority as keyof typeof priorityLabels] || priorityLabels[3];
-                
+
                 return (
                   <div
                     key={notification.id}
                     className={cn(
                       "group p-3 mb-2 last:mb-0 rounded-xl cursor-pointer transition-all duration-300 border",
-                      !notification.isRead 
-                        ? "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:from-blue-100 hover:to-indigo-100 shadow-sm hover:shadow-md" 
+                      !notification.isRead
+                        ? "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:from-blue-100 hover:to-indigo-100 shadow-sm hover:shadow-md"
                         : "bg-white border-gray-100 hover:bg-gray-50 hover:border-gray-200"
                     )}
                     onClick={() => !notification.isRead && markAsRead(notification.id)}
@@ -325,7 +338,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                       )}>
                         <Icon className="h-4 w-4" />
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between mb-2">
                           <h4 className={cn(
@@ -348,17 +361,17 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                             </Badge>
                           </div>
                         </div>
-                        
+
                         <p className="text-xs text-gray-600 mb-2 line-clamp-2 leading-relaxed">
                           {notification.message}
                         </p>
-                        
+
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1 text-xs text-gray-400">
                             <Clock className="h-3 w-3" />
                             <span>{formatDate(notification.createdAt)}</span>
                           </div>
-                          
+
                           {notification.actionRequired && (
                             <Badge variant="outline" className="text-xs bg-orange-50 text-orange-600 border-orange-200">
                               <Zap className="h-3 w-3 mr-1" />

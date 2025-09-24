@@ -19,7 +19,7 @@ export default function EmailVerificationGuard({ children }: EmailVerificationGu
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <ProfessionalLoader />
+        <ProfessionalLoader isLoading={true} message="جاري التحقق من البريد الإلكتروني..." />
       </div>
     );
   }

@@ -52,20 +52,19 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     if (!user.email_verified_at) {
       console.log('❌ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email, '- منع تسجيل الدخول');
       
-      // إرسال رمز تحقق جديد تلقائياً
-      try {
-        const userFullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || undefined;
-        const emailResult = await sendVerificationEmail(
-          user.id,
-          user.email,
-          req.ip,
-          req.get('user-agent'),
-          userFullName
-        );
+      // إرسال رمز تحقق جديد تلقائياً في الخلفية (بدون انتظار)
+      const userFullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || undefined;
+      void sendVerificationEmail(
+        user.id,
+        user.email,
+        req.ip,
+        req.get('user-agent'),
+        userFullName
+      ).then(emailResult => {
         console.log('📧 [AUTH] تم إرسال رمز تحقق تلقائياً:', emailResult.success ? 'نجح' : 'فشل');
-      } catch (emailError) {
+      }).catch(emailError => {
         console.error('❌ [AUTH] فشل في إرسال رمز التحقق التلقائي:', emailError);
-      }
+      });
 
       return res.status(403).json({
         success: false,
@@ -190,20 +189,18 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       fullName: `${newUser.first_name || ''} ${newUser.last_name || ''}`.trim()
     });
 
-    // إرسال رمز التحقق من البريد الإلكتروني
-    try {
-      const emailResult = await sendVerificationEmail(
-        newUser.id,
-        newUser.email,
-        req.ip,
-        req.get('user-agent'),
-        fullName  // تمرير الاسم مباشرة من نموذج التسجيل - بدون استعلام إضافي
-      );
-      
+    // إرسال رمز التحقق من البريد الإلكتروني في الخلفية (بدون انتظار)
+    void sendVerificationEmail(
+      newUser.id,
+      newUser.email,
+      req.ip,
+      req.get('user-agent'),
+      fullName  // تمرير الاسم مباشرة من نموذج التسجيل - بدون استعلام إضافي
+    ).then(emailResult => {
       console.log('📧 [AUTH] نتيجة إرسال بريد التحقق:', emailResult);
-    } catch (emailError) {
+    }).catch(emailError => {
       console.error('❌ [AUTH] فشل في إرسال بريد التحقق:', emailError);
-    }
+    });
 
     res.status(201).json({
       success: true,
@@ -396,27 +393,24 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
       });
     }
 
-    // إرسال رمز تحقق جديد
-    const result = await sendVerificationEmail(
+    // إرسال رمز تحقق جديد في الخلفية (بدون انتظار)
+    void sendVerificationEmail(
       userId,
       email,
       req.ip,
       req.get('user-agent')
-    );
+    ).then(result => {
+      console.log('✅ [AUTH] تم إعادة إرسال رمز التحقق بنجاح:', { userId, email, success: result.success });
+    }).catch(error => {
+      console.error('❌ [AUTH] فشل في إعادة إرسال رمز التحقق:', error);
+    });
     
-    if (result.success) {
-      console.log('✅ [AUTH] تم إعادة إرسال رمز التحقق بنجاح:', { userId, email });
-      res.json({
-        success: true,
-        message: result.message
-      });
-    } else {
-      console.log('❌ [AUTH] فشل في إعادة إرسال رمز التحقق:', result.message);
-      res.status(400).json({
-        success: false,
-        message: result.message
-      });
-    }
+    // الرد فوراً دون انتظار
+    console.log('🚀 [AUTH] تم استلام طلب إعادة الإرسال، سيتم الإرسال في الخلفية');
+    res.json({
+      success: true,
+      message: 'تم استلام طلبك. سيتم إرسال رمز التحقق إلى بريدك الإلكتروني خلال لحظات'
+    });
 
   } catch (error: any) {
     console.error('❌ [AUTH] خطأ في إعادة إرسال رمز التحقق:', error);

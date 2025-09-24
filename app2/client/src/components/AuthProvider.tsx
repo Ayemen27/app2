@@ -13,6 +13,7 @@ interface User {
   name: string;
   role: string;
   mfaEnabled: boolean;
+  emailVerified: boolean;
 }
 
 interface AuthContextType {
@@ -280,6 +281,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.email,
         role: userData.role || 'admin',
         mfaEnabled: userData.mfaEnabled || false,
+        emailVerified: userData.emailVerified || true, // افتراضي true للمستخدمين المسجلين
       };
 
       console.log('👤 [AuthProvider.login] إعداد بيانات المستخدم:', user);

@@ -136,7 +136,6 @@ var init_schema = __esm({
       role: text("role").notNull().default("admin"),
       // admin, manager, user
       isActive: boolean("is_active").default(true).notNull(),
-      lastLogin: timestamp("last_login"),
       emailVerifiedAt: timestamp("email_verified_at"),
       // متى تم التحقق من البريد الإلكتروني
       totpSecret: text("totp_secret"),
@@ -144,7 +143,8 @@ var init_schema = __esm({
       mfaEnabled: boolean("mfa_enabled").default(false).notNull(),
       // Multi-factor authentication enabled
       createdAt: timestamp("created_at").defaultNow().notNull(),
-      updatedAt: timestamp("updated_at").defaultNow().notNull()
+      updatedAt: timestamp("updated_at").defaultNow().notNull(),
+      lastLogin: timestamp("last_login")
     });
     authUserSessions = pgTable("auth_user_sessions", {
       id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -6039,21 +6039,8 @@ var vite_config_default = defineConfig({
     outDir: "../dist/public",
     emptyOutDir: true,
     target: "es2020",
-    minify: "terser",
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-        pure_funcs: ["console.log", "console.info"],
-        passes: 2
-      },
-      mangle: {
-        safari10: true
-      },
-      format: {
-        comments: false
-      }
-    },
+    minify: "esbuild",
+    // esbuild أسرع وأقل استهلاك للذاكرة من terser
     rollupOptions: {
       output: {
         manualChunks: {
@@ -6597,33 +6584,50 @@ init_schema();
 import nodemailer from "nodemailer";
 import { eq as eq5, and as and5 } from "drizzle-orm";
 import crypto3 from "crypto";
-var createTransporter = () => {
-  const smtpUser = process.env.SMTP_USER?.trim().replace(/\s+/g, "") || "";
-  const smtpConfig = {
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: false,
-    // true for 465, false for other ports
-    auth: {
+var emailTransporter = null;
+var getEmailTransporter = () => {
+  if (!emailTransporter) {
+    const smtpUser = process.env.SMTP_USER?.trim().replace(/\s+/g, "") || "";
+    const smtpPort = parseInt(process.env.SMTP_PORT || "587");
+    const smtpConfig = {
+      host: process.env.SMTP_HOST,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      // true for 465, false for other ports
+      pool: true,
+      // تمكين connection pooling
+      maxConnections: 5,
+      // الحد الأقصى للاتصالات المتزامنة
+      maxMessages: 100,
+      // أقصى عدد رسائل لكل اتصال
+      rateLimit: 14,
+      // معدل الإرسال (رسائل في الثانية)
+      keepAlive: true,
+      // الحفاظ على الاتصال مفتوحاً
+      auth: {
+        user: smtpUser,
+        pass: process.env.SMTP_PASS
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    };
+    console.log("\u{1F680} [EmailService] \u0625\u0646\u0634\u0627\u0621 transporter \u0645\u062D\u0633\u0651\u0646 \u0645\u0639 connection pooling:", {
+      host: smtpConfig.host,
+      port: smtpConfig.port,
+      secure: smtpConfig.secure,
+      pool: smtpConfig.pool,
+      maxConnections: smtpConfig.maxConnections,
       user: smtpUser,
-      pass: process.env.SMTP_PASS
-    },
-    tls: {
-      rejectUnauthorized: false
-    }
-  };
-  console.log("\u{1F4E7} [EmailService] \u0625\u0639\u062F\u0627\u062F SMTP:", {
-    host: smtpConfig.host,
-    port: smtpConfig.port,
-    user: smtpUser,
-    originalUser: process.env.SMTP_USER,
-    hasPassword: !!smtpConfig.auth.pass
-  });
-  return nodemailer.createTransport(smtpConfig);
+      hasPassword: !!smtpConfig.auth.pass
+    });
+    emailTransporter = nodemailer.createTransporter(smtpConfig);
+  }
+  return emailTransporter;
 };
 async function verifyEmailConfiguration() {
   try {
-    const transporter = createTransporter();
+    const transporter = getEmailTransporter();
     await transporter.verify();
     console.log("\u2705 [EmailService] \u062A\u0645 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0625\u0639\u062F\u0627\u062F SMTP \u0628\u0646\u062C\u0627\u062D");
     return true;
@@ -6837,7 +6841,7 @@ async function sendVerificationEmail(userId, email, ipAddress, userAgent, userFu
       ipAddress,
       userAgent
     });
-    const transporter = createTransporter();
+    const transporter = getEmailTransporter();
     const emailTemplate = emailTemplates.verification(verificationCode, verificationLink, displayName || void 0);
     const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, "") || "";
     await transporter.sendMail({
@@ -6937,7 +6941,7 @@ async function sendPasswordResetEmail(email, ipAddress, userAgent) {
       ipAddress,
       userAgent
     });
-    const transporter = createTransporter();
+    const transporter = getEmailTransporter();
     const emailTemplate = emailTemplates.passwordReset(resetLink, email);
     const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, "") || "";
     await transporter.sendMail({

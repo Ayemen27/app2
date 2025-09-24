@@ -9,21 +9,7 @@ export default defineConfig({
     outDir: '../dist/public',
     emptyOutDir: true,
     target: 'es2020',
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info'],
-        passes: 2
-      },
-      mangle: {
-        safari10: true
-      },
-      format: {
-        comments: false
-      }
-    },
+    minify: 'esbuild', // esbuild أسرع وأقل استهلاك للذاكرة من terser
     rollupOptions: {
       output: {
         manualChunks: {

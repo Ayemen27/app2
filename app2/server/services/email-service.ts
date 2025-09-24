@@ -10,45 +10,69 @@ import { emailVerificationTokens, passwordResetTokens, users } from '../../share
 import { hashPassword } from '../auth/crypto-utils.js';
 import crypto from 'crypto';
 
-// إعداد transporter للبريد الإلكتروني
-const createTransporter = () => {
-  // تنظيف البريد الإلكتروني من المسافات الزائدة
-  const smtpUser = process.env.SMTP_USER?.trim().replace(/\s+/g, '') || '';
-  
-  const smtpConfig = {
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false, // true for 465, false for other ports
-    auth: {
+// تحسين الأداء: إنشاء transporter واحد مع connection pooling
+let emailTransporter: nodemailer.Transporter | null = null;
+
+const getEmailTransporter = (): nodemailer.Transporter => {
+  if (!emailTransporter) {
+    // تنظيف البريد الإلكتروني من المسافات الزائدة
+    const smtpUser = process.env.SMTP_USER?.trim().replace(/\s+/g, '') || '';
+    const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+    
+    const smtpConfig = {
+      host: process.env.SMTP_HOST,
+      port: smtpPort,
+      secure: smtpPort === 465, // true for 465, false for other ports
+      pool: true, // تمكين connection pooling
+      maxConnections: 5, // الحد الأقصى للاتصالات المتزامنة
+      maxMessages: 100, // أقصى عدد رسائل لكل اتصال
+      rateLimit: 14, // معدل الإرسال (رسائل في الثانية)
+      keepAlive: true, // الحفاظ على الاتصال مفتوحاً
+      auth: {
+        user: smtpUser,
+        pass: process.env.SMTP_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    };
+
+    console.log('🚀 [EmailService] إنشاء transporter محسّن مع connection pooling:', {
+      host: smtpConfig.host,
+      port: smtpConfig.port,
+      secure: smtpConfig.secure,
+      pool: smtpConfig.pool,
+      maxConnections: smtpConfig.maxConnections,
       user: smtpUser,
-      pass: process.env.SMTP_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false
-    }
-  };
+      hasPassword: !!smtpConfig.auth.pass
+    });
 
-  console.log('📧 [EmailService] إعداد SMTP:', {
-    host: smtpConfig.host,
-    port: smtpConfig.port,
-    user: smtpUser,
-    originalUser: process.env.SMTP_USER,
-    hasPassword: !!smtpConfig.auth.pass
-  });
-
-  return nodemailer.createTransport(smtpConfig);
+    emailTransporter = nodemailer.createTransporter(smtpConfig);
+  }
+  return emailTransporter!;
 };
 
 // تحقق من صحة إعداد البريد الإلكتروني
 export async function verifyEmailConfiguration(): Promise<boolean> {
   try {
-    const transporter = createTransporter();
+    const transporter = getEmailTransporter();
     await transporter.verify();
     console.log('✅ [EmailService] تم التحقق من إعداد SMTP بنجاح');
     return true;
   } catch (error) {
     console.error('❌ [EmailService] فشل في التحقق من إعداد SMTP:', error);
     return false;
+  }
+}
+
+// تهيئة transporter عند بدء تشغيل الخدمة
+export async function initializeEmailService(): Promise<void> {
+  console.log('🔧 [EmailService] تهيئة خدمة البريد الإلكتروني...');
+  try {
+    await verifyEmailConfiguration();
+    console.log('✅ [EmailService] تم تهيئة خدمة البريد الإلكتروني بنجاح');
+  } catch (error) {
+    console.error('❌ [EmailService] فشل في تهيئة خدمة البريد الإلكتروني:', error);
   }
 }
 
@@ -306,7 +330,7 @@ export async function sendVerificationEmail(
     });
 
     // إرسال البريد الإلكتروني
-    const transporter = createTransporter();
+    const transporter = getEmailTransporter();
     const emailTemplate = emailTemplates.verification(verificationCode, verificationLink, displayName || undefined);
 
     const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, '') || '';
@@ -473,7 +497,7 @@ export async function sendPasswordResetEmail(
     });
 
     // إرسال البريد الإلكتروني
-    const transporter = createTransporter();
+    const transporter = getEmailTransporter();
     const emailTemplate = emailTemplates.passwordReset(resetLink, email);
 
     const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, '') || '';

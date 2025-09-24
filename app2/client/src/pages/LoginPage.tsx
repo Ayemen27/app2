@@ -32,6 +32,7 @@ import ProfessionalLoader from "@/components/ui/professional-loader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { showToast } from "@/utils/toast";
 import { 
   Eye, 
   EyeOff, 
@@ -223,23 +224,37 @@ export default function AuthPage() {
     },
     onError: (error: any) => {
       console.error('❌ [AuthPage.loginMutation] فشل تسجيل الدخول:', error);
+      console.error('❌ [AuthPage.loginMutation] تفاصيل الخطأ:', {
+        status: error?.status,
+        message: error?.message,
+        response: error?.response,
+        data: error?.data
+      });
       
-      // التحقق من حالة عدم تفعيل البريد الإلكتروني
-      if (error?.message?.includes('requireEmailVerification') || 
-          (error as any)?.response?.data?.requireEmailVerification ||
-          (error as any)?.response?.status === 403) {
+      // التحقق من حالة عدم تفعيل البريد الإلكتروني - تحسين المنطق
+      const isEmailNotVerified = 
+        error?.status === 403 ||
+        error?.message?.includes('requireEmailVerification') || 
+        error?.message?.includes('يجب تأكيد البريد') ||
+        error?.message?.includes('يجب التحقق من بريدك الإلكتروني') ||
+        (error as any)?.response?.data?.requireEmailVerification ||
+        (error as any)?.response?.status === 403 ||
+        error?.data?.requireEmailVerification;
+      
+      if (isEmailNotVerified) {
+        const errorData = error?.data || (error as any)?.response?.data;
+        const userId = errorData?.data?.userId || errorData?.userId;
+        const email = errorData?.data?.email || errorData?.email;
         
-        const errorData = (error as any)?.response?.data;
-        const userId = errorData?.data?.userId;
-        const email = errorData?.data?.email;
-        
-        toast({
+        // استخدام نظام Toast الجديد المحسن للهواتف
+        showToast({
           title: "البريد الإلكتروني غير مفعل",
-          description: "يجب التحقق من بريدك الإلكتروني أولاً. تم إرسال رمز تحقق جديد.",
-          variant: "destructive",
+          message: "يجب التحقق من بريدك الإلكتروني أولاً. تم إرسال رمز تحقق جديد.",
+          variant: "error",
+          duration: 5000 // عرض لمدة 5 ثواني لإعطاء وقت للقراءة
         });
         
-        // توجيه إلى صفحة التحقق من البريد
+        // توجيه إلى صفحة التحقق من البريد بعد 3 ثوان لإعطاء وقت أكثر لقراءة الرسالة
         setTimeout(() => {
           if (userId && email) {
             navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(email)}`);
@@ -250,7 +265,7 @@ export default function AuthPage() {
               navigate(`/verify-email?email=${encodeURIComponent(formEmail)}`);
             }
           }
-        }, 2000);
+        }, 3000);
         return;
       }
       

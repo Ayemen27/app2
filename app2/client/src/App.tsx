@@ -38,7 +38,7 @@ import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
-import { EmailVerificationGuard } from "@/components/EmailVerificationGuard"; // Import the new guard
+import EmailVerificationGuard from "@/components/EmailVerificationGuard"; // Import the new guard
 
 // Placeholder for AppContent, assuming it's defined elsewhere or will be defined
 function AppContent() {
@@ -407,7 +407,7 @@ function App() {
                     <Route path="/login" component={LoginPage} />
                     <Route path="/verify-email" component={EmailVerificationPage} />
                     <Route path="/reset-password" component={ResetPasswordPage} />
-                    <Route path="*" element={
+                    <Route path="*" component={() => (
                       <ProtectedRoute>
                         <EmailVerificationGuard>
                           <AuthLayout>
@@ -415,7 +415,7 @@ function App() {
                           </AuthLayout>
                         </EmailVerificationGuard>
                       </ProtectedRoute>
-                    } />
+                    )} />
                   </Switch>
                 </ErrorBoundary>
                 <Toaster />

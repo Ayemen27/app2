@@ -5,7 +5,7 @@
  */
 
 import { ReactNode } from "react";
-import { Navigate } from "wouter";
+import { Redirect } from "wouter";
 import { useAuth } from "./AuthProvider";
 import ProfessionalLoader from "./ui/professional-loader";
 
@@ -26,16 +26,15 @@ export default function EmailVerificationGuard({ children }: EmailVerificationGu
 
   // إذا لم يكن المستخدم مسجل دخول، توجيه لتسجيل الدخول
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Redirect to="/login" />;
   }
 
   // إذا لم يتم التحقق من البريد الإلكتروني، توجيه لصفحة التحقق
   if (!user.emailVerified) {
-    console.log('🚫 [EmailVerificationGuard] المستخدم لم يتحقق من البريد، توجيه للتحقق');
+    console.log('🚫 [EmailVerificationGuard] المستخدم لم يتم التحقق من البريد، توجيه للتحقق');
     return (
-      <Navigate 
+      <Redirect 
         to={`/verify-email?userId=${user.id}&email=${encodeURIComponent(user.email)}`} 
-        replace 
       />
     );
   }

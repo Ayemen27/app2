@@ -200,11 +200,31 @@ export default function AuthPage() {
         throw error;
       }
     },
-    onSuccess: (result) => {
-      console.log('🎉 [AuthPage.loginMutation] نجح تسجيل الدخول');
+    onSuccess: (result: any) => {
+      console.log('🎉 [AuthPage.loginMutation] نجح تسجيل الدخول:', result);
+      
+      // التحقق من حالة البريد الإلكتروني بعد الدخول الناجح
+      if (result?.requireEmailVerification) {
+        const user = result.data?.user;
+        toast({
+          title: `أهلاً وسهلاً ${user?.name ? user.name : 'بك'}!`,
+          description: "تم تسجيل الدخول بنجاح. يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب - تم إرسال رمز جديد.",
+        });
+        
+        // توجيه إلى صفحة التحقق من البريد
+        setTimeout(() => {
+          if (user?.id && user?.email) {
+            navigate(`/verify-email?userId=${user.id}&email=${encodeURIComponent(user.email)}`);
+          }
+        }, 2000);
+        return;
+      }
+      
+      // استخراج اسم المستخدم من النتيجة
+      const userName = result?.data?.user?.name || result?.user?.name;
       toast({
-        title: "تم تسجيل الدخول بنجاح",
-        description: "أهلاً وسهلاً بك",
+        title: `أهلاً وسهلاً ${userName ? userName : 'بك'}!`,
+        description: "تم تسجيل الدخول بنجاح. مرحباً بعودتك إلى نظام إدارة المشاريع",
       });
 
       setTimeout(() => {

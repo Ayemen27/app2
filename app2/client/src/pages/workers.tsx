@@ -313,8 +313,8 @@ export default function WorkersPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
       toast({
-        title: "✅ تم بنجاح",
-        description: data?.message || "تم حذف العامل بنجاح",
+        title: "✅ تم حذف العامل بنجاح",
+        description: data?.message || "تم حذف العامل من النظام بنجاح. يمكنك إضافة عامل جديد إذا لزم الأمر.",
         className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
       });
     },

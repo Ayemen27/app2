@@ -253,29 +253,15 @@ export async function sendVerificationEmail(
   userId: string,
   email: string,
   ipAddress?: string,
-  userAgent?: string
+  userAgent?: string,
+  userFullName?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log('📧 [EmailService] بدء إرسال رمز التحقق للمستخدم:', userId);
 
-    // جلب معلومات المستخدم لإضافة تحية شخصية
-    let userFullName = null;
-    try {
-      const userQuery = await db.execute(sql`
-        SELECT first_name, last_name 
-        FROM users 
-        WHERE id = ${userId}
-      `);
-      
-      if (userQuery.rows.length > 0) {
-        const user = userQuery.rows[0] as any;
-        const firstName = user.first_name?.trim() || '';
-        const lastName = user.last_name?.trim() || '';
-        userFullName = [firstName, lastName].filter(Boolean).join(' ').trim() || null;
-      }
-    } catch (userError) {
-      console.log('ℹ️ [EmailService] لم يتم العثور على اسم المستخدم, سيتم استخدام تحية عامة');
-    }
+    // استخدام الاسم المُمرر مباشرة - بدون استعلام قاعدة بيانات غير ضروري
+    const displayName = userFullName?.trim() || null;
+    console.log('👤 [EmailService] استخدام الاسم المُمرر مباشرة:', displayName || 'بدون اسم');
 
     // التحقق من إعداد البريد الإلكتروني
     const isConfigValid = await verifyEmailConfiguration();
@@ -321,7 +307,7 @@ export async function sendVerificationEmail(
 
     // إرسال البريد الإلكتروني
     const transporter = createTransporter();
-    const emailTemplate = emailTemplates.verification(verificationCode, verificationLink, userFullName);
+    const emailTemplate = emailTemplates.verification(verificationCode, verificationLink, displayName || undefined);
 
     const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, '') || '';
     await transporter.sendMail({

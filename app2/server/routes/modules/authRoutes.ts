@@ -48,16 +48,26 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     const user = userResult.rows[0] as any;
 
-    // التحقق من تفعيل البريد الإلكتروني
+    // التحقق من تفعيل البريد الإلكتروني - السماح بالدخول مع طلب تحقق
+    let requireEmailVerification = false;
     if (!user.email_verified_at) {
-      console.log('❌ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email);
-      return res.status(403).json({
-        success: false,
-        requireEmailVerification: true,
-        message: 'يجب تفعيل البريد الإلكتروني أولاً. يرجى التحقق من بريدك الإلكتروني وإدخال رمز التحقق',
-        userId: user.id,
-        email: user.email
-      });
+      console.log('⚠️ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email, '- سيتم السماح بالدخول مع توجيه للتحقق');
+      requireEmailVerification = true;
+      
+      // إرسال رمز تحقق جديد تلقائياً
+      try {
+        const userFullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || undefined;
+        const emailResult = await sendVerificationEmail(
+          user.id,
+          user.email,
+          req.ip,
+          req.get('user-agent'),
+          userFullName
+        );
+        console.log('📧 [AUTH] تم إرسال رمز تحقق تلقائياً:', emailResult.success ? 'نجح' : 'فشل');
+      } catch (emailError) {
+        console.error('❌ [AUTH] فشل في إرسال رمز التحقق التلقائي:', emailError);
+      }
     }
     
     // التحقق من كلمة المرور
@@ -90,14 +100,18 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      message: 'تم تسجيل الدخول بنجاح',
+      message: requireEmailVerification 
+        ? 'تم تسجيل الدخول بنجاح. يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب' 
+        : 'تم تسجيل الدخول بنجاح',
+      requireEmailVerification,
       data: {
         user: {
           id: user.id,
           email: user.email,
           name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-          role: user.role || 'user', // استخدام الدور الفعلي من قاعدة البيانات
-          createdAt: user.created_at
+          role: user.role || 'user',
+          createdAt: user.created_at,
+          emailVerified: !!user.email_verified_at
         },
         tokens: {
           accessToken: tokenPair.accessToken,
@@ -176,7 +190,8 @@ authRouter.post('/register', async (req: Request, res: Response) => {
         newUser.id,
         newUser.email,
         req.ip,
-        req.get('user-agent')
+        req.get('user-agent'),
+        fullName  // تمرير الاسم مباشرة من نموذج التسجيل - بدون استعلام إضافي
       );
       
       console.log('📧 [AUTH] نتيجة إرسال بريد التحقق:', emailResult);

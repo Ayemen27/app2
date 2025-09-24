@@ -6595,7 +6595,7 @@ async function getUserActiveSessions(userId) {
 init_db();
 init_schema();
 import nodemailer from "nodemailer";
-import { eq as eq5, and as and5, sql as sql4 } from "drizzle-orm";
+import { eq as eq5, and as and5 } from "drizzle-orm";
 import crypto3 from "crypto";
 var createTransporter = () => {
   const smtpUser = process.env.SMTP_USER?.trim().replace(/\s+/g, "") || "";
@@ -6803,25 +6803,11 @@ var emailTemplates = {
     `
   })
 };
-async function sendVerificationEmail(userId, email, ipAddress, userAgent) {
+async function sendVerificationEmail(userId, email, ipAddress, userAgent, userFullName) {
   try {
     console.log("\u{1F4E7} [EmailService] \u0628\u062F\u0621 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", userId);
-    let userFullName = null;
-    try {
-      const userQuery = await db.execute(sql4`
-        SELECT first_name, last_name 
-        FROM users 
-        WHERE id = ${userId}
-      `);
-      if (userQuery.rows.length > 0) {
-        const user = userQuery.rows[0];
-        const firstName = user.first_name?.trim() || "";
-        const lastName = user.last_name?.trim() || "";
-        userFullName = [firstName, lastName].filter(Boolean).join(" ").trim() || null;
-      }
-    } catch (userError) {
-      console.log("\u2139\uFE0F [EmailService] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645, \u0633\u064A\u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u062A\u062D\u064A\u0629 \u0639\u0627\u0645\u0629");
-    }
+    const displayName = userFullName?.trim() || null;
+    console.log("\u{1F464} [EmailService] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0645\u064F\u0645\u0631\u0631 \u0645\u0628\u0627\u0634\u0631\u0629:", displayName || "\u0628\u062F\u0648\u0646 \u0627\u0633\u0645");
     const isConfigValid = await verifyEmailConfiguration();
     if (!isConfigValid) {
       return {
@@ -6852,7 +6838,7 @@ async function sendVerificationEmail(userId, email, ipAddress, userAgent) {
       userAgent
     });
     const transporter = createTransporter();
-    const emailTemplate = emailTemplates.verification(verificationCode, verificationLink, userFullName);
+    const emailTemplate = emailTemplates.verification(verificationCode, verificationLink, displayName || void 0);
     const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, "") || "";
     await transporter.sendMail({
       from: `"\u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639" <${cleanEmail}>`,

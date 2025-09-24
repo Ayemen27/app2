@@ -529,11 +529,13 @@ export default function AuthPage() {
                                 تذكرني
                               </label>
                             </div>
-                            <Link href="/forgot-password">
-                              <span className="text-sm text-blue-600 hover:text-blue-500 cursor-pointer">
-                                نسيت كلمة المرور؟
-                              </span>
-                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('forgot')}
+                              className="text-sm text-blue-600 hover:text-blue-500 cursor-pointer"
+                            >
+                              نسيت كلمة المرور؟
+                            </button>
                           </div>
                         </>
                       )}

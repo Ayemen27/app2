@@ -221,44 +221,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
         },
         body: JSON.stringify({ email, password }),
       });
-      console.log('📨 [AuthProvider.login] تم استلام الاستجابة:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
 
-      console.log('📨 [AuthProvider.login] استجابة تسجيل الدخول:', response.status);
-
-      const data = await response.json();
-      console.log('🔍 [AuthProvider.login] البيانات الخام المستلمة:', JSON.stringify(data, null, 2));
-      // ازالة تسجيل البيانات الحساسة - لا نطبع الرموز بشكل كامل
-      console.log('📦 [AuthProvider.login] تم استلام بيانات تسجيل الدخول بنجاح');
-      console.log('📦 [AuthProvider.login] تفاصيل البيانات:', {
-        success: data.success,
-        hasData: !!data.data,
-        hasUser: !!(data.data?.user || data.user),
-        hasToken: !!(data.data?.tokens?.accessToken || data.data?.accessToken || data.tokens?.accessToken || data.accessToken),
-        dataKeys: data.data ? Object.keys(data.data) : 'none',
-        topLevelKeys: Object.keys(data)
-      });
+      const result = await response.json();
 
       if (!response.ok) {
-        console.log('❌ [AuthProvider.login] استجابة غير ناجحة:', response.status, data.message);
-        throw new Error(data.message || 'فشل تسجيل الدخول');
-      }
-
-      if (!data.success) {
-        console.log('❌ [AuthProvider.login] فشل من جانب الخادم:', data.message);
-        throw new Error(data.message || 'فشل تسجيل الدخول');
+        // في حالة عدم التحقق من البريد الإلكتروني (403)
+        if (response.status === 403 && result.requireEmailVerification) {
+          const error = new Error(result.message || 'يجب التحقق من البريد الإلكتروني أولاً');
+          (error as any).requireEmailVerification = true;
+          (error as any).userId = result.data?.userId;
+          (error as any).email = result.data?.email;
+          throw error;
+        }
+        throw new Error(result.message || 'فشل تسجيل الدخول');
       }
 
       // استخراج بيانات المستخدم بشكل صحيح
-      const userData = data.data?.user || data.user;
-      const tokenData = data.data?.tokens?.accessToken || data.data?.accessToken || data.tokens?.accessToken || data.accessToken || data.token;
-      const refreshTokenData = data.data?.tokens?.refreshToken || data.data?.refreshToken || data.tokens?.refreshToken || data.refreshToken;
+      const userData = result.data?.user || result.user;
+      const tokenData = result.data?.tokens?.accessToken || result.data?.accessToken || result.tokens?.accessToken || result.accessToken || result.token;
+      const refreshTokenData = result.data?.tokens?.refreshToken || result.data?.refreshToken || result.tokens?.refreshToken || result.refreshToken;
 
-      console.log('🔍 [AuthProvider.login] فحص البيانات المستخرجة:', { 
+      console.log('🔍 [AuthProvider.login] فحص البيانات المستخرجة:', {
         hasUserData: !!userData,
         hasToken: !!tokenData,
         hasRefreshToken: !!refreshTokenData,
@@ -266,9 +249,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
       if (!userData) {
-        console.error('❌ [AuthProvider.login] بيانات المستخدم مفقودة:', { 
-          userData: userData, 
-          dataStructure: data,
+        console.error('❌ [AuthProvider.login] بيانات المستخدم مفقودة:', {
+          userData: userData,
+          dataStructure: result,
           possibleUserPaths: [
             'data.user',
             'user'
@@ -278,12 +261,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       if (!tokenData) {
-        console.error('❌ [AuthProvider.login] الرمز المميز مفقود:', { 
+        console.error('❌ [AuthProvider.login] الرمز المميز مفقود:', {
           hasToken: !!tokenData,
-          dataStructure: data,
+          dataStructure: result,
           possibleTokenPaths: [
             'data.accessToken',
-            'tokens.accessToken', 
+            'tokens.accessToken',
             'accessToken'
           ]
         });
@@ -462,7 +445,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // دالة مساعدة للانتظار (sleep)
-  const sleep = (ms: number): Promise<void> => 
+  const sleep = (ms: number): Promise<void> =>
     new Promise(resolve => setTimeout(resolve, ms));
 
   // حساب delay للـ exponential backoff
@@ -528,7 +511,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // قراءة response مرة واحدة فقط
           const responseText = await response.text();
           let data;
-          
+
           try {
             // محاولة parsing كـ JSON
             data = JSON.parse(responseText);
@@ -540,7 +523,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
           if (response.ok && data.success && data.tokens) {
             console.log('📦 [AuthProvider.refreshToken] استجابة ناجحة:', { success: data.success, hasTokens: !!data.tokens });
-            
+
             // نجحت العملية - حفظ الرموز الجديدة
             localStorage.setItem('accessToken', data.tokens.accessToken);
             localStorage.setItem('refreshToken', data.tokens.refreshToken);

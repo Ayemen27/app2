@@ -38,6 +38,165 @@ import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
+import { EmailVerificationGuard } from "@/components/EmailVerificationGuard"; // Import the new guard
+
+// Placeholder for AppContent, assuming it's defined elsewhere or will be defined
+function AppContent() {
+  return (
+    <Switch>
+      {/* صفحات غير محمية - بدون شريط علوي أو سفلي */}
+      <Route path="/login" component={LoginPage} />
+      <Route path="/register" component={LoginPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route path="/verify-email" component={EmailVerificationPage} />
+
+      {/* صفحات محمية - مع شريط علوي وسفلي */}
+      <Route path="/">
+        <AuthLayout>
+          <Dashboard />
+        </AuthLayout>
+      </Route>
+
+      <Route path="/projects">
+        <AuthLayout>
+          <ProjectsPage />
+        </AuthLayout>
+      </Route>
+
+      <Route path="/workers">
+        <AuthLayout>
+          <WorkersPage />
+        </AuthLayout>
+      </Route>
+
+      <Route path="/worker-accounts">
+        <AdminRoute>
+          <AuthLayout>
+            <WorkerAccountsPage />
+          </AuthLayout>
+        </AdminRoute>
+      </Route>
+
+      <Route path="/suppliers">
+        <AuthLayout>
+          <SuppliersProPage />
+        </AuthLayout>
+      </Route>
+
+      <Route path="/suppliers-pro">
+        <AuthLayout>
+          <SuppliersProPage />
+        </AuthLayout>
+      </Route>
+
+      <Route path="/supplier-accounts">
+        <AdminRoute>
+          <AuthLayout>
+            <SupplierAccountsPage />
+          </AuthLayout>
+        </AdminRoute>
+      </Route>
+
+      <Route path="/worker-attendance">
+        <AuthLayout>
+          <WorkerAttendance />
+        </AuthLayout>
+      </Route>
+
+      <Route path="/daily-expenses">
+        <AuthLayout>
+          <DailyExpenses />
+        </AuthLayout>
+      </Route>
+
+      <Route path="/material-purchase">
+        <AuthLayout>
+          <MaterialPurchase />
+        </AuthLayout>
+      </Route>
+
+      <Route path="/material-purchases">
+        <AuthLayout>
+          <MaterialPurchase />
+        </AuthLayout>
+      </Route>
+
+      <Route path="/project-transfers">
+        <AdminRoute>
+          <AuthLayout>
+            <ProjectTransfers />
+          </AuthLayout>
+        </AdminRoute>
+      </Route>
+
+      <Route path="/project-transactions">
+        <AdminRoute>
+          <AuthLayout>
+            <ProjectTransactionsPage />
+          </AuthLayout>
+        </AdminRoute>
+      </Route>
+
+      <Route path="/autocomplete-admin">
+        <AdminRoute>
+          <AuthLayout>
+            <AutocompleteAdminPage />
+          </AuthLayout>
+        </AdminRoute>
+      </Route>
+
+      <Route path="/equipment">
+        <AdminRoute>
+          <AuthLayout>
+            <EquipmentManagement />
+          </AuthLayout>
+        </AdminRoute>
+      </Route>
+
+      <Route path="/equipment-management">
+        <AdminRoute>
+          <AuthLayout>
+            <EquipmentManagement />
+          </AuthLayout>
+        </AdminRoute>
+      </Route>
+
+
+      <Route path="/notifications">
+        <AuthLayout>
+          <NotificationsPage />
+        </AuthLayout>
+      </Route>
+
+      <Route path="/admin-notifications">
+        <AdminRoute>
+          <AuthLayout>
+            <AdminNotificationsPage />
+          </AuthLayout>
+        </AdminRoute>
+      </Route>
+
+
+      <Route path="/smart-errors">
+        <AuthLayout>
+          <SmartErrorsPage />
+        </AuthLayout>
+      </Route>
+
+      <Route path="/security-policies">
+        <AdminRoute>
+          <AuthLayout>
+            <SecurityPoliciesPage />
+          </AuthLayout>
+        </AdminRoute>
+      </Route>
+
+
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -54,7 +213,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
 
 function Router() {
   console.log('🧭 [App.Router] بدء تحميل Router...', new Date().toISOString());
-  
+
   return (
     <Switch>
       {/* صفحات غير محمية - بدون شريط علوي أو سفلي */}
@@ -62,7 +221,7 @@ function Router() {
       <Route path="/register" component={LoginPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/verify-email" component={EmailVerificationPage} />
-      
+
       {/* صفحات محمية - مع شريط علوي وسفلي */}
       <Route path="/">
         <ProtectedRoute>
@@ -79,7 +238,7 @@ function Router() {
           </AuthLayout>
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/workers">
         <ProtectedRoute>
           <AuthLayout>
@@ -87,7 +246,7 @@ function Router() {
           </AuthLayout>
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/worker-accounts">
         <AdminRoute>
           <AuthLayout>
@@ -95,7 +254,7 @@ function Router() {
           </AuthLayout>
         </AdminRoute>
       </Route>
-      
+
       <Route path="/suppliers">
         <ProtectedRoute>
           <AuthLayout>
@@ -103,7 +262,7 @@ function Router() {
           </AuthLayout>
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/suppliers-pro">
         <ProtectedRoute>
           <AuthLayout>
@@ -111,7 +270,7 @@ function Router() {
           </AuthLayout>
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/supplier-accounts">
         <AdminRoute>
           <AuthLayout>
@@ -119,7 +278,7 @@ function Router() {
           </AuthLayout>
         </AdminRoute>
       </Route>
-      
+
       <Route path="/worker-attendance">
         <ProtectedRoute>
           <AuthLayout>
@@ -135,7 +294,7 @@ function Router() {
           </AuthLayout>
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/material-purchase">
         <ProtectedRoute>
           <AuthLayout>
@@ -143,7 +302,7 @@ function Router() {
           </AuthLayout>
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/material-purchases">
         <ProtectedRoute>
           <AuthLayout>
@@ -159,7 +318,7 @@ function Router() {
           </AuthLayout>
         </AdminRoute>
       </Route>
-      
+
       <Route path="/project-transactions">
         <AdminRoute>
           <AuthLayout>
@@ -167,7 +326,7 @@ function Router() {
           </AuthLayout>
         </AdminRoute>
       </Route>
-      
+
       <Route path="/autocomplete-admin">
         <AdminRoute>
           <AuthLayout>
@@ -183,7 +342,7 @@ function Router() {
           </AuthLayout>
         </AdminRoute>
       </Route>
-      
+
       <Route path="/equipment-management">
         <AdminRoute>
           <AuthLayout>
@@ -191,8 +350,8 @@ function Router() {
           </AuthLayout>
         </AdminRoute>
       </Route>
-      
-      
+
+
       <Route path="/notifications">
         <ProtectedRoute>
           <AuthLayout>
@@ -243,7 +402,21 @@ function App() {
             <FloatingButtonProvider>
               <div className="min-h-screen bg-background text-foreground" dir="rtl">
                 <ErrorBoundary>
-                  <Router />
+                  {/* This is where the ProtectedRoute and EmailVerificationGuard are applied */}
+                  <Switch>
+                    <Route path="/login" component={LoginPage} />
+                    <Route path="/verify-email" component={EmailVerificationPage} />
+                    <Route path="/reset-password" component={ResetPasswordPage} />
+                    <Route path="*" element={
+                      <ProtectedRoute>
+                        <EmailVerificationGuard>
+                          <AuthLayout>
+                            <Router />
+                          </AuthLayout>
+                        </EmailVerificationGuard>
+                      </ProtectedRoute>
+                    } />
+                  </Switch>
                 </ErrorBoundary>
                 <Toaster />
               </div>

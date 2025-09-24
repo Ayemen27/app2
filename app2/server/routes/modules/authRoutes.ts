@@ -48,11 +48,9 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     const user = userResult.rows[0] as any;
 
-    // التحقق من تفعيل البريد الإلكتروني - السماح بالدخول مع طلب تحقق
-    let requireEmailVerification = false;
+    // التحقق من تفعيل البريد الإلكتروني - منع الدخول نهائياً
     if (!user.email_verified_at) {
-      console.log('⚠️ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email, '- سيتم السماح بالدخول مع توجيه للتحقق');
-      requireEmailVerification = true;
+      console.log('❌ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email, '- منع تسجيل الدخول');
       
       // إرسال رمز تحقق جديد تلقائياً
       try {
@@ -68,6 +66,17 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       } catch (emailError) {
         console.error('❌ [AUTH] فشل في إرسال رمز التحقق التلقائي:', emailError);
       }
+
+      return res.status(403).json({
+        success: false,
+        requireEmailVerification: true,
+        message: 'يجب التحقق من بريدك الإلكتروني أولاً قبل تسجيل الدخول. تم إرسال رمز تحقق جديد',
+        data: {
+          userId: user.id,
+          email: user.email,
+          needsVerification: true
+        }
+      });
     }
     
     // التحقق من كلمة المرور
@@ -100,10 +109,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      message: requireEmailVerification 
-        ? 'تم تسجيل الدخول بنجاح. يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب' 
-        : 'تم تسجيل الدخول بنجاح',
-      requireEmailVerification,
+      message: 'تم تسجيل الدخول بنجاح',
       data: {
         user: {
           id: user.id,
@@ -111,7 +117,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
           name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
           role: user.role || 'user',
           createdAt: user.created_at,
-          emailVerified: !!user.email_verified_at
+          emailVerified: true
         },
         tokens: {
           accessToken: tokenPair.accessToken,

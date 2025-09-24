@@ -12,12 +12,12 @@ export const users = pgTable("users", {
   lastName: text("last_name"),
   role: text("role").notNull().default("admin"), // admin, manager, user
   isActive: boolean("is_active").default(true).notNull(),
-  lastLogin: timestamp("last_login"),
   emailVerifiedAt: timestamp("email_verified_at"), // متى تم التحقق من البريد الإلكتروني
   totpSecret: text("totp_secret"), // TOTP secret for 2FA
   mfaEnabled: boolean("mfa_enabled").default(false).notNull(), // Multi-factor authentication enabled
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  lastLogin: timestamp("last_login"),
 });
 
 // Authentication User Sessions table (جدول جلسات المستخدمين)
@@ -303,7 +303,7 @@ export const printSettings = pgTable('print_settings', {
   id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
   reportType: text('report_type').notNull().default('worker_statement'),
   name: text('name').notNull(),
-  
+
   // Page settings
   pageSize: text('page_size').notNull().default('A4'),
   pageOrientation: text('page_orientation').notNull().default('portrait'),
@@ -311,13 +311,13 @@ export const printSettings = pgTable('print_settings', {
   marginBottom: decimal('margin_bottom', { precision: 5, scale: 2 }).notNull().default('15.00'),
   marginLeft: decimal('margin_left', { precision: 5, scale: 2 }).notNull().default('15.00'),
   marginRight: decimal('margin_right', { precision: 5, scale: 2 }).notNull().default('15.00'),
-  
+
   // Font settings
   fontFamily: text('font_family').notNull().default('Arial'),
   fontSize: integer('font_size').notNull().default(12),
   headerFontSize: integer('header_font_size').notNull().default(16),
   tableFontSize: integer('table_font_size').notNull().default(10),
-  
+
   // Color settings
   headerBackgroundColor: text('header_background_color').notNull().default('#1e40af'),
   headerTextColor: text('header_text_color').notNull().default('#ffffff'),
@@ -325,12 +325,12 @@ export const printSettings = pgTable('print_settings', {
   tableRowEvenColor: text('table_row_even_color').notNull().default('#ffffff'),
   tableRowOddColor: text('table_row_odd_color').notNull().default('#f9fafb'),
   tableBorderColor: text('table_border_color').notNull().default('#000000'),
-  
+
   // Table settings
   tableBorderWidth: integer('table_border_width').notNull().default(1),
   tableCellPadding: integer('table_cell_padding').notNull().default(3),
   tableColumnWidths: text('table_column_widths').notNull().default('[8,12,10,30,12,15,15,12]'),
-  
+
   // Visual elements settings
   showHeader: boolean('show_header').notNull().default(true),
   showLogo: boolean('show_logo').notNull().default(true),
@@ -340,12 +340,12 @@ export const printSettings = pgTable('print_settings', {
   showTransfersTable: boolean('show_transfers_table').notNull().default(true),
   showSummary: boolean('show_summary').notNull().default(true),
   showSignatures: boolean('show_signatures').notNull().default(true),
-  
+
   // System settings
   isDefault: boolean('is_default').notNull().default(false),
   isActive: boolean('is_active').notNull().default(true),
   userId: text('user_id'),
-  
+
   // Timestamps
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -579,7 +579,7 @@ export type InsertAuthUserSession = z.infer<typeof insertAuthUserSessionSchema>;
 export const reportTemplates = pgTable('report_templates', {
   id: text('id').primaryKey().default(sql`gen_random_uuid()`),
   templateName: text('template_name').notNull().default('default'),
-  
+
   // إعدادات الرأس
   headerTitle: text('header_title').notNull().default('نظام إدارة مشاريع البناء'),
   headerSubtitle: text('header_subtitle').default('تقرير مالي'),
@@ -587,35 +587,35 @@ export const reportTemplates = pgTable('report_templates', {
   companyAddress: text('company_address').default('صنعاء - اليمن'),
   companyPhone: text('company_phone').default('+967 1 234567'),
   companyEmail: text('company_email').default('info@company.com'),
-  
+
   // إعدادات الذيل
   footerText: text('footer_text').default('تم إنشاء هذا التقرير بواسطة نظام إدارة المشاريع'),
   footerContact: text('footer_contact').default('للاستفسار: info@company.com | +967 1 234567'),
-  
+
   // إعدادات الألوان
   primaryColor: text('primary_color').notNull().default('#1f2937'), // رمادي داكن
   secondaryColor: text('secondary_color').notNull().default('#3b82f6'), // أزرق
   accentColor: text('accent_color').notNull().default('#10b981'), // أخضر
   textColor: text('text_color').notNull().default('#1f2937'),
   backgroundColor: text('background_color').notNull().default('#ffffff'),
-  
+
   // إعدادات التصميم
   fontSize: integer('font_size').notNull().default(11),
   fontFamily: text('font_family').notNull().default('Arial'),
   logoUrl: text('logo_url'), // رابط الشعار
-  
+
   // إعدادات الطباعة
   pageOrientation: text('page_orientation').notNull().default('portrait'), // portrait أو landscape
   pageSize: text('page_size').notNull().default('A4'),
   margins: jsonb('margins').default({ top: 1, bottom: 1, left: 0.75, right: 0.75 }),
-  
+
   // تفعيل/إلغاء العناصر
   showHeader: boolean('show_header').notNull().default(true),
   showFooter: boolean('show_footer').notNull().default(true),
   showLogo: boolean('show_logo').notNull().default(true),
   showDate: boolean('show_date').notNull().default(true),
   showPageNumbers: boolean('show_page_numbers').notNull().default(true),
-  
+
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -656,12 +656,12 @@ export const tools = pgTable("tools", {
   categoryId: varchar("category_id").references(() => toolCategories.id),
   projectId: varchar("project_id").references(() => projects.id), // المشروع المرتبط
   unit: text("unit").notNull().default("قطعة"), // الوحدة
-  
+
   // خصائص الأداة
   isTool: boolean("is_tool").default(true).notNull(), // أداة عمل
   isConsumable: boolean("is_consumable").default(false).notNull(), // قابل للاستهلاك
   isSerial: boolean("is_serial").default(false).notNull(), // له رقم تسلسلي
-  
+
   // معلومات الشراء والمالية
   purchasePrice: decimal("purchase_price", { precision: 12, scale: 2 }),
   currentValue: decimal("current_value", { precision: 12, scale: 2 }), // القيمة الحالية
@@ -669,18 +669,18 @@ export const tools = pgTable("tools", {
   purchaseDate: date("purchase_date"),
   supplierId: varchar("supplier_id").references(() => suppliers.id),
   warrantyExpiry: date("warranty_expiry"),
-  
+
   // معلومات الصيانة
   maintenanceInterval: integer("maintenance_interval"), // عدد الأيام بين الصيانة
   lastMaintenanceDate: date("last_maintenance_date"),
   nextMaintenanceDate: date("next_maintenance_date"),
-  
+
   // الحالة والموقع
   status: text("status").notNull().default("available"), // available, assigned, maintenance, lost, consumed, reserved
   condition: text("condition").notNull().default("excellent"), // excellent, good, fair, poor, damaged
   locationType: text("location_type"), // نوع الموقع (مخزن، مشروع، فرع، مكتب، ورشة)
   locationId: text("location_id"), // تحديد الموقع
-  
+
   // معلومات إضافية
   serialNumber: text("serial_number"),
   barcode: text("barcode"),
@@ -688,15 +688,15 @@ export const tools = pgTable("tools", {
   imageUrls: text("image_urls").array(),
   notes: text("notes"),
   specifications: jsonb("specifications"), // مواصفات تقنية
-  
+
   // تتبع الاستخدام
   totalUsageHours: decimal("total_usage_hours", { precision: 10, scale: 2 }).default('0'),
   usageCount: integer("usage_count").default(0),
-  
+
   // تقييم الذكاء الاصطناعي
   aiRating: decimal("ai_rating", { precision: 3, scale: 2 }), // تقييم من 1-5
   aiNotes: text("ai_notes"), // ملاحظات الذكاء الاصطناعي
-  
+
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -706,21 +706,21 @@ export const tools = pgTable("tools", {
 export const toolStock = pgTable("tool_stock", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   toolId: varchar("tool_id").notNull().references(() => tools.id, { onDelete: 'cascade' }),
-  
+
   // معلومات الموقع
   locationType: text("location_type").notNull(), // warehouse, project, external, maintenance, none
   locationId: varchar("location_id"), // مرجع للمشروع أو المخزن
   locationName: text("location_name"), // اسم الموقع للعرض
-  
+
   // الكميات
   quantity: integer("quantity").notNull().default(0),
   availableQuantity: integer("available_quantity").notNull().default(0),
   reservedQuantity: integer("reserved_quantity").notNull().default(0),
-  
+
   // معلومات إضافية
   notes: text("notes"),
   lastVerifiedAt: timestamp("last_verified_at"),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -731,18 +731,18 @@ export const toolStock = pgTable("tool_stock", {
 export const toolMovements = pgTable("tool_movements", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   toolId: varchar("tool_id").notNull().references(() => tools.id, { onDelete: 'cascade' }),
-  
+
   // معلومات الحركة
   movementType: text("movement_type").notNull(), // purchase, transfer, return, consume, adjust, maintenance, lost
   quantity: integer("quantity").notNull(),
-  
+
   // من إلى
   fromType: text("from_type"), // warehouse, project, external, supplier, none
   fromId: varchar("from_id"),
-  
+
   toType: text("to_type"), // warehouse, project, external, maintenance, none
   toId: varchar("to_id"),
-  
+
   // معلومات إضافية
   projectId: varchar("project_id").references(() => projects.id),
   reason: text("reason"),
@@ -756,47 +756,47 @@ export const toolMovements = pgTable("tool_movements", {
 export const toolMaintenanceLogs = pgTable("tool_maintenance_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   toolId: varchar("tool_id").notNull().references(() => tools.id, { onDelete: 'cascade' }),
-  
+
   // نوع الصيانة
   maintenanceType: text("maintenance_type").notNull(), // preventive, corrective, emergency, inspection
   priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
-  
+
   // تفاصيل الصيانة
   title: text("title").notNull(),
   description: text("description"),
   workPerformed: text("work_performed"),
-  
+
   // التواريخ
   scheduledDate: timestamp("scheduled_date"),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
   nextDueDate: timestamp("next_due_date"),
-  
+
   // الحالة
   status: text("status").notNull().default("scheduled"), // scheduled, in_progress, completed, cancelled, overdue
-  
+
   // التكلفة
   laborCost: decimal("labor_cost", { precision: 12, scale: 2 }).default('0'),
   partsCost: decimal("parts_cost", { precision: 12, scale: 2 }).default('0'),
   totalCost: decimal("total_cost", { precision: 12, scale: 2 }).default('0'),
-  
+
   // المشاركون
   performedBy: varchar("performed_by").references(() => users.id),
   assignedTo: varchar("assigned_to").references(() => users.id),
-  
+
   // تقييم الحالة
   conditionBefore: text("condition_before"), // حالة الأداة قبل الصيانة
   conditionAfter: text("condition_after"), // حالة الأداة بعد الصيانة
-  
+
   // مرفقات
   imageUrls: text("image_urls").array(),
   documentUrls: text("document_urls").array(),
-  
+
   // ملاحظات
   notes: text("notes"),
   issues: text("issues"), // المشاكل المكتشفة
   recommendations: text("recommendations"), // التوصيات
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -806,25 +806,25 @@ export const toolUsageAnalytics = pgTable("tool_usage_analytics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   toolId: varchar("tool_id").notNull().references(() => tools.id, { onDelete: 'cascade' }),
   projectId: varchar("project_id").references(() => projects.id),
-  
+
   // فترة التحليل
   analysisDate: text("analysis_date").notNull(), // YYYY-MM-DD
   analysisWeek: text("analysis_week"), // YYYY-WW
   analysisMonth: text("analysis_month"), // YYYY-MM
-  
+
   // إحصائيات الاستخدام
   usageHours: decimal("usage_hours", { precision: 10, scale: 2 }).default('0'),
   transferCount: integer("transfer_count").default(0),
   maintenanceCount: integer("maintenance_count").default(0),
-  
+
   // إحصائيات التكلفة
   operationalCost: decimal("operational_cost", { precision: 12, scale: 2 }).default('0'),
   maintenanceCost: decimal("maintenance_cost", { precision: 12, scale: 2 }).default('0'),
-  
+
   // تقييم الأداء
   utilizationRate: decimal("utilization_rate", { precision: 5, scale: 2 }), // معدل الاستخدام %
   efficiencyScore: decimal("efficiency_score", { precision: 5, scale: 2 }), // نقاط الكفاءة
-  
+
   // تنبؤات الذكاء الاصطناعي
   predictedUsage: decimal("predicted_usage", { precision: 10, scale: 2 }),
 
@@ -834,34 +834,34 @@ export const toolUsageAnalytics = pgTable("tool_usage_analytics", {
 // Tool Purchase Integration (ربط الأدوات بالمشتريات) - مرحلة 3
 export const toolPurchaseItems = pgTable("tool_purchase_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
+
   // ربط مع المشتريات
   materialPurchaseId: varchar("material_purchase_id").notNull().references(() => materialPurchases.id, { onDelete: 'cascade' }),
-  
+
   // معلومات الأداة المشتراة
   itemName: text("item_name").notNull(), // اسم البند كما في الفاتورة
   itemDescription: text("item_description"),
   quantity: integer("quantity").notNull().default(1),
   unitPrice: decimal("unit_price", { precision: 12, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 12, scale: 2 }).notNull(),
-  
+
   // تصنيف الأداة
   isToolItem: boolean("is_tool_item").default(false).notNull(), // هل هذا البند أداة؟
   suggestedCategoryId: varchar("suggested_category_id").references(() => toolCategories.id), // التصنيف المقترح
-  
+
   // حالة التحويل إلى أداة
   conversionStatus: text("conversion_status").notNull().default("pending"), // pending, converted, skipped, failed
   toolId: varchar("tool_id").references(() => tools.id), // مرجع الأداة المنشأة
-  
+
   // ذكاء اصطناعي للتصنيف
   aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }), // ثقة الذكاء الاصطناعي في التصنيف
   aiSuggestions: jsonb("ai_suggestions"), // اقتراحات الذكاء الاصطناعي
-  
+
   // معلومات إضافية
   notes: text("notes"),
   convertedAt: timestamp("converted_at"),
   convertedBy: varchar("converted_by").references(() => users.id),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -870,45 +870,45 @@ export const toolPurchaseItems = pgTable("tool_purchase_items", {
 export const maintenanceSchedules = pgTable("maintenance_schedules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   toolId: varchar("tool_id").notNull().references(() => tools.id, { onDelete: 'cascade' }),
-  
+
   // نوع الجدولة
   scheduleType: text("schedule_type").notNull(), // time_based, usage_based, condition_based, custom
-  
+
   // إعدادات الجدولة الزمنية
   intervalDays: integer("interval_days"), // الفترة بالأيام
   intervalWeeks: integer("interval_weeks"), // الفترة بالأسابيع
   intervalMonths: integer("interval_months"), // الفترة بالشهور
-  
+
   // إعدادات الجدولة بالاستخدام
   usageHoursInterval: decimal("usage_hours_interval", { precision: 10, scale: 2 }), // فترة بساعات العمل
   usageCountInterval: integer("usage_count_interval"), // فترة بعدد الاستخدامات
-  
+
   // حالة الجدولة
   isActive: boolean("is_active").default(true).notNull(),
-  
+
   // تواريخ مهمة
   lastMaintenanceDate: timestamp("last_maintenance_date"),
   nextDueDate: timestamp("next_due_date").notNull(),
-  
+
   // تفاصيل الصيانة
   maintenanceType: text("maintenance_type").notNull().default("preventive"), // preventive, corrective, inspection
   priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
   estimatedDuration: integer("estimated_duration"), // المدة المقدرة بالساعات
   estimatedCost: decimal("estimated_cost", { precision: 12, scale: 2 }),
-  
+
   // المسؤوليات
   assignedTo: varchar("assigned_to").references(() => users.id),
   createdBy: varchar("created_by").references(() => users.id),
-  
+
   // ملاحظات ووصف
   title: text("title").notNull(),
   description: text("description"),
   checklistItems: jsonb("checklist_items"), // قائمة مراجعة JSON
-  
+
   // تنبيهات
   enableNotifications: boolean("enable_notifications").default(true).notNull(),
   notifyDaysBefore: integer("notify_days_before").default(3).notNull(),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -918,55 +918,55 @@ export const maintenanceTasks = pgTable("maintenance_tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   scheduleId: varchar("schedule_id").notNull().references(() => maintenanceSchedules.id, { onDelete: 'cascade' }),
   toolId: varchar("tool_id").notNull().references(() => tools.id, { onDelete: 'cascade' }),
-  
+
   // معلومات المهمة
   taskName: text("task_name").notNull(),
   taskDescription: text("task_description"),
   taskType: text("task_type").notNull(), // inspection, cleaning, lubrication, replacement, repair, calibration
-  
+
   // الأولوية والحالة
   priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
   status: text("status").notNull().default("pending"), // pending, in_progress, completed, cancelled, overdue
-  
+
   // التوقيت
   dueDate: timestamp("due_date").notNull(),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
   estimatedDuration: integer("estimated_duration"), // بالدقائق
   actualDuration: integer("actual_duration"), // بالدقائق
-  
+
   // التكلفة
   estimatedCost: decimal("estimated_cost", { precision: 12, scale: 2 }),
   actualCost: decimal("actual_cost", { precision: 12, scale: 2 }),
-  
+
   // المسؤوليات
   assignedTo: varchar("assigned_to").references(() => users.id),
   performedBy: varchar("performed_by").references(() => users.id),
-  
+
   // النتائج
   result: text("result"), // success, failed, partial, needs_followup
   findings: text("findings"), // ما تم اكتشافه
   actionsTaken: text("actions_taken"), // الإجراءات المتخذة
   recommendations: text("recommendations"), // التوصيات
-  
+
   // المرفقات والوثائق
   beforeImages: text("before_images").array(), // صور قبل الصيانة
   afterImages: text("after_images").array(), // صور بعد الصيانة
   documentUrls: text("document_urls").array(), // مستندات
-  
+
   // المواد المستخدمة
   materialsUsed: jsonb("materials_used"), // JSON array of {name, quantity, cost}
-  
+
   // التوقيعات والموافقات
   performerSignature: text("performer_signature"), // توقيع المنفذ
   supervisorSignature: text("supervisor_signature"), // توقيع المشرف
   approvedBy: varchar("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
-  
+
   // ملاحظات
   notes: text("notes"),
   internalNotes: text("internal_notes"), // ملاحظات داخلية
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -975,34 +975,34 @@ export const maintenanceTasks = pgTable("maintenance_tasks", {
 export const toolCostTracking = pgTable("tool_cost_tracking", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   toolId: varchar("tool_id").notNull().references(() => tools.id, { onDelete: 'cascade' }),
-  
+
   // نوع التكلفة
   costType: text("cost_type").notNull(), // purchase, maintenance, operation, depreciation, insurance, storage
   costCategory: text("cost_category").notNull(), // capital, operational, unexpected
-  
+
   // التكلفة
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   currency: text("currency").notNull().default("YER"), // العملة
-  
+
   // التاريخ والفترة
   costDate: text("cost_date").notNull(), // YYYY-MM-DD
   costPeriod: text("cost_period"), // monthly, yearly, one-time
-  
+
   // المرجع
   referenceType: text("reference_type"), // purchase_invoice, maintenance_log, manual_entry
   referenceId: varchar("reference_id"), // مرجع للفاتورة أو سجل الصيانة
-  
+
   // تفاصيل إضافية
   description: text("description").notNull(),
   notes: text("notes"),
-  
+
   // الموافقات
   approvedBy: varchar("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
-  
+
   // المشروع المرتبط
   projectId: varchar("project_id").references(() => projects.id),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -1014,32 +1014,32 @@ export const toolReservations = pgTable("tool_reservations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   toolId: varchar("tool_id").notNull().references(() => tools.id, { onDelete: 'cascade' }),
   projectId: varchar("project_id").notNull().references(() => projects.id),
-  
+
   // تفاصيل الحجز
   quantity: integer("quantity").notNull(),
   reservedBy: varchar("reserved_by").notNull().references(() => users.id),
-  
+
   // التواريخ
   reservationDate: timestamp("reservation_date").defaultNow().notNull(),
   requestedDate: timestamp("requested_date").notNull(),
   expiryDate: timestamp("expiry_date"),
-  
+
   // الحالة
   status: text("status").notNull().default("pending"), // pending, approved, fulfilled, cancelled, expired
   priority: text("priority").notNull().default("normal"), // low, normal, high, urgent
-  
+
   // ملاحظات
   reason: text("reason"),
   notes: text("notes"),
-  
+
   // الموافقة
   approvedBy: varchar("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
-  
+
   // الإنجاز
   fulfilledBy: varchar("fulfilled_by").references(() => users.id),
   fulfilledAt: timestamp("fulfilled_at"),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1047,55 +1047,55 @@ export const toolReservations = pgTable("tool_reservations", {
 // System Notifications (إشعارات النظام الاحترافي)
 export const systemNotifications = pgTable("system_notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
+
   // نوع الإشعار
   type: text("type").notNull(), // maintenance, warranty, stock, unused, damaged, system, security
   category: text("category").notNull(), // alert, warning, info, success, error
-  
+
   // المحتوى
   title: text("title").notNull(),
   message: text("message").notNull(),
   description: text("description"), // تفاصيل إضافية
-  
+
   // الأولوية والحالة
   priority: text("priority").notNull().default("medium"), // low, medium, high, critical, urgent
   severity: text("severity").notNull().default("info"), // info, warning, error, critical
   status: text("status").notNull().default("active"), // active, read, archived, dismissed
-  
+
   // المصدر والمرجع
   sourceType: text("source_type"), // tool, project, user, system, maintenance, financial
   sourceId: varchar("source_id"), // ID للعنصر المرجعي
   sourceName: text("source_name"), // اسم المصدر للعرض
-  
+
   // المستخدم والتوجيه
   userId: varchar("user_id").references(() => users.id), // إشعار خاص بمستخدم محدد، null للإشعارات العامة
   targetAudience: text("target_audience").default("all"), // all, admin, managers, operators
-  
+
   // الإجراءات
   actionRequired: boolean("action_required").default(false).notNull(),
   actionUrl: text("action_url"), // رابط للإجراء المطلوب
   actionLabel: text("action_label"), // نص زر الإجراء
-  
+
   // التوقيت
   scheduledFor: timestamp("scheduled_for"), // وقت عرض الإشعار
   expiresAt: timestamp("expires_at"), // وقت انتهاء الإشعار
   readAt: timestamp("read_at"), // وقت القراءة
   dismissedAt: timestamp("dismissed_at"), // وقت الإخفاء
-  
+
   // البيانات المرفقة
   metadata: jsonb("metadata"), // بيانات إضافية في شكل JSON
   attachments: text("attachments").array(), // مرفقات أو صور
-  
+
   // التتبع والإحصائيات
   viewCount: integer("view_count").default(0).notNull(),
   clickCount: integer("click_count").default(0).notNull(),
   lastViewedAt: timestamp("last_viewed_at"),
-  
+
   // الإعدادات التقنية
   isSystem: boolean("is_system").default(false).notNull(), // إشعار نظام تلقائي
   isAutoGenerated: boolean("is_auto_generated").default(true).notNull(),
   isPersistent: boolean("is_persistent").default(false).notNull(), // يبقى حتى بعد القراءة
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -1672,4 +1672,3 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 // Types for TypeScript
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
-

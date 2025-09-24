@@ -5,7 +5,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { ProfessionalLoader } from "./ui/professional-loader";
-import { Redirect } from "wouter";
+import { Redirect, Navigate } from "wouter";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -41,13 +41,22 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }, [isLoading]);
 
   // إظهار شاشة التحميل أثناء التحقق من المصادقة
-  if (isLoading || (!authCheckComplete && hasStoredAuth)) {
-    console.log('⏳ [ProtectedRoute] في حالة تحميل، إظهار شاشة التحميل');
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <ProfessionalLoader />
       </div>
     );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // منع الوصول للمستخدمين غير المتحققين من البريد الإلكتروني
+  if (user && !user.emailVerified) {
+    console.log('🚫 [ProtectedRoute] مستخدم غير متحقق من البريد، توجيه للتحقق');
+    return <Navigate to={`/verify-email?userId=${user.id}&email=${encodeURIComponent(user.email)}`} replace />;
   }
 
   // إذا كان مصادق عليه، اسمح بالدخول مع حماية من الأخطاء

@@ -203,22 +203,7 @@ export default function AuthPage() {
     onSuccess: (result: any) => {
       console.log('🎉 [AuthPage.loginMutation] نجح تسجيل الدخول:', result);
       
-      // التحقق من حالة البريد الإلكتروني بعد الدخول الناجح
-      if (result?.requireEmailVerification) {
-        const user = result.data?.user;
-        toast({
-          title: `أهلاً وسهلاً ${user?.name ? user.name : 'بك'}!`,
-          description: "تم تسجيل الدخول بنجاح. يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب - تم إرسال رمز جديد.",
-        });
-        
-        // توجيه إلى صفحة التحقق من البريد
-        setTimeout(() => {
-          if (user?.id && user?.email) {
-            navigate(`/verify-email?userId=${user.id}&email=${encodeURIComponent(user.email)}`);
-          }
-        }, 2000);
-        return;
-      }
+      // لا توجد حاجة لهذا التحقق لأن الخادم لن يسمح بالدخول بدون تحقق
       
       // استخراج اسم المستخدم من النتيجة
       const userName = result?.data?.user?.name || result?.user?.name;
@@ -240,17 +225,31 @@ export default function AuthPage() {
       console.error('❌ [AuthPage.loginMutation] فشل تسجيل الدخول:', error);
       
       // التحقق من حالة عدم تفعيل البريد الإلكتروني
-      if (error.response?.data?.requireEmailVerification) {
-        const { userId, email } = error.response.data;
+      if (error?.message?.includes('requireEmailVerification') || 
+          (error as any)?.response?.data?.requireEmailVerification ||
+          (error as any)?.response?.status === 403) {
+        
+        const errorData = (error as any)?.response?.data;
+        const userId = errorData?.data?.userId;
+        const email = errorData?.data?.email;
+        
         toast({
           title: "البريد الإلكتروني غير مفعل",
-          description: "يرجى تفعيل بريدك الإلكتروني أولاً",
+          description: "يجب التحقق من بريدك الإلكتروني أولاً. تم إرسال رمز تحقق جديد.",
           variant: "destructive",
         });
         
         // توجيه إلى صفحة التحقق من البريد
         setTimeout(() => {
-          navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(email)}`);
+          if (userId && email) {
+            navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(email)}`);
+          } else {
+            // في حالة عدم وجود معرف المستخدم، نحاول استخدام البريد من النموذج
+            const formEmail = loginForm.getValues('email');
+            if (formEmail) {
+              navigate(`/verify-email?email=${encodeURIComponent(formEmail)}`);
+            }
+          }
         }, 2000);
         return;
       }

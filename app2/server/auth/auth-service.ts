@@ -241,12 +241,29 @@ export async function loginUser(request: LoginRequest): Promise<LoginResult> {
     }
     */
 
-    // التحقق من التحقق بالبريد الإلكتروني
+    // التحقق من التحقق بالبريد الإلكتروني - منع الدخول نهائياً
     if (!user.emailVerifiedAt) {
+      // إرسال رمز تحقق جديد
+      try {
+        const userFullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || undefined;
+        await sendVerificationEmail(
+          user.id,
+          user.email,
+          ipAddress,
+          userAgent,
+          userFullName
+        );
+        console.log('📧 [AuthService] تم إرسال رمز تحقق جديد للمستخدم:', user.email);
+      } catch (emailError) {
+        console.error('❌ [AuthService] فشل في إرسال رمز التحقق:', emailError);
+      }
+
       return {
         success: false,
         requireVerification: true,
-        message: 'يرجى التحقق من بريدك الإلكتروني أولاً'
+        message: 'يجب التحقق من بريدك الإلكتروني أولاً. تم إرسال رمز تحقق جديد.',
+        userId: user.id,
+        email: user.email
       };
     }
 

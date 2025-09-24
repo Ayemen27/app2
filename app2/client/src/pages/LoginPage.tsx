@@ -434,27 +434,20 @@ export default function AuthPage() {
             <CardContent className="space-y-6">
               {/* نظام التبويبات المتطور */}
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 glass-tabs">
+                <TabsList className="grid w-full grid-cols-2 glass-tabs gap-2">
                   <TabsTrigger 
                     value="login" 
-                    className="flex items-center gap-2 tab-trigger"
+                    className="flex items-center gap-2 tab-trigger px-6 py-3"
                   >
                     <Shield className="w-4 h-4" />
                     تسجيل الدخول
                   </TabsTrigger>
                   <TabsTrigger 
                     value="register" 
-                    className="flex items-center gap-2 tab-trigger"
+                    className="flex items-center gap-2 tab-trigger px-6 py-3"
                   >
                     <UserPlus className="w-4 h-4" />
                     حساب جديد
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="forgot" 
-                    className="flex items-center gap-2 tab-trigger"
-                  >
-                    <KeyRound className="w-4 h-4" />
-                    استرجاع
                   </TabsTrigger>
                 </TabsList>
 
@@ -532,7 +525,7 @@ export default function AuthPage() {
                             <button
                               type="button"
                               onClick={() => setActiveTab('forgot')}
-                              className="text-sm text-blue-600 hover:text-blue-500 cursor-pointer"
+                              className="text-sm text-blue-600 hover:text-blue-500 cursor-pointer transition-colors duration-200"
                             >
                               نسيت كلمة المرور؟
                             </button>

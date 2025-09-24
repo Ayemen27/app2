@@ -5,7 +5,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { ProfessionalLoader } from "./ui/professional-loader";
-import { Redirect, Navigate } from "wouter";
+import { Redirect } from "wouter";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -50,13 +50,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Redirect to="/login" />;
   }
 
   // منع الوصول للمستخدمين غير المتحققين من البريد الإلكتروني
   if (user && !user.emailVerified) {
     console.log('🚫 [ProtectedRoute] مستخدم غير متحقق من البريد، توجيه للتحقق');
-    return <Navigate to={`/verify-email?userId=${user.id}&email=${encodeURIComponent(user.email)}`} replace />;
+    return <Redirect to={`/verify-email?userId=${user.id}&email=${encodeURIComponent(user.email)}`} />;
   }
 
   // إذا كان مصادق عليه، اسمح بالدخول مع حماية من الأخطاء

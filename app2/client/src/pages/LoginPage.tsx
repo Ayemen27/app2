@@ -149,7 +149,7 @@ export default function AuthPage() {
   const queryClient = useQueryClient();
   const { login } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'login' | 'register' | 'forgot'>('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loginStep, setLoginStep] = useState<'credentials' | 'mfa' | 'verification'>('credentials');
@@ -434,27 +434,20 @@ export default function AuthPage() {
             <CardContent className="space-y-6">
               {/* نظام التبويبات المتطور */}
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 glass-tabs">
+                <TabsList className="grid w-full grid-cols-2 gap-4 glass-tabs">
                   <TabsTrigger 
                     value="login" 
-                    className="flex items-center gap-2 tab-trigger"
+                    className="flex items-center gap-2 tab-trigger px-6"
                   >
                     <Shield className="w-4 h-4" />
                     تسجيل الدخول
                   </TabsTrigger>
                   <TabsTrigger 
                     value="register" 
-                    className="flex items-center gap-2 tab-trigger"
+                    className="flex items-center gap-2 tab-trigger px-6"
                   >
                     <UserPlus className="w-4 h-4" />
                     حساب جديد
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="forgot" 
-                    className="flex items-center gap-2 tab-trigger"
-                  >
-                    <KeyRound className="w-4 h-4" />
-                    استرجاع
                   </TabsTrigger>
                 </TabsList>
 
@@ -531,10 +524,11 @@ export default function AuthPage() {
                             </div>
                             <button
                               type="button"
-                              onClick={() => setActiveTab('forgot')}
-                              className="text-sm text-blue-600 hover:text-blue-500 cursor-pointer"
+                              onClick={() => forgotPasswordMutation.mutate({ email: loginForm.getValues('email') })}
+                              className="text-sm text-blue-600 hover:text-blue-500 cursor-pointer disabled:opacity-50"
+                              disabled={!loginForm.getValues('email') || forgotPasswordMutation.isPending}
                             >
-                              نسيت كلمة المرور؟
+                              {forgotPasswordMutation.isPending ? 'جارٍ الإرسال...' : 'نسيت كلمة المرور؟'}
                             </button>
                           </div>
                         </>
@@ -765,66 +759,7 @@ export default function AuthPage() {
                   </Form>
                 </TabsContent>
 
-                {/* محتوى استرجاع كلمة المرور */}
-                <TabsContent value="forgot" className="space-y-4 tab-content">
-                  <div className="text-center space-y-2 mb-4">
-                    <Lock className="w-12 h-12 text-blue-500 mx-auto" />
-                    <h3 className="text-lg font-semibold text-gray-900">استرجاع كلمة المرور</h3>
-                    <p className="text-sm text-gray-600">
-                      أدخل بريدك الإلكتروني وسنرسل لك رابط لإعادة تعيين كلمة المرور
-                    </p>
-                  </div>
-
-                  <Form {...forgotPasswordForm}>
-                    <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
-                      
-                      <FormField
-                        control={forgotPasswordForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-gray-700 font-medium">البريد الإلكتروني</FormLabel>
-                            <FormControl>
-                              <div className="relative group">
-                                <Mail className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                                <Input 
-                                  {...field} 
-                                  type="email"
-                                  placeholder="أدخل بريدك الإلكتروني"
-                                  className="pr-10 enhanced-input"
-                                  validator={emailValidator}
-                                  fieldType="email"
-                                  showValidation={true}
-                                  data-testid="input-forgot-email"
-                                />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <Button
-                        type="submit"
-                        className="w-full enhanced-button"
-                        disabled={forgotPasswordMutation.isPending}
-                        data-testid="button-forgot-password"
-                      >
-                        {forgotPasswordMutation.isPending ? (
-                          <>
-                            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                            جارِ الإرسال...
-                          </>
-                        ) : (
-                          <>
-                            <Mail className="ml-2 h-4 w-4" />
-                            إرسال رابط الاسترجاع
-                          </>
-                        )}
-                      </Button>
-                    </form>
-                  </Form>
-                </TabsContent>
+                
               </Tabs>
             </CardContent>
           </Card>

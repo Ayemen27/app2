@@ -3876,6 +3876,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // مسارات إدارة الإشعارات للمسؤولين
+  // ============================================
+
+  // جلب جميع الإشعارات للمسؤول
+  app.get("/api/admin/notifications/all", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { NotificationService } = await import('./services/NotificationService');
+      const notificationService = new NotificationService();
+      
+      const { limit, offset, type, priority } = req.query;
+      
+      console.log('📋 [Admin] جلب جميع الإشعارات للمسؤول');
+      
+      const result = await notificationService.getAllNotificationsForAdmin({
+        limit: limit ? parseInt(limit as string) : 50,
+        offset: offset ? parseInt(offset as string) : 0,
+        type: type as string,
+        priority: priority ? parseInt(priority as string) : undefined
+      });
+      
+      res.json({
+        success: true,
+        notifications: result.notifications || [],
+        total: result.total || 0,
+        message: 'تم جلب الإشعارات بنجاح'
+      });
+    } catch (error: any) {
+      console.error('❌ [Admin] خطأ في جلب الإشعارات:', error);
+      res.status(500).json({
+        success: false,
+        notifications: [],
+        total: 0,
+        error: error.message,
+        message: 'فشل في جلب الإشعارات'
+      });
+    }
+  });
+
+  // جلب نشاط المستخدمين للإشعارات
+  app.get("/api/admin/notifications/user-activity", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { NotificationService } = await import('./services/NotificationService');
+      const notificationService = new NotificationService();
+      
+      console.log('📊 [Admin] جلب نشاط المستخدمين للإشعارات');
+      
+      const userStats = await notificationService.getUserActivityStats();
+      
+      res.json({
+        success: true,
+        userStats: userStats || [],
+        message: 'تم جلب نشاط المستخدمين بنجاح'
+      });
+    } catch (error: any) {
+      console.error('❌ [Admin] خطأ في جلب نشاط المستخدمين:', error);
+      res.status(500).json({
+        success: false,
+        userStats: [],
+        error: error.message,
+        message: 'فشل في جلب نشاط المستخدمين'
+      });
+    }
+  });
+
+  // إرسال إشعار جديد من المسؤول
+  app.post("/api/admin/notifications/send", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { NotificationService } = await import('./services/NotificationService');
+      const notificationService = new NotificationService();
+      
+      const userId = req.user?.userId || req.user?.email || null;
+      const { type, title, body, priority, recipients, projectId } = req.body;
+      
+      console.log(`📤 [Admin] إرسال إشعار جديد من المسؤول: ${userId}`);
+      
+      const notificationData = {
+        type: type || 'announcement',
+        title: title || 'إشعار جديد',
+        body: body || '',
+        priority: priority || 3,
+        recipients: recipients === 'all' ? null : recipients,
+        projectId: projectId || null
+      };
+      
+      const notification = await notificationService.createNotification(notificationData);
+      
+      console.log(`✅ [Admin] تم إرسال الإشعار بنجاح: ${notification.id}`);
+      
+      res.json({
+        success: true,
+        data: notification,
+        message: 'تم إرسال الإشعار بنجاح'
+      });
+    } catch (error: any) {
+      console.error('❌ [Admin] خطأ في إرسال الإشعار:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في إرسال الإشعار'
+      });
+    }
+  });
+
+  // حذف إشعار
+  app.delete("/api/admin/notifications/:id", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { NotificationService } = await import('./services/NotificationService');
+      const notificationService = new NotificationService();
+      
+      const notificationId = req.params.id;
+      
+      console.log(`🗑️ [Admin] حذف الإشعار: ${notificationId}`);
+      
+      await notificationService.deleteNotification(notificationId);
+      
+      res.json({
+        success: true,
+        message: 'تم حذف الإشعار بنجاح'
+      });
+    } catch (error: any) {
+      console.error('❌ [Admin] خطأ في حذف الإشعار:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في حذف الإشعار'
+      });
+    }
+  });
+
+  // جلب قائمة المستخدمين مع أدوارهم
+  app.get("/api/users", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./db');
+      const { users } = await import('@shared/schema');
+      
+      console.log('👥 [Admin] جلب قائمة المستخدمين');
+      
+      const usersList = await db.select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        isActive: users.isActive
+      }).from(users);
+      
+      // إضافة اسم كامل لكل مستخدم
+      const usersWithName = usersList.map((user: any) => ({
+        ...user,
+        name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email?.split('@')[0] || 'مستخدم'
+      }));
+      
+      res.json({
+        success: true,
+        data: usersWithName,
+        message: 'تم جلب المستخدمين بنجاح'
+      });
+    } catch (error: any) {
+      console.error('❌ [Admin] خطأ في جلب المستخدمين:', error);
+      res.status(500).json({
+        success: false,
+        data: [],
+        error: error.message,
+        message: 'فشل في جلب المستخدمين'
+      });
+    }
+  });
+
   // إنشاء إشعار جديد للاختبار (محمي للمصادقة والإدارة فقط)
   app.post("/api/test/notifications/create", requireAuth, requireRole('admin'), async (req, res) => {
     try {

@@ -2,6 +2,7 @@ import {
   notifications, 
   notificationReadStates, 
   systemNotifications,
+  users,
   type Notification,
   type InsertNotification,
   type SystemNotification,
@@ -721,5 +722,138 @@ export class NotificationService {
 
     console.log(`📊 مستخدم ${userId} (نوع: ${stats.userType}): ${stats.total} إشعار، ${stats.unread} غير مقروء`);
     return stats;
+  }
+
+  /**
+   * جلب جميع الإشعارات للمسؤول مع إحصائيات القراءة
+   */
+  async getAllNotificationsForAdmin(options: {
+    limit?: number;
+    offset?: number;
+    type?: string;
+    priority?: number;
+  } = {}): Promise<{
+    notifications: any[];
+    total: number;
+  }> {
+    console.log('📋 [Admin] جلب جميع الإشعارات للمسؤول');
+    
+    const { limit = 50, offset = 0, type, priority } = options;
+    
+    // بناء شروط البحث
+    const conditions: any[] = [];
+    
+    if (type) {
+      conditions.push(eq(notifications.type, type));
+    }
+    
+    if (priority !== undefined) {
+      conditions.push(eq(notifications.priority, priority));
+    }
+    
+    // جلب الإشعارات
+    let query = db.select().from(notifications);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const allNotifications = await query
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    // جلب حالات القراءة لكل إشعار
+    const notificationsWithStats = await Promise.all(
+      allNotifications.map(async (notification: any) => {
+        const readStates = await db
+          .select()
+          .from(notificationReadStates)
+          .where(eq(notificationReadStates.notificationId, notification.id));
+        
+        const totalReads = readStates.filter((rs: any) => rs.isRead).length;
+        const totalUsers = readStates.length || 1;
+        
+        return {
+          ...notification,
+          readStates: readStates.map((rs: any) => ({
+            userId: rs.userId,
+            isRead: rs.isRead,
+            readAt: rs.readAt,
+            actionTaken: rs.actionTaken || false
+          })),
+          totalReads,
+          totalUsers
+        };
+      })
+    );
+    
+    // عدد إجمالي الإشعارات
+    const countQuery = db.select({ count: sql`count(*)` }).from(notifications);
+    if (conditions.length > 0) {
+      (countQuery as any).where(and(...conditions));
+    }
+    const countResult = await countQuery;
+    const total = Number(countResult[0]?.count || 0);
+    
+    console.log(`✅ [Admin] تم جلب ${notificationsWithStats.length} إشعار من أصل ${total}`);
+    
+    return {
+      notifications: notificationsWithStats,
+      total
+    };
+  }
+
+  /**
+   * جلب إحصائيات نشاط المستخدمين للإشعارات
+   */
+  async getUserActivityStats(): Promise<any[]> {
+    console.log('📊 [Admin] جلب إحصائيات نشاط المستخدمين');
+    
+    // جلب جميع المستخدمين
+    const allUsers = await db.select({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      role: users.role
+    }).from(users);
+    
+    // جلب إحصائيات لكل مستخدم
+    const userStats = await Promise.all(
+      allUsers.map(async (user: any) => {
+        // جلب حالات قراءة المستخدم
+        const userReadStates = await db
+          .select()
+          .from(notificationReadStates)
+          .where(eq(notificationReadStates.userId, user.id));
+        
+        const readNotifications = userReadStates.filter((rs: any) => rs.isRead).length;
+        const unreadNotifications = userReadStates.filter((rs: any) => !rs.isRead).length;
+        const totalNotifications = userReadStates.length;
+        
+        // آخر نشاط
+        const lastRead = userReadStates
+          .filter((rs: any) => rs.readAt)
+          .sort((a: any, b: any) => new Date(b.readAt).getTime() - new Date(a.readAt).getTime())[0];
+        
+        return {
+          userId: user.id,
+          userName: user.name || user.email?.split('@')[0] || 'مستخدم',
+          userEmail: user.email,
+          userRole: user.role || 'user',
+          totalNotifications,
+          readNotifications,
+          unreadNotifications,
+          lastActivity: lastRead?.readAt || null,
+          readPercentage: totalNotifications > 0 
+            ? Math.round((readNotifications / totalNotifications) * 100) 
+            : 0
+        };
+      })
+    );
+    
+    console.log(`✅ [Admin] تم جلب إحصائيات ${userStats.length} مستخدم`);
+    
+    return userStats;
   }
 }

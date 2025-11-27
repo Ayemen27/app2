@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/AuthProvider';
 import { AlertTriangle, Bell, BellRing, Clock, Delete, Edit, Eye, RefreshCw, Send, Settings, Shield, User, Users, TrendingUp, Activity, Zap, Target, Crown, UserCheck } from 'lucide-react';
 import { UnifiedSearchFilter } from '@/components/ui/unified-search-filter';
 import { safeFind, ensureArray } from '@/lib/array-utils';
@@ -110,6 +111,7 @@ const getRoleInfo = (role: string) => {
 export default function AdminNotificationsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAuthenticated, getAccessToken, isLoading: isAuthLoading } = useAuth();
   const [selectedTab, setSelectedTab] = useState('overview');
   const [activeFilters, setActiveFilters] = useState({});
   const [filters, setFilters] = useState({
@@ -129,7 +131,16 @@ export default function AdminNotificationsPage() {
     projectId: ''
   });
 
-  // جلب جميع الإشعارات للمسؤول
+  // دالة للحصول على headers المصادقة - تستخدم AuthProvider
+  const getAuthHeaders = () => {
+    const token = getAccessToken();
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : '',
+    };
+  };
+
+  // جلب جميع الإشعارات للمسؤول - ينتظر اكتمال المصادقة
   const { data: notificationsData, isLoading: isLoadingNotifications, refetch: refetchNotifications } = useQuery({
     queryKey: ['admin-notifications', filters],
     queryFn: async () => {
@@ -141,30 +152,39 @@ export default function AdminNotificationsPage() {
         ...(filters.priority && { priority: filters.priority })
       });
       
-      const response = await fetch(`/api/admin/notifications/all?${params}`);
+      const response = await fetch(`/api/admin/notifications/all?${params}`, {
+        headers: getAuthHeaders()
+      });
       if (!response.ok) throw new Error('فشل في جلب الإشعارات');
       return response.json();
-    }
+    },
+    enabled: isAuthenticated && !isAuthLoading
   });
 
-  // جلب نشاط المستخدمين
+  // جلب نشاط المستخدمين - ينتظر اكتمال المصادقة
   const { data: userActivityData, isLoading: isLoadingActivity } = useQuery({
     queryKey: ['user-activity'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/notifications/user-activity?requesterId=admin');
+      const response = await fetch('/api/admin/notifications/user-activity?requesterId=admin', {
+        headers: getAuthHeaders()
+      });
       if (!response.ok) throw new Error('فشل في جلب نشاط المستخدمين');
       return response.json();
-    }
+    },
+    enabled: isAuthenticated && !isAuthLoading
   });
 
-  // جلب قائمة المستخدمين مع أدوارهم
+  // جلب قائمة المستخدمين مع أدوارهم - ينتظر اكتمال المصادقة
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['/api/users', 'with-roles'],
     queryFn: async () => {
-      const response = await fetch('/api/users?includeRole=true');
+      const response = await fetch('/api/users?includeRole=true', {
+        headers: getAuthHeaders()
+      });
       if (!response.ok) throw new Error('فشل في جلب المستخدمين');
       return response.json();
     },
+    enabled: isAuthenticated && !isAuthLoading
   });
 
   // إرسال إشعار جديد
@@ -173,7 +193,6 @@ export default function AdminNotificationsPage() {
       const requestBody = {
         ...notification,
         requesterId: 'admin',
-        // إذا كان النوع specific، نرسل معرف المستخدم المحدد
         recipients: notification.recipients === 'specific' && notification.specificUserId
           ? [notification.specificUserId]
           : notification.recipients
@@ -181,7 +200,7 @@ export default function AdminNotificationsPage() {
       
       const response = await fetch('/api/admin/notifications/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(requestBody)
       });
       if (!response.ok) throw new Error('فشل في إرسال الإشعار');
@@ -210,7 +229,8 @@ export default function AdminNotificationsPage() {
   const deleteNotificationMutation = useMutation({
     mutationFn: async (notificationId: string) => {
       const response = await fetch(`/api/admin/notifications/${notificationId}?requesterId=admin`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
       if (!response.ok) throw new Error('فشل في حذف الإشعار');
       return response.json();
@@ -229,7 +249,7 @@ export default function AdminNotificationsPage() {
     mutationFn: async ({ notificationId, userId, isRead }: { notificationId: string; userId: string; isRead: boolean }) => {
       const response = await fetch(`/api/admin/notifications/${notificationId}/user/${userId}/status`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ isRead, requesterId: 'admin' })
       });
       if (!response.ok) throw new Error('فشل في تحديث الحالة');

@@ -10,6 +10,7 @@ import { permissionsRouter } from './routes/permissions';
 import { initializeRouteOrganizer } from './routes/routerOrganizer.js';
 import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middleware/compression";
 import { generalRateLimit, trackSuspiciousActivity, securityHeaders } from "./middleware/auth";
+import { autoSchemaPush } from './auto-schema-push';
 
 const app = express();
 
@@ -175,17 +176,33 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
   // It is the only port that is not firewalled.
 
   // قراءة المنفذ بنفس أولوية قراءة متغيرات البيئة
-  const port = parseInt(process.env.PORT || '5000', 10);
+  const PORT = parseInt(process.env.PORT || '5000', 10);
+  const NODE_ENV = process.env.NODE_ENV || 'development';
 
   console.log('🚀 بدء تشغيل الخادم...');
   console.log('📂 مجلد العمل:', process.cwd());
-  console.log('🌐 المنفذ:', port);
-  console.log('🔧 بيئة التشغيل:', process.env.NODE_ENV || 'development');
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
+  console.log('🌐 المنفذ:', PORT);
+  console.log('🔧 بيئة التشغيل:', NODE_ENV);
+
+  const serverInstance = app.listen(PORT, "0.0.0.0", async () => {
+    log(`serving on port ${PORT}`);
+
+    // تطبيق المخطط التلقائي بعد بدء الخادم
+    setTimeout(async () => {
+      try {
+        await autoSchemaPush();
+      } catch (error) {
+        console.error('⚠️ [Schema Push] خطأ في التطبيق التلقائي:', error);
+      }
+    }, 2000); // انتظار ثانيتين لضمان استقرار الخادم
+  });
+
+  // Handle graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM signal received: closing HTTP server');
+    serverInstance.close(() => {
+      console.log('HTTP server closed');
+      process.exit(0);
+    });
   });
 })();

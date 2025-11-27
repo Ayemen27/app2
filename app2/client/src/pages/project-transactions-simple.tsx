@@ -604,7 +604,7 @@ export default function ProjectTransactionsSimple() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 sm:p-4" dir="rtl">
-      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
+      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-1">
         {/* اختيار المشروع والفلاتر - مضغوط */}
         <Card className="shadow-sm">
           <CardContent className="p-3 sm:p-4">

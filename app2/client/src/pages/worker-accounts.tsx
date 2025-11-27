@@ -378,7 +378,7 @@ export default function WorkerAccountsPage() {
     : transfers;
 
   return (
-    <div className="min-h-screen bg-background p-4 space-y-6">
+    <div className="min-h-screen bg-background p-4 space-y-1">
       {/* Header - تم إزالة العنوان المكرر لأنه موجود في شريط التطبيق */}
 
       {/* Project Filter */}
@@ -405,7 +405,7 @@ export default function WorkerAccountsPage() {
       </Card>
 
       {/* Transfers List */}
-      <div className="space-y-4">
+      <div className="space-y-1">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">الحوالات المرسلة</h2>
           <Badge variant="secondary">
@@ -531,7 +531,7 @@ export default function WorkerAccountsPage() {
               {editingTransfer ? 'قم بتعديل بيانات الحولة المالية' : 'إنشاء حولة مالية جديدة للعامل'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-1">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>العامل *</Label>

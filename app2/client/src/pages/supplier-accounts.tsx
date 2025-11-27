@@ -710,7 +710,7 @@ export default function SupplierAccountsPage() {
   }, [selectedSupplierId, dateRange]);
 
   return (
-    <div className="container mx-auto p-6 space-y-6" dir="rtl">
+    <div className="container mx-auto p-6 space-y-1" dir="rtl">
 
       {/* الإحصائيات الشاملة - منطقة واحدة للجميع */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
@@ -1006,7 +1006,7 @@ export default function SupplierAccountsPage() {
                 <p className="text-gray-400">جرب تغيير فلاتر البحث أو التواريخ</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-1">
                 {/* عرض البطاقات المضغوطة */}
                 <div className="grid gap-3">
                   {purchases.map((purchase, index) => (

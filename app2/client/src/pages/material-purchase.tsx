@@ -670,7 +670,7 @@ export default function MaterialPurchase() {
       {/* Purchase Form */}
       <Card className="mb-4">
         <CardContent className="p-4">
-          <div className="space-y-4">
+          <div className="space-y-1">
             {/* Material Name */}
             <div>
               <Label className="block text-sm font-medium text-foreground mb-2">اسم المادة</Label>
@@ -806,7 +806,7 @@ export default function MaterialPurchase() {
                         أدخل معلومات المورد الجديد. جميع الحقول اختيارية عدا اسم المورد.
                       </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleAddSupplier} className="space-y-4">
+                    <form onSubmit={handleAddSupplier} className="space-y-1">
                       <div className="space-y-2">
                         <Label htmlFor="supplier-name">اسم المورد/المحل *</Label>
                         <Input

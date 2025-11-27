@@ -426,7 +426,7 @@ export default function ProjectsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-1">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="text-muted-foreground">جاري تحميل المشاريع...</p>
         </div>
@@ -439,7 +439,7 @@ export default function ProjectsPage() {
     console.error('❌ [Projects] خطأ في تحميل المشاريع:', error);
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-1">
           <div className="text-6xl mb-4">⚠️</div>
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
             خطأ في تحميل المشاريع
@@ -554,7 +554,7 @@ export default function ProjectsPage() {
   const formatCurrencyLocal = formatCurrency;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-1 p-6">
 
       {/* إحصائيات عامة */}
       <StatsGrid>
@@ -592,7 +592,7 @@ export default function ProjectsPage() {
               </DialogDescription>
             </DialogHeader>
             <Form {...createForm}>
-              <form onSubmit={createForm.handleSubmit(handleCreateProject)} className="space-y-4">
+              <form onSubmit={createForm.handleSubmit(handleCreateProject)} className="space-y-1">
                 <FormField
                   control={createForm.control}
                   name="name"
@@ -635,7 +635,7 @@ export default function ProjectsPage() {
                 />
 
                 {/* Image Upload Section */}
-                <div className="space-y-4">
+                <div className="space-y-1">
                   <FormLabel>صورة المشروع (اختيارية)</FormLabel>
 
                   {selectedImage ? (
@@ -772,7 +772,7 @@ export default function ProjectsPage() {
                 </div>
               </CardHeader>
 
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-1">
                 {/* Financial Summary */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
@@ -897,7 +897,7 @@ export default function ProjectsPage() {
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(handleEditProject)} className="space-y-4">
+            <form onSubmit={editForm.handleSubmit(handleEditProject)} className="space-y-1">
               <FormField
                 control={editForm.control}
                 name="name"
@@ -940,7 +940,7 @@ export default function ProjectsPage() {
               />
 
               {/* Image Upload Section */}
-              <div className="space-y-4">
+              <div className="space-y-1">
                 <FormLabel>صورة المشروع (اختيارية)</FormLabel>
 
                 {editSelectedImage ? (

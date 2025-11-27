@@ -258,7 +258,7 @@ export default function AdminNotificationsPage() {
       <Card className="group mb-2 hover:shadow-lg transition-all duration-300 ease-in-out border border-gray-100 hover:border-blue-200 bg-gradient-to-br from-white to-gray-50/30">
         <CardContent className="p-4">
           {/* الرأس العلوي المضغوط */}
-          <div className="flex items-start justify-between mb-3">
+          <div className="flex items-start justify-between mb-1">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${priorityInfo.color} shadow-sm flex-shrink-0`}>
                 <span className="text-sm">{typeInfo.icon}</span>
@@ -288,10 +288,10 @@ export default function AdminNotificationsPage() {
           </div>
 
           {/* المحتوى */}
-          <p className="text-sm text-gray-600 line-clamp-2 mb-3 leading-relaxed">{notification.body}</p>
+          <p className="text-sm text-gray-600 line-clamp-2 mb-1 leading-relaxed">{notification.body}</p>
           
           {/* إحصائيات مضغوطة */}
-          <div className="bg-gray-50 rounded-lg p-2.5 mb-3">
+          <div className="bg-gray-50 rounded-lg p-2.5 mb-1">
             <div className="flex items-center justify-between text-xs mb-2">
               <span className="flex items-center gap-1 text-gray-500">
                 <Clock className="h-3 w-3" />
@@ -524,7 +524,7 @@ export default function AdminNotificationsPage() {
             </div>
 
             <Card className="bg-white border border-gray-200 shadow-lg rounded-2xl min-h-[600px]">
-              <CardHeader className="px-6 py-4 border-b border-gray-100">
+              <CardHeader className="px-6 py-2 border-b border-gray-100">
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
                   <Activity className="h-5 w-5 text-blue-600" />
                   آخر النشاطات
@@ -543,7 +543,7 @@ export default function AdminNotificationsPage() {
           {/* إدارة الإشعارات */}
           <TabsContent value="notifications" className="space-y-10 mt-12">
             <Card className="bg-white border border-gray-200 shadow-lg rounded-2xl">
-              <CardHeader className="px-6 py-4 border-b border-gray-100">
+              <CardHeader className="px-6 py-2 border-b border-gray-100">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg font-semibold">فلترة الإشعارات</CardTitle>
                   <Button
@@ -600,7 +600,7 @@ export default function AdminNotificationsPage() {
 
             <div className="space-y-2 min-h-[500px]">
               {isLoadingNotifications ? (
-                <div className="text-center py-8">
+                <div className="text-center py-2">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="mt-2 text-gray-500">جاري التحميل...</p>
                 </div>
@@ -611,7 +611,7 @@ export default function AdminNotificationsPage() {
               ) : (
                 <Card className="bg-white border border-gray-200 shadow-lg rounded-2xl">
                   <CardContent className="text-center py-12">
-                    <Bell className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <Bell className="h-16 w-16 text-gray-400 mx-auto mb-1" />
                     <p className="text-gray-500 text-lg">لا توجد إشعارات</p>
                   </CardContent>
                 </Card>
@@ -622,7 +622,7 @@ export default function AdminNotificationsPage() {
           {/* نشاط المستخدمين */}
           <TabsContent value="users" className="space-y-10 mt-12">
             <Card className="bg-white border border-gray-200 shadow-lg rounded-2xl min-h-[700px]">
-              <CardHeader className="px-6 py-4 border-b border-gray-100">
+              <CardHeader className="px-6 py-2 border-b border-gray-100">
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
                   <Users className="h-5 w-5 text-blue-600" />
                   نشاط المستخدمين مع الإشعارات
@@ -630,7 +630,7 @@ export default function AdminNotificationsPage() {
               </CardHeader>
               <CardContent className="p-4">
                 {isLoadingActivity ? (
-                  <div className="text-center py-8">
+                  <div className="text-center py-2">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                     <p className="mt-2 text-gray-500">جاري التحميل...</p>
                   </div>
@@ -641,7 +641,7 @@ export default function AdminNotificationsPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
+                  <div className="text-center py-2">
                     <Users className="h-12 w-12 text-gray-400 mx-auto mb-2" />
                     <p className="text-gray-500">لا يوجد نشاط للمستخدمين</p>
                   </div>
@@ -653,13 +653,13 @@ export default function AdminNotificationsPage() {
           {/* إرسال إشعار جديد */}
           <TabsContent value="create" className="space-y-10 mt-12">
             <Card className="bg-white border border-gray-200 shadow-lg rounded-2xl min-h-[600px]">
-              <CardHeader className="px-6 py-4 border-b border-gray-100">
+              <CardHeader className="px-6 py-2 border-b border-gray-100">
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
                   <Zap className="h-5 w-5 text-blue-600" />
                   إنشاء إشعار جديد
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6 space-y-6">
+              <CardContent className="p-6 space-y-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">نوع الإشعار</label>

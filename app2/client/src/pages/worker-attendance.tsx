@@ -586,7 +586,7 @@ export default function WorkerAttendance() {
             </div>
 
             {showSharedSettings && (
-              <div className="space-y-4">
+              <div className="space-y-1">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
               <div>
                 <Label className="text-xs text-muted-foreground">وقت البدء</Label>

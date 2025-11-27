@@ -94,9 +94,9 @@ export default function SuppliersPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4 space-y-6">
+      <div className="container mx-auto p-4 space-y-1">
         {/* Loading Header */}
-        <div className="animate-pulse space-y-4">
+        <div className="animate-pulse space-y-1">
           <div className="h-8 bg-muted rounded w-48"></div>
           <div className="h-4 bg-muted rounded w-64"></div>
         </div>
@@ -150,7 +150,7 @@ export default function SuppliersPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="container mx-auto p-4 space-y-1">
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>

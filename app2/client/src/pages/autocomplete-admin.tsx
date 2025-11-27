@@ -136,7 +136,7 @@ export default function AutocompleteAdminPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800" dir="rtl">
-      <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+      <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-1 sm:space-y-1">
         
         {/* الإحصائيات الرئيسية - صفان بكارتين في كل صف */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -240,7 +240,7 @@ export default function AutocompleteAdminPage() {
           </TabsList>
 
         {/* نظرة عامة */}
-        <TabsContent value="overview" className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <TabsContent value="overview" className="p-4 sm:p-6 space-y-1 sm:space-y-1">
           <Card className="border-0 shadow-md bg-gradient-to-r from-white to-blue-50 dark:from-gray-800 dark:to-gray-900">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3">
@@ -250,7 +250,7 @@ export default function AutocompleteAdminPage() {
                 <CardTitle className="text-lg sm:text-xl text-gray-900 dark:text-white">صحة النظام</CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-1">
               <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <span className="font-medium text-gray-700 dark:text-gray-300">كفاءة البيانات</span>
@@ -325,7 +325,7 @@ export default function AutocompleteAdminPage() {
         </TabsContent>
 
         {/* تفصيل الفئات */}
-        <TabsContent value="categories" className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <TabsContent value="categories" className="p-4 sm:p-6 space-y-1 sm:space-y-1">
           <Card className="border-0 shadow-md">
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -437,7 +437,7 @@ export default function AutocompleteAdminPage() {
         </TabsContent>
 
         {/* أدوات الصيانة */}
-        <TabsContent value="maintenance" className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <TabsContent value="maintenance" className="p-4 sm:p-6 space-y-1 sm:space-y-1">
           {/* أدوات الصيانة السريعة */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <Card className="border-0 shadow-md bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20">
@@ -452,7 +452,7 @@ export default function AutocompleteAdminPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-1">
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
                   <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
                     حذف السجلات التي لم تُستخدم لأكثر من <strong>6 أشهر</strong> والمستخدمة أقل من <strong>3 مرات</strong>
@@ -499,7 +499,7 @@ export default function AutocompleteAdminPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-1">
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
                   <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
                     فرض حد أقصى <strong>100 اقتراح</strong> لكل فئة وحذف الأقل استخداماً
@@ -555,7 +555,7 @@ export default function AutocompleteAdminPage() {
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-1">
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 sm:p-6 rounded-xl border border-blue-200 dark:border-blue-800">
                 <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-4 flex items-center gap-2">
                   <Activity className="w-5 h-5" />

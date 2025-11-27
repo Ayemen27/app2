@@ -994,7 +994,7 @@ export function EquipmentManagement() {
         </CardHeader>
         
         {showReportsSection && (
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-1">
             {/* Report Filters */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="space-y-2">
@@ -1157,7 +1157,7 @@ export function EquipmentManagement() {
       </Card>
 
       {/* Equipment List - Restaurant Style */}
-      <div className="space-y-4">
+      <div className="space-y-1">
         {equipment.length === 0 ? (
           <Card className="p-8 text-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
             <div className="text-gray-400 mb-4">
@@ -1329,7 +1329,7 @@ export function EquipmentManagement() {
               </div>
 
               {/* Equipment Details */}
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-1">
                 {/* Name and Status */}
                 <div className="text-center">
                   <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">

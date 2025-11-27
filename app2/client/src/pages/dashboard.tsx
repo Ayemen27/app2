@@ -493,7 +493,7 @@ export default function Dashboard() {
               أدخل بيانات العامل الجديد لإضافته إلى النظام
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-1">
             <div>
               <Label htmlFor="worker-name">اسم العامل</Label>
               <Input
@@ -552,7 +552,7 @@ export default function Dashboard() {
                         أدخل اسم نوع العامل الجديد ليتم حفظه في قاعدة البيانات
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
+                    <div className="space-y-1">
                       <div>
                         <Label htmlFor="new-type-name">اسم نوع العامل</Label>
                         <Input
@@ -660,7 +660,7 @@ export default function Dashboard() {
               أدخل بيانات المشروع الجديد لإضافته إلى النظام
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-1">
             <div>
               <Label htmlFor="project-name">اسم المشروع</Label>
               <Input

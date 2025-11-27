@@ -171,7 +171,7 @@ export function SecurityPoliciesPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6" dir="rtl">
+    <div className="container mx-auto px-4 space-y-2" dir="rtl">
       {/* العنوان الرئيسي */}
       <div className="flex items-center justify-between">
         <div>
@@ -248,7 +248,7 @@ export function SecurityPoliciesPage() {
         </TabsList>
 
         {/* تبويب السياسات الأمنية */}
-        <TabsContent value="policies" className="space-y-4">
+        <TabsContent value="policies" className="space-y-1">
           {/* أدوات البحث والفلترة */}
           <Card>
             <CardHeader>
@@ -319,7 +319,7 @@ export function SecurityPoliciesPage() {
           {/* قائمة السياسات */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {policiesLoading ? (
-              <div className="col-span-full text-center py-8">
+              <div className="col-span-full text-center py-2">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                 <p className="text-gray-600 dark:text-gray-400 mt-2">جاري تحميل السياسات...</p>
               </div>
@@ -373,7 +373,7 @@ export function SecurityPoliciesPage() {
                 </Card>
               ))
             ) : (
-              <div className="col-span-full text-center py-8">
+              <div className="col-span-full text-center py-2">
                 <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600 dark:text-gray-400">لا توجد سياسات أمنية</p>
               </div>
@@ -382,10 +382,10 @@ export function SecurityPoliciesPage() {
         </TabsContent>
 
         {/* تبويب الاقتراحات */}
-        <TabsContent value="suggestions" className="space-y-4">
+        <TabsContent value="suggestions" className="space-y-1">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {suggestionsLoading ? (
-              <div className="col-span-full text-center py-8">
+              <div className="col-span-full text-center py-2">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
                 <p className="text-gray-600 dark:text-gray-400 mt-2">جاري تحميل الاقتراحات...</p>
               </div>
@@ -439,7 +439,7 @@ export function SecurityPoliciesPage() {
                 </Card>
               ))
             ) : (
-              <div className="col-span-full text-center py-8">
+              <div className="col-span-full text-center py-2">
                 <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600 dark:text-gray-400">لا توجد اقتراحات</p>
               </div>
@@ -448,10 +448,10 @@ export function SecurityPoliciesPage() {
         </TabsContent>
 
         {/* تبويب الانتهاكات */}
-        <TabsContent value="violations" className="space-y-4">
-          <div className="space-y-4">
+        <TabsContent value="violations" className="space-y-1">
+          <div className="space-y-1">
             {violationsLoading ? (
-              <div className="text-center py-8">
+              <div className="text-center py-2">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
                 <p className="text-gray-600 dark:text-gray-400 mt-2">جاري تحميل الانتهاكات...</p>
               </div>
@@ -501,7 +501,7 @@ export function SecurityPoliciesPage() {
                 </Card>
               ))
             ) : (
-              <div className="text-center py-8">
+              <div className="text-center py-2">
                 <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600 dark:text-gray-400">لا توجد انتهاكات</p>
               </div>

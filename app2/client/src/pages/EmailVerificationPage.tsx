@@ -266,7 +266,7 @@ export default function EmailVerificationPage() {
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4 relative">
         <AnimatedBackground />
         <Card className="w-full max-w-md shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader className="text-center space-y-4">
+          <CardHeader className="text-center space-y-1">
             <div className="mx-auto bg-gradient-to-r from-green-600 to-blue-600 rounded-full p-4 w-20 h-20 flex items-center justify-center">
               <CheckCircle className="w-10 h-10 text-white" />
             </div>
@@ -277,8 +277,8 @@ export default function EmailVerificationPage() {
               تم تأكيد بريدك الإلكتروني بنجاح
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="text-center space-y-4">
+          <CardContent className="space-y-1">
+            <div className="text-center space-y-1">
               <p className="text-gray-600">
                 سيتم توجيهك إلى صفحة تسجيل الدخول خلال ثوانِ...
               </p>
@@ -301,7 +301,7 @@ export default function EmailVerificationPage() {
       <AnimatedBackground />
       
       <Card className="w-full max-w-md shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
-        <CardHeader className="text-center space-y-4">
+        <CardHeader className="text-center space-y-1">
           <div className="mx-auto bg-gradient-to-r from-blue-600 to-purple-600 rounded-full p-4 w-20 h-20 flex items-center justify-center">
             <Mail className="w-10 h-10 text-white" />
           </div>
@@ -318,7 +318,7 @@ export default function EmailVerificationPage() {
           )}
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-1">
           {step === 'error' && (
             <Alert className="border-red-200 bg-red-50">
               <AlertDescription className="text-red-700">
@@ -328,7 +328,7 @@ export default function EmailVerificationPage() {
           )}
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-1">
               <FormField
                 control={form.control}
                 name="code"
@@ -396,7 +396,7 @@ export default function EmailVerificationPage() {
             </form>
           </Form>
 
-          <div className="text-center space-y-4">
+          <div className="text-center space-y-1">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300"></div>

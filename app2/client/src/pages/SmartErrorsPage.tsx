@@ -176,7 +176,7 @@ const SmartErrorsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 space-y-6" dir="rtl">
+      <div className="container mx-auto p-6 space-y-1" dir="rtl">
         <div className="flex items-center justify-center h-64">
           <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
           <span className="mr-3 text-lg">جاري تحميل إحصائيات الأخطاء...</span>
@@ -206,7 +206,7 @@ const SmartErrorsPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-2 sm:p-4 space-y-4" dir="rtl">
+    <div className="container mx-auto p-2 sm:p-4 space-y-1" dir="rtl">
       {/* أزرار التحكم المضغوطة */}
       <div className="flex flex-col sm:flex-row gap-2 justify-between items-stretch sm:items-center">
         <div className="flex flex-wrap gap-2">
@@ -256,14 +256,14 @@ const SmartErrorsPage: React.FC = () => {
         </Alert>
       )}
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue="overview" className="space-y-1">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
           <TabsTrigger value="analysis">التحليل المتقدم</TabsTrigger>
           <TabsTrigger value="settings">الإعدادات</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6">
+        <TabsContent value="overview" className="space-y-1">
           {/* إحصائيات عامة - تصميم مضغوط للهواتف */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card className="p-3">
@@ -335,7 +335,7 @@ const SmartErrorsPage: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-1">
                 {Object.entries(statistics?.errorsBySeverity || {}).map(([severity, count]) => (
                   <div key={severity} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -384,7 +384,7 @@ const SmartErrorsPage: React.FC = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="analysis" className="space-y-4">
+        <TabsContent value="analysis" className="space-y-1">
           {/* تحليل الاتجاهات */}
           <Card>
             <CardHeader className="pb-3">
@@ -393,7 +393,7 @@ const SmartErrorsPage: React.FC = () => {
                 تحليل الاتجاهات الزمنية
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-1">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
@@ -464,8 +464,8 @@ const SmartErrorsPage: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <div className="text-center py-2 text-gray-500">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-1 opacity-50" />
                   <p>لا توجد أخطاء مسجلة للتحليل</p>
                   <p className="text-xs mt-1">استخدم زر "اختبار النظام" لإنشاء بيانات تجريبية</p>
                 </div>
@@ -500,7 +500,7 @@ const SmartErrorsPage: React.FC = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="settings" className="space-y-4">
+        <TabsContent value="settings" className="space-y-1">
           {/* إعدادات الإشعارات */}
           <Card>
             <CardHeader className="pb-3">
@@ -509,7 +509,7 @@ const SmartErrorsPage: React.FC = () => {
                 إعدادات الإشعارات
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
@@ -606,7 +606,7 @@ const SmartErrorsPage: React.FC = () => {
                 إعدادات النظام
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center justify-between p-3 border rounded-lg">
                   <div>

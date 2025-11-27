@@ -254,7 +254,7 @@ export default function ProjectTransfers() {
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6 space-y-6 md:space-y-8" dir="rtl">
+    <div className="container mx-auto p-4 md:p-6 space-y-1 md:space-y-8" dir="rtl">
       {/* Page Header */}
       <div className="bg-card border rounded-lg p-4 md:p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -396,7 +396,7 @@ export default function ProjectTransfers() {
           </div>
           <div className="p-4 md:p-6">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* المشروع المرسل */}
                   <FormField
@@ -574,7 +574,7 @@ export default function ProjectTransfers() {
         </div>
         <div className="p-4 md:p-6">
           {transfersLoading ? (
-            <div className="space-y-4">
+            <div className="space-y-1">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="bg-card border rounded-lg p-4">
                   <div className="flex items-start gap-4">
@@ -618,7 +618,7 @@ export default function ProjectTransfers() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-1">
               {filteredTransfers.map((transfer: ProjectFundTransfer) => {
                 // تحديد اتجاه التحويل بالنسبة للمشروع المحدد
                 const isOutgoing = currentProjectId !== 'all' && transfer.fromProjectId === currentProjectId;

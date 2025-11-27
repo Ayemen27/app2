@@ -90,7 +90,7 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="project-name" className="block text-sm font-medium text-foreground mb-2">
+          <Label htmlFor="project-name" className="block text-sm font-medium text-foreground">
             اسم المشروع
           </Label>
           <Input
@@ -104,7 +104,7 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
         </div>
 
         <div>
-          <Label htmlFor="project-status" className="block text-sm font-medium text-foreground mb-2">
+          <Label htmlFor="project-status" className="block text-sm font-medium text-foreground">
             حالة المشروع
           </Label>
           <Select value={status} onValueChange={setStatus}>

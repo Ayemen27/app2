@@ -654,7 +654,7 @@ export default function MaterialPurchase() {
 
       <Card className="mb-4">
         <CardContent className="p-4">
-          <h2 className="text-lg font-bold text-foreground mb-3 flex items-center">
+          <h2 className="text-lg font-bold text-foreground flex items-center">
             <ChartGantt className="ml-2 h-5 w-5 text-primary" />
             {editingPurchaseId ? "تعديل مشترية المواد" : "اختر المشروع"}
           </h2>
@@ -673,7 +673,7 @@ export default function MaterialPurchase() {
           <div className="space-y-1">
             {/* Material Name */}
             <div>
-              <Label className="block text-sm font-medium text-foreground mb-2">اسم المادة</Label>
+              <Label className="block text-sm font-medium text-foreground">اسم المادة</Label>
               <AutocompleteInput
                 value={materialName}
                 onChange={setMaterialName}
@@ -684,7 +684,7 @@ export default function MaterialPurchase() {
 
             {/* Material Category */}
             <div>
-              <Label className="block text-sm font-medium text-foreground mb-2">فئة المادة</Label>
+              <Label className="block text-sm font-medium text-foreground">فئة المادة</Label>
               <AutocompleteInput
                 value={materialCategory}
                 onChange={setMaterialCategory}
@@ -696,7 +696,7 @@ export default function MaterialPurchase() {
             {/* Material Details */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="block text-sm font-medium text-foreground mb-2">الكمية</Label>
+                <Label className="block text-sm font-medium text-foreground">الكمية</Label>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -707,7 +707,7 @@ export default function MaterialPurchase() {
                 />
               </div>
               <div>
-                <Label className="block text-sm font-medium text-foreground mb-2">الوحدة</Label>
+                <Label className="block text-sm font-medium text-foreground">الوحدة</Label>
                 <AutocompleteInput
                   value={materialUnit}
                   onChange={setMaterialUnit}
@@ -720,7 +720,7 @@ export default function MaterialPurchase() {
             {/* Price and Total */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="block text-sm font-medium text-foreground mb-2">سعر الوحدة</Label>
+                <Label className="block text-sm font-medium text-foreground">سعر الوحدة</Label>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -731,7 +731,7 @@ export default function MaterialPurchase() {
                 />
               </div>
               <div>
-                <Label className="block text-sm font-medium text-foreground mb-2">المبلغ الإجمالي</Label>
+                <Label className="block text-sm font-medium text-foreground">المبلغ الإجمالي</Label>
                 <Input
                   type="number"
                   value={calculateTotal()}
@@ -743,7 +743,7 @@ export default function MaterialPurchase() {
 
             {/* Payment Type */}
             <div>
-              <Label className="block text-sm font-medium text-foreground mb-2">نوع الدفع</Label>
+              <Label className="block text-sm font-medium text-foreground">نوع الدفع</Label>
               <RadioGroup value={paymentType} onValueChange={setPaymentType} className="flex gap-4">
                 <div className="flex items-center space-x-reverse space-x-2">
                   <RadioGroupItem value="نقد" id="cash" />
@@ -762,7 +762,7 @@ export default function MaterialPurchase() {
 
             {/* Supplier/Store */}
             <div>
-              <Label className="block text-sm font-medium text-foreground mb-2">اسم المورد/المحل</Label>
+              <Label className="block text-sm font-medium text-foreground">اسم المورد/المحل</Label>
               <div className="flex gap-2">
                 <Select value={supplierName} onValueChange={setSupplierName}>
                   <SelectTrigger className="flex-1">
@@ -905,7 +905,7 @@ export default function MaterialPurchase() {
 
             {/* Purchase Date */}
             <div>
-              <Label className="block text-sm font-medium text-foreground mb-2">تاريخ الشراء</Label>
+              <Label className="block text-sm font-medium text-foreground">تاريخ الشراء</Label>
               <Input
                 type="date"
                 value={purchaseDate}
@@ -917,7 +917,7 @@ export default function MaterialPurchase() {
             {/* Invoice Details */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="block text-sm font-medium text-foreground mb-2">رقم الفاتورة</Label>
+                <Label className="block text-sm font-medium text-foreground">رقم الفاتورة</Label>
                 <AutocompleteInput
                   type="number"
                   inputMode="numeric"
@@ -929,7 +929,7 @@ export default function MaterialPurchase() {
                 />
               </div>
               <div>
-                <Label className="block text-sm font-medium text-foreground mb-2">تاريخ الفاتورة</Label>
+                <Label className="block text-sm font-medium text-foreground">تاريخ الفاتورة</Label>
                 <Input
                   type="date"
                   value={invoiceDate}
@@ -940,7 +940,7 @@ export default function MaterialPurchase() {
 
             {/* Invoice Photo Upload */}
             <div>
-              <Label className="block text-sm font-medium text-foreground mb-2">صورة الفاتورة</Label>
+              <Label className="block text-sm font-medium text-foreground">صورة الفاتورة</Label>
               <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
                 {invoicePhoto ? (
                   <div className="space-y-2">
@@ -953,8 +953,8 @@ export default function MaterialPurchase() {
                   </div>
                 ) : (
                   <>
-                    <Camera className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-muted-foreground mb-2">اضغط لإضافة صورة الفاتورة</p>
+                    <Camera className="h-12 w-12 text-muted-foreground mx-auto" />
+                    <p className="text-muted-foreground">اضغط لإضافة صورة الفاتورة</p>
                   </>
                 )}
                 <Input
@@ -975,7 +975,7 @@ export default function MaterialPurchase() {
 
             {/* Notes */}
             <div>
-              <Label className="block text-sm font-medium text-foreground mb-2">ملاحظات</Label>
+              <Label className="block text-sm font-medium text-foreground">ملاحظات</Label>
               <AutocompleteInput
                 value={notes}
                 onChange={setNotes}
@@ -1039,8 +1039,8 @@ export default function MaterialPurchase() {
         <Card className="mt-6">
           <CardContent className="p-4">
             <div className="text-center text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-              <h3 className="text-lg font-medium mb-2">لا توجد مشتريات في {new Date(purchaseDate).toLocaleDateString('en-GB')}</h3>
+              <Package className="h-12 w-12 mx-auto text-muted-foreground/50" />
+              <h3 className="text-lg font-medium">لا توجد مشتريات في {new Date(purchaseDate).toLocaleDateString('en-GB')}</h3>
               <p className="text-sm">غيّر تاريخ الشراء أعلاه لعرض مشتريات تواريخ أخرى</p>
               <p className="text-sm mt-1">إجمالي المشتريات المسجلة: {allMaterialPurchases.length}</p>
             </div>
@@ -1051,7 +1051,7 @@ export default function MaterialPurchase() {
       {selectedProjectId && materialPurchases && materialPurchases.length > 0 && (
         <Card className="mt-6">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-foreground">
                 المشتريات في {new Date(purchaseDate).toLocaleDateString('en-GB')} ({materialPurchases.length})
               </h3>
@@ -1064,7 +1064,7 @@ export default function MaterialPurchase() {
                 <div key={purchase.id} className="border rounded-lg p-3 bg-card">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground">
                           {purchase.materialName || purchase.material?.name || "غير محدد"}
                         </span>

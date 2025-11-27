@@ -136,7 +136,7 @@ export default function BottomNavigation() {
               <div className="space-y-3 px-1">
                 {allPages.map((category, categoryIndex) => (
                   <div key={categoryIndex} className="w-full">
-                    <h3 className="font-semibold text-sm mb-2 text-primary text-right border-b border-border pb-1 pr-2 truncate">
+                    <h3 className="font-semibold text-sm text-primary text-right border-b border-border pr-2 truncate">
                       {category.category}
                     </h3>
                     <div className="space-y-1">

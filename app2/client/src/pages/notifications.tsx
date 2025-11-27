@@ -220,7 +220,7 @@ export default function NotificationsPage() {
           
           {/* شريط تحميل الفلاتر */}
           <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-lg animate-pulse">
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
             <div className="flex gap-1">
               {[1, 2, 3].map(i => (
                 <div key={i} className="h-8 bg-gray-200 dark:bg-gray-700 rounded flex-1"></div>
@@ -235,8 +235,8 @@ export default function NotificationsPage() {
                 <div className="flex gap-3">
                   <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
                   <div className="flex-1">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                     <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
                   </div>
                 </div>
@@ -275,7 +275,7 @@ export default function NotificationsPage() {
 
         {/* فلاتر الإشعارات محسّنة */}
         <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-lg border border-blue-100 dark:border-slate-700">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-blue-600" />
               <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">تصفية الإشعارات</span>
@@ -295,7 +295,7 @@ export default function NotificationsPage() {
           </div>
           
           {/* فلاتر الحالة - تصميم مضغوط */}
-          <div className="flex gap-1 mb-2">
+          <div className="flex gap-1">
             <Button
               variant={filter === 'all' ? 'default' : 'outline'}
               onClick={() => setFilter('all')}
@@ -348,7 +348,7 @@ export default function NotificationsPage() {
 
           {/* فلاتر النوع - تصميم أفقي مضغوط */}
           {notificationTypes.length > 0 && (
-            <div className="flex gap-1 overflow-x-auto pb-1">
+            <div className="flex gap-1 overflow-x-auto">
               <Button
                 variant={selectedType === 'all' ? 'secondary' : 'ghost'}
                 onClick={() => setSelectedType('all')}
@@ -387,8 +387,8 @@ export default function NotificationsPage() {
         <div className="space-y-2">
           {filteredNotifications.length === 0 ? (
             <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-blue-100 dark:border-slate-700 text-center">
-              <Bell className="h-12 w-12 text-blue-400 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              <Bell className="h-12 w-12 text-blue-400 mx-auto" />
+              <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300">
                 لا توجد إشعارات
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -427,7 +427,7 @@ export default function NotificationsPage() {
                     
                     <div className="flex-1 min-w-0">
                       {/* عنوان وشارات */}
-                      <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="flex items-start justify-between gap-2">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex-1">
                           {notification.title}
                         </h3>
@@ -456,7 +456,7 @@ export default function NotificationsPage() {
                       </div>
                       
                       {/* التاريخ والوقت */}
-                      <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                         <Clock className="h-3 w-3" />
                         <span>
                           {new Date(notification.createdAt).toLocaleDateString('en-GB', {
@@ -469,7 +469,7 @@ export default function NotificationsPage() {
                       </div>
                       
                       {/* الرسالة */}
-                      <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-2">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
                         {notification.message || notification.body || 'لا يوجد محتوى'}
                       </p>
                       

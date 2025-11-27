@@ -128,7 +128,7 @@ const AnimatedBackground = () => (
 
 // مكون شعار الشركة المتطور
 const CompanyLogo = () => (
-  <div className="flex flex-col items-center space-y-1 mb-2">
+  <div className="flex flex-col items-center space-y-1">
     <div className="relative">
       <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur-lg opacity-75 animate-pulse"></div>
       <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 rounded-full p-1.5">
@@ -456,7 +456,7 @@ export default function AuthPage() {
 
           {/* البطاقة الرئيسية مع التأثيرات */}
           <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl">
-            <CardHeader className="space-y-0 text-center pb-2 pt-3 px-3">
+            <CardHeader className="space-y-0 text-center pt-3 px-3">
               <CardTitle className="text-lg font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                 مرحباً بك
               </CardTitle>
@@ -465,7 +465,7 @@ export default function AuthPage() {
               </CardDescription>
             </CardHeader>
             
-            <CardContent className="space-y-2 px-3 pb-3">
+            <CardContent className="space-y-2 px-3">
               {/* نظام التبويبات المتطور */}
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 glass-tabs gap-1">
@@ -794,7 +794,7 @@ export default function AuthPage() {
 
                 {/* محتوى استرجاع كلمة المرور */}
                 <TabsContent value="forgot" className="space-y-2 tab-content mt-2">
-                  <div className="text-center space-y-1 mb-2">
+                  <div className="text-center space-y-1">
                     <Lock className="w-8 h-8 text-blue-500 mx-auto" />
                     <h3 className="text-sm font-semibold text-gray-900">استرجاع كلمة المرور</h3>
                     <p className="text-xs text-gray-600">

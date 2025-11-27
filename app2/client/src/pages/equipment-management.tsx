@@ -1065,14 +1065,14 @@ export function EquipmentManagement() {
 
             {/* Report Preview */}
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between">
                 <h4 className="font-semibold text-blue-900 dark:text-blue-100">معاينة الكشف</h4>
                 <Badge variant="outline" className="text-blue-700 border-blue-300">
                   {getFilteredEquipmentForReport().length} معدة
                 </Badge>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                 <div className="bg-white dark:bg-gray-700 p-3 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
                     {getFilteredEquipmentForReport().length}
@@ -1160,13 +1160,13 @@ export function EquipmentManagement() {
       <div className="space-y-1">
         {equipment.length === 0 ? (
           <Card className="p-8 text-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
-            <div className="text-gray-400 mb-4">
+            <div className="text-gray-400">
               <Wrench className="h-16 w-16 mx-auto opacity-50" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
               لا توجد معدات
             </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
+            <p className="text-gray-500 dark:text-gray-400">
               لم يتم العثور على أي معدات تطابق الفلاتر المحددة
             </p>
             <Button onClick={() => setShowAddDialog(true)} className="bg-red-500 hover:bg-red-600 text-white rounded-full px-6">
@@ -1209,10 +1209,10 @@ export function EquipmentManagement() {
 
                     {/* Equipment Info */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1" data-testid={`text-equipment-name-${item.id}`}>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100" data-testid={`text-equipment-name-${item.id}`}>
                         {item.name}
                       </h3>
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2">
                         <Badge className={`text-xs ${getStatusColor(item.status)}`} data-testid={`badge-status-${item.id}`}>
                           {getStatusText(item.status)}
                         </Badge>
@@ -1332,7 +1332,7 @@ export function EquipmentManagement() {
               <div className="p-6 space-y-1">
                 {/* Name and Status */}
                 <div className="text-center">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
                     {selectedEquipment.name}
                   </h2>
                   <div className="flex items-center justify-center gap-2">
@@ -1348,7 +1348,7 @@ export function EquipmentManagement() {
                 {/* Price Display */}
                 {selectedEquipment.purchasePrice && (
                   <div className="text-center bg-orange-100 dark:bg-orange-900/20 rounded-lg p-3">
-                    <div className="text-sm text-orange-600 dark:text-orange-400 mb-1">السعر</div>
+                    <div className="text-sm text-orange-600 dark:text-orange-400">السعر</div>
                     <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                       {formatCurrency(Number(selectedEquipment.purchasePrice))}
                     </div>
@@ -1374,7 +1374,7 @@ export function EquipmentManagement() {
                 {/* Description */}
                 {selectedEquipment.description && (
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">الوصف</div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">الوصف</div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">
                       {selectedEquipment.description}
                     </div>

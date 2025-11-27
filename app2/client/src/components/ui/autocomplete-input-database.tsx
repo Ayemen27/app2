@@ -182,7 +182,7 @@ export function AutocompleteInput({
           <Card className="max-h-64 overflow-y-auto shadow-lg border">
             {isLoading ? (
               <div className="p-3 text-center text-gray-500">
-                <Search className="w-4 h-4 animate-spin mx-auto mb-2" />
+                <Search className="w-4 h-4 animate-spin mx-auto" />
                 جاري التحميل...
               </div>
             ) : Array.isArray(filteredData) && filteredData.length > 0 ? (
@@ -210,7 +210,7 @@ export function AutocompleteInput({
               </div>
             ) : searchQuery ? (
               <div className="p-3 text-center text-gray-500">
-                <Search className="w-4 h-4 mx-auto mb-2" />
+                <Search className="w-4 h-4 mx-auto" />
                 لا توجد نتائج للبحث "{searchQuery}"
               </div>
             ) : (

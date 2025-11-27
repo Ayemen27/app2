@@ -396,7 +396,7 @@ const SmartErrorsPage: React.FC = () => {
             <CardContent className="space-y-1">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-blue-600" />
                     <span className="text-sm font-medium text-blue-800">الاتجاه الحالي</span>
                   </div>
@@ -409,7 +409,7 @@ const SmartErrorsPage: React.FC = () => {
                 </div>
 
                 <div className="bg-green-50 p-3 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-green-600" />
                     <span className="text-sm font-medium text-green-800">مستوى الأمان</span>
                   </div>
@@ -422,7 +422,7 @@ const SmartErrorsPage: React.FC = () => {
                 </div>
 
                 <div className="bg-orange-50 p-3 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2">
                     <Eye className="h-4 w-4 text-orange-600" />
                     <span className="text-sm font-medium text-orange-800">المراقبة</span>
                   </div>
@@ -465,7 +465,7 @@ const SmartErrorsPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-2 text-gray-500">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-1 opacity-50" />
+                  <BarChart3 className="h-12 w-12 mx-auto opacity-50" />
                   <p>لا توجد أخطاء مسجلة للتحليل</p>
                   <p className="text-xs mt-1">استخدم زر "اختبار النظام" لإنشاء بيانات تجريبية</p>
                 </div>
@@ -558,7 +558,7 @@ const SmartErrorsPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium mb-2 block">فترة التهدئة للإشعارات (ثانية)</Label>
+                  <Label className="text-sm font-medium block">فترة التهدئة للإشعارات (ثانية)</Label>
                   <Select 
                     value={settings.notificationCooldown} 
                     onValueChange={(value) => setSettings(prev => ({ ...prev, notificationCooldown: value }))}
@@ -577,7 +577,7 @@ const SmartErrorsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium mb-2 block">مدة الاحتفاظ بالأخطاء (يوم)</Label>
+                  <Label className="text-sm font-medium block">مدة الاحتفاظ بالأخطاء (يوم)</Label>
                   <Select 
                     value={settings.errorRetention} 
                     onValueChange={(value) => setSettings(prev => ({ ...prev, errorRetention: value }))}

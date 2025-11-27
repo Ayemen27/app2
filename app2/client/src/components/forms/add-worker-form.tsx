@@ -199,7 +199,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="worker-name" className="block text-sm font-medium text-foreground mb-2">
+          <Label htmlFor="worker-name" className="block text-sm font-medium text-foreground">
             اسم العامل
           </Label>
           <Input
@@ -213,7 +213,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
         </div>
 
         <div>
-          <Label htmlFor="worker-type" className="block text-sm font-medium text-foreground mb-2">
+          <Label htmlFor="worker-type" className="block text-sm font-medium text-foreground">
             نوع العامل
           </Label>
           <div className="flex gap-2">
@@ -253,7 +253,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
               </DialogHeader>
               <form onSubmit={handleAddNewType} className="space-y-4">
                 <div>
-                  <Label htmlFor="new-type-name" className="block text-sm font-medium text-foreground mb-2">
+                  <Label htmlFor="new-type-name" className="block text-sm font-medium text-foreground">
                     اسم نوع العامل
                   </Label>
                   <Input
@@ -293,7 +293,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       </div>
 
       <div>
-        <Label htmlFor="daily-wage" className="block text-sm font-medium text-foreground mb-2">
+        <Label htmlFor="daily-wage" className="block text-sm font-medium text-foreground">
           الأجر اليومي (ر.ي)
         </Label>
         <Input

@@ -176,7 +176,7 @@ export default function ResetPasswordPage() {
     
     return (
       <div className="mt-2">
-        <div className="flex justify-between items-center mb-1">
+        <div className="flex justify-between items-center">
           <span className="text-xs text-gray-600">قوة كلمة المرور</span>
           <span className={`text-xs font-medium ${strength.score >= 3 ? 'text-green-600' : 'text-orange-600'}`}>
             {strength.label}
@@ -201,8 +201,8 @@ export default function ResetPasswordPage() {
         
         <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
           <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl max-w-md w-full">
-            <CardHeader className="space-y-1 text-center pb-8">
-              <div className="flex justify-center mb-1">
+            <CardHeader className="space-y-1 text-center">
+              <div className="flex justify-center">
                 <div className="relative">
                   <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-500 rounded-full blur-lg opacity-75 animate-pulse"></div>
                   <div className="relative bg-gradient-to-r from-red-500 to-pink-500 rounded-full p-4">
@@ -260,8 +260,8 @@ export default function ResetPasswordPage() {
         
         <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
           <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl max-w-md w-full">
-            <CardHeader className="space-y-1 text-center pb-8">
-              <div className="flex justify-center mb-1">
+            <CardHeader className="space-y-1 text-center">
+              <div className="flex justify-center">
                 <div className="relative">
                   <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full blur-lg opacity-75 animate-pulse"></div>
                   <div className="relative bg-gradient-to-r from-green-500 to-emerald-500 rounded-full p-4">
@@ -322,7 +322,7 @@ export default function ResetPasswordPage() {
           </div>
 
           {/* شعار إعادة تعيين كلمة المرور */}
-          <div className="flex flex-col items-center space-y-1 mb-2">
+          <div className="flex flex-col items-center space-y-1">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-pink-600 rounded-full blur-lg opacity-75 animate-pulse"></div>
               <div className="relative bg-gradient-to-r from-red-600 to-pink-600 rounded-full p-4">
@@ -339,8 +339,8 @@ export default function ResetPasswordPage() {
 
           {/* البطاقة الرئيسية */}
           <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl">
-            <CardHeader className="space-y-1 text-center pb-6">
-              <div className="flex justify-center mb-1">
+            <CardHeader className="space-y-1 text-center">
+              <div className="flex justify-center">
                 <Lock className="w-16 h-16 text-red-500" />
               </div>
               <CardTitle className="text-2xl font-bold text-gray-900">

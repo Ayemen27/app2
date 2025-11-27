@@ -87,7 +87,7 @@ export default function ExcelStyleDailyExpenses() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {/* أدوات التحكم */}
-      <div className="flex justify-between items-center mb-6 no-print">
+      <div className="flex justify-between items-center no-print">
         <h1 className="text-2xl font-bold">المصاريف اليومية - نمط Excel</h1>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()}>
@@ -106,15 +106,15 @@ export default function ExcelStyleDailyExpenses() {
       </div>
 
       {/* فلاتر */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 no-print">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
         <div>
-          <label className="block text-sm font-medium mb-2">المشروع</label>
+          <label className="block text-sm font-medium">المشروع</label>
           <ProjectSelector onProjectChange={(projectId) => {
             console.log('تم تغيير المشروع في Excel Style:', projectId);
           }} />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">التاريخ</label>
+          <label className="block text-sm font-medium">التاريخ</label>
           <Input
             type="date"
             value={selectedDate}

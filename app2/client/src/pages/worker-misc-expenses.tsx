@@ -197,7 +197,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   return (
     <Card className="mb-3">
       <CardContent className="p-4">
-        <h4 className="font-medium text-foreground mb-3 flex items-center">
+        <h4 className="font-medium text-foreground flex items-center">
           <DollarSign className="text-purple-600 ml-2 h-5 w-5" />
           نثريات العمال
         </h4>

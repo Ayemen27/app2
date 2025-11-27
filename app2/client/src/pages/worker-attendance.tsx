@@ -512,7 +512,7 @@ export default function WorkerAttendance() {
 
       <Card className="mb-4">
         <CardContent className="p-4">
-          <h2 className="text-lg font-bold text-foreground mb-3 flex items-center">
+          <h2 className="text-lg font-bold text-foreground flex items-center">
             <ChartGantt className="ml-2 h-5 w-5 text-primary" />
             اختر المشروع
           </h2>
@@ -528,7 +528,7 @@ export default function WorkerAttendance() {
       {/* Date Selection */}
       <Card className="mb-4">
         <CardContent className="p-4">
-          <Label className="block text-sm font-medium text-foreground mb-2">التاريخ</Label>
+          <Label className="block text-sm font-medium text-foreground">التاريخ</Label>
           <Input
             type="date"
             value={selectedDate}
@@ -543,7 +543,7 @@ export default function WorkerAttendance() {
       {workers.length > 0 && (
         <Card className="mb-4">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center space-x-reverse space-x-2">
                 <h3 className="text-lg font-semibold text-foreground">الإعدادات المشتركة</h3>
                 <Button
@@ -587,7 +587,7 @@ export default function WorkerAttendance() {
 
             {showSharedSettings && (
               <div className="space-y-1">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground">وقت البدء</Label>
                 <Input
@@ -709,7 +709,7 @@ export default function WorkerAttendance() {
       {selectedProjectId && todayAttendance.length > 0 && (
         <Card className="mt-6">
           <CardContent className="p-4">
-            <h3 className="text-lg font-semibold text-foreground mb-4">حضور اليوم المسجل ({selectedDate})</h3>
+            <h3 className="text-lg font-semibold text-foreground">حضور اليوم المسجل ({selectedDate})</h3>
             <div className="space-y-3">
               {todayAttendance.map((record: any) => {
                 const worker = workers.find(w => w.id === record.workerId);
@@ -717,7 +717,7 @@ export default function WorkerAttendance() {
                   <div key={record.id} className="border rounded-lg p-3 bg-card">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2">
                           <span className="font-medium text-foreground">{worker?.name}</span>
                           <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded">حاضر</span>
                         </div>

@@ -170,7 +170,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
     <>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <Label htmlFor="worker-name" className="block text-sm font-medium text-foreground mb-2">
+          <Label htmlFor="worker-name" className="block text-sm font-medium text-foreground">
             اسم العامل
           </Label>
           <Input
@@ -184,7 +184,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
         </div>
 
         <div>
-          <Label htmlFor="worker-type" className="block text-sm font-medium text-foreground mb-2">
+          <Label htmlFor="worker-type" className="block text-sm font-medium text-foreground">
             نوع العامل
           </Label>
           <div className="flex gap-2">
@@ -217,7 +217,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
         </div>
 
         <div>
-          <Label htmlFor="daily-wage" className="block text-sm font-medium text-foreground mb-2">
+          <Label htmlFor="daily-wage" className="block text-sm font-medium text-foreground">
             الأجر اليومي (ر.ي)
           </Label>
           <Input
@@ -249,7 +249,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="new-type-name" className="block text-sm font-medium text-foreground mb-2">
+              <Label htmlFor="new-type-name" className="block text-sm font-medium text-foreground">
                 اسم نوع العامل
               </Label>
               <Input

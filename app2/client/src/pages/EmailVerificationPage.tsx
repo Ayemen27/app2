@@ -445,7 +445,7 @@ export default function EmailVerificationPage() {
           </div>
 
           <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-medium text-blue-900 mb-2">💡 نصائح مهمة:</h4>
+            <h4 className="font-medium text-blue-900">💡 نصائح مهمة:</h4>
             <ul className="text-sm text-blue-800 space-y-1">
               <li>• تحقق من مجلد الرسائل غير المرغوب فيها</li>
               <li>• الرمز صالح لمدة 24 ساعة فقط</li>

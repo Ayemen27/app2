@@ -106,7 +106,7 @@ const WorkerCard = ({ worker, onEdit, onDelete, onToggleStatus }: {
                           <span className="text-white text-xs font-bold">!</span>
                         </div>
                         <div className="text-sm text-yellow-800 dark:text-yellow-200">
-                          <p className="font-medium mb-1">تنبيه مهم:</p>
+                          <p className="font-medium">تنبيه مهم:</p>
                           <p>إذا كان لدى العامل سجلات حضور أو تحويلات مالية، فلن يتمكن من حذفه وستظهر رسالة خطأ توضح الخطوات المطلوبة.</p>
                         </div>
                       </div>
@@ -134,7 +134,7 @@ const WorkerCard = ({ worker, onEdit, onDelete, onToggleStatus }: {
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center gap-2">
             <DollarSign className="h-4 w-4 text-green-600" />
             <div>
@@ -457,7 +457,7 @@ export default function WorkersPage() {
     <div className="container mx-auto p-4 space-y-1">
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatsCard
           title="إجمالي العمال"
           value={stats.total}
@@ -552,11 +552,11 @@ export default function WorkersPage() {
       {filteredWorkers.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+            <Users className="h-12 w-12 text-gray-400 mx-auto" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
               لا توجد عمال
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-gray-600 dark:text-gray-400">
               {workers.length === 0 ? 'لم يتم إضافة أي عمال بعد' : 'لا توجد عمال تطابق معايير البحث'}
             </p>
             {workers.length === 0 && (

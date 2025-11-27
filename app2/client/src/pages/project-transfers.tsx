@@ -283,7 +283,7 @@ export default function ProjectTransfers() {
 
       {/* مكون اختيار المشروع */}
       <div className="bg-card border rounded-lg p-4">
-        <h2 className="text-lg md:text-xl font-bold text-foreground mb-3 flex items-center">
+        <h2 className="text-lg md:text-xl font-bold text-foreground flex items-center">
           <ChartGantt className="ml-2 h-5 w-5 text-primary" />
           اختر المشروع
         </h2>
@@ -593,13 +593,13 @@ export default function ProjectTransfers() {
             </div>
           ) : filteredTransfers.length === 0 ? (
             <div className="text-center py-12">
-              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
                 <ArrowRight className="w-8 h-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
+              <h3 className="text-lg font-semibold text-foreground">
                 لا توجد عمليات ترحيل
               </h3>
-              <p className="text-sm md:text-base text-muted-foreground mb-4">
+              <p className="text-sm md:text-base text-muted-foreground">
                 {currentProjectId && currentProjectId !== 'all' 
                   ? "لم يتم إجراء عمليات ترحيل للمشروع المحدد بعد"
                   : "لم يتم إجراء عمليات ترحيل بين المشاريع بعد"
@@ -629,7 +629,7 @@ export default function ProjectTransfers() {
                     <div className="flex items-start gap-4">
                       {/* المبلغ البارز */}
                       <div className="flex flex-col items-center">
-                        <div className="text-2xl md:text-3xl font-semibold text-foreground mb-1">
+                        <div className="text-2xl md:text-3xl font-semibold text-foreground">
                           {parseFloat(transfer.amount).toLocaleString()}
                         </div>
                         <div className="text-xs md:text-sm text-muted-foreground">ريال</div>
@@ -647,7 +647,7 @@ export default function ProjectTransfers() {
                       
                       <div className="flex-1 min-w-0">
                         {/* المسار كثانوي */}
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2">
                           <span className="text-sm md:text-base font-medium text-muted-foreground">
                             {getProjectName(transfer.fromProjectId)}
                           </span>
@@ -658,7 +658,7 @@ export default function ProjectTransfers() {
                         </div>
                         
                         {/* التاريخ بنص مخفف */}
-                        <div className="flex items-center gap-1 mb-2">
+                        <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
                           <span className="text-xs md:text-sm text-muted-foreground">
                             {new Date(transfer.transferDate).toLocaleDateString('ar-EG', {

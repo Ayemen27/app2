@@ -98,7 +98,7 @@ export default function ExcelStyleWorkerStatement() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* أدوات التحكم */}
-      <div className="flex justify-between items-center mb-6 no-print">
+      <div className="flex justify-between items-center no-print">
         <h1 className="text-2xl font-bold">بيان العامل - نمط Excel</h1>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()}>
@@ -117,13 +117,13 @@ export default function ExcelStyleWorkerStatement() {
       </div>
 
       {/* فلاتر */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 no-print">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 no-print">
         <div>
-          <label className="block text-sm font-medium mb-2">المشروع</label>
+          <label className="block text-sm font-medium">المشروع</label>
           <ProjectSelector onProjectChange={() => {}} />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">العامل</label>
+          <label className="block text-sm font-medium">العامل</label>
           <Select value={selectedWorkerId} onValueChange={setSelectedWorkerId}>
             <SelectTrigger>
               <SelectValue placeholder="اختر العامل" />
@@ -138,7 +138,7 @@ export default function ExcelStyleWorkerStatement() {
           </Select>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">من تاريخ</label>
+          <label className="block text-sm font-medium">من تاريخ</label>
           <Input
             type="date"
             value={dateFrom}
@@ -146,7 +146,7 @@ export default function ExcelStyleWorkerStatement() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">إلى تاريخ</label>
+          <label className="block text-sm font-medium">إلى تاريخ</label>
           <Input
             type="date"
             value={dateTo}
@@ -166,7 +166,7 @@ export default function ExcelStyleWorkerStatement() {
       ) : !statementData ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <User className="w-12 h-12 text-gray-400 mx-auto" />
             <p className="text-gray-500">يرجى اختيار عامل لعرض البيان</p>
           </CardContent>
         </Card>
@@ -256,7 +256,7 @@ export default function ExcelStyleWorkerStatement() {
 
           {/* ملخص الحساب */}
           <div className="p-4 bg-gray-50 border-t">
-            <h3 className="font-bold text-lg mb-4 text-center">ملخص الحساب</h3>
+            <h3 className="font-bold text-lg text-center">ملخص الحساب</h3>
             <div className="overflow-x-auto">
               <table className="w-full excel-table">
                 <tbody>

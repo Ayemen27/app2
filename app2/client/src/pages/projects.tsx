@@ -440,7 +440,7 @@ export default function ProjectsPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-1">
-          <div className="text-6xl mb-4">⚠️</div>
+          <div className="text-6xl">⚠️</div>
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
             خطأ في تحميل المشاريع
           </h2>
@@ -657,8 +657,8 @@ export default function ProjectsPage() {
                     </div>
                   ) : (
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                      <ImageIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                      <p className="text-sm text-gray-500 mb-4">اختر صورة للمشروع</p>
+                      <ImageIcon className="h-12 w-12 mx-auto text-gray-400" />
+                      <p className="text-sm text-gray-500">اختر صورة للمشروع</p>
                       <div className="flex gap-2 justify-center">
                         <Button
                           type="button"
@@ -709,9 +709,9 @@ export default function ProjectsPage() {
       {/* Projects Grid */}
       {projects.length === 0 ? (
         <Card className="p-12 text-center">
-          <Building2 className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-xl font-semibold mb-2">لا توجد مشاريع</h3>
-          <p className="text-muted-foreground mb-6">ابدأ بإنشاء مشروعك الأول</p>
+          <Building2 className="h-16 w-16 mx-auto text-muted-foreground" />
+          <h3 className="text-xl font-semibold">لا توجد مشاريع</h3>
+          <p className="text-muted-foreground">ابدأ بإنشاء مشروعك الأول</p>
           <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             إنشاء مشروع جديد
@@ -776,7 +776,7 @@ export default function ProjectsPage() {
                 {/* Financial Summary */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2">
                       <TrendingUp className="h-4 w-4 text-green-600" />
                       <span className="text-xs font-medium text-green-700 dark:text-green-400">الدخل</span>
                     </div>
@@ -786,7 +786,7 @@ export default function ProjectsPage() {
                   </div>
 
                   <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-red-600" />
                       <span className="text-xs font-medium text-red-700 dark:text-red-400">المصروفات</span>
                     </div>
@@ -798,7 +798,7 @@ export default function ProjectsPage() {
 
                 {/* Current Balance */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-blue-600" />
                     <span className="text-xs font-medium text-blue-700 dark:text-blue-400">الرصيد الحالي</span>
                   </div>
@@ -962,8 +962,8 @@ export default function ProjectsPage() {
                   </div>
                 ) : (
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                    <ImageIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <p className="text-sm text-gray-500 mb-4">اختر صورة للمشروع</p>
+                    <ImageIcon className="h-12 w-12 mx-auto text-gray-400" />
+                    <p className="text-sm text-gray-500">اختر صورة للمشروع</p>
                     <div className="flex gap-2 justify-center">
                       <Button
                         type="button"

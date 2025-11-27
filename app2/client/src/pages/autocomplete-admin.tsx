@@ -148,7 +148,7 @@ export default function AutocompleteAdminPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">
                 {formatNumber(stats?.totalRecords || 0)}
               </div>
               <p className="text-xs opacity-80">سجل في النظام</p>
@@ -163,7 +163,7 @@ export default function AutocompleteAdminPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">
                 {formatNumber(stats?.categoriesCount || 0)}
               </div>
               <p className="text-xs opacity-80">فئة مختلفة</p>
@@ -178,7 +178,7 @@ export default function AutocompleteAdminPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">
                 {formatNumber(stats?.oldRecordsCount || 0)}
               </div>
               <p className="text-xs opacity-80">تحتاج تنظيف</p>
@@ -201,7 +201,7 @@ export default function AutocompleteAdminPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="text-lg sm:text-xl lg:text-2xl font-bold mb-1">
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold">
                 {stats?.oldRecordsCount === 0 ? 'ممتاز' : 'يحتاج صيانة'}
               </div>
               <p className="text-xs opacity-80">
@@ -299,7 +299,7 @@ export default function AutocompleteAdminPage() {
               {/* معلومات إضافية */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2">
                     <Shield className="w-4 h-4 text-green-600" />
                     <span className="font-medium text-green-800 dark:text-green-200 text-sm">السجلات النشطة</span>
                   </div>
@@ -309,7 +309,7 @@ export default function AutocompleteAdminPage() {
                 </div>
                 
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2">
                     <Database className="w-4 h-4 text-blue-600" />
                     <span className="font-medium text-blue-800 dark:text-blue-200 text-sm">متوسط الاستخدام</span>
                   </div>
@@ -358,7 +358,7 @@ export default function AutocompleteAdminPage() {
                     <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                       {/* معلومات الفئة */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-green-500"></div>
                           <h3 className="font-medium text-gray-900 dark:text-white truncate">
                             {category.category}
@@ -427,7 +427,7 @@ export default function AutocompleteAdminPage() {
                 
                 {(!stats?.categoryBreakdown || stats.categoryBreakdown.length === 0) && (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <BarChart3 className="w-12 h-12 mx-auto opacity-50" />
                     <p>لا توجد فئات محفوظة بعد</p>
                   </div>
                 )}
@@ -454,7 +454,7 @@ export default function AutocompleteAdminPage() {
               </CardHeader>
               <CardContent className="space-y-1">
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
                     حذف السجلات التي لم تُستخدم لأكثر من <strong>6 أشهر</strong> والمستخدمة أقل من <strong>3 مرات</strong>
                   </p>
                   <div className="flex items-center justify-between text-sm">
@@ -501,7 +501,7 @@ export default function AutocompleteAdminPage() {
               </CardHeader>
               <CardContent className="space-y-1">
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
                     فرض حد أقصى <strong>100 اقتراح</strong> لكل فئة وحذف الأقل استخداماً
                   </p>
                   <div className="flex items-center justify-between text-sm">
@@ -557,7 +557,7 @@ export default function AutocompleteAdminPage() {
             </CardHeader>
             <CardContent className="space-y-1">
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 sm:p-6 rounded-xl border border-blue-200 dark:border-blue-800">
-                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-4 flex items-center gap-2">
+                <h4 className="font-medium text-blue-800 dark:text-blue-200 flex items-center gap-2">
                   <Activity className="w-5 h-5" />
                   ما تتضمنه الصيانة الشاملة:
                 </h4>

@@ -1307,9 +1307,9 @@ function DailyExpensesContent() {
       {/* Date and Balance Info */}
       <Card className="mb-4">
         <CardContent className="p-4">
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="block text-sm font-medium text-foreground mb-1">التاريخ</Label>
+              <Label className="block text-sm font-medium text-foreground">التاريخ</Label>
               <Input
                 type="date"
                 value={selectedDate}
@@ -1317,7 +1317,7 @@ function DailyExpensesContent() {
               />
             </div>
             <div>
-              <Label className="block text-sm font-medium text-foreground mb-1">المبلغ المتبقي السابق</Label>
+              <Label className="block text-sm font-medium text-foreground">المبلغ المتبقي السابق</Label>
               <Input
                 type="number"
                 inputMode="decimal"
@@ -1331,7 +1331,7 @@ function DailyExpensesContent() {
 
           {/* Fund Transfer Section */}
           <div className="border-t pt-3">
-            <h4 className="font-medium text-foreground mb-2">تحويل عهدة جديدة</h4>
+            <h4 className="font-medium text-foreground">تحويل عهدة جديدة</h4>
             {dailyExpensesError && (
               <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-700 text-sm">
@@ -1339,7 +1339,7 @@ function DailyExpensesContent() {
                 </p>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3 mb-2">
+            <div className="grid grid-cols-2 gap-3">
               <Input
                 type="number"
                 inputMode="decimal"
@@ -1364,7 +1364,7 @@ function DailyExpensesContent() {
               onChange={setTransferNumber}
               category="transferNumbers"
               placeholder="رقم الحولة"
-              className="w-full mb-2 arabic-numbers"
+              className="w-full arabic-numbers"
             />
             <div className="flex gap-2">
               <AutocompleteInput
@@ -1398,7 +1398,7 @@ function DailyExpensesContent() {
 
             {/* عرض العهد المضافة لهذا اليوم */}
             <div className="mt-3 pt-3 border-t">
-              <h5 className="text-sm font-medium text-muted-foreground mb-2">العهد المضافة اليوم:</h5>
+              <h5 className="text-sm font-medium text-muted-foreground">العهد المضافة اليوم:</h5>
 
               {dailyExpensesLoading ? (
                 <div className="text-center text-muted-foreground">جاري التحميل...</div>
@@ -1449,8 +1449,8 @@ function DailyExpensesContent() {
                 </div>
               ) : (
                 <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                  <DollarSign className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-600 mb-1">
+                  <DollarSign className="mx-auto h-8 w-8 text-gray-400" />
+                  <p className="text-sm text-gray-600">
                     لا توجد تحويلات عهد للتاريخ {selectedDate}
                   </p>
                   <p className="text-xs text-gray-500">
@@ -1467,13 +1467,13 @@ function DailyExpensesContent() {
       {/* Worker Wages */}
       <Card className="mb-3">
         <CardContent className="p-4">
-          <h4 className="font-medium text-foreground mb-3 flex items-center">
+          <h4 className="font-medium text-foreground flex items-center">
             <Users className="text-primary ml-2 h-5 w-5" />
             أجور العمال
           </h4>
           {safeAttendance.length === 0 ? (
             <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-              <Users className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+              <Users className="mx-auto h-8 w-8 text-gray-400" />
               <p className="text-sm text-gray-600">لا يوجد حضور عمال للتاريخ {selectedDate}</p>
               <p className="text-xs text-gray-500 mt-1">اذهب إلى صفحة حضور العمال لتسجيل الحضور</p>
             </div>
@@ -1531,7 +1531,7 @@ function DailyExpensesContent() {
       {/* Transportation */}
       <Card className="mb-3">
         <CardContent className="p-4">
-          <h4 className="font-medium text-foreground mb-3 flex items-center">
+          <h4 className="font-medium text-foreground flex items-center">
             <Car className="text-secondary ml-2 h-5 w-5" />
             أجور المواصلات
           </h4>
@@ -1583,7 +1583,7 @@ function DailyExpensesContent() {
             {/* Show existing transportation expenses */}
             {safeTransportation.length === 0 ? (
               <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 mt-3">
-                <Car className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                <Car className="mx-auto h-8 w-8 text-gray-400" />
                 <p className="text-sm text-gray-600">لا توجد مصاريف نقل للتاريخ {selectedDate}</p>
                 <p className="text-xs text-gray-500 mt-1">أضف مصاريف جديدة أو اختر تاريخ آخر</p>
               </div>
@@ -1637,18 +1637,18 @@ function DailyExpensesContent() {
       {/* Materials */}
       <Card className="mb-3">
         <CardContent className="p-4">
-          <h4 className="font-medium text-foreground mb-3 flex items-center">
+          <h4 className="font-medium text-foreground flex items-center">
             <Package className="text-success ml-2 h-5 w-5" />
             شراء مواد
           </h4>
           {!Array.isArray(todayMaterialPurchases) || todayMaterialPurchases.length === 0 ? (
             <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-              <Package className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+              <Package className="mx-auto h-8 w-8 text-gray-400" />
               <p className="text-sm text-gray-600">لا توجد مشتريات مواد للتاريخ {selectedDate}</p>
               <p className="text-xs text-gray-500 mt-1">اذهب إلى شراء المواد لإضافة مشتريات جديدة</p>
             </div>
           ) : (
-            <div className="space-y-2 mb-3">
+            <div className="space-y-2">
               {safeMaterialPurchases.map((purchase, index) => {
                 // إستخدام البيانات المحفوظة مباشرة في الجدول أولاً
                 const materialName = purchase.materialName || purchase.material?.name || 'مادة غير محددة';
@@ -1747,24 +1747,24 @@ function DailyExpensesContent() {
       {/* Worker Transfers */}
       <Card className="mb-4">
         <CardContent className="p-4">
-          <h4 className="font-medium text-foreground mb-3 flex items-center">
+          <h4 className="font-medium text-foreground flex items-center">
             <DollarSign className="text-warning ml-2 h-5 w-5" />
             حولة من حساب العمال
           </h4>
           {!Array.isArray(todayWorkerTransfers) || todayWorkerTransfers.length === 0 ? (
             <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-              <ArrowLeftRight className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+              <ArrowLeftRight className="mx-auto h-8 w-8 text-gray-400" />
               <p className="text-sm text-gray-600">لا توجد حوالات عمال للتاريخ {selectedDate}</p>
               <p className="text-xs text-gray-500 mt-1">اذهب إلى صفحة العمال لإدارة الحوالات</p>
             </div>
           ) : (
-            <div className="space-y-2 mb-3">
+            <div className="space-y-2">
               {safeWorkerTransfers.map((transfer, index) => {
                 const worker = workers.find(w => w.id === transfer.workerId);
                 return (
                   <div key={index} className="flex justify-between items-center p-3 bg-muted rounded border-r-4 border-warning">
                     <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-foreground">
                           {worker?.name || 'عامل غير معروف'}
                         </span>
@@ -1846,7 +1846,7 @@ function DailyExpensesContent() {
       {/* Project Fund Transfers Section */}
       <Card className="bg-background border-border/50">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ArrowLeftRight className="h-5 w-5 text-orange-600" />
               <h3 className="text-lg font-semibold text-foreground">ترحيل الأموال بين المشاريع</h3>
@@ -1884,7 +1884,7 @@ function DailyExpensesContent() {
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">
                           {transfer.toProjectId === selectedProjectId ? (
                             <span className="text-green-700">أموال واردة من: {transfer.fromProjectName}</span>

@@ -127,8 +127,8 @@ export default function ForgotPasswordPage() {
         <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
           <div className="w-full max-w-md space-y-1">
             <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl">
-              <CardHeader className="space-y-1 text-center pb-8">
-                <div className="flex justify-center mb-1">
+              <CardHeader className="space-y-1 text-center">
+                <div className="flex justify-center">
                   <div className="relative">
                     <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full blur-lg opacity-75 animate-pulse"></div>
                     <div className="relative bg-gradient-to-r from-green-500 to-emerald-500 rounded-full p-4">
@@ -201,7 +201,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           {/* شعار الاسترجاع */}
-          <div className="flex flex-col items-center space-y-1 mb-2">
+          <div className="flex flex-col items-center space-y-1">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-orange-600 to-red-600 rounded-full blur-lg opacity-75 animate-pulse"></div>
               <div className="relative bg-gradient-to-r from-orange-600 to-red-600 rounded-full p-4">
@@ -218,8 +218,8 @@ export default function ForgotPasswordPage() {
 
           {/* البطاقة الرئيسية */}
           <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl">
-            <CardHeader className="space-y-1 text-center pb-6">
-              <div className="flex justify-center mb-1">
+            <CardHeader className="space-y-1 text-center">
+              <div className="flex justify-center">
                 <Lock className="w-16 h-16 text-orange-500" />
               </div>
               <CardTitle className="text-2xl font-bold text-gray-900">

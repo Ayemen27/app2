@@ -241,7 +241,7 @@ export function CreateNotificationDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[650px] border-0 p-0 overflow-hidden bg-white rounded-2xl shadow-2xl" data-testid="create-notification-dialog">
-        <DialogHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 pb-4">
+        <DialogHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
               <Sparkles className="h-5 w-5" />
@@ -459,7 +459,7 @@ export function CreateNotificationDialog({
                                                 <RoleIcon className="h-5 w-5 text-white" />
                                               </div>
                                               <div className="flex flex-col flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
+                                                <div className="flex items-center gap-2">
                                                   <span className="font-bold text-gray-900 truncate text-sm">
                                                     {displayName}
                                                   </span>

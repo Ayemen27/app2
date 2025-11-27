@@ -967,7 +967,7 @@ export default function SupplierAccountsPage() {
 
             {selectedSupplier.address && (
               <div className="mt-3 pt-2 border-t border-gray-100">
-                <div className="flex items-center gap-1 text-xs text-gray-600 mb-1">
+                <div className="flex items-center gap-1 text-xs text-gray-600">
                   <MapPin className="w-3 h-3" />
                   العنوان
                 </div>
@@ -996,13 +996,13 @@ export default function SupplierAccountsPage() {
           <CardContent>
             {isLoadingPurchases ? (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                 <p className="text-gray-600">جاري تحميل البيانات...</p>
               </div>
             ) : purchases.length === 0 ? (
               <div className="text-center py-12">
-                <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg mb-2">لا توجد مشتريات للمورد المحدد</p>
+                <Search className="w-12 h-12 text-gray-400 mx-auto" />
+                <p className="text-gray-500 text-lg">لا توجد مشتريات للمورد المحدد</p>
                 <p className="text-gray-400">جرب تغيير فلاتر البحث أو التواريخ</p>
               </div>
             ) : (
@@ -1015,7 +1015,7 @@ export default function SupplierAccountsPage() {
                       className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
                     >
                       {/* الصف الأول: التاريخ ورقم الفاتورة والحالة */}
-                      <div className="flex justify-between items-start mb-3">
+                      <div className="flex justify-between items-start">
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-gray-500" />
@@ -1044,7 +1044,7 @@ export default function SupplierAccountsPage() {
                       </div>
 
                       {/* الصف الثاني: معلومات المشروع والمادة */}
-                      <div className="space-y-2 mb-3">
+                      <div className="space-y-2">
                         {/* معلومات المشروع */}
                         <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-md">
                           <Building2 className="w-4 h-4 text-blue-600" />
@@ -1070,19 +1070,19 @@ export default function SupplierAccountsPage() {
                       {/* الصف الثالث: المبالغ المالية */}
                       <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-100">
                         <div className="text-center">
-                          <div className="text-xs text-gray-500 mb-1">المبلغ الإجمالي</div>
+                          <div className="text-xs text-gray-500">المبلغ الإجمالي</div>
                           <div className="text-sm font-bold text-blue-600" dir="ltr">
                             {formatCurrency(purchase.totalAmount)}
                           </div>
                         </div>
                         <div className="text-center">
-                          <div className="text-xs text-gray-500 mb-1">المدفوع</div>
+                          <div className="text-xs text-gray-500">المدفوع</div>
                           <div className="text-sm font-bold text-green-600" dir="ltr">
                             {formatCurrency(purchase.paidAmount || "0")}
                           </div>
                         </div>
                         <div className="text-center">
-                          <div className="text-xs text-gray-500 mb-1">المتبقي</div>
+                          <div className="text-xs text-gray-500">المتبقي</div>
                           <div className="text-sm font-bold text-red-600" dir="ltr">
                             {formatCurrency(purchase.remainingAmount || "0")}
                           </div>
@@ -1092,7 +1092,7 @@ export default function SupplierAccountsPage() {
                       {/* ملاحظات إضافية إذا وجدت */}
                       {purchase.notes && (
                         <div className="mt-3 pt-2 border-t border-gray-100">
-                          <div className="text-xs text-gray-500 mb-1">ملاحظات:</div>
+                          <div className="text-xs text-gray-500">ملاحظات:</div>
                           <div className="text-xs text-gray-700 bg-yellow-50 p-2 rounded">
                             {purchase.notes}
                           </div>
@@ -1146,14 +1146,14 @@ export default function SupplierAccountsPage() {
       {!selectedSupplierId && (
         <Card className="shadow-sm">
           <CardContent className="text-center py-12">
-            <Eye className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-600 mb-2">اختر مورداً لعرض حسابه</h3>
-            <p className="text-gray-500 mb-6">
+            <Eye className="w-16 h-16 text-gray-400 mx-auto" />
+            <h3 className="text-xl font-semibold text-gray-600">اختر مورداً لعرض حسابه</h3>
+            <p className="text-gray-500">
               استخدم فلاتر البحث أعلاه لاختيار مورد وعرض تفاصيل حسابه ومشترياته
             </p>
             {isLoadingSuppliers ? (
               <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                 <p className="text-gray-500">جاري تحميل الموردين...</p>
               </div>
             ) : suppliers.length === 0 ? (

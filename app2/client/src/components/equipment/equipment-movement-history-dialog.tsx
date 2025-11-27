@@ -65,7 +65,7 @@ export function EquipmentMovementHistoryDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-[900px] h-[90vh] overflow-hidden flex flex-col" dir="rtl">
-        <DialogHeader className="pb-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 -m-6 mb-0 p-6 rounded-t-lg">
+        <DialogHeader className="pb-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 -m-6 p-6 rounded-t-lg">
           <DialogTitle className="flex items-center gap-3 text-xl font-bold">
             <div className="p-2 bg-blue-100 rounded-full">
               <History className="w-6 h-6 text-blue-700" />
@@ -90,7 +90,7 @@ export function EquipmentMovementHistoryDialog({
                       <FileText className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <div className="text-xs text-gray-600 mb-1">كود المعدة</div>
+                      <div className="text-xs text-gray-600">كود المعدة</div>
                       <div className="font-bold text-gray-900">{equipment?.code}</div>
                     </div>
                   </div>
@@ -100,7 +100,7 @@ export function EquipmentMovementHistoryDialog({
                       <MapPin className="w-5 h-5 text-green-600" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs text-gray-600 mb-1">المشروع الحالي</div>
+                      <div className="text-xs text-gray-600">المشروع الحالي</div>
                       <div className="font-bold text-gray-900 truncate">
                         {getProjectName(equipment?.currentProjectId || null)}
                       </div>
@@ -114,7 +114,7 @@ export function EquipmentMovementHistoryDialog({
                       <FileText className="w-5 h-5 text-purple-600" />
                     </div>
                     <div>
-                      <div className="text-xs text-gray-600 mb-1">نوع المعدة</div>
+                      <div className="text-xs text-gray-600">نوع المعدة</div>
                       <div className="font-bold text-gray-900">{equipment?.type}</div>
                     </div>
                   </div>
@@ -127,7 +127,7 @@ export function EquipmentMovementHistoryDialog({
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-600 mb-1">حالة المعدة</div>
+                      <div className="text-xs text-gray-600">حالة المعدة</div>
                       <Badge className={`font-bold ${equipment?.status === 'active' ? 'bg-green-100 text-green-800' : 
                                         equipment?.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800' : 
                                         equipment?.status === 'damaged' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
@@ -173,10 +173,10 @@ export function EquipmentMovementHistoryDialog({
               <Card className="border-0 shadow-lg bg-gradient-to-br from-gray-50 to-slate-50">
                 <CardContent className="py-12 text-center">
                   <div className="max-w-sm mx-auto">
-                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
                       <History className="w-10 h-10 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-gray-700 mb-2">لا توجد حركات مسجلة</h3>
+                    <h3 className="text-lg font-bold text-gray-700">لا توجد حركات مسجلة</h3>
                     <p className="text-gray-500 text-sm">
                       لم يتم تسجيل أي حركات نقل لهذه المعدة حتى الآن.
                     </p>
@@ -216,7 +216,7 @@ export function EquipmentMovementHistoryDialog({
                         <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 p-4 rounded-xl border border-blue-100">
                           <div className="flex flex-col md:flex-row items-center gap-4">
                             <div className="flex-1 w-full">
-                              <div className="flex items-center gap-2 mb-2">
+                              <div className="flex items-center gap-2">
                                 <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
                                   <MapPin className="w-3 h-3 text-green-600" />
                                 </div>
@@ -236,7 +236,7 @@ export function EquipmentMovementHistoryDialog({
                             </div>
                             
                             <div className="flex-1 w-full">
-                              <div className="flex items-center gap-2 mb-2">
+                              <div className="flex items-center gap-2">
                                 <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                                   <MapPin className="w-3 h-3 text-blue-600" />
                                 </div>
@@ -258,7 +258,7 @@ export function EquipmentMovementHistoryDialog({
                               <User className="w-4 h-4 text-purple-600" />
                             </div>
                             <div>
-                              <div className="text-xs text-gray-600 mb-1">قام بالنقل</div>
+                              <div className="text-xs text-gray-600">قام بالنقل</div>
                               <div className="text-sm font-bold text-gray-900">{movement.performedBy}</div>
                             </div>
                           </div>
@@ -269,7 +269,7 @@ export function EquipmentMovementHistoryDialog({
                                 <FileText className="w-4 h-4 text-amber-600" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-xs text-gray-600 mb-1">السبب</div>
+                                <div className="text-xs text-gray-600">السبب</div>
                                 <p className="text-sm font-medium text-gray-900 break-words">{movement.reason}</p>
                               </div>
                             </div>
@@ -282,7 +282,7 @@ export function EquipmentMovementHistoryDialog({
                                   <span className="text-xs">💡</span>
                                 </div>
                                 <div>
-                                  <span className="text-yellow-800 font-bold text-xs block mb-1">ملاحظات مهمة</span>
+                                  <span className="text-yellow-800 font-bold text-xs block">ملاحظات مهمة</span>
                                   <span className="text-yellow-700 text-sm break-words">{movement.notes}</span>
                                 </div>
                               </div>

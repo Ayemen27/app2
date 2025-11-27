@@ -230,7 +230,7 @@ export default function EnhancedWorkerCard({
     }`} data-testid={`worker-card-detailed-${worker.id}`}>
       <CardContent className="p-2 sm:p-3 max-w-full overflow-hidden">
         {/* رأس البطاقة - معلومات العامل */}
-        <div className="flex items-center justify-between mb-2 pb-2 border-b border-border/30 w-full max-w-full">
+        <div className="flex items-center justify-between mb-2 border-b border-border/30 w-full max-w-full">
           <div className="flex items-center space-x-reverse space-x-2 flex-1 min-w-0 max-w-full overflow-hidden">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md profession-icon-container ${getProfessionColor(worker.type)}`}>
               {getProfessionIcon(worker.type)}

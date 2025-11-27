@@ -384,7 +384,7 @@ export default function WorkerAccountsPage() {
       {/* Project Filter */}
       <Card className="mb-4">
         <CardContent className="p-4">
-          <h2 className="text-lg font-bold text-foreground mb-3 flex items-center">
+          <h2 className="text-lg font-bold text-foreground flex items-center">
             <ChartGantt className="ml-2 h-5 w-5 text-primary" />
             اختر المشروع
           </h2>
@@ -416,9 +416,9 @@ export default function WorkerAccountsPage() {
         {filteredTransfers.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center">
-              <Send className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">لا توجد حوالات</h3>
-              <p className="text-muted-foreground mb-4">
+              <Send className="h-12 w-12 text-muted-foreground mx-auto" />
+              <h3 className="text-lg font-medium text-foreground">لا توجد حوالات</h3>
+              <p className="text-muted-foreground">
                 {selectedProject && selectedProject !== 'all' ? 'لا توجد حوالات في هذا المشروع' : 'لم يتم إرسال أي حوالات بعد'}
               </p>
               <Button 
@@ -443,16 +443,16 @@ export default function WorkerAccountsPage() {
               return (
                 <Card key={transfer.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-3">
+                    <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-blue-600" />
                           <span className="font-medium">{worker?.name || 'عامل غير معروف'}</span>
                           <Badge variant="outline" className="text-xs">
                             {worker?.type || 'غير محدد'}
                           </Badge>
                         </div>
-                        <div className="text-sm text-muted-foreground mb-2">
+                        <div className="text-sm text-muted-foreground">
                           {project?.name || 'مشروع غير معروف'}
                         </div>
                         <div className="flex items-center gap-4 text-sm">

@@ -301,15 +301,15 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         <div className="max-h-96 overflow-y-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               <div className="text-sm text-gray-500">جاري التحميل...</div>
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
                 <Bell className="h-8 w-8 text-gray-400" />
               </div>
-              <div className="text-sm font-medium text-gray-600 mb-1">لا توجد إشعارات</div>
+              <div className="text-sm font-medium text-gray-600">لا توجد إشعارات</div>
               <div className="text-xs text-gray-400">ستظهر إشعاراتك الجديدة هنا</div>
             </div>
           ) : (
@@ -323,7 +323,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                   <div
                     key={notification.id}
                     className={cn(
-                      "group p-3 mb-2 last:mb-0 rounded-xl cursor-pointer transition-all duration-300 border",
+                      "group p-3 last:mb-0 rounded-xl cursor-pointer transition-all duration-300 border",
                       !notification.isRead
                         ? "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:from-blue-100 hover:to-indigo-100 shadow-sm hover:shadow-md"
                         : "bg-white border-gray-100 hover:bg-gray-50 hover:border-gray-200"
@@ -340,7 +340,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-start justify-between">
                           <h4 className={cn(
                             "text-sm leading-tight",
                             !notification.isRead ? "font-bold text-gray-900" : "font-medium text-gray-700"
@@ -362,7 +362,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                           </div>
                         </div>
 
-                        <p className="text-xs text-gray-600 mb-2 line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
                           {notification.message}
                         </p>
 

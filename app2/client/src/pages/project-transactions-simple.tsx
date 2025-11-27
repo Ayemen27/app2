@@ -611,7 +611,7 @@ export default function ProjectTransactionsSimple() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {/* اختيار المشروع */}
               <div>
-                <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">المشروع</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">المشروع</label>
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="اختر مشروعاً" />
@@ -628,7 +628,7 @@ export default function ProjectTransactionsSimple() {
 
               {/* نوع العملية */}
               <div>
-                <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">نوع العملية</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">نوع العملية</label>
                 <Select value={filterType} onValueChange={setFilterType}>
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue />
@@ -645,7 +645,7 @@ export default function ProjectTransactionsSimple() {
 
               {/* البحث */}
               <div className="sm:col-span-2 lg:col-span-1">
-                <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">البحث</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">البحث</label>
                 <div className="relative">
                   <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3 w-3" />
                   <Input
@@ -664,10 +664,10 @@ export default function ProjectTransactionsSimple() {
           <>
             {/* عرض الأخطاء إن وجدت */}
             {(fundTransfersError || attendanceError || materialsError || workerTransfersError || incomingTransfersError || outgoingTransfersError) && (
-              <Card className="bg-red-50 border-red-200 mb-4">
+              <Card className="bg-red-50 border-red-200">
                 <CardContent className="p-4">
                   <div className="text-red-800">
-                    <h3 className="font-semibold mb-2">⚠️ تحذيرات في جلب البيانات:</h3>
+                    <h3 className="font-semibold">⚠️ تحذيرات في جلب البيانات:</h3>
                     {fundTransfersError && <p>• خطأ في جلب تحويلات العهدة</p>}
                     {attendanceError && <p>• خطأ في جلب حضور العمال</p>}
                     {materialsError && <p>• خطأ في جلب مشتريات المواد</p>}
@@ -682,7 +682,7 @@ export default function ProjectTransactionsSimple() {
 
             {/* مؤشر التحميل */}
             {(fundTransfersLoading || attendanceLoading || materialsLoading || workerTransfersLoading || incomingTransfersLoading || outgoingTransfersLoading) && (
-              <Card className="bg-blue-50 border-blue-200 mb-4">
+              <Card className="bg-blue-50 border-blue-200">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3 text-blue-800">
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
@@ -738,7 +738,7 @@ export default function ProjectTransactionsSimple() {
 
             {/* جدول العمليات */}
             <Card className="shadow-sm">
-              <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+              <CardHeader className="p-3 sm:p-4 sm:pb-3">
                 <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                   <span className="text-base sm:text-lg font-semibold truncate">سجل العمليات {selectedProjectName && `- ${selectedProjectName}`}</span>
                   <Badge variant="outline" className="text-xs px-2 py-1">
@@ -750,11 +750,11 @@ export default function ProjectTransactionsSimple() {
                 {filteredTransactions.length === 0 ? (
                   <div className="text-center py-6 sm:py-8 px-4">
                     <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 sm:p-6 border border-blue-200 dark:border-blue-800">
-                      <Building className="h-10 w-10 sm:h-12 sm:w-12 text-blue-400 mx-auto mb-3 sm:mb-4" />
-                      <h3 className="text-base sm:text-lg font-semibold text-blue-800 dark:text-blue-300 mb-2">
+                      <Building className="h-10 w-10 sm:h-12 sm:w-12 text-blue-400 mx-auto sm:mb-4" />
+                      <h3 className="text-base sm:text-lg font-semibold text-blue-800 dark:text-blue-300">
                         لا توجد عمليات مالية
                       </h3>
-                      <p className="text-sm sm:text-base text-blue-600 dark:text-blue-400 mb-3 sm:mb-4">
+                      <p className="text-sm sm:text-base text-blue-600 dark:text-blue-400 sm:mb-4">
                         {selectedProject ? 
                           'هذا المشروع لا يحتوي على عمليات مالية مسجلة بعد' : 
                           'يرجى اختيار مشروع لعرض العمليات المالية الخاصة به'
@@ -779,9 +779,9 @@ export default function ProjectTransactionsSimple() {
                       {filteredTransactions.map((transaction, index) => (
                         <Card key={transaction.id} className="bg-white dark:bg-gray-800 shadow-sm border">
                           <CardContent className="p-3">
-                            <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-start justify-between">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
+                                <div className="flex items-center gap-2">
                                   <Badge 
                                     variant={
                                       transaction.type === 'income' ? 'default' : 

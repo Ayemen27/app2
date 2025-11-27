@@ -89,7 +89,7 @@ export function NotificationsDropdown() {
       
       <SheetContent side="left" className="w-full sm:w-96 p-0" dir="rtl">
         <div className="flex flex-col h-full">
-          <SheetHeader className="p-6 pb-4 border-b">
+          <SheetHeader className="p-6 border-b">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Bell className="h-6 w-6 text-blue-600" />

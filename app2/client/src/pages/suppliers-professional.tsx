@@ -175,7 +175,7 @@ export default function SuppliersPage() {
         </Dialog>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatsCard
           title="إجمالي الموردين"
           value={stats.total}
@@ -227,7 +227,7 @@ export default function SuppliersPage() {
                 {/* Header with Status */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                         supplier.isActive ? "bg-green-100 dark:bg-green-900/30" : "bg-gray-100 dark:bg-gray-800"
                       }`}>
@@ -346,11 +346,11 @@ export default function SuppliersPage() {
       {filteredSuppliers.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
-            <Building className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">
+            <Building className="h-16 w-16 mx-auto text-muted-foreground" />
+            <h3 className="text-lg font-medium">
               {searchTerm ? "لا توجد نتائج" : "لا توجد موردين"}
             </h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+            <p className="text-muted-foreground max-w-md mx-auto">
               {searchTerm 
                 ? "لم يتم العثور على موردين يطابقون كلمات البحث المدخلة. جرب كلمات أخرى." 
                 : "ابدأ ببناء قاعدة بيانات الموردين الخاصة بك عن طريق إضافة أول مورد."}

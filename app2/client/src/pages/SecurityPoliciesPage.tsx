@@ -346,7 +346,7 @@ export function SecurityPoliciesPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
+                    <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">
                       {policy.description}
                     </p>
                     <div className="flex items-center justify-between text-sm">
@@ -374,7 +374,7 @@ export function SecurityPoliciesPage() {
               ))
             ) : (
               <div className="col-span-full text-center py-2">
-                <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <Shield className="w-12 h-12 text-gray-400 mx-auto" />
                 <p className="text-gray-600 dark:text-gray-400">لا توجد سياسات أمنية</p>
               </div>
             )}
@@ -413,7 +413,7 @@ export function SecurityPoliciesPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
+                    <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">
                       {suggestion.description}
                     </p>
                     <div className="flex items-center justify-between">
@@ -440,7 +440,7 @@ export function SecurityPoliciesPage() {
               ))
             ) : (
               <div className="col-span-full text-center py-2">
-                <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <TrendingUp className="w-12 h-12 text-gray-400 mx-auto" />
                 <p className="text-gray-600 dark:text-gray-400">لا توجد اقتراحات</p>
               </div>
             )}
@@ -502,7 +502,7 @@ export function SecurityPoliciesPage() {
               ))
             ) : (
               <div className="text-center py-2">
-                <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto" />
                 <p className="text-gray-600 dark:text-gray-400">لا توجد انتهاكات</p>
               </div>
             )}

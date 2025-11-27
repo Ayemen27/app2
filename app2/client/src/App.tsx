@@ -190,7 +190,7 @@ function App() {
         <AuthProvider>
           <TooltipProvider>
             <FloatingButtonProvider>
-              <div className="h-screen flex flex-col bg-background text-foreground" dir="rtl">
+              <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden" dir="rtl">
                 <ErrorBoundary>
                   <Switch>
                     <Route path="/login" component={LoginPage} />
@@ -200,7 +200,7 @@ function App() {
                       <ProtectedRoute>
                         <Header />
                         <EmailVerificationGuard>
-                          <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
+                          <main className="flex-1 overflow-y-auto overflow-x-hidden">
                             <Router />
                           </main>
                         </EmailVerificationGuard>

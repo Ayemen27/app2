@@ -45,7 +45,7 @@ export default function Header() {
   const PageIcon = currentPage.icon;
 
   return (
-    <header className="bg-primary text-primary-foreground shadow-lg fixed top-0 left-0 right-0 z-[100] h-14 md:h-16 will-change-transform">
+    <header className="bg-primary text-primary-foreground shadow-lg h-14 md:h-16 flex-shrink-0">
       <div className="px-3 md:px-4 py-2 md:py-3 h-full">
         <div className="flex items-center justify-between h-full">
           <div className="flex items-center space-x-reverse space-x-2 md:space-x-3">

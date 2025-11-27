@@ -1,0 +1,82 @@
+{
+  "timestamp": "2025-11-27T22:32:47.798Z",
+  "reason": "تطبيق مخطط قاعدة البيانات - 16 مشكلة قابلة للإصلاح",
+  "affectedTables": [
+    "notifications",
+    "daily_expense_summaries",
+    "material_purchases",
+    "worker_attendance"
+  ],
+  "totalRows": 0,
+  "totalSize": 7008,
+  "backupFile": "./backups/schema-push/backup_2025-11-27T22-32-47.sql",
+  "severity": "high",
+  "schemaChanges": {
+    "missingTables": [
+      "notifications"
+    ],
+    "extraTables": [],
+    "missingColumns": [
+      {
+        "table": "daily_expense_summaries",
+        "column": "total_worker_transfers"
+      },
+      {
+        "table": "daily_expense_summaries",
+        "column": "total_worker_misc_expenses"
+      },
+      {
+        "table": "daily_expense_summaries",
+        "column": "notes"
+      },
+      {
+        "table": "daily_expense_summaries",
+        "column": "updated_at"
+      },
+      {
+        "table": "material_purchases",
+        "column": "material_name"
+      },
+      {
+        "table": "material_purchases",
+        "column": "material_category"
+      },
+      {
+        "table": "material_purchases",
+        "column": "material_unit"
+      },
+      {
+        "table": "material_purchases",
+        "column": "unit"
+      },
+      {
+        "table": "material_purchases",
+        "column": "receipt_number"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "attendance_date"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "hours_worked"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "overtime"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "overtime_rate"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "total_pay"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "notes"
+      }
+    ]
+  }
+}

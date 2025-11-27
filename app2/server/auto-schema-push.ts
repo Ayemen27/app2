@@ -20,7 +20,7 @@ import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db';
-import { sql } from 'drizzle-orm';
+import { sql, Table } from 'drizzle-orm';
 import * as schema from '../shared/schema';
 import BackupManager from './backup-manager';
 
@@ -74,59 +74,103 @@ interface SchemaAuditLog {
 }
 
 /**
- * التحقق مما إذا كان الكائن جدول Drizzle حقيقي
+ * التحقق مما إذا كان الكائن جدول Drizzle حقيقي باستخدام Table.Symbol
  */
 function isDrizzleTable(obj: any): boolean {
   if (!obj || typeof obj !== 'object') return false;
   
-  const hasTableSymbol = Object.getOwnPropertySymbols(obj).some(
-    sym => sym.toString().includes('drizzle') || sym.toString().includes('Table')
-  );
-  
-  const hasTableProperties = 
-    '_' in obj && 
-    typeof obj._ === 'object' &&
-    obj._.name && 
-    (obj._.columns || obj._.schema !== undefined);
-  
-  const hasColumns = Object.keys(obj).some(key => {
-    const col = obj[key];
-    return col && typeof col === 'object' && 
-           'name' in col && 
-           ('dataType' in col || 'columnType' in col || 'default' in col);
-  });
-  
-  const isNotRelation = !obj.referencedTable && !obj.referencedColumns;
-  const isNotEnum = !Array.isArray(obj.enumValues);
-  
-  return (hasTableSymbol || hasTableProperties || hasColumns) && isNotRelation && isNotEnum;
+  try {
+    // الطريقة الموثوقة: استخدام Drizzle Table Symbol
+    const isTable = obj[Table.Symbol.IsTable] === true;
+    if (isTable) return true;
+    
+    // طريقة احتياطية: فحص البنية
+    const hasTableSymbol = Object.getOwnPropertySymbols(obj).some(
+      sym => sym.toString().includes('drizzle') || sym.toString().includes('Table')
+    );
+    
+    if (hasTableSymbol) return true;
+    
+    // فحص خصائص الجدول التقليدية
+    const hasTableProperties = 
+      '_' in obj && 
+      typeof obj._ === 'object' &&
+      obj._.name;
+    
+    return hasTableProperties;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * استخراج اسم الجدول من كائن Drizzle Table
+ */
+function getTableName(tableObj: any): string | undefined {
+  try {
+    // الطريقة الموثوقة: استخدام Table.Symbol.Name
+    const symbolName = tableObj[Table.Symbol.Name];
+    if (symbolName && typeof symbolName === 'string') {
+      return symbolName;
+    }
+    
+    // طريقة احتياطية: استخدام _.name
+    if (tableObj._ && tableObj._.name) {
+      return tableObj._.name;
+    }
+    
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
  * استخراج أسماء الجداول من المخطط المعرف في الكود
+ * يستخدم Drizzle Table.Symbol للكشف الموثوق والديناميكي
  */
 function getExpectedTablesFromSchema(): string[] {
   const tables: string[] = [];
   const seen = new Set<string>();
   
+  console.log('🔍 [Schema Detection] بدء الكشف الديناميكي عن الجداول...');
+  
   for (const [key, value] of Object.entries(schema)) {
-    if (key.endsWith('Relations') || key.endsWith('Enum') || key.startsWith('_')) {
+    // تخطي العلاقات والأنواع والتعريفات
+    if (key.endsWith('Relations') || 
+        key.endsWith('Enum') || 
+        key.startsWith('_') || 
+        key.endsWith('Schema') ||
+        key.startsWith('insert') ||
+        key.startsWith('update') ||
+        key.startsWith('Insert') ||
+        key.startsWith('Update')) {
       continue;
     }
     
     if (isDrizzleTable(value)) {
-      const tableObj = value as any;
-      let tableName: string | undefined;
-      
-      if (tableObj._ && tableObj._.name) {
-        tableName = tableObj._.name;
-      } else if (tableObj.name && typeof tableObj.name === 'string') {
-        tableName = tableObj.name;
-      }
+      const tableName = getTableName(value);
       
       if (tableName && !tableName.startsWith('_') && !seen.has(tableName)) {
         seen.add(tableName);
         tables.push(tableName);
+      }
+    }
+  }
+  
+  console.log(`📊 [Schema Detection] تم اكتشاف ${tables.length} جدول ديناميكياً`);
+  
+  if (tables.length === 0) {
+    console.log('⚠️ [Schema Detection] لم يتم اكتشاف أي جداول! تفاصيل المخطط:');
+    console.log('   عدد المُصدَّرات:', Object.keys(schema).length);
+    
+    // محاولة أخيرة: فحص كل المصدرات
+    for (const [key, value] of Object.entries(schema)) {
+      if (value && typeof value === 'object') {
+        const symbols = Object.getOwnPropertySymbols(value);
+        if (symbols.length > 0) {
+          console.log(`   ${key}: يحتوي على ${symbols.length} رموز`);
+        }
       }
     }
   }
@@ -136,6 +180,7 @@ function getExpectedTablesFromSchema(): string[] {
 
 /**
  * استخراج الأعمدة المتوقعة من جدول معين في المخطط
+ * يستخدم Table.Symbol.Columns للكشف الموثوق
  */
 function getExpectedColumnsFromTable(tableName: string): string[] {
   const columns: string[] = [];
@@ -145,26 +190,35 @@ function getExpectedColumnsFromTable(tableName: string): string[] {
     if (!isDrizzleTable(value)) continue;
     
     const tableObj = value as any;
-    let tblName: string | undefined;
-    
-    if (tableObj._ && tableObj._.name) {
-      tblName = tableObj._.name;
-    } else if (tableObj.name && typeof tableObj.name === 'string') {
-      tblName = tableObj.name;
-    }
+    const tblName = getTableName(tableObj);
     
     if (tblName === tableName) {
-      for (const colKey of Object.keys(tableObj)) {
-        if (colKey === '_' || colKey === 'name' || colKey.startsWith('$')) continue;
-        
-        const col = tableObj[colKey];
-        if (col && typeof col === 'object' && 'name' in col) {
-          const isColumn = 'dataType' in col || 'columnType' in col || 
-                          'default' in col || 'notNull' in col || 'primary' in col;
+      try {
+        // الطريقة الموثوقة: استخدام Table.Symbol.Columns
+        const tableColumns = tableObj[Table.Symbol.Columns];
+        if (tableColumns && typeof tableColumns === 'object') {
+          for (const colKey of Object.keys(tableColumns)) {
+            const col = tableColumns[colKey];
+            if (col && col.name && !seen.has(col.name)) {
+              seen.add(col.name);
+              columns.push(col.name);
+            }
+          }
+        }
+      } catch {
+        // طريقة احتياطية: فحص الأعمدة مباشرة
+        for (const colKey of Object.keys(tableObj)) {
+          if (colKey === '_' || colKey === 'name' || colKey.startsWith('$')) continue;
           
-          if (isColumn && !seen.has(col.name)) {
-            seen.add(col.name);
-            columns.push(col.name);
+          const col = tableObj[colKey];
+          if (col && typeof col === 'object' && 'name' in col) {
+            const isColumn = 'dataType' in col || 'columnType' in col || 
+                            'default' in col || 'notNull' in col || 'primary' in col;
+            
+            if (isColumn && !seen.has(col.name)) {
+              seen.add(col.name);
+              columns.push(col.name);
+            }
           }
         }
       }

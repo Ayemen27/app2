@@ -135,7 +135,7 @@ export function UnifiedStats({
 export function MultiUnifiedStats({
   groups
 }: {
-  groups: Omit<UnifiedStatsProps, "stats">[] & { stats: UnifiedStatItem[] }[]
+  groups: (Omit<UnifiedStatsProps, "stats"> & { stats: UnifiedStatItem[] })[]
 }) {
   return (
     <div className="space-y-4">

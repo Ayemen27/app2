@@ -95,8 +95,8 @@ export default function BottomNavigation() {
   };
 
   return (
-    <nav className="bg-primary/95 backdrop-blur-sm border-t-2 border-primary-foreground/20 shadow-lg pointer-events-auto flex-shrink-0 h-16">
-      <div className="grid grid-cols-5 h-16 w-full max-w-screen-xl mx-auto">
+    <nav className="bg-primary/95 backdrop-blur-sm border-t-2 border-primary-foreground/20 shadow-lg pointer-events-auto flex-shrink-0 h-14">
+      <div className="grid grid-cols-5 h-14 w-full max-w-screen-xl mx-auto">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.path;
@@ -105,13 +105,13 @@ export default function BottomNavigation() {
             <Button
               key={item.key}
               variant="ghost"
-              className={`flex flex-col items-center justify-center space-y-1 h-full rounded-none ${
+              className={`flex flex-col items-center justify-center space-y-0.5 h-full rounded-none ${
                 isActive ? "text-primary-foreground bg-primary-foreground/10" : "text-primary-foreground/70 hover:text-primary-foreground"
               }`}
               onClick={() => setLocation(item.path)}
             >
               <Icon className="h-5 w-5" />
-              <span className="text-xs">{item.label}</span>
+              <span className="text-[10px]">{item.label}</span>
             </Button>
           );
         })}
@@ -121,10 +121,10 @@ export default function BottomNavigation() {
           <SheetTrigger asChild>
             <Button
               variant="ghost"
-              className="flex flex-col items-center justify-center space-y-1 h-full rounded-none text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+              className="flex flex-col items-center justify-center space-y-0.5 h-full rounded-none text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
             >
               <MoreHorizontal className="h-5 w-5" />
-              <span className="text-xs">المزيد</span>
+              <span className="text-[10px]">المزيد</span>
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[85vh] max-w-full px-3">

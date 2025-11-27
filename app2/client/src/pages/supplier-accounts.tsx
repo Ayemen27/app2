@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Building2, 
@@ -18,7 +18,7 @@ import {
   Receipt,
   Wallet
 } from "lucide-react";
-import { UnifiedSearchFilter, FilterConfig, PAYMENT_TYPE_OPTIONS } from "@/components/ui/unified-search-filter";
+import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { Button } from "@/components/ui/button";

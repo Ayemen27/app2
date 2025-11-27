@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, BellOff, CheckCircle, AlertCircle, Info, AlertTriangle, Filter, Clock } from 'lucide-react';
+import { Bell, BellOff, CheckCircle, AlertCircle, Info, AlertTriangle, Clock } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
-import { cn } from '@/lib/utils';
+import { UnifiedSearchFilter } from '@/components/ui/unified-search-filter';
 
 interface Notification {
   id: string;
@@ -51,8 +51,7 @@ const typeIcons = {
 export default function NotificationsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
-  const [selectedType, setSelectedType] = useState<string>('all');
+  const [activeFilters, setActiveFilters] = useState({});
   
   // معرف المستخدم الحقيقي
   // استخدام UUID صحيح للمستخدم أو UUID افتراضي صالح
@@ -172,13 +171,7 @@ export default function NotificationsPage() {
   })) : [];
 
   // فلترة الإشعارات
-  const filteredNotifications = Array.isArray(normalizedNotifications) ? normalizedNotifications.filter(notification => {
-    // فلترة حسب الحالة
-    if (filter !== 'all' && notification.status !== filter) return false;
-    // فلترة حسب النوع
-    if (selectedType !== 'all' && notification.type !== selectedType) return false;
-    return true;
-  }) : [];
+  const filteredNotifications = Array.isArray(normalizedNotifications) ? normalizedNotifications.filter(notification => true) : [];
 
   // أنواع الإشعارات المسموحة حسب نوع المستخدم
   const adminTypes = ['system', 'maintenance', 'warranty', 'damaged'];
@@ -273,115 +266,34 @@ export default function NotificationsPage() {
           </div>
         </div>
 
-        {/* فلاتر الإشعارات محسّنة */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-lg border border-blue-100 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">تصفية الإشعارات</span>
-            </div>
-            {stats.unread > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => markAllAsReadMutation.mutate()}
-                disabled={markAllAsReadMutation.isPending}
-                className="text-xs gap-1 h-7 px-2"
-              >
-                <CheckCircle className="h-3 w-3" />
-                تعليم الكل كمقروء
-              </Button>
-            )}
-          </div>
-          
-          {/* فلاتر الحالة - تصميم مضغوط */}
-          <div className="flex gap-1">
+        {/* شريط البحث والفلترة الموحد */}
+        <UnifiedSearchFilter
+          onFiltersChange={setActiveFilters}
+          enableSearch={true}
+          enableFilters={true}
+          filterOptions={[
+            { label: 'الحالة', type: 'select', options: [
+              { value: 'all', label: 'الكل' },
+              { value: 'read', label: 'مقروء' },
+              { value: 'unread', label: 'غير مقروء' }
+            ]},
+            { label: 'النوع', type: 'select', options: notificationTypes.map(t => ({ value: t, label: t })) }
+          ]}
+        />
+        {stats.unread > 0 && (
+          <div className="flex justify-end">
             <Button
-              variant={filter === 'all' ? 'default' : 'outline'}
-              onClick={() => setFilter('all')}
+              variant="outline"
               size="sm"
-              className={cn(
-                "flex-1 gap-1 text-xs h-8",
-                filter === 'all' 
-                  ? "bg-blue-500 hover:bg-blue-600 text-white" 
-                  : "border-blue-200 text-blue-700 hover:bg-blue-50"
-              )}
-              data-testid="filter-all"
-            >
-              <Bell className="h-3 w-3" />
-              الكل
-              <span className="bg-white/20 px-1 rounded text-xs">{stats.total}</span>
-            </Button>
-            <Button
-              variant={filter === 'unread' ? 'default' : 'outline'}
-              onClick={() => setFilter('unread')}
-              size="sm"
-              className={cn(
-                "flex-1 gap-1 text-xs h-8",
-                filter === 'unread' 
-                  ? "bg-orange-500 hover:bg-orange-600 text-white" 
-                  : "border-orange-200 text-orange-700 hover:bg-orange-50"
-              )}
-              data-testid="filter-unread"
-            >
-              <BellOff className="h-3 w-3" />
-              جديد
-              <span className="bg-white/20 px-1 rounded text-xs">{stats.unread}</span>
-            </Button>
-            <Button
-              variant={filter === 'read' ? 'default' : 'outline'}
-              onClick={() => setFilter('read')}
-              size="sm"
-              className={cn(
-                "flex-1 gap-1 text-xs h-8",
-                filter === 'read' 
-                  ? "bg-green-500 hover:bg-green-600 text-white" 
-                  : "border-green-200 text-green-700 hover:bg-green-50"
-              )}
-              data-testid="filter-read"
+              onClick={() => markAllAsReadMutation.mutate()}
+              disabled={markAllAsReadMutation.isPending}
+              className="text-xs gap-1"
             >
               <CheckCircle className="h-3 w-3" />
-              مقروء
-              <span className="bg-white/20 px-1 rounded text-xs">{stats.total - stats.unread}</span>
+              تعليم الكل كمقروء
             </Button>
           </div>
-
-          {/* فلاتر النوع - تصميم أفقي مضغوط */}
-          {notificationTypes.length > 0 && (
-            <div className="flex gap-1 overflow-x-auto">
-              <Button
-                variant={selectedType === 'all' ? 'secondary' : 'ghost'}
-                onClick={() => setSelectedType('all')}
-                size="sm"
-                className="text-xs h-7 px-2 flex-shrink-0"
-              >
-                جميع الأنواع
-              </Button>
-              {Array.isArray(notificationTypes) && notificationTypes.map(type => (
-                <Button
-                  key={type}
-                  variant={selectedType === type ? 'secondary' : 'ghost'}
-                  onClick={() => setSelectedType(type)}
-                  size="sm" 
-                  className="text-xs gap-1 h-7 px-2 flex-shrink-0"
-                >
-                  {(() => {
-                    const Icon = typeIcons[type as keyof typeof typeIcons];
-                    return Icon ? <Icon className="h-3 w-3" /> : null;
-                  })()}
-                  {type === 'system' && 'نظام'}
-                  {type === 'maintenance' && 'صيانة'}
-                  {type === 'warranty' && 'ضمان'}
-                  {type === 'damaged' && 'عطل'}
-                  {type === 'user-welcome' && 'ترحيب'}
-                  {type === 'task' && 'مهام'}
-                  {type === 'payment-reminder' && 'تذكير دفع'}
-                  {type === 'general-announcement' && 'إعلان عام'}
-                </Button>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
 
         {/* قائمة الإشعارات محسّنة */}
         <div className="space-y-2">

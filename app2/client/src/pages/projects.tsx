@@ -13,6 +13,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { UnifiedSearchFilter, PROJECT_STATUS_OPTIONS } from "@/components/ui/unified-search-filter";
 import { 
   Edit, 
   Trash2, 
@@ -20,7 +21,6 @@ import {
   Users, 
   DollarSign, 
   Package, 
-  Calendar,
   TrendingUp,
   Clock,
   MapPin,
@@ -101,6 +101,7 @@ export default function ProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState({});
   const { setFloatingAction } = useFloatingButton();
 
   // Image handling states
@@ -557,6 +558,14 @@ export default function ProjectsPage() {
     <div className="space-y-1 p-6">
 
       {/* إحصائيات عامة */}
+      {/* شريط البحث والفلترة الموحد */}
+      <UnifiedSearchFilter
+        onFiltersChange={setActiveFilters}
+        enableSearch={true}
+        enableFilters={true}
+        filterOptions={PROJECT_STATUS_OPTIONS}
+      />
+
       <StatsGrid>
         <StatsCard
           title="إجمالي المشاريع"

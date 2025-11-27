@@ -461,7 +461,175 @@ async function checkSchemaConsistency(): Promise<SchemaCheckResult> {
 }
 
 /**
- * محاولة إصلاح المشاكل تلقائياً
+ * تحويل نوع العمود من Drizzle إلى PostgreSQL
+ */
+function getPostgresType(columnDef: any): string {
+  if (!columnDef) return 'text';
+  
+  const dataType = columnDef.dataType || columnDef.columnType || '';
+  const typeName = String(dataType).toLowerCase();
+  
+  if (typeName.includes('serial')) return 'serial';
+  if (typeName.includes('integer') || typeName.includes('int4')) return 'integer';
+  if (typeName.includes('bigint') || typeName.includes('int8')) return 'bigint';
+  if (typeName.includes('smallint') || typeName.includes('int2')) return 'smallint';
+  if (typeName.includes('boolean') || typeName.includes('bool')) return 'boolean';
+  if (typeName.includes('timestamp')) return 'timestamp';
+  if (typeName.includes('date')) return 'date';
+  if (typeName.includes('time')) return 'time';
+  if (typeName.includes('numeric') || typeName.includes('decimal')) return 'numeric';
+  if (typeName.includes('real') || typeName.includes('float4')) return 'real';
+  if (typeName.includes('double') || typeName.includes('float8')) return 'double precision';
+  if (typeName.includes('json')) return 'jsonb';
+  if (typeName.includes('uuid')) return 'uuid';
+  if (typeName.includes('varchar')) {
+    const length = columnDef.length || 255;
+    return `varchar(${length})`;
+  }
+  if (typeName.includes('char')) {
+    const length = columnDef.length || 1;
+    return `char(${length})`;
+  }
+  
+  return 'text';
+}
+
+/**
+ * الحصول على تعريف العمود الافتراضي
+ */
+function getDefaultValue(columnDef: any): string | null {
+  if (!columnDef) return null;
+  
+  if (columnDef.hasDefault && columnDef.default !== undefined) {
+    const def = columnDef.default;
+    if (def === null) return 'NULL';
+    if (typeof def === 'string') return `'${def}'`;
+    if (typeof def === 'number') return String(def);
+    if (typeof def === 'boolean') return def ? 'true' : 'false';
+    if (def && typeof def === 'object' && 'sql' in def) {
+      return String(def.sql || 'NULL');
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * إنشاء جدول مفقود باستخدام SQL مباشر
+ */
+async function createMissingTable(tableName: string): Promise<boolean> {
+  try {
+    console.log(`📝 [SQL Fix] إنشاء جدول ${tableName}...`);
+    
+    for (const [key, value] of Object.entries(schema)) {
+      if (!isDrizzleTable(value)) continue;
+      
+      const tableObj = value as any;
+      const tblName = getTableName(tableObj);
+      
+      if (tblName === tableName) {
+        const columns: string[] = [];
+        const tableColumns = tableObj[Table.Symbol.Columns];
+        
+        if (tableColumns) {
+          for (const colKey of Object.keys(tableColumns)) {
+            const col = tableColumns[colKey];
+            if (!col || !col.name) continue;
+            
+            const pgType = getPostgresType(col);
+            const notNull = col.notNull ? ' NOT NULL' : '';
+            const defaultVal = getDefaultValue(col);
+            const defaultClause = defaultVal ? ` DEFAULT ${defaultVal}` : '';
+            const primaryKey = col.primary ? ' PRIMARY KEY' : '';
+            
+            if (pgType === 'serial') {
+              columns.push(`"${col.name}" serial${primaryKey}`);
+            } else {
+              columns.push(`"${col.name}" ${pgType}${notNull}${defaultClause}${primaryKey}`);
+            }
+          }
+        }
+        
+        if (columns.length > 0) {
+          const createSQL = `CREATE TABLE IF NOT EXISTS "${tableName}" (\n  ${columns.join(',\n  ')}\n)`;
+          console.log(`   SQL: ${createSQL.substring(0, 100)}...`);
+          await db.execute(sql.raw(createSQL));
+          console.log(`✅ [SQL Fix] تم إنشاء جدول ${tableName}`);
+          return true;
+        }
+        break;
+      }
+    }
+    
+    console.log(`⚠️ [SQL Fix] لم يتم العثور على تعريف الجدول ${tableName}`);
+    return false;
+  } catch (error) {
+    console.error(`❌ [SQL Fix] فشل إنشاء جدول ${tableName}:`, error);
+    return false;
+  }
+}
+
+/**
+ * إضافة عمود مفقود باستخدام SQL مباشر
+ * ملاحظة: لا نضيف NOT NULL للأعمدة الجديدة لتجنب مشاكل البيانات الموجودة
+ * يمكن تحديثها لاحقاً عبر drizzle-kit push يدوياً
+ */
+async function addMissingColumn(tableName: string, columnName: string): Promise<boolean> {
+  try {
+    console.log(`📝 [SQL Fix] إضافة عمود ${columnName} إلى ${tableName}...`);
+    
+    for (const [key, value] of Object.entries(schema)) {
+      if (!isDrizzleTable(value)) continue;
+      
+      const tableObj = value as any;
+      const tblName = getTableName(tableObj);
+      
+      if (tblName === tableName) {
+        const tableColumns = tableObj[Table.Symbol.Columns];
+        
+        if (tableColumns) {
+          for (const colKey of Object.keys(tableColumns)) {
+            const col = tableColumns[colKey];
+            if (col && col.name === columnName) {
+              const pgType = getPostgresType(col);
+              const defaultVal = getDefaultValue(col);
+              
+              let alterSQL: string;
+              if (pgType === 'serial') {
+                alterSQL = `ALTER TABLE "${tableName}" ADD COLUMN IF NOT EXISTS "${columnName}" integer`;
+              } else {
+                // إضافة DEFAULT أولاً، ثم يمكن إضافة NOT NULL لاحقاً إذا لزم الأمر
+                const defaultClause = defaultVal ? ` DEFAULT ${defaultVal}` : '';
+                alterSQL = `ALTER TABLE "${tableName}" ADD COLUMN IF NOT EXISTS "${columnName}" ${pgType}${defaultClause}`;
+              }
+              
+              console.log(`   SQL: ${alterSQL}`);
+              await db.execute(sql.raw(alterSQL));
+              console.log(`✅ [SQL Fix] تم إضافة عمود ${columnName} إلى ${tableName}`);
+              
+              // تحذير إذا كان العمود يحتاج NOT NULL
+              if (col.notNull) {
+                console.log(`   ℹ️ العمود ${columnName} يحتاج NOT NULL - يمكن تطبيقه يدوياً لاحقاً`);
+              }
+              
+              return true;
+            }
+          }
+        }
+        break;
+      }
+    }
+    
+    console.log(`⚠️ [SQL Fix] لم يتم العثور على تعريف العمود ${columnName} في ${tableName}`);
+    return false;
+  } catch (error) {
+    console.error(`❌ [SQL Fix] فشل إضافة عمود ${columnName} إلى ${tableName}:`, error);
+    return false;
+  }
+}
+
+/**
+ * محاولة إصلاح المشاكل تلقائياً باستخدام SQL مباشر
  */
 async function attemptAutoFix(checkResult: SchemaCheckResult): Promise<{ success: boolean; newCheckResult: SchemaCheckResult }> {
   if (!AUTO_FIX_ENABLED) {
@@ -474,37 +642,60 @@ async function attemptAutoFix(checkResult: SchemaCheckResult): Promise<{ success
     return { success: true, newCheckResult: checkResult };
   }
   
-  console.log('🔧 [Auto Fix] بدء الإصلاح التلقائي...');
+  console.log('🔧 [Auto Fix] بدء الإصلاح التلقائي باستخدام SQL مباشر...');
   console.log(`   الجداول المفقودة: ${checkResult.missingTables.length}`);
   console.log(`   الأعمدة المفقودة: ${checkResult.missingColumns.length}`);
   
-  if (checkResult.fixableIssues > 0) {
-    console.log('🔨 [Auto Fix] تشغيل drizzle-kit push لإصلاح جميع المشاكل...');
-    
-    const pushResult = await runDrizzlePush();
-    
-    if (pushResult.success) {
-      console.log('✅ [Auto Fix] تم تنفيذ drizzle push بنجاح');
-      
-      console.log('🔍 [Auto Fix] إعادة التحقق من المخطط...');
-      const newCheckResult = await checkSchemaConsistency();
-      
-      if (newCheckResult.isConsistent) {
-        console.log('✅ [Auto Fix] تم إصلاح جميع المشاكل بنجاح!');
-        return { success: true, newCheckResult };
-      } else {
-        const remainingIssues = newCheckResult.fixableIssues;
-        console.log(`⚠️ [Auto Fix] بقي ${remainingIssues} مشكلة تحتاج مراجعة يدوية`);
-        return { success: false, newCheckResult };
-      }
+  let fixedCount = 0;
+  let failedCount = 0;
+  
+  // إنشاء الجداول المفقودة
+  for (const tableName of checkResult.missingTables) {
+    const success = await createMissingTable(tableName);
+    if (success) {
+      fixedCount++;
     } else {
-      console.error('❌ [Auto Fix] فشل تنفيذ drizzle push');
-      return { success: false, newCheckResult: checkResult };
+      failedCount++;
     }
   }
   
-  console.log('⚠️ [Auto Fix] لا توجد مشاكل قابلة للإصلاح تلقائياً');
-  return { success: false, newCheckResult: checkResult };
+  // إضافة الأعمدة المفقودة
+  for (const { table, column } of checkResult.missingColumns) {
+    const success = await addMissingColumn(table, column);
+    if (success) {
+      fixedCount++;
+    } else {
+      failedCount++;
+    }
+  }
+  
+  console.log(`📊 [Auto Fix] النتيجة: ${fixedCount} إصلاح ناجح، ${failedCount} فشل`);
+  
+  // إعادة التحقق
+  console.log('🔍 [Auto Fix] إعادة التحقق من المخطط...');
+  const newCheckResult = await checkSchemaConsistency();
+  
+  if (newCheckResult.isConsistent) {
+    console.log('✅ [Auto Fix] تم إصلاح جميع المشاكل بنجاح!');
+    return { success: true, newCheckResult };
+  } else {
+    const remainingIssues = newCheckResult.fixableIssues;
+    console.log(`⚠️ [Auto Fix] بقي ${remainingIssues} مشكلة`);
+    
+    // محاولة استخدام drizzle-kit push كخطة بديلة
+    if (remainingIssues > 0 && failedCount > 0) {
+      console.log('🔄 [Auto Fix] محاولة استخدام drizzle-kit push كخطة بديلة...');
+      const pushResult = await runDrizzlePush();
+      
+      if (pushResult.success) {
+        console.log('✅ [Auto Fix] تم تنفيذ drizzle push بنجاح');
+        const finalCheckResult = await checkSchemaConsistency();
+        return { success: finalCheckResult.isConsistent, newCheckResult: finalCheckResult };
+      }
+    }
+    
+    return { success: false, newCheckResult };
+  }
 }
 
 /**

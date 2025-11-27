@@ -34,8 +34,12 @@ function setupSSLConfig() {
                            connectionString.includes('127.0.0.1') ||
                            connectionString.includes('@localhost/');
 
-  if (isLocalConnection) {
-    console.log('🔓 اتصال محلي - تعطيل SSL');
+  // التحقق إذا كان SSL معطّل في connection string
+  const isSslDisabled = connectionString.includes('sslmode=disable') ||
+                        connectionString.includes('ssl=false');
+
+  if (isLocalConnection || isSslDisabled) {
+    console.log('🔓 اتصال محلي أو SSL معطّل - تعطيل SSL');
     return false;
   }
 
@@ -63,9 +67,9 @@ function setupSSLConfig() {
     } else {
       // إذا لم توجد شهادة في متغيرات البيئة، تحقق من الملف
       const certPath = './pg_cert.pem';
-      if (require('fs').existsSync(certPath)) {
+      if (fs.existsSync(certPath)) {
         console.log('📜 [SSL] استخدام شهادة SSL من الملف');
-        sslConfig.ca = require('fs').readFileSync(certPath);
+        sslConfig.ca = fs.readFileSync(certPath);
         console.log('✅ [SSL] تم تحميل الشهادة من الملف - تفعيل التحقق الكامل');
       } else {
         // للخوادم الخاصة المعروفة والموثوقة فقط أو الاختبار

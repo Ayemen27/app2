@@ -1,11 +1,5 @@
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
-var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
-  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
-}) : x)(function(x) {
-  if (typeof require !== "undefined") return require.apply(this, arguments);
-  throw Error('Dynamic require of "' + x + '" is not supported');
-});
 var __esm = (fn, res) => function __init() {
   return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
 };
@@ -2193,6 +2187,7 @@ var init_smart_connection_manager = __esm({
 // server/db.ts
 import { Pool as Pool2 } from "pg";
 import { drizzle as drizzle2 } from "drizzle-orm/node-postgres";
+import fs3 from "fs";
 function createDatabaseUrl() {
   const databaseUrl = envLoader.get("DATABASE_URL");
   if (databaseUrl) {
@@ -2209,8 +2204,9 @@ function createDatabaseUrl() {
 function setupSSLConfig() {
   const connectionString2 = createDatabaseUrl();
   const isLocalConnection = connectionString2.includes("localhost") || connectionString2.includes("127.0.0.1") || connectionString2.includes("@localhost/");
-  if (isLocalConnection) {
-    console.log("\u{1F513} \u0627\u062A\u0635\u0627\u0644 \u0645\u062D\u0644\u064A - \u062A\u0639\u0637\u064A\u0644 SSL");
+  const isSslDisabled = connectionString2.includes("sslmode=disable") || connectionString2.includes("ssl=false");
+  if (isLocalConnection || isSslDisabled) {
+    console.log("\u{1F513} \u0627\u062A\u0635\u0627\u0644 \u0645\u062D\u0644\u064A \u0623\u0648 SSL \u0645\u0639\u0637\u0651\u0644 - \u062A\u0639\u0637\u064A\u0644 SSL");
     return false;
   }
   console.log("\u{1F510} \u0627\u062A\u0635\u0627\u0644 \u062E\u0627\u0631\u062C\u064A - \u0625\u0639\u062F\u0627\u062F SSL \u0622\u0645\u0646 \u0648\u0645\u0631\u0646");
@@ -2230,9 +2226,9 @@ function setupSSLConfig() {
       console.log("\u2705 [SSL] \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0634\u0647\u0627\u062F\u0629 - \u062A\u0639\u0637\u064A\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0627\u062E\u062A\u0628\u0627\u0631");
     } else {
       const certPath = "./pg_cert.pem";
-      if (__require("fs").existsSync(certPath)) {
+      if (fs3.existsSync(certPath)) {
         console.log("\u{1F4DC} [SSL] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0634\u0647\u0627\u062F\u0629 SSL \u0645\u0646 \u0627\u0644\u0645\u0644\u0641");
-        sslConfig2.ca = __require("fs").readFileSync(certPath);
+        sslConfig2.ca = fs3.readFileSync(certPath);
         console.log("\u2705 [SSL] \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0634\u0647\u0627\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0644\u0641 - \u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0627\u0644\u0643\u0627\u0645\u0644");
       } else {
         console.log("\u{1F527} [SSL] \u062A\u0639\u0637\u064A\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0627\u062E\u062A\u0628\u0627\u0631");
@@ -6024,7 +6020,7 @@ async function registerRoutes(app2) {
 
 // server/vite.ts
 import express from "express";
-import fs3 from "fs";
+import fs4 from "fs";
 import path3 from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 
@@ -6130,7 +6126,7 @@ async function setupVite(app2, server) {
         "client",
         "index.html"
       );
-      let template = await fs3.promises.readFile(clientTemplate, "utf-8");
+      let template = await fs4.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`
@@ -6145,7 +6141,7 @@ async function setupVite(app2, server) {
 }
 function serveStatic(app2) {
   const distPath = path3.resolve(import.meta.dirname, "..", "dist", "public");
-  if (!fs3.existsSync(distPath)) {
+  if (!fs4.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`
     );

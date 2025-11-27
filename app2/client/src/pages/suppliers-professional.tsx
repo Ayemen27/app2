@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit2, Trash2, Building, Phone, MapPin, User, CreditCard, Calendar, TrendingUp, AlertCircle } from "lucide-react";
 import { StatsCard } from "@/components/ui/stats-card";
-import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
+import { UnifiedSearchFilter, STATUS_FILTER_OPTIONS, type FilterConfig } from "@/components/ui/unified-search-filter";
 import { type Supplier } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import AddSupplierForm from "@/components/forms/add-supplier-form";
@@ -17,6 +17,7 @@ export default function SuppliersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
@@ -68,12 +69,28 @@ export default function SuppliersPage() {
     return () => setFloatingAction(null);
   }, [setFloatingAction]);
 
+  // تكوين الفلاتر
+  const filterConfigs: FilterConfig[] = useMemo(() => [
+    {
+      key: 'status',
+      label: 'الحالة',
+      placeholder: 'اختر الحالة',
+      options: STATUS_FILTER_OPTIONS,
+      defaultValue: 'all',
+    },
+  ], []);
+
   // Filter suppliers
-  const filteredSuppliers = (suppliers as Supplier[]).filter((supplier: Supplier) =>
-    supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (supplier.contactPerson && supplier.contactPerson.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (supplier.phone && supplier.phone.includes(searchTerm))
-  );
+  const filteredSuppliers = (suppliers as Supplier[]).filter((supplier: Supplier) => {
+    const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (supplier.contactPerson && supplier.contactPerson.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (supplier.phone && supplier.phone.includes(searchTerm));
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && supplier.isActive) ||
+      (statusFilter === 'inactive' && !supplier.isActive);
+    
+    return matchesSearch && matchesStatus;
+  });
 
   // Calculate statistics
   const stats = {
@@ -202,14 +219,20 @@ export default function SuppliersPage() {
         />
       </div>
 
-      {/* Search - مكون موحد */}
+      {/* Search & Filters - مكون موحد */}
       <UnifiedSearchFilter
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         searchPlaceholder="البحث في الموردين (الاسم، الشخص المسؤول، رقم الهاتف)..."
-        filters={[]}
-        onReset={() => setSearchTerm('')}
-        showResetButton={searchTerm.length > 0}
+        filters={filterConfigs}
+        filterValues={{ status: statusFilter }}
+        onFilterChange={(key, value) => {
+          if (key === 'status') setStatusFilter(value as 'all' | 'active' | 'inactive');
+        }}
+        onReset={() => {
+          setSearchTerm('');
+          setStatusFilter('all');
+        }}
       />
 
       {/* Suppliers Grid */}

@@ -414,39 +414,6 @@ export default function ProjectsPage() {
     return () => setFloatingAction(null);
   }, [setFloatingAction]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-1">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">جاري تحميل المشاريع...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // معالجة الأخطاء
-  if (error) {
-    console.error('❌ [Projects] خطأ في تحميل المشاريع:', error);
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-1">
-          <div className="text-6xl">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-            خطأ في تحميل المشاريع
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            حدث خطأ أثناء جلب البيانات. يرجى المحاولة مرة أخرى.
-          </p>
-          <Button onClick={() => refetchProjects()} className="gap-2">
-            <Plus className="h-4 w-4" />
-            إعادة المحاولة
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   // Helper function محسنة لتنظيف القيم النصية وتحويلها إلى أرقام
   const safeParseNumber = (value: any, defaultValue: number = 0): number => {
     if (value === null || value === undefined || value === '') return defaultValue;
@@ -471,7 +438,7 @@ export default function ProjectsPage() {
     return defaultValue;
   };
 
-  // حساب الإحصائيات العامة مع تحسين معالجة البيانات
+  // حساب الإحصائيات العامة مع تحسين معالجة البيانات - يجب أن يكون قبل أي return
   const overallStats = useMemo(() => {
     console.log('🔄 [Projects] حساب الإحصائيات العامة، عدد المشاريع:', projects.length);
     
@@ -543,6 +510,40 @@ export default function ProjectsPage() {
 
   // استخدام دالة formatCurrency من utils.ts لضمان التوحيد
   const formatCurrencyLocal = formatCurrency;
+
+  // معالجة حالة التحميل
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-1">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">جاري تحميل المشاريع...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // معالجة الأخطاء
+  if (error) {
+    console.error('❌ [Projects] خطأ في تحميل المشاريع:', error);
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-1">
+          <div className="text-6xl">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+            خطأ في تحميل المشاريع
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            حدث خطأ أثناء جلب البيانات. يرجى المحاولة مرة أخرى.
+          </p>
+          <Button onClick={() => refetchProjects()} className="gap-2">
+            <Plus className="h-4 w-4" />
+            إعادة المحاولة
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1 p-6">

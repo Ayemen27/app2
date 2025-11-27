@@ -302,7 +302,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="warehouse">المستودع</SelectItem>
-                      {projects.map((project) => (
+                      {Array.isArray(projects) && projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}
                         </SelectItem>

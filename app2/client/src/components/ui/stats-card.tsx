@@ -181,17 +181,17 @@ export function StatsCard({
   const displayValue = cleanValue();
   
   return (
-    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-md transition-shadow duration-200`}>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">{title}</p>
-            <p className={`text-lg font-bold ${colors.text}`}>
+    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-105`}>
+      <CardContent className="p-2.5 sm:p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="space-y-0.5 flex-1 min-w-0">
+            <p className="text-xs font-medium text-muted-foreground truncate">{title}</p>
+            <p className={`text-sm sm:text-base font-bold ${colors.text} break-words`}>
               {displayValue}
             </p>
           </div>
-          <div className={`h-10 w-10 ${colors.iconBg} rounded-full flex items-center justify-center`}>
-            <Icon className={`h-5 w-5 ${colors.iconColor}`} />
+          <div className={`h-8 w-8 sm:h-10 sm:w-10 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
+            <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${colors.iconColor}`} />
           </div>
         </div>
       </CardContent>

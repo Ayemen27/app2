@@ -370,16 +370,13 @@ export default function Dashboard() {
 
       {selectedProject && (
         <UnifiedStats
-          title={selectedProject.name}
-          subtitle="إحصائيات المشروع الشاملة"
           stats={[
             {
               title: "إجمالي التوريد",
               value: selectedProject?.stats?.totalIncome || 0,
               icon: TrendingUp,
               color: "blue",
-              formatter: formatCurrency,
-              status: (selectedProject?.stats?.totalIncome || 0) > 0 ? "normal" : "warning"
+              formatter: formatCurrency
             },
             {
               title: "إجمالي المنصرف",
@@ -393,8 +390,7 @@ export default function Dashboard() {
               value: selectedProject?.stats?.currentBalance || 0,
               icon: DollarSign,
               color: "green",
-              formatter: formatCurrency,
-              status: (selectedProject?.stats?.currentBalance || 0) < 0 ? "critical" : (selectedProject?.stats?.currentBalance || 0) < 1000 ? "warning" : "normal"
+              formatter: formatCurrency
             },
             {
               title: "العمال النشطين",
@@ -413,10 +409,31 @@ export default function Dashboard() {
               value: selectedProject?.stats?.materialPurchases || "0",
               icon: Package,
               color: "indigo"
+            },
+            {
+              title: "إجمالي التوريد",
+              value: selectedProject?.stats?.totalIncome || 0,
+              icon: TrendingUp,
+              color: "blue",
+              formatter: formatCurrency
+            },
+            {
+              title: "إجمالي المنصرف",
+              value: selectedProject?.stats?.totalExpenses || 0,
+              icon: TrendingDown,
+              color: "red",
+              formatter: formatCurrency
+            },
+            {
+              title: "المتبقي الحالي",
+              value: selectedProject?.stats?.currentBalance || 0,
+              icon: DollarSign,
+              color: "green",
+              formatter: formatCurrency
             }
           ]}
-          columns={2}
-          showStatus={true}
+          columns={3}
+          hideHeader={true}
         />
       )}
 

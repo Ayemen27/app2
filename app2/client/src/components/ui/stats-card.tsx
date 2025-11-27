@@ -182,18 +182,18 @@ export function StatsCard({
   
   return (
     <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-105 min-h-28`}>
-      <CardContent className="p-3 py-4 flex flex-col justify-center h-full">
-        <div className="space-y-2 flex flex-col items-center text-center">
+      <CardContent className="p-3 py-3 flex flex-col justify-center h-full">
+        <div className="space-y-1.5 flex flex-col items-center text-center">
           {/* Title */}
-          <p className="text-xs font-medium text-muted-foreground leading-tight line-clamp-2">{title}</p>
+          <p className="text-[11px] font-medium text-muted-foreground leading-none line-clamp-2">{title}</p>
           
           {/* Icon */}
-          <div className={`h-5 w-5 ${colors.iconBg} rounded-full flex items-center justify-center`}>
-            <Icon className={`h-2.5 w-2.5 ${colors.iconColor}`} />
+          <div className={`h-4 w-4 ${colors.iconBg} rounded-full flex items-center justify-center my-0.5`}>
+            <Icon className={`h-2 w-2 ${colors.iconColor}`} />
           </div>
           
-          {/* Value - Centered */}
-          <p className={`text-sm font-bold ${colors.text} leading-tight break-words text-center w-full`}>
+          {/* Value - Centered - Main Focus */}
+          <p className={`text-base font-bold ${colors.text} leading-none break-words text-center w-full`}>
             {displayValue}
           </p>
         </div>

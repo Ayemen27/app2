@@ -399,9 +399,9 @@ export class NotificationService {
       // المسؤول يرى جميع الإشعارات أو التي تخصه
       conditions.push(
         or(
-          sql`${userId}::text = ANY(${notifications.recipients})`,
-          sql`'admin'::text = ANY(${notifications.recipients})`,
-          sql`'مسؤول'::text = ANY(${notifications.recipients})`,
+          sql`${notifications.recipients} && ARRAY[${userId}]::text[]`,
+          sql`${notifications.recipients} && ARRAY['admin']::text[]`,
+          sql`${notifications.recipients} && ARRAY['مسؤول']::text[]`,
           sql`${notifications.recipients} IS NULL` // الإشعارات العامة
         )
       );
@@ -409,7 +409,7 @@ export class NotificationService {
       // المستخدم العادي يرى فقط إشعاراته الشخصية والعامة (من الأنواع المسموحة)
       conditions.push(
         or(
-          sql`${userId}::text = ANY(${notifications.recipients})`,
+          sql`${notifications.recipients} && ARRAY[${userId}]::text[]`,
           sql`${notifications.recipients} IS NULL` // الإشعارات العامة
         )
       );

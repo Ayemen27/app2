@@ -58,7 +58,7 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: result.notifications,
+      notifications: result.notifications,
       count: result.total,
       unreadCount: result.unreadCount,
       message: result.notifications.length > 0 ? 'تم جلب الإشعارات بنجاح' : 'لا توجد إشعارات'

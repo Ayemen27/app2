@@ -6,7 +6,7 @@ import { Bell, BellOff, CheckCircle, AlertCircle, Info, AlertTriangle, Clock } f
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
-import { UnifiedSearchFilter } from '@/components/ui/unified-search-filter';
+import { cn } from '@/lib/utils';
 
 interface Notification {
   id: string;
@@ -267,20 +267,21 @@ export default function NotificationsPage() {
           </div>
         </div>
 
-        {/* شريط البحث والفلترة الموحد */}
-        <UnifiedSearchFilter
-          onFiltersChange={setActiveFilters}
-          enableSearch={true}
-          enableFilters={true}
-          filterOptions={[
-            { label: 'الحالة', type: 'select', options: [
-              { value: 'all', label: 'الكل' },
-              { value: 'read', label: 'مقروء' },
-              { value: 'unread', label: 'غير مقروء' }
-            ]},
-            { label: 'النوع', type: 'select', options: notificationTypes.map(t => ({ value: t, label: t })) }
-          ]}
-        />
+        {/* شريط البحث والفلترة */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-lg border border-blue-100 dark:border-slate-700">
+          <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">الفلاتر</div>
+          <div className="flex gap-2 flex-wrap">
+            <select 
+              value={filter}
+              onChange={(e) => setActiveFilters({ ...activeFilters, status: e.target.value })}
+              className="text-xs px-2 py-1 border border-blue-300 rounded-lg dark:bg-slate-700 dark:text-white"
+            >
+              <option value="all">الكل</option>
+              <option value="read">مقروء</option>
+              <option value="unread">غير مقروء</option>
+            </select>
+          </div>
+        </div>
         {stats.unread > 0 && (
           <div className="flex justify-end">
             <Button

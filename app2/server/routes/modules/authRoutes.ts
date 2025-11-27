@@ -333,12 +333,58 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 });
 
 /**
- * 📧 تحقق من البريد الإلكتروني
+ * 📧 تحقق من البريد الإلكتروني - GET (من الرابط في البريل)
+ * GET /api/auth/verify-email?userId=...&token=...
+ */
+authRouter.get('/verify-email', async (req: Request, res: Response) => {
+  try {
+    console.log('📧 [AUTH] GET طلب تحقق من البريد الإلكتروني من الرابط');
+    
+    const { userId, token } = req.query;
+    
+    if (!userId || !token) {
+      return res.status(400).json({
+        success: false,
+        message: 'معرف المستخدم ورمز التحقق مطلوبان'
+      });
+    }
+
+    // التحقق من الرمز
+    const result = await verifyEmailToken(userId as string, token as string);
+    
+    console.log('📧 [AUTH] نتيجة التحقق:', result);
+    
+    if (result.success) {
+      console.log('✅ [AUTH] تم التحقق من البريد بنجاح:', { userId });
+      res.json({
+        success: true,
+        message: result.message
+      });
+    } else {
+      console.log('❌ [AUTH] فشل في التحقق من البريد:', result.message);
+      res.status(400).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+  } catch (error: any) {
+    console.error('❌ [AUTH] خطأ في التحقق من البريد:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في الخادم أثناء التحقق',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 📧 تحقق من البريد الإلكتروني - POST (من الـ frontend form)
  * POST /api/auth/verify-email
  */
 authRouter.post('/verify-email', async (req: Request, res: Response) => {
   try {
-    console.log('📧 [AUTH] طلب تحقق من البريد الإلكتروني');
+    console.log('📧 [AUTH] POST طلب تحقق من البريد الإلكتروني');
     
     const { userId, code } = req.body;
     

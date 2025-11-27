@@ -40,26 +40,24 @@
 | 1.1 | إنشاء جدول `user_project_permissions` | ✅ مكتمل | `app2/shared/schema.ts` | يحتوي على userId, projectId, canView, canAdd, canEdit, canDelete |
 | 1.2 | إنشاء جدول `permission_audit_logs` | ✅ مكتمل | `app2/shared/schema.ts` | سجل كامل لجميع التغييرات |
 | 1.3 | إنشاء Schemas للتحقق | ✅ مكتمل | `app2/shared/schema.ts` | insertUserProjectPermissionSchema, insertPermissionAuditLogSchema |
-| 1.4 | ⚠️ تشغيل Migration لإنشاء الجداول | 🔶 مطلوب | - | **مطلوب تنفيذه يدوياً** |
+| 1.4 | ✅ تشغيل Migration لإنشاء الجداول | ✅ مكتمل | - | **تم إنشاء الجداول عبر SQL** |
 
-**ملاحظة مهمة:** يجب تشغيل migration لإنشاء الجداول في قاعدة البيانات:
-```bash
-cd app2 && npx drizzle-kit push
-```
+**تم إنشاء الجداول بنجاح:**
+- `user_project_permissions` ✅
+- `permission_audit_logs` ✅
+- الفهارس للأداء ✅
 
 ---
 
-### 🔴 المرحلة 2: الخدمات الأساسية 🔶 جاري التنفيذ
+### 🟢 المرحلة 2: الخدمات الأساسية ✅ مكتمل
 **الأولوية:** عالية
 **المدة المتوقعة:** 2 يوم
 
 | # | المهمة | الحالة | الملف | ملاحظات |
 |---|--------|--------|-------|---------|
-| 2.1 | إنشاء `access-control.service.ts` | ✅ مكتمل | `permissions-system/services/access-control.service.ts` | خدمة التحكم بالصلاحيات |
-| 2.2 | إنشاء `audit-log.service.ts` | ✅ مكتمل | `permissions-system/services/audit-log.service.ts` | خدمة سجل التغييرات |
-| 2.3 | إنشاء `permissionsRoutes.ts` | ✅ مكتمل | `permissions-system/routes/permissionsRoutes.ts` | مسارات API |
-| 2.4 | ⚠️ إصلاح أخطاء LSP | 🔶 مطلوب | - | يوجد 15 خطأ LSP تحتاج إصلاح |
-| 2.5 | ⚠️ ربط المسارات بالخادم | 🔶 مطلوب | `app2/server/routes.ts` أو `app2/server/index.ts` | **لم يتم بعد** |
+| 2.1 | إنشاء `permissions.ts` (موحد) | ✅ مكتمل | `app2/server/routes/permissions.ts` | خدمة + مسارات API |
+| 2.2 | ربط المسارات بالخادم | ✅ مكتمل | `app2/server/index.ts` | تم ربط `/api/permissions` |
+| 2.3 | اختبار APIs | ✅ مكتمل | - | الخادم يعمل بنجاح |
 
 ---
 
@@ -193,14 +191,14 @@ app.use('/api/permissions', permissionsRouter);
 | المرحلة | الحالة | النسبة |
 |---------|--------|--------|
 | المرحلة 0: إعداد الهيكل | ✅ مكتمل | 100% |
-| المرحلة 1: قاعدة البيانات | 🔶 شبه مكتمل | 80% |
-| المرحلة 2: الخدمات الأساسية | 🔶 جاري | 70% |
+| المرحلة 1: قاعدة البيانات | ✅ مكتمل | 100% |
+| المرحلة 2: الخدمات الأساسية | ✅ مكتمل | 100% |
 | المرحلة 3: تحديث Middleware | ⏳ لم يبدأ | 0% |
 | المرحلة 4: نظام الإشعارات | ⏳ لم يبدأ | 0% |
 | المرحلة 5: واجهة المستخدم | ⏳ لم يبدأ | 0% |
 | المرحلة 6: الاختبار والتوثيق | ⏳ لم يبدأ | 0% |
 
-**التقدم الإجمالي: ~35%**
+**التقدم الإجمالي: ~55%**
 
 ---
 

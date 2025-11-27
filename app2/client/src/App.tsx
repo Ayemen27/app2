@@ -200,7 +200,7 @@ function App() {
                       <ProtectedRoute>
                         <Header />
                         <EmailVerificationGuard>
-                          <main className="pt-16 pb-16 min-h-screen">
+                          <main className="w-full">
                             <Router />
                           </main>
                         </EmailVerificationGuard>

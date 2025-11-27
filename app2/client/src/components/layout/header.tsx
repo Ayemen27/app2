@@ -45,14 +45,14 @@ export default function Header() {
   const PageIcon = currentPage.icon;
 
   return (
-    <header className="bg-primary text-primary-foreground shadow-lg fixed top-0 left-0 right-0 z-[100]">
-      <div className="px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-reverse space-x-3">
-            <PageIcon className="h-6 w-6" />
-            <h1 className="text-lg font-bold">{currentPage.title}</h1>
+    <header className="bg-primary text-primary-foreground shadow-lg fixed top-0 left-0 right-0 z-[100] h-14 md:h-16">
+      <div className="px-3 md:px-4 py-2 md:py-3 h-full">
+        <div className="flex items-center justify-between h-full">
+          <div className="flex items-center space-x-reverse space-x-2 md:space-x-3">
+            <PageIcon className="h-5 w-5 md:h-6 md:w-6" />
+            <h1 className="text-base md:text-lg font-bold truncate">{currentPage.title}</h1>
           </div>
-          <div className="flex items-center space-x-reverse space-x-2">
+          <div className="flex items-center space-x-reverse space-x-1 md:space-x-2">
             <Button 
               variant="ghost" 
               size="sm" 

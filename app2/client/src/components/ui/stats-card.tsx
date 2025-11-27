@@ -181,21 +181,21 @@ export function StatsCard({
   const displayValue = cleanValue();
   
   return (
-    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-105 min-h-28`}>
-      <CardContent className="p-3 py-3 flex flex-col justify-center h-full">
-        <div className="space-y-1.5 flex flex-col items-center text-center">
+    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-105 min-h-20`}>
+      <CardContent className="p-2 py-2 flex flex-col justify-center h-full">
+        <div className="space-y-1 flex flex-col items-center text-center">
           {/* Title */}
           <p className="text-[11px] font-medium text-muted-foreground leading-none line-clamp-2">{title}</p>
           
-          {/* Icon */}
-          <div className={`h-4 w-4 ${colors.iconBg} rounded-full flex items-center justify-center my-0.5`}>
-            <Icon className={`h-2 w-2 ${colors.iconColor}`} />
+          {/* Icon and Value in one row */}
+          <div className="flex items-center justify-center gap-1.5">
+            <div className={`h-4 w-4 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
+              <Icon className={`h-2 w-2 ${colors.iconColor}`} />
+            </div>
+            <p className={`text-base font-bold ${colors.text} leading-none break-words`}>
+              {displayValue}
+            </p>
           </div>
-          
-          {/* Value - Centered - Main Focus */}
-          <p className={`text-base font-bold ${colors.text} leading-none break-words text-center w-full`}>
-            {displayValue}
-          </p>
         </div>
       </CardContent>
     </Card>

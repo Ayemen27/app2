@@ -948,14 +948,16 @@ router.get('/me', requireAuth, async (req: AuthenticatedRequest, res) => {
         `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || email : 
         email,
       role: role,
-      mfaEnabled: false // حقل mfaEnabled غير موجود في schema الحالي
+      mfaEnabled: false, // حقل mfaEnabled غير موجود في schema الحالي
+      emailVerified: userData?.emailVerifiedAt !== null && userData?.emailVerifiedAt !== undefined // التحقق من البريد
     };
 
     console.log('✅ [API/me] إرسال بيانات المستخدم:', {
       userId: user.id,
       email: user.email,
       name: user.name,
-      role: user.role
+      role: user.role,
+      emailVerified: user.emailVerified
     });
 
     res.json({

@@ -15,6 +15,7 @@ import EnhancedWorkerCard from "@/components/enhanced-worker-card";
 import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
+import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import type { Worker, InsertWorkerAttendance } from "@shared/schema";
 
 interface AttendanceData {
@@ -41,6 +42,7 @@ interface AttendanceData {
 export default function WorkerAttendance() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
+  const [activeFilters, setActiveFilters] = useState({});
 
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);

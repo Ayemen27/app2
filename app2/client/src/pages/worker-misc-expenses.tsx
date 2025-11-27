@@ -9,7 +9,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { formatCurrency } from "@/lib/utils";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
-import { useEffect } from "react";
+import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
+import { useEffect, useState as useStateAlias } from "react";
 
 interface WorkerMiscExpense {
   id: string;
@@ -30,6 +31,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   const [miscDescription, setMiscDescription] = useState("");
   const [miscAmount, setMiscAmount] = useState("");
   const [editingMiscId, setEditingMiscId] = useState<string | null>(null);
+  const [activeFilters, setActiveFilters] = useState({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();

@@ -36,6 +36,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input-database';
 import { useFloatingButton } from '@/components/layout/floating-button-context';
 import ProjectSelector from '@/components/project-selector';
+import { UnifiedSearchFilter } from '@/components/ui/unified-search-filter';
 import '@/styles/unified-print-styles.css';
 
 interface Worker {
@@ -82,6 +83,7 @@ export default function WorkerAccountsPage() {
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [editingTransfer, setEditingTransfer] = useState<WorkerTransfer | null>(null);
   const [selectedProject, setSelectedProject] = useState<string>('');
+  const [activeFilters, setActiveFilters] = useState({});
   
   const { toast } = useToast();
   const queryClient = useQueryClient();

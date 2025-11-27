@@ -26,6 +26,7 @@ import { getCurrentDate, formatCurrency, formatDate, cleanNumber } from "@/lib/u
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
+import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import type { 
   WorkerAttendance, 
@@ -51,6 +52,7 @@ function DailyExpensesContent() {
   });
   const [carriedForward, setCarriedForward] = useState<string>("0");
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
+  const [activeFilters, setActiveFilters] = useState({});
 
   // Fund transfer form
   const [fundAmount, setFundAmount] = useState<string>("");

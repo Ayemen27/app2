@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { AlertTriangle, Bell, BellRing, Clock, Delete, Edit, Eye, RefreshCw, Send, Settings, Shield, User, Users, TrendingUp, Activity, Zap, Target, Crown, UserCheck } from 'lucide-react';
+import { UnifiedSearchFilter } from '@/components/ui/unified-search-filter';
 import { safeFind, ensureArray } from '@/lib/array-utils';
 
 // أنواع البيانات
@@ -110,6 +111,7 @@ export default function AdminNotificationsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedTab, setSelectedTab] = useState('overview');
+  const [activeFilters, setActiveFilters] = useState({});
   const [filters, setFilters] = useState({
     type: '',
     priority: '',

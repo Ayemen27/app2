@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
 import ProjectSelector from "@/components/project-selector";
 import { useSelectedProject } from "@/hooks/use-selected-project";
+import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import { z } from "zod";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 
@@ -30,6 +31,7 @@ export default function ProjectTransfers() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingTransfer, setEditingTransfer] = useState<ProjectFundTransfer | null>(null);
+  const [activeFilters, setActiveFilters] = useState({});
   const { setFloatingAction } = useFloatingButton();
   const { selectedProjectId, selectProject } = useSelectedProject();
 

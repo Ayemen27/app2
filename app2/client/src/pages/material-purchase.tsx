@@ -18,11 +18,13 @@ import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
+import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import type { Material, InsertMaterialPurchase, InsertMaterial, Supplier, InsertSupplier } from "@shared/schema";
 
 export default function MaterialPurchase() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
+  const [activeFilters, setActiveFilters] = useState({});
   
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);

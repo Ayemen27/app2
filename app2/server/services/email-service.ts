@@ -406,15 +406,35 @@ export async function verifyEmailToken(
       };
     }
 
-    // تحديث حالة التحقق
+    // تحديث حالة التحقق في جدول الرموز
     await db.update(emailVerificationTokens)
       .set({ verifiedAt: new Date() })
       .where(eq(emailVerificationTokens.id, record.id));
 
-    // تحديث حساب المستخدم لتأكيد تحقق البريد الإلكتروني
-    await db.update(users)
-      .set({ emailVerifiedAt: new Date() })
-      .where(eq(users.id, userId));
+    console.log('📝 [EmailService] تم تحديث جدول email_verification_tokens');
+
+    // تحديث حساب المستخدم لتأكيد تحقق البريد الإلكتروني - باستخدام SQL مباشر
+    const updateResult = await db.execute(sql`
+      UPDATE users 
+      SET email_verified_at = NOW() 
+      WHERE id = ${userId}
+    `);
+    
+    console.log('📝 [EmailService] نتيجة تحديث جدول users:', { userId, rowCount: updateResult.rowCount });
+
+    // التحقق من نجاح التحديث
+    const verifyUpdate = await db.execute(sql`
+      SELECT id, email, email_verified_at FROM users WHERE id = ${userId}
+    `);
+    
+    if (verifyUpdate.rows.length > 0) {
+      const updatedUser = verifyUpdate.rows[0] as any;
+      console.log('✅ [EmailService] تأكيد التحديث:', { 
+        userId: updatedUser.id, 
+        email: updatedUser.email,
+        emailVerifiedAt: updatedUser.email_verified_at 
+      });
+    }
 
     console.log('✅ [EmailService] تم التحقق من البريد الإلكتروني بنجاح للمستخدم:', userId);
 

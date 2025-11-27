@@ -198,13 +198,13 @@ function App() {
                     <Route path="/reset-password" component={ResetPasswordPage} />
                     <Route path="*" component={() => (
                       <ProtectedRoute>
+                        <Header />
                         <EmailVerificationGuard>
-                          <Header />
                           <main style={{ height: 'calc(100vh - 8rem)', overflowY: 'auto' }}>
                             <Router />
                           </main>
-                          <BottomNavigation />
                         </EmailVerificationGuard>
+                        <BottomNavigation />
                       </ProtectedRoute>
                     )} />
                   </Switch>

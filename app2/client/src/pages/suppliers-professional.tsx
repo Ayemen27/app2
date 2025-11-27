@@ -1,18 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit2, Trash2, Building, Phone, MapPin, User, CreditCard, Calendar, TrendingUp, AlertCircle } from "lucide-react";
-import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
+import { Plus, Edit2, Trash2, Building, Phone, MapPin, User, CreditCard, Calendar, TrendingUp, AlertCircle } from "lucide-react";
+import { StatsCard } from "@/components/ui/stats-card";
+import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import { type Supplier } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import AddSupplierForm from "@/components/forms/add-supplier-form";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
-import { useEffect } from "react";
 
 export default function SuppliersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -203,20 +202,15 @@ export default function SuppliersPage() {
         />
       </div>
 
-      {/* Search */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="البحث في الموردين (الاسم، الشخص المسؤول، رقم الهاتف)..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pr-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Search - مكون موحد */}
+      <UnifiedSearchFilter
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="البحث في الموردين (الاسم، الشخص المسؤول، رقم الهاتف)..."
+        filters={[]}
+        onReset={() => setSearchTerm('')}
+        showResetButton={searchTerm.length > 0}
+      />
 
       {/* Suppliers Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">

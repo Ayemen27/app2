@@ -1,20 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit2, Trash2, Users, Clock, DollarSign, Calendar, Search, Filter, User, Activity } from 'lucide-react';
-import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
+import { Edit2, Trash2, Users, Clock, DollarSign, Calendar, User, Activity } from 'lucide-react';
+import { StatsCard } from "@/components/ui/stats-card";
+import { UnifiedSearchFilter, STATUS_FILTER_OPTIONS, type FilterConfig } from '@/components/ui/unified-search-filter';
 import { apiRequest } from '@/lib/queryClient';
 import AddWorkerForm from '@/components/forms/add-worker-form';
 import { useFloatingButton } from '@/components/layout/floating-button-context';
-import { useEffect } from 'react';
 
 interface Worker {
   id: string;
@@ -306,7 +303,28 @@ export default function WorkersPage() {
     retry: 1,
   });
 
-
+  const filterConfigs: FilterConfig[] = useMemo(() => [
+    {
+      key: 'status',
+      label: 'الحالة',
+      placeholder: 'اختر الحالة',
+      options: STATUS_FILTER_OPTIONS,
+      defaultValue: 'all',
+    },
+    {
+      key: 'type',
+      label: 'نوع العامل',
+      placeholder: 'اختر نوع العامل',
+      options: [
+        { value: 'all', label: 'جميع الأنواع' },
+        ...(Array.isArray(workerTypes) ? workerTypes.map(type => ({
+          value: type.name,
+          label: type.name,
+        })) : []),
+      ],
+      defaultValue: 'all',
+    },
+  ], [workerTypes]);
 
   const deleteWorkerMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/workers/${id}`, "DELETE"),
@@ -485,68 +503,23 @@ export default function WorkersPage() {
         />
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="search">البحث</Label>
-              <div className="relative mt-1">
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  id="search"
-                  placeholder="ابحث عن عامل..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pr-10"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="status">الحالة</Label>
-              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="اختر الحالة" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الحالات</SelectItem>
-                  <SelectItem value="active">نشط</SelectItem>
-                  <SelectItem value="inactive">غير نشط</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="type">نوع العامل</Label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="اختر نوع العامل" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الأنواع</SelectItem>
-                  {Array.isArray(workerTypes) && workerTypes.map((type) => (
-                    <SelectItem key={type.id} value={type.name}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-end">
-              <Button variant="outline" className="w-full mt-1" onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('all');
-                setTypeFilter('all');
-              }}>
-                <Filter className="h-4 w-4 mr-2" />
-                إعادة تعيين
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Filters - مكون موحد */}
+      <UnifiedSearchFilter
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="ابحث عن عامل..."
+        filters={filterConfigs}
+        filterValues={{ status: statusFilter, type: typeFilter }}
+        onFilterChange={(key, value) => {
+          if (key === 'status') setStatusFilter(value as 'all' | 'active' | 'inactive');
+          if (key === 'type') setTypeFilter(value);
+        }}
+        onReset={() => {
+          setSearchTerm('');
+          setStatusFilter('all');
+          setTypeFilter('all');
+        }}
+      />
 
       {/* Workers Grid */}
       {filteredWorkers.length === 0 ? (

@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Wrench, Truck, ArrowUpDown, PenTool, Settings, Eye, MapPin, Calendar, DollarSign, Activity, MoreVertical, Edit, Trash2, Image, X, Heart, FileSpreadsheet, FileText, Printer, Download, BarChart3, History } from "lucide-react";
+import { Plus, Wrench, Truck, PenTool, Settings, Eye, MapPin, Calendar, DollarSign, Activity, MoreVertical, Edit, Trash2, Image, X, Heart, FileSpreadsheet, FileText, Printer, Download, BarChart3, History } from "lucide-react";
+import { UnifiedSearchFilter, EQUIPMENT_STATUS_OPTIONS, type FilterConfig } from "@/components/ui/unified-search-filter";
 import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
@@ -94,6 +94,49 @@ export function EquipmentManagement() {
     retry: 1,
     retryDelay: 1000,
   });
+
+  const equipmentFilterConfigs: FilterConfig[] = useMemo(() => [
+    {
+      key: 'status',
+      label: 'الحالة',
+      placeholder: 'اختر الحالة',
+      options: EQUIPMENT_STATUS_OPTIONS,
+      defaultValue: 'all',
+    },
+    {
+      key: 'type',
+      label: 'الفئة',
+      placeholder: 'اختر الفئة',
+      options: [
+        { value: 'all', label: 'جميع الفئات' },
+        { value: 'أدوات كهربائية', label: 'أدوات كهربائية' },
+        { value: 'أدوات يدوية', label: 'أدوات يدوية' },
+        { value: 'أدوات قياس', label: 'أدوات قياس' },
+        { value: 'معدات لحام', label: 'معدات لحام' },
+        { value: 'معدات حفر', label: 'معدات حفر' },
+        { value: 'معدات قطع', label: 'معدات قطع' },
+        { value: 'أدوات ربط', label: 'أدوات ربط' },
+        { value: 'مواد كهربائية', label: 'مواد كهربائية' },
+        { value: 'معدات أمان', label: 'معدات أمان' },
+        { value: 'أدوات نقل', label: 'أدوات نقل' },
+      ],
+      defaultValue: 'all',
+    },
+    {
+      key: 'project',
+      label: 'المشروع',
+      placeholder: 'اختر المشروع',
+      options: [
+        { value: 'all', label: 'جميع المواقع' },
+        { value: 'warehouse', label: 'المستودع' },
+        ...(Array.isArray(projects) ? projects.map((project: any) => ({
+          value: project.id,
+          label: project.name,
+        })) : []),
+      ],
+      defaultValue: 'all',
+    },
+  ], [projects]);
 
   const handleEquipmentClick = (item: Equipment) => {
     setSelectedEquipment(item);
@@ -866,79 +909,26 @@ export function EquipmentManagement() {
     <div className="p-6 max-w-7xl mx-auto" dir="rtl">
 
 
-      {/* Search and Filters - Compact Version */}
-      <div className="mb-4 space-y-3">
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="البحث بالاسم أو الكود..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pr-10 h-10 text-sm border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            data-testid="input-search-equipment"
-          />
-        </div>
-        
-        {/* Compact Filters */}
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-3">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger data-testid="select-status-filter" className="h-9 text-xs border-gray-200">
-              <div className="flex items-center gap-1 truncate">
-                <Activity className="h-3 w-3 text-gray-500 shrink-0" />
-                <SelectValue placeholder="الحالة" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">جميع الحالات</SelectItem>
-              <SelectItem value="active">نشط</SelectItem>
-              <SelectItem value="maintenance">صيانة</SelectItem>
-              <SelectItem value="out_of_service">خارج الخدمة</SelectItem>
-              <SelectItem value="inactive">غير نشط</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger data-testid="select-type-filter" className="h-9 text-xs border-gray-200">
-              <div className="flex items-center gap-1 truncate">
-                <Wrench className="h-3 w-3 text-gray-500 shrink-0" />
-                <SelectValue placeholder="الفئة" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">جميع الفئات</SelectItem>
-              <SelectItem value="أدوات كهربائية">أدوات كهربائية</SelectItem>
-              <SelectItem value="أدوات يدوية">أدوات يدوية</SelectItem>
-              <SelectItem value="أدوات قياس">أدوات قياس</SelectItem>
-              <SelectItem value="معدات لحام">معدات لحام</SelectItem>
-              <SelectItem value="معدات حفر">معدات حفر</SelectItem>
-              <SelectItem value="معدات قطع">معدات قطع</SelectItem>
-              <SelectItem value="أدوات ربط">أدوات ربط</SelectItem>
-              <SelectItem value="مواد كهربائية">مواد كهربائية</SelectItem>
-              <SelectItem value="معدات أمان">معدات أمان</SelectItem>
-              <SelectItem value="أدوات نقل">أدوات نقل</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger data-testid="select-project-filter" className="h-9 text-xs border-gray-200">
-              <div className="flex items-center gap-1 truncate">
-                <MapPin className="h-3 w-3 text-gray-500 shrink-0" />
-                <SelectValue placeholder="المشروع" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">جميع المواقع</SelectItem>
-              <SelectItem value="warehouse">المستودع</SelectItem>
-              {Array.isArray(projects) ? projects.map((project: any) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.name}
-                </SelectItem>
-              )) : null}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      {/* Search and Filters - مكون موحد */}
+      <UnifiedSearchFilter
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="البحث بالاسم أو الكود..."
+        filters={equipmentFilterConfigs}
+        filterValues={{ status: statusFilter, type: typeFilter, project: projectFilter }}
+        onFilterChange={(key, value) => {
+          if (key === 'status') setStatusFilter(value);
+          if (key === 'type') setTypeFilter(value);
+          if (key === 'project') setProjectFilter(value);
+        }}
+        onReset={() => {
+          setSearchTerm('');
+          setStatusFilter('all');
+          setTypeFilter('all');
+          setProjectFilter('all');
+        }}
+        className="mb-4"
+      />
 
       {/* Statistics */}
       <StatsGrid className="mb-6">

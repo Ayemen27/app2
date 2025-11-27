@@ -369,7 +369,7 @@ export default function Dashboard() {
       />
 
       {selectedProject && (
-        <div className="mb-6">
+        <div className="mb-8">
           <UnifiedStats
             stats={[
               {
@@ -440,7 +440,7 @@ export default function Dashboard() {
       )}
 
       {/* Quick Actions Redesigned */}
-      <div className="mt-6">
+      <div className="mt-10">
         <QuickActions
           actions={quickActions}
           variant="grid"

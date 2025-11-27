@@ -181,9 +181,9 @@ export function StatsCard({
   const displayValue = cleanValue();
   
   return (
-    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-105`}>
-      <CardContent className="p-1.5">
-        <div className="space-y-0">
+    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-105 min-h-24`}>
+      <CardContent className="p-2.5 py-3 flex flex-col justify-center h-full">
+        <div className="space-y-1">
           {/* Title and Icon in one row */}
           <div className="flex items-center justify-between gap-0.5">
             <p className="text-[10px] font-medium text-muted-foreground leading-tight flex-1 line-clamp-2">{title}</p>

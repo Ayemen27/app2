@@ -63,10 +63,17 @@
     @apply bg-background text-foreground font-sans antialiased;
     direction: rtl;
     font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow-x: hidden;
   }
 
   html {
     direction: rtl;
+    overflow-x: hidden;
+  }
+
+  /* تثبيت الشريط العلوي والسفلي */
+  header, nav {
+    position: fixed !important;
   }
 
   /* إجبار جميع الأرقام على العرض بالإنجليزية */

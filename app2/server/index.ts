@@ -38,11 +38,9 @@ app.use(cors({
 }));
 
 // 🔧 **Fix trust proxy for rate limiting** - هام لأمان rate limiting
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1); // Trust first proxy in production
-} else {
-  app.set('trust proxy', true); // Trust all proxies in development
-}
+// Using '1' to trust the first proxy (Replit's proxy) instead of 'true'
+// This prevents the ERR_ERL_PERMISSIVE_TRUST_PROXY error
+app.set('trust proxy', 1);
 
 // 🚫 **Global Rate Limiting - يمنع DDoS and brute force**
 const globalRateLimit = rateLimit({

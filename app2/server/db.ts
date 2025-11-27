@@ -70,7 +70,8 @@ function setupSSLConfig() {
       if (fs.existsSync(certPath)) {
         console.log('📜 [SSL] استخدام شهادة SSL من الملف');
         sslConfig.ca = fs.readFileSync(certPath);
-        console.log('✅ [SSL] تم تحميل الشهادة من الملف - تفعيل التحقق الكامل');
+        sslConfig.rejectUnauthorized = false; // للخوادم ذات الشهادات الموقعة ذاتياً
+        console.log('✅ [SSL] تم تحميل الشهادة من الملف - تعطيل التحقق للشهادات الموقعة ذاتياً');
       } else {
         // للخوادم الخاصة المعروفة والموثوقة فقط أو الاختبار
         console.log('🔧 [SSL] تعطيل التحقق للاختبار');

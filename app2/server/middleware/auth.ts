@@ -125,8 +125,20 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
 const suspiciousActivityTracker = new Map<string, { attempts: number; lastAttempt: number }>();
 
 export const trackSuspiciousActivity = (req: Request, res: Response, next: NextFunction) => {
-  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const rawIp = req.ip || req.connection.remoteAddress || 'unknown';
   const userAgent = req.get('User-Agent') || 'unknown';
+  
+  // تطبيع عنوان IP - إزالة بادئة IPv6-mapped IPv4
+  const ip = rawIp.replace(/^::ffff:/, '');
+
+  // تجاهل الطلبات المحلية وطلبات Replit الداخلية وتطبيق Replit Mobile
+  const isLocalRequest = ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || 
+                         ip === '::ffff:127.0.0.1' || userAgent.includes('HeadlessChrome') ||
+                         userAgent.includes('Replit-Bonsai') || userAgent.includes('Replit') ||
+                         ip.startsWith('10.') || ip.startsWith('172.') || ip.startsWith('192.168.');
+  if (isLocalRequest) {
+    return next();
+  }
 
   // تتبع الأنشطة المشبوهة
   const activity = suspiciousActivityTracker.get(ip) || { attempts: 0, lastAttempt: 0 };

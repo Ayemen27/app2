@@ -20,12 +20,9 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true as const,
-  };
-
+  // استخراج اسم المضيف من متغيرات بيئة Replit
+  const replitHost = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || '';
+  
   const vite = await createViteServer({
     ...viteConfig,
     configFile: false,
@@ -36,7 +33,16 @@ export async function setupVite(app: Express, server: Server) {
         process.exit(1);
       },
     },
-    server: serverOptions,
+    server: {
+      middlewareMode: true,
+      hmr: { 
+        server,
+        protocol: 'wss',
+        host: replitHost,
+        clientPort: 443,
+      },
+      allowedHosts: true,
+    },
     appType: "custom",
   });
 

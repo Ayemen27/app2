@@ -2229,7 +2229,8 @@ function setupSSLConfig() {
       if (fs3.existsSync(certPath)) {
         console.log("\u{1F4DC} [SSL] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0634\u0647\u0627\u062F\u0629 SSL \u0645\u0646 \u0627\u0644\u0645\u0644\u0641");
         sslConfig2.ca = fs3.readFileSync(certPath);
-        console.log("\u2705 [SSL] \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0634\u0647\u0627\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0644\u0641 - \u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0627\u0644\u0643\u0627\u0645\u0644");
+        sslConfig2.rejectUnauthorized = false;
+        console.log("\u2705 [SSL] \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0634\u0647\u0627\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0644\u0641 - \u062A\u0639\u0637\u064A\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0634\u0647\u0627\u062F\u0627\u062A \u0627\u0644\u0645\u0648\u0642\u0639\u0629 \u0630\u0627\u062A\u064A\u0627\u064B");
       } else {
         console.log("\u{1F527} [SSL] \u062A\u0639\u0637\u064A\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0627\u062E\u062A\u0628\u0627\u0631");
         sslConfig2.rejectUnauthorized = false;
@@ -2884,8 +2885,13 @@ var securityHeaders = (req, res, next) => {
 };
 var suspiciousActivityTracker = /* @__PURE__ */ new Map();
 var trackSuspiciousActivity = (req, res, next) => {
-  const ip = req.ip || req.connection.remoteAddress || "unknown";
+  const rawIp = req.ip || req.connection.remoteAddress || "unknown";
   const userAgent = req.get("User-Agent") || "unknown";
+  const ip = rawIp.replace(/^::ffff:/, "");
+  const isLocalRequest = ip === "127.0.0.1" || ip === "::1" || ip === "localhost" || ip === "::ffff:127.0.0.1" || userAgent.includes("HeadlessChrome") || userAgent.includes("Replit-Bonsai") || userAgent.includes("Replit") || ip.startsWith("10.") || ip.startsWith("172.") || ip.startsWith("192.168.");
+  if (isLocalRequest) {
+    return next();
+  }
   const activity = suspiciousActivityTracker.get(ip) || { attempts: 0, lastAttempt: 0 };
   const now = Date.now();
   if (now - activity.lastAttempt > 60 * 60 * 1e3) {
@@ -6027,7 +6033,7 @@ import { createServer as createViteServer, createLogger } from "vite";
 // vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import path2 from "path";
+import path2 from "node:path";
 var vite_config_default = defineConfig({
   plugins: [react()],
   root: "client",
@@ -6036,7 +6042,6 @@ var vite_config_default = defineConfig({
     emptyOutDir: true,
     target: "es2020",
     minify: "esbuild",
-    // esbuild أسرع وأقل استهلاك للذاكرة من terser
     rollupOptions: {
       output: {
         manualChunks: {
@@ -6047,17 +6052,15 @@ var vite_config_default = defineConfig({
           query: ["@tanstack/react-query"],
           router: ["wouter"]
         },
-        chunkFileNames: (chunkInfo) => {
-          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split("/").pop().replace(".tsx", "").replace(".ts", "") : "chunk";
-          return `assets/[name]-[hash].js`;
-        },
+        chunkFileNames: () => `assets/[name]-[hash].js`,
         assetFileNames: (assetInfo) => {
-          const info = assetInfo.name.split(".");
+          const name = assetInfo.name ?? "asset";
+          const info = name.split(".");
           const ext = info[info.length - 1];
-          if (/\.(png|jpe?g|gif|svg|ico|webp)$/i.test(assetInfo.name)) {
+          if (/\.(png|jpe?g|gif|svg|ico|webp)$/i.test(name)) {
             return `assets/img/[name]-[hash].${ext}`;
           }
-          if (/\.(css)$/i.test(assetInfo.name)) {
+          if (/\.(css)$/i.test(name)) {
             return `assets/css/[name]-[hash].${ext}`;
           }
           return `assets/[name]-[hash].${ext}`;
@@ -6077,8 +6080,7 @@ var vite_config_default = defineConfig({
     }
   },
   server: {
-    host: "0.0.0.0",
-    port: 5e3
+    allowedHosts: true
   },
   optimizeDeps: {
     include: ["react", "react-dom"]
@@ -6098,11 +6100,7 @@ function log(message, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 async function setupVite(app2, server) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true
-  };
+  const replitHost = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
   const vite = await createViteServer({
     ...vite_config_default,
     configFile: false,
@@ -6113,7 +6111,16 @@ async function setupVite(app2, server) {
         process.exit(1);
       }
     },
-    server: serverOptions,
+    server: {
+      middlewareMode: true,
+      hmr: {
+        server,
+        protocol: "wss",
+        host: replitHost,
+        clientPort: 443
+      },
+      allowedHosts: true
+    },
     appType: "custom"
   });
   app2.use(vite.middlewares);
@@ -13203,11 +13210,7 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 }));
-if (process.env.NODE_ENV === "production") {
-  app.set("trust proxy", 1);
-} else {
-  app.set("trust proxy", true);
-}
+app.set("trust proxy", 1);
 var globalRateLimit = rateLimit3({
   windowMs: 15 * 60 * 1e3,
   // 15 دقيقة

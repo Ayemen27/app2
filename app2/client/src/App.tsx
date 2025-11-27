@@ -200,7 +200,12 @@ function App() {
                       <ProtectedRoute>
                         <Header />
                         <EmailVerificationGuard>
-                          <main style={{ height: 'calc(100vh - 8rem)', overflowY: 'auto' }}>
+                          <main style={{ 
+                            paddingTop: '4rem',
+                            paddingBottom: '4rem',
+                            minHeight: '100vh',
+                            overflowY: 'auto'
+                          }}>
                             <Router />
                           </main>
                         </EmailVerificationGuard>

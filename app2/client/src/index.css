@@ -69,11 +69,31 @@
   html {
     direction: rtl;
     overflow-x: hidden;
+    height: 100%;
   }
 
   /* تثبيت الشريط العلوي والسفلي */
-  header, nav {
+  header {
     position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 100 !important;
+  }
+
+  nav {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 100 !important;
+  }
+
+  /* منع التمرير تحت الشرائط المثبتة */
+  main {
+    padding-top: 4rem !important;
+    padding-bottom: 4rem !important;
+    box-sizing: border-box !important;
   }
 
   /* إجبار جميع الأرقام على العرض بالإنجليزية */

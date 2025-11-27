@@ -1,14 +1,15 @@
 /**
- * الوصف: مكون ملخص المصاريف اليومية
+ * الوصف: مكون ملخص المصاريف اليومية محسّن
  * المدخلات: الدخل والمنصرفات والرصيد
- * المخرجات: عرض ملخص مالي مصمم
+ * المخرجات: عرض ملخص مالي مصمم مع مؤشرات بصرية محسّنة
  * المالك: عمار
- * آخر تعديل: 2025-08-20
+ * آخر تعديل: 2025-11-27
  * الحالة: نشط - مكون أساسي للتقارير المالية
  */
 
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+import { TrendingUp, TrendingDown, DollarSign, Gauge } from "lucide-react";
 
 interface ExpenseSummaryProps {
   totalIncome?: number | string;
@@ -22,22 +23,99 @@ export default function ExpenseSummary({ totalIncome, totalExpenses, remainingBa
   const safeExpenses = typeof totalExpenses === 'number' ? totalExpenses : parseFloat(String(totalExpenses || '0')) || 0;
   const safeBalance = typeof remainingBalance === 'number' ? remainingBalance : parseFloat(String(remainingBalance || '0')) || 0;
 
+  // حساب النسب المئوية
+  const totalAmount = safeIncome + safeExpenses;
+  const incomePercentage = totalAmount > 0 ? (safeIncome / totalAmount) * 100 : 0;
+  const expensesPercentage = totalAmount > 0 ? (safeExpenses / totalAmount) * 100 : 0;
+
+  // تحديد لون الرصيد بناءً على القيمة
+  const balanceColor = safeBalance > 0 ? 'text-green-400' : safeBalance < 0 ? 'text-red-400' : 'text-yellow-400';
+  const balanceIndicator = safeBalance > 0 ? '↑' : safeBalance < 0 ? '↓' : '→';
+
   return (
-    <div className="mt-4 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-xl p-4">
-      <h4 className="font-bold text-lg mb-3">ملخص اليوم</h4>
-      <div className="grid grid-cols-2 gap-4 text-sm">
-        <div>
-          <div className="opacity-90">إجمالي الدخل:</div>
-          <div className="text-lg font-bold arabic-numbers">{formatCurrency(safeIncome)}</div>
+    <div className="mt-4 space-y-3">
+      {/* البطاقة الرئيسية */}
+      <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/30 rounded-lg p-4 backdrop-blur-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-bold text-lg text-foreground flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            ملخص اليوم
+          </h4>
+          <div className={`text-2xl font-bold ${balanceColor}`}>
+            {balanceIndicator}
+          </div>
         </div>
-        <div>
-          <div className="opacity-90">إجمالي المنصرف:</div>
-          <div className="text-lg font-bold arabic-numbers">{formatCurrency(safeExpenses)}</div>
+
+        {/* الإجماليات */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          {/* الدخل */}
+          <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <span className="text-xs font-medium text-green-700 dark:text-green-300">الدخل</span>
+            </div>
+            <div className="text-lg font-bold text-green-900 dark:text-green-100 arabic-numbers">
+              {formatCurrency(safeIncome)}
+            </div>
+            {totalAmount > 0 && (
+              <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                {incomePercentage.toFixed(1)}% من الإجمالي
+              </div>
+            )}
+          </div>
+
+          {/* المنصرفات */}
+          <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-3 border border-red-200 dark:border-red-800">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <span className="text-xs font-medium text-red-700 dark:text-red-300">المنصرفات</span>
+            </div>
+            <div className="text-lg font-bold text-red-900 dark:text-red-100 arabic-numbers">
+              {formatCurrency(safeExpenses)}
+            </div>
+            {totalAmount > 0 && (
+              <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                {expensesPercentage.toFixed(1)}% من الإجمالي
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="text-center mt-3 pt-3 border-t border-primary-foreground/20">
-        <div className="text-sm opacity-90">المبلغ المتبقي</div>
-        <div className="text-2xl font-bold arabic-numbers">{formatCurrency(safeBalance)}</div>
+
+        {/* شريط التوزيع */}
+        {totalAmount > 0 && (
+          <div className="mb-4">
+            <div className="flex h-2 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+              <div 
+                className="bg-green-500"
+                style={{ width: `${incomePercentage}%` }}
+              />
+              <div 
+                className="bg-red-500"
+                style={{ width: `${expensesPercentage}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* الرصيد المتبقي */}
+        <div className="bg-gradient-to-r from-primary/20 to-primary/10 rounded-lg p-3 border border-primary/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Gauge className="h-5 w-5 text-primary" />
+              <span className="font-medium text-sm text-muted-foreground">الرصيد المتبقي</span>
+            </div>
+            <div className={`text-2xl font-bold arabic-numbers ${balanceColor}`}>
+              {formatCurrency(safeBalance)}
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground mt-1 text-right">
+            {safeBalance > 0 
+              ? '✅ رصيد إيجابي' 
+              : safeBalance < 0 
+                ? '⚠️ رصيد سالب' 
+                : '➖ رصيد متوازن'}
+          </div>
+        </div>
       </div>
     </div>
   );

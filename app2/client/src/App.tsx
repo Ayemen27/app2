@@ -3,8 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ProfessionalLoader } from "@/components/ui/professional-loader";
-import React, { useState, useEffect } from "react";
+import React from "react";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import LoginPage from "@/pages/LoginPage";
@@ -30,154 +29,66 @@ import AdminNotificationsPage from "@/pages/admin-notifications";
 import SmartErrorsPage from "@/pages/SmartErrorsPage";
 import { SecurityPoliciesPage } from "@/pages/SecurityPoliciesPage";
 
-import Header from "@/components/layout/header";
-import BottomNavigation from "@/components/layout/bottom-navigation";
-import FloatingAddButton from "@/components/layout/floating-add-button";
+import { LayoutShell } from "@/components/layout/layout-shell";
 import { FloatingButtonProvider } from "@/components/layout/floating-button-context";
-import { AuthProvider, useAuth } from "@/components/AuthProvider";
+import { AuthProvider } from "@/components/AuthProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
-import EmailVerificationGuard from "@/components/EmailVerificationGuard"; // Import the new guard
-
-
-
-function AuthLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      {children}
-      <FloatingAddButton />
-    </>
-  );
-}
+import EmailVerificationGuard from "@/components/EmailVerificationGuard";
 
 function Router() {
-  console.log('🧭 [App.Router] بدء تحميل Router...', new Date().toISOString());
-
   return (
     <Switch>
-      {/* صفحات محمية - مع شريط علوي وسفلي */}
-      <Route path="/">
-        <AuthLayout>
-          <Dashboard />
-        </AuthLayout>
-      </Route>
-
-      <Route path="/projects">
-        <AuthLayout>
-          <ProjectsPage />
-        </AuthLayout>
-      </Route>
-
-      <Route path="/workers">
-        <AuthLayout>
-          <WorkersPage />
-        </AuthLayout>
-      </Route>
-
+      <Route path="/" component={Dashboard} />
+      <Route path="/projects" component={ProjectsPage} />
+      <Route path="/workers" component={WorkersPage} />
       <Route path="/worker-accounts">
         <AdminRoute>
-          <AuthLayout>
-            <WorkerAccountsPage />
-          </AuthLayout>
+          <WorkerAccountsPage />
         </AdminRoute>
       </Route>
-
-      <Route path="/suppliers-pro">
-        <AuthLayout>
-          <SuppliersProPage />
-        </AuthLayout>
-      </Route>
-
+      <Route path="/suppliers-pro" component={SuppliersProPage} />
       <Route path="/supplier-accounts">
         <AdminRoute>
-          <AuthLayout>
-            <SupplierAccountsPage />
-          </AuthLayout>
+          <SupplierAccountsPage />
         </AdminRoute>
       </Route>
-
-      <Route path="/worker-attendance">
-        <AuthLayout>
-          <WorkerAttendance />
-        </AuthLayout>
-      </Route>
-
-      <Route path="/daily-expenses">
-        <AuthLayout>
-          <DailyExpenses />
-        </AuthLayout>
-      </Route>
-
-      <Route path="/material-purchase">
-        <AuthLayout>
-          <MaterialPurchase />
-        </AuthLayout>
-      </Route>
-
+      <Route path="/worker-attendance" component={WorkerAttendance} />
+      <Route path="/daily-expenses" component={DailyExpenses} />
+      <Route path="/material-purchase" component={MaterialPurchase} />
       <Route path="/project-transfers">
         <AdminRoute>
-          <AuthLayout>
-            <ProjectTransfers />
-          </AuthLayout>
+          <ProjectTransfers />
         </AdminRoute>
       </Route>
-
       <Route path="/project-transactions">
         <AdminRoute>
-          <AuthLayout>
-            <ProjectTransactionsPage />
-          </AuthLayout>
+          <ProjectTransactionsPage />
         </AdminRoute>
       </Route>
-
       <Route path="/autocomplete-admin">
         <AdminRoute>
-          <AuthLayout>
-            <AutocompleteAdminPage />
-          </AuthLayout>
+          <AutocompleteAdminPage />
         </AdminRoute>
       </Route>
-
       <Route path="/equipment">
         <AdminRoute>
-          <AuthLayout>
-            <EquipmentManagement />
-          </AuthLayout>
+          <EquipmentManagement />
         </AdminRoute>
       </Route>
-
-
-      <Route path="/notifications">
-        <AuthLayout>
-          <NotificationsPage />
-        </AuthLayout>
-      </Route>
-
+      <Route path="/notifications" component={NotificationsPage} />
       <Route path="/admin-notifications">
         <AdminRoute>
-          <AuthLayout>
-            <AdminNotificationsPage />
-          </AuthLayout>
+          <AdminNotificationsPage />
         </AdminRoute>
       </Route>
-
-
-      <Route path="/smart-errors">
-        <AuthLayout>
-          <SmartErrorsPage />
-        </AuthLayout>
-      </Route>
-
+      <Route path="/smart-errors" component={SmartErrorsPage} />
       <Route path="/security-policies">
         <AdminRoute>
-          <AuthLayout>
-            <SecurityPoliciesPage />
-          </AuthLayout>
+          <SecurityPoliciesPage />
         </AdminRoute>
       </Route>
-
-
       <Route component={NotFound} />
     </Switch>
   );
@@ -190,7 +101,7 @@ function App() {
         <AuthProvider>
           <TooltipProvider>
             <FloatingButtonProvider>
-              <div className="h-screen flex flex-col bg-background text-foreground" dir="rtl">
+              <div dir="rtl">
                 <ErrorBoundary>
                   <Switch>
                     <Route path="/login" component={LoginPage} />
@@ -198,15 +109,11 @@ function App() {
                     <Route path="/reset-password" component={ResetPasswordPage} />
                     <Route path="*" component={() => (
                       <ProtectedRoute>
-                        <Header />
                         <EmailVerificationGuard>
-                          <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
-                            <div className="min-h-full pb-4">
-                              <Router />
-                            </div>
-                          </main>
+                          <LayoutShell>
+                            <Router />
+                          </LayoutShell>
                         </EmailVerificationGuard>
-                        <BottomNavigation />
                       </ProtectedRoute>
                     )} />
                   </Switch>

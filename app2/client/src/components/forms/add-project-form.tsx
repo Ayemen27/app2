@@ -88,34 +88,36 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label htmlFor="project-name" className="block text-sm font-medium text-foreground mb-2">
-          اسم المشروع
-        </Label>
-        <Input
-          id="project-name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="أدخل اسم المشروع..."
-          required
-        />
-      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="project-name" className="block text-sm font-medium text-foreground mb-2">
+            اسم المشروع
+          </Label>
+          <Input
+            id="project-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="أدخل اسم المشروع..."
+            required
+          />
+        </div>
 
-      <div>
-        <Label htmlFor="project-status" className="block text-sm font-medium text-foreground mb-2">
-          حالة المشروع
-        </Label>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger>
-            <SelectValue placeholder="اختر حالة المشروع..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">نشط</SelectItem>
-            <SelectItem value="paused">متوقف</SelectItem>
-            <SelectItem value="completed">مكتمل</SelectItem>
-          </SelectContent>
-        </Select>
+        <div>
+          <Label htmlFor="project-status" className="block text-sm font-medium text-foreground mb-2">
+            حالة المشروع
+          </Label>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger>
+              <SelectValue placeholder="اختر حالة المشروع..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">نشط</SelectItem>
+              <SelectItem value="paused">متوقف</SelectItem>
+              <SelectItem value="completed">مكتمل</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Button

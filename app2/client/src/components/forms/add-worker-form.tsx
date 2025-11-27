@@ -197,25 +197,26 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label htmlFor="worker-name" className="block text-sm font-medium text-foreground mb-2">
-          اسم العامل
-        </Label>
-        <Input
-          id="worker-name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="أدخل اسم العامل..."
-          required
-        />
-      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="worker-name" className="block text-sm font-medium text-foreground mb-2">
+            اسم العامل
+          </Label>
+          <Input
+            id="worker-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="أدخل اسم العامل..."
+            required
+          />
+        </div>
 
-      <div>
-        <Label htmlFor="worker-type" className="block text-sm font-medium text-foreground mb-2">
-          نوع العامل
-        </Label>
-        <div className="flex gap-2">
+        <div>
+          <Label htmlFor="worker-type" className="block text-sm font-medium text-foreground mb-2">
+            نوع العامل
+          </Label>
+          <div className="flex gap-2">
           <Select value={type} onValueChange={setType}>
             <SelectTrigger className="flex-1">
               <SelectValue placeholder="اختر نوع العامل..." />
@@ -287,6 +288,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
               </form>
             </DialogContent>
           </Dialog>
+        </div>
         </div>
       </div>
 

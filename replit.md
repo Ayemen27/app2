@@ -5,7 +5,20 @@ A comprehensive construction project management system designed for the Middle E
 
 ## Recent Changes
 
-### November 2025 - Smart Form Layout System (Responsive Grid)
+### November 2025 - Form Layout Components (CompactFieldGroup)
+- **New Components**: مكونات تخطيط نماذج في `components/ui/form-grid.tsx`
+  - **FormGrid**: تخطيط شبكي 12 عمود مع دعم RTL
+  - **FormFieldWrapper**: تغليف حقول مع أحجام متعددة (full, half, third, quarter)
+  - **CompactFieldGroup**: تجميع 2-4 حقول في صف واحد على الشاشات الكبيرة
+- **Updated Forms**:
+  - `add-project-form.tsx`: حقلين في صف (اسم المشروع + الحالة)
+  - `add-supplier-form.tsx`: تجميع الشخص المسؤول + الهاتف، العنوان + شروط الدفع
+  - `add-worker-form.tsx`: 3 حقول في صف (الاسم + النوع + الأجر)
+  - `add-equipment-dialog.tsx`: تجميع الفئة + الحالة، التاريخ + السعر
+  - `transfer-equipment-dialog.tsx`: تجميع سبب النقل + المسؤول
+- **Responsive Behavior**: عمود واحد على الهاتف، 2-3 أعمدة على الشاشات الكبيرة
+
+### November 2025 - Smart Form Layout System (CSS Grid)
 - **Form Grid System**: نظام تخطيط نماذج ذكي في index.css
   - **form-grid**: تخطيط شبكي يتكيف مع حجم الشاشة (1 column على الهاتف → 2 columns على التابلت → 3 columns على سطح المكتب)
   - **form-field**: حقل نموذج مع تنسيق موحد

@@ -16,15 +16,17 @@ export default function FloatingAddButton() {
     }
   };
 
-  return (
-    <Button
-      onClick={handleClick}
-      className="fixed bottom-20 right-4 z-40 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 bg-primary hover:bg-primary/90 border-2 border-primary-foreground/20"
-      size="icon"
-      title={floatingLabel}
-      data-testid="button-floating-add"
-    >
-      <Plus className="h-6 w-6" />
-    </Button>
-  );
+  // الزر الطافي معطل حالياً لأنه يسبب تداخل مع الفصل بين الأشرطة
+  return null;
+  // return (
+  //   <Button
+  //     onClick={handleClick}
+  //     className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 bg-primary hover:bg-primary/90 border-2 border-primary-foreground/20"
+  //     size="icon"
+  //     title={floatingLabel}
+  //     data-testid="button-floating-add"
+  //   >
+  //     <Plus className="h-6 w-6" />
+  //   </Button>
+  // );
 }

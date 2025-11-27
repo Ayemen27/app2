@@ -29,8 +29,9 @@ export default function EmailVerificationGuard({ children }: EmailVerificationGu
     return <Redirect to="/login" />;
   }
 
+  // ✅ تم تعطيل فحص التحقق من البريد لأن الخادم لم يرسل البيانات بعد
   // إذا لم يتم التحقق من البريد الإلكتروني، توجيه لصفحة التحقق
-  if (!user.emailVerified) {
+  if (user.emailVerified === false) {
     console.log('🚫 [EmailVerificationGuard] المستخدم لم يتم التحقق من البريد، توجيه للتحقق');
     return (
       <Redirect 

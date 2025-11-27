@@ -58,12 +58,6 @@ function Router() {
 
   return (
     <Switch>
-      {/* صفحات غير محمية - بدون شريط علوي أو سفلي */}
-      <Route path="/login" component={LoginPage} />
-      <Route path="/register" component={LoginPage} />
-      <Route path="/reset-password" component={ResetPasswordPage} />
-      <Route path="/verify-email" component={EmailVerificationPage} />
-
       {/* صفحات محمية - مع شريط علوي وسفلي */}
       <Route path="/">
         <AuthLayout>
@@ -89,12 +83,6 @@ function Router() {
             <WorkerAccountsPage />
           </AuthLayout>
         </AdminRoute>
-      </Route>
-
-      <Route path="/suppliers">
-        <AuthLayout>
-          <SuppliersProPage />
-        </AuthLayout>
       </Route>
 
       <Route path="/suppliers-pro">
@@ -129,12 +117,6 @@ function Router() {
         </AuthLayout>
       </Route>
 
-      <Route path="/material-purchases">
-        <AuthLayout>
-          <MaterialPurchase />
-        </AuthLayout>
-      </Route>
-
       <Route path="/project-transfers">
         <AdminRoute>
           <AuthLayout>
@@ -160,14 +142,6 @@ function Router() {
       </Route>
 
       <Route path="/equipment">
-        <AdminRoute>
-          <AuthLayout>
-            <EquipmentManagement />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-      <Route path="/equipment-management">
         <AdminRoute>
           <AuthLayout>
             <EquipmentManagement />

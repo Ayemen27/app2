@@ -6,6 +6,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات app2data
 import authRoutes from './routes/auth.js';
+import { permissionsRouter } from './routes/permissions';
 import { initializeRouteOrganizer } from './routes/routerOrganizer.js';
 import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middleware/compression";
 import { generalRateLimit, trackSuspiciousActivity, securityHeaders } from "./middleware/auth";
@@ -128,6 +129,9 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // 🔐 تسجيل مسارات المصادقة أولاً - يجب أن تكون عامة وغير محمية
   app.use('/api/auth', authRoutes);
+
+  // 🔒 تسجيل مسارات الصلاحيات
+  app.use('/api/permissions', permissionsRouter);
 
   // 🏗️ تهيئة النظام التنظيمي للمسارات
   initializeRouteOrganizer(app);

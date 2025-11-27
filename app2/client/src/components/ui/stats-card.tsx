@@ -182,17 +182,17 @@ export function StatsCard({
   
   return (
     <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-105`}>
-      <CardContent className="p-2 sm:p-2.5">
-        <div className="space-y-0.5">
+      <CardContent className="p-1.5">
+        <div className="space-y-0">
           {/* Title and Icon in one row */}
-          <div className="flex items-center justify-between gap-1">
-            <p className="text-xs font-medium text-muted-foreground truncate flex-1">{title}</p>
-            <div className={`h-5 w-5 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
-              <Icon className={`h-2.5 w-2.5 ${colors.iconColor}`} />
+          <div className="flex items-center justify-between gap-0.5">
+            <p className="text-[10px] font-medium text-muted-foreground leading-tight flex-1 line-clamp-2">{title}</p>
+            <div className={`h-4 w-4 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
+              <Icon className={`h-2 w-2 ${colors.iconColor}`} />
             </div>
           </div>
           {/* Value */}
-          <p className={`text-xs font-bold ${colors.text} break-words`}>
+          <p className={`text-[11px] font-bold ${colors.text} leading-tight break-words`}>
             {displayValue}
           </p>
         </div>

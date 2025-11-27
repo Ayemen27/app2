@@ -165,17 +165,6 @@ export default function ProjectsPage() {
       }
       return failureCount < 2;
     },
-    onError: (error) => {
-      console.error('❌ [Projects] خطأ في Query:', error);
-      // إذا كان خطأ 401، نحاول تسجيل الدخول مرة أخرى
-      if ((error as any)?.status === 401) {
-        console.log('🔄 [Projects] خطأ 401، إعادة التوجيه لتسجيل الدخول...');
-        localStorage.removeItem('user');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        window.location.href = '/login';
-      }
-    }
   });
 
   // ✅ معالجة البيانات بعد الحصول عليها مع تنظيف إضافي
@@ -561,7 +550,7 @@ export default function ProjectsPage() {
       {/* إحصائيات عامة */}
       {/* شريط البحث والفلترة الموحد */}
       <UnifiedSearchFilter
-        onFiltersChange={setActiveFilters}
+        onFilterChange={setActiveFilters}
         enableSearch={true}
         enableFilters={true}
         filterOptions={PROJECT_STATUS_OPTIONS}

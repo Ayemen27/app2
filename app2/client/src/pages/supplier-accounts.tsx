@@ -768,153 +768,64 @@ export default function SupplierAccountsPage() {
         )}
       </div>
 
-      {/* فلاتر البحث المضغوطة */}
-      <Card className="shadow-sm">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-1 text-base">
-              <Filter className="w-4 h-4" />
-              فلاتر البحث
-            </CardTitle>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={resetFilters}
-              className="text-xs h-7 px-2"
-            >
-              <RefreshCw className="w-3 h-3 ml-1" />
-              إعادة تعيين
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-2 space-y-2">
-          {/* الصف الأول: البحث والمورد */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {/* البحث في الموردين */}
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-600">البحث في الموردين</Label>
-              <div className="relative">
-                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" />
-                <Input
-                  placeholder="ابحث باسم المورد..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pr-8 h-7 text-xs"
-                />
-              </div>
-            </div>
-
-            {/* اختيار المورد */}
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-600">المورد</Label>
-              <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder={isLoadingSuppliers ? "جاري التحميل..." : "اختر المورد"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {isLoadingSuppliers ? (
-                    <SelectItem value="loading" disabled>جاري تحميل الموردين...</SelectItem>
-                  ) : filteredSuppliers.length === 0 ? (
-                    <SelectItem value="empty" disabled>لا توجد موردين متاحين</SelectItem>
-                  ) : (
-                    filteredSuppliers.map((supplier) => (
-                      <SelectItem key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                        {parseFloat(supplier.totalDebt) > 0 && ` - ${formatCurrency(supplier.totalDebt)}`}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* الصف الثاني: المشروع ونوع الدفع */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-
-            {/* اختيار المشروع */}
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-600">المشروع</Label>
-              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="جميع المشاريع" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع المشاريع</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* نوع الدفع */}
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-600">نوع الدفع</Label>
-              <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="نوع الدفع" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الأنواع</SelectItem>
-                  <SelectItem value="نقد">نقد</SelectItem>
-                  <SelectItem value="أجل">أجل</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* الصف الثالث: التواريخ */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-gray-100">
-
-          </div>
-          {/* التواريخ في صف منفصل للوضوح */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 pt-3 border-t border-gray-100">
-            {/* تاريخ البداية */}
-            <div className="space-y-1">
-              <Label className="text-xs font-medium text-gray-600">من تاريخ</Label>
-              <div className="relative">
-                <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" />
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="pr-8 h-8 text-sm"
-                />
-              </div>
-            </div>
-
-            {/* تاريخ النهاية */}
-            <div className="space-y-1">
-              <Label className="text-xs font-medium text-gray-600">إلى تاريخ</Label>
-              <div className="relative">
-                <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" />
-                <Input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="pr-8 h-8 text-sm"
-                />
-              </div>
-            </div>
-
-            {/* زر التصدير */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium invisible">إجراءات</Label>
-              <Button
-                onClick={exportToExcel}
-                disabled={!selectedSupplierId || purchases.length === 0}
-                className="w-full"
-              >
-                <Download className="w-4 h-4 ml-2" />
-                تصدير التقرير
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* فلاتر البحث الموحدة */}
+      <div className="mb-6">
+        <UnifiedSearchFilter
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="ابحث عن مورد..."
+          filters={[
+            {
+              key: 'supplier',
+              label: 'المورد',
+              options: filteredSuppliers.map(s => ({
+                value: s.id,
+                label: `${s.name}${parseFloat(s.totalDebt) > 0 ? ` - ${formatCurrency(s.totalDebt)}` : ''}`
+              }))
+            },
+            {
+              key: 'project',
+              label: 'المشروع',
+              options: [
+                { value: 'all', label: 'جميع المشاريع' },
+                ...projects.map(p => ({ value: p.id, label: p.name }))
+              ]
+            },
+            {
+              key: 'paymentType',
+              label: 'نوع الدفع',
+              options: [
+                { value: 'all', label: 'جميع الأنواع' },
+                { value: 'نقد', label: 'نقد' },
+                { value: 'أجل', label: 'أجل' }
+              ]
+            }
+          ]}
+          filterValues={{
+            supplier: selectedSupplierId,
+            project: selectedProjectId,
+            paymentType: paymentTypeFilter
+          }}
+          onFilterChange={(key, value) => {
+            switch(key) {
+              case 'supplier': setSelectedSupplierId(value); break;
+              case 'project': setSelectedProjectId(value); break;
+              case 'paymentType': setPaymentTypeFilter(value); break;
+            }
+          }}
+          onReset={resetFilters}
+        />
+        <div className="mt-3">
+          <Button
+            onClick={exportToExcel}
+            disabled={!selectedSupplierId || purchases.length === 0}
+            className="w-full md:w-auto"
+          >
+            <Download className="w-4 h-4 ml-2" />
+            تصدير التقرير
+          </Button>
+        </div>
+      </div>
 
       {/* معلومات المورد المحدد - مضغوطة */}
       {selectedSupplier && (

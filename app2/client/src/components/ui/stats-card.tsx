@@ -183,19 +183,19 @@ export function StatsCard({
   return (
     <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-105 min-h-20`}>
       <CardContent className="p-2 py-2 flex flex-col justify-center h-full">
-        <div className="space-y-1 flex flex-col items-center text-center">
-          {/* Title */}
-          <p className="text-[11px] font-medium text-muted-foreground leading-none line-clamp-2">{title}</p>
-          
-          {/* Icon and Value in one row */}
+        <div className="space-y-1.5 flex flex-col items-center text-center">
+          {/* Title and Icon in one row */}
           <div className="flex items-center justify-center gap-1.5">
+            <p className="text-[11px] font-medium text-muted-foreground leading-none line-clamp-2 flex-1">{title}</p>
             <div className={`h-4 w-4 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
               <Icon className={`h-2 w-2 ${colors.iconColor}`} />
             </div>
-            <p className={`text-base font-bold ${colors.text} leading-none break-words`}>
-              {displayValue}
-            </p>
           </div>
+          
+          {/* Value centered */}
+          <p className={`text-base font-bold ${colors.text} leading-none break-words`}>
+            {displayValue}
+          </p>
         </div>
       </CardContent>
     </Card>

@@ -485,7 +485,7 @@ function runDrizzlePush(): Promise<{ success: boolean; output: string }> {
 
     setTimeout(() => {
       if (pushProcess.exitCode === null) {
-        console.log('⏱️ [Schema Push] انتهت المهلة (45 ثانية)');
+        console.log('⏱️ [Schema Push] انتهت المهلة (90 ثانية)');
         pushProcess.kill('SIGTERM');
         
         setTimeout(() => {
@@ -500,7 +500,7 @@ function runDrizzlePush(): Promise<{ success: boolean; output: string }> {
           output: 'Timeout exceeded'
         });
       }
-    }, 45000);
+    }, 90000);
   });
 }
 

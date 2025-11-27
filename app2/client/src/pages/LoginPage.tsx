@@ -427,17 +427,6 @@ export default function AuthPage() {
     forgotPasswordMutation.mutate(data);
   };
 
-  // دالة الدخول السريع
-  const handleQuickLogin = () => {
-    console.log('🎯 [AuthPage.QuickLogin] الضغط على زر الدخول السريع');
-    loginForm.setValue('email', "demo@test.com");
-    loginForm.setValue('password', "Demo@123456");
-    
-    setTimeout(() => {
-      const data = loginForm.getValues();
-      onLoginSubmit(data);
-    }, 100);
-  };
 
   return (
     <div className="h-screen relative overflow-hidden" dir="rtl">
@@ -607,20 +596,6 @@ export default function AuthPage() {
                         {loginStep === 'mfa' && 'تأكيد الرمز'}
                       </Button>
 
-                      {loginStep === 'credentials' && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full h-8 text-sm"
-                          onClick={handleQuickLogin}
-                          loading={loginMutation.isPending}
-                          enableRateLimit={true}
-                          data-testid="button-quick-login"
-                        >
-                          <Sparkles className="ml-2 h-3 w-3" />
-                          تسجيل دخول سريع (تجريبي)
-                        </Button>
-                      )}
                     </form>
                   </Form>
                 </TabsContent>

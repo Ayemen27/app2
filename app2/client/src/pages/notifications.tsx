@@ -349,7 +349,7 @@ export default function NotificationsPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
     },
   });
 
@@ -366,7 +366,7 @@ export default function NotificationsPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
       toast({ title: 'تم بنجاح', description: 'تم تعليم جميع الإشعارات كمقروءة' });
       setSelectedIds(new Set());
     },
@@ -385,7 +385,7 @@ export default function NotificationsPage() {
       ));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
       toast({ title: 'تم بنجاح', description: `تم تعليم ${selectedIds.size} إشعار كمقروء` });
       setSelectedIds(new Set());
     },

@@ -396,150 +396,148 @@ export default function ProjectTransfers() {
           </div>
           <div className="p-4 md:p-6">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-1">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* المشروع المرسل */}
-                  <FormField
-                    control={form.control}
-                    name="fromProjectId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>المشروع المرسل</FormLabel>
-                        <FormControl>
-                          <Select 
-                            value={field.value} 
-                            onValueChange={field.onChange}
-                            data-testid="select-from-project"
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="اختر المشروع المرسل" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {projects.map((project: Project) => (
-                                <SelectItem key={project.id} value={project.id}>
-                                  {project.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              <form onSubmit={form.handleSubmit(onSubmit)} className="form-grid">
+                {/* المشروع المرسل */}
+                <FormField
+                  control={form.control}
+                  name="fromProjectId"
+                  render={({ field }) => (
+                    <FormItem className="form-field">
+                      <FormLabel>المشروع المرسل</FormLabel>
+                      <FormControl>
+                        <Select 
+                          value={field.value} 
+                          onValueChange={field.onChange}
+                          data-testid="select-from-project"
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="اختر المشروع المرسل" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {projects.map((project: Project) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  {/* المشروع المستلم */}
-                  <FormField
-                    control={form.control}
-                    name="toProjectId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>المشروع المستلم</FormLabel>
-                        <FormControl>
-                          <Select 
-                            value={field.value} 
-                            onValueChange={field.onChange}
-                            data-testid="select-to-project"
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="اختر المشروع المستلم" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {projects.map((project: Project) => (
-                                <SelectItem key={project.id} value={project.id}>
-                                  {project.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {/* المشروع المستلم */}
+                <FormField
+                  control={form.control}
+                  name="toProjectId"
+                  render={({ field }) => (
+                    <FormItem className="form-field">
+                      <FormLabel>المشروع المستلم</FormLabel>
+                      <FormControl>
+                        <Select 
+                          value={field.value} 
+                          onValueChange={field.onChange}
+                          data-testid="select-to-project"
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="اختر المشروع المستلم" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {projects.map((project: Project) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  {/* المبلغ */}
-                  <FormField
-                    control={form.control}
-                    name="amount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>المبلغ (ر.ي)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="أدخل المبلغ"
-                            {...field}
-                            data-testid="input-amount"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {/* المبلغ */}
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem className="form-field">
+                      <FormLabel>المبلغ (ر.ي)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="أدخل المبلغ"
+                          {...field}
+                          data-testid="input-amount"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  {/* تاريخ الترحيل */}
-                  <FormField
-                    control={form.control}
-                    name="transferDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>تاريخ الترحيل</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="date"
-                            {...field}
-                            data-testid="input-transfer-date"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {/* تاريخ الترحيل */}
+                <FormField
+                  control={form.control}
+                  name="transferDate"
+                  render={({ field }) => (
+                    <FormItem className="form-field">
+                      <FormLabel>تاريخ الترحيل</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          {...field}
+                          data-testid="input-transfer-date"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  {/* سبب الترحيل */}
-                  <FormField
-                    control={form.control}
-                    name="transferReason"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>سبب الترحيل</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="أدخل سبب الترحيل"
-                            {...field}
-                            value={field.value || ""}
-                            data-testid="input-transfer-reason"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {/* سبب الترحيل */}
+                <FormField
+                  control={form.control}
+                  name="transferReason"
+                  render={({ field }) => (
+                    <FormItem className="form-field">
+                      <FormLabel>سبب الترحيل</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="أدخل سبب الترحيل"
+                          {...field}
+                          value={field.value || ""}
+                          data-testid="input-transfer-reason"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  {/* وصف الترحيل */}
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>وصف الترحيل (اختياري)</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="أدخل وصف للترحيل"
-                            {...field}
-                            value={field.value || ""}
-                            data-testid="textarea-description"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                {/* وصف الترحيل */}
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem className="form-field form-field-full">
+                      <FormLabel>وصف الترحيل (اختياري)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="أدخل وصف للترحيل"
+                          {...field}
+                          value={field.value || ""}
+                          data-testid="textarea-description"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <div className="form-actions">
                   <Button
                     type="submit"
                     disabled={createTransferMutation.isPending}

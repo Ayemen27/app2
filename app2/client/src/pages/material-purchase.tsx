@@ -806,8 +806,8 @@ export default function MaterialPurchase() {
                         أدخل معلومات المورد الجديد. جميع الحقول اختيارية عدا اسم المورد.
                       </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleAddSupplier} className="space-y-1">
-                      <div className="space-y-2">
+                    <form onSubmit={handleAddSupplier} className="form-grid">
+                      <div className="form-field form-field-full">
                         <Label htmlFor="supplier-name">اسم المورد/المحل *</Label>
                         <Input
                           id="supplier-name"
@@ -818,7 +818,7 @@ export default function MaterialPurchase() {
                         />
                       </div>
                       
-                      <div className="space-y-2">
+                      <div className="form-field">
                         <Label htmlFor="supplier-contact">الشخص المسؤول</Label>
                         <Input
                           id="supplier-contact"
@@ -828,7 +828,7 @@ export default function MaterialPurchase() {
                         />
                       </div>
                       
-                      <div className="space-y-2">
+                      <div className="form-field">
                         <Label htmlFor="supplier-phone">رقم الهاتف</Label>
                         <Input
                           id="supplier-phone"
@@ -839,7 +839,7 @@ export default function MaterialPurchase() {
                         />
                       </div>
                       
-                      <div className="space-y-2">
+                      <div className="form-field form-field-full">
                         <Label htmlFor="supplier-address">العنوان</Label>
                         <Input
                           id="supplier-address"
@@ -849,7 +849,7 @@ export default function MaterialPurchase() {
                         />
                       </div>
                       
-                      <div className="space-y-2">
+                      <div className="form-field">
                         <Label htmlFor="supplier-payment">شروط الدفع</Label>
                         <Select value={supplierFormPaymentTerms} onValueChange={setSupplierFormPaymentTerms}>
                           <SelectTrigger>
@@ -863,7 +863,7 @@ export default function MaterialPurchase() {
                         </Select>
                       </div>
                       
-                      <div className="space-y-2">
+                      <div className="form-field form-field-full">
                         <Label htmlFor="supplier-notes">ملاحظات</Label>
                         <Textarea
                           id="supplier-notes"
@@ -874,7 +874,13 @@ export default function MaterialPurchase() {
                         />
                       </div>
                       
-                      <div className="flex justify-end space-x-2 space-x-reverse pt-4">
+                      <div className="form-actions">
+                        <Button
+                          type="submit"
+                          disabled={addSupplierMutation.isPending || !supplierFormName.trim()}
+                        >
+                          {addSupplierMutation.isPending ? "جاري الإضافة..." : "إضافة المورد"}
+                        </Button>
                         <Button
                           type="button"
                           variant="outline"
@@ -884,12 +890,6 @@ export default function MaterialPurchase() {
                           }}
                         >
                           إلغاء
-                        </Button>
-                        <Button
-                          type="submit"
-                          disabled={addSupplierMutation.isPending || !supplierFormName.trim()}
-                        >
-                          {addSupplierMutation.isPending ? "جاري الإضافة..." : "إضافة المورد"}
                         </Button>
                       </div>
                     </form>

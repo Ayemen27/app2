@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { Search, Filter, X, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 export interface FilterOption {
   value: string;
@@ -47,11 +48,14 @@ export function UnifiedSearchFilter({
   className,
   compact = false,
 }: UnifiedSearchFilterProps) {
-  const hasActiveFilters = searchValue.length > 0 || 
-    Object.entries(filterValues).some(([key, value]) => {
-      const filter = filters.find(f => f.key === key);
-      return value && value !== 'all' && value !== filter?.defaultValue;
-    });
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  const activeFiltersCount = Object.entries(filterValues).filter(([key, value]) => {
+    const filter = filters.find(f => f.key === key);
+    return value && value !== 'all' && value !== filter?.defaultValue;
+  }).length;
+
+  const hasActiveFilters = searchValue.length > 0 || activeFiltersCount > 0;
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     onSearchChange?.(e.target.value);
@@ -63,88 +67,134 @@ export function UnifiedSearchFilter({
 
   const handleReset = useCallback(() => {
     onReset?.();
+    setIsFilterOpen(false);
   }, [onReset]);
 
-  const gridCols = compact 
-    ? 'grid-cols-1 sm:grid-cols-2'
-    : `grid-cols-1 sm:grid-cols-2 lg:grid-cols-${Math.min(filters.length + (showSearch ? 1 : 0) + (showResetButton ? 1 : 0), 4)}`;
+  const handleClearSearch = useCallback(() => {
+    onSearchChange?.('');
+  }, [onSearchChange]);
 
   return (
-    <Card className={cn('border-border/50', className)}>
-      <CardContent className={cn('p-3 sm:p-4', compact && 'p-2 sm:p-3')}>
-        <div className={cn(
-          'grid gap-3 sm:gap-4',
-          gridCols
-        )}>
-          {showSearch && (
-            <div className="space-y-1.5">
-              <Label htmlFor="search" className="text-sm font-medium">
-                البحث
-              </Label>
-              <div className="relative">
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  id="search"
-                  placeholder={searchPlaceholder}
-                  value={searchValue}
-                  onChange={handleSearchChange}
-                  className="pr-10 h-9"
-                />
-              </div>
-            </div>
-          )}
-
-          {filters.map((filter) => (
-            <div key={filter.key} className="space-y-1.5">
-              <Label htmlFor={filter.key} className="text-sm font-medium">
-                {filter.label}
-              </Label>
-              <Select 
-                value={filterValues[filter.key] || filter.defaultValue || 'all'}
-                onValueChange={(value) => handleFilterChange(filter.key, value)}
-              >
-                <SelectTrigger id={filter.key} className="h-9">
-                  <SelectValue placeholder={filter.placeholder || `اختر ${filter.label}`} />
-                </SelectTrigger>
-                <SelectContent>
-                  {filter.options.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ))}
-
-          {showResetButton && (
-            <div className="flex items-end">
-              <Button 
-                variant="outline" 
-                className={cn(
-                  'w-full h-9 gap-2',
-                  hasActiveFilters && 'border-primary/50 text-primary hover:bg-primary/5'
-                )}
-                onClick={handleReset}
-                disabled={!hasActiveFilters}
-              >
-                {hasActiveFilters ? (
-                  <>
-                    <X className="h-4 w-4" />
-                    مسح الفلاتر
-                  </>
-                ) : (
-                  <>
-                    <Filter className="h-4 w-4" />
-                    إعادة تعيين
-                  </>
-                )}
-              </Button>
-            </div>
+    <div className={cn(
+      'flex items-center gap-2 p-2 bg-card border border-border/50 rounded-lg shadow-sm',
+      className
+    )}>
+      {showSearch && (
+        <div className="relative flex-1">
+          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder={searchPlaceholder}
+            value={searchValue}
+            onChange={handleSearchChange}
+            className="pr-10 pl-8 h-9 bg-background"
+          />
+          {searchValue && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearSearch}
+              className="absolute left-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 hover:bg-muted"
+            >
+              <X className="h-3 w-3" />
+            </Button>
           )}
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {filters.length > 0 && (
+        <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                'h-9 gap-1.5 px-3 relative',
+                activeFiltersCount > 0 && 'border-primary text-primary'
+              )}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              <span className="hidden sm:inline">فلترة</span>
+              {activeFiltersCount > 0 && (
+                <Badge 
+                  variant="default" 
+                  className="h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full absolute -top-1.5 -left-1.5"
+                >
+                  {activeFiltersCount}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent 
+            className="w-72 p-4" 
+            align="end"
+            sideOffset={8}
+          >
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-sm flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  خيارات الفلترة
+                </h4>
+                {activeFiltersCount > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {activeFiltersCount} نشط
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="space-y-3">
+                {filters.map((filter) => (
+                  <div key={filter.key} className="space-y-1.5">
+                    <Label htmlFor={filter.key} className="text-sm text-muted-foreground">
+                      {filter.label}
+                    </Label>
+                    <Select 
+                      value={filterValues[filter.key] || filter.defaultValue || 'all'}
+                      onValueChange={(value) => handleFilterChange(filter.key, value)}
+                    >
+                      <SelectTrigger id={filter.key} className="h-9">
+                        <SelectValue placeholder={filter.placeholder || `اختر ${filter.label}`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filter.options.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+
+              {activeFiltersCount > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleReset}
+                  className="w-full gap-2 text-destructive hover:text-destructive"
+                >
+                  <X className="h-4 w-4" />
+                  مسح جميع الفلاتر
+                </Button>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
+
+      {showResetButton && hasActiveFilters && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleReset}
+          className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
+          title="إعادة تعيين"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
   );
 }
 

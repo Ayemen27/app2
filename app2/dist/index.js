@@ -8038,14 +8038,17 @@ router.get("/me", requireAuth, async (req, res) => {
       lastName: userData?.lastName || "",
       name: userData ? `${userData.firstName || ""} ${userData.lastName || ""}`.trim() || email : email,
       role,
-      mfaEnabled: false
+      mfaEnabled: false,
       // حقل mfaEnabled غير موجود في schema الحالي
+      emailVerified: userData?.emailVerifiedAt !== null && userData?.emailVerifiedAt !== void 0
+      // التحقق من البريد
     };
     console.log("\u2705 [API/me] \u0625\u0631\u0633\u0627\u0644 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", {
       userId: user.id,
       email: user.email,
       name: user.name,
-      role: user.role
+      role: user.role,
+      emailVerified: user.emailVerified
     });
     res.json({
       success: true,

@@ -1,11 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Building2, 
-  Filter, 
   FileText, 
   Download, 
-  Search, 
   DollarSign, 
   TrendingUp, 
   TrendingDown, 
@@ -13,15 +11,14 @@ import {
   Package,
   CreditCard,
   AlertCircle,
-  Calendar,
   Phone,
   MapPin,
   Eye,
-  RefreshCw,
   ShoppingCart,
   Receipt,
   Wallet
 } from "lucide-react";
+import { UnifiedSearchFilter, FilterConfig, PAYMENT_TYPE_OPTIONS } from "@/components/ui/unified-search-filter";
 import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { Button } from "@/components/ui/button";

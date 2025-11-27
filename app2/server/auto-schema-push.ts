@@ -30,6 +30,17 @@ const LOCK_FILE = join(__dirname, '../.schema-push.lock');
 const MAX_AGE_HOURS = 24;
 const AUTO_FIX_ENABLED = true;
 
+type IssueSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+
+interface SchemaIssue {
+  type: 'missing_table' | 'extra_table' | 'missing_column' | 'extra_column' | 'type_mismatch';
+  severity: IssueSeverity;
+  entity: string;
+  description: string;
+  suggestion: string;
+  autoFixable: boolean;
+}
+
 interface SchemaCheckResult {
   isConsistent: boolean;
   missingTables: string[];
@@ -38,6 +49,7 @@ interface SchemaCheckResult {
   extraColumns: Array<{ table: string; column: string }>;
   fixableIssues: number;
   criticalIssues: number;
+  issues: SchemaIssue[];
 }
 
 interface LockFileData {
@@ -45,6 +57,14 @@ interface LockFileData {
   success: boolean;
   version: string;
   lastCheck?: SchemaCheckResult;
+}
+
+interface SchemaAuditLog {
+  timestamp: string;
+  action: string;
+  severity: IssueSeverity;
+  details: any;
+  result: 'success' | 'failed' | 'pending';
 }
 
 /**
@@ -195,10 +215,52 @@ function createLockFile(success: boolean = true, checkResult?: SchemaCheckResult
 }
 
 /**
+ * تحديد خطورة المشكلة
+ */
+function determineIssueSeverity(issueType: string, entity: string): IssueSeverity {
+  if (issueType === 'missing_table') {
+    return 'high';
+  }
+  if (issueType === 'missing_column') {
+    if (['id', 'user_id', 'created_at', 'project_id'].includes(entity)) {
+      return 'critical';
+    }
+    return 'high';
+  }
+  if (issueType === 'extra_table') {
+    return 'medium';
+  }
+  if (issueType === 'extra_column') {
+    return 'low';
+  }
+  return 'info';
+}
+
+/**
+ * إنشاء اقتراح حل للمشكلة
+ */
+function generateSuggestion(issueType: string, entity: string, tableName?: string): string {
+  switch (issueType) {
+    case 'missing_table':
+      return `قم بتشغيل 'npx drizzle-kit push' لإنشاء الجدول "${entity}" في قاعدة البيانات، أو تأكد من تعريف الجدول بشكل صحيح في ملف schema.ts`;
+    case 'extra_table':
+      return `الجدول "${entity}" موجود في قاعدة البيانات ولكن غير معرف في المخطط. إما أضفه لملف schema.ts إذا كان مطلوباً، أو احذفه من قاعدة البيانات إذا لم يعد مستخدماً`;
+    case 'missing_column':
+      return `العمود "${entity}" مفقود في جدول "${tableName}". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts`;
+    case 'extra_column':
+      return `العمود "${entity}" موجود في جدول "${tableName}" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات`;
+    default:
+      return 'راجع التعريفات وتأكد من التوافق';
+  }
+}
+
+/**
  * التحقق من توافق المخطط مع قاعدة البيانات ديناميكياً
  */
 async function checkSchemaConsistency(): Promise<SchemaCheckResult> {
   console.log('🔍 [Schema Check] بدء التحقق من توافق المخطط...');
+  
+  const issues: SchemaIssue[] = [];
   
   try {
     const dbTablesResult = await db.execute(sql`
@@ -219,6 +281,28 @@ async function checkSchemaConsistency(): Promise<SchemaCheckResult> {
       table !== '__drizzle_migrations'
     );
     
+    for (const table of missingTables) {
+      issues.push({
+        type: 'missing_table',
+        severity: determineIssueSeverity('missing_table', table),
+        entity: table,
+        description: `الجدول "${table}" معرف في المخطط ولكن غير موجود في قاعدة البيانات`,
+        suggestion: generateSuggestion('missing_table', table),
+        autoFixable: true
+      });
+    }
+    
+    for (const table of extraTables) {
+      issues.push({
+        type: 'extra_table',
+        severity: determineIssueSeverity('extra_table', table),
+        entity: table,
+        description: `الجدول "${table}" موجود في قاعدة البيانات ولكن غير معرف في المخطط`,
+        suggestion: generateSuggestion('extra_table', table),
+        autoFixable: false
+      });
+    }
+    
     const missingColumns: Array<{ table: string; column: string; type?: string }> = [];
     const extraColumns: Array<{ table: string; column: string }> = [];
     
@@ -238,20 +322,34 @@ async function checkSchemaConsistency(): Promise<SchemaCheckResult> {
       for (const col of expectedColumns) {
         if (!dbColumns.includes(col)) {
           missingColumns.push({ table: tableName, column: col });
+          issues.push({
+            type: 'missing_column',
+            severity: determineIssueSeverity('missing_column', col),
+            entity: `${tableName}.${col}`,
+            description: `العمود "${col}" معرف في جدول "${tableName}" في المخطط ولكن غير موجود في قاعدة البيانات`,
+            suggestion: generateSuggestion('missing_column', col, tableName),
+            autoFixable: true
+          });
         }
       }
       
       for (const col of dbColumns) {
         if (!expectedColumns.includes(col) && col !== 'id') {
           extraColumns.push({ table: tableName, column: col });
+          issues.push({
+            type: 'extra_column',
+            severity: determineIssueSeverity('extra_column', col),
+            entity: `${tableName}.${col}`,
+            description: `العمود "${col}" موجود في جدول "${tableName}" في قاعدة البيانات ولكن غير معرف في المخطط`,
+            suggestion: generateSuggestion('extra_column', col, tableName),
+            autoFixable: false
+          });
         }
       }
     }
     
     const fixableIssues = missingTables.length + missingColumns.length;
-    const criticalIssues = missingColumns.filter(c => 
-      ['id', 'created_at', 'user_id'].includes(c.column)
-    ).length;
+    const criticalIssues = issues.filter(i => i.severity === 'critical').length;
     
     const isConsistent = missingTables.length === 0 && 
                         missingColumns.length === 0;
@@ -260,6 +358,7 @@ async function checkSchemaConsistency(): Promise<SchemaCheckResult> {
     console.log(`📊 [Schema Check] الجداول الزائدة: ${extraTables.length}`);
     console.log(`📊 [Schema Check] الأعمدة المفقودة: ${missingColumns.length}`);
     console.log(`📊 [Schema Check] المشاكل القابلة للإصلاح: ${fixableIssues}`);
+    console.log(`📊 [Schema Check] إجمالي المشاكل: ${issues.length}`);
     
     if (missingTables.length > 0) {
       console.log(`   الجداول المفقودة: ${missingTables.join(', ')}`);
@@ -276,7 +375,8 @@ async function checkSchemaConsistency(): Promise<SchemaCheckResult> {
       missingColumns,
       extraColumns,
       fixableIssues,
-      criticalIssues
+      criticalIssues,
+      issues
     };
   } catch (error) {
     console.error('❌ [Schema Check] خطأ في التحقق:', error);
@@ -287,7 +387,15 @@ async function checkSchemaConsistency(): Promise<SchemaCheckResult> {
       missingColumns: [],
       extraColumns: [],
       fixableIssues: 0,
-      criticalIssues: 1
+      criticalIssues: 1,
+      issues: [{
+        type: 'missing_table',
+        severity: 'critical',
+        entity: 'database_connection',
+        description: 'فشل الاتصال بقاعدة البيانات أو خطأ في الاستعلام',
+        suggestion: 'تحقق من اتصال قاعدة البيانات ومتغيرات البيئة',
+        autoFixable: false
+      }]
     };
   }
 }
@@ -340,6 +448,65 @@ async function attemptAutoFix(checkResult: SchemaCheckResult): Promise<{ success
 }
 
 /**
+ * تحويل الخطورة إلى أولوية الإشعار
+ */
+function severityToPriority(severity: IssueSeverity): number {
+  switch (severity) {
+    case 'critical': return 5;
+    case 'high': return 4;
+    case 'medium': return 3;
+    case 'low': return 2;
+    case 'info': return 1;
+    default: return 1;
+  }
+}
+
+/**
+ * إنشاء ملخص المشاكل للإشعار
+ */
+function createIssuesSummary(issues: SchemaIssue[]): string {
+  const bySeverity = {
+    critical: issues.filter(i => i.severity === 'critical'),
+    high: issues.filter(i => i.severity === 'high'),
+    medium: issues.filter(i => i.severity === 'medium'),
+    low: issues.filter(i => i.severity === 'low')
+  };
+
+  let summary = '';
+  
+  if (bySeverity.critical.length > 0) {
+    summary += `🚨 مشاكل حرجة (${bySeverity.critical.length}):\n`;
+    bySeverity.critical.slice(0, 3).forEach(i => {
+      summary += `  • ${i.description}\n    💡 ${i.suggestion}\n`;
+    });
+  }
+  
+  if (bySeverity.high.length > 0) {
+    summary += `⚠️ مشاكل عالية الخطورة (${bySeverity.high.length}):\n`;
+    bySeverity.high.slice(0, 3).forEach(i => {
+      summary += `  • ${i.description}\n`;
+    });
+  }
+  
+  if (bySeverity.medium.length > 0) {
+    summary += `📋 مشاكل متوسطة (${bySeverity.medium.length}):\n`;
+    if (bySeverity.medium.length <= 5) {
+      bySeverity.medium.forEach(i => {
+        summary += `  • ${i.entity}\n`;
+      });
+    } else {
+      summary += `  • ${bySeverity.medium.slice(0, 5).map(i => i.entity).join(', ')} و${bySeverity.medium.length - 5} أخرى\n`;
+    }
+  }
+  
+  if (bySeverity.low.length > 0) {
+    summary += `ℹ️ مشاكل منخفضة الخطورة: ${bySeverity.low.length}\n`;
+  }
+  
+  return summary;
+}
+
+/**
  * إرسال تحذير للمسؤول عبر نظام الإشعارات
  */
 async function sendAdminNotification(
@@ -351,22 +518,26 @@ async function sendAdminNotification(
     const { NotificationService } = await import('./services/NotificationService');
     const notificationService = new NotificationService();
     
+    const priority = details.severity === 'critical' ? 5 :
+                    details.severity === 'high' ? 4 :
+                    details.severity === 'warning' ? 3 : 2;
+    
     await notificationService.createNotification({
       type: 'system',
       title: title,
       body: message,
-      priority: 1,
+      priority: priority,
       recipients: ['admin'],
       payload: {
-        details,
+        ...details,
         timestamp: new Date().toISOString(),
         action: 'review_schema',
         route: '/admin/schema-management'
       },
       channelPreference: {
         push: true,
-        email: true,
-        sms: false
+        email: priority >= 4,
+        sms: priority >= 5
       }
     });
     
@@ -374,6 +545,58 @@ async function sendAdminNotification(
   } catch (error) {
     console.log('⚠️ [Notification] تعذر إرسال الإشعار (الخدمة غير متوفرة)');
   }
+}
+
+/**
+ * إرسال تقرير المخطط الشامل للمسؤول
+ */
+async function sendSchemaReport(checkResult: SchemaCheckResult): Promise<void> {
+  if (checkResult.issues.length === 0) {
+    console.log('✅ [Schema Report] المخطط متوافق، لا حاجة لإرسال تقرير');
+    return;
+  }
+  
+  const hasExtraTables = checkResult.extraTables.length > 0;
+  const hasMissingItems = checkResult.missingTables.length > 0 || checkResult.missingColumns.length > 0;
+  
+  const highestSeverity = checkResult.issues.reduce((max, issue) => {
+    const severityOrder = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+    return severityOrder[issue.severity] > severityOrder[max] ? issue.severity : max;
+  }, 'info' as IssueSeverity);
+  
+  const summary = createIssuesSummary(checkResult.issues);
+  
+  let title = '';
+  if (highestSeverity === 'critical') {
+    title = '🚨 تقرير المخطط: مشاكل حرجة تحتاج تدخل فوري';
+  } else if (highestSeverity === 'high') {
+    title = '⚠️ تقرير المخطط: مشاكل تحتاج مراجعة';
+  } else if (hasExtraTables) {
+    title = '📋 تقرير المخطط: جداول غير معرفة في المخطط';
+  } else {
+    title = 'ℹ️ تقرير المخطط: ملاحظات للمراجعة';
+  }
+  
+  const message = `تم اكتشاف ${checkResult.issues.length} مشكلة في توافق المخطط:\n\n${summary}`;
+  
+  await sendAdminNotification(title, message, {
+    severity: highestSeverity,
+    totalIssues: checkResult.issues.length,
+    criticalCount: checkResult.criticalIssues,
+    fixableCount: checkResult.fixableIssues,
+    extraTablesCount: checkResult.extraTables.length,
+    missingTablesCount: checkResult.missingTables.length,
+    missingColumnsCount: checkResult.missingColumns.length,
+    issues: checkResult.issues,
+    extraTables: checkResult.extraTables,
+    suggestedActions: hasMissingItems 
+      ? ['تشغيل npx drizzle-kit push لإصلاح المشاكل القابلة للإصلاح']
+      : ['مراجعة الجداول الزائدة وتحديد ما يجب فعله بها'],
+    autoFixAttempted: hasMissingItems,
+    requiresManualReview: hasExtraTables || !hasMissingItems
+  });
+  
+  console.log(`📊 [Schema Report] تم إرسال تقرير بـ ${checkResult.issues.length} مشكلة`);
 }
 
 /**
@@ -514,36 +737,14 @@ export async function autoSchemaPush(): Promise<void> {
   let consistencyCheck = await checkSchemaConsistency();
   let skipLockCheck = false;
   
-  if (!consistencyCheck.isConsistent) {
+  await sendSchemaReport(consistencyCheck);
+  
+  if (!consistencyCheck.isConsistent || consistencyCheck.extraTables.length > 0) {
     console.log('⚠️ [Schema Check] تم اكتشاف اختلافات في المخطط!');
     
     if (consistencyCheck.criticalIssues > 0) {
       console.log('🚨 [Schema Check] مشاكل حرجة! سيتم تجاوز فحص القفل');
       skipLockCheck = true;
-      
-      await sendAdminNotification(
-        '🚨 تحذير عاجل: مشاكل حرجة في المخطط',
-        `تم اكتشاف ${consistencyCheck.criticalIssues} مشكلة حرجة تحتاج تدخل فوري`,
-        {
-          missingTables: consistencyCheck.missingTables,
-          extraTables: consistencyCheck.extraTables,
-          missingColumns: consistencyCheck.missingColumns,
-          severity: 'critical',
-          requiresAction: true
-        }
-      );
-    } else {
-      await sendAdminNotification(
-        '⚠️ تحذير: اختلافات في مخطط قاعدة البيانات',
-        `تم اكتشاف ${consistencyCheck.missingTables.length} جدول مفقود و ${consistencyCheck.missingColumns.length} عمود مفقود`,
-        {
-          missingTables: consistencyCheck.missingTables,
-          extraTables: consistencyCheck.extraTables,
-          missingColumns: consistencyCheck.missingColumns,
-          severity: 'warning',
-          requiresAction: consistencyCheck.fixableIssues > 0
-        }
-      );
     }
     
     if (AUTO_FIX_ENABLED && consistencyCheck.fixableIssues > 0) {
@@ -552,6 +753,11 @@ export async function autoSchemaPush(): Promise<void> {
       
       if (fixResult.success) {
         console.log('✅ [Auto Fix] تم الإصلاح التلقائي بنجاح');
+        await sendAdminNotification(
+          '✅ تم الإصلاح التلقائي للمخطط',
+          'تم إصلاح جميع المشاكل القابلة للإصلاح تلقائياً',
+          { severity: 'info', autoFixed: true }
+        );
         createLockFile(true, consistencyCheck);
         console.log('═'.repeat(60) + '\n');
         return;

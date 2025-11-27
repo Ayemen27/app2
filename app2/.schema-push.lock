@@ -1,0 +1,352 @@
+{
+  "timestamp": "2025-11-27T22:34:26.223Z",
+  "success": false,
+  "version": "3.0",
+  "lastCheck": {
+    "isConsistent": false,
+    "missingTables": [
+      "notifications"
+    ],
+    "extraTables": [],
+    "missingColumns": [
+      {
+        "table": "daily_expense_summaries",
+        "column": "total_worker_transfers"
+      },
+      {
+        "table": "daily_expense_summaries",
+        "column": "total_worker_misc_expenses"
+      },
+      {
+        "table": "daily_expense_summaries",
+        "column": "notes"
+      },
+      {
+        "table": "daily_expense_summaries",
+        "column": "updated_at"
+      },
+      {
+        "table": "material_purchases",
+        "column": "material_name"
+      },
+      {
+        "table": "material_purchases",
+        "column": "material_category"
+      },
+      {
+        "table": "material_purchases",
+        "column": "material_unit"
+      },
+      {
+        "table": "material_purchases",
+        "column": "unit"
+      },
+      {
+        "table": "material_purchases",
+        "column": "receipt_number"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "attendance_date"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "hours_worked"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "overtime"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "overtime_rate"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "total_pay"
+      },
+      {
+        "table": "worker_attendance",
+        "column": "notes"
+      }
+    ],
+    "extraColumns": [
+      {
+        "table": "material_purchases",
+        "column": "material_id"
+      },
+      {
+        "table": "projects",
+        "column": "description"
+      },
+      {
+        "table": "projects",
+        "column": "location"
+      },
+      {
+        "table": "projects",
+        "column": "client_name"
+      },
+      {
+        "table": "projects",
+        "column": "budget"
+      },
+      {
+        "table": "projects",
+        "column": "start_date"
+      },
+      {
+        "table": "projects",
+        "column": "end_date"
+      },
+      {
+        "table": "projects",
+        "column": "notes"
+      },
+      {
+        "table": "projects",
+        "column": "is_active"
+      },
+      {
+        "table": "projects",
+        "column": "manager_name"
+      },
+      {
+        "table": "projects",
+        "column": "contact_phone"
+      },
+      {
+        "table": "projects",
+        "column": "updated_at"
+      }
+    ],
+    "fixableIssues": 16,
+    "criticalIssues": 0,
+    "issues": [
+      {
+        "type": "missing_table",
+        "severity": "high",
+        "entity": "notifications",
+        "description": "الجدول \"notifications\" معرف في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "قم بتشغيل 'npx drizzle-kit push' لإنشاء الجدول \"notifications\" في قاعدة البيانات، أو تأكد من تعريف الجدول بشكل صحيح في ملف schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "daily_expense_summaries.total_worker_transfers",
+        "description": "العمود \"total_worker_transfers\" معرف في جدول \"daily_expense_summaries\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"total_worker_transfers\" مفقود في جدول \"daily_expense_summaries\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "daily_expense_summaries.total_worker_misc_expenses",
+        "description": "العمود \"total_worker_misc_expenses\" معرف في جدول \"daily_expense_summaries\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"total_worker_misc_expenses\" مفقود في جدول \"daily_expense_summaries\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "daily_expense_summaries.notes",
+        "description": "العمود \"notes\" معرف في جدول \"daily_expense_summaries\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"notes\" مفقود في جدول \"daily_expense_summaries\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "daily_expense_summaries.updated_at",
+        "description": "العمود \"updated_at\" معرف في جدول \"daily_expense_summaries\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"updated_at\" مفقود في جدول \"daily_expense_summaries\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "material_purchases.material_name",
+        "description": "العمود \"material_name\" معرف في جدول \"material_purchases\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"material_name\" مفقود في جدول \"material_purchases\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "material_purchases.material_category",
+        "description": "العمود \"material_category\" معرف في جدول \"material_purchases\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"material_category\" مفقود في جدول \"material_purchases\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "material_purchases.material_unit",
+        "description": "العمود \"material_unit\" معرف في جدول \"material_purchases\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"material_unit\" مفقود في جدول \"material_purchases\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "material_purchases.unit",
+        "description": "العمود \"unit\" معرف في جدول \"material_purchases\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"unit\" مفقود في جدول \"material_purchases\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "material_purchases.receipt_number",
+        "description": "العمود \"receipt_number\" معرف في جدول \"material_purchases\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"receipt_number\" مفقود في جدول \"material_purchases\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "material_purchases.material_id",
+        "description": "العمود \"material_id\" موجود في جدول \"material_purchases\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"material_id\" موجود في جدول \"material_purchases\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.description",
+        "description": "العمود \"description\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"description\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.location",
+        "description": "العمود \"location\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"location\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.client_name",
+        "description": "العمود \"client_name\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"client_name\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.budget",
+        "description": "العمود \"budget\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"budget\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.start_date",
+        "description": "العمود \"start_date\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"start_date\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.end_date",
+        "description": "العمود \"end_date\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"end_date\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.notes",
+        "description": "العمود \"notes\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"notes\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.is_active",
+        "description": "العمود \"is_active\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"is_active\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.manager_name",
+        "description": "العمود \"manager_name\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"manager_name\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.contact_phone",
+        "description": "العمود \"contact_phone\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"contact_phone\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.updated_at",
+        "description": "العمود \"updated_at\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"updated_at\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.attendance_date",
+        "description": "العمود \"attendance_date\" معرف في جدول \"worker_attendance\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"attendance_date\" مفقود في جدول \"worker_attendance\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.hours_worked",
+        "description": "العمود \"hours_worked\" معرف في جدول \"worker_attendance\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"hours_worked\" مفقود في جدول \"worker_attendance\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.overtime",
+        "description": "العمود \"overtime\" معرف في جدول \"worker_attendance\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"overtime\" مفقود في جدول \"worker_attendance\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.overtime_rate",
+        "description": "العمود \"overtime_rate\" معرف في جدول \"worker_attendance\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"overtime_rate\" مفقود في جدول \"worker_attendance\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.total_pay",
+        "description": "العمود \"total_pay\" معرف في جدول \"worker_attendance\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"total_pay\" مفقود في جدول \"worker_attendance\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.notes",
+        "description": "العمود \"notes\" معرف في جدول \"worker_attendance\" في المخطط ولكن غير موجود في قاعدة البيانات",
+        "suggestion": "العمود \"notes\" مفقود في جدول \"worker_attendance\". قم بتشغيل 'npx drizzle-kit push' لإضافته، أو راجع تعريف الجدول في schema.ts",
+        "autoFixable": true
+      }
+    ]
+  }
+}

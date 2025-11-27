@@ -1,0 +1,1417 @@
+{
+  "timestamp": "2025-11-27T22:57:13.671Z",
+  "success": false,
+  "version": "3.0",
+  "lastCheck": {
+    "isConsistent": true,
+    "missingTables": [],
+    "extraTables": [],
+    "missingColumns": [],
+    "extraColumns": [
+      {
+        "table": "material_purchases",
+        "column": "material_id"
+      },
+      {
+        "table": "projects",
+        "column": "description"
+      },
+      {
+        "table": "projects",
+        "column": "location"
+      },
+      {
+        "table": "projects",
+        "column": "client_name"
+      },
+      {
+        "table": "projects",
+        "column": "budget"
+      },
+      {
+        "table": "projects",
+        "column": "start_date"
+      },
+      {
+        "table": "projects",
+        "column": "end_date"
+      },
+      {
+        "table": "projects",
+        "column": "notes"
+      },
+      {
+        "table": "projects",
+        "column": "is_active"
+      },
+      {
+        "table": "projects",
+        "column": "manager_name"
+      },
+      {
+        "table": "projects",
+        "column": "contact_phone"
+      },
+      {
+        "table": "projects",
+        "column": "updated_at"
+      }
+    ],
+    "fixableIssues": 0,
+    "criticalIssues": 0,
+    "issues": [
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "account_balances.account_id",
+        "description": "العمود \"account_id\" في جدول \"account_balances\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"account_balances\" ALTER COLUMN \"account_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "account_balances.period",
+        "description": "العمود \"period\" في جدول \"account_balances\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"account_balances\" ALTER COLUMN \"period\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "accounts.code",
+        "description": "العمود \"code\" في جدول \"accounts\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"accounts\" ALTER COLUMN \"code\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "accounts.name",
+        "description": "العمود \"name\" في جدول \"accounts\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"accounts\" ALTER COLUMN \"name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "accounts.type",
+        "description": "العمود \"type\" في جدول \"accounts\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"accounts\" ALTER COLUMN \"type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "actions.title",
+        "description": "العمود \"title\" في جدول \"actions\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"actions\" ALTER COLUMN \"title\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "actions.description",
+        "description": "العمود \"description\" في جدول \"actions\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"actions\" ALTER COLUMN \"description\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "actions.category",
+        "description": "العمود \"category\" في جدول \"actions\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"actions\" ALTER COLUMN \"category\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "actions.owner_id",
+        "description": "العمود \"owner_id\" في جدول \"actions\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"actions\" ALTER COLUMN \"owner_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "approvals.object_type",
+        "description": "العمود \"object_type\" في جدول \"approvals\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"approvals\" ALTER COLUMN \"object_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "approvals.object_id",
+        "description": "العمود \"object_id\" في جدول \"approvals\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"approvals\" ALTER COLUMN \"object_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "approvals.requested_by",
+        "description": "العمود \"requested_by\" في جدول \"approvals\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"approvals\" ALTER COLUMN \"requested_by\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "approvals.title",
+        "description": "العمود \"title\" في جدول \"approvals\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"approvals\" ALTER COLUMN \"title\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "auth_user_sessions.user_id",
+        "description": "العمود \"user_id\" في جدول \"auth_user_sessions\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"auth_user_sessions\" ALTER COLUMN \"user_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "auth_user_sessions.expires_at",
+        "description": "العمود \"expires_at\" في جدول \"auth_user_sessions\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"auth_user_sessions\" ALTER COLUMN \"expires_at\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "autocomplete_data.category",
+        "description": "العمود \"category\" في جدول \"autocomplete_data\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"autocomplete_data\" ALTER COLUMN \"category\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "autocomplete_data.value",
+        "description": "العمود \"value\" في جدول \"autocomplete_data\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"autocomplete_data\" ALTER COLUMN \"value\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "channels.name",
+        "description": "العمود \"name\" في جدول \"channels\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"channels\" ALTER COLUMN \"name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "channels.participant_ids",
+        "description": "العمود \"participant_ids\" في جدول \"channels\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"channels\" ALTER COLUMN \"participant_ids\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "channels.created_by",
+        "description": "العمود \"created_by\" في جدول \"channels\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"channels\" ALTER COLUMN \"created_by\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "daily_expense_summaries.project_id",
+        "description": "العمود \"project_id\" في جدول \"daily_expense_summaries\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"daily_expense_summaries\" ALTER COLUMN \"project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "daily_expense_summaries.date",
+        "description": "العمود \"date\" في جدول \"daily_expense_summaries\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"daily_expense_summaries\" ALTER COLUMN \"date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "daily_expense_summaries.total_income",
+        "description": "العمود \"total_income\" في جدول \"daily_expense_summaries\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"daily_expense_summaries\" ALTER COLUMN \"total_income\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "daily_expense_summaries.total_expenses",
+        "description": "العمود \"total_expenses\" في جدول \"daily_expense_summaries\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"daily_expense_summaries\" ALTER COLUMN \"total_expenses\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "daily_expense_summaries.remaining_balance",
+        "description": "العمود \"remaining_balance\" في جدول \"daily_expense_summaries\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"daily_expense_summaries\" ALTER COLUMN \"remaining_balance\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "email_verification_tokens.user_id",
+        "description": "العمود \"user_id\" في جدول \"email_verification_tokens\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"email_verification_tokens\" ALTER COLUMN \"user_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "email_verification_tokens.email",
+        "description": "العمود \"email\" في جدول \"email_verification_tokens\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"email_verification_tokens\" ALTER COLUMN \"email\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "email_verification_tokens.token",
+        "description": "العمود \"token\" في جدول \"email_verification_tokens\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"email_verification_tokens\" ALTER COLUMN \"token\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "email_verification_tokens.token_hash",
+        "description": "العمود \"token_hash\" في جدول \"email_verification_tokens\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"email_verification_tokens\" ALTER COLUMN \"token_hash\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "email_verification_tokens.verification_link",
+        "description": "العمود \"verification_link\" في جدول \"email_verification_tokens\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"email_verification_tokens\" ALTER COLUMN \"verification_link\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "email_verification_tokens.expires_at",
+        "description": "العمود \"expires_at\" في جدول \"email_verification_tokens\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"email_verification_tokens\" ALTER COLUMN \"expires_at\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "finance_events.event_name",
+        "description": "العمود \"event_name\" في جدول \"finance_events\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"finance_events\" ALTER COLUMN \"event_name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "finance_events.event_type",
+        "description": "العمود \"event_type\" في جدول \"finance_events\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"finance_events\" ALTER COLUMN \"event_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "finance_payments.payment_type",
+        "description": "العمود \"payment_type\" في جدول \"finance_payments\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"finance_payments\" ALTER COLUMN \"payment_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "finance_payments.amount",
+        "description": "العمود \"amount\" في جدول \"finance_payments\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"finance_payments\" ALTER COLUMN \"amount\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "fund_transfers.project_id",
+        "description": "العمود \"project_id\" في جدول \"fund_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"fund_transfers\" ALTER COLUMN \"project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "fund_transfers.amount",
+        "description": "العمود \"amount\" في جدول \"fund_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"fund_transfers\" ALTER COLUMN \"amount\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "fund_transfers.transfer_type",
+        "description": "العمود \"transfer_type\" في جدول \"fund_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"fund_transfers\" ALTER COLUMN \"transfer_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "fund_transfers.transfer_date",
+        "description": "العمود \"transfer_date\" في جدول \"fund_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"fund_transfers\" ALTER COLUMN \"transfer_date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "journals.transaction_id",
+        "description": "العمود \"transaction_id\" في جدول \"journals\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"journals\" ALTER COLUMN \"transaction_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "journals.period",
+        "description": "العمود \"period\" في جدول \"journals\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"journals\" ALTER COLUMN \"period\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "maintenance_schedules.tool_id",
+        "description": "العمود \"tool_id\" في جدول \"maintenance_schedules\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"maintenance_schedules\" ALTER COLUMN \"tool_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "maintenance_schedules.schedule_type",
+        "description": "العمود \"schedule_type\" في جدول \"maintenance_schedules\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"maintenance_schedules\" ALTER COLUMN \"schedule_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "maintenance_schedules.next_due_date",
+        "description": "العمود \"next_due_date\" في جدول \"maintenance_schedules\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"maintenance_schedules\" ALTER COLUMN \"next_due_date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "maintenance_schedules.title",
+        "description": "العمود \"title\" في جدول \"maintenance_schedules\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"maintenance_schedules\" ALTER COLUMN \"title\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "maintenance_tasks.schedule_id",
+        "description": "العمود \"schedule_id\" في جدول \"maintenance_tasks\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"maintenance_tasks\" ALTER COLUMN \"schedule_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "maintenance_tasks.tool_id",
+        "description": "العمود \"tool_id\" في جدول \"maintenance_tasks\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"maintenance_tasks\" ALTER COLUMN \"tool_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "maintenance_tasks.task_name",
+        "description": "العمود \"task_name\" في جدول \"maintenance_tasks\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"maintenance_tasks\" ALTER COLUMN \"task_name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "maintenance_tasks.task_type",
+        "description": "العمود \"task_type\" في جدول \"maintenance_tasks\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"maintenance_tasks\" ALTER COLUMN \"task_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "maintenance_tasks.due_date",
+        "description": "العمود \"due_date\" في جدول \"maintenance_tasks\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"maintenance_tasks\" ALTER COLUMN \"due_date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "material_purchases.project_id",
+        "description": "العمود \"project_id\" في جدول \"material_purchases\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"material_purchases\" ALTER COLUMN \"project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "material_purchases.quantity",
+        "description": "العمود \"quantity\" في جدول \"material_purchases\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"material_purchases\" ALTER COLUMN \"quantity\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "material_purchases.unit_price",
+        "description": "العمود \"unit_price\" في جدول \"material_purchases\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"material_purchases\" ALTER COLUMN \"unit_price\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "material_purchases.total_amount",
+        "description": "العمود \"total_amount\" في جدول \"material_purchases\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"material_purchases\" ALTER COLUMN \"total_amount\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "material_purchases.invoice_date",
+        "description": "العمود \"invoice_date\" في جدول \"material_purchases\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"material_purchases\" ALTER COLUMN \"invoice_date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "material_purchases.purchase_date",
+        "description": "العمود \"purchase_date\" في جدول \"material_purchases\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"material_purchases\" ALTER COLUMN \"purchase_date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "material_purchases.material_id",
+        "description": "العمود \"material_id\" موجود في جدول \"material_purchases\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"material_id\" موجود في جدول \"material_purchases\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "materials.name",
+        "description": "العمود \"name\" في جدول \"materials\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"materials\" ALTER COLUMN \"name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "materials.category",
+        "description": "العمود \"category\" في جدول \"materials\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"materials\" ALTER COLUMN \"category\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "materials.unit",
+        "description": "العمود \"unit\" في جدول \"materials\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"materials\" ALTER COLUMN \"unit\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "messages.channel_id",
+        "description": "العمود \"channel_id\" في جدول \"messages\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"messages\" ALTER COLUMN \"channel_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "messages.sender_id",
+        "description": "العمود \"sender_id\" في جدول \"messages\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"messages\" ALTER COLUMN \"sender_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "messages.content",
+        "description": "العمود \"content\" في جدول \"messages\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"messages\" ALTER COLUMN \"content\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "notification_read_states.notification_id",
+        "description": "العمود \"notification_id\" في جدول \"notification_read_states\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"notification_read_states\" ALTER COLUMN \"notification_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "notifications.title",
+        "description": "العمود \"title\" في جدول \"notifications\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"notifications\" ALTER COLUMN \"title\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "notifications.body",
+        "description": "العمود \"body\" في جدول \"notifications\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"notifications\" ALTER COLUMN \"body\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "notifications.type",
+        "description": "العمود \"type\" في جدول \"notifications\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"notifications\" ALTER COLUMN \"type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "password_reset_tokens.user_id",
+        "description": "العمود \"user_id\" في جدول \"password_reset_tokens\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"password_reset_tokens\" ALTER COLUMN \"user_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "password_reset_tokens.token",
+        "description": "العمود \"token\" في جدول \"password_reset_tokens\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"password_reset_tokens\" ALTER COLUMN \"token\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "password_reset_tokens.token_hash",
+        "description": "العمود \"token_hash\" في جدول \"password_reset_tokens\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"password_reset_tokens\" ALTER COLUMN \"token_hash\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "password_reset_tokens.expires_at",
+        "description": "العمود \"expires_at\" في جدول \"password_reset_tokens\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"password_reset_tokens\" ALTER COLUMN \"expires_at\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "permission_audit_logs.action",
+        "description": "العمود \"action\" في جدول \"permission_audit_logs\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"permission_audit_logs\" ALTER COLUMN \"action\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "permission_audit_logs.actor_id",
+        "description": "العمود \"actor_id\" في جدول \"permission_audit_logs\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"permission_audit_logs\" ALTER COLUMN \"actor_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "print_settings.name",
+        "description": "العمود \"name\" في جدول \"print_settings\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"print_settings\" ALTER COLUMN \"name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "project_fund_transfers.from_project_id",
+        "description": "العمود \"from_project_id\" في جدول \"project_fund_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"project_fund_transfers\" ALTER COLUMN \"from_project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "project_fund_transfers.to_project_id",
+        "description": "العمود \"to_project_id\" في جدول \"project_fund_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"project_fund_transfers\" ALTER COLUMN \"to_project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "project_fund_transfers.amount",
+        "description": "العمود \"amount\" في جدول \"project_fund_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"project_fund_transfers\" ALTER COLUMN \"amount\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "project_fund_transfers.transfer_date",
+        "description": "العمود \"transfer_date\" في جدول \"project_fund_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"project_fund_transfers\" ALTER COLUMN \"transfer_date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "projects.name",
+        "description": "العمود \"name\" في جدول \"projects\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"projects\" ALTER COLUMN \"name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.description",
+        "description": "العمود \"description\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"description\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.location",
+        "description": "العمود \"location\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"location\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.client_name",
+        "description": "العمود \"client_name\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"client_name\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.budget",
+        "description": "العمود \"budget\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"budget\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.start_date",
+        "description": "العمود \"start_date\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"start_date\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.end_date",
+        "description": "العمود \"end_date\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"end_date\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.notes",
+        "description": "العمود \"notes\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"notes\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.is_active",
+        "description": "العمود \"is_active\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"is_active\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.manager_name",
+        "description": "العمود \"manager_name\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"manager_name\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.contact_phone",
+        "description": "العمود \"contact_phone\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"contact_phone\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "extra_column",
+        "severity": "low",
+        "entity": "projects.updated_at",
+        "description": "العمود \"updated_at\" موجود في جدول \"projects\" في قاعدة البيانات ولكن غير معرف في المخطط",
+        "suggestion": "العمود \"updated_at\" موجود في جدول \"projects\" ولكن غير معرف في المخطط. أضفه للمخطط أو احذفه من قاعدة البيانات",
+        "autoFixable": false
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "supplier_payments.supplier_id",
+        "description": "العمود \"supplier_id\" في جدول \"supplier_payments\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"supplier_payments\" ALTER COLUMN \"supplier_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "supplier_payments.project_id",
+        "description": "العمود \"project_id\" في جدول \"supplier_payments\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"supplier_payments\" ALTER COLUMN \"project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "supplier_payments.amount",
+        "description": "العمود \"amount\" في جدول \"supplier_payments\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"supplier_payments\" ALTER COLUMN \"amount\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "supplier_payments.payment_date",
+        "description": "العمود \"payment_date\" في جدول \"supplier_payments\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"supplier_payments\" ALTER COLUMN \"payment_date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "suppliers.name",
+        "description": "العمود \"name\" في جدول \"suppliers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"suppliers\" ALTER COLUMN \"name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "system_events.event_type",
+        "description": "العمود \"event_type\" في جدول \"system_events\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"system_events\" ALTER COLUMN \"event_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "system_events.object_type",
+        "description": "العمود \"object_type\" في جدول \"system_events\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"system_events\" ALTER COLUMN \"object_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "system_events.object_id",
+        "description": "العمود \"object_id\" في جدول \"system_events\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"system_events\" ALTER COLUMN \"object_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "system_events.event_data",
+        "description": "العمود \"event_data\" في جدول \"system_events\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"system_events\" ALTER COLUMN \"event_data\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "system_notifications.type",
+        "description": "العمود \"type\" في جدول \"system_notifications\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"system_notifications\" ALTER COLUMN \"type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "system_notifications.category",
+        "description": "العمود \"category\" في جدول \"system_notifications\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"system_notifications\" ALTER COLUMN \"category\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "system_notifications.title",
+        "description": "العمود \"title\" في جدول \"system_notifications\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"system_notifications\" ALTER COLUMN \"title\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "system_notifications.message",
+        "description": "العمود \"message\" في جدول \"system_notifications\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"system_notifications\" ALTER COLUMN \"message\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_categories.name",
+        "description": "العمود \"name\" في جدول \"tool_categories\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_categories\" ALTER COLUMN \"name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_cost_tracking.tool_id",
+        "description": "العمود \"tool_id\" في جدول \"tool_cost_tracking\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_cost_tracking\" ALTER COLUMN \"tool_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_cost_tracking.cost_type",
+        "description": "العمود \"cost_type\" في جدول \"tool_cost_tracking\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_cost_tracking\" ALTER COLUMN \"cost_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_cost_tracking.cost_category",
+        "description": "العمود \"cost_category\" في جدول \"tool_cost_tracking\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_cost_tracking\" ALTER COLUMN \"cost_category\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_cost_tracking.amount",
+        "description": "العمود \"amount\" في جدول \"tool_cost_tracking\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_cost_tracking\" ALTER COLUMN \"amount\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_cost_tracking.cost_date",
+        "description": "العمود \"cost_date\" في جدول \"tool_cost_tracking\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_cost_tracking\" ALTER COLUMN \"cost_date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_cost_tracking.description",
+        "description": "العمود \"description\" في جدول \"tool_cost_tracking\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_cost_tracking\" ALTER COLUMN \"description\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_maintenance_logs.tool_id",
+        "description": "العمود \"tool_id\" في جدول \"tool_maintenance_logs\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_maintenance_logs\" ALTER COLUMN \"tool_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_maintenance_logs.maintenance_type",
+        "description": "العمود \"maintenance_type\" في جدول \"tool_maintenance_logs\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_maintenance_logs\" ALTER COLUMN \"maintenance_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_maintenance_logs.title",
+        "description": "العمود \"title\" في جدول \"tool_maintenance_logs\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_maintenance_logs\" ALTER COLUMN \"title\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_movements.tool_id",
+        "description": "العمود \"tool_id\" في جدول \"tool_movements\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_movements\" ALTER COLUMN \"tool_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_movements.movement_type",
+        "description": "العمود \"movement_type\" في جدول \"tool_movements\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_movements\" ALTER COLUMN \"movement_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_movements.quantity",
+        "description": "العمود \"quantity\" في جدول \"tool_movements\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_movements\" ALTER COLUMN \"quantity\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_movements.performed_by",
+        "description": "العمود \"performed_by\" في جدول \"tool_movements\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_movements\" ALTER COLUMN \"performed_by\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_notifications.type",
+        "description": "العمود \"type\" في جدول \"tool_notifications\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_notifications\" ALTER COLUMN \"type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_notifications.title",
+        "description": "العمود \"title\" في جدول \"tool_notifications\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_notifications\" ALTER COLUMN \"title\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_notifications.message",
+        "description": "العمود \"message\" في جدول \"tool_notifications\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_notifications\" ALTER COLUMN \"message\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_purchase_items.material_purchase_id",
+        "description": "العمود \"material_purchase_id\" في جدول \"tool_purchase_items\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_purchase_items\" ALTER COLUMN \"material_purchase_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_purchase_items.item_name",
+        "description": "العمود \"item_name\" في جدول \"tool_purchase_items\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_purchase_items\" ALTER COLUMN \"item_name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_purchase_items.unit_price",
+        "description": "العمود \"unit_price\" في جدول \"tool_purchase_items\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_purchase_items\" ALTER COLUMN \"unit_price\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_purchase_items.total_price",
+        "description": "العمود \"total_price\" في جدول \"tool_purchase_items\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_purchase_items\" ALTER COLUMN \"total_price\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_reservations.tool_id",
+        "description": "العمود \"tool_id\" في جدول \"tool_reservations\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_reservations\" ALTER COLUMN \"tool_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_reservations.project_id",
+        "description": "العمود \"project_id\" في جدول \"tool_reservations\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_reservations\" ALTER COLUMN \"project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_reservations.quantity",
+        "description": "العمود \"quantity\" في جدول \"tool_reservations\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_reservations\" ALTER COLUMN \"quantity\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_reservations.reserved_by",
+        "description": "العمود \"reserved_by\" في جدول \"tool_reservations\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_reservations\" ALTER COLUMN \"reserved_by\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_reservations.requested_date",
+        "description": "العمود \"requested_date\" في جدول \"tool_reservations\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_reservations\" ALTER COLUMN \"requested_date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_stock.tool_id",
+        "description": "العمود \"tool_id\" في جدول \"tool_stock\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_stock\" ALTER COLUMN \"tool_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_stock.location_type",
+        "description": "العمود \"location_type\" في جدول \"tool_stock\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_stock\" ALTER COLUMN \"location_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_usage_analytics.tool_id",
+        "description": "العمود \"tool_id\" في جدول \"tool_usage_analytics\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_usage_analytics\" ALTER COLUMN \"tool_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tool_usage_analytics.analysis_date",
+        "description": "العمود \"analysis_date\" في جدول \"tool_usage_analytics\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tool_usage_analytics\" ALTER COLUMN \"analysis_date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "tools.name",
+        "description": "العمود \"name\" في جدول \"tools\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"tools\" ALTER COLUMN \"name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "transaction_lines.transaction_id",
+        "description": "العمود \"transaction_id\" في جدول \"transaction_lines\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"transaction_lines\" ALTER COLUMN \"transaction_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "transaction_lines.account_id",
+        "description": "العمود \"account_id\" في جدول \"transaction_lines\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"transaction_lines\" ALTER COLUMN \"account_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "transactions.date",
+        "description": "العمود \"date\" في جدول \"transactions\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"transactions\" ALTER COLUMN \"date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "transactions.total_amount",
+        "description": "العمود \"total_amount\" في جدول \"transactions\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"transactions\" ALTER COLUMN \"total_amount\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "transactions.transaction_type",
+        "description": "العمود \"transaction_type\" في جدول \"transactions\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"transactions\" ALTER COLUMN \"transaction_type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "transportation_expenses.project_id",
+        "description": "العمود \"project_id\" في جدول \"transportation_expenses\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"transportation_expenses\" ALTER COLUMN \"project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "transportation_expenses.amount",
+        "description": "العمود \"amount\" في جدول \"transportation_expenses\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"transportation_expenses\" ALTER COLUMN \"amount\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "transportation_expenses.description",
+        "description": "العمود \"description\" في جدول \"transportation_expenses\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"transportation_expenses\" ALTER COLUMN \"description\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "transportation_expenses.date",
+        "description": "العمود \"date\" في جدول \"transportation_expenses\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"transportation_expenses\" ALTER COLUMN \"date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "user_project_permissions.user_id",
+        "description": "العمود \"user_id\" في جدول \"user_project_permissions\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"user_project_permissions\" ALTER COLUMN \"user_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "user_project_permissions.project_id",
+        "description": "العمود \"project_id\" في جدول \"user_project_permissions\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"user_project_permissions\" ALTER COLUMN \"project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "users.email",
+        "description": "العمود \"email\" في جدول \"users\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"users\" ALTER COLUMN \"email\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "users.password",
+        "description": "العمود \"password\" في جدول \"users\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"users\" ALTER COLUMN \"password\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.project_id",
+        "description": "العمود \"project_id\" في جدول \"worker_attendance\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_attendance\" ALTER COLUMN \"project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.worker_id",
+        "description": "العمود \"worker_id\" في جدول \"worker_attendance\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_attendance\" ALTER COLUMN \"worker_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.date",
+        "description": "العمود \"date\" في جدول \"worker_attendance\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_attendance\" ALTER COLUMN \"date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.is_present",
+        "description": "العمود \"is_present\" في جدول \"worker_attendance\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_attendance\" ALTER COLUMN \"is_present\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.daily_wage",
+        "description": "العمود \"daily_wage\" في جدول \"worker_attendance\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_attendance\" ALTER COLUMN \"daily_wage\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_attendance.actual_wage",
+        "description": "العمود \"actual_wage\" في جدول \"worker_attendance\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_attendance\" ALTER COLUMN \"actual_wage\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_balances.worker_id",
+        "description": "العمود \"worker_id\" في جدول \"worker_balances\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_balances\" ALTER COLUMN \"worker_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_balances.project_id",
+        "description": "العمود \"project_id\" في جدول \"worker_balances\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_balances\" ALTER COLUMN \"project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_misc_expenses.project_id",
+        "description": "العمود \"project_id\" في جدول \"worker_misc_expenses\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_misc_expenses\" ALTER COLUMN \"project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_misc_expenses.amount",
+        "description": "العمود \"amount\" في جدول \"worker_misc_expenses\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_misc_expenses\" ALTER COLUMN \"amount\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_misc_expenses.description",
+        "description": "العمود \"description\" في جدول \"worker_misc_expenses\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_misc_expenses\" ALTER COLUMN \"description\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_misc_expenses.date",
+        "description": "العمود \"date\" في جدول \"worker_misc_expenses\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_misc_expenses\" ALTER COLUMN \"date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_transfers.worker_id",
+        "description": "العمود \"worker_id\" في جدول \"worker_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_transfers\" ALTER COLUMN \"worker_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_transfers.project_id",
+        "description": "العمود \"project_id\" في جدول \"worker_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_transfers\" ALTER COLUMN \"project_id\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_transfers.amount",
+        "description": "العمود \"amount\" في جدول \"worker_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_transfers\" ALTER COLUMN \"amount\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_transfers.recipient_name",
+        "description": "العمود \"recipient_name\" في جدول \"worker_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_transfers\" ALTER COLUMN \"recipient_name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_transfers.transfer_method",
+        "description": "العمود \"transfer_method\" في جدول \"worker_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_transfers\" ALTER COLUMN \"transfer_method\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_transfers.transfer_date",
+        "description": "العمود \"transfer_date\" في جدول \"worker_transfers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_transfers\" ALTER COLUMN \"transfer_date\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "worker_types.name",
+        "description": "العمود \"name\" في جدول \"worker_types\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"worker_types\" ALTER COLUMN \"name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "workers.name",
+        "description": "العمود \"name\" في جدول \"workers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"workers\" ALTER COLUMN \"name\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "workers.type",
+        "description": "العمود \"type\" في جدول \"workers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"workers\" ALTER COLUMN \"type\" SET DEFAULT [value];",
+        "autoFixable": true
+      },
+      {
+        "type": "missing_column",
+        "severity": "high",
+        "entity": "workers.daily_wage",
+        "description": "العمود \"daily_wage\" في جدول \"workers\" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج",
+        "suggestion": "أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE \"workers\" ALTER COLUMN \"daily_wage\" SET DEFAULT [value];",
+        "autoFixable": true
+      }
+    ]
+  }
+}

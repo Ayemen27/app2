@@ -82,6 +82,7 @@ export default function NotificationsPage() {
 
   // استخراج مصفوفة الإشعارات من البيانات المُرجعة
   const notifications = notificationsData?.notifications || [];
+  const filter = (activeFilters as any)?.status || 'all';
 
   // دالة مساعدة لتحويل الأولوية الرقمية إلى نص
   const getPriorityString = (priority: number | string): 'info' | 'low' | 'medium' | 'high' | 'critical' => {

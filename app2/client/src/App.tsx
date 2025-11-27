@@ -40,8 +40,22 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
 import EmailVerificationGuard from "@/components/EmailVerificationGuard"; // Import the new guard
 
-// Placeholder for AppContent, assuming it's defined elsewhere or will be defined
-function AppContent() {
+
+
+function AuthLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <main className="pb-20">
+        {children}
+      </main>
+      <FloatingAddButton />
+    </>
+  );
+}
+
+function Router() {
+  console.log('🧭 [App.Router] بدء تحميل Router...', new Date().toISOString());
+
   return (
     <Switch>
       {/* صفحات غير محمية - بدون شريط علوي أو سفلي */}
@@ -197,203 +211,7 @@ function AppContent() {
   );
 }
 
-
-function AuthLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <Header />
-      <main className="pb-20">
-        {children}
-      </main>
-      <BottomNavigation />
-      <FloatingAddButton />
-    </>
-  );
-}
-
-function Router() {
-  console.log('🧭 [App.Router] بدء تحميل Router...', new Date().toISOString());
-
-  return (
-    <Switch>
-      {/* صفحات غير محمية - بدون شريط علوي أو سفلي */}
-      <Route path="/login" component={LoginPage} />
-      <Route path="/register" component={LoginPage} />
-      <Route path="/reset-password" component={ResetPasswordPage} />
-      <Route path="/verify-email" component={EmailVerificationPage} />
-
-      {/* صفحات محمية - مع شريط علوي وسفلي */}
-      <Route path="/">
-        <ProtectedRoute>
-          <AuthLayout>
-            <Dashboard />
-          </AuthLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/projects">
-        <ProtectedRoute>
-          <AuthLayout>
-            <ProjectsPage />
-          </AuthLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/workers">
-        <ProtectedRoute>
-          <AuthLayout>
-            <WorkersPage />
-          </AuthLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/worker-accounts">
-        <AdminRoute>
-          <AuthLayout>
-            <WorkerAccountsPage />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-      <Route path="/suppliers">
-        <ProtectedRoute>
-          <AuthLayout>
-            <SuppliersProPage />
-          </AuthLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/suppliers-pro">
-        <ProtectedRoute>
-          <AuthLayout>
-            <SuppliersProPage />
-          </AuthLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/supplier-accounts">
-        <AdminRoute>
-          <AuthLayout>
-            <SupplierAccountsPage />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-      <Route path="/worker-attendance">
-        <ProtectedRoute>
-          <AuthLayout>
-            <WorkerAttendance />
-          </AuthLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/daily-expenses">
-        <ProtectedRoute>
-          <AuthLayout>
-            <DailyExpenses />
-          </AuthLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/material-purchase">
-        <ProtectedRoute>
-          <AuthLayout>
-            <MaterialPurchase />
-          </AuthLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/material-purchases">
-        <ProtectedRoute>
-          <AuthLayout>
-            <MaterialPurchase />
-          </AuthLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/project-transfers">
-        <AdminRoute>
-          <AuthLayout>
-            <ProjectTransfers />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-      <Route path="/project-transactions">
-        <AdminRoute>
-          <AuthLayout>
-            <ProjectTransactionsPage />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-      <Route path="/autocomplete-admin">
-        <AdminRoute>
-          <AuthLayout>
-            <AutocompleteAdminPage />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-      <Route path="/equipment">
-        <AdminRoute>
-          <AuthLayout>
-            <EquipmentManagement />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-      <Route path="/equipment-management">
-        <AdminRoute>
-          <AuthLayout>
-            <EquipmentManagement />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-
-      <Route path="/notifications">
-        <ProtectedRoute>
-          <AuthLayout>
-            <NotificationsPage />
-          </AuthLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/admin-notifications">
-        <AdminRoute>
-          <AuthLayout>
-            <AdminNotificationsPage />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-
-      <Route path="/smart-errors">
-        <ProtectedRoute>
-          <AuthLayout>
-            <SmartErrorsPage />
-          </AuthLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/security-policies">
-        <AdminRoute>
-          <AuthLayout>
-            <SecurityPoliciesPage />
-          </AuthLayout>
-        </AdminRoute>
-      </Route>
-
-
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
-
 function App() {
-  // تم إزالة كود DOM manipulation لتجنب الأخطاء
-
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -402,7 +220,6 @@ function App() {
             <FloatingButtonProvider>
               <div className="min-h-screen bg-background text-foreground" dir="rtl">
                 <ErrorBoundary>
-                  {/* This is where the ProtectedRoute and EmailVerificationGuard are applied */}
                   <Switch>
                     <Route path="/login" component={LoginPage} />
                     <Route path="/verify-email" component={EmailVerificationPage} />
@@ -410,9 +227,11 @@ function App() {
                     <Route path="*" component={() => (
                       <ProtectedRoute>
                         <EmailVerificationGuard>
-                          <AuthLayout>
+                          <>
+                            <Header />
                             <Router />
-                          </AuthLayout>
+                            <BottomNavigation />
+                          </>
                         </EmailVerificationGuard>
                       </ProtectedRoute>
                     )} />

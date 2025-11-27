@@ -5,6 +5,19 @@ A comprehensive construction project management system designed for the Middle E
 
 ## Recent Changes
 
+### November 2025 - Permissions Management System (قيد التطوير)
+- **New Module**: نظام إدارة الصلاحيات في مجلد `permissions-system/`
+- **Database Tables**: 
+  - `user_project_permissions`: ربط المستخدمين بالمشاريع مع صلاحيات CRUD
+  - `permission_audit_logs`: سجل كامل لجميع تغييرات الصلاحيات
+- **Services**:
+  - `access-control.service.ts`: خدمة التحكم بالصلاحيات
+  - `audit-log.service.ts`: خدمة سجل التغييرات
+- **APIs**: 11 endpoint لإدارة الصلاحيات (ربط، فصل، تحديث، عمليات مجمعة)
+- **الحالة**: 35% مكتمل - انظر `permissions-system/docs/DEVELOPMENT_PLAN.md`
+- **المتبقي**: إصلاح LSP، ربط المسارات، إنشاء واجهة المستخدم
+- **الهدف**: كل مستخدم يرى فقط مشاريعه، المدير الأول يرى الكل
+
 ### November 2025 - Form Layout Components (CompactFieldGroup)
 - **New Components**: مكونات تخطيط نماذج في `components/ui/form-grid.tsx`
   - **FormGrid**: تخطيط شبكي 12 عمود مع دعم RTL

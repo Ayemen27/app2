@@ -261,9 +261,7 @@ export async function loginUser(request: LoginRequest): Promise<LoginResult> {
       return {
         success: false,
         requireVerification: true,
-        message: 'يجب التحقق من بريدك الإلكتروني أولاً. تم إرسال رمز تحقق جديد.',
-        userId: user.id,
-        email: user.email
+        message: 'يجب التحقق من بريدك الإلكتروني أولاً. تم إرسال رمز تحقق جديد.'
       };
     }
 

@@ -365,12 +365,13 @@ async function checkSchemaConsistency(): Promise<SchemaCheckResult> {
     
     const missingColumns: Array<{ table: string; column: string; type?: string }> = [];
     const extraColumns: Array<{ table: string; column: string }> = [];
+    const missingDefaults: Array<{ table: string; column: string; isNullable: boolean }> = [];
     
     for (const tableName of expectedTables) {
       if (!dbTables.includes(tableName)) continue;
       
       const columnsResult = await db.execute(sql`
-        SELECT column_name, data_type, is_nullable
+        SELECT column_name, data_type, is_nullable, column_default
         FROM information_schema.columns 
         WHERE table_schema = 'public' 
         AND table_name = ${tableName}
@@ -378,6 +379,29 @@ async function checkSchemaConsistency(): Promise<SchemaCheckResult> {
       
       const dbColumns = columnsResult.rows.map((row: any) => row.column_name);
       const expectedColumns = getExpectedColumnsFromTable(tableName);
+      
+      // فحص DEFAULT values للأعمدة التي لا تقبل NULL
+      for (const dbCol of columnsResult.rows) {
+        const isNullable = dbCol.is_nullable === 'YES';
+        const hasDefault = dbCol.column_default !== null;
+        
+        // إذا كان العمود NOT NULL وليس له DEFAULT value
+        if (!isNullable && !hasDefault && expectedColumns.includes(dbCol.column_name)) {
+          missingDefaults.push({ 
+            table: tableName, 
+            column: dbCol.column_name,
+            isNullable: false
+          });
+          issues.push({
+            type: 'missing_column',
+            severity: 'high',
+            entity: `${tableName}.${dbCol.column_name}`,
+            description: `العمود "${dbCol.column_name}" في جدول "${tableName}" لا يملك قيمة افتراضية (DEFAULT) وهو NOT NULL، مما سيسبب أخطاء عند الإدراج`,
+            suggestion: `أضف DEFAULT value للعمود في قاعدة البيانات: ALTER TABLE "${tableName}" ALTER COLUMN "${dbCol.column_name}" SET DEFAULT [value];`,
+            autoFixable: true
+          });
+        }
+      }
       
       for (const col of expectedColumns) {
         if (!dbColumns.includes(col)) {
@@ -773,7 +797,7 @@ async function sendAdminNotification(
                     details.severity === 'high' ? 4 :
                     details.severity === 'warning' ? 3 : 2;
     
-    await notificationService.createNotification({
+    const result = await notificationService.createNotification({
       type: 'system',
       title: title,
       body: message,
@@ -792,9 +816,14 @@ async function sendAdminNotification(
       }
     });
     
-    console.log('📧 [Notification] تم إرسال إشعار للمسؤول');
-  } catch (error) {
-    console.log('⚠️ [Notification] تعذر إرسال الإشعار (الخدمة غير متوفرة)');
+    console.log(`📧 [Notification] تم إرسال إشعار للمسؤول (${result.id})`);
+  } catch (error: any) {
+    console.error('❌ [Notification] فشل في إرسال الإشعار:', {
+      errorMessage: error?.message || 'خطأ غير معروف',
+      errorName: error?.name,
+      errorCode: error?.code,
+      stack: error?.stack ? error.stack.split('\n').slice(0, 3).join('\n') : 'لا توجد stack trace'
+    });
   }
 }
 

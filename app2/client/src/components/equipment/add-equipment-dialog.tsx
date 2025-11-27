@@ -11,11 +11,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { CompactFieldGroup } from "@/components/ui/form-grid";
 import { Camera, Upload, X, Image as ImageIcon } from "lucide-react";
 
 const equipmentSchema = z.object({
   name: z.string().min(1, "اسم المعدة مطلوب"),
-  code: z.string().optional(), // الكود سيكون تلقائياً
+  code: z.string().optional(),
   type: z.string().min(1, "فئة المعدة مطلوبة"),
   status: z.string().min(1, "حالة المعدة مطلوبة"),
   description: z.string().optional(),
@@ -31,7 +32,7 @@ interface AddEquipmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projects: any[];
-  equipment?: any; // للتعديل - إضافة المعدة للتحرير
+  equipment?: any;
 }
 
 export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: AddEquipmentDialogProps) {
@@ -58,7 +59,6 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
     },
   });
 
-  // وظيفة معالجة اختيار الصورة
   const handleImageSelect = (file: File) => {
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
@@ -78,7 +78,6 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
     }
   };
 
-  // وظيفة فتح الكاميرا أو المعرض
   const handleImageCapture = (useCamera: boolean) => {
     if (fileInputRef.current) {
       fileInputRef.current.accept = "image/*";
@@ -91,7 +90,6 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
     }
   };
 
-  // وظيفة حذف الصورة
   const handleRemoveImage = () => {
     setSelectedImage(null);
     setImageFile(null);
@@ -119,7 +117,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
         variant: "default",
       });
       form.reset();
-      handleRemoveImage(); // إعادة تعيين الصورة
+      handleRemoveImage();
       onOpenChange(false);
     },
     onError: (error: any) => {
@@ -131,7 +129,6 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
     },
   });
 
-  // تعبئة النموذج في حالة التعديل
   useEffect(() => {
     if (equipment && isEditing) {
       form.reset({
@@ -163,7 +160,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto" dir="rtl">
-        <DialogHeader className="pb-3">
+        <DialogHeader className="pb-2">
           <DialogTitle className="text-lg">{isEditing ? "تعديل المعدة" : "إضافة معدة جديدة"}</DialogTitle>
           <DialogDescription className="text-sm text-gray-600">
             {isEditing ? "قم بتحديث بيانات المعدة" : "أدخل تفاصيل المعدة الجديدة"}
@@ -172,7 +169,6 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-            {/* Equipment Name */}
             <FormField
               control={form.control}
               name="name"
@@ -192,8 +188,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
               )}
             />
 
-            {/* Equipment Type and Status in a row for mobile */}
-            <div className="grid grid-cols-2 gap-3">
+            <CompactFieldGroup columns={2}>
               <FormField
                 control={form.control}
                 name="type"
@@ -247,10 +242,9 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                   </FormItem>
                 )}
               />
-            </div>
+            </CompactFieldGroup>
 
-            {/* Purchase Date and Price in a row */}
-            <div className="grid grid-cols-2 gap-3">
+            <CompactFieldGroup columns={2}>
               <FormField
                 control={form.control}
                 name="purchaseDate"
@@ -289,9 +283,8 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                   </FormItem>
                 )}
               />
-            </div>
+            </CompactFieldGroup>
 
-            {/* Current Project */}
             <FormField
               control={form.control}
               name="currentProjectId"
@@ -324,7 +317,6 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
               )}
             />
 
-            {/* Equipment Image */}
             <FormField
               control={form.control}
               name="imageUrl"
@@ -332,8 +324,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                 <FormItem>
                   <FormLabel className="text-sm font-medium">صورة المعدة</FormLabel>
                   <FormControl>
-                    <div className="space-y-3">
-                      {/* Hidden file input */}
+                    <div className="space-y-2">
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -346,17 +337,16 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                         data-testid="input-file-image"
                       />
                       
-                      {/* Image capture buttons */}
-                      <div className="grid grid-cols-2 gap-2">
+                      <CompactFieldGroup columns={2}>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => handleImageCapture(true)}
-                          className="h-9 text-xs"
+                          className="h-9 text-xs w-full"
                           data-testid="button-camera"
                         >
-                          <Camera className="h-4 w-4 mr-1" />
+                          <Camera className="h-4 w-4 ml-1" />
                           تصوير بالكاميرا
                         </Button>
                         <Button
@@ -364,17 +354,16 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                           variant="outline"
                           size="sm"
                           onClick={() => handleImageCapture(false)}
-                          className="h-9 text-xs"
+                          className="h-9 text-xs w-full"
                           data-testid="button-gallery"
                         >
-                          <Upload className="h-4 w-4 mr-1" />
+                          <Upload className="h-4 w-4 ml-1" />
                           اختيار من المعرض
                         </Button>
-                      </div>
+                      </CompactFieldGroup>
                       
-                      {/* Image preview */}
                       {selectedImage && (
-                        <div className="relative w-full h-32 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div className="relative w-full h-28 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                           <img 
                             src={selectedImage} 
                             alt="معاينة الصورة"
@@ -389,22 +378,18 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                             <X className="h-3 w-3" />
                           </button>
                           <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                            <ImageIcon className="h-3 w-3 inline mr-1" />
+                            <ImageIcon className="h-3 w-3 inline ml-1" />
                             {imageFile?.name || 'صورة محددة'}
                           </div>
                         </div>
                       )}
                     </div>
                   </FormControl>
-                  <FormDescription className="text-xs text-gray-500">
-                    يمكنك تصوير صورة جديدة أو اختيار صورة من المعرض
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Description */}
             <FormField
               control={form.control}
               name="description"
@@ -414,7 +399,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                   <FormControl>
                     <Textarea 
                       placeholder="وصف إضافي للمعدة..."
-                      className="resize-none text-sm min-h-[60px]"
+                      className="resize-none text-sm min-h-[50px]"
                       rows={2}
                       {...field} 
                       data-testid="textarea-description"
@@ -425,7 +410,6 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
               )}
             />
 
-            {/* Buttons - Full width on mobile */}
             <div className="flex flex-col sm:flex-row gap-2 sm:justify-end pt-2">
               <Button 
                 type="button" 

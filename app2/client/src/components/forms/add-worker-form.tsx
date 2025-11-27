@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { CompactFieldGroup } from "@/components/ui/form-grid";
 import { Plus } from "lucide-react";
 import type { InsertWorker } from "@shared/schema";
 
@@ -43,7 +44,6 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // دالة مساعدة لحفظ القيم في autocomplete_data
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
@@ -52,19 +52,15 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
         value: value.trim() 
       });
     } catch (error) {
-      // تجاهل الأخطاء لأن هذه عملية مساعدة
-
     }
   };
 
-  // جلب أنواع العمال من قاعدة البيانات
   const { data: workerTypes = [] } = useQuery<WorkerType[]>({
     queryKey: ["/api/worker-types"],
   });
 
   const addWorkerMutation = useMutation({
     mutationFn: async (data: InsertWorker) => {
-      // حفظ القيم في autocomplete_data قبل العملية الأساسية
       await Promise.all([
         saveAutocompleteValue('workerNames', data.name),
         saveAutocompleteValue('workerTypes', data.type)
@@ -77,7 +73,6 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       }
     },
     onSuccess: async (newWorker, variables) => {
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       toast({
@@ -94,13 +89,11 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       onSuccess?.();
     },
     onError: async (error: any, variables) => {
-      // حفظ القيم في autocomplete_data حتى في حالة الخطأ
       await Promise.all([
         saveAutocompleteValue('workerNames', variables.name),
         saveAutocompleteValue('workerTypes', variables.type)
       ]);
       
-      // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       const errorMessage = error?.message || (worker ? "حدث خطأ أثناء تعديل العامل" : "حدث خطأ أثناء إضافة العامل");
@@ -112,16 +105,12 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
     },
   });
 
-  // إضافة نوع عامل جديد
   const addWorkerTypeMutation = useMutation({
     mutationFn: async (data: { name: string }) => {
-      // حفظ قيمة نوع العامل الجديد في autocomplete قبل العملية الأساسية
       await saveAutocompleteValue('workerTypes', data.name);
-      
       return apiRequest("/api/worker-types", "POST", data);
     },
     onSuccess: async (newType, variables) => {
-      // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       toast({
@@ -134,10 +123,8 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] });
     },
     onError: async (error: any, variables) => {
-      // حفظ قيمة نوع العامل حتى في حالة الخطأ
       await saveAutocompleteValue('workerTypes', variables.name);
       
-      // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       const errorMessage = error?.message || "حدث خطأ أثناء إضافة نوع العامل";
@@ -197,9 +184,9 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="worker-name" className="block text-sm font-medium text-foreground">
+      <CompactFieldGroup columns={3}>
+        <div className="space-y-2">
+          <Label htmlFor="worker-name" className="text-sm font-medium text-foreground">
             اسم العامل
           </Label>
           <Input
@@ -212,101 +199,101 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
           />
         </div>
 
-        <div>
-          <Label htmlFor="worker-type" className="block text-sm font-medium text-foreground">
+        <div className="space-y-2">
+          <Label htmlFor="worker-type" className="text-sm font-medium text-foreground">
             نوع العامل
           </Label>
           <div className="flex gap-2">
-          <Select value={type} onValueChange={setType}>
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder="اختر نوع العامل..." />
-            </SelectTrigger>
-            <SelectContent>
-              {Array.isArray(workerTypes) && workerTypes.map((workerType) => (
-                <SelectItem key={workerType.id} value={workerType.name}>
-                  {workerType.name}
-                </SelectItem>
-              ))}
-              {workerTypes.length === 0 && (
-                <>
-                  <SelectItem value="معلم">معلم</SelectItem>
-                  <SelectItem value="عامل">عامل</SelectItem>
-                  <SelectItem value="حداد">حداد</SelectItem>
-                  <SelectItem value="نجار">نجار</SelectItem>
-                  <SelectItem value="سائق">سائق</SelectItem>
-                  <SelectItem value="كهربائي">كهربائي</SelectItem>
-                  <SelectItem value="سباك">سباك</SelectItem>
-                </>
-              )}
-            </SelectContent>
-          </Select>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="اختر نوع العامل..." />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.isArray(workerTypes) && workerTypes.map((workerType) => (
+                  <SelectItem key={workerType.id} value={workerType.name}>
+                    {workerType.name}
+                  </SelectItem>
+                ))}
+                {workerTypes.length === 0 && (
+                  <>
+                    <SelectItem value="معلم">معلم</SelectItem>
+                    <SelectItem value="عامل">عامل</SelectItem>
+                    <SelectItem value="حداد">حداد</SelectItem>
+                    <SelectItem value="نجار">نجار</SelectItem>
+                    <SelectItem value="سائق">سائق</SelectItem>
+                    <SelectItem value="كهربائي">كهربائي</SelectItem>
+                    <SelectItem value="سباك">سباك</SelectItem>
+                  </>
+                )}
+              </SelectContent>
+            </Select>
           
-          <Dialog open={showAddTypeDialog} onOpenChange={setShowAddTypeDialog}>
-            <DialogTrigger asChild>
-              <Button type="button" variant="outline" size="icon" className="shrink-0" title="إضافة نوع جديد">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>إضافة نوع عامل جديد</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleAddNewType} className="space-y-4">
-                <div>
-                  <Label htmlFor="new-type-name" className="block text-sm font-medium text-foreground">
-                    اسم نوع العامل
-                  </Label>
-                  <Input
-                    id="new-type-name"
-                    type="text"
-                    value={newTypeName}
-                    onChange={(e) => setNewTypeName(e.target.value)}
-                    placeholder="مثال: كهربائي، سباك، حداد..."
-                    required
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="submit"
-                    disabled={addWorkerTypeMutation.isPending}
-                    className="flex-1"
-                  >
-                    {addWorkerTypeMutation.isPending ? "جاري الإضافة..." : "إضافة"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowAddTypeDialog(false);
-                      setNewTypeName("");
-                    }}
-                    className="flex-1"
-                  >
-                    إلغاء
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+            <Dialog open={showAddTypeDialog} onOpenChange={setShowAddTypeDialog}>
+              <DialogTrigger asChild>
+                <Button type="button" variant="outline" size="icon" className="shrink-0" title="إضافة نوع جديد">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>إضافة نوع عامل جديد</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleAddNewType} className="space-y-4">
+                  <div>
+                    <Label htmlFor="new-type-name" className="block text-sm font-medium text-foreground">
+                      اسم نوع العامل
+                    </Label>
+                    <Input
+                      id="new-type-name"
+                      type="text"
+                      value={newTypeName}
+                      onChange={(e) => setNewTypeName(e.target.value)}
+                      placeholder="مثال: كهربائي، سباك، حداد..."
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      disabled={addWorkerTypeMutation.isPending}
+                      className="flex-1"
+                    >
+                      {addWorkerTypeMutation.isPending ? "جاري الإضافة..." : "إضافة"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowAddTypeDialog(false);
+                        setNewTypeName("");
+                      }}
+                      className="flex-1"
+                    >
+                      إلغاء
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
-        </div>
-      </div>
 
-      <div>
-        <Label htmlFor="daily-wage" className="block text-sm font-medium text-foreground">
-          الأجر اليومي (ر.ي)
-        </Label>
-        <Input
-          id="daily-wage"
-          type="number"
-          inputMode="decimal"
-          value={dailyWage}
-          onChange={(e) => setDailyWage(e.target.value)}
-          placeholder="0"
-          className="text-center arabic-numbers"
-          required
-        />
-      </div>
+        <div className="space-y-2">
+          <Label htmlFor="daily-wage" className="text-sm font-medium text-foreground">
+            الأجر اليومي (ر.ي)
+          </Label>
+          <Input
+            id="daily-wage"
+            type="number"
+            inputMode="decimal"
+            value={dailyWage}
+            onChange={(e) => setDailyWage(e.target.value)}
+            placeholder="0"
+            className="text-center arabic-numbers"
+            required
+          />
+        </div>
+      </CompactFieldGroup>
 
       <div className="flex gap-2">
         <Button 

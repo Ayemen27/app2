@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
+import { CompactFieldGroup } from "@/components/ui/form-grid";
 import type { InsertSupplier } from "@shared/schema";
 
 interface Supplier {
@@ -46,7 +47,6 @@ export default function AddSupplierForm({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // دالة مساعدة لحفظ القيم في autocomplete_data
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
@@ -55,14 +55,11 @@ export default function AddSupplierForm({
         value: value.trim() 
       });
     } catch (error) {
-      // تجاهل الأخطاء لأن هذه عملية مساعدة
-
     }
   };
 
   const addSupplierMutation = useMutation({
     mutationFn: async (data: InsertSupplier) => {
-      // حفظ القيم في autocomplete_data قبل العملية الأساسية
       await Promise.all([
         saveAutocompleteValue('supplier_name', name),
         saveAutocompleteValue('supplier_contact_person', contactPerson),
@@ -78,7 +75,6 @@ export default function AddSupplierForm({
       }
     },
     onSuccess: async (data) => {
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
 
       toast({
@@ -93,7 +89,6 @@ export default function AddSupplierForm({
       onSuccess?.();
     },
     onError: async (error: any) => {
-      // حفظ القيم في autocomplete_data حتى في حالة الخطأ
       await Promise.all([
         saveAutocompleteValue('supplier_name', name),
         saveAutocompleteValue('supplier_contact_person', contactPerson),
@@ -102,7 +97,6 @@ export default function AddSupplierForm({
         saveAutocompleteValue('supplier_payment_terms', paymentTerms)
       ]);
 
-      // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
 
       const errorMessage = error?.message || (supplier ? "حدث خطأ أثناء تعديل المورد" : "حدث خطأ أثناء إضافة المورد");
@@ -143,15 +137,14 @@ export default function AddSupplierForm({
       paymentTerms: (paymentTerms && typeof paymentTerms === 'string') ? paymentTerms.trim() || "نقد" : "نقد",
       notes: (notes && typeof notes === 'string') ? notes.trim() || null : null,
       isActive,
-      totalDebt: "0", // القيمة الافتراضية للموردين الجدد
+      totalDebt: "0",
     };
 
     addSupplierMutation.mutate(supplierData);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* الاسم */}
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="supplier-name" className="text-sm font-medium text-foreground">
           اسم المورد *
@@ -165,8 +158,7 @@ export default function AddSupplierForm({
         />
       </div>
 
-      {/* الشخص المسؤول والهاتف */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <CompactFieldGroup columns={2}>
         <div className="space-y-2">
           <Label htmlFor="contact-person" className="text-sm font-medium text-foreground">
             الشخص المسؤول
@@ -194,37 +186,36 @@ export default function AddSupplierForm({
             className="w-full"
           />
         </div>
-      </div>
+      </CompactFieldGroup>
 
-      {/* العنوان */}
-      <div className="space-y-2">
-        <Label htmlFor="address" className="text-sm font-medium text-foreground">
-          العنوان
-        </Label>
-        <AutocompleteInput
-          value={address}
-          onChange={setAddress}
-          placeholder="العنوان الكامل"
-          category="supplier_address"
-          className="w-full"
-        />
-      </div>
+      <CompactFieldGroup columns={2}>
+        <div className="space-y-2">
+          <Label htmlFor="address" className="text-sm font-medium text-foreground">
+            العنوان
+          </Label>
+          <AutocompleteInput
+            value={address}
+            onChange={setAddress}
+            placeholder="العنوان الكامل"
+            category="supplier_address"
+            className="w-full"
+          />
+        </div>
 
-      {/* شروط الدفع */}
-      <div className="space-y-2">
-        <Label htmlFor="payment-terms" className="text-sm font-medium text-foreground">
-          شروط الدفع
-        </Label>
-        <AutocompleteInput
-          value={paymentTerms}
-          onChange={setPaymentTerms}
-          placeholder="نقد / 30 يوم / 60 يوم"
-          category="supplier_payment_terms"
-          className="w-full"
-        />
-      </div>
+        <div className="space-y-2">
+          <Label htmlFor="payment-terms" className="text-sm font-medium text-foreground">
+            شروط الدفع
+          </Label>
+          <AutocompleteInput
+            value={paymentTerms}
+            onChange={setPaymentTerms}
+            placeholder="نقد / 30 يوم / 60 يوم"
+            category="supplier_payment_terms"
+            className="w-full"
+          />
+        </div>
+      </CompactFieldGroup>
 
-      {/* الملاحظات */}
       <div className="space-y-2">
         <Label htmlFor="notes" className="text-sm font-medium text-foreground">
           ملاحظات
@@ -234,14 +225,13 @@ export default function AddSupplierForm({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="ملاحظات إضافية..."
-          rows={3}
+          rows={2}
           className="resize-none"
         />
       </div>
 
-      {/* حالة المورد */}
-      <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-        <div className="space-y-1">
+      <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+        <div className="space-y-0.5">
           <Label className="text-sm font-medium">حالة المورد</Label>
           <p className="text-xs text-muted-foreground">
             {isActive ? "نشط ومتاح للتعامل" : "غير نشط"}
@@ -253,8 +243,7 @@ export default function AddSupplierForm({
         />
       </div>
 
-      {/* أزرار التحكم */}
-      <div className="flex justify-end gap-3 pt-4 border-t">
+      <div className="flex justify-end gap-3 pt-2 border-t">
         {onCancel && (
           <Button 
             type="button" 

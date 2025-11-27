@@ -53,12 +53,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Redirect to="/login" />;
   }
 
-  // منع الوصول للمستخدمين غير المتحققين من البريد الإلكتروني
-  if (user && !user.emailVerified) {
-    console.log('🚫 [ProtectedRoute] مستخدم غير متحقق من البريد، توجيه للتحقق');
-    return <Redirect to={`/verify-email?userId=${user.id}&email=${encodeURIComponent(user.email)}`} />;
-  }
-
   // إذا كان مصادق عليه، اسمح بالدخول مع حماية من الأخطاء
   if (isAuthenticated && user) {
     console.log('✅ [ProtectedRoute] مصادق عليه، إظهار المحتوى للمستخدم:', user.email);

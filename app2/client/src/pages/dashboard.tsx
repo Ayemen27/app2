@@ -369,80 +369,84 @@ export default function Dashboard() {
       />
 
       {selectedProject && (
-        <UnifiedStats
-          stats={[
-            {
-              title: "إجمالي التوريد",
-              value: selectedProject?.stats?.totalIncome || 0,
-              icon: TrendingUp,
-              color: "blue",
-              formatter: formatCurrency
-            },
-            {
-              title: "إجمالي المنصرف",
-              value: selectedProject?.stats?.totalExpenses || 0,
-              icon: TrendingDown,
-              color: "red",
-              formatter: formatCurrency
-            },
-            {
-              title: "المتبقي الحالي",
-              value: selectedProject?.stats?.currentBalance || 0,
-              icon: DollarSign,
-              color: "green",
-              formatter: formatCurrency
-            },
-            {
-              title: "العمال النشطين",
-              value: selectedProject?.stats?.activeWorkers || "0",
-              icon: UserCheck,
-              color: "purple"
-            },
-            {
-              title: "أيام العمل المكتملة",
-              value: selectedProject?.stats?.completedDays || "0",
-              icon: Calendar,
-              color: "teal"
-            },
-            {
-              title: "مشتريات المواد",
-              value: selectedProject?.stats?.materialPurchases || "0",
-              icon: Package,
-              color: "indigo"
-            },
-            {
-              title: "إجمالي التوريد",
-              value: selectedProject?.stats?.totalIncome || 0,
-              icon: TrendingUp,
-              color: "blue",
-              formatter: formatCurrency
-            },
-            {
-              title: "إجمالي المنصرف",
-              value: selectedProject?.stats?.totalExpenses || 0,
-              icon: TrendingDown,
-              color: "red",
-              formatter: formatCurrency
-            },
-            {
-              title: "المتبقي الحالي",
-              value: selectedProject?.stats?.currentBalance || 0,
-              icon: DollarSign,
-              color: "green",
-              formatter: formatCurrency
-            }
-          ]}
-          columns={3}
-          hideHeader={true}
-        />
+        <div className="mb-6">
+          <UnifiedStats
+            stats={[
+              {
+                title: "إجمالي التوريد",
+                value: selectedProject?.stats?.totalIncome || 0,
+                icon: TrendingUp,
+                color: "blue",
+                formatter: formatCurrency
+              },
+              {
+                title: "إجمالي المنصرف",
+                value: selectedProject?.stats?.totalExpenses || 0,
+                icon: TrendingDown,
+                color: "red",
+                formatter: formatCurrency
+              },
+              {
+                title: "المتبقي الحالي",
+                value: selectedProject?.stats?.currentBalance || 0,
+                icon: DollarSign,
+                color: "green",
+                formatter: formatCurrency
+              },
+              {
+                title: "العمال النشطين",
+                value: selectedProject?.stats?.activeWorkers || "0",
+                icon: UserCheck,
+                color: "purple"
+              },
+              {
+                title: "أيام العمل المكتملة",
+                value: selectedProject?.stats?.completedDays || "0",
+                icon: Calendar,
+                color: "teal"
+              },
+              {
+                title: "مشتريات المواد",
+                value: selectedProject?.stats?.materialPurchases || "0",
+                icon: Package,
+                color: "indigo"
+              },
+              {
+                title: "إجمالي التوريد",
+                value: selectedProject?.stats?.totalIncome || 0,
+                icon: TrendingUp,
+                color: "blue",
+                formatter: formatCurrency
+              },
+              {
+                title: "إجمالي المنصرف",
+                value: selectedProject?.stats?.totalExpenses || 0,
+                icon: TrendingDown,
+                color: "red",
+                formatter: formatCurrency
+              },
+              {
+                title: "المتبقي الحالي",
+                value: selectedProject?.stats?.currentBalance || 0,
+                icon: DollarSign,
+                color: "green",
+                formatter: formatCurrency
+              }
+            ]}
+            columns={3}
+            hideHeader={true}
+          />
+        </div>
       )}
 
       {/* Quick Actions Redesigned */}
-      <QuickActions
-        actions={quickActions}
-        variant="grid"
-        compact={false}
-      />
+      <div className="mt-6">
+        <QuickActions
+          actions={quickActions}
+          variant="grid"
+          compact={false}
+        />
+      </div>
 
       {/* قائمة الخيارات العائمة */}
       {showFloatingMenu && (

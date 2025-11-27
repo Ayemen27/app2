@@ -430,8 +430,8 @@ export default function AuthPage() {
   // دالة الدخول السريع
   const handleQuickLogin = () => {
     console.log('🎯 [AuthPage.QuickLogin] الضغط على زر الدخول السريع');
-    loginForm.setValue('email', "test@demo.local");
-    loginForm.setValue('password', "testpassword");
+    loginForm.setValue('email', "demo@test.com");
+    loginForm.setValue('password', "Demo@123456");
     
     setTimeout(() => {
       const data = loginForm.getValues();

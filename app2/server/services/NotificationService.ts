@@ -395,13 +395,14 @@ export class NotificationService {
     }
 
     // فلترة الإشعارات للمستخدم - تحسين البحث
+    // ملاحظة: عمود recipients مخزن كنص وليس مصفوفة، نستخدم LIKE للبحث
     if (isUserAdmin) {
       // المسؤول يرى جميع الإشعارات أو التي تخصه
       conditions.push(
         or(
-          sql`${notifications.recipients} && ARRAY[${userId}]::text[]`,
-          sql`${notifications.recipients} && ARRAY['admin']::text[]`,
-          sql`${notifications.recipients} && ARRAY['مسؤول']::text[]`,
+          sql`${notifications.recipients}::text LIKE '%' || ${userId} || '%'`,
+          sql`${notifications.recipients}::text LIKE '%admin%'`,
+          sql`${notifications.recipients}::text LIKE '%مسؤول%'`,
           sql`${notifications.recipients} IS NULL` // الإشعارات العامة
         )
       );
@@ -409,7 +410,7 @@ export class NotificationService {
       // المستخدم العادي يرى فقط إشعاراته الشخصية والعامة (من الأنواع المسموحة)
       conditions.push(
         or(
-          sql`${notifications.recipients} && ARRAY[${userId}]::text[]`,
+          sql`${notifications.recipients}::text LIKE '%' || ${userId} || '%'`,
           sql`${notifications.recipients} IS NULL` // الإشعارات العامة
         )
       );

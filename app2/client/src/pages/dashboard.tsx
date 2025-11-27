@@ -317,49 +317,37 @@ export default function Dashboard() {
     {
       icon: Clock,
       label: "تسجيل حضور",
-      bgColor: "bg-primary",
-      hoverColor: "hover:bg-primary/90",
-      textColor: "text-primary-foreground",
+      color: "primary" as const,
       action: () => setLocation("/worker-attendance"),
     },
     {
       icon: Receipt,
       label: "مصروفات يومية",
-      bgColor: "bg-secondary",
-      hoverColor: "hover:bg-secondary/90",
-      textColor: "text-secondary-foreground",
+      color: "secondary" as const,
       action: () => setLocation("/daily-expenses"),
     },
     {
       icon: ShoppingCart,
       label: "شراء مواد",
-      bgColor: "bg-success",
-      hoverColor: "hover:bg-success/90",
-      textColor: "text-success-foreground",
+      color: "success" as const,
       action: () => setLocation("/material-purchase"),
     },
     {
       icon: BarChart,
       label: "التقارير",
-      bgColor: "bg-purple-600",
-      hoverColor: "hover:bg-purple-700",
-      textColor: "text-white",
+      color: "info" as const,
       action: () => setLocation("/reports"),
     },
     {
       icon: ArrowRight,
       label: "ترحيل أموال",
-      bgColor: "bg-orange-600",
-      hoverColor: "hover:bg-orange-700",
-      textColor: "text-white",
+      color: "warning" as const,
       action: () => setLocation("/project-transfers"),
     },
     {
       icon: Settings,
       label: "إعدادات القوالب",
-      bgColor: "bg-indigo-600",
-      hoverColor: "hover:bg-indigo-700",
-      textColor: "text-white",
+      color: "info" as const,
       action: () => setLocation("/report-template-settings-enhanced"),
     },
   ];
@@ -381,82 +369,63 @@ export default function Dashboard() {
       />
 
       {selectedProject && (
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-foreground">{selectedProject.name}</h3>
-              <Badge variant="secondary" className="bg-success text-success-foreground">
-                نشط
-              </Badge>
-            </div>
-
-            {/* Project Statistics */}
-            <div className="grid grid-cols-2 gap-3">
-              <StatsCard
-                title="إجمالي التوريد"
-                value={selectedProject?.stats?.totalIncome || 0}
-                icon={TrendingUp}
-                color="blue"
-                formatter={formatCurrency}
-              />
-              <StatsCard
-                title="إجمالي المنصرف"
-                value={selectedProject?.stats?.totalExpenses || 0}
-                icon={TrendingDown}
-                color="red"
-                formatter={formatCurrency}
-              />
-              <StatsCard
-                title="المتبقي الحالي"
-                value={selectedProject?.stats?.currentBalance || 0}
-                icon={DollarSign}
-                color="green"
-                formatter={formatCurrency}
-              />
-              <StatsCard
-                title="العمال النشطين"
-                value={selectedProject?.stats?.activeWorkers || "0"}
-                icon={UserCheck}
-                color="purple"
-              />
-              <StatsCard
-                title="أيام العمل المكتملة"
-                value={selectedProject?.stats?.completedDays || "0"}
-                icon={Calendar}
-                color="teal"
-              />
-              <StatsCard
-                title="مشتريات المواد"
-                value={selectedProject?.stats?.materialPurchases || "0"}
-                icon={Package}
-                color="indigo"
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <UnifiedStats
+          title={selectedProject.name}
+          subtitle="إحصائيات المشروع الشاملة"
+          stats={[
+            {
+              title: "إجمالي التوريد",
+              value: selectedProject?.stats?.totalIncome || 0,
+              icon: TrendingUp,
+              color: "blue",
+              formatter: formatCurrency,
+              status: (selectedProject?.stats?.totalIncome || 0) > 0 ? "normal" : "warning"
+            },
+            {
+              title: "إجمالي المنصرف",
+              value: selectedProject?.stats?.totalExpenses || 0,
+              icon: TrendingDown,
+              color: "red",
+              formatter: formatCurrency
+            },
+            {
+              title: "المتبقي الحالي",
+              value: selectedProject?.stats?.currentBalance || 0,
+              icon: DollarSign,
+              color: "green",
+              formatter: formatCurrency,
+              status: (selectedProject?.stats?.currentBalance || 0) < 0 ? "critical" : (selectedProject?.stats?.currentBalance || 0) < 1000 ? "warning" : "normal"
+            },
+            {
+              title: "العمال النشطين",
+              value: selectedProject?.stats?.activeWorkers || "0",
+              icon: UserCheck,
+              color: "purple"
+            },
+            {
+              title: "أيام العمل المكتملة",
+              value: selectedProject?.stats?.completedDays || "0",
+              icon: Calendar,
+              color: "teal"
+            },
+            {
+              title: "مشتريات المواد",
+              value: selectedProject?.stats?.materialPurchases || "0",
+              icon: Package,
+              color: "indigo"
+            }
+          ]}
+          columns={2}
+          showStatus={true}
+        />
       )}
 
-      {/* Quick Actions */}
-      <Card>
-        <CardContent className="p-4">
-          <h3 className="text-lg font-bold text-foreground mb-4">إجراءات سريعة</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {Array.isArray(quickActions) && quickActions.map((action, index) => {
-              const Icon = action.icon;
-              return (
-                <Button
-                  key={index}
-                  onClick={action.action}
-                  className={`${action.bgColor} ${action.hoverColor} ${action.textColor} p-4 h-auto flex-col space-y-2 transition-colors`}
-                >
-                  <Icon className="h-6 w-6" />
-                  <span className="text-sm font-medium">{action.label}</span>
-                </Button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Quick Actions Redesigned */}
+      <QuickActions
+        actions={quickActions}
+        variant="grid"
+        compact={false}
+      />
 
       {/* قائمة الخيارات العائمة */}
       {showFloatingMenu && (

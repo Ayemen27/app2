@@ -25,7 +25,7 @@ export function LayoutShell({
       )}
       
       <main className="layout-main">
-        <div className="layout-content">
+        <div className="layout-content pb-24">
           {children}
         </div>
       </main>

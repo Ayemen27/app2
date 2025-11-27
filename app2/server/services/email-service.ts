@@ -47,7 +47,7 @@ const getEmailTransporter = (): nodemailer.Transporter => {
       hasPassword: !!smtpConfig.auth.pass
     });
 
-    emailTransporter = nodemailer.createTransporter(smtpConfig);
+    emailTransporter = nodemailer.createTransport(smtpConfig);
   }
   return emailTransporter!;
 };

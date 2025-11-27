@@ -9,16 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { DollarSign, TrendingDown, TrendingUp, Calendar, Package, UserCheck, Plus, User, FolderPlus } from "lucide-react";
+import { DollarSign, TrendingDown, TrendingUp, Calendar, Package, UserCheck, Plus } from "lucide-react";
 import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import ProjectSelector from "@/components/project-selector";
+import { QuickActionsGrid } from "@/components/ui/quick-actions-grid";
 
 import { formatDate } from "@/lib/utils";
 import { LoadingCard, LoadingSpinner } from "@/components/ui/loading-spinner";
-import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { useEffect } from "react";
-// import type { Project, DailyExpenseSummary, Worker, insertProjectSchema, insertWorkerSchema } from "@shared/schema";
 
 import { apiRequest } from "@/lib/queryClient";
 import type { 
@@ -47,11 +46,9 @@ interface ProjectWithStats extends Project {
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
-  const [showFloatingMenu, setShowFloatingMenu] = useState(false);
   const [showWorkerModal, setShowWorkerModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
 
-  // نماذج بيانات العامل والمشروع
   const [workerData, setWorkerData] = useState({
     name: '',
     phone: '',
@@ -59,7 +56,6 @@ export default function Dashboard() {
     dailyWage: ''
   });
 
-  // نموذج إضافة مهنة جديدة
   const [showAddTypeDialog, setShowAddTypeDialog] = useState(false);
   const [newTypeName, setNewTypeName] = useState("");
 
@@ -70,10 +66,8 @@ export default function Dashboard() {
   });
 
   const queryClient = useQueryClient();
-  const { setFloatingAction } = useFloatingButton();
   const { toast } = useToast();
 
-  // دالة مساعدة لحفظ القيم في autocomplete_data
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
@@ -86,7 +80,6 @@ export default function Dashboard() {
     }
   };
 
-  // تحميل المشاريع مع الإحصائيات مع معالجة محسنة للأخطاء
   const { data: projects = [], isLoading: projectsLoading, error: projectsError } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects/with-stats"],
     queryFn: async () => {
@@ -95,32 +88,26 @@ export default function Dashboard() {
         const response = await apiRequest("/api/projects/with-stats", "GET");
         console.log('📊 [Dashboard] استجابة المشاريع:', response);
 
-        // معالجة هيكل الاستجابة المتعددة
         let projects = [];
         if (response && typeof response === 'object') {
-          // إذا كانت في شكل {success, data, count}
           if (response.success !== undefined && response.data !== undefined) {
             projects = Array.isArray(response.data) ? response.data : [];
             console.log('✅ [Dashboard] استخراج البيانات من response.data');
           }
-          // إذا كانت مصفوفة مباشرة
           else if (Array.isArray(response)) {
             projects = response;
             console.log('✅ [Dashboard] استخدام الاستجابة كمصفوفة مباشرة');
           }
-          // إذا كان كائن واحد
           else if (response.id) {
             projects = [response];
             console.log('✅ [Dashboard] تحويل كائن واحد لمصفوفة');
           }
-          // إذا كانت خاصية data موجودة ولكن success غير محدد
           else if (response.data) {
             projects = Array.isArray(response.data) ? response.data : [];
             console.log('✅ [Dashboard] استخراج البيانات من data فقط');
           }
         }
 
-        // التأكد من أن النتيجة مصفوفة
         if (!Array.isArray(projects)) {
           console.warn('⚠️ [Dashboard] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
           projects = [];
@@ -130,23 +117,20 @@ export default function Dashboard() {
         return projects as ProjectWithStats[];
       } catch (error) {
         console.error("❌ [Dashboard] خطأ في جلب المشاريع:", error);
-        // إرجاع مصفوفة فارغة لتجنب كسر الداشبورد
         return [] as ProjectWithStats[];
       }
     },
-    staleTime: 1000 * 30, // 30 ثانية للإحصائيات الحية
-    refetchInterval: 1000 * 60, // إعادة التحديث كل دقيقة
-    retry: 2, // محاولتين إضافيتين
-    refetchOnWindowFocus: false, // تقليل الطلبات غير الضرورية
+    staleTime: 1000 * 30,
+    refetchInterval: 1000 * 60,
+    retry: 2,
+    refetchOnWindowFocus: false,
   });
 
-  // جلب أنواع العمال من قاعدة البيانات
   const { data: workerTypes = [] } = useQuery<WorkerType[]>({
     queryKey: ["/api/worker-types"],
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/worker-types", "GET");
-        // معالجة الهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as WorkerType[];
         }
@@ -158,10 +142,8 @@ export default function Dashboard() {
     },
   });
 
-  // متحولات لإضافة العامل والمشروع
   const addWorkerMutation = useMutation({
     mutationFn: async (data: any) => {
-      // حفظ القيم في autocomplete_data قبل العملية الأساسية
       await Promise.all([
         saveAutocompleteValue('workerNames', data.name),
         saveAutocompleteValue('workerTypes', data.type)
@@ -170,7 +152,6 @@ export default function Dashboard() {
       return apiRequest("/api/workers", "POST", data);
     },
     onSuccess: () => {
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
 
       queryClient.invalidateQueries({ queryKey: ["/api/workers"] });
@@ -192,7 +173,6 @@ export default function Dashboard() {
 
   const addProjectMutation = useMutation({
     mutationFn: async (data: any) => {
-      // حفظ القيم في autocomplete_data قبل العملية الأساسية
       await Promise.all([
         saveAutocompleteValue('projectNames', data.name),
         saveAutocompleteValue('projectDescriptions', data.description)
@@ -201,7 +181,6 @@ export default function Dashboard() {
       return apiRequest("/api/projects", "POST", data);
     },
     onSuccess: () => {
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
 
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -222,16 +201,13 @@ export default function Dashboard() {
     },
   });
 
-  // إضافة نوع عامل جديد
   const addWorkerTypeMutation = useMutation({
     mutationFn: async (data: { name: string }) => {
-      // حفظ قيم أنواع العمال في autocomplete_data
       await saveAutocompleteValue('workerTypes', data.name);
 
       return apiRequest("/api/worker-types", "POST", data);
     },
     onSuccess: (newType) => {
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
 
       toast({
@@ -255,26 +231,11 @@ export default function Dashboard() {
   const { data: todaySummary } = useQuery<DailyExpenseSummary>({
     queryKey: ["/api/projects", selectedProjectId, "daily-summary", new Date().toISOString().split('T')[0]],
     enabled: !!selectedProjectId,
-    staleTime: 1000 * 30, // 30 ثانية للملخص اليومي
+    staleTime: 1000 * 30,
   });
-
-
 
   const selectedProject = Array.isArray(projects) ? projects.find((p: ProjectWithStats) => p.id === selectedProjectId) : undefined;
 
-
-
-  // إعداد الزر العائم مع قائمة الخيارات
-  useEffect(() => {
-    const handleFloatingAction = () => {
-      setShowFloatingMenu(!showFloatingMenu);
-    };
-
-    setFloatingAction(handleFloatingAction, "إضافة");
-    return () => setFloatingAction(null);
-  }, [setFloatingAction, showFloatingMenu]);
-
-  // تسجيل بيانات المشروع المحدد - داخل useEffect لتجنب التحديثات أثناء الرسم
   useEffect(() => {
     if (selectedProject) {
       console.log('🔍 بيانات المشروع المحدد في Frontend:', {
@@ -285,7 +246,6 @@ export default function Dashboard() {
         currentBalance: selectedProject.stats?.currentBalance
       });
 
-      // فحص خاص لمشروع الحبشي
       if (selectedProject.name.includes('الحبشي')) {
         console.warn('🚨 مشروع الحبشي - تحقق من البيانات:', {
           مشروع: selectedProject.name,
@@ -298,7 +258,6 @@ export default function Dashboard() {
     }
   }, [selectedProject]);
 
-  // دالة تنسيق العملة
   const formatCurrency = (amount: number) => {
     if (typeof amount !== 'number') {
       const num = parseFloat(String(amount));
@@ -312,25 +271,19 @@ export default function Dashboard() {
     }).format(amount) + ' ر.ي';
   };
 
-
-  // عرض شاشة تحميل أولية إذا كانت المشاريع لم تحمل بعد
   if (projectsLoading) {
     return <LoadingCard />;
   }
 
   return (
-    <div className="p-4 fade-in">
-
-
-
-
+    <div className="p-4 fade-in space-y-4">
       <ProjectSelector
         selectedProjectId={selectedProjectId}
         onProjectChange={(projectId, projectName) => selectProject(projectId, projectName)}
       />
 
       {selectedProject && (
-        <div className="mb-8">
+        <div className="mb-4">
           <UnifiedStats
             stats={[
               {
@@ -371,27 +324,6 @@ export default function Dashboard() {
                 value: selectedProject?.stats?.materialPurchases || "0",
                 icon: Package,
                 color: "indigo"
-              },
-              {
-                title: "إجمالي التوريد",
-                value: selectedProject?.stats?.totalIncome || 0,
-                icon: TrendingUp,
-                color: "blue",
-                formatter: formatCurrency
-              },
-              {
-                title: "إجمالي المنصرف",
-                value: selectedProject?.stats?.totalExpenses || 0,
-                icon: TrendingDown,
-                color: "red",
-                formatter: formatCurrency
-              },
-              {
-                title: "المتبقي الحالي",
-                value: selectedProject?.stats?.currentBalance || 0,
-                icon: DollarSign,
-                color: "green",
-                formatter: formatCurrency
               }
             ]}
             columns={3}
@@ -400,44 +332,11 @@ export default function Dashboard() {
         </div>
       )}
 
+      <QuickActionsGrid 
+        onAddWorker={() => setShowWorkerModal(true)}
+        onAddProject={() => setShowProjectModal(true)}
+      />
 
-      {/* قائمة الخيارات العائمة */}
-      {showFloatingMenu && (
-        <div className="fixed bottom-20 right-4 z-50 space-y-2">
-          <Button
-            onClick={() => {
-              setShowWorkerModal(true);
-              setShowFloatingMenu(false);
-            }}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-lg rounded-full px-4 py-3"
-            size="sm"
-          >
-            <User className="h-4 w-4" />
-            <span>إضافة عامل</span>
-          </Button>
-          <Button
-            onClick={() => {
-              setShowProjectModal(true);
-              setShowFloatingMenu(false);
-            }}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white shadow-lg rounded-full px-4 py-3"
-            size="sm"
-          >
-            <FolderPlus className="h-4 w-4" />
-            <span>إضافة مشروع</span>
-          </Button>
-        </div>
-      )}
-
-      {/* خلفية شفافة لإغلاق القائمة */}
-      {showFloatingMenu && (
-        <div 
-          className="fixed inset-0 z-40 bg-black bg-opacity-20"
-          onClick={() => setShowFloatingMenu(false)}
-        />
-      )}
-
-      {/* نموذج إضافة عامل */}
       <Dialog open={showWorkerModal} onOpenChange={setShowWorkerModal}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -597,7 +496,6 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* نموذج إضافة مشروع */}
       <Dialog open={showProjectModal} onOpenChange={setShowProjectModal}>
         <DialogContent className="max-w-lg">
           <DialogHeader>

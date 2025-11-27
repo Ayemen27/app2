@@ -203,6 +203,8 @@ function App() {
                           <main className="flex-1 overflow-y-auto overflow-x-hidden">
                             <Router />
                           </main>
+                          {/* خط أحمر: نهاية المحتوى */}
+                          <div className="h-1 bg-red-500 w-full"></div>
                         </EmailVerificationGuard>
                         <BottomNavigation />
                       </ProtectedRoute>
@@ -210,6 +212,8 @@ function App() {
                   </Switch>
                 </ErrorBoundary>
                 <Toaster />
+                {/* خط أزرق: نهاية الصفحة */}
+                <div className="h-1 bg-blue-500 w-full"></div>
               </div>
             </FloatingButtonProvider>
           </TooltipProvider>

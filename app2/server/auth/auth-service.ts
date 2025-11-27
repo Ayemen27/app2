@@ -491,14 +491,17 @@ export async function registerUser(request: RegisterRequest) {
  */
 export async function verifyEmail(userId: string, code: string, ipAddress?: string, userAgent?: string) {
   try {
-    // تفعيل مباشر للتبسيط
-    // تفعيل البريد الإلكتروني - مؤجل حتى إضافة الحقل في schema
-    // await db
-    //   .update(users)
-    //   .set({ 
-    //     emailVerifiedAt: new Date()
-    //   })
-    //   .where(eq(users.id, userId));
+    console.log('🔐 [AuthService.verifyEmail] بدء التحقق من البريد للمستخدم:', userId);
+    
+    // تحديث البريد الإلكتروني للمستخدم بنجاح
+    await db
+      .update(users)
+      .set({ 
+        emailVerifiedAt: new Date()
+      })
+      .where(eq(users.id, userId));
+
+    console.log('✅ [AuthService.verifyEmail] تم تحديث emailVerifiedAt بنجاح');
 
     // تسجيل الحدث
     await logAuditEvent({
@@ -510,13 +513,15 @@ export async function verifyEmail(userId: string, code: string, ipAddress?: stri
       status: 'success',
     });
 
+    console.log('✅ [AuthService.verifyEmail] تم تسجيل الحدث بنجاح');
+
     return {
       success: true,
       message: 'تم التحقق من البريد الإلكتروني بنجاح'
     };
 
   } catch (error) {
-    console.error('خطأ في التحقق من البريد:', error);
+    console.error('❌ [AuthService.verifyEmail] خطأ في التحقق من البريد:', error);
     return {
       success: false,
       message: 'حدث خطأ أثناء التحقق'

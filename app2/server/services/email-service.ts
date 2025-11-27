@@ -366,7 +366,7 @@ export async function verifyEmailToken(
   token: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('🔍 [EmailService] التحقق من رمز البريد الإلكتروني للمستخدم:', userId);
+    console.log('🔍 [EmailService] بدء التحقق من الرمز:', { userId, tokenLength: token.length });
 
     // البحث عن الرمز في قاعدة البيانات
     const tokenRecord = await db.select()
@@ -377,7 +377,10 @@ export async function verifyEmailToken(
       ))
       .limit(1);
 
+    console.log('🔍 [EmailService] نتيجة البحث:', { found: tokenRecord.length > 0, userId, token });
+
     if (tokenRecord.length === 0) {
+      console.log('❌ [EmailService] لم يتم العثور على الرمز');
       return {
         success: false,
         message: 'رمز التحقق غير صالح'
@@ -385,9 +388,11 @@ export async function verifyEmailToken(
     }
 
     const record = tokenRecord[0];
+    console.log('✅ [EmailService] تم العثور على الرمز:', { id: record.id, verifiedAt: record.verifiedAt });
 
     // التحقق من انتهاء الصلاحية
     if (new Date() > record.expiresAt) {
+      console.log('❌ [EmailService] الرمز منتهي الصلاحية');
       // حذف الرمز المنتهي الصلاحية
       await db.delete(emailVerificationTokens)
         .where(eq(emailVerificationTokens.id, record.id));
@@ -400,25 +405,28 @@ export async function verifyEmailToken(
 
     // التحقق من أن الرمز لم يتم استخدامه من قبل
     if (record.verifiedAt) {
+      console.log('❌ [EmailService] الرمز تم استخدامه مسبقاً');
       return {
         success: false,
         message: 'تم استخدام هذا الرمز مسبقاً'
       };
     }
 
+    console.log('🔄 [EmailService] بدء تحديث جداول التحقق والمستخدمين...');
+
     // تحديث حالة التحقق في جدول رموز التحقق
-    await db.update(emailVerificationTokens)
+    const tokenUpdate = await db.update(emailVerificationTokens)
       .set({ verifiedAt: new Date() })
       .where(eq(emailVerificationTokens.id, record.id));
     
     console.log('📝 [EmailService] تم تحديث email_verification_tokens');
 
-    // تحديث حساب المستخدم لتأكيد تحقق البريد الإلكتروني باستخدام Drizzle
-    await db.update(users)
+    // تحديث حساب المستخدم لتأكيد تحقق البريد الإلكتروني
+    const userUpdate = await db.update(users)
       .set({ emailVerifiedAt: new Date() })
       .where(eq(users.id, userId));
     
-    console.log('📝 [EmailService] تم تحديث users:', { userId });
+    console.log('📝 [EmailService] تم تحديث users بنجاح');
 
     // التحقق من نجاح التحديث فوراً
     const verifyUpdate = await db.select({
@@ -430,16 +438,9 @@ export async function verifyEmailToken(
       .where(eq(users.id, userId))
       .limit(1);
     
-    if (verifyUpdate.length > 0) {
-      const updatedUser = verifyUpdate[0];
-      console.log('✅ [EmailService] تأكيد التحديث النهائي:', { 
-        userId: updatedUser.id, 
-        email: updatedUser.email,
-        emailVerifiedAt: updatedUser.emailVerifiedAt 
-      });
-    }
+    console.log('🔍 [EmailService] فحص البيانات بعد التحديث:', verifyUpdate.length > 0 ? verifyUpdate[0] : 'لا توجد بيانات');
 
-    console.log('✅ [EmailService] تم التحقق من البريد الإلكتروني بنجاح للمستخدم:', userId);
+    console.log('✅ [EmailService] اكتمل التحقق من البريد الإلكتروني بنجاح للمستخدم:', userId);
 
     return {
       success: true,
@@ -447,7 +448,7 @@ export async function verifyEmailToken(
     };
 
   } catch (error) {
-    console.error('❌ [EmailService] فشل في التحقق من رمز البريد الإلكتروني:', error);
+    console.error('❌ [EmailService] خطأ في التحقق من الرمز:', error);
     return {
       success: false,
       message: 'فشل في التحقق من الرمز. يرجى المحاولة لاحقاً'

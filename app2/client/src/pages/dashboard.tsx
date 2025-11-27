@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, Receipt, ShoppingCart, BarChart, ArrowRight, Settings, DollarSign, TrendingDown, TrendingUp, Calendar, Package, UserCheck, Plus, User, FolderPlus } from "lucide-react";
+import { DollarSign, TrendingDown, TrendingUp, Calendar, Package, UserCheck, Plus, User, FolderPlus } from "lucide-react";
 import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import ProjectSelector from "@/components/project-selector";
@@ -27,7 +27,6 @@ import type {
   Worker, 
   AutocompleteData as WorkerType 
 } from "@shared/schema";
-import { QuickActions } from "@/components/ui/quick-actions";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 
 interface ProjectStats {
@@ -313,44 +312,6 @@ export default function Dashboard() {
     }).format(amount) + ' ر.ي';
   };
 
-  const quickActions = [
-    {
-      icon: Clock,
-      label: "تسجيل حضور",
-      color: "primary" as const,
-      action: () => setLocation("/worker-attendance"),
-    },
-    {
-      icon: Receipt,
-      label: "مصروفات يومية",
-      color: "secondary" as const,
-      action: () => setLocation("/daily-expenses"),
-    },
-    {
-      icon: ShoppingCart,
-      label: "شراء مواد",
-      color: "success" as const,
-      action: () => setLocation("/material-purchase"),
-    },
-    {
-      icon: BarChart,
-      label: "التقارير",
-      color: "info" as const,
-      action: () => setLocation("/reports"),
-    },
-    {
-      icon: ArrowRight,
-      label: "ترحيل أموال",
-      color: "warning" as const,
-      action: () => setLocation("/project-transfers"),
-    },
-    {
-      icon: Settings,
-      label: "إعدادات القوالب",
-      color: "info" as const,
-      action: () => setLocation("/report-template-settings-enhanced"),
-    },
-  ];
 
   // عرض شاشة تحميل أولية إذا كانت المشاريع لم تحمل بعد
   if (projectsLoading) {
@@ -439,14 +400,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Quick Actions Redesigned */}
-      <div className="mt-10">
-        <QuickActions
-          actions={quickActions}
-          variant="grid"
-          compact={false}
-        />
-      </div>
 
       {/* قائمة الخيارات العائمة */}
       {showFloatingMenu && (

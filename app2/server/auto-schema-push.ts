@@ -22,6 +22,7 @@ import { fileURLToPath } from 'url';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 import * as schema from '../shared/schema';
+import BackupManager from './backup-manager';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -29,6 +30,11 @@ const __dirname = dirname(__filename);
 const LOCK_FILE = join(__dirname, '../.schema-push.lock');
 const MAX_AGE_HOURS = 24;
 const AUTO_FIX_ENABLED = true;
+const BACKUP_MANAGER = new BackupManager({
+  backupDir: join(__dirname, '../backups/schema-push'),
+  maxBackups: 10,
+  retentionDays: 30
+});
 
 type IssueSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
@@ -782,6 +788,35 @@ export async function autoSchemaPush(): Promise<void> {
 
   console.log('📍 [Schema Push] المجلد:', join(__dirname, '..'));
   console.log('═'.repeat(60));
+
+  // إنشاء نسخة احتياطية إذا كانت هناك مشاكل قابلة للإصلاح
+  if (consistencyCheck.fixableIssues > 0) {
+    console.log('💾 [Backup] بدء إنشاء نسخة احتياطية قبل التطبيق...');
+    const backupResult = await BACKUP_MANAGER.createBackup(
+      `تطبيق مخطط قاعدة البيانات - ${consistencyCheck.fixableIssues} مشكلة قابلة للإصلاح`,
+      consistencyCheck.missingTables,
+      consistencyCheck.extraTables,
+      consistencyCheck.missingColumns,
+      consistencyCheck.criticalIssues > 0 ? 'critical' : 'high'
+    );
+
+    if (backupResult.success) {
+      console.log(`✅ [Backup] تم إنشاء النسخة الاحتياطية: ${backupResult.backupFile}`);
+      
+      await sendAdminNotification(
+        '💾 تم إنشاء نسخة احتياطية من قاعدة البيانات',
+        `تم حفظ نسخة احتياطية قبل تطبيق التغييرات:\n\nالمسار: ${backupResult.backupFile}\nالتاريخ: ${backupResult.manifest.timestamp}\nالجداول المحمية: ${backupResult.manifest.affectedTables.join(', ')}\nإجمالي الصفوف: ${backupResult.manifest.totalRows}\nحجم الملف: ${(backupResult.manifest.totalSize / 1024).toFixed(2)} KB`,
+        {
+          severity: 'info',
+          backupFile: backupResult.backupFile,
+          backupManifest: backupResult.manifest,
+          timestamp: backupResult.manifest.timestamp
+        }
+      );
+    } else {
+      console.error(`❌ [Backup] فشل إنشاء النسخة الاحتياطية: ${backupResult.message}`);
+    }
+  }
 
   const result = await runDrizzlePush();
   

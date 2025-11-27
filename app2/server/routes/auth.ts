@@ -216,6 +216,7 @@ router.post('/login', async (req, res) => {
       lastName: users.lastName,
       role: users.role,
       isActive: users.isActive,
+      emailVerifiedAt: users.emailVerifiedAt,
       lastLogin: users.lastLogin,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,

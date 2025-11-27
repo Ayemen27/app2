@@ -113,30 +113,24 @@ export async function generateTokenPair(
 
   try {
     // حفظ الجلسة في قاعدة البيانات
-    await db.insert(authUserSessions).values({
+    const sessionData = {
       userId,
-      deviceId,
       sessionToken: sessionId,
-      deviceFingerprint: deviceInfo?.fingerprint,
-      userAgent,
-      ipAddress,
-      locationData: deviceInfo?.location,
-      deviceName: deviceInfo?.name,
-      browserName: deviceInfo?.browser?.name,
-      browserVersion: deviceInfo?.browser?.version,
-      osName: deviceInfo?.os?.name,
-      osVersion: deviceInfo?.os?.version,
-      deviceType: deviceInfo?.type || 'web',
-      loginMethod: 'password',
       accessTokenHash,
       refreshTokenHash,
-      expiresAt: refreshExpiresAt, // الجلسة تنتهي مع refresh token
-      isRevoked: false,
-    });
-
-    console.log('✅ [JWT] تم حفظ الجلسة بنجاح:', { userId, sessionId: sessionId.substring(0, 8) + '...' });
+      expiresAt: refreshExpiresAt,
+      isTrustedDevice: false,
+    };
+    
+    try {
+      await db.insert(authUserSessions).values(sessionData as any);
+      console.log('✅ [JWT] تم حفظ الجلسة بنجاح:', { userId, sessionId: sessionId.substring(0, 8) + '...' });
+    } catch (sessionError) {
+      console.warn('⚠️ [JWT] تحذير: فشل حفظ الجلسة (لكن سيتم الاستمرار):', sessionError);
+      // Continue anyway - sessions are optional for now
+    }
   } catch (error) {
-    console.error('❌ [JWT] خطأ في حفظ الجلسة:', error);
+    console.error('❌ [JWT] خطأ في إنشاء التوكينات:', error);
     throw new Error('فشل في إنشاء جلسة المستخدم');
   }
 

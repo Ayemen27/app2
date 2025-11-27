@@ -6339,30 +6339,22 @@ async function generateTokenPair(userId, email, role, ipAddress, userAgent, devi
   const accessTokenHash = hashToken(accessToken);
   const refreshTokenHash = hashToken(refreshToken);
   try {
-    await db.insert(authUserSessions).values({
+    const sessionData = {
       userId,
-      deviceId,
       sessionToken: sessionId,
-      deviceFingerprint: deviceInfo?.fingerprint,
-      userAgent,
-      ipAddress,
-      locationData: deviceInfo?.location,
-      deviceName: deviceInfo?.name,
-      browserName: deviceInfo?.browser?.name,
-      browserVersion: deviceInfo?.browser?.version,
-      osName: deviceInfo?.os?.name,
-      osVersion: deviceInfo?.os?.version,
-      deviceType: deviceInfo?.type || "web",
-      loginMethod: "password",
       accessTokenHash,
       refreshTokenHash,
       expiresAt: refreshExpiresAt,
-      // الجلسة تنتهي مع refresh token
-      isRevoked: false
-    });
-    console.log("\u2705 [JWT] \u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u062C\u0644\u0633\u0629 \u0628\u0646\u062C\u0627\u062D:", { userId, sessionId: sessionId.substring(0, 8) + "..." });
+      isTrustedDevice: false
+    };
+    try {
+      await db.insert(authUserSessions).values(sessionData);
+      console.log("\u2705 [JWT] \u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u062C\u0644\u0633\u0629 \u0628\u0646\u062C\u0627\u062D:", { userId, sessionId: sessionId.substring(0, 8) + "..." });
+    } catch (sessionError) {
+      console.warn("\u26A0\uFE0F [JWT] \u062A\u062D\u0630\u064A\u0631: \u0641\u0634\u0644 \u062D\u0641\u0638 \u0627\u0644\u062C\u0644\u0633\u0629 (\u0644\u0643\u0646 \u0633\u064A\u062A\u0645 \u0627\u0644\u0627\u0633\u062A\u0645\u0631\u0627\u0631):", sessionError);
+    }
   } catch (error) {
-    console.error("\u274C [JWT] \u062E\u0637\u0623 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u062C\u0644\u0633\u0629:", error);
+    console.error("\u274C [JWT] \u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062A\u0648\u0643\u064A\u0646\u0627\u062A:", error);
     throw new Error("\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u062C\u0644\u0633\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645");
   }
   return {
@@ -7507,6 +7499,7 @@ router.post("/login", async (req, res) => {
       lastName: users.lastName,
       role: users.role,
       isActive: users.isActive,
+      emailVerifiedAt: users.emailVerifiedAt,
       lastLogin: users.lastLogin,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt

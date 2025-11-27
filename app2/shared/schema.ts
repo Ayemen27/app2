@@ -364,6 +364,37 @@ export const projectFundTransfers = pgTable("project_fund_transfers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// User Project Permissions table (صلاحيات المستخدمين على المشاريع)
+export const userProjectPermissions = pgTable("user_project_permissions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  canView: boolean("can_view").default(true).notNull(),
+  canAdd: boolean("can_add").default(false).notNull(),
+  canEdit: boolean("can_edit").default(false).notNull(),
+  canDelete: boolean("can_delete").default(false).notNull(),
+  assignedBy: varchar("assigned_by").references(() => users.id),
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueUserProject: sql`UNIQUE (user_id, project_id)`
+}));
+
+// Permission Audit Logs table (سجل تغييرات الصلاحيات)
+export const permissionAuditLogs = pgTable("permission_audit_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  action: varchar("action").notNull(), // assign, unassign, update_permissions
+  actorId: varchar("actor_id").notNull().references(() => users.id),
+  targetUserId: varchar("target_user_id").references(() => users.id),
+  projectId: varchar("project_id").references(() => projects.id),
+  oldPermissions: jsonb("old_permissions"), // الصلاحيات القديمة
+  newPermissions: jsonb("new_permissions"), // الصلاحيات الجديدة
+  ipAddress: inet("ip_address"),
+  userAgent: text("user_agent"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Schema definitions for forms
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true });
 export const insertWorkerSchema = createInsertSchema(workers).omit({ id: true, createdAt: true });
@@ -436,6 +467,20 @@ export const insertAutocompleteDataSchema = createInsertSchema(autocompleteData)
 export const insertWorkerMiscExpenseSchema = createInsertSchema(workerMiscExpenses).omit({ id: true, createdAt: true }).extend({
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
 });
+
+// 🔐 **User Project Permissions Schema**
+export const insertUserProjectPermissionSchema = createInsertSchema(userProjectPermissions).omit({ 
+  id: true, 
+  assignedAt: true, 
+  updatedAt: true 
+});
+
+// 📋 **Permission Audit Log Schema**
+export const insertPermissionAuditLogSchema = createInsertSchema(permissionAuditLogs).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
 // 🛡️ **Enhanced User Input Validation - حماية أمنية محسّنة**
 export const insertUserSchema = createInsertSchema(users).omit({ 
   id: true, 

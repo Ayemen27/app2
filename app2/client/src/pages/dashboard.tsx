@@ -439,15 +439,15 @@ export default function Dashboard() {
 
       {/* نموذج إضافة عامل */}
       <Dialog open={showWorkerModal} onOpenChange={setShowWorkerModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>إضافة عامل جديد</DialogTitle>
             <DialogDescription>
               أدخل بيانات العامل الجديد لإضافته إلى النظام
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1">
-            <div>
+          <div className="form-grid">
+            <div className="form-field form-field-full">
               <Label htmlFor="worker-name">اسم العامل</Label>
               <Input
                 id="worker-name"
@@ -456,7 +456,7 @@ export default function Dashboard() {
                 placeholder="أدخل اسم العامل"
               />
             </div>
-            <div>
+            <div className="form-field">
               <Label htmlFor="worker-phone">رقم الهاتف</Label>
               <Input
                 id="worker-phone"
@@ -465,7 +465,20 @@ export default function Dashboard() {
                 placeholder="أدخل رقم الهاتف"
               />
             </div>
-            <div>
+            <div className="form-field">
+              <Label htmlFor="worker-wage">الأجر اليومي (ر.ي)</Label>
+              <Input
+                id="worker-wage"
+                type="number"
+                inputMode="decimal"
+                value={workerData.dailyWage}
+                onChange={(e) => setWorkerData({...workerData, dailyWage: e.target.value})}
+                placeholder="0"
+                className="text-center"
+                required
+              />
+            </div>
+            <div className="form-field form-field-full">
               <Label htmlFor="worker-type">نوع العامل</Label>
               <div className="flex gap-2">
                 <Select value={workerData.type} onValueChange={(value) => setWorkerData({...workerData, type: value})}>
@@ -491,7 +504,6 @@ export default function Dashboard() {
                     )}
                   </SelectContent>
                 </Select>
-
                 <Dialog open={showAddTypeDialog} onOpenChange={setShowAddTypeDialog}>
                   <DialogTrigger asChild>
                     <Button type="button" variant="outline" size="icon" className="shrink-0" title="إضافة نوع جديد">
@@ -505,8 +517,8 @@ export default function Dashboard() {
                         أدخل اسم نوع العامل الجديد ليتم حفظه في قاعدة البيانات
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-1">
-                      <div>
+                    <div className="form-grid">
+                      <div className="form-field form-field-full">
                         <Label htmlFor="new-type-name">اسم نوع العامل</Label>
                         <Input
                           id="new-type-name"
@@ -517,7 +529,7 @@ export default function Dashboard() {
                           required
                         />
                       </div>
-                      <div className="flex gap-2">
+                      <div className="form-actions">
                         <Button
                           type="button"
                           onClick={() => {
@@ -526,7 +538,6 @@ export default function Dashboard() {
                             }
                           }}
                           disabled={!newTypeName.trim() || addWorkerTypeMutation.isPending}
-                          className="flex-1"
                         >
                           {addWorkerTypeMutation.isPending ? "جاري الإضافة..." : "إضافة"}
                         </Button>
@@ -537,7 +548,6 @@ export default function Dashboard() {
                             setShowAddTypeDialog(false);
                             setNewTypeName("");
                           }}
-                          className="flex-1"
                         >
                           إلغاء
                         </Button>
@@ -547,20 +557,7 @@ export default function Dashboard() {
                 </Dialog>
               </div>
             </div>
-            <div>
-              <Label htmlFor="worker-wage">الأجر اليومي (ر.ي)</Label>
-              <Input
-                id="worker-wage"
-                type="number"
-                inputMode="decimal"
-                value={workerData.dailyWage}
-                onChange={(e) => setWorkerData({...workerData, dailyWage: e.target.value})}
-                placeholder="0"
-                className="text-center arabic-numbers"
-                required
-              />
-            </div>
-            <div className="flex gap-3 pt-4">
+            <div className="form-actions">
               <Button
                 onClick={() => {
                   if (!workerData.name.trim() || !workerData.type || !workerData.dailyWage) {
@@ -571,9 +568,7 @@ export default function Dashboard() {
                     });
                     return;
                   }
-
                   const parsedWage = parseFloat(workerData.dailyWage);
-
                   if (isNaN(parsedWage) || parsedWage <= 0) {
                     toast({
                       title: "خطأ",
@@ -582,7 +577,6 @@ export default function Dashboard() {
                     });
                     return;
                   }
-
                   addWorkerMutation.mutate({
                     name: workerData.name.trim(),
                     phone: workerData.phone || null,
@@ -592,11 +586,10 @@ export default function Dashboard() {
                   });
                 }}
                 disabled={addWorkerMutation.isPending}
-                className="flex-1"
               >
                 {addWorkerMutation.isPending ? "جاري الحفظ..." : "حفظ"}
               </Button>
-              <Button variant="outline" onClick={() => setShowWorkerModal(false)} className="flex-1">
+              <Button variant="outline" onClick={() => setShowWorkerModal(false)}>
                 إلغاء
               </Button>
             </div>
@@ -606,15 +599,15 @@ export default function Dashboard() {
 
       {/* نموذج إضافة مشروع */}
       <Dialog open={showProjectModal} onOpenChange={setShowProjectModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>إضافة مشروع جديد</DialogTitle>
             <DialogDescription>
               أدخل بيانات المشروع الجديد لإضافته إلى النظام
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1">
-            <div>
+          <div className="form-grid">
+            <div className="form-field form-field-full">
               <Label htmlFor="project-name">اسم المشروع</Label>
               <Input
                 id="project-name"
@@ -623,7 +616,7 @@ export default function Dashboard() {
                 placeholder="أدخل اسم المشروع"
               />
             </div>
-            <div>
+            <div className="form-field">
               <Label htmlFor="project-status">حالة المشروع</Label>
               <Select value={projectData.status} onValueChange={(value) => setProjectData({...projectData, status: value})}>
                 <SelectTrigger>
@@ -636,7 +629,7 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="form-field form-field-full">
               <Label htmlFor="project-description">وصف المشروع</Label>
               <Input
                 id="project-description"
@@ -645,7 +638,7 @@ export default function Dashboard() {
                 placeholder="أدخل وصف المشروع (اختياري)"
               />
             </div>
-            <div className="flex gap-3 pt-4">
+            <div className="form-actions">
               <Button
                 onClick={() => {
                   if (projectData.name) {
@@ -657,11 +650,10 @@ export default function Dashboard() {
                   }
                 }}
                 disabled={!projectData.name || addProjectMutation.isPending}
-                className="flex-1"
               >
                 {addProjectMutation.isPending ? "جاري الحفظ..." : "حفظ"}
               </Button>
-              <Button variant="outline" onClick={() => setShowProjectModal(false)} className="flex-1">
+              <Button variant="outline" onClick={() => setShowProjectModal(false)}>
                 إلغاء
               </Button>
             </div>

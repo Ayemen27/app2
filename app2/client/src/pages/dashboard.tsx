@@ -27,6 +27,8 @@ import type {
   Worker, 
   AutocompleteData as WorkerType 
 } from "@shared/schema";
+import { QuickActions } from "@/components/ui/quick-actions";
+import { UnifiedStats } from "@/components/ui/unified-stats";
 
 interface ProjectStats {
   totalWorkers: string;

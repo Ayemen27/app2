@@ -5,20 +5,21 @@ A comprehensive construction project management system designed for the Middle E
 
 ## Recent Changes
 
+### November 2025 - Smart Form Layout System (Responsive Grid)
+- **Form Grid System**: نظام تخطيط نماذج ذكي في index.css
+  - **form-grid**: تخطيط شبكي يتكيف مع حجم الشاشة (1 column على الهاتف → 2 columns على التابلت → 3 columns على سطح المكتب)
+  - **form-field**: حقل نموذج مع تنسيق موحد
+  - **form-field-full**: حقول كبيرة تأخذ الصف كاملاً (الوصف، الملاحظات، الكنوات)
+  - **form-actions**: صف الأزرار مع تنسيق موحد
+- **Implementation**: تطبيق النظام على جميع النماذج الرئيسية:
+  - نموذج Dashboard (إضافة عامل + إضافة مشروع)
+  - نموذج إضافة المورد في material-purchase.tsx
+  - نموذج تحويل الأموال في project-transfers.tsx
+- **Result**: توفير مساحة أفضل، عرض أنظف، تجربة مستخدم محسنة على جميع الأجهزة
+
 ### September 2025 - Worker Attendance UI Enhancements
-- **View Mode System**: إضافة نظام أوضاع العرض الثلاثة في صفحة حضور العمال:
-  - **عرض مضغوط** (افتراضي): عرض مختصر للمعلومات الأساسية
-  - **عرض تفصيلي**: عرض كامل لجميع التفاصيل 
-  - **عرض جماعي**: للعمليات الجماعية مع التحديد المتعدد
-- **UI Controls**: إضافة Tabs selector مع دعم RTL والأيقونات المناسبة
-- **Architecture**: تطبيق ViewMode state في WorkerAttendance وتمريره لـ EnhancedWorkerCard
-- **Testing**: إضافة data-testid attributes للاختبار التلقائي
-- **Mobile Responsiveness Fix**: إصلاح مشكلة ظهور العناصر خارج حدود الشاشة في الوضع المضغوط:
-  - إضافة تمرير تلقائي للعناصر المتوسعة
-  - تحسين responsive design مع breakpoints محسنة (sm, lg)
-  - تحسين حشو المحتوى للأجهزة المحمولة (p-3 sm:p-4 md:p-6)
-  - منع تسرب المحتوى خارج الشاشة مع overflow-hidden
-  - تحسين تخطيط Grid للشاشات الصغيرة
+- **View Mode System**: إضافة نظام أوضاع العرض الثلاثة في صفحة حضور العمال
+- **Mobile Responsiveness**: تحسين responsive design مع breakpoints محسنة
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

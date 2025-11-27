@@ -30,7 +30,8 @@ import {
   Upload,
   X,
   ImageIcon,
-  Eye
+  Eye,
+  Calendar
 } from "lucide-react";
 import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
 import type { Project, InsertProject } from "@shared/schema";

@@ -76,55 +76,11 @@
     min-height: 100vh;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  /* تثبيت قوي للشريط العلوي */
-  header {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    height: 64px !important;
-    z-index: 9999 !important;
-  }
-
-  /* تثبيت قوي للشريط السفلي */
-  nav {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    height: 64px !important;
-    z-index: 9999 !important;
-  }
-
-  /* ضمان عدم تداخل المحتوى */
-  main {
-    padding-top: 64px !important;
-    padding-bottom: 64px !important;
-    min-height: calc(100vh - 128px) !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
+    overflow: hidden;
   }
 
   /* تحسينات الهواتف */
   @media (max-width: 768px) {
-    header {
-      height: 56px !important;
-    }
-
-    nav {
-      height: 64px !important;
-    }
-
-    main {
-      padding-top: 56px !important;
-      padding-bottom: 64px !important;
-      min-height: calc(100vh - 120px) !important;
-    }
-
     /* منع التكبير التلقائي في iOS */
     input, select, textarea {
       font-size: 16px !important;

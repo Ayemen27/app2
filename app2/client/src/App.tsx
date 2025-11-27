@@ -45,9 +45,7 @@ import EmailVerificationGuard from "@/components/EmailVerificationGuard"; // Imp
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <main className="pb-20 min-h-screen">
-        {children}
-      </main>
+      {children}
       <FloatingAddButton />
     </>
   );
@@ -192,7 +190,7 @@ function App() {
         <AuthProvider>
           <TooltipProvider>
             <FloatingButtonProvider>
-              <div className="min-h-screen bg-background text-foreground overflow-x-hidden" dir="rtl">
+              <div className="min-h-screen bg-background text-foreground" dir="rtl">
                 <ErrorBoundary>
                   <Switch>
                     <Route path="/login" component={LoginPage} />
@@ -201,11 +199,13 @@ function App() {
                     <Route path="*" component={() => (
                       <ProtectedRoute>
                         <EmailVerificationGuard>
-                          <>
+                          <div className="flex flex-col min-h-screen">
                             <Header />
-                            <Router />
+                            <main className="flex-1 pb-20 pt-16">
+                              <Router />
+                            </main>
                             <BottomNavigation />
-                          </>
+                          </div>
                         </EmailVerificationGuard>
                       </ProtectedRoute>
                     )} />

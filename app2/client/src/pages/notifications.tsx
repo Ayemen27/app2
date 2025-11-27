@@ -146,6 +146,14 @@ const groupNotificationsByDate = (notifications: Notification[]): Record<string,
   const groups: Record<string, Notification[]> = {};
   
   notifications.forEach(notification => {
+    if (!notification.createdAt) {
+      if (!groups['older']) {
+        groups['older'] = [];
+      }
+      groups['older'].push(notification);
+      return;
+    }
+    
     const date = parseISO(notification.createdAt);
     let groupKey: string;
     
@@ -308,6 +316,7 @@ export default function NotificationsPage() {
       const from = dateRange.from;
       const to = dateRange.to || new Date();
       result = result.filter(n => {
+        if (!n.createdAt) return false;
         const date = parseISO(n.createdAt);
         return date >= from && date <= to;
       });
@@ -415,6 +424,9 @@ export default function NotificationsPage() {
   }, []);
 
   const formatNotificationTime = (dateString: string) => {
+    if (!dateString) {
+      return 'غير محدد';
+    }
     const date = parseISO(dateString);
     if (isToday(date)) {
       return format(date, 'HH:mm', { locale: ar });

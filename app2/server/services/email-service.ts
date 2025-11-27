@@ -406,35 +406,38 @@ export async function verifyEmailToken(
       };
     }
 
-    // تحديث حالة التحقق - باستخدام SQL مباشر للموثوقية
-    const tokenUpdateResult = await db.execute(sql`
-      UPDATE email_verification_tokens 
-      SET verified_at = NOW() 
-      WHERE id = ${record.id}
-    `);
+    // تحديث حالة التحقق في جدول رموز التحقق
+    await db.update(emailVerificationTokens)
+      .set({ verifiedAt: new Date() })
+      .where(eq(emailVerificationTokens.id, record.id));
     
-    console.log('📝 [EmailService] تم تحديث email_verification_tokens:', { rowCount: tokenUpdateResult.rowCount });
+    console.log('📝 [EmailService] تم تحديث email_verification_tokens');
 
-    // تحديث حساب المستخدم لتأكيد تحقق البريد الإلكتروني
-    const userUpdateResult = await db.execute(sql`
-      UPDATE users 
-      SET email_verified_at = NOW() 
-      WHERE id = ${userId}
-    `);
+    // تحديث حساب المستخدم لتأكيد تحقق البريد الإلكتروني باستخدام Drizzle
+    await db.update(users)
+      .set({ emailVerifiedAt: new Date() })
+      .where(eq(users.id, userId));
     
-    console.log('📝 [EmailService] تم تحديث users:', { userId, rowCount: userUpdateResult.rowCount });
+    console.log('📝 [EmailService] تم تحديث users:', { userId });
 
     // التحقق من نجاح التحديث فوراً
-    const verifyUpdate = await db.execute(sql`
-      SELECT id, email, email_verified_at FROM users WHERE id = ${userId}
-    `);
+    const verifyUpdate = await db.select({
+      id: users.id,
+      email: users.email,
+      emailVerifiedAt: users.emailVerifiedAt
+    })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
     
-    const updatedUser = verifyUpdate.rows[0] as any;
-    console.log('✅ [EmailService] تأكيد التحديث النهائي:', { 
-      userId: updatedUser.id, 
-      email: updatedUser.email,
-      emailVerifiedAt: updatedUser.email_verified_at 
-    });
+    if (verifyUpdate.length > 0) {
+      const updatedUser = verifyUpdate[0];
+      console.log('✅ [EmailService] تأكيد التحديث النهائي:', { 
+        userId: updatedUser.id, 
+        email: updatedUser.email,
+        emailVerifiedAt: updatedUser.emailVerifiedAt 
+      });
+    }
 
     console.log('✅ [EmailService] تم التحقق من البريد الإلكتروني بنجاح للمستخدم:', userId);
 

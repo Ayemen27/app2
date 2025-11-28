@@ -71,9 +71,92 @@ export default function ExcelStyleWorkerStatement() {
     enabled: !!selectedProjectId && !!selectedWorkerId
   });
 
-  const handleExportExcel = () => {
-    if (!statementData) return;
-    console.log('تصدير بيان العامل إلى Excel:', statementData);
+  const handleExportExcel = async () => {
+    if (!statementData || !selectedProject) return;
+    
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('بيان العامل');
+      
+      worksheet.columns = [
+        { width: 12 },
+        { width: 12 },
+        { width: 15 },
+        { width: 15 },
+        { width: 15 },
+        { width: 15 },
+        { width: 20 }
+      ];
+      
+      // Title
+      const titleRow = worksheet.addRow(['بيان حساب العامل']);
+      titleRow.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+      titleRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      titleRow.alignment = { horizontal: 'center', vertical: 'center', rtl: true };
+      worksheet.mergeCells(`A${titleRow.number}:G${titleRow.number}`);
+      
+      // Worker info
+      worksheet.addRow(['اسم العامل:', statementData.worker.name, '', 'نوع العامل:', statementData.worker.type]);
+      worksheet.addRow(['الأجر اليومي:', formatCurrency(statementData.worker.dailyWage.toString()), '', 'المشروع:', selectedProject?.name]);
+      worksheet.addRow(['من تاريخ:', dateFrom || 'البداية', '', 'إلى تاريخ:', dateTo]);
+      worksheet.addRow([]);
+      
+      // Headers
+      const headerRow = worksheet.addRow(['التاريخ', 'أيام العمل', 'الأجر اليومي', 'الأجر المستحق', 'المدفوع', 'المتبقي', 'وصف العمل']);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      headerRow.alignment = { horizontal: 'center', vertical: 'center', rtl: true };
+      
+      // Data rows
+      statementData.attendance.forEach(record => {
+        const row = worksheet.addRow([
+          record.date,
+          record.workDays,
+          record.dailyWage,
+          record.actualWage,
+          record.paidAmount,
+          record.remainingAmount,
+          record.workDescription || '-'
+        ]);
+        row.alignment = { rtl: true };
+        [2, 3, 4, 5, 6].forEach(col => {
+          row.getCell(col).numFmt = '#,##0.00';
+        });
+      });
+      
+      // Summary
+      worksheet.addRow([]);
+      const sumRow1 = worksheet.addRow(['إجمالي أيام العمل:', statementData.summary.totalWorkDays + ' يوم']);
+      sumRow1.font = { bold: true };
+      sumRow1.alignment = { rtl: true };
+      
+      const sumRow2 = worksheet.addRow(['إجمالي الأجور المستحقة:', statementData.summary.totalEarned]);
+      sumRow2.font = { bold: true };
+      sumRow2.getCell(2).numFmt = '#,##0.00';
+      sumRow2.alignment = { rtl: true };
+      
+      const sumRow3 = worksheet.addRow(['إجمالي المدفوع:', statementData.summary.totalPaid]);
+      sumRow3.font = { bold: true };
+      sumRow3.getCell(2).numFmt = '#,##0.00';
+      sumRow3.alignment = { rtl: true };
+      
+      const balanceRow = worksheet.addRow(['الرصيد المتبقي:', statementData.summary.remainingBalance]);
+      balanceRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      balanceRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      balanceRow.getCell(2).numFmt = '#,##0.00';
+      balanceRow.alignment = { rtl: true };
+      
+      // Export
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `بيان_العامل_${statementData.worker.name}_${dateTo}.xlsx`;
+      link.click();
+    } catch (error) {
+      console.error('خطأ في تصدير Excel:', error);
+    }
   };
 
   const handlePrint = () => {

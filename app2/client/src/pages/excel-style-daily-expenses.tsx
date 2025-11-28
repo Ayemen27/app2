@@ -42,25 +42,71 @@ export default function ExcelStyleDailyExpenses() {
     enabled: !!selectedProjectId
   });
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!expenseData || !selectedProject) return;
     
-    // تصدير Excel مع تنسيق مشابه لـ Excel
-    const data = [
-      ['تقرير المصاريف اليومية'],
-      ['اسم المشروع:', selectedProject.name],
-      ['التاريخ:', selectedDate],
-      [''],
-      ['البند', 'المبلغ'],
-      ['أجور العمال', formatCurrency(expenseData.workerWages.toString())],
-      ['تكاليف المواد', formatCurrency(expenseData.materialCosts.toString())],
-      ['النقل', formatCurrency(expenseData.transportation.toString())],
-      ['مصاريف متنوعة', formatCurrency(expenseData.miscExpenses.toString())],
-      [''],
-      ['الإجمالي', formatCurrency(expenseData.total.toString())]
-    ];
-    
-    console.log('تصدير بيانات Excel:', data);
+    try {
+      // Dynamic import for ExcelJS
+      const ExcelJS = (await import('exceljs')).default;
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('المصاريف اليومية');
+      
+      // Set column widths
+      worksheet.columns = [
+        { width: 25 },
+        { width: 18 },
+        { width: 15 }
+      ];
+      
+      // Add title
+      const titleRow = worksheet.addRow(['تقرير المصاريف اليومية']);
+      titleRow.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+      titleRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      titleRow.alignment = { horizontal: 'center', vertical: 'center', rtl: true };
+      worksheet.mergeCells(`A${titleRow.number}:C${titleRow.number}`);
+      
+      // Add project info
+      worksheet.addRow(['اسم المشروع:', selectedProject.name, '']);
+      worksheet.addRow(['التاريخ:', selectedDate, '']);
+      worksheet.addRow([]);
+      
+      // Add headers
+      const headerRow = worksheet.addRow(['البند', 'المبلغ (ريال)', 'النسبة %']);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      headerRow.alignment = { horizontal: 'center', vertical: 'center', rtl: true };
+      
+      // Add data rows
+      const dataRows = [
+        ['أجور العمال', expenseData.workerWages, expenseData.total > 0 ? ((expenseData.workerWages / expenseData.total) * 100).toFixed(1) : 0],
+        ['تكاليف المواد', expenseData.materialCosts, expenseData.total > 0 ? ((expenseData.materialCosts / expenseData.total) * 100).toFixed(1) : 0],
+        ['النقل', expenseData.transportation, expenseData.total > 0 ? ((expenseData.transportation / expenseData.total) * 100).toFixed(1) : 0],
+        ['مصاريف متنوعة', expenseData.miscExpenses, expenseData.total > 0 ? ((expenseData.miscExpenses / expenseData.total) * 100).toFixed(1) : 0]
+      ];
+      
+      dataRows.forEach(row => {
+        const r = worksheet.addRow(row);
+        r.alignment = { rtl: true };
+        r.getCell(2).numFmt = '#,##0.00';
+      });
+      
+      // Add total row
+      const totalRow = worksheet.addRow(['الإجمالي', expenseData.total, 100]);
+      totalRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      totalRow.alignment = { horizontal: 'center', vertical: 'center', rtl: true };
+      totalRow.getCell(2).numFmt = '#,##0.00';
+      
+      // Generate file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `تقرير_المصاريف_${selectedProject.name}_${selectedDate}.xlsx`;
+      link.click();
+    } catch (error) {
+      console.error('خطأ في تصدير Excel:', error);
+    }
   };
 
   const handlePrint = () => {

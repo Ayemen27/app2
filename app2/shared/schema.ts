@@ -520,9 +520,9 @@ export const enhancedInsertWorkerSchema = createInsertSchema(workers).omit({
     .min(2, "اسم العامل قصير جداً")
     .max(100, "اسم العامل طويل جداً")
     .regex(/^[a-zA-Zا-ي0-9\s\-']+$/, "اسم العامل يحتوي على أحرف غير مسموحة"),
-  type: z.enum(['معلم', 'عامل', 'مساعد', 'سائق', 'حارس'], {
-    errorMap: () => ({ message: "نوع العامل غير صحيح" })
-  }),
+  type: z.string()
+    .min(1, "نوع العامل مطلوب")
+    .max(100, "نوع العامل طويل جداً"),
   dailyWage: z.string()
     .regex(/^\d+(\.\d{1,2})?$/, "الأجر اليومي يجب أن يكون رقماً صحيحاً")
     .refine((val) => parseFloat(val) > 0, {

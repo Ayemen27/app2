@@ -408,7 +408,7 @@ export default function ProjectTransfers() {
 
       {/* Modal for Create/Edit */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end md:items-center justify-center p-4">
           <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-2xl w-full max-h-[90vh] md:max-h-[80vh] md:w-full md:max-w-2xl rounded-t-2xl md:rounded-xl overflow-y-auto">
             <CardHeader className="sticky top-0 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 md:p-5 z-10">
               <div className="flex items-center justify-between">

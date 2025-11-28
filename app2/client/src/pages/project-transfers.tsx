@@ -265,7 +265,7 @@ export default function ProjectTransfers() {
             <Card className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-lg md:rounded-xl shadow-lg md:shadow-xl border-2 border-slate-200 dark:border-slate-700">
               <CardContent className="p-3 md:p-5">
                 <div className="overflow-x-auto -mx-3 md:-mx-5 px-3 md:px-5">
-                  <TabsList className="flex gap-1 md:gap-3 bg-transparent p-0 h-auto justify-start w-max">
+                  <TabsList className="flex gap-3 md:gap-6 bg-transparent p-0 h-auto justify-start w-max">
                     <TabTriggerEnhanced value="overview" label="النظرة العامة" />
                     <TabTriggerEnhanced value="list" label="قائمة التحويلات" badge={filteredTransfers.length} />
                     <TabTriggerEnhanced value="create" label="إضافة تحويل جديد" />

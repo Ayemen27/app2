@@ -533,8 +533,9 @@ export default function WorkerAccountsPage() {
               {editingTransfer ? 'قم بتعديل بيانات الحولة المالية' : 'إنشاء حولة مالية جديدة للعامل'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-3">
+            {/* صف 1: العامل والمشروع */}
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>العامل *</Label>
                 <Select
@@ -573,79 +574,86 @@ export default function WorkerAccountsPage() {
               </div>
             </div>
 
-            <div>
-              <Label>المبلغ (ر.ي) *</Label>
-              <Input
-                type="number"
-                value={formData.amount}
-                onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})}
-                placeholder="0"
-                min="0"
-              />
+            {/* صف 2: المبلغ والتاريخ */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>المبلغ (ر.ي) *</Label>
+                <Input
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})}
+                  placeholder="0"
+                  min="0"
+                />
+              </div>
+              <div>
+                <Label>التاريخ *</Label>
+                <Input
+                  type="date"
+                  value={formData.transferDate}
+                  onChange={(e) => setFormData({...formData, transferDate: e.target.value})}
+                  className="w-full"
+                />
+              </div>
             </div>
 
-            <div>
-              <Label>اسم المستلم *</Label>
-              <AutocompleteInput
-                category="recipientNames"
-                value={formData.recipientName}
-                onChange={(value) => setFormData({...formData, recipientName: value})}
-                placeholder="اسم الشخص المستلم للحولة"
-                className="w-full"
-              />
+            {/* صف 3: اسم المستلم وطريقة التحويل */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>المستلم *</Label>
+                <AutocompleteInput
+                  category="recipientNames"
+                  value={formData.recipientName}
+                  onChange={(value) => setFormData({...formData, recipientName: value})}
+                  placeholder="اسم المستلم"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <Label>الطريقة</Label>
+                <Select
+                  value={formData.transferMethod}
+                  onValueChange={(value: 'cash' | 'bank' | 'hawaleh') => 
+                    setFormData({...formData, transferMethod: value})
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hawaleh">حولة</SelectItem>
+                    <SelectItem value="bank">بنكي</SelectItem>
+                    <SelectItem value="cash">نقداً</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div>
-              <Label>رقم الهاتف</Label>
-              <AutocompleteInput
-                category="recipientPhones"
-                value={formData.recipientPhone}
-                onChange={(value) => setFormData({...formData, recipientPhone: value})}
-                placeholder="رقم هاتف المستلم (اختياري)"
-                className="w-full"
-              />
+            {/* صف 4: رقم الهاتف والحولة */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>الهاتف</Label>
+                <AutocompleteInput
+                  category="recipientPhones"
+                  value={formData.recipientPhone}
+                  onChange={(value) => setFormData({...formData, recipientPhone: value})}
+                  placeholder="رقم الهاتف"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <Label>رقم الحولة</Label>
+                <AutocompleteInput
+                  category="workerTransferNumbers"
+                  value={formData.transferNumber}
+                  onChange={(value) => setFormData({...formData, transferNumber: value})}
+                  placeholder="رقم المرجع"
+                  className="w-full"
+                />
+              </div>
             </div>
 
-            <div>
-              <Label>طريقة التحويل</Label>
-              <Select
-                value={formData.transferMethod}
-                onValueChange={(value: 'cash' | 'bank' | 'hawaleh') => 
-                  setFormData({...formData, transferMethod: value})
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hawaleh">حولة</SelectItem>
-                  <SelectItem value="bank">تحويل بنكي</SelectItem>
-                  <SelectItem value="cash">نقداً</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>تاريخ التحويل *</Label>
-              <Input
-                type="date"
-                value={formData.transferDate}
-                onChange={(e) => setFormData({...formData, transferDate: e.target.value})}
-                className="w-full"
-              />
-            </div>
-
-            <div>
-              <Label>رقم الحولة</Label>
-              <AutocompleteInput
-                category="workerTransferNumbers"
-                value={formData.transferNumber}
-                onChange={(value) => setFormData({...formData, transferNumber: value})}
-                placeholder="رقم الحولة أو المرجع"
-                className="w-full"
-              />
-            </div>
-
+            {/* صف 5: الملاحظات (كامل العرض) */}
             <div>
               <Label>ملاحظات</Label>
               <AutocompleteInput

@@ -194,15 +194,13 @@ export function StatsCard({
   // إذا كانت هناك خصائص مخصصة (gradient, iconBg, iconColor) استخدمها
   if (gradient || iconBg || iconColor) {
     return (
-      <div className="flex flex-col justify-between h-full">
-        <div className="flex items-start justify-between mb-2">
-          <div className={cn("w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center", iconBg)}>
-            <Icon className={cn("h-4 w-4 md:h-5 md:w-5", iconColor)} />
-          </div>
+      <div className="flex items-center gap-3">
+        <div className={cn("w-9 h-9 md:w-10 md:h-10 rounded-lg flex-shrink-0 flex items-center justify-center", iconBg)}>
+          <Icon className={cn("h-4 w-4 md:h-5 md:w-5", iconColor)} />
         </div>
-        <div>
-          <p className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">{displayLabel}</p>
-          <p className="text-lg md:text-xl font-bold text-slate-900 dark:text-white">{displayValue}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 line-clamp-1">{displayLabel}</p>
+          <p className="text-base md:text-lg font-bold text-slate-900 dark:text-white">{displayValue}</p>
         </div>
       </div>
     );

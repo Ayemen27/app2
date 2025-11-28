@@ -227,7 +227,7 @@ export default function ProjectTransfers() {
       <div className="flex-1 overflow-y-auto">
         <div className="px-2 py-3 md:px-6 md:py-6 w-full space-y-4 md:space-y-8">
           {/* Stats Cards - 3 in row */}
-          <div className="grid grid-cols-3 gap-6 md:gap-8">
+          <div className="grid grid-cols-3 gap-2 md:gap-3">
             <div>
               <StatsCard
                 icon={ArrowRightLeft}

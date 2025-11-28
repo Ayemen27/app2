@@ -32,6 +32,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Zap, Users, Shield, User, Send, Sparkles, AlertTriangle, ChevronDown, Crown, UserCheck } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
 
 const notificationSchema = z.object({
   type: z.enum(['safety', 'task', 'payroll', 'announcement', 'system']),

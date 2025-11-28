@@ -205,61 +205,6 @@ export default function ProjectTransfers() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
-      {/* Page Header */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 py-3 md:px-6 md:py-5 sticky top-0 z-10">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-amber-600 via-orange-600 to-yellow-600 flex items-center justify-center shadow-xl shadow-amber-500/30 ring-2 ring-white dark:ring-slate-900">
-              <ArrowRightLeft className="h-5 w-5 md:h-6 md:w-6 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg md:text-2xl font-black text-slate-900 dark:text-white truncate">
-                تحويلات العهدة
-              </h1>
-              <p className="text-xs text-slate-600 dark:text-slate-400 font-medium hidden md:block">
-                إدارة وتتبع ترحيل الأموال بين المشاريع
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              disabled={transfersLoading}
-              className="gap-1 md:gap-2 border-2 h-9 md:h-10 px-2 md:px-3"
-            >
-              <RefreshCw className={cn("h-4 w-4", transfersLoading && "animate-spin")} />
-              <span className="hidden md:inline text-xs md:text-sm">تحديث</span>
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="border-2 h-9 md:h-10 px-2">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem className="gap-2 text-xs md:text-sm">
-                  <Download className="h-4 w-4" />
-                  تصدير البيانات
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2 text-xs md:text-sm">
-                  <Upload className="h-4 w-4" />
-                  استيراد بيانات
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2 text-xs md:text-sm">
-                  <Settings className="h-4 w-4" />
-                  الإعدادات
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-2 py-3 md:px-6 md:py-6 w-full space-y-3 md:space-y-6">

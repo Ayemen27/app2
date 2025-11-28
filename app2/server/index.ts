@@ -49,7 +49,8 @@ const getAllowedOrigins = (): string[] => {
   
   // في بيئة التطوير فقط، إضافة localhost
   if (!isProduction) {
-    origins.push('http://localhost:5000', 'http://127.0.0.1:5000', 'http://0.0.0.0:5000');
+    const PORT = process.env.PORT || '5000';
+    origins.push(`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`, `http://0.0.0.0:${PORT}`);
   }
   
   // في الإنتاج، إذا لم توجد نطاقات، رفض الطلبات
@@ -58,7 +59,7 @@ const getAllowedOrigins = (): string[] => {
     return [];
   }
   
-  return origins.length > 0 ? origins : ['http://localhost:5000'];
+  return origins.length > 0 ? origins : [`http://localhost:${process.env.PORT || '5000'}`];
 };
 
 app.use(cors({

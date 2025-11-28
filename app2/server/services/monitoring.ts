@@ -23,7 +23,9 @@ export class MonitoringService {
   private async checkServiceStatus(): Promise<string> {
     try {
       // In production, this would check actual service health
-      const response = await fetch(process.env.HEALTH_CHECK_URL || 'http://localhost:3000/health').catch(() => null);
+      const port = process.env.HEALTH_CHECK_PORT || process.env.PORT || '5000';
+      const healthCheckUrl = process.env.HEALTH_CHECK_URL || `http://localhost:${port}/api/health`;
+      const response = await fetch(healthCheckUrl).catch(() => null);
       return response?.ok ? "متاحة" : "غير متاحة";
     } catch {
       return "غير متاحة";

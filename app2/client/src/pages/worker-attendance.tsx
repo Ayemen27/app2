@@ -110,6 +110,31 @@ export default function WorkerAttendance() {
       }
     },
     enabled: !!selectedProjectId,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0
+  });
+
+  // Get all project attendance records (للسجلات القديمة)
+  const { data: allProjectAttendance = [] } = useQuery({
+    queryKey: ["/api/projects", selectedProjectId, "worker-attendance"],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest(`/api/projects/${selectedProjectId}/worker-attendance`, "GET");
+        // معالجة الهيكل المتداخل للاستجابة
+        if (response && response.data && Array.isArray(response.data)) {
+          return response.data;
+        }
+        return Array.isArray(response) ? response : [];
+      } catch (error) {
+        console.error("Error fetching all attendance records:", error);
+        return [];
+      }
+    },
+    enabled: !!selectedProjectId,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0
   });
 
   // Fetch specific attendance record for editing
@@ -708,50 +733,102 @@ export default function WorkerAttendance() {
       )}
 
       {/* Today's Attendance List */}
-      {selectedProjectId && todayAttendance.length > 0 && (
+      {selectedProjectId && (
         <Card className="mt-6">
           <CardContent className="p-4">
-            <h3 className="text-lg font-semibold text-foreground">حضور اليوم المسجل ({selectedDate})</h3>
-            <div className="space-y-3">
-              {todayAttendance.map((record: any) => {
-                const worker = workers.find(w => w.id === record.workerId);
-                return (
-                  <div key={record.id} className="border rounded-lg p-3 bg-card">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-foreground">{worker?.name}</span>
-                          <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded">حاضر</span>
+            <h3 className="text-lg font-semibold text-foreground">
+              {todayAttendance.length > 0 
+                ? `حضور اليوم المسجل (${selectedDate})` 
+                : `جميع سجلات الحضور للمشروع`}
+            </h3>
+            {todayAttendance.length > 0 ? (
+              <div className="space-y-3">
+                {todayAttendance.map((record: any) => {
+                  const worker = workers.find(w => w.id === record.workerId);
+                  return (
+                    <div key={record.id} className="border rounded-lg p-3 bg-card">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-foreground">{worker?.name || record.workerId}</span>
+                            <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded">حاضر</span>
+                          </div>
+                          <div className="text-sm text-muted-foreground space-y-1">
+                            <p>التاريخ: {record.date || record.attendanceDate}</p>
+                            <p>الوقت: {record.startTime || 'غير محدد'} - {record.endTime || 'غير محدد'}</p>
+                            <p>الراتب اليومي: {record.dailyWage || '0'} ر.ي</p>
+                            <p>المدفوع: {record.paidAmount || '0'} ر.ي | المتبقي: {record.remainingAmount || '0'} ر.ي</p>
+                            {record.workDescription && <p>الوصف: {record.workDescription}</p>}
+                          </div>
                         </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <p>الوقت: {record.startTime} - {record.endTime}</p>
-                          <p>الراتب اليومي: {record.dailyWage} ر.ي</p>
-                          <p>المدفوع: {record.paidAmount} ر.ي | المتبقي: {record.remainingAmount} ر.ي</p>
-                          {record.workDescription && <p>الوصف: {record.workDescription}</p>}
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditAttendance(record)}
+                          >
+                            تعديل
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteAttendanceMutation.mutate(record.id)}
+                            disabled={deleteAttendanceMutation.isPending}
+                          >
+                            حذف
+                          </Button>
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEditAttendance(record)}
-                        >
-                          تعديل
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => deleteAttendanceMutation.mutate(record.id)}
-                          disabled={deleteAttendanceMutation.isPending}
-                        >
-                          حذف
-                        </Button>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : allProjectAttendance.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground mb-4">لا توجد سجلات لتاريخ اليوم ({selectedDate}). تم عرض جميع السجلات:</p>
+                {allProjectAttendance.map((record: any) => {
+                  const worker = workers.find(w => w.id === record.workerId);
+                  return (
+                    <div key={record.id} className="border rounded-lg p-3 bg-card">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-foreground">{worker?.name || record.workerId}</span>
+                            <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded">حاضر</span>
+                          </div>
+                          <div className="text-sm text-muted-foreground space-y-1">
+                            <p>التاريخ: {record.date || record.attendanceDate}</p>
+                            <p>الوقت: {record.startTime || 'غير محدد'} - {record.endTime || 'غير محدد'}</p>
+                            <p>الراتب اليومي: {record.dailyWage || '0'} ر.ي</p>
+                            <p>المدفوع: {record.paidAmount || '0'} ر.ي | المتبقي: {record.remainingAmount || '0'} ر.ي</p>
+                            {record.workDescription && <p>الوصف: {record.workDescription}</p>}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditAttendance(record)}
+                          >
+                            تعديل
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteAttendanceMutation.mutate(record.id)}
+                            disabled={deleteAttendanceMutation.isPending}
+                          >
+                            حذف
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-center py-8 text-muted-foreground">لا توجد سجلات حضور للمشروع</p>
+            )}
           </CardContent>
         </Card>
       )}

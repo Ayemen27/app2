@@ -522,6 +522,7 @@ export default function WorkerAccountsPage() {
             })}
           </div>
         )}
+      </div>
 
       {/* Transfer Dialog */}
       <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>

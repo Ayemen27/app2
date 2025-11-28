@@ -135,6 +135,7 @@ export default function ProjectTransfers() {
       });
       form.reset();
       setEditingTransfer(null);
+      setShowCreateModal(false);
     },
     onError: (error: any) => {
       toast({
@@ -217,7 +218,7 @@ export default function ProjectTransfers() {
       transferDate: transfer.transferDate,
       description: transfer.description || "",
     });
-    setSelectedTab('create');
+    setShowCreateModal(true);
   };
 
   const getProjectName = (projectId: string) => {

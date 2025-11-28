@@ -10,7 +10,7 @@ import { db } from '../../db.js';
 import {
   workers, workerAttendance, workerTransfers, workerMiscExpenses, workerBalances,
   transportationExpenses, enhancedInsertWorkerSchema, insertWorkerAttendanceSchema,
-  insertWorkerTransferSchema, insertWorkerMiscExpenseSchema
+  insertWorkerTransferSchema, insertWorkerMiscExpenseSchema, workerTypes
 } from '@shared/schema';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
 
@@ -885,20 +885,15 @@ workerRouter.get('/autocomplete/workerMiscDescriptions', async (req: Request, re
  */
 workerRouter.get('/worker-types', async (req: Request, res: Response) => {
   try {
-    const workerTypes = [
-      { id: '1', name: 'معلم', usageCount: 1 },
-      { id: '2', name: 'عامل', usageCount: 1 },
-      { id: '3', name: 'مساعد', usageCount: 1 },
-      { id: '4', name: 'سائق', usageCount: 1 },
-      { id: '5', name: 'حارس', usageCount: 1 }
-    ];
+    const allWorkerTypes = await db.select().from(workerTypes).orderBy(workerTypes.name);
 
     res.json({ 
       success: true, 
-      data: workerTypes, 
-      message: "Worker types loaded successfully" 
+      data: allWorkerTypes, 
+      message: "تم جلب أنواع العمال بنجاح" 
     });
   } catch (error: any) {
+    console.error('❌ خطأ في جلب أنواع العمال:', error);
     res.status(500).json({
       success: false,
       data: [],
@@ -929,45 +924,32 @@ workerRouter.post('/worker-types', async (req: Request, res: Response) => {
       });
     }
 
-    // القائمة الثابتة من أنواع العمال المسموح بها
-    const defaultWorkerTypes = [
-      { id: '1', name: 'معلم', usageCount: 1 },
-      { id: '2', name: 'عامل', usageCount: 1 },
-      { id: '3', name: 'مساعد', usageCount: 1 },
-      { id: '4', name: 'سائق', usageCount: 1 },
-      { id: '5', name: 'حارس', usageCount: 1 }
-    ];
+    // التحقق من عدم تكرار النوع في قاعدة البيانات
+    const existingType = await db.select().from(workerTypes)
+      .where(sql`LOWER(name) = LOWER(${name.trim()})`);
 
-    // التحقق من عدم تكرار النوع
-    const existingType = defaultWorkerTypes.find(
-      t => t.name.toLowerCase() === name.trim().toLowerCase()
-    );
-
-    if (existingType) {
+    if (existingType.length > 0) {
       const duration = Date.now() - startTime;
       return res.status(409).json({
         success: false,
         error: 'نوع العامل موجود مسبقاً',
-        message: `نوع العامل "${existingType.name}" موجود في النظام`,
+        message: `نوع العامل "${name.trim()}" موجود في النظام`,
         processingTime: duration
       });
     }
 
-    // إنشاء نوع عامل جديد
-    const newId = (Math.max(...defaultWorkerTypes.map(t => parseInt(t.id))) + 1).toString();
-    const newWorkerType = {
-      id: newId,
-      name: name.trim(),
-      usageCount: 1
-    };
+    // إدراج نوع عامل جديد في قاعدة البيانات
+    const newWorkerType = await db.insert(workerTypes).values({
+      name: name.trim()
+    }).returning();
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إضافة نوع عامل جديد "${name}" بنجاح في ${duration}ms`);
 
     res.status(201).json({
       success: true,
-      data: newWorkerType,
-      message: `تم إضافة نوع العامل "${name}" بنجاح`,
+      data: newWorkerType[0],
+      message: `تم إضافة نوع العامل "${name.trim()}" بنجاح`,
       processingTime: duration
     });
 

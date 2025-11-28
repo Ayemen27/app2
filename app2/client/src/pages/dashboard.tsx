@@ -378,17 +378,18 @@ export default function Dashboard() {
             <div className="form-field form-field-full">
               <Label htmlFor="worker-type">نوع العامل</Label>
               <div className="flex gap-2">
-                <Select value={workerData.type} onValueChange={(value) => setWorkerData({...workerData, type: value})}>
+                <Select value={workerData.type || ""} onValueChange={(value) => setWorkerData({...workerData, type: value})}>
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="اختر نوع العامل..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.isArray(workerTypes) ? workerTypes.map((workerType) => (
-                      <SelectItem key={workerType.id} value={workerType.name}>
-                        {workerType.name}
-                      </SelectItem>
-                    )) : null}
-                    {workerTypes.length === 0 && (
+                    {Array.isArray(workerTypes) && workerTypes.length > 0 ? (
+                      workerTypes.map((workerType) => (
+                        <SelectItem key={workerType.id} value={workerType.name}>
+                          {workerType.name}
+                        </SelectItem>
+                      ))
+                    ) : (
                       <>
                         <SelectItem value="معلم">معلم</SelectItem>
                         <SelectItem value="عامل">عامل</SelectItem>
@@ -402,70 +403,57 @@ export default function Dashboard() {
                     )}
                   </SelectContent>
                 </Select>
-                <Dialog open={showAddTypeDialog} onOpenChange={setShowAddTypeDialog}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="icon" 
-                      className="shrink-0" 
-                      title="إضافة نوع جديد"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>إضافة نوع عامل جديد</DialogTitle>
-                      <DialogDescription>
-                        أدخل اسم نوع العامل الجديد ليتم حفظه في قاعدة البيانات
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="form-grid">
-                      <div className="form-field form-field-full">
-                        <Label htmlFor="new-type-name">اسم نوع العامل</Label>
-                        <Input
-                          id="new-type-name"
-                          type="text"
-                          value={newTypeName}
-                          onChange={(e) => setNewTypeName(e.target.value)}
-                          placeholder="مثال: كهربائي، سباك، حداد..."
-                          required
-                        />
-                      </div>
-                      <div className="form-actions" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (newTypeName.trim()) {
-                              addWorkerTypeMutation.mutate({ name: newTypeName.trim() });
-                            }
-                          }}
-                          disabled={!newTypeName.trim() || addWorkerTypeMutation.isPending}
-                        >
-                          {addWorkerTypeMutation.isPending ? "جاري الإضافة..." : "إضافة"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setShowAddTypeDialog(false);
-                            setNewTypeName("");
-                          }}
-                        >
-                          إلغاء
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
               </div>
             </div>
+
+            {/* Separate Dialog for Adding New Worker Type */}
+            <Dialog open={showAddTypeDialog} onOpenChange={setShowAddTypeDialog}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>إضافة نوع عامل جديد</DialogTitle>
+                  <DialogDescription>
+                    أدخل اسم نوع العامل الجديد ليتم حفظه في قاعدة البيانات
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="form-grid">
+                  <div className="form-field form-field-full">
+                    <Label htmlFor="new-type-name">اسم نوع العامل</Label>
+                    <Input
+                      id="new-type-name"
+                      type="text"
+                      value={newTypeName}
+                      onChange={(e) => setNewTypeName(e.target.value)}
+                      placeholder="مثال: كهربائي، سباك، حداد..."
+                      required
+                    />
+                  </div>
+                  <div className="form-actions">
+                    <Button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (newTypeName.trim()) {
+                          addWorkerTypeMutation.mutate({ name: newTypeName.trim() });
+                        }
+                      }}
+                      disabled={!newTypeName.trim() || addWorkerTypeMutation.isPending}
+                    >
+                      {addWorkerTypeMutation.isPending ? "جاري الإضافة..." : "إضافة"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowAddTypeDialog(false);
+                        setNewTypeName("");
+                      }}
+                    >
+                      إلغاء
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
             <div className="form-actions">
               <Button
                 onClick={() => {
@@ -495,13 +483,26 @@ export default function Dashboard() {
                   });
                 }}
                 disabled={addWorkerMutation.isPending}
+                className="gap-2"
               >
-                {addWorkerMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+                {addWorkerMutation.isPending ? "⏳ جاري الحفظ..." : "✅ حفظ"}
               </Button>
               <Button variant="outline" onClick={() => setShowWorkerModal(false)}>
                 إلغاء
               </Button>
             </div>
+            
+            {/* Button to add new worker type - moved outside of form */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddTypeDialog(true)}
+              className="w-full gap-2 mt-2"
+            >
+              <Plus className="h-4 w-4" />
+              إضافة نوع عامل جديد
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

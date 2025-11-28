@@ -58,16 +58,23 @@ publicRouter.use('/auth/*', authRouteRateLimit);
  * ===== مسارات البيانات العامة =====
  */
 
-// مسار أنواع العمال - بيانات غير حساسة
+// مسار أنواع العمال - بيانات عامة (بدون مصادقة)
 publicRouter.get('/worker-types', async (req: Request, res: Response) => {
   try {
-    // هذا المسار سيتم تفويضه للـ controller الأصلي
-    // هنا للتوضيح فقط
+    const { workerTypes } = require('@shared/schema');
+    const { db } = require('../../db.js');
+    
+    console.log('📋 [API] جلب أنواع العمال من public router');
+    const allWorkerTypes = await db.select().from(workerTypes).orderBy(workerTypes.name);
+    
+    console.log(`✅ تم جلب ${allWorkerTypes.length} نوع عامل`);
     res.json({
       success: true,
-      message: 'مسار عام - يتم التعامل معه في الـ controller الأصلي'
+      data: allWorkerTypes,
+      message: 'تم جلب أنواع العمال بنجاح'
     });
   } catch (error: any) {
+    console.error('❌ خطأ في جلب أنواع العمال:', error);
     res.status(500).json({
       success: false,
       error: 'خطأ في جلب أنواع العمال',

@@ -7,6 +7,14 @@ export function useWebSocketSync() {
   const { toast } = useToast();
 
   useEffect(() => {
+    // تعطيل WebSocket في production لتجنب أخطاء 502
+    const isProduction = window.location.hostname.includes('binarjoinanelytic.info');
+    
+    if (isProduction) {
+      console.log('ℹ️ [WebSocket] تم تعطيل WebSocket في بيئة الإنتاج');
+      return;
+    }
+
     const connectWebSocket = () => {
       // Determine WebSocket URL based on environment
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

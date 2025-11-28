@@ -13,6 +13,15 @@ import { generalRateLimit, trackSuspiciousActivity, securityHeaders } from "./mi
 import { autoSchemaPush } from './auto-schema-push';
 import http from 'http';
 import { Server } from 'socket.io';
+import compression from "compression"; // Import compression
+
+// Assume setupSession is defined elsewhere and imported
+// For demonstration purposes, let's define a placeholder if it's not in the original snippet
+const setupSession = (app: express.Express) => {
+  // Placeholder for session setup
+  console.log("Session setup placeholder");
+};
+
 
 const app = express();
 
@@ -37,7 +46,7 @@ app.use(helmet({
 const getAllowedOrigins = (): string[] => {
   const isProduction = process.env.NODE_ENV === 'production';
   const origins: string[] = [];
-  
+
   // إضافة نطاقات Replit تلقائياً (HTTPS فقط)
   if (process.env.REPLIT_DOMAINS) {
     origins.push(`https://${process.env.REPLIT_DOMAINS}`);
@@ -45,24 +54,24 @@ const getAllowedOrigins = (): string[] => {
   if (process.env.REPLIT_DEV_DOMAIN) {
     origins.push(`https://${process.env.REPLIT_DEV_DOMAIN}`);
   }
-  
+
   // إضافة نطاق مخصص من متغيرات البيئة (للإنتاج)
   if (process.env.CUSTOM_DOMAIN) {
     origins.push(`https://${process.env.CUSTOM_DOMAIN}`);
   }
-  
+
   // في بيئة التطوير فقط، إضافة localhost
   if (!isProduction) {
     const PORT = process.env.PORT || '5000';
     origins.push(`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`, `http://0.0.0.0:${PORT}`);
   }
-  
+
   // في الإنتاج، إذا لم توجد نطاقات، رفض الطلبات
   if (isProduction && origins.length === 0) {
     console.warn('⚠️ [CORS] لم يتم تكوين نطاقات للإنتاج - يُرجى تعيين REPLIT_DOMAINS أو CUSTOM_DOMAIN');
     return [];
   }
-  
+
   return origins.length > 0 ? origins : [`http://localhost:${process.env.PORT || '5000'}`];
 };
 
@@ -102,7 +111,7 @@ const io = new Server(server, {
 // Socket.IO connection handler
 io.on('connection', (socket) => {
   console.log('🔌 [WebSocket] عميل متصل:', socket.id);
-  
+
   socket.on('disconnect', () => {
     console.log('🔌 [WebSocket] عميل قطع الاتصال:', socket.id);
   });
@@ -160,7 +169,7 @@ app.use("*", (req, res) => {
       path: req.originalUrl
     });
   }
-  
+
   // For non-API routes in production, this is handled by serveStatic
   // For development, this is handled by Vite
   // If we reach here, it means neither handled it

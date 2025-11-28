@@ -375,7 +375,7 @@ export default function ProjectTransfers() {
       </div>
 
       {/* Floating Button for Create */}
-      <div className="fixed bottom-10 left-6 z-50">
+      <div className="fixed top-6 left-6 z-50">
         <Button
           onClick={() => {
             setShowCreateModal(!showCreateModal);

@@ -1,11 +1,16 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface StatsCardProps {
-  title: string;
+  title?: string;
+  label?: string;
   value: string | number;
   icon: LucideIcon;
   color?: "blue" | "green" | "orange" | "red" | "purple" | "teal" | "indigo" | "emerald" | "amber" | "gray";
+  gradient?: string;
+  iconBg?: string;
+  iconColor?: string;
   formatter?: (value: number) => string;
   format?: string;
   trend?: { value: number; isPositive: boolean };
@@ -87,15 +92,21 @@ const colorVariants = {
 };
 
 export function StatsCard({ 
-  title, 
+  title,
+  label,
   value, 
   icon: Icon, 
-  color = "blue", 
+  color = "blue",
+  gradient,
+  iconBg,
+  iconColor,
   formatter, 
   className = "",
   "data-testid": dataTestId
 }: StatsCardProps) {
-  const colors = colorVariants[color];
+  // استخدام الخصائص المخصصة أو الألوان الافتراضية
+  const colors = color && colorVariants[color] ? colorVariants[color] : colorVariants.blue;
+  const displayLabel = label || title || '';
   
   // تنظيف القيمة قبل العرض مع حماية أقوى ومحسنة
   const cleanValue = () => {
@@ -167,7 +178,7 @@ export function StatsCard({
       const finalValue = Math.max(0, parsed);
       
       // فحص إضافي للتأكد من عدم وجود أعداد صحيحة كبيرة جداً بشكل غير منطقي
-      if (Number.isInteger(finalValue) && finalValue > 1000000 && title.includes('عامل')) {
+      if (Number.isInteger(finalValue) && finalValue > 1000000 && displayLabel.includes('عامل')) {
         console.warn('⚠️ [StatsCard] عدد عمال غير منطقي:', finalValue);
         return '0';
       }
@@ -180,13 +191,31 @@ export function StatsCard({
   
   const displayValue = cleanValue();
   
+  // إذا كانت هناك خصائص مخصصة (gradient, iconBg, iconColor) استخدمها
+  if (gradient || iconBg || iconColor) {
+    return (
+      <div className="flex flex-col justify-between h-full">
+        <div className="flex items-start justify-between mb-2">
+          <div className={cn("w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center", iconBg)}>
+            <Icon className={cn("h-4 w-4 md:h-5 md:w-5", iconColor)} />
+          </div>
+        </div>
+        <div>
+          <p className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">{displayLabel}</p>
+          <p className="text-lg md:text-xl font-bold text-slate-900 dark:text-white">{displayValue}</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // الاستايل الافتراضي القديم
   return (
     <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-105 min-h-20`}>
       <CardContent className="p-2 py-2 flex flex-col justify-center h-full">
         <div className="space-y-1.5 flex flex-col items-center text-center">
           {/* Title and Icon in one row */}
           <div className="flex items-center justify-center gap-1.5">
-            <p className="text-[11px] font-medium text-muted-foreground leading-none line-clamp-2 flex-1">{title}</p>
+            <p className="text-[11px] font-medium text-muted-foreground leading-none line-clamp-2 flex-1">{displayLabel}</p>
             <div className={`h-4 w-4 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
               <Icon className={`h-2 w-2 ${colors.iconColor}`} />
             </div>

@@ -718,7 +718,7 @@ export default function ProjectsPage() {
           </Button>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 px-2">
           {Array.isArray(projects) ? projects.map((project) => (
             <Card key={project.id} className="relative overflow-hidden hover:shadow-lg transition-shadow">
               {/* Project Image */}

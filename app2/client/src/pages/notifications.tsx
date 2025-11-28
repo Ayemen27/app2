@@ -348,8 +348,28 @@ export default function NotificationsPage() {
       if (!response.ok) throw new Error('Failed to mark notification as read');
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
+    onMutate: async (notificationId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/notifications', userId] });
+      const previousData = queryClient.getQueryData(['/api/notifications', userId]);
+      queryClient.setQueryData(['/api/notifications', userId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          notifications: old.notifications.map((n: any) =>
+            n.id === notificationId ? { ...n, isRead: true, status: 'read' } : n
+          ),
+          unreadCount: Math.max(0, (old.unreadCount || 0) - 1),
+        };
+      });
+      return { previousData };
+    },
+    onError: (_err, _notificationId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/notifications', userId], context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'], exact: false });
     },
   });
 
@@ -365,8 +385,26 @@ export default function NotificationsPage() {
       if (!response.ok) throw new Error('Failed to mark all as read');
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['/api/notifications', userId] });
+      const previousData = queryClient.getQueryData(['/api/notifications', userId]);
+      queryClient.setQueryData(['/api/notifications', userId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          notifications: old.notifications.map((n: any) => ({ ...n, isRead: true, status: 'read' })),
+          unreadCount: 0,
+        };
+      });
+      return { previousData };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/notifications', userId], context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'], exact: false });
       toast({ title: 'تم بنجاح', description: 'تم تعليم جميع الإشعارات كمقروءة' });
       setSelectedIds(new Set());
     },
@@ -383,9 +421,31 @@ export default function NotificationsPage() {
           },
         })
       ));
+      return ids;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
+    onMutate: async (ids: string[]) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/notifications', userId] });
+      const previousData = queryClient.getQueryData(['/api/notifications', userId]);
+      queryClient.setQueryData(['/api/notifications', userId], (old: any) => {
+        if (!old) return old;
+        const idsSet = new Set(ids);
+        return {
+          ...old,
+          notifications: old.notifications.map((n: any) =>
+            idsSet.has(n.id) ? { ...n, isRead: true, status: 'read' } : n
+          ),
+          unreadCount: Math.max(0, (old.unreadCount || 0) - ids.length),
+        };
+      });
+      return { previousData };
+    },
+    onError: (_err, _ids, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/notifications', userId], context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'], exact: false });
       toast({ title: 'تم بنجاح', description: `تم تعليم ${selectedIds.size} إشعار كمقروء` });
       setSelectedIds(new Set());
     },

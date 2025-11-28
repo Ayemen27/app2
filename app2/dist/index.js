@@ -11970,6 +11970,64 @@ workerRouter.get("/worker-types", async (req, res) => {
     });
   }
 });
+workerRouter.post("/worker-types", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { name } = req.body;
+    console.log("\u2795 [API] \u0637\u0644\u0628 \u0625\u0636\u0627\u0641\u0629 \u0646\u0648\u0639 \u0639\u0627\u0645\u0644 \u062C\u062F\u064A\u062F:", name);
+    if (!name || typeof name !== "string" || !name.trim()) {
+      const duration2 = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: "\u0627\u0633\u0645 \u0646\u0648\u0639 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0637\u0644\u0648\u0628",
+        message: "\u064A\u0631\u062C\u0649 \u062A\u0642\u062F\u064A\u0645 \u0627\u0633\u0645 \u0635\u062D\u064A\u062D \u0644\u0646\u0648\u0639 \u0627\u0644\u0639\u0627\u0645\u0644",
+        processingTime: duration2
+      });
+    }
+    const defaultWorkerTypes = [
+      { id: "1", name: "\u0645\u0639\u0644\u0645", usageCount: 1 },
+      { id: "2", name: "\u0639\u0627\u0645\u0644", usageCount: 1 },
+      { id: "3", name: "\u0645\u0633\u0627\u0639\u062F", usageCount: 1 },
+      { id: "4", name: "\u0633\u0627\u0626\u0642", usageCount: 1 },
+      { id: "5", name: "\u062D\u0627\u0631\u0633", usageCount: 1 }
+    ];
+    const existingType = defaultWorkerTypes.find(
+      (t) => t.name.toLowerCase() === name.trim().toLowerCase()
+    );
+    if (existingType) {
+      const duration2 = Date.now() - startTime;
+      return res.status(409).json({
+        success: false,
+        error: "\u0646\u0648\u0639 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B",
+        message: `\u0646\u0648\u0639 \u0627\u0644\u0639\u0627\u0645\u0644 "${existingType.name}" \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u0627\u0644\u0646\u0638\u0627\u0645`,
+        processingTime: duration2
+      });
+    }
+    const newId = (Math.max(...defaultWorkerTypes.map((t) => parseInt(t.id))) + 1).toString();
+    const newWorkerType = {
+      id: newId,
+      name: name.trim(),
+      usageCount: 1
+    };
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0646\u0648\u0639 \u0639\u0627\u0645\u0644 \u062C\u062F\u064A\u062F "${name}" \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
+    res.status(201).json({
+      success: true,
+      data: newWorkerType,
+      message: `\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0646\u0648\u0639 \u0627\u0644\u0639\u0627\u0645\u0644 "${name}" \u0628\u0646\u062C\u0627\u062D`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u0625\u0636\u0627\u0641\u0629 \u0646\u0648\u0639 \u0639\u0627\u0645\u0644 \u062C\u062F\u064A\u062F:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u062E\u0637\u0623 \u0641\u064A \u0625\u0636\u0627\u0641\u0629 \u0646\u0648\u0639 \u0627\u0644\u0639\u0627\u0645\u0644",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
   const startTime = Date.now();
   try {

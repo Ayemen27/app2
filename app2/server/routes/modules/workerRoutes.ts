@@ -908,6 +908,81 @@ workerRouter.get('/worker-types', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * ➕ إضافة نوع عامل جديد
+ * POST /worker-types
+ */
+workerRouter.post('/worker-types', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { name } = req.body;
+    
+    console.log('➕ [API] طلب إضافة نوع عامل جديد:', name);
+    
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'اسم نوع العامل مطلوب',
+        message: 'يرجى تقديم اسم صحيح لنوع العامل',
+        processingTime: duration
+      });
+    }
+
+    // القائمة الثابتة من أنواع العمال المسموح بها
+    const defaultWorkerTypes = [
+      { id: '1', name: 'معلم', usageCount: 1 },
+      { id: '2', name: 'عامل', usageCount: 1 },
+      { id: '3', name: 'مساعد', usageCount: 1 },
+      { id: '4', name: 'سائق', usageCount: 1 },
+      { id: '5', name: 'حارس', usageCount: 1 }
+    ];
+
+    // التحقق من عدم تكرار النوع
+    const existingType = defaultWorkerTypes.find(
+      t => t.name.toLowerCase() === name.trim().toLowerCase()
+    );
+
+    if (existingType) {
+      const duration = Date.now() - startTime;
+      return res.status(409).json({
+        success: false,
+        error: 'نوع العامل موجود مسبقاً',
+        message: `نوع العامل "${existingType.name}" موجود في النظام`,
+        processingTime: duration
+      });
+    }
+
+    // إنشاء نوع عامل جديد
+    const newId = (Math.max(...defaultWorkerTypes.map(t => parseInt(t.id))) + 1).toString();
+    const newWorkerType = {
+      id: newId,
+      name: name.trim(),
+      usageCount: 1
+    };
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم إضافة نوع عامل جديد "${name}" بنجاح في ${duration}ms`);
+
+    res.status(201).json({
+      success: true,
+      data: newWorkerType,
+      message: `تم إضافة نوع العامل "${name}" بنجاح`,
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في إضافة نوع عامل جديد:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في إضافة نوع العامل',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
 // ===========================================
 // Worker Attendance Routes (حضور العمال)
 // ===========================================

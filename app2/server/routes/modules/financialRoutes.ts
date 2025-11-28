@@ -518,6 +518,52 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
   }
 });
 
+// حذف تحويل أموال مشروع
+financialRouter.delete('/project-fund-transfers/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { id } = req.params;
+    console.log('🗑️ [API] طلب حذف تحويل أموال مشروع:', id);
+
+    // التحقق من وجود السجل
+    const transfer = await db.select().from(projectFundTransfers).where(eq(projectFundTransfers.id, id));
+    
+    if (!transfer || transfer.length === 0) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] تحويل المشروع غير موجود:', id);
+      return res.status(404).json({
+        success: false,
+        error: 'تحويل المشروع غير موجود',
+        message: `لم يتم العثور على تحويل المشروع برقم ${id}`,
+        processingTime: duration
+      });
+    }
+
+    // حذف السجل
+    const result = await db.delete(projectFundTransfers).where(eq(projectFundTransfers.id, id));
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم حذف تحويل المشروع بنجاح في ${duration}ms:`, id);
+
+    res.json({
+      success: true,
+      data: transfer[0],
+      message: 'تم حذف تحويل المشروع بنجاح',
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في حذف تحويل المشروع:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'فشل في حذف تحويل المشروع',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
 /**
  * 👷‍♂️ تحويلات العمال ومصاريفهم
  * Worker Transfers & Expenses

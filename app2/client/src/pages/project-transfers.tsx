@@ -207,9 +207,9 @@ export default function ProjectTransfers() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-2 py-3 md:px-6 md:py-6 w-full space-y-3 md:space-y-6">
+        <div className="px-2 py-3 md:px-6 md:py-6 w-full space-y-4 md:space-y-8">
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
             <StatsCard
               icon={ArrowRightLeft}
               label="إجمالي العمليات"
@@ -261,21 +261,33 @@ export default function ProjectTransfers() {
               showActiveFilters={true}
             />
 
-            {/* Tab Navigation - Separate Cards */}
-            <div className="flex gap-4 md:gap-6 overflow-x-auto -mx-2 px-2 md:-mx-6 md:px-6">
-              <button onClick={() => setSelectedTab('overview')} className={`flex-1 min-w-max px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 ${ selectedTab === 'overview' ? 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-300 dark:hover:border-amber-700'}`}>
-                النظرة العامة
-              </button>
-              <button onClick={() => setSelectedTab('list')} className={`flex-1 min-w-max px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 flex items-center gap-2 ${ selectedTab === 'list' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700'}`}>
-                <span>قائمة التحويلات</span>
-                {filteredTransfers.length > 0 && (
-                  <Badge className="bg-red-500 text-white">{filteredTransfers.length}</Badge>
-                )}
-              </button>
-              <button onClick={() => setSelectedTab('create')} className={`flex-1 min-w-max px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 ${ selectedTab === 'create' ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/40 dark:to-emerald-950/40 border-green-300 dark:border-green-700 text-green-900 dark:text-green-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-green-300 dark:hover:border-green-700'}`}>
-                إضافة تحويل جديد
-              </button>
-            </div>
+            {/* Tab Navigation */}
+            <Card className="bg-transparent border-0 shadow-none p-0">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto -mx-2 px-2 md:-mx-6 md:px-6">
+                  <TabsList className="flex gap-3 md:gap-6 bg-transparent p-0 h-auto justify-start w-max">
+                    <button 
+                      onClick={() => setSelectedTab('overview')} 
+                      className={`px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 text-xs md:text-sm whitespace-nowrap ${ selectedTab === 'overview' ? 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-300 dark:hover:border-amber-700'}`}>
+                      النظرة العامة
+                    </button>
+                    <button 
+                      onClick={() => setSelectedTab('list')} 
+                      className={`px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 text-xs md:text-sm flex items-center gap-2 whitespace-nowrap ${ selectedTab === 'list' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700'}`}>
+                      <span>قائمة التحويلات</span>
+                      {filteredTransfers.length > 0 && (
+                        <Badge className="bg-red-500 text-white text-xs">{filteredTransfers.length}</Badge>
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => setSelectedTab('create')} 
+                      className={`px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 text-xs md:text-sm whitespace-nowrap ${ selectedTab === 'create' ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/40 dark:to-emerald-950/40 border-green-300 dark:border-green-700 text-green-900 dark:text-green-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-green-300 dark:hover:border-green-700'}`}>
+                      إضافة تحويل جديد
+                    </button>
+                  </TabsList>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-3 md:space-y-6 mt-0">

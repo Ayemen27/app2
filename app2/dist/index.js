@@ -3069,30 +3069,7 @@ var securityHeaders = (req, res, next) => {
   res.setHeader("Content-Security-Policy", cspPolicy);
   next();
 };
-var suspiciousActivityTracker = /* @__PURE__ */ new Map();
 var trackSuspiciousActivity = (req, res, next) => {
-  const rawIp = req.ip || req.connection.remoteAddress || "unknown";
-  const userAgent = req.get("User-Agent") || "unknown";
-  const ip = rawIp.replace(/^::ffff:/, "");
-  const isLocalRequest = ip === "127.0.0.1" || ip === "::1" || ip === "localhost" || ip === "::ffff:127.0.0.1" || userAgent.includes("HeadlessChrome") || userAgent.includes("Replit-Bonsai") || userAgent.includes("Replit") || ip.startsWith("10.") || ip.startsWith("172.") || ip.startsWith("192.168.");
-  if (isLocalRequest) {
-    return next();
-  }
-  const activity = suspiciousActivityTracker.get(ip) || { attempts: 0, lastAttempt: 0 };
-  const now = Date.now();
-  if (now - activity.lastAttempt > 60 * 60 * 1e3) {
-    activity.attempts = 0;
-  }
-  activity.attempts++;
-  activity.lastAttempt = now;
-  suspiciousActivityTracker.set(ip, activity);
-  if (activity.attempts > 50) {
-    console.warn(`\u{1F6A8} \u0646\u0634\u0627\u0637 \u0645\u0634\u0628\u0648\u0647 \u0645\u0646 IP: ${ip}, User-Agent: ${userAgent}`);
-    return res.status(429).json({
-      success: false,
-      message: "\u062A\u0645 \u062D\u0638\u0631 \u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0645\u0624\u0642\u062A\u0627\u064B \u0628\u0633\u0628\u0628 \u0627\u0644\u0646\u0634\u0627\u0637 \u0627\u0644\u0645\u0634\u0628\u0648\u0647"
-    });
-  }
   next();
 };
 var authenticate = async (req, res, next) => {

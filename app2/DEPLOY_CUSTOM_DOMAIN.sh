@@ -87,13 +87,33 @@ deploy_on_server() {
     
     DEPLOY_CMD=$(cat <<'EOF'
 cd /home/administrator/construction-app
+
+# استخراج الملفات الجديدة
 tar -xzf deployment-package.tar.gz 2>/dev/null
 rm -f deployment-package.tar.gz
+
+# تثبيت المتطلبات
 npm install --loglevel=error 2>/dev/null
-pm2 delete all 2>/dev/null || true
-pm2 start ecosystem.config.cjs
+
+# إيقاف التطبيق الحالي (إن وجد)
+pm2 stop all 2>/dev/null || true
+
+# بدء أو إعادة تشغيل التطبيق باستخدام ecosystem.config.cjs
+if pm2 info construction-app > /dev/null 2>&1; then
+    echo "🔄 إعادة تشغيل التطبيق..."
+    pm2 restart ecosystem.config.cjs --update-env
+else
+    echo "🚀 بدء التطبيق..."
+    pm2 start ecosystem.config.cjs
+fi
+
+# حفظ قائمة العمليات
 pm2 save
+
+# عرض الحالة
+echo ""
 echo "✅ تم النشر بنجاح!"
+echo ""
 pm2 status
 EOF
 )

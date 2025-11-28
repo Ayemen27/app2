@@ -20,12 +20,12 @@ export default function FloatingAddButton() {
     <div className="fixed bottom-20 right-6 z-40 pointer-events-auto">
       <Button
         onClick={handleClick}
-        className="h-14 w-14 rounded-full shadow-2xl hover:shadow-xl transition-all duration-300 hover:scale-110 bg-primary hover:bg-primary/90 border-2 border-primary-foreground/20"
+        className="h-12 w-12 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-110 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 border-0 text-white"
         size="icon"
         title={floatingLabel}
         data-testid="button-floating-add"
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-5 w-5" />
       </Button>
     </div>
   );

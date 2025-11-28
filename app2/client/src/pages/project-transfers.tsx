@@ -261,18 +261,21 @@ export default function ProjectTransfers() {
               showActiveFilters={true}
             />
 
-            {/* Tab Navigation */}
-            <Card className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-lg md:rounded-xl shadow-lg md:shadow-xl border-2 border-slate-200 dark:border-slate-700">
-              <CardContent className="p-3 md:p-5">
-                <div className="overflow-x-auto -mx-3 md:-mx-5 px-3 md:px-5">
-                  <TabsList className="flex gap-3 md:gap-6 bg-transparent p-0 h-auto justify-start w-max">
-                    <TabTriggerEnhanced value="overview" label="النظرة العامة" />
-                    <TabTriggerEnhanced value="list" label="قائمة التحويلات" badge={filteredTransfers.length} />
-                    <TabTriggerEnhanced value="create" label="إضافة تحويل جديد" />
-                  </TabsList>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Tab Navigation - Separate Cards */}
+            <div className="flex gap-4 md:gap-6 overflow-x-auto -mx-2 px-2 md:-mx-6 md:px-6">
+              <button onClick={() => setSelectedTab('overview')} className={`flex-1 min-w-max px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 ${ selectedTab === 'overview' ? 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-300 dark:hover:border-amber-700'}`}>
+                النظرة العامة
+              </button>
+              <button onClick={() => setSelectedTab('list')} className={`flex-1 min-w-max px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 flex items-center gap-2 ${ selectedTab === 'list' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700'}`}>
+                <span>قائمة التحويلات</span>
+                {filteredTransfers.length > 0 && (
+                  <Badge className="bg-red-500 text-white">{filteredTransfers.length}</Badge>
+                )}
+              </button>
+              <button onClick={() => setSelectedTab('create')} className={`flex-1 min-w-max px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 ${ selectedTab === 'create' ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/40 dark:to-emerald-950/40 border-green-300 dark:border-green-700 text-green-900 dark:text-green-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-green-300 dark:hover:border-green-700'}`}>
+                إضافة تحويل جديد
+              </button>
+            </div>
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-3 md:space-y-6 mt-0">

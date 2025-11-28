@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,68 +8,65 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertProjectFundTransferSchema } from "@shared/schema";
 import type { InsertProjectFundTransfer, ProjectFundTransfer, Project } from "@shared/schema";
-import { Plus, ArrowRight, Calendar, User, FileText, Edit, Banknote, Building, Trash2, ChartGantt, DollarSign, TrendingUp, TrendingDown, Minus, AlertCircle } from "lucide-react";
+import { ArrowRightLeft, ArrowRight, Calendar, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, Minus, MoreVertical, Plus, ChevronRight, RefreshCw, Download, Upload, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
-import ProjectSelector from "@/components/project-selector";
-import { useSelectedProject } from "@/hooks/use-selected-project";
-import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import UnifiedSearchFilter, { useUnifiedFilter, FilterConfig } from "@/components/ui/unified-search-filter";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { z } from "zod";
-import { useFloatingButton } from "@/components/layout/floating-button-context";
 
 type TransferFormData = z.infer<typeof insertProjectFundTransferSchema>;
 
 export default function ProjectTransfers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
   const [editingTransfer, setEditingTransfer] = useState<ProjectFundTransfer | null>(null);
-  const [activeFilters, setActiveFilters] = useState({});
-  const { setFloatingAction } = useFloatingButton();
-  const { selectedProjectId, selectProject } = useSelectedProject();
+  const [selectedTab, setSelectedTab] = useState('overview');
 
-  // تعيين المشروع الافتراضي لعرض جميع التحويلات
-  const currentProjectId = selectedProjectId || 'all';
-
-  // تعيين إجراء الزر العائم لإضافة تحويل جديد
-  useEffect(() => {
-    const handleAddTransfer = () => {
-      setShowForm(true);
-      setEditingTransfer(null);
-    };
-    
-    setFloatingAction(handleAddTransfer, "إضافة عملية ترحيل");
-    return () => setFloatingAction(null);
-  }, [setFloatingAction]);
-
-  // دالة مساعدة لحفظ القيم في autocomplete_data
-  const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
-    if (!value || typeof value !== 'string' || !value.trim()) return;
-    try {
-      await apiRequest("/api/autocomplete", "POST", { 
-        category, 
-        value: value.trim() 
-      });
-    } catch (error) {
-      // تجاهل الأخطاء لأن هذه عملية مساعدة
-      console.log(`Failed to save autocomplete value for ${category}:`, error);
+  // Filter Configs
+  const filterConfigs: FilterConfig[] = [
+    {
+      key: 'reason',
+      label: 'السبب',
+      type: 'select',
+      placeholder: 'اختر السبب',
+      options: [
+        { value: 'payroll', label: 'الرواتب' },
+        { value: 'materials', label: 'المواد' },
+        { value: 'tools', label: 'الأدوات' },
+        { value: 'maintenance', label: 'الصيانة' },
+        { value: 'emergency', label: 'طارئ' },
+        { value: 'other', label: 'أخرى' },
+      ]
+    },
+    {
+      key: 'dateRange',
+      label: 'الفترة الزمنية',
+      type: 'date-range',
+      placeholder: 'اختر الفترة'
     }
-  };
+  ];
 
-  // جلب قائمة المشاريع
-  const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
+  const { searchValue, filterValues, onSearchChange, onFilterChange, onReset } = useUnifiedFilter(
+    { reason: '', dateRange: { from: undefined, to: undefined } },
+    ''
+  );
+
+  // Fetch Projects
+  const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
 
-  // جلب جميع عمليات الترحيل (بدون فلترة)
-  const { data: allTransfers = [], isLoading: transfersLoading } = useQuery<ProjectFundTransfer[]>({
+  // Fetch All Transfers
+  const { data: allTransfers = [], isLoading: transfersLoading, refetch } = useQuery<ProjectFundTransfer[]>({
     queryKey: ["/api/project-fund-transfers"],
     queryFn: async () => {
       const response = await apiRequest('/api/project-fund-transfers', 'GET');
@@ -77,60 +74,66 @@ export default function ProjectTransfers() {
     },
   });
 
-  // إنشاء أو تحديث عملية ترحيل
+  // Filter transfers based on search and filters
+  const filteredTransfers = useMemo(() => {
+    let filtered = allTransfers;
+
+    if (searchValue) {
+      const search = searchValue.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.transferReason?.toLowerCase().includes(search) ||
+        t.description?.toLowerCase().includes(search) ||
+        projects.find(p => p.id === t.fromProjectId)?.name.toLowerCase().includes(search) ||
+        projects.find(p => p.id === t.toProjectId)?.name.toLowerCase().includes(search)
+      );
+    }
+
+    if (filterValues.reason) {
+      filtered = filtered.filter(t => t.transferReason?.includes(filterValues.reason));
+    }
+
+    if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
+      const from = filterValues.dateRange.from ? new Date(filterValues.dateRange.from).getTime() : 0;
+      const to = filterValues.dateRange.to ? new Date(filterValues.dateRange.to).getTime() : Infinity;
+      filtered = filtered.filter(t => {
+        const date = new Date(t.transferDate).getTime();
+        return date >= from && date <= to;
+      });
+    }
+
+    return filtered;
+  }, [allTransfers, searchValue, filterValues, projects]);
+
+  // Calculate Stats
+  const stats = useMemo(() => {
+    return {
+      total: allTransfers.length,
+      totalAmount: allTransfers.reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0),
+      filtered: filteredTransfers.length,
+      outgoing: filteredTransfers.filter(t => !filteredTransfers.some(other => other.fromProjectId === other.toProjectId)).length,
+      incoming: filteredTransfers.filter(t => filteredTransfers.some(other => other.toProjectId === other.fromProjectId)).length,
+    };
+  }, [allTransfers, filteredTransfers]);
+
+  // Mutations
   const createTransferMutation = useMutation({
     mutationFn: async (data: InsertProjectFundTransfer) => {
-      // حفظ القيم في autocomplete_data قبل العملية الأساسية
-      await Promise.all([
-        saveAutocompleteValue('transferReasons', data.transferReason),
-        saveAutocompleteValue('projectTransferDescriptions', data.description)
-      ]);
-      
       if (editingTransfer) {
         return apiRequest(`/api/project-fund-transfers/${editingTransfer.id}`, "PATCH", data);
       }
       return apiRequest("/api/project-fund-transfers", "POST", data);
     },
-    onSuccess: async (newTransfer, variables) => {
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
-      // تحديث فوري للقائمة بدلاً من إعادة التحميل
-      queryClient.setQueryData(["/api/project-fund-transfers"], (oldData: any[]) => {
-        if (!oldData) return [newTransfer];
-        
-        if (editingTransfer) {
-          // تحديث العنصر الموجود
-          return oldData.map(transfer => 
-            transfer.id === editingTransfer.id ? newTransfer : transfer
-          );
-        } else {
-          // إضافة عنصر جديد
-          return [newTransfer, ...oldData];
-        }
-      });
-      
-      // تحديث إحصائيات المشاريع في الخلفية
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/project-fund-transfers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
-      
       toast({
         title: "تم بنجاح",
-        description: editingTransfer ? "تم تحديث عملية ترحيل الأموال بنجاح" : "تم إنشاء عملية ترحيل الأموال بنجاح",
+        description: editingTransfer ? "تم تحديث عملية الترحيل" : "تم إنشاء عملية ترحيل جديدة",
       });
-      setShowForm(false);
-      setEditingTransfer(null);
       form.reset();
+      setEditingTransfer(null);
     },
-    onError: async (error: any, variables) => {
-      // حفظ القيم في autocomplete_data حتى في حالة الخطأ
-      await Promise.all([
-        saveAutocompleteValue('transferReasons', variables.transferReason),
-        saveAutocompleteValue('projectTransferDescriptions', variables.description)
-      ]);
-      
-      // تحديث كاش autocomplete
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+    onError: (error: any) => {
       toast({
         title: "خطأ",
         description: error.message || "فشل في حفظ عملية الترحيل",
@@ -139,23 +142,14 @@ export default function ProjectTransfers() {
     },
   });
 
-  // حذف عملية ترحيل
   const deleteTransferMutation = useMutation({
-    mutationFn: (transferId: string) =>
-      apiRequest(`/api/project-fund-transfers/${transferId}`, "DELETE"),
-    onSuccess: (_, transferId) => {
-      // حذف فوري من القائمة
-      queryClient.setQueryData(["/api/project-fund-transfers"], (oldData: any[]) => {
-        if (!oldData) return [];
-        return oldData.filter(transfer => transfer.id !== transferId);
-      });
-      
-      // تحديث إحصائيات المشاريع في الخلفية
+    mutationFn: (id: string) => apiRequest(`/api/project-fund-transfers/${id}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/project-fund-transfers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
-      
       toast({
         title: "تم الحذف",
-        description: "تم حذف عملية ترحيل الأموال بنجاح",
+        description: "تم حذف عملية الترحيل بنجاح",
       });
     },
     onError: (error: any) => {
@@ -167,7 +161,7 @@ export default function ProjectTransfers() {
     },
   });
 
-  // إعداد النموذج
+  // Form
   const form = useForm<TransferFormData>({
     resolver: zodResolver(insertProjectFundTransferSchema),
     defaultValues: {
@@ -184,7 +178,6 @@ export default function ProjectTransfers() {
     createTransferMutation.mutate(data);
   };
 
-  // بدء تعديل عملية ترحيل
   const startEdit = (transfer: ProjectFundTransfer) => {
     setEditingTransfer(transfer);
     form.reset({
@@ -195,57 +188,12 @@ export default function ProjectTransfers() {
       transferDate: transfer.transferDate,
       description: transfer.description || "",
     });
-    setShowForm(true);
+    setSelectedTab('create');
   };
 
-  // إلغاء التعديل
-  const cancelEdit = () => {
-    setEditingTransfer(null);
-    setShowForm(false);
-    form.reset();
-  };
-
-  // حذف عملية ترحيل مع تأكيد
-  const handleDelete = (transferId: string, fromProject: string, toProject: string) => {
-    if (confirm(`هل أنت متأكد من حذف عملية الترحيل من ${fromProject} إلى ${toProject}؟`)) {
-      deleteTransferMutation.mutate(transferId);
-    }
-  };
-
-  // دالة لجلب اسم المشروع
   const getProjectName = (projectId: string) => {
-    const project = projects.find((p: Project) => p.id === projectId);
-    return project?.name || "غير محدد";
+    return projects.find((p: Project) => p.id === projectId)?.name || "غير محدد";
   };
-
-  // فلترة التحويلات محلياً حسب المشروع المختار
-  const filteredTransfers = currentProjectId && currentProjectId !== 'all' 
-    ? allTransfers.filter(transfer => 
-        transfer.fromProjectId === currentProjectId || 
-        transfer.toProjectId === currentProjectId
-      )
-    : allTransfers;
-
-  // حساب الإحصائيات بناءً على البيانات المفلترة
-  const transferStats = {
-    totalTransfers: filteredTransfers.length,
-    totalAmount: filteredTransfers.reduce((sum, transfer) => sum + (parseFloat(transfer.amount?.toString() || '0') || 0), 0),
-    outgoingTransfers: currentProjectId && currentProjectId !== 'all' 
-      ? filteredTransfers.filter(t => t.fromProjectId === currentProjectId).length
-      : 0,
-    incomingTransfers: currentProjectId && currentProjectId !== 'all' 
-      ? filteredTransfers.filter(t => t.toProjectId === currentProjectId).length
-      : 0,
-    outgoingAmount: currentProjectId && currentProjectId !== 'all' 
-      ? filteredTransfers.filter(t => t.fromProjectId === currentProjectId).reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0)
-      : 0,
-    incomingAmount: currentProjectId && currentProjectId !== 'all' 
-      ? filteredTransfers.filter(t => t.toProjectId === currentProjectId).reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0)
-      : 0,
-  };
-
-  // حساب صافي التدفق (الوارد - الصادر)
-  const netFlow = transferStats.incomingAmount - transferStats.outgoingAmount;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -256,476 +204,426 @@ export default function ProjectTransfers() {
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6 space-y-1 md:space-y-8" dir="rtl">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
       {/* Page Header */}
-      <div className="bg-card border rounded-lg p-4 md:p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-2">
-              <ArrowRight className="h-6 w-6 md:h-7 md:w-7 text-primary" />
-              تحويلات العهدة
-            </h1>
-            <p className="text-sm md:text-base text-muted-foreground">
-              إدارة وتتبع عمليات ترحيل الأموال بين المشاريع المختلفة
-            </p>
-          </div>
-          <Button 
-            onClick={() => {
-              setShowForm(true);
-              setEditingTransfer(null);
-            }}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 px-6"
-            data-testid="button-add-transfer-header"
-          >
-            <Plus className="h-4 w-4 ml-2" />
-            إضافة عملية ترحيل
-          </Button>
-        </div>
-      </div>
-
-      {/* مكون اختيار المشروع */}
-      <div className="bg-card border rounded-lg p-4">
-        <h2 className="text-lg md:text-xl font-bold text-foreground flex items-center">
-          <ChartGantt className="ml-2 h-5 w-5 text-primary" />
-          اختر المشروع
-        </h2>
-        <ProjectSelector
-          selectedProjectId={currentProjectId}
-          onProjectChange={(projectId, projectName) => selectProject(projectId, projectName)}
-          showHeader={false}
-          variant="compact"
-        />
-      </div>
-
-      {/* إحصائيات عمليات الترحيل */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <div className="bg-card border rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm md:text-base text-muted-foreground">إجمالي العمليات</p>
-              <p className="text-2xl md:text-3xl font-semibold text-foreground">{transferStats.totalTransfers}</p>
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 py-3 md:px-6 md:py-5 sticky top-0 z-10">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-amber-600 via-orange-600 to-yellow-600 flex items-center justify-center shadow-xl shadow-amber-500/30 ring-2 ring-white dark:ring-slate-900">
+              <ArrowRightLeft className="h-5 w-5 md:h-6 md:w-6 text-white" />
             </div>
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <ArrowRight className="h-6 w-6 text-primary" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-card border rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm md:text-base text-muted-foreground">إجمالي المبالغ</p>
-              <p className="text-xl md:text-2xl font-semibold text-foreground">{formatCurrency(transferStats.totalAmount)}</p>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
-              <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
-            </div>
-          </div>
-        </div>
-
-        {currentProjectId && currentProjectId !== 'all' && (
-          <>
-            <div className="bg-card border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm md:text-base text-muted-foreground">العمليات الصادرة</p>
-                  <p className="text-2xl md:text-3xl font-semibold text-foreground">{transferStats.outgoingTransfers}</p>
-                  <p className="text-xs md:text-sm text-red-600 dark:text-red-400">{formatCurrency(transferStats.outgoingAmount)}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-                  <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-card border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm md:text-base text-muted-foreground">العمليات الواردة</p>
-                  <p className="text-2xl md:text-3xl font-semibold text-foreground">{transferStats.incomingTransfers}</p>
-                  <p className="text-xs md:text-sm text-green-600 dark:text-green-400">{formatCurrency(transferStats.incomingAmount)}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* بطاقة صافي التدفق */}
-      {currentProjectId && currentProjectId !== 'all' && (
-        <div className="bg-card border rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm md:text-base text-muted-foreground">صافي التدفق</p>
-              <p className={`text-2xl md:text-3xl font-semibold ${
-                netFlow > 0 ? 'text-green-600 dark:text-green-400' : 
-                netFlow < 0 ? 'text-red-600 dark:text-red-400' : 
-                'text-foreground'
-              }`}>
-                {netFlow > 0 ? '+' : ''}{formatCurrency(netFlow)}
-              </p>
-              <p className="text-xs md:text-sm text-muted-foreground">
-                {netFlow > 0 ? 'زيادة في الرصيد' : netFlow < 0 ? 'نقص في الرصيد' : 'متزن الرصيد'}
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-2xl font-black text-slate-900 dark:text-white truncate">
+                تحويلات العهدة
+              </h1>
+              <p className="text-xs text-slate-600 dark:text-slate-400 font-medium hidden md:block">
+                إدارة وتتبع ترحيل الأموال بين المشاريع
               </p>
             </div>
-            <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
-              netFlow > 0 ? 'bg-green-100 dark:bg-green-900/20' : 
-              netFlow < 0 ? 'bg-red-100 dark:bg-red-900/20' : 
-              'bg-gray-100 dark:bg-gray-900/20'
-            }`}>
-              {netFlow > 0 ? (
-                <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
-              ) : netFlow < 0 ? (
-                <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
-              ) : (
-                <Minus className="h-6 w-6 text-gray-600 dark:text-gray-400" />
-              )}
-            </div>
+          </div>
+
+          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={transfersLoading}
+              className="gap-1 md:gap-2 border-2 h-9 md:h-10 px-2 md:px-3"
+            >
+              <RefreshCw className={cn("h-4 w-4", transfersLoading && "animate-spin")} />
+              <span className="hidden md:inline text-xs md:text-sm">تحديث</span>
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="border-2 h-9 md:h-10 px-2">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem className="gap-2 text-xs md:text-sm">
+                  <Download className="h-4 w-4" />
+                  تصدير البيانات
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 text-xs md:text-sm">
+                  <Upload className="h-4 w-4" />
+                  استيراد بيانات
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2 text-xs md:text-sm">
+                  <Settings className="h-4 w-4" />
+                  الإعدادات
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* نموذج إضافة عملية ترحيل جديدة */}
-      {showForm && (
-        <div className="bg-card border rounded-lg">
-          <div className="p-4 md:p-6 border-b">
-            <h2 className="text-lg md:text-xl font-bold text-foreground">
-              {editingTransfer ? 'تعديل عملية الترحيل' : 'إضافة عملية ترحيل جديدة'}
-            </h2>
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-2 py-3 md:px-6 md:py-6 w-full space-y-3 md:space-y-6">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+            <StatsCard
+              icon={ArrowRightLeft}
+              label="إجمالي العمليات"
+              value={stats.total}
+              gradient="from-amber-500 to-orange-500"
+              iconBg="bg-amber-100 dark:bg-amber-900/30"
+              iconColor="text-amber-600 dark:text-amber-400"
+            />
+            <StatsCard
+              icon={DollarSign}
+              label="إجمالي المبالغ"
+              value={formatCurrency(stats.totalAmount)}
+              gradient="from-green-500 to-emerald-500"
+              iconBg="bg-green-100 dark:bg-green-900/30"
+              iconColor="text-green-600 dark:text-green-400"
+            />
+            <StatsCard
+              icon={TrendingDown}
+              label="النتائج المفلترة"
+              value={stats.filtered}
+              gradient="from-blue-500 to-indigo-500"
+              iconBg="bg-blue-100 dark:bg-blue-900/30"
+              iconColor="text-blue-600 dark:text-blue-400"
+            />
+            <StatsCard
+              icon={TrendingUp}
+              label="عمليات اليوم"
+              value={filteredTransfers.filter(t => new Date(t.transferDate).toDateString() === new Date().toDateString()).length}
+              gradient="from-purple-500 to-pink-500"
+              iconBg="bg-purple-100 dark:bg-purple-900/30"
+              iconColor="text-purple-600 dark:text-purple-400"
+            />
           </div>
-          <div className="p-4 md:p-6">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="form-grid">
-                {/* المشروع المرسل */}
-                <FormField
-                  control={form.control}
-                  name="fromProjectId"
-                  render={({ field }) => (
-                    <FormItem className="form-field">
-                      <FormLabel>المشروع المرسل</FormLabel>
-                      <FormControl>
-                        <Select 
-                          value={field.value} 
-                          onValueChange={field.onChange}
-                          data-testid="select-from-project"
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="اختر المشروع المرسل" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {projects.map((project: Project) => (
-                              <SelectItem key={project.id} value={project.id}>
-                                {project.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
-                {/* المشروع المستلم */}
-                <FormField
-                  control={form.control}
-                  name="toProjectId"
-                  render={({ field }) => (
-                    <FormItem className="form-field">
-                      <FormLabel>المشروع المستلم</FormLabel>
-                      <FormControl>
-                        <Select 
-                          value={field.value} 
-                          onValueChange={field.onChange}
-                          data-testid="select-to-project"
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="اختر المشروع المستلم" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {projects.map((project: Project) => (
-                              <SelectItem key={project.id} value={project.id}>
-                                {project.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          {/* Tabs */}
+          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-3 md:space-y-6">
+            {/* Unified Filter */}
+            <UnifiedSearchFilter
+              showSearch={true}
+              searchPlaceholder="ابحث عن التحويلات..."
+              searchValue={searchValue}
+              onSearchChange={onSearchChange}
+              filters={filterConfigs}
+              filterValues={filterValues}
+              onFilterChange={onFilterChange}
+              onReset={onReset}
+              showResetButton={true}
+              compact={false}
+              showActiveFilters={true}
+            />
 
-                {/* المبلغ */}
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem className="form-field">
-                      <FormLabel>المبلغ (ر.ي)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="أدخل المبلغ"
-                          {...field}
-                          data-testid="input-amount"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* تاريخ الترحيل */}
-                <FormField
-                  control={form.control}
-                  name="transferDate"
-                  render={({ field }) => (
-                    <FormItem className="form-field">
-                      <FormLabel>تاريخ الترحيل</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="date"
-                          {...field}
-                          data-testid="input-transfer-date"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* سبب الترحيل */}
-                <FormField
-                  control={form.control}
-                  name="transferReason"
-                  render={({ field }) => (
-                    <FormItem className="form-field">
-                      <FormLabel>سبب الترحيل</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="أدخل سبب الترحيل"
-                          {...field}
-                          value={field.value || ""}
-                          data-testid="input-transfer-reason"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* وصف الترحيل */}
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem className="form-field form-field-full">
-                      <FormLabel>وصف الترحيل (اختياري)</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="أدخل وصف للترحيل"
-                          {...field}
-                          value={field.value || ""}
-                          data-testid="textarea-description"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="form-actions">
-                  <Button
-                    type="submit"
-                    disabled={createTransferMutation.isPending}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground h-11"
-                    data-testid="button-submit-transfer"
-                  >
-                    {createTransferMutation.isPending ? "جاري الحفظ..." : (editingTransfer ? "تحديث عملية الترحيل" : "حفظ عملية الترحيل")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={cancelEdit}
-                    className="h-11"
-                    data-testid="button-cancel"
-                  >
-                    إلغاء
-                  </Button>
+            {/* Tab Navigation */}
+            <Card className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-lg md:rounded-xl shadow-lg md:shadow-xl border-2 border-slate-200 dark:border-slate-700">
+              <CardContent className="p-3 md:p-5">
+                <div className="overflow-x-auto -mx-3 md:-mx-5 px-3 md:px-5">
+                  <TabsList className="flex gap-1 md:gap-3 bg-transparent p-0 h-auto justify-start w-max">
+                    <TabTriggerEnhanced value="overview" label="النظرة العامة" />
+                    <TabTriggerEnhanced value="list" label="قائمة التحويلات" badge={filteredTransfers.length} />
+                    <TabTriggerEnhanced value="create" label="إضافة تحويل جديد" />
+                  </TabsList>
                 </div>
-              </form>
-            </Form>
-          </div>
-        </div>
-      )}
+              </CardContent>
+            </Card>
 
-      {/* قائمة عمليات الترحيل */}
-      <div className="bg-card border rounded-lg">
-        <div className="p-4 md:p-6 border-b">
-          <h2 className="text-lg md:text-xl font-bold text-foreground flex items-center gap-2">
-            <FileText className="w-5 h-5" />
-            سجل عمليات الترحيل
-          </h2>
-        </div>
-        <div className="p-4 md:p-6">
-          {transfersLoading ? (
-            <div className="space-y-1">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-card border rounded-lg p-4">
-                  <div className="flex items-start gap-4">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Skeleton className="h-6 w-32" />
-                        <Skeleton className="h-8 w-20" />
-                      </div>
-                      <Skeleton className="h-4 w-48" />
-                      <Skeleton className="h-4 w-24" />
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="space-y-3 md:space-y-6 mt-0">
+              <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
+                <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-4 md:p-5">
+                  <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base md:text-lg">
+                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                      <ArrowRightLeft className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                    </div>
+                    ملخص التحويلات
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 md:p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                      <p className="text-sm text-amber-700 dark:text-amber-400 font-medium mb-2">إجمالي المبالغ المحولة</p>
+                      <p className="text-2xl md:text-3xl font-bold text-amber-900 dark:text-amber-200">{formatCurrency(stats.totalAmount)}</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                      <p className="text-sm text-green-700 dark:text-green-400 font-medium mb-2">متوسط العملية الواحدة</p>
+                      <p className="text-2xl md:text-3xl font-bold text-green-900 dark:text-green-200">
+                        {formatCurrency(stats.total > 0 ? stats.totalAmount / stats.total : 0)}
+                      </p>
+                    </div>
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                      <p className="text-sm text-blue-700 dark:text-blue-400 font-medium mb-2">عمليات هذا الشهر</p>
+                      <p className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-blue-200">
+                        {filteredTransfers.filter(t => {
+                          const date = new Date(t.transferDate);
+                          const now = new Date();
+                          return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+                        }).length}
+                      </p>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : filteredTransfers.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                <ArrowRight className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground">
-                لا توجد عمليات ترحيل
-              </h3>
-              <p className="text-sm md:text-base text-muted-foreground">
-                {currentProjectId && currentProjectId !== 'all' 
-                  ? "لم يتم إجراء عمليات ترحيل للمشروع المحدد بعد"
-                  : "لم يتم إجراء عمليات ترحيل بين المشاريع بعد"
-                }
-              </p>
-              <Button 
-                onClick={() => {
-                  setShowForm(true);
-                  setEditingTransfer(null);
-                }}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                data-testid="button-add-first-transfer"
-              >
-                <Plus className="h-4 w-4 ml-2" />
-                إضافة عملية ترحيل
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {filteredTransfers.map((transfer: ProjectFundTransfer) => {
-                // تحديد اتجاه التحويل بالنسبة للمشروع المحدد
-                const isOutgoing = currentProjectId !== 'all' && transfer.fromProjectId === currentProjectId;
-                const isIncoming = currentProjectId !== 'all' && transfer.toProjectId === currentProjectId;
-                
-                return (
-                  <div key={transfer.id} className="bg-card border rounded-lg p-4 hover:shadow-md transition-all duration-200" data-testid={`card-transfer-${transfer.id}`}>
-                    <div className="flex items-start gap-4">
-                      {/* المبلغ البارز */}
-                      <div className="flex flex-col items-center">
-                        <div className="text-2xl md:text-3xl font-semibold text-foreground">
-                          {parseFloat(transfer.amount).toLocaleString()}
-                        </div>
-                        <div className="text-xs md:text-sm text-muted-foreground">ريال</div>
-                        
-                        {/* Badge الاتجاه */}
-                        {(isOutgoing || isIncoming) && (
-                          <Badge 
-                            variant={isOutgoing ? "destructive" : "default"}
-                            className="mt-2 text-xs"
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* List Tab */}
+            <TabsContent value="list" className="space-y-3 md:space-y-6 mt-0">
+              <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
+                <CardContent className="p-0">
+                  {transfersLoading ? (
+                    <div className="p-4 md:p-6 space-y-3">
+                      {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full" />)}
+                    </div>
+                  ) : filteredTransfers.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                      <ArrowRightLeft className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
+                      <p className="text-slate-500 dark:text-slate-400 font-medium">لا توجد تحويلات</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">ابدأ بإضافة تحويل عهدة جديد</p>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-auto">
+                      <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                        {filteredTransfers.map(transfer => (
+                          <div key={transfer.id} className="p-4 md:p-5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                            <div className="flex items-start gap-4">
+                              <div className="flex-shrink-0">
+                                <div className="w-12 h-12 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+                                  <DollarSign className="h-6 w-6 md:h-7 md:w-7 text-white" />
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="text-base md:text-lg font-bold text-slate-900 dark:text-white">
+                                    {formatCurrency(parseFloat(transfer.amount))}
+                                  </p>
+                                  <Badge variant="outline" className="text-xs">
+                                    {new Date(transfer.transferDate).toLocaleDateString('ar-EG')}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400 mb-1">
+                                  <span>{getProjectName(transfer.fromProjectId)}</span>
+                                  <ArrowRight className="h-4 w-4" />
+                                  <span>{getProjectName(transfer.toProjectId)}</span>
+                                </div>
+                                {transfer.transferReason && (
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    <span className="font-medium">السبب:</span> {transfer.transferReason}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex gap-2 flex-shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => startEdit(transfer)}
+                                  className="h-8 w-8 p-0 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteTransferMutation.mutate(transfer.id)}
+                                  className="h-8 w-8 p-0 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Create Tab */}
+            <TabsContent value="create" className="mt-0">
+              <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
+                <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 md:p-5">
+                  <CardTitle className="text-slate-900 dark:text-white text-base md:text-lg">
+                    {editingTransfer ? 'تعديل عملية الترحيل' : 'إضافة عملية ترحيل جديدة'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 md:p-6">
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
+                      {/* Row 1: Projects */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                        <FormField
+                          control={form.control}
+                          name="fromProjectId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-semibold">المشروع المرسل</FormLabel>
+                              <FormControl>
+                                <Select value={field.value} onValueChange={field.onChange}>
+                                  <SelectTrigger className="h-10 md:h-11 border-2">
+                                    <SelectValue placeholder="اختر المشروع" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {projects.map(p => (
+                                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="toProjectId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-semibold">المشروع المستقبل</FormLabel>
+                              <FormControl>
+                                <Select value={field.value} onValueChange={field.onChange}>
+                                  <SelectTrigger className="h-10 md:h-11 border-2">
+                                    <SelectValue placeholder="اختر المشروع" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {projects.map(p => (
+                                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Row 2: Amount and Date */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                        <FormField
+                          control={form.control}
+                          name="amount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-semibold">المبلغ (ريال)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" placeholder="0" {...field} className="h-10 md:h-11 border-2" />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="transferDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-semibold">التاريخ</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} className="h-10 md:h-11 border-2" />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Row 3: Reason */}
+                      <FormField
+                        control={form.control}
+                        name="transferReason"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-semibold">سبب التحويل</FormLabel>
+                            <FormControl>
+                              <Input placeholder="أدخل السبب" {...field} value={field.value || ""} className="h-10 md:h-11 border-2" />
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Row 4: Description */}
+                      <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-semibold">الملاحظات (اختياري)</FormLabel>
+                            <FormControl>
+                              <Textarea placeholder="أدخل أي ملاحظات" {...field} value={field.value || ""} className="border-2 min-h-24 md:min-h-28" />
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-3 pt-4 md:pt-6">
+                        <Button
+                          type="submit"
+                          disabled={createTransferMutation.isPending}
+                          className="flex-1 h-10 md:h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/30"
+                        >
+                          {createTransferMutation.isPending ? "جاري الحفظ..." : (editingTransfer ? "تحديث" : "إضافة تحويل")}
+                        </Button>
+                        {editingTransfer && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingTransfer(null);
+                              form.reset();
+                            }}
+                            className="flex-1 h-10 md:h-11 border-2"
                           >
-                            {isOutgoing ? 'صادر' : 'وارد'}
-                          </Badge>
+                            إلغاء
+                          </Button>
                         )}
                       </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        {/* المسار كثانوي */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm md:text-base font-medium text-muted-foreground">
-                            {getProjectName(transfer.fromProjectId)}
-                          </span>
-                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm md:text-base font-medium text-muted-foreground">
-                            {getProjectName(transfer.toProjectId)}
-                          </span>
-                        </div>
-                        
-                        {/* التاريخ بنص مخفف */}
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-xs md:text-sm text-muted-foreground">
-                            {new Date(transfer.transferDate).toLocaleDateString('ar-EG', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
-                          </span>
-                        </div>
-                        
-                        {/* السبب والوصف */}
-                        {(transfer.transferReason || transfer.description) && (
-                          <div className="space-y-1 text-sm md:text-base">
-                            {transfer.transferReason && (
-                              <div className="text-foreground">
-                                <span className="font-medium">السبب:</span> {transfer.transferReason}
-                              </div>
-                            )}
-                            {transfer.description && (
-                              <div className="text-muted-foreground">
-                                <span className="font-medium">ملاحظات:</span> {transfer.description}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        
-                        <div className="flex items-center justify-between mt-3">
-                          <span className="text-xs text-muted-foreground">
-                            ID: {transfer.id.slice(0, 8)}
-                          </span>
-                          
-                          {/* أزرار العمليات المحسنة */}
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => startEdit(transfer)}
-                              className="h-11 min-w-11 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                              data-testid={`button-edit-${transfer.id}`}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDelete(
-                                transfer.id, 
-                                getProjectName(transfer.fromProjectId), 
-                                getProjectName(transfer.toProjectId)
-                              )}
-                              className="h-11 min-w-11 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
-                              disabled={deleteTransferMutation.isPending}
-                              data-testid={`button-delete-${transfer.id}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
   );
 }
+
+// Enhanced Stats Card Component
+const StatsCard = ({ icon: Icon, label, value, gradient, iconBg, iconColor }: any) => (
+  <Card className="relative overflow-hidden border-0 bg-white dark:bg-slate-900 shadow-lg hover:shadow-xl transition-all group cursor-pointer">
+    <div className={cn("absolute inset-0 bg-gradient-to-br opacity-5 group-hover:opacity-10 transition-opacity", gradient)} />
+    <CardContent className="p-3 md:p-4 relative">
+      <div className="flex items-start justify-between mb-2">
+        <div className={cn("w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110", iconBg)}>
+          <Icon className={cn("h-4 w-4 md:h-5 md:w-5", iconColor)} />
+        </div>
+        <ChevronRight className="h-3 w-3 md:h-4 md:w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+      <p className="text-base md:text-lg font-black text-slate-900 dark:text-white mb-0.5">{value}</p>
+      <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</p>
+    </CardContent>
+  </Card>
+);
+
+// Enhanced Tab Trigger Component
+const TabTriggerEnhanced = ({ value, label, badge }: any) => (
+  <TabsTrigger
+    value={value}
+    className="relative flex-shrink-0 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-600 data-[state=active]:via-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/40 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all h-9 md:h-11 px-2 md:px-4 font-semibold border-2 border-transparent data-[state=active]:border-blue-400 dark:data-[state=active]:border-blue-500 whitespace-nowrap text-xs md:text-sm"
+  >
+    <div className="flex items-center gap-1.5 md:gap-2">
+      <span className="font-semibold">{label}</span>
+    </div>
+    {badge > 0 && (
+      <Badge className="absolute -top-2 -left-2 h-5 w-5 md:h-6 md:w-6 p-0 flex items-center justify-center text-xs font-extrabold bg-gradient-to-br from-red-500 to-rose-600 text-white border-2 border-white dark:border-slate-900 shadow-lg animate-pulse">
+        {badge}
+      </Badge>
+    )}
+  </TabsTrigger>
+);

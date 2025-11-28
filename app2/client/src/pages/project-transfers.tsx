@@ -13,13 +13,14 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertProjectFundTransferSchema } from "@shared/schema";
 import type { InsertProjectFundTransfer, ProjectFundTransfer, Project } from "@shared/schema";
-import { ArrowRightLeft, ArrowRight, Calendar, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, Minus, MoreVertical, Plus, ChevronRight, RefreshCw, Download, Upload, Settings, BarChart3, ListChecks } from "lucide-react";
+import { ArrowRightLeft, ArrowRight, Calendar, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, MoreVertical, Plus, ChevronRight, RefreshCw, Download, Upload, Settings, BarChart3, ListChecks } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UnifiedSearchFilter, { useUnifiedFilter, FilterConfig } from "@/components/ui/unified-search-filter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { UnifiedStats } from "@/components/ui/unified-stats";
+import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 
@@ -28,6 +29,7 @@ type TransferFormData = z.infer<typeof insertProjectFundTransferSchema>;
 export default function ProjectTransfers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { setFloatingAction } = useFloatingButton();
   const [editingTransfer, setEditingTransfer] = useState<ProjectFundTransfer | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -226,6 +228,18 @@ export default function ProjectTransfers() {
     }).format(amount) + ' ر.ي';
   };
 
+  // Setup Floating Button
+  useEffect(() => {
+    setFloatingAction(() => {
+      setShowCreateModal(true);
+      setEditingTransfer(null);
+      form.reset();
+    }, 'إضافة تحويل عهدة جديد');
+
+    return () => {
+      setFloatingAction(null);
+    };
+  }, [setFloatingAction, form]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
@@ -372,26 +386,6 @@ export default function ProjectTransfers() {
               )}
           </div>
         </div>
-      </div>
-
-      {/* Floating Button for Create */}
-      <div className="fixed bottom-24 right-6 z-50">
-        <Button
-          onClick={() => {
-            setShowCreateModal(!showCreateModal);
-            if (showCreateModal) {
-              setEditingTransfer(null);
-              form.reset();
-            }
-          }}
-          className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-700 text-white shadow-lg hover:shadow-2xl transition-all transform hover:scale-110 flex items-center justify-center border-0"
-        >
-          {showCreateModal ? (
-            <Minus className="h-5 w-5 md:h-6 md:w-6" />
-          ) : (
-            <Plus className="h-5 w-5 md:h-6 md:w-6" />
-          )}
-        </Button>
       </div>
 
       {/* Modal for Create/Edit */}

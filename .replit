@@ -8,8 +8,8 @@ packages = ["unzipNLS", "nano", "openssh", "lsof", "jq", "postgresql_13"]
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+build = ["npm", "build"]
+run = ["npm"]
 
 [[ports]]
 localPort = 3000

@@ -152,9 +152,9 @@ export default function Dashboard() {
       return apiRequest("/api/workers", "POST", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
 
-      queryClient.invalidateQueries({ queryKey: ["/api/workers"] });
+      queryClient.refetchQueries({ queryKey: ["/api/workers"] });
       toast({
         title: "نجح الحفظ",
         description: "تم إضافة العامل بنجاح",
@@ -181,10 +181,10 @@ export default function Dashboard() {
       return apiRequest("/api/projects", "POST", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
 
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
       toast({
         title: "نجح الحفظ",
         description: "تم إضافة المشروع بنجاح",
@@ -208,7 +208,7 @@ export default function Dashboard() {
       return apiRequest("/api/worker-types", "POST", data);
     },
     onSuccess: (newType) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
 
       toast({
         title: "تم الحفظ",
@@ -217,7 +217,7 @@ export default function Dashboard() {
       setWorkerData({...workerData, type: newType.name});
       setNewTypeName("");
       setShowAddTypeDialog(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] });
+      queryClient.refetchQueries({ queryKey: ["/api/worker-types"] });
     },
     onError: (error) => {
       toast({

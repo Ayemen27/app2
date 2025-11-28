@@ -117,7 +117,7 @@ export default function MaterialPurchase() {
       return apiRequest("/api/suppliers", "POST", data);
     },
     onSuccess: (newSupplier) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      queryClient.refetchQueries({ queryKey: ["/api/suppliers"] });
       toast({
         title: "تم إضافة المورد بنجاح",
         description: `تم إضافة المورد "${supplierFormName}" إلى قاعدة البيانات`,
@@ -297,7 +297,7 @@ export default function MaterialPurchase() {
   const addMaterialMutation = useMutation({
     mutationFn: (data: InsertMaterial) => apiRequest("/api/materials", "POST", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/materials"] });
+      queryClient.refetchQueries({ queryKey: ["/api/materials"] });
     },
     onError: (error: any) => {
       console.error("Material creation error:", error);
@@ -340,14 +340,14 @@ export default function MaterialPurchase() {
     },
     onSuccess: async () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
       
       toast({
         title: "تم الحفظ",
         description: "تم حفظ شراء المواد بنجاح",
       });
       resetForm();
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
     },
     onError: async (error: any) => {
       // حفظ القيم في autocomplete_data حتى في حالة الخطأ
@@ -361,7 +361,7 @@ export default function MaterialPurchase() {
       ]);
       
       // تحديث كاش autocomplete
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
       
       console.error("Material purchase error:", error);
       let errorMessage = "حدث خطأ أثناء حفظ شراء المواد";
@@ -435,14 +435,14 @@ export default function MaterialPurchase() {
     },
     onSuccess: async () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
       
       toast({
         title: "تم التعديل",
         description: "تم تعديل شراء المواد بنجاح",
       });
       resetForm();
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
     },
     onError: async (error: any) => {
       // حفظ القيم في autocomplete_data حتى في حالة الخطأ
@@ -456,7 +456,7 @@ export default function MaterialPurchase() {
       ]);
       
       // تحديث كاش autocomplete
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
       
       console.error("Material purchase update error:", error);
       let errorMessage = "حدث خطأ أثناء تحديث شراء المواد";
@@ -498,7 +498,7 @@ export default function MaterialPurchase() {
         title: "تم الحذف",
         description: "تم حذف شراء المواد بنجاح",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
     },
     onError: (error: any) => {
       console.error("Material purchase delete error:", error);

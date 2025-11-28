@@ -222,7 +222,7 @@ export function CreateNotificationDialog({
       });
 
       // تحديث cache الإشعارات
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.refetchQueries({ queryKey: ['notifications'] });
 
       // إغلاق الحوار وإعادة تعيين النموذج
       onOpenChange(false);

@@ -353,7 +353,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
       console.log('🔄 [AuthProvider.login] تحديث cache queries');
 
-      queryClient.invalidateQueries();
+      queryClient.refetchQueries();
 
       console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');
 

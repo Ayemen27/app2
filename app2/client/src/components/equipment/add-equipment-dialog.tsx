@@ -108,7 +108,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment'
       });
       queryClient.refetchQueries({ 

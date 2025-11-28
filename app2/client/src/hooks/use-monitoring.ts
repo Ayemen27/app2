@@ -56,14 +56,14 @@ export function useMonitoring() {
   const updateMetricsMutation = useMutation({
     mutationFn: () => fetch('/api/metrics/update', { method: 'POST' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/metrics/current'] });
+      queryClient.refetchQueries({ queryKey: ['/api/metrics/current'] });
     },
   });
 
   const runDiagnosticsMutation = useMutation({
     mutationFn: () => fetch('/api/diagnostics/run', { method: 'POST' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/diagnostics/checks'] });
+      queryClient.refetchQueries({ queryKey: ['/api/diagnostics/checks'] });
     },
   });
 

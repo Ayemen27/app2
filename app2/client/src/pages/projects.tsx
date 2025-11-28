@@ -245,8 +245,8 @@ export default function ProjectsPage() {
       // حفظ اسم المشروع في autocomplete_data
       await saveAutocompleteValue('projectNames', variables.name);
 
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
       toast({ title: "تم إنشاء المشروع بنجاح" });
       setIsCreateDialogOpen(false);
       createForm.reset();
@@ -272,8 +272,8 @@ export default function ProjectsPage() {
       // حفظ اسم المشروع في autocomplete_data
       await saveAutocompleteValue('projectNames', variables.data.name);
 
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
       toast({ title: "تم تحديث المشروع بنجاح" });
       setIsEditDialogOpen(false);
       setEditingProject(null);
@@ -296,8 +296,8 @@ export default function ProjectsPage() {
     mutationFn: (id: string) =>
       apiRequest(`/api/projects/${id}`, "DELETE"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
       toast({ title: "تم حذف المشروع بنجاح" });
     },
     onError: (error: any) => {

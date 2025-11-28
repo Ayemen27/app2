@@ -46,7 +46,7 @@ export function AutocompleteInput({
     mutationFn: (data: { category: string; value: string; usageCount?: number }) =>
       apiRequest('/api/autocomplete', 'POST', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['autocomplete', category] });
+      queryClient.refetchQueries({ queryKey: ['autocomplete', category] });
       // إعادة تحديث البيانات فوراً
       queryClient.refetchQueries({ queryKey: ['autocomplete', category] });
     },
@@ -60,7 +60,7 @@ export function AutocompleteInput({
     mutationFn: ({ category, value }: { category: string; value: string }) =>
       apiRequest(`/api/autocomplete/${category}/${encodeURIComponent(value)}`, 'DELETE'),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['autocomplete', category] });
+      queryClient.refetchQueries({ queryKey: ['autocomplete', category] });
       queryClient.refetchQueries({ queryKey: ['autocomplete', category] });
     },
   });

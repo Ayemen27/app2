@@ -369,10 +369,10 @@ function DailyExpensesContent() {
     },
     onSuccess: async (newTransfer) => {
       // ✅ إصلاح: تحديث فوري للبيانات الأساسية
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] 
       });
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", selectedProjectId, "previous-balance"] 
       });
 
@@ -382,7 +382,7 @@ function DailyExpensesContent() {
       });
 
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
 
       // تنظيف النموذج
       setFundAmount("");
@@ -395,7 +395,7 @@ function DailyExpensesContent() {
       await saveAllFundTransferAutocompleteValues();
 
       // تحديث كاش autocomplete
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
 
       console.error("خطأ في إضافة الحولة:", error);
 
@@ -431,10 +431,10 @@ function DailyExpensesContent() {
     },
     onSuccess: async (newExpense) => {
       // ✅ إصلاح: تحديث فوري للبيانات الأساسية
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] 
       });
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", selectedProjectId, "previous-balance"] 
       });
 
@@ -444,7 +444,7 @@ function DailyExpensesContent() {
       });
 
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
 
       // تنظيف النموذج
       setTransportDescription("");
@@ -459,7 +459,7 @@ function DailyExpensesContent() {
       ]);
 
       // تحديث كاش autocomplete
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
 
       toast({
         title: "خطأ في إضافة المواصلات",
@@ -478,7 +478,7 @@ function DailyExpensesContent() {
       });
 
       // تحديث ملخص اليوم
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", selectedProjectId, "daily-summary", selectedDate] 
       });
     },
@@ -515,10 +515,10 @@ function DailyExpensesContent() {
       });
       
       // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "daily-expenses", date] 
       });
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "previous-balance"] 
       });
       
@@ -574,10 +574,10 @@ function DailyExpensesContent() {
       });
       
       // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "daily-expenses", date] 
       });
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "previous-balance"] 
       });
       
@@ -633,13 +633,13 @@ function DailyExpensesContent() {
       });
       
       // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "daily-expenses", date] 
       });
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "material-purchases"] 
       });
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "previous-balance"] 
       });
       
@@ -695,13 +695,13 @@ function DailyExpensesContent() {
       });
       
       // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "daily-expenses", date] 
       });
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "attendance"] 
       });
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "previous-balance"] 
       });
       
@@ -757,10 +757,10 @@ function DailyExpensesContent() {
       });
       
       // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "daily-expenses", date] 
       });
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         queryKey: ["/api/projects", projectId, "previous-balance"] 
       });
       
@@ -799,16 +799,16 @@ function DailyExpensesContent() {
       apiRequest(`/api/fund-transfers/${id}`, "PATCH", data),
     onSuccess: async (updatedTransfer, { id }) => {
       // تحديث daily-expenses query حيث تأتي بيانات fund transfers
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] });
       // تحديث previous-balance للأيام التالية لأن التعديل يؤثر على الرصيد
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "previous-balance"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "previous-balance"] });
 
       // حفظ قيم الإكمال التلقائي
       if (senderName) await saveAutocompleteValue('senderNames', senderName);
       if (transferNumber) await saveAutocompleteValue('transferNumbers', transferNumber);
 
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
 
       resetFundTransferForm();
       toast({
@@ -906,9 +906,9 @@ function DailyExpensesContent() {
       apiRequest(`/api/transportation-expenses/${id}`, "PATCH", data),
     onSuccess: async (updatedExpense, { id }) => {
       // تحديث daily-expenses query حيث تأتي بيانات transportation expenses
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] });
       // تحديث previous-balance للأيام التالية لأن التعديل يؤثر على الرصيد
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "previous-balance"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "previous-balance"] });
 
       // حفظ قيم الإكمال التلقائي
       if (transportDescription) await saveAutocompleteValue('transportDescriptions', transportDescription);

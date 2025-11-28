@@ -183,8 +183,8 @@ export default function WorkerAccountsPage() {
       return apiRequest('/api/worker-transfers', 'POST', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/worker-transfers'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/autocomplete'] });
+      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers'] });
+      queryClient.refetchQueries({ queryKey: ['/api/autocomplete'] });
       setShowTransferDialog(false);
       resetForm();
       toast({
@@ -196,7 +196,7 @@ export default function WorkerAccountsPage() {
       // حفظ جميع قيم الإكمال التلقائي حتى في حالة الخطأ
       await saveAllTransferAutocompleteValues();
       
-      queryClient.invalidateQueries({ queryKey: ['/api/autocomplete'] });
+      queryClient.refetchQueries({ queryKey: ['/api/autocomplete'] });
       
       console.error("خطأ في إرسال الحولة:", error);
       
@@ -225,8 +225,8 @@ export default function WorkerAccountsPage() {
       return apiRequest(`/api/worker-transfers/${data.id}`, 'PATCH', data.updates);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/worker-transfers'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/autocomplete'] });
+      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers'] });
+      queryClient.refetchQueries({ queryKey: ['/api/autocomplete'] });
       setShowTransferDialog(false);
       setEditingTransfer(null);
       resetForm();
@@ -239,7 +239,7 @@ export default function WorkerAccountsPage() {
       // حفظ جميع قيم الإكمال التلقائي حتى في حالة الخطأ
       await saveAllTransferAutocompleteValues();
       
-      queryClient.invalidateQueries({ queryKey: ['/api/autocomplete'] });
+      queryClient.refetchQueries({ queryKey: ['/api/autocomplete'] });
       
       console.error("خطأ في تحديث الحولة:", error);
       
@@ -265,7 +265,7 @@ export default function WorkerAccountsPage() {
       return apiRequest(`/api/worker-transfers/${id}`, 'DELETE');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/worker-transfers'] });
+      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers'] });
       toast({
         title: "تم بنجاح",
         description: "تم حذف الحولة بنجاح"

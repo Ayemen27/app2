@@ -156,7 +156,7 @@ export default function WorkerAttendance() {
         title: "تم الحذف",
         description: "تم حذف سجل الحضور بنجاح",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
     },
     onError: () => {
       toast({
@@ -267,8 +267,8 @@ export default function WorkerAttendance() {
     },
     onSuccess: async (result) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
 
       const { successful, failed, totalProcessed } = result;
 
@@ -319,7 +319,7 @@ export default function WorkerAttendance() {
       if (autocompletePromises.length > 0) {
         await Promise.all(autocompletePromises);
         // تحديث كاش autocomplete
-        queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+        queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
       }
 
       console.error("Error saving attendance:", error);

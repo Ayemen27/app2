@@ -61,19 +61,19 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
     mutationFn: (data: TransferFormData) => 
       apiRequest(`/api/equipment/${equipment?.id}/transfer`, "POST", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment'
       });
       queryClient.refetchQueries({ 
         predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment'
       });
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment-movements'
       });
       queryClient.refetchQueries({ 
         predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment-movements'
       });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.refetchQueries({ queryKey: ['projects'] });
       queryClient.refetchQueries({ queryKey: ['projects'] });
       
       toast({

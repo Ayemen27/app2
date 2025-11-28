@@ -79,7 +79,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
     },
     onSuccess: async (newWorker, variables) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
       
       toast({
         title: "تم الحفظ",
@@ -88,7 +88,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       setName("");
       setType("");
       setDailyWage("");
-      queryClient.invalidateQueries({ queryKey: ["/api/workers"] });
+      queryClient.refetchQueries({ queryKey: ["/api/workers"] });
       onSuccess?.();
     },
     onError: async (error: any, variables) => {
@@ -99,7 +99,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       ]);
       
       // تحديث كاش autocomplete
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
       
       const errorMessage = error?.message || "حدث خطأ أثناء إضافة العامل";
       toast({
@@ -120,7 +120,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       setNewTypeName("");
       setShowAddTypeDialog(false);
       setType(newWorkerType.name); // اختيار النوع الجديد تلقائياً
-      queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] });
+      queryClient.refetchQueries({ queryKey: ["/api/worker-types"] });
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "حدث خطأ أثناء إضافة نوع العامل";

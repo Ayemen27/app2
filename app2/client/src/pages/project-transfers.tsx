@@ -127,8 +127,8 @@ export default function ProjectTransfers() {
       return apiRequest("/api/project-fund-transfers", "POST", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/project-fund-transfers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: ["/api/project-fund-transfers"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
       toast({
         title: "تم بنجاح",
         description: editingTransfer ? "تم تحديث عملية الترحيل" : "تم إنشاء عملية ترحيل جديدة",
@@ -165,8 +165,8 @@ export default function ProjectTransfers() {
       });
       
       // إبطال الاستعلامات
-      queryClient.invalidateQueries({ queryKey: ["/api/project-fund-transfers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: ["/api/project-fund-transfers"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
       
       toast({
         title: "تم الحذف",

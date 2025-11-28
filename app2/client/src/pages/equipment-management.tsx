@@ -167,7 +167,7 @@ export function EquipmentManagement() {
       return await apiRequest(`/api/equipment/${id}`, "DELETE");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
+      queryClient.refetchQueries({ 
         predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment'
       });
       toast({

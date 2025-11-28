@@ -34,7 +34,7 @@ export default function SuppliersPage() {
       return response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      queryClient.refetchQueries({ queryKey: ["/api/suppliers"] });
       toast({ title: "تم حذف المورد بنجاح" });
     },
     onError: () => {
@@ -182,7 +182,7 @@ export default function SuppliersPage() {
               supplier={selectedSupplier as any}
               onSuccess={() => {
                 resetForm();
-                queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+                queryClient.refetchQueries({ queryKey: ["/api/suppliers"] });
               }}
               onCancel={resetForm}
               submitLabel={selectedSupplier ? "تحديث المورد" : "إضافة المورد"}

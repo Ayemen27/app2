@@ -146,16 +146,25 @@ if (app.get("env") === "development") {
 }
 
 // ✅ معالج شامل للأخطاء 404 - بعد إعداد الملفات الثابتة
+// Only return 404 JSON for API routes, otherwise serve the React app
 app.use("*", (req, res) => {
-  console.log(`❌ [404] مسار غير موجود: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({
-    success: false,
-    error: "المسار غير موجود",
-    message: `لم يتم العثور على المسار: ${req.method} ${req.originalUrl}`,
-    timestamp: new Date().toISOString(),
-    method: req.method,
-    path: req.originalUrl
-  });
+  // If it's an API request, return JSON 404
+  if (req.originalUrl.startsWith('/api/')) {
+    console.log(`❌ [404] مسار API غير موجود: ${req.method} ${req.originalUrl}`);
+    return res.status(404).json({
+      success: false,
+      error: "المسار غير موجود",
+      message: `لم يتم العثور على المسار: ${req.method} ${req.originalUrl}`,
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      path: req.originalUrl
+    });
+  }
+  
+  // For non-API routes in production, this is handled by serveStatic
+  // For development, this is handled by Vite
+  // If we reach here, it means neither handled it
+  console.log(`⚠️ [Fallback] طلب غير معالج: ${req.method} ${req.originalUrl}`);
 });
 
 // ALWAYS serve the app on the port specified in the environment variable PORT

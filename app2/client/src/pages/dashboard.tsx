@@ -386,8 +386,8 @@ export default function Dashboard() {
                   </SelectTrigger>
                   <SelectContent>
                     {Array.isArray(workerTypes) ? workerTypes.map((workerType) => (
-                      <SelectItem key={workerType.id} value={workerType.value}>
-                        {workerType.value}
+                      <SelectItem key={workerType.id} value={workerType.name}>
+                        {workerType.name}
                       </SelectItem>
                     )) : null}
                     {workerTypes.length === 0 && (

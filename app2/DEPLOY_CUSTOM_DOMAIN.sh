@@ -98,41 +98,39 @@ deploy_on_server() {
     print_separator
     log_info "🔄 جاري النشر على السيرفر..."
     
-    DEPLOY_CMD=$(cat <<'EOF'
-cd /home/administrator/construction-app
-
-# استخراج الملفات الجديدة
-tar -xzf deployment-package.tar.gz 2>/dev/null
+    if ! command -v sshpass &> /dev/null; then
+        log_error "sshpass غير متوفر"
+        exit 1
+    fi
+    
+    # إنشاء سكريبت مؤقت على السيرفر
+    TEMP_SCRIPT="/tmp/deploy-$(date +%s).sh"
+    DEPLOY_COMMANDS="
+cd $REMOTE_APP_DIR
+tar -xzf deployment-package.tar.gz 2>/dev/null && echo '✅ تم استخراج الملفات'
 rm -f deployment-package.tar.gz
-
-# تثبيت المتطلبات
-npm install --loglevel=error 2>/dev/null
-
-# إيقاف التطبيق الحالي (إن وجد)
+npm install --loglevel=error 2>/dev/null && echo '✅ تم تثبيت المتطلبات'
 pm2 stop all 2>/dev/null || true
-
-# بدء أو إعادة تشغيل التطبيق باستخدام ecosystem.config.cjs
 if pm2 info construction-app > /dev/null 2>&1; then
-    echo "🔄 إعادة تشغيل التطبيق..."
+    echo '🔄 إعادة تشغيل التطبيق...'
     pm2 restart ecosystem.config.cjs --update-env
 else
-    echo "🚀 بدء التطبيق..."
+    echo '🚀 بدء التطبيق للمرة الأولى...'
     pm2 start ecosystem.config.cjs
 fi
-
-# حفظ قائمة العمليات
 pm2 save
-
-# عرض الحالة
-echo ""
-echo "✅ تم النشر بنجاح!"
-echo ""
+echo ''
+echo '✅ تم النشر بنجاح على السيرفر!'
 pm2 status
-EOF
-)
+"
     
-    if command -v sshpass &> /dev/null; then
-        echo "$DEPLOY_CMD" | sshpass -p "$SSH_PASSWORD" ssh -p $SSH_PORT "$SSH_USER@$SSH_HOST" 2>/dev/null
+    # إرسال الأوامر مباشرة عبر SSH
+    if sshpass -p "$SSH_PASSWORD" ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
+        -p $SSH_PORT "$SSH_USER@$SSH_HOST" "bash -s" <<< "$DEPLOY_COMMANDS" 2>/dev/null; then
+        log_success "✅ تم النشر بنجاح على السيرفر"
+    else
+        log_error "فشل النشر على السيرفر"
+        exit 1
     fi
 }
 

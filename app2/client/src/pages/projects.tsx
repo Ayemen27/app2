@@ -499,9 +499,8 @@ export default function ProjectsPage() {
 
   return (
     <>
-      <div className="space-y-1 p-6">
+      <div className="space-y-1 p-3">
 
-      {/* إحصائيات عامة */}
       {/* شريط البحث والفلترة الموحد */}
       <UnifiedSearchFilter
         onFilterChange={setActiveFilters}
@@ -537,7 +536,7 @@ export default function ProjectsPage() {
         />
       </StatsGrid>
 
-      <div className="mt-8 mb-4" />
+      <div className="mt-4 mb-2" />
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent>
@@ -590,7 +589,6 @@ export default function ProjectsPage() {
                   )}
                 />
 
-
                 <DialogFooter>
                   <Button type="submit" disabled={createProjectMutation.isPending}>
                     {createProjectMutation.isPending ? "جاري الإنشاء..." : "إنشاء المشروع"}
@@ -600,6 +598,75 @@ export default function ProjectsPage() {
             </Form>
           </DialogContent>
         </Dialog>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تعديل المشروع</DialogTitle>
+            <DialogDescription>
+              عدّل تفاصيل المشروع
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleEditProject)} className="space-y-1">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>اسم المشروع</FormLabel>
+                    <FormControl>
+                      <AutocompleteInput 
+                        value={field.value}
+                        onChange={field.onChange}
+                        category="projectNames"
+                        placeholder="اسم المشروع"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>حالة المشروع</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="اختر حالة المشروع" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="active">نشط</SelectItem>
+                        <SelectItem value="paused">متوقف</SelectItem>
+                        <SelectItem value="completed">مكتمل</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  إلغاء
+                </Button>
+                <Button type="submit" disabled={updateProjectMutation.isPending}>
+                  {updateProjectMutation.isPending ? "جاري التحديث..." : "تحديث المشروع"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {/* Projects Grid */}
       {projects.length === 0 ? (
@@ -613,88 +680,100 @@ export default function ProjectsPage() {
           </Button>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {Array.isArray(projects) ? projects.map((project) => (
-            <Card key={project.id} className="relative overflow-hidden hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-blue-600" />
-                      <CardTitle className="text-base line-clamp-2 font-bold">{project.name}</CardTitle>
+            <Card key={project.id} className="relative overflow-hidden hover:shadow-md transition-shadow border-l-4 border-l-blue-500">
+              <CardHeader className="pb-1.5 pt-3 px-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                      <CardTitle className="text-sm line-clamp-1 font-semibold">{project.name}</CardTitle>
                     </div>
-                    <CardDescription className="flex items-center gap-2 text-xs">
-                      <Calendar className="h-3 w-3" />
+                    <CardDescription className="flex items-center gap-1 text-xs">
+                      <Calendar className="h-2.5 w-2.5 flex-shrink-0" />
                       {formatDate(project.createdAt)}
                     </CardDescription>
                   </div>
-                  <Badge className={`${getStatusColor(project.status)} flex-shrink-0 text-xs`}>
+                  <Badge className={`${getStatusColor(project.status)} flex-shrink-0 text-xs px-1.5 py-0.5`}>
                     {getStatusText(project.status)}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 dark:from-blue-900/30 dark:to-blue-800/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+              <CardContent className="space-y-2 px-3 pb-2">
+                <div className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 dark:from-blue-900/30 dark:to-blue-800/30 p-2 rounded-md border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">الرصيد الحالي</span>
+                    <div className="flex items-center gap-1.5">
+                      <BarChart3 className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                      <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">الرصيد</span>
                     </div>
-                    <p className="text-lg font-bold text-blue-800 dark:text-blue-200 arabic-numbers">
+                    <p className="text-base font-bold text-blue-800 dark:text-blue-200 arabic-numbers">
                       {formatCurrency(safeParseNumber(project.stats.currentBalance, 0))}
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-green-50 dark:bg-green-900/20 p-2.5 rounded-lg border border-green-200 dark:border-green-800">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <TrendingUp className="h-3 w-3 text-green-600" />
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div className="bg-green-50 dark:bg-green-900/20 p-1.5 rounded-md border border-green-200 dark:border-green-800">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <TrendingUp className="h-2.5 w-2.5 text-green-600" />
                       <span className="text-xs font-medium text-green-700 dark:text-green-400">الدخل</span>
                     </div>
-                    <p className="text-sm font-bold text-green-800 dark:text-green-300 arabic-numbers">
+                    <p className="text-xs font-bold text-green-800 dark:text-green-300 arabic-numbers">
                       {formatCurrency(safeParseNumber(project.stats.totalIncome, 0))}
                     </p>
                   </div>
-                  <div className="bg-red-50 dark:bg-red-900/20 p-2.5 rounded-lg border border-red-200 dark:border-red-800">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <DollarSign className="h-3 w-3 text-red-600" />
+                  <div className="bg-red-50 dark:bg-red-900/20 p-1.5 rounded-md border border-red-200 dark:border-red-800">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <DollarSign className="h-2.5 w-2.5 text-red-600" />
                       <span className="text-xs font-medium text-red-700 dark:text-red-400">المصروفات</span>
                     </div>
-                    <p className="text-sm font-bold text-red-800 dark:text-red-300 arabic-numbers">
+                    <p className="text-xs font-bold text-red-800 dark:text-red-300 arabic-numbers">
                       {formatCurrency(safeParseNumber(project.stats.totalExpenses, 0))}
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-2 text-center">
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
-                    <Users className="h-4 w-4 text-blue-600 mx-auto mb-1" />
-                    <p className="text-xs text-muted-foreground mb-0.5">العمال</p>
-                    <p className="text-sm font-bold arabic-numbers">{cleanInteger(project.stats.totalWorkers)}</p>
+                <div className="grid grid-cols-4 gap-1 text-center">
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded-md">
+                    <Users className="h-3 w-3 text-blue-600 mx-auto mb-0.5" />
+                    <p className="text-xs text-muted-foreground mb-0">العمال</p>
+                    <p className="text-xs font-bold arabic-numbers">{cleanInteger(project.stats.totalWorkers)}</p>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
-                    <Package className="h-4 w-4 text-amber-600 mx-auto mb-1" />
-                    <p className="text-xs text-muted-foreground mb-0.5">المشتريات</p>
-                    <p className="text-sm font-bold arabic-numbers">{cleanInteger(project.stats.materialPurchases)}</p>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded-md">
+                    <Package className="h-3 w-3 text-amber-600 mx-auto mb-0.5" />
+                    <p className="text-xs text-muted-foreground mb-0">المشتريات</p>
+                    <p className="text-xs font-bold arabic-numbers">{cleanInteger(project.stats.materialPurchases)}</p>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
-                    <Calendar className="h-4 w-4 text-purple-600 mx-auto mb-1" />
-                    <p className="text-xs text-muted-foreground mb-0.5">أيام</p>
-                    <p className="text-sm font-bold arabic-numbers">{cleanInteger(project.stats.completedDays)}</p>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded-md">
+                    <Calendar className="h-3 w-3 text-purple-600 mx-auto mb-0.5" />
+                    <p className="text-xs text-muted-foreground mb-0">أيام</p>
+                    <p className="text-xs font-bold arabic-numbers">{cleanInteger(project.stats.completedDays)}</p>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
-                    <Clock className="h-4 w-4 text-orange-600 mx-auto mb-1" />
-                    <p className="text-xs text-muted-foreground mb-0.5">نشط</p>
-                    <p className="text-sm font-bold arabic-numbers">{cleanInteger(project.stats.activeWorkers)}</p>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded-md">
+                    <Clock className="h-3 w-3 text-orange-600 mx-auto mb-0.5" />
+                    <p className="text-xs text-muted-foreground mb-0">نشط</p>
+                    <p className="text-xs font-bold arabic-numbers">{cleanInteger(project.stats.activeWorkers)}</p>
                   </div>
                 </div>
-                <div className="flex gap-2 pt-2">
-                  <Button variant="outline" size="sm" onClick={() => openEditDialog(project)} className="flex-1 gap-1">
+                <div className="flex gap-1.5 pt-1">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setEditingProject(project);
+                      editForm.reset({
+                        name: project.name,
+                        status: project.status,
+                      });
+                      setIsEditDialogOpen(true);
+                    }} 
+                    className="flex-1 gap-1 h-8 text-xs"
+                  >
                     <Edit className="h-3 w-3" />
                     تعديل
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="gap-1 text-red-600 hover:text-red-700">
+                      <Button variant="outline" size="sm" className="gap-1 text-red-600 hover:text-red-700 h-8 text-xs">
                         <Trash2 className="h-3 w-3" />
                         حذف
                       </Button>

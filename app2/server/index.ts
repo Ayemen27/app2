@@ -18,15 +18,17 @@ const app = express();
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'", "data:"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "data:"],
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://static.cloudflareinsights.com", "https://replit.com", "https://cdn.jsdelivr.net"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://static.cloudflareinsights.com", "https://replit.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "https://", "http://", "ws:", "wss:"]
+      connectSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "ws:", "wss:", "https:", "http:"],
+      frameSrc: ["'self'"],
+      objectSrc: ["'none'"]
     }
   },
-  crossOriginEmbedderPolicy: false // For Vite compatibility
+  crossOriginEmbedderPolicy: false
 }));
 
 // 🌐 **CORS Configuration - يمنع Cross-Origin attacks**

@@ -3064,9 +3064,6 @@ var securityHeaders = (req, res, next) => {
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
-  const isDev = process.env.NODE_ENV === "development";
-  const cspPolicy = isDev ? "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src 'self' ws: wss:;" : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self';";
-  res.setHeader("Content-Security-Policy", cspPolicy);
   next();
 };
 var trackSuspiciousActivity = (req, res, next) => {
@@ -15335,16 +15332,17 @@ var app = express11();
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'", "data:"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "data:"],
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://static.cloudflareinsights.com", "https://replit.com", "https://cdn.jsdelivr.net"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://static.cloudflareinsights.com", "https://replit.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "https://", "http://", "ws:", "wss:"]
+      connectSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "ws:", "wss:", "https:", "http:"],
+      frameSrc: ["'self'"],
+      objectSrc: ["'none'"]
     }
   },
   crossOriginEmbedderPolicy: false
-  // For Vite compatibility
 }));
 var getAllowedOrigins = () => {
   const isProduction3 = process.env.NODE_ENV === "production";

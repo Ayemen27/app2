@@ -635,7 +635,11 @@ export default function MaterialPurchase() {
     queryKey: ["/api/projects", selectedProjectId, "material-purchases"],
     queryFn: async () => {
       if (!selectedProjectId) return [];
-      return apiRequest(`/api/projects/${selectedProjectId}/material-purchases`, "GET");
+      const response = await apiRequest(`/api/projects/${selectedProjectId}/material-purchases`, "GET");
+      // Handle both array and object responses
+      if (Array.isArray(response)) return response;
+      if (response?.data && Array.isArray(response.data)) return response.data;
+      return [];
     },
     enabled: !!selectedProjectId,
     refetchOnMount: true,

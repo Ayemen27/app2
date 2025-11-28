@@ -110,13 +110,8 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
 
-  // CSP Header (مُحسن للتطوير والإنتاج)
-  const isDev = process.env.NODE_ENV === 'development';
-  const cspPolicy = isDev
-    ? "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src 'self' ws: wss:;"
-    : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self';";
-
-  res.setHeader('Content-Security-Policy', cspPolicy);
+  // CSP Header (مُحسن للتطوير والإنتاج) - تم نقله إلى Helmet
+  // تم حذف CSP من هنا لتجنب الصراع مع Helmet headers
 
   next();
 };

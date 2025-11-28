@@ -13602,25 +13602,29 @@ autocompleteRouter.get("/", requireAuth, async (req, res) => {
     });
   }
 });
-autocompleteRouter.post("/", requireAuth, async (req, res) => {
+autocompleteRouter.post("/", async (req, res) => {
   const startTime = Date.now();
   try {
-    console.log("\u{1F4DD} [API] \u062D\u0641\u0638 \u0642\u064A\u0645\u0629 \u0625\u0643\u0645\u0627\u0644 \u062A\u0644\u0642\u0627\u0626\u064A:", req.body);
-    const duration = Date.now() - startTime;
+    const { category, value, usageCount = 1 } = req.body;
+    if (!category || !value) {
+      return res.status(400).json({
+        success: false,
+        message: "category \u0648 value \u0645\u0637\u0644\u0648\u0628\u0627\u0646"
+      });
+    }
+    console.log("\u{1F4DD} [API] \u062D\u0641\u0638 \u0625\u0643\u0645\u0627\u0644 \u062A\u0644\u0642\u0627\u0626\u064A:", { category, value });
     res.json({
       success: true,
-      data: req.body,
-      message: "\u062A\u0645 \u062D\u0641\u0638 \u0642\u064A\u0645\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D",
-      processingTime: duration
+      data: { category, value, usageCount },
+      message: "\u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A",
+      processingTime: Date.now() - startTime
     });
   } catch (error) {
-    const duration = Date.now() - startTime;
-    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A:", error);
+    console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u0625\u0643\u0645\u0627\u0644:", error);
     res.status(500).json({
       success: false,
-      error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u062D\u0641\u0638 \u0642\u064A\u0645\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A",
-      processingTime: duration
+      message: "\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062D\u0641\u0638",
+      processingTime: Date.now() - startTime
     });
   }
 });

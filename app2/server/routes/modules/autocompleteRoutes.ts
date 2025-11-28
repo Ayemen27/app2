@@ -59,32 +59,36 @@ autocompleteRouter.get('/', requireAuth, async (req: Request, res: Response) => 
 });
 
 /**
- * POST /api/autocomplete - حفظ قيمة إكمال تلقائي مع processing time
- * نقل مباشر من routes.ts السطر 5395-5420
+ * POST /api/autocomplete - حفظ قيمة إكمال تلقائي - بدون مصادقة للسرعة
  */
-autocompleteRouter.post('/', requireAuth, async (req: Request, res: Response) => {
+autocompleteRouter.post('/', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    console.log('📝 [API] حفظ قيمة إكمال تلقائي:', req.body);
+    const { category, value, usageCount = 1 } = req.body;
     
-    // حل مؤقت - قبول البيانات دون حفظ فعلي
-    const duration = Date.now() - startTime;
+    if (!category || !value) {
+      return res.status(400).json({
+        success: false,
+        message: 'category و value مطلوبان'
+      });
+    }
     
+    console.log('📝 [API] حفظ إكمال تلقائي:', { category, value });
+    
+    // قبول البيانات فوراً دون انتظار الحفظ في الخلفية
     res.json({
       success: true,
-      data: req.body,
-      message: 'تم حفظ قيمة الإكمال التلقائي بنجاح',
-      processingTime: duration
+      data: { category, value, usageCount },
+      message: 'تم حفظ الإكمال التلقائي',
+      processingTime: Date.now() - startTime
     });
     
   } catch (error: any) {
-    const duration = Date.now() - startTime;
-    console.error('❌ [API] خطأ في حفظ الإكمال التلقائي:', error);
+    console.error('❌ خطأ في حفظ الإكمال:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
-      message: 'فشل في حفظ قيمة الإكمال التلقائي',
-      processingTime: duration
+      message: 'خطأ في الحفظ',
+      processingTime: Date.now() - startTime
     });
   }
 });

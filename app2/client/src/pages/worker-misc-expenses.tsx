@@ -88,7 +88,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
       // حفظ قيم الإكمال التلقائي
       if (miscDescription) await saveAutocompleteValue('workerMiscDescriptions', miscDescription);
       
-      queryClient.refetchQueries({ queryKey: ["/api/worker-misc-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/worker-misc-expenses"] });
       setMiscDescription("");
       setMiscAmount("");
       toast({
@@ -113,7 +113,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
       // حفظ قيم الإكمال التلقائي
       if (miscDescription) await saveAutocompleteValue('workerMiscDescriptions', miscDescription);
       
-      queryClient.refetchQueries({ queryKey: ["/api/worker-misc-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/worker-misc-expenses"] });
       resetMiscExpenseForm();
       toast({
         title: "تم تحديث النثريات",
@@ -133,7 +133,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   const deleteMiscExpenseMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/worker-misc-expenses/${id}`, "DELETE"),
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ["/api/worker-misc-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/worker-misc-expenses"] });
       toast({
         title: "تم حذف النثريات",
         description: "تم حذف النثريات بنجاح"

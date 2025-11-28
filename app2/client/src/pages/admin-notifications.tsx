@@ -198,8 +198,8 @@ export default function AdminNotificationsPage() {
 
           <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-8">
             {/* Tabs Navigation - تصميم محسن */}
-            <div className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl p-3 shadow-2xl border-2 border-slate-200 dark:border-slate-700">
-              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-3 bg-transparent p-1">
+            <div className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl p-4 sm:p-6 shadow-2xl border-2 border-slate-200 dark:border-slate-700">
+              <TabsList className="flex w-full gap-4 sm:gap-6 bg-transparent p-0 h-auto justify-start overflow-x-auto">
                 <TabTriggerEnhanced value="overview" icon={BarChart3} label="لوحة التحكم" />
                 <TabTriggerEnhanced value="notifications" icon={Bell} label="الإشعارات" badge={stats.unread} />
                 <TabTriggerEnhanced value="users" icon={Users} label="المستخدمين" />
@@ -400,12 +400,11 @@ const StatsCard = ({ icon: Icon, label, value, gradient, iconBg, iconColor, puls
 const TabTriggerEnhanced = ({ value, icon: Icon, label, badge }: any) => (
   <TabsTrigger
     value={value}
-    className="relative rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-600 data-[state=active]:via-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-2xl data-[state=active]:shadow-blue-500/40 data-[state=active]:scale-105 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 h-12 px-4 sm:px-6 font-bold border-2 border-transparent data-[state=active]:border-blue-400 dark:data-[state=active]:border-blue-500"
+    className="relative flex-shrink-0 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-600 data-[state=active]:via-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-2xl data-[state=active]:shadow-blue-500/40 data-[state=active]:scale-105 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 h-12 px-5 sm:px-7 font-bold border-2 border-transparent data-[state=active]:border-blue-400 dark:data-[state=active]:border-blue-500 whitespace-nowrap"
   >
     <div className="flex items-center gap-2.5">
       <Icon className="h-5 w-5" />
-      <span className="hidden sm:inline font-bold text-sm">{label}</span>
-      <span className="sm:hidden text-xs font-bold">{label.split(' ')[0]}</span>
+      <span className="font-bold text-sm">{label}</span>
     </div>
     {badge > 0 && (
       <Badge className="absolute -top-2 -left-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-extrabold bg-gradient-to-br from-red-500 to-rose-600 text-white border-3 border-white dark:border-slate-900 shadow-lg animate-pulse">

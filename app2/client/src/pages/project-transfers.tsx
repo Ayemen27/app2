@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertProjectFundTransferSchema } from "@shared/schema";
 import type { InsertProjectFundTransfer, ProjectFundTransfer, Project } from "@shared/schema";
-import { ArrowRightLeft, ArrowRight, Calendar, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, Minus, MoreVertical, Plus, ChevronRight, RefreshCw, Download, Upload, Settings } from "lucide-react";
+import { ArrowRightLeft, ArrowRight, Calendar, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, Minus, MoreVertical, Plus, ChevronRight, RefreshCw, Download, Upload, Settings, BarChart3, ListChecks } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -203,6 +203,24 @@ export default function ProjectTransfers() {
     }).format(amount) + ' ريال';
   };
 
+  // Enhanced Tab Component
+  const TabTriggerEnhanced = ({ value, icon: Icon, label, badge = 0 }: any) => (
+    <TabsTrigger
+      value={value}
+      className="relative flex-shrink-0 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-amber-600 data-[state=active]:via-orange-600 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-500/40 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all h-9 md:h-11 px-2 md:px-4 font-semibold border-2 border-transparent data-[state=active]:border-amber-400 dark:data-[state=active]:border-amber-500 whitespace-nowrap text-xs md:text-sm"
+    >
+      <div className="flex items-center gap-1.5 md:gap-2">
+        <Icon className="h-4 w-4 md:h-5 md:w-5" />
+        <span className="font-semibold hidden sm:inline">{label}</span>
+      </div>
+      {badge > 0 && (
+        <Badge className="absolute -top-2 -left-2 h-5 w-5 md:h-6 md:w-6 p-0 flex items-center justify-center text-xs font-extrabold bg-gradient-to-br from-red-500 to-rose-600 text-white border-2 border-white dark:border-slate-900 shadow-lg animate-pulse">
+          {badge}
+        </Badge>
+      )}
+    </TabsTrigger>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
       {/* Main Content */}
@@ -261,29 +279,15 @@ export default function ProjectTransfers() {
               showActiveFilters={true}
             />
 
-            {/* Tab Navigation */}
-            <Card className="bg-transparent border-0 shadow-none p-0">
-              <CardContent className="p-0">
-                <div className="overflow-x-auto -mx-2 px-2 md:-mx-6 md:px-6">
-                  <TabsList className="flex gap-3 md:gap-6 bg-transparent p-0 h-auto justify-start w-max">
-                    <button 
-                      onClick={() => setSelectedTab('overview')} 
-                      className={`px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 text-xs md:text-sm whitespace-nowrap ${ selectedTab === 'overview' ? 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-300 dark:hover:border-amber-700'}`}>
-                      النظرة العامة
-                    </button>
-                    <button 
-                      onClick={() => setSelectedTab('list')} 
-                      className={`px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 text-xs md:text-sm flex items-center gap-2 whitespace-nowrap ${ selectedTab === 'list' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700'}`}>
-                      <span>قائمة التحويلات</span>
-                      {filteredTransfers.length > 0 && (
-                        <Badge className="bg-red-500 text-white text-xs">{filteredTransfers.length}</Badge>
-                      )}
-                    </button>
-                    <button 
-                      onClick={() => setSelectedTab('create')} 
-                      className={`px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold transition-all border-2 text-xs md:text-sm whitespace-nowrap ${ selectedTab === 'create' ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/40 dark:to-emerald-950/40 border-green-300 dark:border-green-700 text-green-900 dark:text-green-200 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-green-300 dark:hover:border-green-700'}`}>
-                      إضافة تحويل جديد
-                    </button>
+            {/* Tabs Navigation Card */}
+            <Card className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-lg md:rounded-xl shadow-lg md:shadow-xl border-2 border-slate-200 dark:border-slate-700">
+              <CardContent className="p-3 md:p-5">
+                {/* Tabs List */}
+                <div className="overflow-x-auto -mx-3 md:-mx-5 px-3 md:px-5">
+                  <TabsList className="flex gap-1 md:gap-3 bg-transparent p-0 h-auto justify-start w-max">
+                    <TabTriggerEnhanced value="overview" icon={BarChart3} label="النظرة العامة" />
+                    <TabTriggerEnhanced value="list" icon={ListChecks} label="قائمة التحويلات" badge={filteredTransfers.length} />
+                    <TabTriggerEnhanced value="create" icon={Plus} label="إضافة جديد" />
                   </TabsList>
                 </div>
               </CardContent>

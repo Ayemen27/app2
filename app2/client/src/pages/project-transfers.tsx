@@ -195,6 +195,14 @@ export default function ProjectTransfers() {
   });
 
   const onSubmit = (data: TransferFormData) => {
+    if (!data.fromProjectId || !data.toProjectId) {
+      toast({
+        title: "خطأ",
+        description: "يجب تحديد المشروع المرسل والمشروع المستقبل",
+        variant: "destructive",
+      });
+      return;
+    }
     createTransferMutation.mutate(data);
   };
 
@@ -414,18 +422,59 @@ export default function ProjectTransfers() {
             <CardContent className="p-4 md:p-6 pb-4 md:pb-6">
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
-                      {/* Row 1: Projects */}
+                      {/* Row 1: Amount and Date */}
+                      <div className="grid grid-cols-2 gap-3 md:gap-4">
+                        <FormField
+                          control={form.control}
+                          name="amount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs md:text-sm font-semibold">المبلغ (ريال)</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" placeholder="0" {...field} className="h-10 md:h-11 border-2 text-xs md:text-sm" />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="transferDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs md:text-sm font-semibold">التاريخ (DD/MM/YYYY)</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="date" 
+                                  {...field} 
+                                  className="h-10 md:h-11 border-2 text-xs md:text-sm"
+                                  onBlur={(e) => {
+                                    field.onBlur();
+                                    if (e.target.value) {
+                                      const [year, month, day] = e.target.value.split('-');
+                                      e.target.value = `${day}/${month}/${year}`;
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Row 2: Projects */}
                       <div className="grid grid-cols-2 gap-2 md:gap-4">
                         <FormField
                           control={form.control}
                           name="fromProjectId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-xs md:text-sm font-semibold">المشروع المرسل</FormLabel>
+                              <FormLabel className="text-xs md:text-sm font-semibold">المشروع المرسل *</FormLabel>
                               <FormControl>
                                 <Select value={field.value} onValueChange={field.onChange}>
                                   <SelectTrigger className="h-10 md:h-11 border-2 text-xs md:text-sm">
-                                    <SelectValue placeholder="المرسل" />
+                                    <SelectValue placeholder="اختر المشروع المرسل" />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {projects.map(p => (
@@ -443,11 +492,11 @@ export default function ProjectTransfers() {
                           name="toProjectId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-xs md:text-sm font-semibold">المشروع المستقبل</FormLabel>
+                              <FormLabel className="text-xs md:text-sm font-semibold">المشروع المستقبل *</FormLabel>
                               <FormControl>
                                 <Select value={field.value} onValueChange={field.onChange}>
                                   <SelectTrigger className="h-10 md:h-11 border-2 text-xs md:text-sm">
-                                    <SelectValue placeholder="المستقبل" />
+                                    <SelectValue placeholder="اختر المشروع المستقبل" />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {projects.map(p => (
@@ -455,36 +504,6 @@ export default function ProjectTransfers() {
                                     ))}
                                   </SelectContent>
                                 </Select>
-                              </FormControl>
-                              <FormMessage className="text-xs" />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {/* Row 2: Date and Amount */}
-                      <div className="grid grid-cols-2 gap-3 md:gap-4">
-                        <FormField
-                          control={form.control}
-                          name="transferDate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs md:text-sm font-semibold">التاريخ</FormLabel>
-                              <FormControl>
-                                <Input type="date" {...field} className="h-10 md:h-11 border-2 text-xs md:text-sm" />
-                              </FormControl>
-                              <FormMessage className="text-xs" />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="amount"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs md:text-sm font-semibold">المبلغ (ريال)</FormLabel>
-                              <FormControl>
-                                <Input type="number" step="0.01" placeholder="0" {...field} className="h-10 md:h-11 border-2 text-xs md:text-sm" />
                               </FormControl>
                               <FormMessage className="text-xs" />
                             </FormItem>

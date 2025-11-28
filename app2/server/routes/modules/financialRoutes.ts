@@ -540,11 +540,14 @@ financialRouter.delete('/project-fund-transfers/:id', async (req: Request, res: 
     }
 
     // حذف السجل
+    console.log('🗑️ [API] حذف السجل من قاعدة البيانات...');
     const result = await db.delete(projectFundTransfers).where(eq(projectFundTransfers.id, id));
+    console.log('✅ [API] تم حذف السجل:', { deletedCount: result.rowCount });
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف تحويل المشروع بنجاح في ${duration}ms:`, id);
 
+    // إرسال response صحيح مع رسالة نجاح
     res.json({
       success: true,
       data: transfer[0],

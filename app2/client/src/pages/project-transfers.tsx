@@ -143,16 +143,34 @@ export default function ProjectTransfers() {
   });
 
   const deleteTransferMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/project-fund-transfers/${id}`, "DELETE"),
-    onSuccess: () => {
+    mutationFn: async (id: string) => {
+      console.log('🗑️ [Client] حذف التحويل:', id);
+      const result = await apiRequest(`/api/project-fund-transfers/${id}`, "DELETE");
+      console.log('✅ [Client] نتيجة الحذف:', result);
+      return result;
+    },
+    onSuccess: (data, variables) => {
+      console.log('✅ [Client] نجح الحذف، تحديث البيانات...', variables);
+      // تحديث البيانات مباشرة من البيانات المحفوظة
+      queryClient.setQueryData(["/api/project-fund-transfers"], (oldData: any) => {
+        console.log('📊 [Client] البيانات القديمة:', oldData);
+        const filtered = oldData?.data?.filter((t: any) => t.id !== variables) || [];
+        const result = { ...oldData, data: filtered, success: true };
+        console.log('📊 [Client] البيانات الجديدة:', result);
+        return result;
+      });
+      
+      // إبطال الاستعلامات
       queryClient.invalidateQueries({ queryKey: ["/api/project-fund-transfers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      
       toast({
         title: "تم الحذف",
         description: "تم حذف عملية الترحيل بنجاح",
       });
     },
     onError: (error: any) => {
+      console.error('❌ [Client] خطأ في الحذف:', error);
       toast({
         title: "خطأ",
         description: error.message || "فشل في حذف عملية الترحيل",

@@ -18,6 +18,7 @@ const navigationItems = [
   { path: "/projects", icon: Building2, label: "المشاريع", key: "projects" },
   { path: "/workers", icon: Users, label: "العمال", key: "workers" },
   { path: "/suppliers-pro", icon: Truck, label: "الموردين", key: "suppliers" },
+  { path: "/daily-expenses", icon: Calculator, label: "المصاريف", key: "expenses" },
 ];
 
 // قائمة الصفحات مع مستوى الحماية المطلوب
@@ -96,7 +97,7 @@ export default function BottomNavigation() {
 
   return (
     <nav className="bg-primary/95 backdrop-blur-sm border-t-2 border-primary-foreground/20 shadow-lg pointer-events-auto flex-shrink-0 h-14">
-      <div className="grid grid-cols-5 h-14 w-full max-w-screen-xl mx-auto">
+      <div className="grid grid-cols-6 h-14 w-full max-w-screen-xl mx-auto">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.path;

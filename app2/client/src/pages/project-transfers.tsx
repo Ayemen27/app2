@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UnifiedSearchFilter, { useUnifiedFilter, FilterConfig } from "@/components/ui/unified-search-filter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { StatsCard } from "@/components/ui/stats-card";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 
@@ -572,20 +573,3 @@ export default function ProjectTransfers() {
     </div>
   );
 }
-
-// Enhanced Stats Card Component
-const StatsCard = ({ icon: Icon, label, value, gradient, iconBg, iconColor }: any) => (
-  <Card className="relative overflow-hidden border-0 bg-white dark:bg-slate-900 shadow-lg hover:shadow-xl transition-all group cursor-pointer">
-    <div className={cn("absolute inset-0 bg-gradient-to-br opacity-5 group-hover:opacity-10 transition-opacity", gradient)} />
-    <CardContent className="p-3 md:p-4 relative">
-      <div className="flex items-start justify-between mb-2">
-        <div className={cn("w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110", iconBg)}>
-          <Icon className={cn("h-4 w-4 md:h-5 md:w-5", iconColor)} />
-        </div>
-        <ChevronRight className="h-3 w-3 md:h-4 md:w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-      </div>
-      <p className="text-base md:text-lg font-black text-slate-900 dark:text-white mb-0.5">{value}</p>
-      <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</p>
-    </CardContent>
-  </Card>
-);

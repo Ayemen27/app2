@@ -8935,6 +8935,84 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
     });
   }
 });
+workerRouter.delete("/worker-attendance/:id", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const attendanceId = req.params.id;
+    console.log("\u{1F5D1}\uFE0F [API] \u0637\u0644\u0628 \u062D\u0630\u0641 \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644:", attendanceId);
+    console.log("\u{1F464} [API] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
+    console.log("\u{1F50D} [API] \u0627\u0644\u0645\u0633\u0627\u0631 \u0627\u0644\u0643\u0627\u0645\u0644:", req.originalUrl);
+    console.log("\u{1F50D} [API] Method:", req.method);
+    if (!attendanceId) {
+      const duration2 = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u0645\u0637\u0644\u0648\u0628",
+        message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u0644\u0644\u062D\u0630\u0641",
+        processingTime: duration2
+      });
+    }
+    const existingAttendance = await db.select().from(workerAttendance).where(eq8(workerAttendance.id, attendanceId)).limit(1);
+    if (existingAttendance.length === 0) {
+      const duration2 = Date.now() - startTime;
+      console.error("\u274C [API] \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", attendanceId);
+      return res.status(404).json({
+        success: false,
+        error: "\u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+        message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${attendanceId}`,
+        processingTime: duration2
+      });
+    }
+    const attendanceToDelete = existingAttendance[0];
+    console.log("\u{1F5D1}\uFE0F [API] \u0633\u064A\u062A\u0645 \u062D\u0630\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631:", {
+      id: attendanceToDelete.id,
+      workerId: attendanceToDelete.workerId,
+      date: attendanceToDelete.date,
+      projectId: attendanceToDelete.projectId
+    });
+    console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
+    const deletedAttendance = await db.delete(workerAttendance).where(eq8(workerAttendance.id, attendanceId)).returning();
+    const io2 = global.io;
+    if (io2 && deletedAttendance[0]) {
+      io2.emit("entity:update", {
+        type: "INVALIDATE",
+        entity: "worker-attendance",
+        projectId: deletedAttendance[0].projectId,
+        date: deletedAttendance[0].date
+      });
+    }
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
+      id: deletedAttendance[0].id,
+      workerId: deletedAttendance[0].workerId,
+      date: deletedAttendance[0].date
+    });
+    res.json({
+      success: true,
+      data: deletedAttendance[0],
+      message: `\u062A\u0645 \u062D\u0630\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u0628\u062A\u0627\u0631\u064A\u062E ${deletedAttendance[0].date} \u0628\u0646\u062C\u0627\u062D`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631:", error);
+    let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u062D\u0630\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631";
+    let statusCode = 500;
+    if (error.code === "23503") {
+      errorMessage = "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 - \u0645\u0631\u062A\u0628\u0637 \u0628\u0628\u064A\u0627\u0646\u0627\u062A \u0623\u062E\u0631\u0649";
+      statusCode = 409;
+    } else if (error.code === "22P02") {
+      errorMessage = "\u0645\u0639\u0631\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D";
+      statusCode = 400;
+    }
+    res.status(statusCode).json({
+      success: false,
+      error: errorMessage,
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 workerRouter.post("/worker-attendance", async (req, res) => {
   const startTime = Date.now();
   try {

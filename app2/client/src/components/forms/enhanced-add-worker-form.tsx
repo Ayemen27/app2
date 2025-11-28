@@ -78,8 +78,9 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       }
     },
     onSuccess: async (newWorker, variables) => {
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/workers"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       toast({
         title: "تم الحفظ",
@@ -88,7 +89,6 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       setName("");
       setType("");
       setDailyWage("");
-      queryClient.refetchQueries({ queryKey: ["/api/workers"] });
       onSuccess?.();
     },
     onError: async (error: any, variables) => {
@@ -99,7 +99,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       ]);
       
       // تحديث كاش autocomplete
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       const errorMessage = error?.message || "حدث خطأ أثناء إضافة العامل";
       toast({
@@ -112,7 +112,9 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
 
   const addWorkerTypeMutation = useMutation({
     mutationFn: (data: InsertWorkerType) => apiRequest("/api/worker-types", "POST", data),
-    onSuccess: (newWorkerType: WorkerType) => {
+    onSuccess: async (newWorkerType: WorkerType) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       toast({
         title: "تم الحفظ",
         description: "تم إضافة نوع العامل بنجاح",
@@ -120,7 +122,6 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       setNewTypeName("");
       setShowAddTypeDialog(false);
       setType(newWorkerType.name); // اختيار النوع الجديد تلقائياً
-      queryClient.refetchQueries({ queryKey: ["/api/worker-types"] });
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "حدث خطأ أثناء إضافة نوع العامل";

@@ -215,14 +215,13 @@ export function CreateNotificationDialog({
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      
       toast({
         title: "تم بنجاح",
         description: "تم إنشاء الإشعار بنجاح",
       });
-
-      // تحديث cache الإشعارات
-      queryClient.refetchQueries({ queryKey: ['notifications'] });
 
       // إغلاق الحوار وإعادة تعيين النموذج
       onOpenChange(false);

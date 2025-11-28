@@ -36,23 +36,20 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
       return apiRequest("/api/projects", "POST", data);
     },
     onSuccess: async () => {
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       toast({
         title: "تم الحفظ",
         description: "تم إضافة المشروع بنجاح",
       });
       setName("");
       setStatus("active");
-      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
       onSuccess?.();
     },
     onError: async (error: any, variables) => {
       await saveAutocompleteValue('projectNames', variables.name);
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       const errorMessage = error?.message || "حدث خطأ أثناء إضافة المشروع";
       toast({
         title: "فشل في إضافة المشروع",

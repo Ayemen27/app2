@@ -60,21 +60,11 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
   const transferMutation = useMutation({
     mutationFn: (data: TransferFormData) => 
       apiRequest(`/api/equipment/${equipment?.id}/transfer`, "POST", data),
-    onSuccess: () => {
-      queryClient.refetchQueries({ 
-        predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment'
-      });
-      queryClient.refetchQueries({ 
-        predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment'
-      });
-      queryClient.refetchQueries({ 
-        predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment-movements'
-      });
-      queryClient.refetchQueries({ 
-        predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment-movements'
-      });
-      queryClient.refetchQueries({ queryKey: ['projects'] });
-      queryClient.refetchQueries({ queryKey: ['projects'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      await queryClient.invalidateQueries({ queryKey: ['equipment-movements'] });
+      await queryClient.invalidateQueries({ queryKey: ['projects'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/projects/with-stats'] });
       
       toast({
         title: "نجح النقل",

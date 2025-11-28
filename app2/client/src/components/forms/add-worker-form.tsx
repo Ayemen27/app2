@@ -73,7 +73,10 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       }
     },
     onSuccess: async (newWorker, variables) => {
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/workers"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       toast({
         title: "تم الحفظ",
@@ -84,8 +87,6 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
         setType("");
         setDailyWage("");
       }
-      queryClient.refetchQueries({ queryKey: ["/api/workers"] });
-      queryClient.refetchQueries({ queryKey: ["/api/worker-types"] });
       onSuccess?.();
     },
     onError: async (error: any, variables) => {
@@ -94,7 +95,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
         saveAutocompleteValue('workerTypes', variables.type)
       ]);
       
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       const errorMessage = error?.message || (worker ? "حدث خطأ أثناء تعديل العامل" : "حدث خطأ أثناء إضافة العامل");
       toast({
@@ -111,7 +112,8 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       return apiRequest("/api/worker-types", "POST", data);
     },
     onSuccess: async (newType, variables) => {
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       toast({
         title: "تم الحفظ",
@@ -120,12 +122,11 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       setType(newType.name);
       setNewTypeName("");
       setShowAddTypeDialog(false);
-      queryClient.refetchQueries({ queryKey: ["/api/worker-types"] });
     },
     onError: async (error: any, variables) => {
       await saveAutocompleteValue('workerTypes', variables.name);
       
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
       const errorMessage = error?.message || "حدث خطأ أثناء إضافة نوع العامل";
       toast({

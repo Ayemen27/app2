@@ -45,10 +45,8 @@ export function AutocompleteInput({
   const saveDataMutation = useMutation({
     mutationFn: (data: { category: string; value: string; usageCount?: number }) =>
       apiRequest('/api/autocomplete', 'POST', data),
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['autocomplete', category] });
-      // إعادة تحديث البيانات فوراً
-      queryClient.refetchQueries({ queryKey: ['autocomplete', category] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['autocomplete', category] });
     },
     onError: (error) => {
       console.error('Error saving autocomplete data:', error);
@@ -59,9 +57,8 @@ export function AutocompleteInput({
   const removeDataMutation = useMutation({
     mutationFn: ({ category, value }: { category: string; value: string }) =>
       apiRequest(`/api/autocomplete/${category}/${encodeURIComponent(value)}`, 'DELETE'),
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['autocomplete', category] });
-      queryClient.refetchQueries({ queryKey: ['autocomplete', category] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['autocomplete', category] });
     },
   });
 

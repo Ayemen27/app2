@@ -151,10 +151,10 @@ export default function Dashboard() {
 
       return apiRequest("/api/workers", "POST", data);
     },
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
-
-      queryClient.refetchQueries({ queryKey: ["/api/workers"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/workers"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       toast({
         title: "نجح الحفظ",
         description: "تم إضافة العامل بنجاح",
@@ -180,11 +180,10 @@ export default function Dashboard() {
 
       return apiRequest("/api/projects", "POST", data);
     },
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
-
-      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       toast({
         title: "نجح الحفظ",
         description: "تم إضافة المشروع بنجاح",
@@ -207,9 +206,9 @@ export default function Dashboard() {
 
       return apiRequest("/api/worker-types", "POST", data);
     },
-    onSuccess: (newType) => {
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
-
+    onSuccess: async (newType) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       toast({
         title: "تم الحفظ",
         description: "تم إضافة نوع العامل بنجاح",
@@ -217,7 +216,6 @@ export default function Dashboard() {
       setWorkerData({...workerData, type: newType.name});
       setNewTypeName("");
       setShowAddTypeDialog(false);
-      queryClient.refetchQueries({ queryKey: ["/api/worker-types"] });
     },
     onError: (error) => {
       toast({

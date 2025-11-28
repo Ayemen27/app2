@@ -75,7 +75,8 @@ export default function AddSupplierForm({
       }
     },
     onSuccess: async (data) => {
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
 
       toast({
         title: "تم الحفظ",
@@ -85,7 +86,6 @@ export default function AddSupplierForm({
       if (!supplier) {
         resetForm();
       }
-      queryClient.refetchQueries({ queryKey: ["/api/suppliers"] });
       onSuccess?.();
     },
     onError: async (error: any) => {
@@ -97,7 +97,7 @@ export default function AddSupplierForm({
         saveAutocompleteValue('supplier_payment_terms', paymentTerms)
       ]);
 
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
 
       const errorMessage = error?.message || (supplier ? "حدث خطأ أثناء تعديل المورد" : "حدث خطأ أثناء إضافة المورد");
       toast({

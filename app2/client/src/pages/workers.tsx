@@ -328,8 +328,9 @@ export default function WorkersPage() {
 
   const deleteWorkerMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/workers/${id}`, "DELETE"),
-    onSuccess: (data) => {
-      queryClient.refetchQueries({ queryKey: ['/api/workers'] });
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/projects/with-stats'] });
       toast({
         title: "✅ تم حذف العامل بنجاح",
         description: data?.message || "تم حذف العامل من النظام بنجاح. يمكنك إضافة عامل جديد إذا لزم الأمر.",
@@ -375,8 +376,9 @@ export default function WorkersPage() {
   const updateWorkerMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => 
       apiRequest(`/api/workers/${id}`, "PATCH", data),
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/workers'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/projects/with-stats'] });
       toast({
         title: "تم بنجاح",
         description: "تم تحديث بيانات العامل بنجاح",

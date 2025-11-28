@@ -167,7 +167,7 @@ export default function AdminNotificationsPage() {
       <ScrollArea className="h-[calc(100vh-4rem)]">
         <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6">
           {/* Quick Stats Cards - 3 بطائق في صف واحد أفقياً */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+          <div className="grid grid-cols-3 gap-6 sm:gap-8 mb-8">
             <StatsCard
               icon={Bell}
               label="إجمالي الإشعارات"
@@ -195,10 +195,10 @@ export default function AdminNotificationsPage() {
             />
           </div>
 
-          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-            {/* Tabs Navigation */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-2 shadow-lg border border-slate-200 dark:border-slate-800">
-              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-2 bg-transparent p-0">
+          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-8">
+            {/* Tabs Navigation - تصميم محسن */}
+            <div className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl p-3 shadow-2xl border-2 border-slate-200 dark:border-slate-700">
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-3 bg-transparent p-1">
                 <TabTriggerEnhanced value="overview" icon={BarChart3} label="لوحة التحكم" />
                 <TabTriggerEnhanced value="notifications" icon={Bell} label="الإشعارات" badge={stats.unread} />
                 <TabTriggerEnhanced value="users" icon={Users} label="المستخدمين" />
@@ -207,8 +207,8 @@ export default function AdminNotificationsPage() {
             </div>
 
             {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6 mt-0">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <TabsContent value="overview" className="space-y-8 mt-0">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Activity Chart */}
                 <Card className="lg:col-span-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
                   <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4">
@@ -288,11 +288,11 @@ export default function AdminNotificationsPage() {
             </TabsContent>
 
             {/* Notifications Tab */}
-            <TabsContent value="notifications" className="space-y-4 mt-0">
+            <TabsContent value="notifications" className="space-y-6 mt-0">
               {/* Search and Filter Bar */}
               <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
-                <CardContent className="p-3">
-                  <div className="flex flex-col sm:flex-row gap-3">
+                <CardContent className="p-5">
+                  <div className="flex flex-col sm:flex-row gap-4">
                     <div className="relative flex-1">
                       <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <Input
@@ -315,13 +315,13 @@ export default function AdminNotificationsPage() {
               </Card>
 
               {/* Notifications List */}
-              <div className="space-y-3">
+              <div className="space-y-5">
                 {isLoadingNotifications ? (
                   <LoadingNotifications />
                 ) : notifications.length === 0 ? (
                   <EmptyNotifications />
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {notifications.map((notif: any) => (
                       <NotificationCardEnhanced
                         key={notif.id}
@@ -399,15 +399,15 @@ const StatsCard = ({ icon: Icon, label, value, gradient, iconBg, iconColor, puls
 const TabTriggerEnhanced = ({ value, icon: Icon, label, badge }: any) => (
   <TabsTrigger
     value={value}
-    className="relative rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 text-slate-600 dark:text-slate-400 transition-all duration-300 h-11"
+    className="relative rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-600 data-[state=active]:via-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-2xl data-[state=active]:shadow-blue-500/40 data-[state=active]:scale-105 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 h-12 px-4 sm:px-6 font-bold border-2 border-transparent data-[state=active]:border-blue-400 dark:data-[state=active]:border-blue-500"
   >
-    <div className="flex items-center gap-2">
-      <Icon className="h-4 w-4" />
-      <span className="hidden sm:inline font-semibold text-sm">{label}</span>
-      <span className="sm:hidden text-xs">{label.split(' ')[0]}</span>
+    <div className="flex items-center gap-2.5">
+      <Icon className="h-5 w-5" />
+      <span className="hidden sm:inline font-bold text-sm">{label}</span>
+      <span className="sm:hidden text-xs font-bold">{label.split(' ')[0]}</span>
     </div>
     {badge > 0 && (
-      <Badge className="absolute -top-1 -left-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-red-500 text-white border-2 border-white dark:border-slate-900">
+      <Badge className="absolute -top-2 -left-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-extrabold bg-gradient-to-br from-red-500 to-rose-600 text-white border-3 border-white dark:border-slate-900 shadow-lg animate-pulse">
         {badge}
       </Badge>
     )}

@@ -144,13 +144,21 @@ export function CreateNotificationDialog({
 }: CreateNotificationDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { getAccessToken } = useAuth();
   const [selectedRecipientType, setSelectedRecipientType] = useState<string>('all');
+
+  const getAuthHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': getAccessToken() ? `Bearer ${getAccessToken()}` : '',
+  });
 
   // جلب قائمة المستخدمين مع أدوارهم
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['/api/users', 'with-roles'],
     queryFn: async () => {
-      const response = await fetch('/api/users?includeRole=true');
+      const response = await fetch('/api/users?includeRole=true', {
+        headers: getAuthHeaders()
+      });
       if (!response.ok) throw new Error('فشل في جلب المستخدمين');
       return response.json();
     },
@@ -192,9 +200,7 @@ export function CreateNotificationDialog({
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           ...data,
           projectId: projectId,

@@ -98,48 +98,48 @@ export default function AdminNotificationsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" dir="rtl">
-      {/* Header Section - مدمج مع العنوان */}
+      {/* Header Section */}
       <div className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 shadow-lg">
-        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center justify-between gap-4">
+        <div className="px-4 py-3 md:px-6 md:py-4">
+          <div className="flex items-center justify-between gap-3">
             {/* العنوان مع الأيقونة */}
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-xl shadow-blue-500/30 ring-2 ring-white dark:ring-slate-900">
-                  <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="relative flex-shrink-0">
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-xl shadow-blue-500/30 ring-2 ring-white dark:ring-slate-900">
+                  <Bell className="h-5 w-5 md:h-6 md:w-6 text-white" />
                 </div>
                 {stats.unread > 0 && (
-                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-red-500 to-pink-600 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg animate-pulse ring-2 ring-white dark:ring-slate-900">
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-red-500 to-pink-600 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg animate-pulse ring-2 ring-white dark:ring-slate-900">
                     {stats.unread}
                   </div>
                 )}
               </div>
-              <div>
-                <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+              <div className="min-w-0">
+                <h1 className="text-lg md:text-2xl font-black text-slate-900 dark:text-white truncate">
                   مركز الإشعارات
                 </h1>
-                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium hidden sm:block">
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium hidden md:block">
                   إدارة ومراقبة متقدمة
                 </p>
               </div>
             </div>
 
             {/* الأزرار */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => refetch()}
                 disabled={isLoadingNotifications}
-                className="gap-2 border-2 hover:bg-blue-50 dark:hover:bg-blue-950 h-9"
+                className="gap-2 border-2 h-10 px-3"
               >
                 <RefreshCw className={cn("h-4 w-4", isLoadingNotifications && "animate-spin")} />
-                <span className="hidden sm:inline">تحديث</span>
+                <span className="hidden md:inline">تحديث</span>
               </Button>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 border-2 h-9">
+                  <Button variant="outline" size="sm" className="border-2 h-10 px-3">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -164,11 +164,11 @@ export default function AdminNotificationsPage() {
         </div>
       </div>
 
-      {/* Main Content - قابل للتمرير */}
-      <ScrollArea className="h-[calc(100vh-4rem)]">
-        <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6">
-          {/* Quick Stats Cards - 3 بطائق في صف واحد أفقياً */}
-          <div className="grid grid-cols-3 gap-6 sm:gap-8 mb-8">
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-4 py-4 md:px-6 md:py-6">
+          {/* Quick Stats Cards - 3 بطائق أفقية */}
+          <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
             <StatsCard
               icon={Bell}
               label="إجمالي الإشعارات"
@@ -196,10 +196,10 @@ export default function AdminNotificationsPage() {
             />
           </div>
 
-          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-8">
-            {/* Tabs Navigation - تصميم محسن */}
-            <div className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl p-4 sm:p-6 shadow-2xl border-2 border-slate-200 dark:border-slate-700">
-              <TabsList className="flex w-full gap-4 sm:gap-6 bg-transparent p-0 h-auto justify-start overflow-x-auto">
+          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4 md:space-y-6">
+            {/* Tabs Navigation */}
+            <div className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-xl p-4 md:p-6 shadow-xl border-2 border-slate-200 dark:border-slate-700">
+              <TabsList className="flex w-full gap-2 md:gap-3 bg-transparent p-0 h-auto justify-start overflow-x-auto">
                 <TabTriggerEnhanced value="overview" icon={BarChart3} label="لوحة التحكم" />
                 <TabTriggerEnhanced value="notifications" icon={Bell} label="الإشعارات" badge={stats.unread} />
                 <TabTriggerEnhanced value="users" icon={Users} label="المستخدمين" />
@@ -208,33 +208,33 @@ export default function AdminNotificationsPage() {
             </div>
 
             {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-8 mt-0">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <TabsContent value="overview" className="space-y-4 md:space-y-6 mt-0">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
                 {/* Activity Chart */}
                 <Card className="lg:col-span-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
-                  <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
-                          <TrendingUp className="h-5 w-5 text-white" />
+                  <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 md:p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base md:text-lg">
+                        <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                          <TrendingUp className="h-5 w-5 md:h-6 md:w-6 text-white" />
                         </div>
                         أكثر المستخدمين نشاطاً
                       </CardTitle>
-                      <Badge variant="outline" className="bg-white dark:bg-slate-800 text-xs">
-                        آخر 7 أيام
+                      <Badge variant="outline" className="bg-white dark:bg-slate-800 text-xs flex-shrink-0">
+                        7 أيام
                       </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-4">
+                  <CardContent className="p-4 md:p-5 h-80 md:h-96">
                     {isLoadingActivity ? (
                       <div className="space-y-3">
                         {[1, 2, 3, 4, 5].map(i => (
-                          <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                          <Skeleton key={i} className="h-16 w-full rounded-lg" />
                         ))}
                       </div>
                     ) : (
-                      <ScrollArea className="h-[350px] pr-3">
-                        <div className="space-y-2">
+                      <ScrollArea className="h-full">
+                        <div className="space-y-3 pr-4">
                           {activityData?.userStats?.slice(0, 10).map((user: any, i: number) => (
                             <UserActivityCard key={user.userId} user={user} rank={i + 1} />
                           ))}
@@ -246,15 +246,15 @@ export default function AdminNotificationsPage() {
 
                 {/* Performance Summary */}
                 <Card className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800 border-slate-200 dark:border-slate-700 shadow-xl">
-                  <CardHeader className="border-b border-slate-100 dark:border-slate-800 p-4">
-                    <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base">
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
-                        <Activity className="h-5 w-5 text-white" />
+                  <CardHeader className="border-b border-slate-100 dark:border-slate-800 p-4 md:p-5">
+                    <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base md:text-lg">
+                      <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                        <Activity className="h-5 w-5 md:h-6 md:w-6 text-white" />
                       </div>
                       ملخص الأداء
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 space-y-3">
+                  <CardContent className="p-4 md:p-5 space-y-3">
                     <PerformanceMetric
                       label="معدل الفتح"
                       value={`${stats.readRate}%`}
@@ -278,9 +278,9 @@ export default function AdminNotificationsPage() {
                     />
                     
                     <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700">
-                      <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/30 transition-all duration-300 hover:shadow-xl h-10 text-sm">
+                      <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/30 h-10 text-sm">
                         <Target className="h-4 w-4 ml-2" />
-                        عرض التقرير الشامل
+                        التقرير الشامل
                       </Button>
                     </div>
                   </CardContent>
@@ -289,11 +289,11 @@ export default function AdminNotificationsPage() {
             </TabsContent>
 
             {/* Notifications Tab */}
-            <TabsContent value="notifications" className="space-y-6 mt-0">
+            <TabsContent value="notifications" className="space-y-4 md:space-y-6 mt-0">
               {/* Search and Filter Bar */}
               <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
-                <CardContent className="p-5">
-                  <div className="flex flex-col sm:flex-row gap-4">
+                <CardContent className="p-4 md:p-5">
+                  <div className="flex flex-col md:flex-row gap-3 md:gap-4">
                     <div className="relative flex-1">
                       <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <Input
@@ -303,20 +303,22 @@ export default function AdminNotificationsPage() {
                         onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                       />
                     </div>
-                    <Button variant="outline" className="gap-2 h-10 border-2 px-4 text-sm">
-                      <Filter className="h-4 w-4" />
-                      <span className="hidden sm:inline">فلترة</span>
-                    </Button>
-                    <Button className="gap-2 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-4 shadow-lg shadow-blue-500/30 text-sm">
-                      <RefreshCw className={cn("h-4 w-4", isLoadingNotifications && "animate-spin")} />
-                      <span className="hidden sm:inline">تحديث</span>
-                    </Button>
+                    <div className="flex gap-2 md:gap-3">
+                      <Button variant="outline" className="gap-2 h-10 border-2 px-4 text-sm flex-1 md:flex-none">
+                        <Filter className="h-4 w-4" />
+                        <span className="hidden md:inline">فلترة</span>
+                      </Button>
+                      <Button className="gap-2 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-4 shadow-lg shadow-blue-500/30 text-sm flex-1 md:flex-none">
+                        <RefreshCw className={cn("h-4 w-4", isLoadingNotifications && "animate-spin")} />
+                        <span className="hidden md:inline">تحديث</span>
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Notifications List */}
-              <div className="space-y-5">
+              <div className="space-y-4 md:space-y-5">
                 {isLoadingNotifications ? (
                   <LoadingNotifications />
                 ) : notifications.length === 0 ? (
@@ -339,19 +341,19 @@ export default function AdminNotificationsPage() {
             {/* Users Tab */}
             <TabsContent value="users" className="mt-0">
               <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xl">
-                <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 p-4">
-                  <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
-                      <Users className="h-5 w-5 text-white" />
+                <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 p-4 md:p-5">
+                  <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base md:text-lg">
+                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                      <Users className="h-5 w-5 md:h-6 md:w-6 text-white" />
                     </div>
                     نشاط المستخدمين
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4">
+                <CardContent className="p-4 md:p-5 max-h-96 overflow-y-auto">
                   {isLoadingActivity ? (
                     <LoadingUsers />
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-3 md:space-y-4">
                       {activityData?.userStats?.map((user: any, i: number) => (
                         <UserActivityCard key={user.userId} user={user} rank={i + 1} detailed />
                       ))}
@@ -367,7 +369,7 @@ export default function AdminNotificationsPage() {
             </TabsContent>
           </Tabs>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
@@ -375,24 +377,19 @@ export default function AdminNotificationsPage() {
 // Enhanced Components
 const StatsCard = ({ icon: Icon, label, value, gradient, iconBg, iconColor, pulse }: any) => (
   <Card className={cn(
-    "relative overflow-hidden border-0 bg-white dark:bg-slate-900 shadow-lg hover:shadow-xl transition-all duration-300 group cursor-pointer",
+    "relative overflow-hidden border-0 bg-white dark:bg-slate-900 shadow-lg hover:shadow-xl transition-all group cursor-pointer",
     pulse && "animate-pulse"
   )}>
-    <div className={cn(
-      "absolute inset-0 bg-gradient-to-br opacity-5 group-hover:opacity-10 transition-opacity",
-      gradient
-    )} />
-    <CardContent className="p-4 relative">
-      <div className="flex items-start justify-between mb-2">
-        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110", iconBg)}>
-          <Icon className={cn("h-5 w-5", iconColor)} />
+    <div className={cn("absolute inset-0 bg-gradient-to-br opacity-5 group-hover:opacity-10 transition-opacity", gradient)} />
+    <CardContent className="p-4 md:p-5 relative">
+      <div className="flex items-start justify-between mb-3">
+        <div className={cn("w-10 h-10 md:w-11 md:h-11 rounded-lg md:rounded-xl flex items-center justify-center transition-transform group-hover:scale-110", iconBg)}>
+          <Icon className={cn("h-5 w-5 md:h-6 md:w-6", iconColor)} />
         </div>
         <ChevronRight className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
-      <div className="space-y-1">
-        <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">{value}</p>
-        <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</p>
-      </div>
+      <p className="text-lg md:text-2xl font-black text-slate-900 dark:text-white mb-1">{value}</p>
+      <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</p>
     </CardContent>
   </Card>
 );
@@ -400,14 +397,14 @@ const StatsCard = ({ icon: Icon, label, value, gradient, iconBg, iconColor, puls
 const TabTriggerEnhanced = ({ value, icon: Icon, label, badge }: any) => (
   <TabsTrigger
     value={value}
-    className="relative flex-shrink-0 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-600 data-[state=active]:via-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-2xl data-[state=active]:shadow-blue-500/40 data-[state=active]:scale-105 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 h-12 px-5 sm:px-7 font-bold border-2 border-transparent data-[state=active]:border-blue-400 dark:data-[state=active]:border-blue-500 whitespace-nowrap"
+    className="relative flex-shrink-0 rounded-lg md:rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-600 data-[state=active]:via-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/40 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all h-10 md:h-12 px-3 md:px-5 font-semibold border-2 border-transparent data-[state=active]:border-blue-400 dark:data-[state=active]:border-blue-500 whitespace-nowrap text-xs md:text-sm"
   >
-    <div className="flex items-center gap-2.5">
-      <Icon className="h-5 w-5" />
-      <span className="font-bold text-sm">{label}</span>
+    <div className="flex items-center gap-2 md:gap-2.5">
+      <Icon className="h-4 w-4 md:h-5 md:w-5" />
+      <span className="font-semibold">{label}</span>
     </div>
     {badge > 0 && (
-      <Badge className="absolute -top-2 -left-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-extrabold bg-gradient-to-br from-red-500 to-rose-600 text-white border-3 border-white dark:border-slate-900 shadow-lg animate-pulse">
+      <Badge className="absolute -top-2 -left-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-extrabold bg-gradient-to-br from-red-500 to-rose-600 text-white border-2 border-white dark:border-slate-900 shadow-lg animate-pulse">
         {badge}
       </Badge>
     )}
@@ -544,13 +541,13 @@ const NotificationCardEnhanced = ({ notification, onDelete, onView }: any) => {
 };
 
 const PerformanceMetric = ({ label, value, icon: Icon, color, bgColor }: any) => (
-  <div className={cn("p-3 rounded-xl transition-all duration-300 hover:shadow-md", bgColor)}>
+  <div className={cn("p-3 md:p-4 rounded-lg md:rounded-xl transition-all hover:shadow-md", bgColor)}>
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <Icon className={cn("h-4 w-4", color)} />
-        <span className="font-medium text-slate-700 dark:text-slate-300 text-sm">{label}</span>
+        <Icon className={cn("h-4 w-4 md:h-5 md:w-5", color)} />
+        <span className="font-medium text-slate-700 dark:text-slate-300 text-xs md:text-sm">{label}</span>
       </div>
-      <span className={cn("text-lg font-black", color)}>{value}</span>
+      <span className={cn("text-base md:text-lg font-black", color)}>{value}</span>
     </div>
   </div>
 );
@@ -560,36 +557,30 @@ const CreateNotificationCard = ({ onRefetch }: any) => {
   
   return (
     <>
-      <Card className="bg-gradient-to-br from-white to-blue-50 dark:from-slate-900 dark:to-blue-950/30 border-2 border-blue-200 dark:border-blue-800 shadow-2xl">
-        <CardHeader className="border-b border-blue-100 dark:border-blue-900 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 p-4">
-          <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg">
-              <Sparkles className="h-5 w-5 text-white" />
+      <Card className="bg-gradient-to-br from-white to-blue-50 dark:from-slate-900 dark:to-blue-950/30 border-2 border-blue-200 dark:border-blue-800 shadow-xl">
+        <CardHeader className="border-b border-blue-100 dark:border-blue-900 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 p-4 md:p-6">
+          <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base md:text-lg">
+            <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-white" />
             </div>
             إنشاء إشعار جديد
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="text-center">
-            <p className="text-slate-600 dark:text-slate-400 mb-6">
-              قم بإنشاء إشعار جديد وإرساله للمستخدمين المحددين
-            </p>
-            <Button 
-              onClick={() => setIsDialogOpen(true)}
-              className="w-full max-w-md h-12 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold shadow-xl shadow-blue-500/30 transition-all duration-300 hover:shadow-2xl"
-            >
-              <Send className="h-4 w-4 ml-2" />
-              فتح نموذج الإنشاء
-            </Button>
-          </div>
+        <CardContent className="p-4 md:p-6 text-center">
+          <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm md:text-base">
+            قم بإنشاء إشعار جديد وإرساله للمستخدمين المحددين
+          </p>
+          <Button 
+            onClick={() => setIsDialogOpen(true)}
+            className="w-full md:max-w-md h-10 md:h-12 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold shadow-xl shadow-blue-500/30 text-sm md:text-base"
+          >
+            <Send className="h-4 w-4 ml-2" />
+            فتح نموذج الإنشاء
+          </Button>
         </CardContent>
       </Card>
 
-      <CreateNotificationDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        onRefetch={onRefetch}
-      />
+      <CreateNotificationDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} onRefetch={onRefetch} />
     </>
   );
 };

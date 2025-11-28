@@ -166,8 +166,8 @@ export default function AdminNotificationsPage() {
       {/* Main Content - قابل للتمرير */}
       <ScrollArea className="h-[calc(100vh-4rem)]">
         <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6">
-          {/* Quick Stats Cards - 3 في صف واحد */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
+          {/* Quick Stats Cards - 3 بطائق في صف واحد أفقياً */}
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
             <StatsCard
               icon={Bell}
               label="إجمالي الإشعارات"

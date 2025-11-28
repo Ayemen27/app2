@@ -5,6 +5,20 @@ A comprehensive construction project management system designed for the Middle E
 
 ## Recent Changes
 
+### November 28, 2025 - Real-Time Data Updates & Deployment Scripts
+- **Fixed Real-Time Updates**: Added `refetchQueries()` to all mutations - now deletes/edits update UI immediately
+- **Deployment Automation**: Created comprehensive deployment script (`DEPLOY_TO_SERVER.sh`) that:
+  - Builds application (vite + esbuild)
+  - Creates deployment package
+  - Uploads to remote server via SCP
+  - Installs npm dependencies
+  - Restarts application with PM2
+  - Verifies health check
+- **Port Configuration**: Updated to run on port 6000 (was 5000)
+- **Environment Files**: Updated `.env.production` and `ecosystem.config.cjs` for port 6000
+- **Deployment Docs**: Created `DEPLOYMENT_README.md` with full deployment guide
+- **Secure Credentials**: All SSH credentials read from Secrets (SSH_HOST, SSH_USER, SSH_PASSWORD)
+
 ### November 2025 - Production Security Hardening
 - **CORS Security**: Fixed CORS configuration to use dynamic REPLIT_DOMAINS instead of placeholder URL
 - **Credentials Security**: Removed ALL hardcoded secrets from credentials.ts - now uses environment variables only
@@ -58,7 +72,19 @@ A comprehensive construction project management system designed for the Middle E
 - **Mobile Responsiveness**: تحسين responsive design مع breakpoints محسنة
 
 ## User Preferences
-Preferred communication style: Simple, everyday language.
+- Preferred communication style: Simple, everyday language
+- Deployment: Automated script for production server (93.127.142.144:6000)
+- Real-time updates: Must be immediate for all CRUD operations
+
+## Deployment Information
+- **Domain**: https://app2.binarjoinanelytic.info (custom domain)
+- **Server**: 93.127.142.144
+- **Port**: 6000 (production, internal)
+- **SSH User**: administrator
+- **Process Manager**: PM2 (cluster mode, 2 instances)
+- **Auto-Deploy Script**: `DEPLOY_CUSTOM_DOMAIN.sh` (in app2 folder)
+- **Quick Deploy**: `RUN_DEPLOYMENT.sh` (checks for sshpass)
+- **Documentation**: `DEPLOYMENT_README.md`, `DEPLOYMENT_SUMMARY.md`, `DEPLOY_INSTRUCTIONS.txt`
 
 ## System Architecture
 

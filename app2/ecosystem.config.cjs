@@ -13,7 +13,7 @@ module.exports = {
       time_format: 'YYYY-MM-DD HH:mm:ss Z',
       env: {
         NODE_ENV: 'production',
-        PORT: 5000
+        PORT: 6000
       },
       merge_logs: true
     }

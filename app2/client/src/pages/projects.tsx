@@ -499,7 +499,7 @@ export default function ProjectsPage() {
 
   return (
     <>
-      <div className="space-y-1 p-3">
+      <div className="space-y-2 p-2">
 
       {/* شريط البحث والفلترة الموحد */}
       <UnifiedSearchFilter
@@ -536,7 +536,7 @@ export default function ProjectsPage() {
         />
       </StatsGrid>
 
-      <div className="mt-4 mb-2" />
+      <div className="mt-8 mb-4" />
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent>
@@ -680,81 +680,71 @@ export default function ProjectsPage() {
           </Button>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
           {Array.isArray(projects) ? projects.map((project) => (
             <Card key={project.id} className="relative overflow-hidden hover:shadow-md transition-shadow border-l-4 border-l-blue-500">
-              <CardHeader className="pb-1.5 pt-3 px-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1 flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <Building2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                      <CardTitle className="text-sm line-clamp-1 font-semibold">{project.name}</CardTitle>
+              <CardHeader className="pb-1 pt-2 px-2">
+                <div className="flex items-start justify-between gap-1.5">
+                  <div className="space-y-0.5 flex-1 min-w-0">
+                    <div className="flex items-center gap-1">
+                      <Building2 className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+                      <CardTitle className="text-xs line-clamp-1 font-semibold">{project.name}</CardTitle>
                     </div>
-                    <CardDescription className="flex items-center gap-1 text-xs">
-                      <Calendar className="h-2.5 w-2.5 flex-shrink-0" />
+                    <CardDescription className="flex items-center gap-0.5 text-xs">
+                      <Calendar className="h-2 w-2 flex-shrink-0" />
                       {formatDate(project.createdAt)}
                     </CardDescription>
                   </div>
-                  <Badge className={`${getStatusColor(project.status)} flex-shrink-0 text-xs px-1.5 py-0.5`}>
+                  <Badge className={`${getStatusColor(project.status)} flex-shrink-0 text-xs px-1 py-0`}>
                     {getStatusText(project.status)}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-2 px-3 pb-2">
-                <div className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 dark:from-blue-900/30 dark:to-blue-800/30 p-2 rounded-md border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <BarChart3 className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+              <CardContent className="space-y-1 px-2 pb-1.5">
+                <div className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 dark:from-blue-900/30 dark:to-blue-800/30 p-1.5 rounded-sm border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1">
+                      <BarChart3 className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
                       <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">الرصيد</span>
                     </div>
-                    <p className="text-base font-bold text-blue-800 dark:text-blue-200 arabic-numbers">
+                    <p className="text-sm font-bold text-blue-800 dark:text-blue-200 arabic-numbers">
                       {formatCurrency(safeParseNumber(project.stats.currentBalance, 0))}
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <div className="bg-green-50 dark:bg-green-900/20 p-1.5 rounded-md border border-green-200 dark:border-green-800">
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <TrendingUp className="h-2.5 w-2.5 text-green-600" />
-                      <span className="text-xs font-medium text-green-700 dark:text-green-400">الدخل</span>
+                <div className="grid grid-cols-2 gap-1">
+                  <div className="bg-green-50 dark:bg-green-900/20 p-1 rounded-sm border border-green-200 dark:border-green-800">
+                    <div className="flex items-center gap-0.5 mb-0.5">
+                      <TrendingUp className="h-2 w-2 text-green-600" />
+                      <span className="text-xs font-medium text-green-700 dark:text-green-400">دخل</span>
                     </div>
                     <p className="text-xs font-bold text-green-800 dark:text-green-300 arabic-numbers">
                       {formatCurrency(safeParseNumber(project.stats.totalIncome, 0))}
                     </p>
                   </div>
-                  <div className="bg-red-50 dark:bg-red-900/20 p-1.5 rounded-md border border-red-200 dark:border-red-800">
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <DollarSign className="h-2.5 w-2.5 text-red-600" />
-                      <span className="text-xs font-medium text-red-700 dark:text-red-400">المصروفات</span>
+                  <div className="bg-red-50 dark:bg-red-900/20 p-1 rounded-sm border border-red-200 dark:border-red-800">
+                    <div className="flex items-center gap-0.5 mb-0.5">
+                      <DollarSign className="h-2 w-2 text-red-600" />
+                      <span className="text-xs font-medium text-red-700 dark:text-red-400">مصاريف</span>
                     </div>
                     <p className="text-xs font-bold text-red-800 dark:text-red-300 arabic-numbers">
                       {formatCurrency(safeParseNumber(project.stats.totalExpenses, 0))}
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-1 text-center">
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded-md">
-                    <Users className="h-3 w-3 text-blue-600 mx-auto mb-0.5" />
-                    <p className="text-xs text-muted-foreground mb-0">العمال</p>
+                <div className="grid grid-cols-2 gap-1 text-center">
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1 rounded-sm">
+                    <Users className="h-2.5 w-2.5 text-blue-600 mx-auto mb-0.5" />
+                    <p className="text-xs text-muted-foreground mb-0">عمال</p>
                     <p className="text-xs font-bold arabic-numbers">{cleanInteger(project.stats.totalWorkers)}</p>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded-md">
-                    <Package className="h-3 w-3 text-amber-600 mx-auto mb-0.5" />
-                    <p className="text-xs text-muted-foreground mb-0">المشتريات</p>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1 rounded-sm">
+                    <Package className="h-2.5 w-2.5 text-amber-600 mx-auto mb-0.5" />
+                    <p className="text-xs text-muted-foreground mb-0">مشتريات</p>
                     <p className="text-xs font-bold arabic-numbers">{cleanInteger(project.stats.materialPurchases)}</p>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded-md">
-                    <Calendar className="h-3 w-3 text-purple-600 mx-auto mb-0.5" />
-                    <p className="text-xs text-muted-foreground mb-0">أيام</p>
-                    <p className="text-xs font-bold arabic-numbers">{cleanInteger(project.stats.completedDays)}</p>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded-md">
-                    <Clock className="h-3 w-3 text-orange-600 mx-auto mb-0.5" />
-                    <p className="text-xs text-muted-foreground mb-0">نشط</p>
-                    <p className="text-xs font-bold arabic-numbers">{cleanInteger(project.stats.activeWorkers)}</p>
-                  </div>
                 </div>
-                <div className="flex gap-1.5 pt-1">
+                <div className="flex gap-1 pt-0.5">
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -766,15 +756,15 @@ export default function ProjectsPage() {
                       });
                       setIsEditDialogOpen(true);
                     }} 
-                    className="flex-1 gap-1 h-8 text-xs"
+                    className="flex-1 gap-0.5 h-7 text-xs"
                   >
-                    <Edit className="h-3 w-3" />
+                    <Edit className="h-2.5 w-2.5" />
                     تعديل
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="gap-1 text-red-600 hover:text-red-700 h-8 text-xs">
-                        <Trash2 className="h-3 w-3" />
+                      <Button variant="outline" size="sm" className="gap-0.5 text-red-600 hover:text-red-700 h-7 text-xs">
+                        <Trash2 className="h-2.5 w-2.5" />
                         حذف
                       </Button>
                     </AlertDialogTrigger>

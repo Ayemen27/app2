@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, Save, Plus, Camera, Package, ChartGantt } from "lucide-react";
+import { ArrowRight, Save, Plus, Camera, Package, ChartGantt, Edit, Trash2, Users, CreditCard, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1061,49 +1061,95 @@ export default function MaterialPurchase() {
                 غيّر تاريخ الشراء أعلاه لعرض مشتريات تواريخ أخرى
               </p>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {materialPurchases.map((purchase: any) => (
-                <div key={purchase.id} className="border rounded-lg p-3 bg-card">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">
-                          {purchase.materialName || purchase.material?.name || "غير محدد"}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          ({purchase.materialUnit || purchase.material?.unit || purchase.unit || "غير محدد"})
-                        </span>
-                      </div>
-                      <div className="text-sm text-muted-foreground space-y-1">
-                        {(purchase.materialCategory || purchase.material?.category) && (
-                          <p>الفئة: {purchase.materialCategory || purchase.material?.category}</p>
-                        )}
-                        <p>الكمية: {purchase.quantity} | السعر: {formatCurrency(purchase.unitPrice)}</p>
-                        <p className="font-medium">الإجمالي: {formatCurrency(purchase.totalAmount)}</p>
-                        {purchase.supplierName && <p>المورد: {purchase.supplierName}</p>}
-                        {purchase.purchaseType && <p>نوع الدفع: {purchase.purchaseType}</p>}
-                        {purchase.purchaseDate && (
-                          <p>تاريخ الشراء: {new Date(purchase.purchaseDate).toLocaleDateString('en-GB')}</p>
-                        )}
-                      </div>
+                <div key={purchase.id} className="border rounded-lg p-3 bg-card hover:shadow-sm transition-shadow">
+                  {/* رأس البطاقة: اسم المادة مع الأيقونات والأزرار */}
+                  <div className="flex items-start justify-between mb-2.5">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Package className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                      <span className="font-semibold text-foreground line-clamp-1">
+                        {purchase.materialName || purchase.material?.name || "غير محدد"}
+                      </span>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5 flex-shrink-0">
                       <Button
                         size="sm"
                         variant="outline"
+                        className="h-7 px-2 text-xs"
                         onClick={() => handleEdit(purchase)}
                         disabled={editingPurchaseId === purchase.id}
                       >
-                        تعديل
+                        <Edit className="h-3 w-3" />
                       </Button>
                       <Button
                         size="sm"
                         variant="destructive"
+                        className="h-7 px-2 text-xs"
                         onClick={() => deleteMaterialPurchaseMutation.mutate(purchase.id)}
                         disabled={deleteMaterialPurchaseMutation.isPending}
                       >
-                        حذف
+                        <Trash2 className="h-3 w-3" />
                       </Button>
+                    </div>
+                  </div>
+
+                  {/* الصف الأول: الفئة والوحدة والكمية */}
+                  <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 text-muted-foreground">
+                        <ChartGantt className="h-3 w-3" />
+                        <span className="font-medium">الفئة:</span>
+                      </div>
+                      <span className="text-foreground">{purchase.materialCategory || "غير محدد"}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 text-muted-foreground">
+                        <Package className="h-3 w-3" />
+                        <span className="font-medium">الوحدة:</span>
+                      </div>
+                      <span className="text-foreground">{purchase.materialUnit || "غير محدد"}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 text-muted-foreground">
+                        <DollarSign className="h-3 w-3" />
+                        <span className="font-medium">الكمية:</span>
+                      </div>
+                      <span className="text-foreground font-medium arabic-numbers">{purchase.quantity}</span>
+                    </div>
+                  </div>
+
+                  {/* الصف الثاني: المورد ونوع الدفع */}
+                  <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 text-muted-foreground">
+                        <Users className="h-3 w-3" />
+                        <span className="font-medium">المورد:</span>
+                      </div>
+                      <span className="text-foreground">{purchase.supplierName || "بدون مورد"}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 text-muted-foreground">
+                        <CreditCard className="h-3 w-3" />
+                        <span className="font-medium">الدفع:</span>
+                      </div>
+                      <span className="text-foreground">{purchase.purchaseType || "نقد"}</span>
+                    </div>
+                  </div>
+
+                  {/* الصف الثالث: السعر والإجمالي والتاريخ */}
+                  <div className="grid grid-cols-3 gap-2 text-xs pt-1.5 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground font-medium">السعر:</span>
+                      <span className="text-foreground font-semibold arabic-numbers">{formatCurrency(purchase.unitPrice)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground font-medium">الإجمالي:</span>
+                      <span className="text-blue-600 dark:text-blue-400 font-bold arabic-numbers">{formatCurrency(purchase.totalAmount)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-muted-foreground font-medium">التاريخ:</span>
+                      <span className="text-foreground arabic-numbers">{new Date(purchase.purchaseDate).toLocaleDateString('en-GB')}</span>
                     </div>
                   </div>
                 </div>

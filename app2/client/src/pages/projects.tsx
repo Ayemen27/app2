@@ -33,12 +33,13 @@ import {
   Eye,
   Calendar
 } from "lucide-react";
-import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
+// Removed: StatsCard, StatsGrid - now using UnifiedStats
 import type { Project, InsertProject } from "@shared/schema";
 import { insertProjectSchema } from "@shared/schema";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
+import { UnifiedStats } from "@/components/ui/unified-stats";
 import { useEffect } from "react";
 
 interface ProjectStats {
@@ -557,32 +558,37 @@ export default function ProjectsPage() {
         filterOptions={PROJECT_STATUS_OPTIONS}
       />
 
-      <StatsGrid>
-        <StatsCard
-          title="إجمالي المشاريع"
-          value={overallStats.totalProjects.toString()}
-          icon={Building2}
-          color="blue"
-        />
-        <StatsCard
-          title="المشاريع النشطة"
-          value={overallStats.activeProjects.toString()}
-          icon={TrendingUp}
-          color="green"
-        />
-        <StatsCard
-          title="الرصيد الإجمالي"
-          value={formatCurrencyLocal(currentBalance)}
-          icon={DollarSign}
-          color={currentBalance >= 0 ? "green" : "red"}
-        />
-        <StatsCard
-          title="إجمالي العمال"
-          value={overallStats.totalWorkers.toString()}
-          icon={Users}
-          color="purple"
-        />
-      </StatsGrid>
+      <UnifiedStats
+        title="ملخص الإحصائيات"
+        stats={[
+          {
+            title: "إجمالي المشاريع",
+            value: overallStats.totalProjects.toString(),
+            icon: Building2,
+            color: "blue",
+          },
+          {
+            title: "المشاريع النشطة",
+            value: overallStats.activeProjects.toString(),
+            icon: TrendingUp,
+            color: "green",
+          },
+          {
+            title: "الرصيد الإجمالي",
+            value: formatCurrencyLocal(currentBalance),
+            icon: DollarSign,
+            color: currentBalance >= 0 ? "green" : "red",
+          },
+          {
+            title: "إجمالي العمال",
+            value: overallStats.totalWorkers.toString(),
+            icon: Users,
+            color: "purple",
+          },
+        ]}
+        columns={4}
+        hideHeader={false}
+      />
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -774,83 +780,48 @@ export default function ProjectsPage() {
               </CardHeader>
 
               <CardContent className="space-y-4 flex-1">
-                {/* Financial Cards */}
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">الملخص المالي</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* Income */}
-                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 p-3 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg">
-                          <TrendingUp className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                        </div>
-                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">الدخل</span>
-                      </div>
-                      <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200 arabic-numbers">
-                        {formatCurrency(safeParseNumber(project.stats.totalIncome, 0))}
-                      </p>
-                    </div>
-
-                    {/* Expenses */}
-                    <div className="bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-950/40 dark:to-pink-950/40 p-3 rounded-xl border border-red-200/50 dark:border-red-800/50">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="p-1.5 bg-red-100 dark:bg-red-900/50 rounded-lg">
-                          <DollarSign className="h-3 w-3 text-red-600 dark:text-red-400" />
-                        </div>
-                        <span className="text-xs font-medium text-red-700 dark:text-red-300">المصروفات</span>
-                      </div>
-                      <p className="text-sm font-bold text-red-800 dark:text-red-200 arabic-numbers">
-                        {formatCurrency(safeParseNumber(project.stats.totalExpenses, 0))}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Current Balance */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 p-4 rounded-xl border border-blue-200/50 dark:border-blue-800/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                      <BarChart3 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <span className="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wider">الرصيد الحالي</span>
-                  </div>
-                  <p className="text-lg font-bold text-blue-800 dark:text-blue-200 arabic-numbers">
-                    {formatCurrency(safeParseNumber(project.stats.currentBalance, 0))}
-                  </p>
-                </div>
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-                        <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-1 font-medium">العمال</p>
-                    <p className="text-base font-bold text-foreground arabic-numbers">{cleanInteger(project.stats.totalWorkers)}</p>
-                  </div>
-
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
-                        <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-1 font-medium">المشتريات</p>
-                    <p className="text-base font-bold text-foreground arabic-numbers">{cleanInteger(project.stats.materialPurchases)}</p>
-                  </div>
-
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="p-2 bg-cyan-100 dark:bg-cyan-900/50 rounded-lg">
-                        <Calendar className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-1 font-medium">أيام العمل</p>
-                    <p className="text-base font-bold text-foreground arabic-numbers">{cleanInteger(project.stats.completedDays)}</p>
-                  </div>
-                </div>
+                <UnifiedStats
+                  stats={[
+                    {
+                      title: "الدخل",
+                      value: formatCurrency(safeParseNumber(project.stats.totalIncome, 0)),
+                      icon: TrendingUp,
+                      color: "emerald",
+                    },
+                    {
+                      title: "المصروفات",
+                      value: formatCurrency(safeParseNumber(project.stats.totalExpenses, 0)),
+                      icon: DollarSign,
+                      color: "red",
+                    },
+                    {
+                      title: "الرصيد الحالي",
+                      value: formatCurrency(safeParseNumber(project.stats.currentBalance, 0)),
+                      icon: BarChart3,
+                      color: safeParseNumber(project.stats.currentBalance, 0) >= 0 ? "blue" : "red",
+                    },
+                    {
+                      title: "العمال",
+                      value: cleanInteger(project.stats.totalWorkers).toString(),
+                      icon: Users,
+                      color: "purple",
+                    },
+                    {
+                      title: "المشتريات",
+                      value: cleanInteger(project.stats.materialPurchases).toString(),
+                      icon: Package,
+                      color: "orange",
+                    },
+                    {
+                      title: "أيام العمل",
+                      value: cleanInteger(project.stats.completedDays).toString(),
+                      icon: Calendar,
+                      color: "cyan",
+                    },
+                  ]}
+                  columns={3}
+                  hideHeader={true}
+                />
               </CardContent>
 
               {/* Action Buttons */}

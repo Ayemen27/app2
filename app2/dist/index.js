@@ -13736,16 +13736,49 @@ autocompleteRouter.get("/notes", requireAuth, async (req, res) => {
     });
   }
 });
-console.log("\u{1F524} [AutocompleteRouter] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 \u062C\u0645\u064A\u0639 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A - 8 \u0645\u0633\u0627\u0631\u0627\u062A");
+autocompleteRouter.get("/admin/stats", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        totalEntries: 0,
+        categoriesCount: 0,
+        lastUpdated: /* @__PURE__ */ new Date()
+      },
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A"
+    });
+  }
+});
+autocompleteRouter.post("/admin/maintenance", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: { cleaned: 0, optimized: true },
+      message: "\u062A\u0645\u062A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A"
+    });
+  }
+});
+console.log("\u{1F524} [AutocompleteRouter] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 \u062C\u0645\u064A\u0639 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A");
 console.log("\u{1F4CB} [AutocompleteRouter] \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u062A\u0627\u062D\u0629:");
-console.log("   HEAD /api/autocomplete (\u063A\u064A\u0631 \u0645\u062D\u0645\u064A)");
-console.log("   GET /api/autocomplete (\u0645\u062D\u0645\u064A)");
-console.log("   POST /api/autocomplete (\u0645\u062D\u0645\u064A)");
-console.log("   GET /api/autocomplete/senderNames (\u0645\u062D\u0645\u064A)");
-console.log("   GET /api/autocomplete/transferNumbers (\u0645\u062D\u0645\u064A)");
-console.log("   GET /api/autocomplete/transferTypes (\u0645\u062D\u0645\u064A)");
-console.log("   GET /api/autocomplete/transportDescriptions (\u0645\u062D\u0645\u064A)");
-console.log("   GET /api/autocomplete/notes (\u0645\u062D\u0645\u064A)");
+console.log("   HEAD /api/autocomplete (\u0639\u0627\u0645)");
+console.log("   GET /api/autocomplete (\u0639\u0627\u0645)");
+console.log("   POST /api/autocomplete (\u0639\u0627\u0645)");
+console.log("   GET /api/autocomplete/projectNames (\u0639\u0627\u0645)");
+console.log("   GET /api/autocomplete/transferTypes (\u0639\u0627\u0645)");
+console.log("   GET /api/autocomplete/admin/stats (\u0639\u0627\u0645)");
+console.log("   POST /api/autocomplete/admin/maintenance (\u0639\u0627\u0645)");
 var autocompleteRoutes_default = autocompleteRouter;
 
 // server/routes/modules/notificationRoutes.ts

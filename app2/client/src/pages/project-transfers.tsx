@@ -480,16 +480,16 @@ export default function ProjectTransfers() {
                         />
                       </div>
 
-                      {/* Row 2: Amount and Date */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                      {/* Row 2: Date and Amount */}
+                      <div className="grid grid-cols-2 gap-3 md:gap-4">
                         <FormField
                           control={form.control}
-                          name="amount"
+                          name="transferDate"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-sm font-semibold">المبلغ (ريال)</FormLabel>
+                              <FormLabel className="text-xs md:text-sm font-semibold">التاريخ</FormLabel>
                               <FormControl>
-                                <Input type="number" step="0.01" placeholder="0" {...field} className="h-10 md:h-11 border-2" />
+                                <Input type="date" {...field} className="h-10 md:h-11 border-2 text-xs md:text-sm" />
                               </FormControl>
                               <FormMessage className="text-xs" />
                             </FormItem>
@@ -497,12 +497,12 @@ export default function ProjectTransfers() {
                         />
                         <FormField
                           control={form.control}
-                          name="transferDate"
+                          name="amount"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-sm font-semibold">التاريخ</FormLabel>
+                              <FormLabel className="text-xs md:text-sm font-semibold">المبلغ (ريال)</FormLabel>
                               <FormControl>
-                                <Input type="date" {...field} className="h-10 md:h-11 border-2" />
+                                <Input type="number" step="0.01" placeholder="0" {...field} className="h-10 md:h-11 border-2 text-xs md:text-sm" />
                               </FormControl>
                               <FormMessage className="text-xs" />
                             </FormItem>

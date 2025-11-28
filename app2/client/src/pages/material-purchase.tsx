@@ -633,6 +633,10 @@ export default function MaterialPurchase() {
   // Fetch Material Purchases for Edit Support (filtered by purchase date)
   const { data: allMaterialPurchases = [], isLoading: materialPurchasesLoading, refetch: refetchMaterialPurchases } = useQuery<any[]>({
     queryKey: ["/api/projects", selectedProjectId, "material-purchases"],
+    queryFn: async () => {
+      if (!selectedProjectId) return [];
+      return apiRequest(`/api/projects/${selectedProjectId}/material-purchases`, "GET");
+    },
     enabled: !!selectedProjectId,
     refetchOnMount: true,
     refetchOnWindowFocus: true,

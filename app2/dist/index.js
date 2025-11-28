@@ -13631,6 +13631,21 @@ autocompleteRouter.post("/", async (req, res) => {
 autocompleteRouter.head("/", (req, res) => {
   res.status(200).end();
 });
+autocompleteRouter.get("/projectNames", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: [],
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
+    });
+  }
+});
 autocompleteRouter.get("/senderNames", requireAuth, async (req, res) => {
   try {
     res.json({

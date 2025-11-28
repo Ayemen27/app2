@@ -103,12 +103,29 @@ autocompleteRouter.head('/', (req: Request, res: Response) => {
 
 /**
  * 📝 Autocomplete sub-endpoints للإكمال التلقائي
+ * GET /api/autocomplete/projectNames
+ */
+autocompleteRouter.get('/projectNames', async (req: Request, res: Response) => {
+  try {
+    res.json({
+      success: true,
+      data: [],
+      message: 'تم جلب أسماء المشاريع بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب أسماء المشاريع'
+    });
+  }
+});
+
+/**
  * GET /api/autocomplete/senderNames
- * نقل مباشر من routes.ts السطر 5429-5444
  */
 autocompleteRouter.get('/senderNames', requireAuth, async (req: Request, res: Response) => {
   try {
-    // جلب أسماء المرسلين من قاعدة البيانات أو إرجاع قائمة فارغة
     res.json({
       success: true,
       data: [],

@@ -13706,6 +13706,66 @@ autocompleteRouter.get("/transferTypes", async (req, res) => {
     });
   }
 });
+autocompleteRouter.get("/materialNames", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: [],
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0648\u0627\u062F"
+    });
+  }
+});
+autocompleteRouter.get("/materialCategories", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: [],
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0641\u0626\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0641\u0626\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F"
+    });
+  }
+});
+autocompleteRouter.get("/materialUnits", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: [],
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0648\u062D\u062F\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0648\u062D\u062F\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F"
+    });
+  }
+});
+autocompleteRouter.get("/invoiceNumbers", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: [],
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u0641\u0648\u0627\u062A\u064A\u0631 \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u0641\u0648\u0627\u062A\u064A\u0631"
+    });
+  }
+});
 autocompleteRouter.get("/transportDescriptions", requireAuth, async (req, res) => {
   try {
     res.json({

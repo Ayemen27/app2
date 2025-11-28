@@ -375,7 +375,7 @@ export default function ProjectTransfers() {
       </div>
 
       {/* Floating Button for Create */}
-      <div className="fixed bottom-6 left-6 z-40">
+      <div className="fixed bottom-10 left-6 z-50">
         <Button
           onClick={() => {
             setShowCreateModal(!showCreateModal);
@@ -384,12 +384,12 @@ export default function ProjectTransfers() {
               form.reset();
             }
           }}
-          className="h-14 w-14 md:h-16 md:w-16 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-700 text-white shadow-lg hover:shadow-2xl transition-all transform hover:scale-110 flex items-center justify-center border-0"
+          className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-700 text-white shadow-lg hover:shadow-2xl transition-all transform hover:scale-110 flex items-center justify-center border-0"
         >
           {showCreateModal ? (
-            <Minus className="h-6 w-6 md:h-7 md:w-7" />
+            <Minus className="h-5 w-5 md:h-6 md:w-6" />
           ) : (
-            <Plus className="h-6 w-6 md:h-7 md:w-7" />
+            <Plus className="h-5 w-5 md:h-6 md:w-6" />
           )}
         </Button>
       </div>

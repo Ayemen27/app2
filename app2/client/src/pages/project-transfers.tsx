@@ -366,76 +366,82 @@ export default function ProjectTransfers() {
             </TabsContent>
 
             {/* List Tab */}
-            <TabsContent value="list" className="space-y-3 md:space-y-6 mt-0">
-              <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
-                <CardContent className="p-0">
-                  {transfersLoading ? (
-                    <div className="p-4 md:p-6 space-y-3">
-                      {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full" />)}
-                    </div>
-                  ) : filteredTransfers.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+            <TabsContent value="list" className="space-y-4 md:space-y-6 mt-0">
+              {transfersLoading ? (
+                <div className="space-y-4 md:space-y-6">
+                  {[1, 2, 3].map(i => (
+                    <Card key={i} className="bg-white dark:bg-slate-900">
+                      <CardContent className="p-4 md:p-6">
+                        <Skeleton className="h-20 w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : filteredTransfers.length === 0 ? (
+                <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
+                  <CardContent className="p-12">
+                    <div className="flex flex-col items-center justify-center text-center">
                       <ArrowRightLeft className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
                       <p className="text-slate-500 dark:text-slate-400 font-medium">لا توجد تحويلات</p>
                       <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">ابدأ بإضافة تحويل عهدة جديد</p>
                     </div>
-                  ) : (
-                    <ScrollArea className="h-auto">
-                      <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                        {filteredTransfers.map(transfer => (
-                          <div key={transfer.id} className="p-4 md:p-5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                            <div className="flex items-start gap-4">
-                              <div className="flex-shrink-0">
-                                <div className="w-12 h-12 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
-                                  <DollarSign className="h-6 w-6 md:h-7 md:w-7 text-white" />
-                                </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <p className="text-base md:text-lg font-bold text-slate-900 dark:text-white">
-                                    {formatCurrency(parseFloat(transfer.amount))}
-                                  </p>
-                                  <Badge variant="outline" className="text-xs">
-                                    {new Date(transfer.transferDate).toLocaleDateString('ar-EG')}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400 mb-1">
-                                  <span>{getProjectName(transfer.fromProjectId)}</span>
-                                  <ArrowRight className="h-4 w-4" />
-                                  <span>{getProjectName(transfer.toProjectId)}</span>
-                                </div>
-                                {transfer.transferReason && (
-                                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                                    <span className="font-medium">السبب:</span> {transfer.transferReason}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex gap-2 flex-shrink-0">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => startEdit(transfer)}
-                                  className="h-8 w-8 p-0 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteTransferMutation.mutate(transfer.id)}
-                                  className="h-8 w-8 p-0 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4 md:space-y-6">
+                  {filteredTransfers.map(transfer => (
+                    <Card key={transfer.id} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl transition-all">
+                      <CardContent className="p-4 md:p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="flex-shrink-0">
+                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+                              <DollarSign className="h-6 w-6 md:h-7 md:w-7 text-white" />
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </Card>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-base md:text-lg font-bold text-slate-900 dark:text-white">
+                                {formatCurrency(parseFloat(transfer.amount))}
+                              </p>
+                              <Badge variant="outline" className="text-xs">
+                                {new Date(transfer.transferDate).toLocaleDateString('ar-EG')}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400 mb-1">
+                              <span>{getProjectName(transfer.fromProjectId)}</span>
+                              <ArrowRight className="h-4 w-4" />
+                              <span>{getProjectName(transfer.toProjectId)}</span>
+                            </div>
+                            {transfer.transferReason && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                                <span className="font-medium">السبب:</span> {transfer.transferReason}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex gap-2 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => startEdit(transfer)}
+                              className="h-8 w-8 p-0 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteTransferMutation.mutate(transfer.id)}
+                              className="h-8 w-8 p-0 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </TabsContent>
 
             {/* Create Tab */}

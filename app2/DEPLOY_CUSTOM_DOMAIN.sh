@@ -65,18 +65,31 @@ create_deployment_package() {
 
 upload_package() {
     print_separator
-    log_info "📡 جاري رفع الحزمة إلى السيرفر ($SSH_HOST)..."
+    log_info "📡 جاري رفع الحزمة إلى السيرفر ($SSH_HOST:$SSH_PORT)..."
     
-    if command -v sshpass &> /dev/null; then
-        sshpass -p "$SSH_PASSWORD" scp -P $SSH_PORT deployment-package.tar.gz \
-            "$SSH_USER@$SSH_HOST:$REMOTE_APP_DIR/" 2>/dev/null && \
-            log_success "تم رفع الحزمة" || {
-            log_error "فشل الرفع"
-            exit 1
-        }
+    if ! command -v sshpass &> /dev/null; then
+        log_error "sshpass غير متوفر"
+        exit 1
+    fi
+    
+    # التحقق من الاتصال أولاً
+    log_info "🔍 التحقق من الاتصال SSH..."
+    if ! sshpass -p "$SSH_PASSWORD" ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
+        -p $SSH_PORT "$SSH_USER@$SSH_HOST" "mkdir -p $REMOTE_APP_DIR" 2>/dev/null; then
+        log_error "فشل الاتصال بالسيرفر - تحقق من بيانات SSH"
+        exit 1
+    fi
+    log_success "✅ الاتصال يعمل"
+    
+    # الرفع مع معالجة الأخطاء
+    if sshpass -p "$SSH_PASSWORD" scp -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
+        -P $SSH_PORT deployment-package.tar.gz "$SSH_USER@$SSH_HOST:$REMOTE_APP_DIR/" 2>/dev/null; then
+        log_success "تم رفع الحزمة بنجاح"
     else
-        log_warning "sshpass غير متوفر - استخدم:"
-        log_warning "scp deployment-package.tar.gz $SSH_USER@$SSH_HOST:$REMOTE_APP_DIR/"
+        log_error "فشل رفع الحزمة - تحقق من:"
+        log_error "  • بيانات SSH: $SSH_USER@$SSH_HOST:$SSH_PORT"
+        log_error "  • المسار البعيد: $REMOTE_APP_DIR"
+        log_error "  • الاتصال بالإنترنت"
         exit 1
     fi
 }

@@ -11,11 +11,16 @@ module.exports = {
       out_file: './logs/out.log',
       log_file: './logs/combined.log',
       time_format: 'YYYY-MM-DD HH:mm:ss Z',
+      merge_logs: true,
       env: {
-        NODE_ENV: 'production',
-        PORT: 6000
-      },
-      merge_logs: true
+        NODE_ENV: process.env.NODE_ENV,
+        PORT: process.env.PORT,
+        DATABASE_URL: process.env.DATABASE_URL,
+        CUSTOM_DOMAIN: process.env.CUSTOM_DOMAIN,
+        JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET,
+        JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
+        SESSION_SECRET: process.env.SESSION_SECRET
+      }
     }
   ]
 };

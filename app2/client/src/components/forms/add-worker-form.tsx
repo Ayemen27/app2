@@ -67,7 +67,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       ]);
       
       if (worker) {
-        return apiRequest(`/api/workers/${worker.id}`, "PUT", data);
+        return apiRequest(`/api/workers/${worker.id}`, "PATCH", data);
       } else {
         return apiRequest("/api/workers", "POST", data);
       }

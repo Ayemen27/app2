@@ -108,9 +108,10 @@ export default function ProjectTransfers() {
 
   // Calculate Stats
   const stats = useMemo(() => {
+    const transfers = Array.isArray(allTransfers) ? allTransfers : [];
     return {
-      total: allTransfers.length,
-      totalAmount: allTransfers.reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0),
+      total: transfers.length,
+      totalAmount: transfers.reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0),
       filtered: filteredTransfers.length,
       outgoing: filteredTransfers.filter(t => !filteredTransfers.some(other => other.fromProjectId === other.toProjectId)).length,
       incoming: filteredTransfers.filter(t => filteredTransfers.some(other => other.toProjectId === other.fromProjectId)).length,

@@ -12283,15 +12283,18 @@ if (app.get("env") === "development") {
   serveStatic(app);
 }
 app.use("*", (req, res) => {
-  console.log(`\u274C [404] \u0645\u0633\u0627\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({
-    success: false,
-    error: "\u0627\u0644\u0645\u0633\u0627\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-    message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0633\u0627\u0631: ${req.method} ${req.originalUrl}`,
-    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    method: req.method,
-    path: req.originalUrl
-  });
+  if (req.originalUrl.startsWith("/api/")) {
+    console.log(`\u274C [404] \u0645\u0633\u0627\u0631 API \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F: ${req.method} ${req.originalUrl}`);
+    return res.status(404).json({
+      success: false,
+      error: "\u0627\u0644\u0645\u0633\u0627\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+      message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0633\u0627\u0631: ${req.method} ${req.originalUrl}`,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      method: req.method,
+      path: req.originalUrl
+    });
+  }
+  console.log(`\u26A0\uFE0F [Fallback] \u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0639\u0627\u0644\u062C: ${req.method} ${req.originalUrl}`);
 });
 var PORT = parseInt(process.env.PORT || "5000", 10);
 var NODE_ENV = process.env.NODE_ENV || "development";

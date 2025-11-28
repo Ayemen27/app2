@@ -197,15 +197,56 @@ export default function AdminNotificationsPage() {
           </div>
 
           <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-3 md:space-y-6">
-            {/* Tabs Navigation */}
-            <div className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-lg md:rounded-xl p-3 md:p-6 shadow-lg md:shadow-xl border-2 border-slate-200 dark:border-slate-700">
-              <TabsList className="flex w-full gap-1 md:gap-3 bg-transparent p-0 h-auto justify-start overflow-x-auto">
-                <TabTriggerEnhanced value="overview" icon={BarChart3} label="لوحة التحكم" />
-                <TabTriggerEnhanced value="notifications" icon={Bell} label="الإشعارات" badge={stats.unread} />
-                <TabTriggerEnhanced value="users" icon={Users} label="المستخدمين" />
-                <TabTriggerEnhanced value="create" icon={Zap} label="إنشاء جديد" />
-              </TabsList>
-            </div>
+            {/* Tabs Navigation Card */}
+            <Card className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-lg md:rounded-xl shadow-lg md:shadow-xl border-2 border-slate-200 dark:border-slate-700">
+              <CardContent className="p-3 md:p-5 space-y-3 md:space-y-4">
+                {/* Search and Actions Bar */}
+                <div className="flex flex-col md:flex-row gap-2 md:gap-3 items-stretch md:items-center">
+                  {/* Search */}
+                  <div className="flex-1 relative min-w-0">
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 flex-shrink-0" />
+                    <Input
+                      placeholder="ابحث عن الإشعارات..."
+                      className="pr-10 border-2 h-9 md:h-10 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-sm"
+                      value={filters.search}
+                      onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    />
+                  </div>
+                  
+                  {/* Filter and Refresh Buttons */}
+                  <div className="flex gap-2 md:gap-3 flex-shrink-0">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-1 md:gap-2 border-2 h-9 md:h-10 px-2 md:px-3"
+                    >
+                      <Filter className="h-4 w-4 flex-shrink-0" />
+                      <span className="hidden md:inline text-xs md:text-sm">فلترة</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => refetch()}
+                      disabled={isLoadingNotifications}
+                      className="gap-1 md:gap-2 border-2 h-9 md:h-10 px-2 md:px-3"
+                    >
+                      <RefreshCw className={cn("h-4 w-4 flex-shrink-0", isLoadingNotifications && "animate-spin")} />
+                      <span className="hidden md:inline text-xs md:text-sm">تحديث</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Tabs List */}
+                <div className="overflow-x-auto -mx-3 md:-mx-5 px-3 md:px-5">
+                  <TabsList className="flex gap-1 md:gap-3 bg-transparent p-0 h-auto justify-start w-max">
+                    <TabTriggerEnhanced value="overview" icon={BarChart3} label="لوحة التحكم" />
+                    <TabTriggerEnhanced value="notifications" icon={Bell} label="الإشعارات" badge={stats.unread} />
+                    <TabTriggerEnhanced value="users" icon={Users} label="المستخدمين" />
+                    <TabTriggerEnhanced value="create" icon={Zap} label="إنشاء جديد" />
+                  </TabsList>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-3 md:space-y-6 mt-0">
@@ -352,9 +393,15 @@ export default function AdminNotificationsPage() {
                 <CardContent className="p-3 md:p-4 max-h-96 overflow-y-auto">
                   {isLoadingActivity ? (
                     <LoadingUsers />
+                  ) : !activityData?.userStats || activityData.userStats.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <Users className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
+                      <p className="text-slate-500 dark:text-slate-400 font-medium">لا يوجد مستخدمون</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">سيظهر نشاط المستخدمين هنا</p>
+                    </div>
                   ) : (
                     <div className="space-y-2 md:space-y-3">
-                      {activityData?.userStats?.map((user: any, i: number) => (
+                      {activityData.userStats.map((user: any, i: number) => (
                         <UserActivityCard key={user.userId} user={user} rank={i + 1} detailed />
                       ))}
                     </div>

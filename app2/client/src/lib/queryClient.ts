@@ -88,22 +88,14 @@ export async function apiRequest(
       });
 
       // التعامل مع خطأ 401 (انتهاء صلاحية التوكن)
-      if (res.status === 401 && retryCount === 0) {
-        console.log('🔄 محاولة تجديد التوكن...');
-        const refreshed = await refreshAuthToken();
-        if (refreshed) {
-          console.log('✅ تم تجديد التوكن، محاولة الطلب مرة أخرى...');
-          return makeRequest(1); // إعادة المحاولة مرة واحدة فقط
-        } else {
-          console.log('❌ فشل في تجديد التوكن');
-          // استخدام logout من AuthProvider
-          if (authProviderHelpers) {
-            await authProviderHelpers.logout();
-          } else {
-            window.location.href = '/login';
-          }
-          throw new Error('انتهت جلسة المصادقة، يرجى تسجيل الدخول مرة أخرى');
+      if (res.status === 401) {
+        console.log('🚨 [401] انتهت جلسة المصادقة - تسجيل خروج فوري');
+        // تسجيل خروج فوري بدون محاولات متعددة
+        if (authProviderHelpers) {
+          await authProviderHelpers.logout();
         }
+        // عدم رمي خطأ - سيتم التعامل مع الخروج في logout
+        throw new Error('SESSION_EXPIRED');
       }
 
       await throwIfResNotOk(res);

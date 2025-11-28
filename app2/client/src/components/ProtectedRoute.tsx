@@ -112,7 +112,23 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     localStorage.removeItem('user');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    return <Redirect to="/login" />;
+    
+    // إظهار رسالة واضحة جداً عند انتهاء الجلسة
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-red-50">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg border-4 border-red-500 max-w-md">
+          <div className="text-6xl mb-4">🔐</div>
+          <h1 className="text-2xl font-bold text-red-600 mb-4">انتهت جلستك</h1>
+          <p className="text-gray-700 text-lg mb-6">
+            لقد انتهت صلاحية جلسة تسجيل دخولك
+          </p>
+          <p className="text-gray-600 mb-4">
+            يرجى تسجيل الدخول مرة أخرى للمتابعة
+          </p>
+          <Redirect to="/login" />
+        </div>
+      </div>
+    );
   }
 
   // حالة افتراضية - إظهار شاشة التحميل

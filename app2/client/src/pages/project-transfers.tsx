@@ -429,7 +429,7 @@ export default function ProjectTransfers() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-4 md:p-6">
+            <CardContent className="p-4 md:p-6 pb-24 md:pb-20">
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
                       {/* Row 1: Projects */}

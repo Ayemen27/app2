@@ -53,6 +53,14 @@ const allPagesData = [
       { path: "/supplier-accounts", icon: CreditCard, label: "حسابات الموردين", description: "إدارة حسابات ودفعات الموردين", requireAdmin: true },
     ]
   },
+  // التقارير - متاحة للجميع
+  {
+    category: "التقارير",
+    pages: [
+      { path: "/reports-daily-expenses", icon: FileSpreadsheet, label: "تقرير المصاريف اليومية", description: "تقرير شامل للمصاريف اليومية مع تصدير Excel", requireAdmin: false },
+      { path: "/reports-worker-statement", icon: FileSpreadsheet, label: "كشف حساب العامل", description: "تفاصيل كاملة لحضور وأجور العامل", requireAdmin: false },
+    ]
+  },
   // الإشعارات والتنبيهات - متاحة للجميع
   {
     category: "الإشعارات والتنبيهات",

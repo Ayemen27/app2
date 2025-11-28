@@ -28,6 +28,8 @@ import NotificationsPage from "@/pages/notifications";
 import AdminNotificationsPage from "@/pages/admin-notifications";
 import SmartErrorsPage from "@/pages/SmartErrorsPage";
 import { SecurityPoliciesPage } from "@/pages/SecurityPoliciesPage";
+import ExcelStyleDailyExpenses from "@/pages/excel-style-daily-expenses";
+import ExcelStyleWorkerStatement from "@/pages/excel-style-worker-statement";
 
 import { LayoutShell } from "@/components/layout/layout-shell";
 import { FloatingButtonProvider } from "@/components/layout/floating-button-context";
@@ -89,6 +91,8 @@ function Router() {
           <SecurityPoliciesPage />
         </AdminRoute>
       </Route>
+      <Route path="/reports-daily-expenses" component={ExcelStyleDailyExpenses} />
+      <Route path="/reports-worker-statement" component={ExcelStyleWorkerStatement} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -1048,6 +1048,108 @@ workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, 
 });
 
 /**
+ * 🗑️ حذف سجل حضور عامل
+ * DELETE /worker-attendance/:id
+ * يجب أن يكون قبل POST لتجنب تضارب المسارات
+ */
+workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const attendanceId = req.params.id;
+    console.log('🗑️ [API] طلب حذف سجل حضور العامل:', attendanceId);
+    console.log('👤 [API] المستخدم:', req.user?.email);
+    console.log('🔍 [API] المسار الكامل:', req.originalUrl);
+    console.log('🔍 [API] Method:', req.method);
+    
+    if (!attendanceId) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'معرف سجل الحضور مطلوب',
+        message: 'لم يتم توفير معرف سجل الحضور للحذف',
+        processingTime: duration
+      });
+    }
+
+    // التحقق من وجود سجل الحضور أولاً
+    const existingAttendance = await db.select().from(workerAttendance).where(eq(workerAttendance.id, attendanceId)).limit(1);
+    
+    if (existingAttendance.length === 0) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] سجل الحضور غير موجود:', attendanceId);
+      return res.status(404).json({
+        success: false,
+        error: 'سجل الحضور غير موجود',
+        message: `لم يتم العثور على سجل حضور بالمعرف: ${attendanceId}`,
+        processingTime: duration
+      });
+    }
+    
+    const attendanceToDelete = existingAttendance[0];
+    console.log('🗑️ [API] سيتم حذف سجل الحضور:', {
+      id: attendanceToDelete.id,
+      workerId: attendanceToDelete.workerId,
+      date: attendanceToDelete.date,
+      projectId: attendanceToDelete.projectId
+    });
+    
+    // حذف سجل الحضور من قاعدة البيانات
+    console.log('🗑️ [API] حذف سجل الحضور من قاعدة البيانات...');
+    const deletedAttendance = await db
+      .delete(workerAttendance)
+      .where(eq(workerAttendance.id, attendanceId))
+      .returning();
+    
+    // 🔌 Broadcast real-time update via WebSocket
+    const io = (global as any).io;
+    if (io && deletedAttendance[0]) {
+      io.emit('entity:update', {
+        type: 'INVALIDATE',
+        entity: 'worker-attendance',
+        projectId: deletedAttendance[0].projectId,
+        date: deletedAttendance[0].date
+      });
+    }
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم حذف سجل الحضور بنجاح في ${duration}ms:`, {
+      id: deletedAttendance[0].id,
+      workerId: deletedAttendance[0].workerId,
+      date: deletedAttendance[0].date
+    });
+    
+    res.json({
+      success: true,
+      data: deletedAttendance[0],
+      message: `تم حذف سجل الحضور بتاريخ ${deletedAttendance[0].date} بنجاح`,
+      processingTime: duration
+    });
+    
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في حذف سجل الحضور:', error);
+    
+    let errorMessage = 'فشل في حذف سجل الحضور';
+    let statusCode = 500;
+    
+    if (error.code === '23503') { // foreign key violation
+      errorMessage = 'لا يمكن حذف سجل الحضور - مرتبط ببيانات أخرى';
+      statusCode = 409;
+    } else if (error.code === '22P02') { // invalid input syntax
+      errorMessage = 'معرف سجل الحضور غير صحيح';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      error: errorMessage,
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
  * 📝 إضافة حضور عامل جديد
  * POST /worker-attendance
  */
@@ -1133,105 +1235,6 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     } else if (error.code === '23505') { // unique violation
       errorMessage = 'تم تسجيل حضور هذا العامل مسبقاً لهذا التاريخ';
       statusCode = 409;
-    }
-    
-    res.status(statusCode).json({
-      success: false,
-      error: errorMessage,
-      message: error.message,
-      processingTime: duration
-    });
-  }
-});
-
-/**
- * 🗑️ حذف سجل حضور عامل
- * DELETE /worker-attendance/:id
- */
-workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    const attendanceId = req.params.id;
-    console.log('🗑️ [API] طلب حذف سجل حضور العامل:', attendanceId);
-    console.log('👤 [API] المستخدم:', req.user?.email);
-    
-    if (!attendanceId) {
-      const duration = Date.now() - startTime;
-      return res.status(400).json({
-        success: false,
-        error: 'معرف سجل الحضور مطلوب',
-        message: 'لم يتم توفير معرف سجل الحضور للحذف',
-        processingTime: duration
-      });
-    }
-
-    // التحقق من وجود سجل الحضور أولاً
-    const existingAttendance = await db.select().from(workerAttendance).where(eq(workerAttendance.id, attendanceId)).limit(1);
-    
-    if (existingAttendance.length === 0) {
-      const duration = Date.now() - startTime;
-      console.error('❌ [API] سجل الحضور غير موجود:', attendanceId);
-      return res.status(404).json({
-        success: false,
-        error: 'سجل الحضور غير موجود',
-        message: `لم يتم العثور على سجل حضور بالمعرف: ${attendanceId}`,
-        processingTime: duration
-      });
-    }
-    
-    const attendanceToDelete = existingAttendance[0];
-    console.log('🗑️ [API] سيتم حذف سجل الحضور:', {
-      id: attendanceToDelete.id,
-      workerId: attendanceToDelete.workerId,
-      date: attendanceToDelete.date,
-      projectId: attendanceToDelete.projectId
-    });
-    
-    // حذف سجل الحضور من قاعدة البيانات
-    console.log('🗑️ [API] حذف سجل الحضور من قاعدة البيانات...');
-    const deletedAttendance = await db
-      .delete(workerAttendance)
-      .where(eq(workerAttendance.id, attendanceId))
-      .returning();
-    
-    // 🔌 Broadcast real-time update via WebSocket
-    const io = (global as any).io;
-    if (io && deletedAttendance[0]) {
-      io.emit('entity:update', {
-        type: 'INVALIDATE',
-        entity: 'worker-attendance',
-        projectId: deletedAttendance[0].projectId,
-        date: deletedAttendance[0].date
-      });
-    }
-    
-    const duration = Date.now() - startTime;
-    console.log(`✅ [API] تم حذف سجل الحضور بنجاح في ${duration}ms:`, {
-      id: deletedAttendance[0].id,
-      workerId: deletedAttendance[0].workerId,
-      date: deletedAttendance[0].date
-    });
-    
-    res.json({
-      success: true,
-      data: deletedAttendance[0],
-      message: `تم حذف سجل الحضور بتاريخ ${deletedAttendance[0].date} بنجاح`,
-      processingTime: duration
-    });
-    
-  } catch (error: any) {
-    const duration = Date.now() - startTime;
-    console.error('❌ [API] خطأ في حذف سجل الحضور:', error);
-    
-    let errorMessage = 'فشل في حذف سجل الحضور';
-    let statusCode = 500;
-    
-    if (error.code === '23503') { // foreign key violation
-      errorMessage = 'لا يمكن حذف سجل الحضور - مرتبط ببيانات أخرى';
-      statusCode = 409;
-    } else if (error.code === '22P02') { // invalid input syntax
-      errorMessage = 'معرف سجل الحضور غير صحيح';
-      statusCode = 400;
     }
     
     res.status(statusCode).json({

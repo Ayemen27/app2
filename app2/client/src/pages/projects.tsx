@@ -720,182 +720,168 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 px-2">
           {Array.isArray(projects) ? projects.map((project) => (
-            <Card key={project.id} className="relative overflow-hidden hover:shadow-2xl transition-all duration-300 border-slate-200 dark:border-slate-700 flex flex-col h-full">
-              {/* Project Image with Overlay */}
-              <div className="relative h-56 overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 group">
-                {project.imageUrl ? (
-                  <>
-                    <img 
-                      src={project.imageUrl} 
-                      alt={project.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEnlargedImage(project.imageUrl!);
-                      }}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Building2 className="h-16 w-16 text-slate-300 dark:text-slate-600" />
-                  </div>
-                )}
-                
-                {/* Status Badge */}
-                <Badge className={`absolute top-3 right-3 ${getStatusColor(project.status)}`}>
-                  {getStatusText(project.status)}
-                </Badge>
-                
-                {/* Project Name Overlay */}
-                <div className="absolute bottom-0 right-0 left-0 p-4 bg-gradient-to-t from-black/70 to-transparent">
-                  <h2 className="text-white font-bold text-lg line-clamp-2">{project.name}</h2>
-                </div>
-              </div>
-
-              {/* Header Info */}
-              <CardHeader className="pb-3 pt-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    <span>{formatDate(project.createdAt)}</span>
-                  </div>
-                  {project.stats.lastActivity && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      <span>{formatDate(project.stats.lastActivity)}</span>
+            <Card key={project.id} className="relative overflow-hidden hover:shadow-lg transition-shadow">
+              {/* Project Image */}
+              {project.imageUrl ? (
+                <div className="relative h-48 overflow-hidden cursor-pointer group">
+                  <img 
+                    src={project.imageUrl} 
+                    alt={project.name}
+                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEnlargedImage(project.imageUrl!);
+                    }}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="absolute bottom-3 left-3 flex items-center gap-1">
+                      <div className="w-4 h-4 bg-blue-500/80 rounded-full flex items-center justify-center">
+                        <ImageIcon className="h-2 w-2 text-white" />
+                      </div>
+                      <span className="text-xs text-white font-medium">صورة المشروع</span>
                     </div>
+                    <div className="absolute top-3 left-3">
+                      <Eye className="text-white h-4 w-4" />
+                    </div>
+                  </div>
+                  <Badge className={`absolute top-3 right-3 ${getStatusColor(project.status)}`}>
+                    {getStatusText(project.status)}
+                  </Badge>
+                </div>
+              ) : null}
+
+              <CardHeader className={project.imageUrl ? "pb-3" : "pb-3"}>
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg line-clamp-2">{project.name}</CardTitle>
+                    <CardDescription className="flex items-center gap-2">
+                      <MapPin className="h-3 w-3" />
+                      تم الإنشاء: {formatDate(project.createdAt)}
+                    </CardDescription>
+                  </div>
+                  {!project.imageUrl && (
+                    <Badge className={getStatusColor(project.status)}>
+                      {getStatusText(project.status)}
+                    </Badge>
                   )}
                 </div>
               </CardHeader>
 
-              <CardContent className="space-y-4 flex-1">
-                {/* Financial Cards */}
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">الملخص المالي</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* Income */}
-                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 p-3 rounded-xl border border-emerald-200/50 dark:border-emerald-800/50">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg">
-                          <TrendingUp className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                        </div>
-                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">الدخل</span>
-                      </div>
-                      <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200 arabic-numbers">
-                        {formatCurrency(safeParseNumber(project.stats.totalIncome, 0))}
-                      </p>
+              <CardContent className="space-y-1">
+                {/* Financial Summary */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      <span className="text-xs font-medium text-green-700 dark:text-green-400">الدخل</span>
                     </div>
+                    <p className="text-sm font-bold text-green-800 dark:text-green-300 arabic-numbers">
+                      {formatCurrency(safeParseNumber(project.stats.totalIncome, 0))}
+                    </p>
+                  </div>
 
-                    {/* Expenses */}
-                    <div className="bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-950/40 dark:to-pink-950/40 p-3 rounded-xl border border-red-200/50 dark:border-red-800/50">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="p-1.5 bg-red-100 dark:bg-red-900/50 rounded-lg">
-                          <DollarSign className="h-3 w-3 text-red-600 dark:text-red-400" />
-                        </div>
-                        <span className="text-xs font-medium text-red-700 dark:text-red-300">المصروفات</span>
-                      </div>
-                      <p className="text-sm font-bold text-red-800 dark:text-red-200 arabic-numbers">
-                        {formatCurrency(safeParseNumber(project.stats.totalExpenses, 0))}
-                      </p>
+                  <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-red-600" />
+                      <span className="text-xs font-medium text-red-700 dark:text-red-400">المصروفات</span>
                     </div>
+                    <p className="text-sm font-bold text-red-800 dark:text-red-300 arabic-numbers">
+                      {formatCurrency(safeParseNumber(project.stats.totalExpenses, 0))}
+                    </p>
                   </div>
                 </div>
 
                 {/* Current Balance */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 p-4 rounded-xl border border-blue-200/50 dark:border-blue-800/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                      <BarChart3 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <span className="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wider">الرصيد الحالي</span>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-blue-600" />
+                    <span className="text-xs font-medium text-blue-700 dark:text-blue-400">الرصيد الحالي</span>
                   </div>
-                  <p className="text-lg font-bold text-blue-800 dark:text-blue-200 arabic-numbers">
+                  <p className="text-lg font-bold text-blue-800 dark:text-blue-300 arabic-numbers">
                     {formatCurrency(safeParseNumber(project.stats.currentBalance, 0))}
                   </p>
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-                        <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                      </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-center gap-1">
+                      <Users className="h-3 w-3 text-muted-foreground" />
                     </div>
-                    <p className="text-xs text-muted-foreground mb-1 font-medium">العمال</p>
-                    <p className="text-base font-bold text-foreground arabic-numbers">{cleanInteger(project.stats.totalWorkers)}</p>
+                    <p className="text-xs text-muted-foreground">العمال</p>
+                    <p className="text-sm font-semibold arabic-numbers">{cleanInteger(project.stats.totalWorkers)}</p>
                   </div>
 
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
-                        <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                      </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-center gap-1">
+                      <Package className="h-3 w-3 text-muted-foreground" />
                     </div>
-                    <p className="text-xs text-muted-foreground mb-1 font-medium">المشتريات</p>
-                    <p className="text-base font-bold text-foreground arabic-numbers">{cleanInteger(project.stats.materialPurchases)}</p>
+                    <p className="text-xs text-muted-foreground">المشتريات</p>
+                    <p className="text-sm font-semibold arabic-numbers">{cleanInteger(project.stats.materialPurchases)}</p>
                   </div>
 
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="p-2 bg-cyan-100 dark:bg-cyan-900/50 rounded-lg">
-                        <Calendar className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-                      </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-center gap-1">
+                      <Calendar className="h-3 w-3 text-muted-foreground" />
                     </div>
-                    <p className="text-xs text-muted-foreground mb-1 font-medium">أيام العمل</p>
-                    <p className="text-base font-bold text-foreground arabic-numbers">{cleanInteger(project.stats.completedDays)}</p>
+                    <p className="text-xs text-muted-foreground">أيام العمل</p>
+                    <p className="text-sm font-semibold arabic-numbers">{cleanInteger(project.stats.completedDays)}</p>
                   </div>
                 </div>
+
+                {/* Last Activity */}
+                {project.stats.lastActivity && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    آخر نشاط: {formatDate(project.stats.lastActivity)}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditDialog(project)}
+                    className="flex-1 gap-1"
+                  >
+                    <Edit className="h-3 w-3" />
+                    تعديل
+                  </Button>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1 text-red-600 hover:text-red-700">
+                        <Trash2 className="h-3 w-3" />
+                        حذف
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          هل أنت متأكد من حذف المشروع "{project.name}"؟ 
+                          سيتم حذف جميع البيانات المرتبطة بهذا المشروع ولا يمكن التراجع عن هذا الإجراء.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDeleteProject(project.id)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          حذف المشروع
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </CardContent>
-
-              {/* Action Buttons */}
-              <div className="px-6 pb-4 pt-3 border-t border-slate-200 dark:border-slate-700 flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openEditDialog(project)}
-                  className="flex-1 gap-2 font-medium"
-                >
-                  <Edit className="h-4 w-4" />
-                  تعديل
-                </Button>
-
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="flex-1 gap-2 font-medium text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      حذف
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        هل أنت متأكد من حذف المشروع "{project.name}"؟ 
-                        سيتم حذف جميع البيانات المرتبطة بهذا المشروع ولا يمكن التراجع عن هذا الإجراء.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => handleDeleteProject(project.id)}
-                        className="bg-red-600 hover:bg-red-700"
-                      >
-                        حذف المشروع
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
             </Card>
           )) : null}
         </div>

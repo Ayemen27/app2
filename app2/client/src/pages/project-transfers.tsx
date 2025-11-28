@@ -17,7 +17,6 @@ import { ArrowRightLeft, ArrowRight, Calendar, Edit, Trash2, DollarSign, Trendin
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UnifiedSearchFilter, { useUnifiedFilter, FilterConfig } from "@/components/ui/unified-search-filter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -29,7 +28,7 @@ export default function ProjectTransfers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editingTransfer, setEditingTransfer] = useState<ProjectFundTransfer | null>(null);
-  const [selectedTab, setSelectedTab] = useState('overview');
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Filter Configs
   const filterConfigs: FilterConfig[] = [
@@ -221,23 +220,6 @@ export default function ProjectTransfers() {
     }).format(amount) + ' ريال';
   };
 
-  // Enhanced Tab Component
-  const TabTriggerEnhanced = ({ value, icon: Icon, label, badge = 0 }: any) => (
-    <TabsTrigger
-      value={value}
-      className="relative flex-shrink-0 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-amber-600 data-[state=active]:via-orange-600 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-500/40 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all h-9 md:h-11 px-2 md:px-4 font-semibold border-2 border-transparent data-[state=active]:border-amber-400 dark:data-[state=active]:border-amber-500 whitespace-nowrap text-xs md:text-sm"
-    >
-      <div className="flex items-center gap-1.5 md:gap-2">
-        <Icon className="h-4 w-4 md:h-5 md:w-5" />
-        <span className="font-semibold hidden sm:inline">{label}</span>
-      </div>
-      {badge > 0 && (
-        <Badge className="absolute -top-2 -left-2 h-5 w-5 md:h-6 md:w-6 p-0 flex items-center justify-center text-xs font-extrabold bg-gradient-to-br from-red-500 to-rose-600 text-white border-2 border-white dark:border-slate-900 shadow-lg animate-pulse">
-          {badge}
-        </Badge>
-      )}
-    </TabsTrigger>
-  );
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
@@ -296,77 +278,23 @@ export default function ProjectTransfers() {
             </Card>
           </div>
 
-          {/* Tabs */}
-          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-3 md:space-y-6">
-            {/* Unified Filter */}
-            <UnifiedSearchFilter
-              showSearch={true}
-              searchPlaceholder="ابحث عن التحويلات..."
-              searchValue={searchValue}
-              onSearchChange={onSearchChange}
-              filters={filterConfigs}
-              filterValues={filterValues}
-              onFilterChange={onFilterChange}
-              onReset={onReset}
-              showResetButton={true}
-              compact={false}
-              showActiveFilters={true}
-            />
+          {/* Unified Filter */}
+          <UnifiedSearchFilter
+            showSearch={true}
+            searchPlaceholder="ابحث عن التحويلات..."
+            searchValue={searchValue}
+            onSearchChange={onSearchChange}
+            filters={filterConfigs}
+            filterValues={filterValues}
+            onFilterChange={onFilterChange}
+            onReset={onReset}
+            showResetButton={true}
+            compact={false}
+            showActiveFilters={true}
+          />
 
-            {/* Tabs Navigation Card */}
-            <Card className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-lg md:rounded-xl shadow-lg md:shadow-xl border-2 border-slate-200 dark:border-slate-700">
-              <CardContent className="p-3 md:p-5">
-                {/* Tabs List */}
-                <div className="overflow-x-auto -mx-3 md:-mx-5 px-3 md:px-5">
-                  <TabsList className="flex gap-1 md:gap-3 bg-transparent p-0 h-auto justify-start w-max">
-                    <TabTriggerEnhanced value="overview" icon={BarChart3} label="النظرة العامة" />
-                    <TabTriggerEnhanced value="list" icon={ListChecks} label="قائمة التحويلات" badge={filteredTransfers.length} />
-                    <TabTriggerEnhanced value="create" icon={Plus} label="إضافة جديد" />
-                  </TabsList>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-3 md:space-y-6 mt-0">
-              <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
-                <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-4 md:p-5">
-                  <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base md:text-lg">
-                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg flex-shrink-0">
-                      <ArrowRightLeft className="h-5 w-5 md:h-6 md:w-6 text-white" />
-                    </div>
-                    ملخص التحويلات
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 md:p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
-                      <p className="text-sm text-amber-700 dark:text-amber-400 font-medium mb-2">إجمالي المبالغ المحولة</p>
-                      <p className="text-2xl md:text-3xl font-bold text-amber-900 dark:text-amber-200">{formatCurrency(stats.totalAmount)}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
-                      <p className="text-sm text-green-700 dark:text-green-400 font-medium mb-2">متوسط العملية الواحدة</p>
-                      <p className="text-2xl md:text-3xl font-bold text-green-900 dark:text-green-200">
-                        {formatCurrency(stats.total > 0 ? stats.totalAmount / stats.total : 0)}
-                      </p>
-                    </div>
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-                      <p className="text-sm text-blue-700 dark:text-blue-400 font-medium mb-2">عمليات هذا الشهر</p>
-                      <p className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-blue-200">
-                        {filteredTransfers.filter(t => {
-                          const date = new Date(t.transferDate);
-                          const now = new Date();
-                          return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-                        }).length}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* List Tab */}
-            <TabsContent value="list" className="space-y-4 md:space-y-6 mt-0">
+          {/* List Tab Content - Always Displayed */}
+          <div className="space-y-4 md:space-y-6">
               {transfersLoading ? (
                 <div className="space-y-4 md:space-y-6">
                   {[1, 2, 3].map(i => (
@@ -442,17 +370,54 @@ export default function ProjectTransfers() {
                   ))}
                 </div>
               )}
-            </TabsContent>
+          </div>
+        </div>
+      </div>
 
-            {/* Create Tab */}
-            <TabsContent value="create" className="mt-0">
-              <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
-                <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 md:p-5">
-                  <CardTitle className="text-slate-900 dark:text-white text-base md:text-lg">
-                    {editingTransfer ? 'تعديل عملية الترحيل' : 'إضافة عملية ترحيل جديدة'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 md:p-6">
+      {/* Floating Button for Create */}
+      <div className="fixed bottom-6 left-6 z-40">
+        <Button
+          onClick={() => {
+            setShowCreateModal(!showCreateModal);
+            if (showCreateModal) {
+              setEditingTransfer(null);
+              form.reset();
+            }
+          }}
+          className="h-14 w-14 md:h-16 md:w-16 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-700 text-white shadow-lg hover:shadow-2xl transition-all transform hover:scale-110 flex items-center justify-center border-0"
+        >
+          {showCreateModal ? (
+            <Minus className="h-6 w-6 md:h-7 md:w-7" />
+          ) : (
+            <Plus className="h-6 w-6 md:h-7 md:w-7" />
+          )}
+        </Button>
+      </div>
+
+      {/* Modal for Create/Edit */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-4">
+          <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-2xl w-full max-h-[90vh] md:max-h-[80vh] md:w-full md:max-w-2xl rounded-t-2xl md:rounded-xl overflow-y-auto">
+            <CardHeader className="sticky top-0 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 md:p-5 z-10">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-slate-900 dark:text-white text-base md:text-lg">
+                  {editingTransfer ? 'تعديل عملية الترحيل' : 'إضافة عملية ترحيل جديدة'}
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setEditingTransfer(null);
+                    form.reset();
+                  }}
+                  className="h-8 w-8 p-0"
+                >
+                  ✕
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6">
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
                       {/* Row 1: Projects */}
@@ -588,12 +553,10 @@ export default function ProjectTransfers() {
                       </div>
                     </form>
                   </Form>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -613,21 +576,4 @@ const StatsCard = ({ icon: Icon, label, value, gradient, iconBg, iconColor }: an
       <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</p>
     </CardContent>
   </Card>
-);
-
-// Enhanced Tab Trigger Component
-const TabTriggerEnhanced = ({ value, label, badge }: any) => (
-  <TabsTrigger
-    value={value}
-    className="relative flex-shrink-0 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-600 data-[state=active]:via-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/40 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all h-9 md:h-11 px-2 md:px-4 font-semibold border-2 border-transparent data-[state=active]:border-blue-400 dark:data-[state=active]:border-blue-500 whitespace-nowrap text-xs md:text-sm"
-  >
-    <div className="flex items-center gap-1.5 md:gap-2">
-      <span className="font-semibold">{label}</span>
-    </div>
-    {badge > 0 && (
-      <Badge className="absolute -top-2 -left-2 h-5 w-5 md:h-6 md:w-6 p-0 flex items-center justify-center text-xs font-extrabold bg-gradient-to-br from-red-500 to-rose-600 text-white border-2 border-white dark:border-slate-900 shadow-lg animate-pulse">
-        {badge}
-      </Badge>
-    )}
-  </TabsTrigger>
 );

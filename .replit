@@ -111,3 +111,6 @@ JWT_REFRESH_SECRET = "5057cb38ab008e55901f35122af497263099573461db7c6e6e9fe4436c
 
 [userenv.development]
 PORT = "5000"
+HEALTH_CHECK_PORT = "5000"
+HEALTH_CHECK_URL = "http://localhost:5000/api/health"
+DOMAIN = "localhost:5000"

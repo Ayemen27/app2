@@ -162,15 +162,17 @@ export default function WorkerAccountsPage() {
   // Fetch data
   const { data: workers = [] } = useQuery<Worker[]>({
     queryKey: ['/api/workers'],
-    select: (data: Worker[]) => data.filter(w => w.isActive)
+    select: (data: Worker[]) => Array.isArray(data) ? data.filter(w => w.isActive) : []
   });
 
   const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ['/api/projects']
+    queryKey: ['/api/projects'],
+    select: (data) => Array.isArray(data) ? data : []
   });
 
   const { data: transfers = [] } = useQuery<WorkerTransfer[]>({
-    queryKey: ['/api/worker-transfers']
+    queryKey: ['/api/worker-transfers'],
+    select: (data) => Array.isArray(data) ? data : []
   });
 
   // Create transfer mutation
@@ -438,7 +440,7 @@ export default function WorkerAccountsPage() {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {filteredTransfers.map((transfer) => {
+            {Array.isArray(filteredTransfers) && filteredTransfers.map((transfer) => {
               const worker = workers.find(w => w.id === transfer.workerId);
               const project = projects.find(p => p.id === transfer.projectId);
               
@@ -520,7 +522,6 @@ export default function WorkerAccountsPage() {
             })}
           </div>
         )}
-      </div>
 
       {/* Transfer Dialog */}
       <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>

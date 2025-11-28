@@ -244,40 +244,56 @@ export default function ProjectTransfers() {
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-2 py-3 md:px-6 md:py-6 w-full space-y-4 md:space-y-8">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
-            <StatsCard
-              icon={ArrowRightLeft}
-              label="إجمالي العمليات"
-              value={stats.total}
-              gradient="from-amber-500 to-orange-500"
-              iconBg="bg-amber-100 dark:bg-amber-900/30"
-              iconColor="text-amber-600 dark:text-amber-400"
-            />
-            <StatsCard
-              icon={DollarSign}
-              label="إجمالي المبالغ"
-              value={formatCurrency(stats.totalAmount)}
-              gradient="from-green-500 to-emerald-500"
-              iconBg="bg-green-100 dark:bg-green-900/30"
-              iconColor="text-green-600 dark:text-green-400"
-            />
-            <StatsCard
-              icon={TrendingDown}
-              label="النتائج المفلترة"
-              value={stats.filtered}
-              gradient="from-blue-500 to-indigo-500"
-              iconBg="bg-blue-100 dark:bg-blue-900/30"
-              iconColor="text-blue-600 dark:text-blue-400"
-            />
-            <StatsCard
-              icon={TrendingUp}
-              label="عمليات اليوم"
-              value={filteredTransfers.filter(t => new Date(t.transferDate).toDateString() === new Date().toDateString()).length}
-              gradient="from-purple-500 to-pink-500"
-              iconBg="bg-purple-100 dark:bg-purple-900/30"
-              iconColor="text-purple-600 dark:text-purple-400"
-            />
+          {/* Stats Cards - Each in separate Card */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl transition-all">
+              <CardContent className="p-4 md:p-5">
+                <StatsCard
+                  icon={ArrowRightLeft}
+                  label="إجمالي العمليات"
+                  value={stats.total}
+                  gradient="from-amber-500 to-orange-500"
+                  iconBg="bg-amber-100 dark:bg-amber-900/30"
+                  iconColor="text-amber-600 dark:text-amber-400"
+                />
+              </CardContent>
+            </Card>
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl transition-all">
+              <CardContent className="p-4 md:p-5">
+                <StatsCard
+                  icon={DollarSign}
+                  label="إجمالي المبالغ"
+                  value={formatCurrency(stats.totalAmount)}
+                  gradient="from-green-500 to-emerald-500"
+                  iconBg="bg-green-100 dark:bg-green-900/30"
+                  iconColor="text-green-600 dark:text-green-400"
+                />
+              </CardContent>
+            </Card>
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl transition-all">
+              <CardContent className="p-4 md:p-5">
+                <StatsCard
+                  icon={TrendingDown}
+                  label="النتائج المفلترة"
+                  value={stats.filtered}
+                  gradient="from-blue-500 to-indigo-500"
+                  iconBg="bg-blue-100 dark:bg-blue-900/30"
+                  iconColor="text-blue-600 dark:text-blue-400"
+                />
+              </CardContent>
+            </Card>
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl transition-all">
+              <CardContent className="p-4 md:p-5">
+                <StatsCard
+                  icon={TrendingUp}
+                  label="عمليات اليوم"
+                  value={filteredTransfers.filter(t => new Date(t.transferDate).toDateString() === new Date().toDateString()).length}
+                  gradient="from-purple-500 to-pink-500"
+                  iconBg="bg-purple-100 dark:bg-purple-900/30"
+                  iconColor="text-purple-600 dark:text-purple-400"
+                />
+              </CardContent>
+            </Card>
           </div>
 
           {/* Tabs */}

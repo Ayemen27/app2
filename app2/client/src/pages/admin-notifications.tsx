@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
+import { CreateNotificationDialog } from '@/components/notifications/CreateNotificationDialog';
 import { 
   TrendingUp, Bell, Users, Zap, BarChart3, AlertCircle, CheckCircle2,
   Filter, Search, Calendar, Clock, Eye, Trash2, Send, Star,
@@ -555,43 +556,44 @@ const PerformanceMetric = ({ label, value, icon: Icon, color, bgColor }: any) =>
   </div>
 );
 
-const CreateNotificationCard = ({ onRefetch }: any) => (
-  <Card className="bg-gradient-to-br from-white to-blue-50 dark:from-slate-900 dark:to-blue-950/30 border-2 border-blue-200 dark:border-blue-800 shadow-2xl">
-    <CardHeader className="border-b border-blue-100 dark:border-blue-900 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 p-4">
-      <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg">
-          <Sparkles className="h-5 w-5 text-white" />
-        </div>
-        إنشاء إشعار جديد
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="p-6">
-      <div className="space-y-4 max-w-2xl mx-auto">
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">العنوان</label>
-          <Input
-            placeholder="أدخل عنوان الإشعار..."
-            className="h-10 border-2 bg-white dark:bg-slate-800 focus:border-blue-500 text-sm"
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">المحتوى</label>
-          <textarea
-            placeholder="اكتب محتوى الإشعار..."
-            rows={4}
-            className="w-full border-2 rounded-xl p-3 bg-white dark:bg-slate-800 focus:border-blue-500 focus:outline-none resize-none text-sm"
-          />
-        </div>
+const CreateNotificationCard = ({ onRefetch }: any) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  return (
+    <>
+      <Card className="bg-gradient-to-br from-white to-blue-50 dark:from-slate-900 dark:to-blue-950/30 border-2 border-blue-200 dark:border-blue-800 shadow-2xl">
+        <CardHeader className="border-b border-blue-100 dark:border-blue-900 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 p-4">
+          <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg">
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
+            إنشاء إشعار جديد
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="text-center">
+            <p className="text-slate-600 dark:text-slate-400 mb-6">
+              قم بإنشاء إشعار جديد وإرساله للمستخدمين المحددين
+            </p>
+            <Button 
+              onClick={() => setIsDialogOpen(true)}
+              className="w-full max-w-md h-12 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold shadow-xl shadow-blue-500/30 transition-all duration-300 hover:shadow-2xl"
+            >
+              <Send className="h-4 w-4 ml-2" />
+              فتح نموذج الإنشاء
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Button className="w-full h-12 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold shadow-xl shadow-blue-500/30 transition-all duration-300 hover:shadow-2xl">
-          <Send className="h-4 w-4 ml-2" />
-          إرسال الإشعار
-        </Button>
-      </div>
-    </CardContent>
-  </Card>
-);
+      <CreateNotificationDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onRefetch={onRefetch}
+      />
+    </>
+  );
+};
 
 const LoadingNotifications = () => (
   <div className="space-y-3">

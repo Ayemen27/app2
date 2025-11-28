@@ -429,7 +429,7 @@ export default function ProjectTransfers() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-4 md:p-6 pb-24 md:pb-20">
+            <CardContent className="p-4 md:p-6 pb-4 md:pb-6">
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
                       {/* Row 1: Projects */}
@@ -540,8 +540,8 @@ export default function ProjectTransfers() {
                         )}
                       />
 
-                      {/* Action Buttons */}
-                      <div className="flex gap-3 pt-4 md:pt-6">
+                      {/* Action Buttons - Sticky */}
+                      <div className="sticky bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-4 md:p-6 mt-6 -mx-4 md:-mx-6 z-50 flex gap-3 shadow-lg">
                         <Button
                           type="submit"
                           disabled={createTransferMutation.isPending}

@@ -525,8 +525,8 @@ export const enhancedInsertWorkerSchema = createInsertSchema(workers).omit({
   }),
   dailyWage: z.string()
     .regex(/^\d+(\.\d{1,2})?$/, "الأجر اليومي يجب أن يكون رقماً صحيحاً")
-    .refine((val) => parseFloat(val) > 0 && parseFloat(val) <= 10000, {
-      message: "الأجر اليومي يجب أن يكون بين 1 و 10000"
+    .refine((val) => parseFloat(val) > 0, {
+      message: "الأجر اليومي يجب أن يكون أكبر من صفر"
     })
 });
 

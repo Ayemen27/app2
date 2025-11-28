@@ -30,10 +30,39 @@ app.use(helmet({
 }));
 
 // 🌐 **CORS Configuration - يمنع Cross-Origin attacks**
+const getAllowedOrigins = (): string[] => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const origins: string[] = [];
+  
+  // إضافة نطاقات Replit تلقائياً (HTTPS فقط)
+  if (process.env.REPLIT_DOMAINS) {
+    origins.push(`https://${process.env.REPLIT_DOMAINS}`);
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    origins.push(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+  }
+  
+  // إضافة نطاق مخصص من متغيرات البيئة (للإنتاج)
+  if (process.env.CUSTOM_DOMAIN) {
+    origins.push(`https://${process.env.CUSTOM_DOMAIN}`);
+  }
+  
+  // في بيئة التطوير فقط، إضافة localhost
+  if (!isProduction) {
+    origins.push('http://localhost:5000', 'http://127.0.0.1:5000', 'http://0.0.0.0:5000');
+  }
+  
+  // في الإنتاج، إذا لم توجد نطاقات، رفض الطلبات
+  if (isProduction && origins.length === 0) {
+    console.warn('⚠️ [CORS] لم يتم تكوين نطاقات للإنتاج - يُرجى تعيين REPLIT_DOMAINS أو CUSTOM_DOMAIN');
+    return [];
+  }
+  
+  return origins.length > 0 ? origins : ['http://localhost:5000'];
+};
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? ['https://yourapp.com'] // Replace with your actual domain
-    : ['http://localhost:5000', 'http://127.0.0.1:5000'],
+  origin: getAllowedOrigins(),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -117,7 +146,7 @@ app.use(generalRateLimit);
 app.use(trackSuspiciousActivity);
 app.use(securityHeaders);
 app.use(cors({
-  origin: ["http://localhost:5000", "http://0.0.0.0:5000", "https://app2--5000.local.webcontainer.io"],
+  origin: getAllowedOrigins(),
   credentials: true,
   optionsSuccessStatus: 200
 }));

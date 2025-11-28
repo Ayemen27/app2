@@ -20,7 +20,8 @@ import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db';
-import { sql, Table } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
+import { getTableName as drizzleGetTableName, getTableColumns } from 'drizzle-orm';
 import * as schema from '../shared/schema';
 import BackupManager from './backup-manager';
 
@@ -30,6 +31,7 @@ const __dirname = dirname(__filename);
 const LOCK_FILE = join(__dirname, '../.schema-push.lock');
 const MAX_AGE_HOURS = 24;
 const AUTO_FIX_ENABLED = true;
+const isProduction = process.env.NODE_ENV === 'production';
 const BACKUP_MANAGER = new BackupManager({
   backupDir: join(__dirname, '../backups/schema-push'),
   maxBackups: 10,
@@ -74,15 +76,15 @@ interface SchemaAuditLog {
 }
 
 /**
- * التحقق مما إذا كان الكائن جدول Drizzle حقيقي باستخدام Table.Symbol
+ * التحقق مما إذا كان الكائن جدول Drizzle حقيقي
  */
 function isDrizzleTable(obj: any): boolean {
   if (!obj || typeof obj !== 'object') return false;
   
   try {
-    // الطريقة الموثوقة: استخدام Drizzle Table Symbol
-    const isTable = obj[Table.Symbol.IsTable] === true;
-    if (isTable) return true;
+    // محاولة استخدام drizzle API
+    const name = drizzleGetTableName(obj);
+    if (name) return true;
     
     // طريقة احتياطية: فحص البنية
     const hasTableSymbol = Object.getOwnPropertySymbols(obj).some(
@@ -108,11 +110,9 @@ function isDrizzleTable(obj: any): boolean {
  */
 function getTableName(tableObj: any): string | undefined {
   try {
-    // الطريقة الموثوقة: استخدام Table.Symbol.Name
-    const symbolName = tableObj[Table.Symbol.Name];
-    if (symbolName && typeof symbolName === 'string') {
-      return symbolName;
-    }
+    // استخدام Drizzle API
+    const name = drizzleGetTableName(tableObj);
+    if (name) return name;
     
     // طريقة احتياطية: استخدام _.name
     if (tableObj._ && tableObj._.name) {
@@ -127,13 +127,14 @@ function getTableName(tableObj: any): string | undefined {
 
 /**
  * استخراج أسماء الجداول من المخطط المعرف في الكود
- * يستخدم Drizzle Table.Symbol للكشف الموثوق والديناميكي
  */
 function getExpectedTablesFromSchema(): string[] {
   const tables: string[] = [];
   const seen = new Set<string>();
   
-  console.log('🔍 [Schema Detection] بدء الكشف الديناميكي عن الجداول...');
+  if (!isProduction) {
+    console.log('🔍 [Schema Detection] بدء الكشف الديناميكي عن الجداول...');
+  }
   
   for (const [key, value] of Object.entries(schema)) {
     // تخطي العلاقات والأنواع والتعريفات
@@ -158,21 +159,12 @@ function getExpectedTablesFromSchema(): string[] {
     }
   }
   
-  console.log(`📊 [Schema Detection] تم اكتشاف ${tables.length} جدول ديناميكياً`);
+  if (!isProduction) {
+    console.log(`📊 [Schema Detection] تم اكتشاف ${tables.length} جدول ديناميكياً`);
+  }
   
-  if (tables.length === 0) {
-    console.log('⚠️ [Schema Detection] لم يتم اكتشاف أي جداول! تفاصيل المخطط:');
-    console.log('   عدد المُصدَّرات:', Object.keys(schema).length);
-    
-    // محاولة أخيرة: فحص كل المصدرات
-    for (const [key, value] of Object.entries(schema)) {
-      if (value && typeof value === 'object') {
-        const symbols = Object.getOwnPropertySymbols(value);
-        if (symbols.length > 0) {
-          console.log(`   ${key}: يحتوي على ${symbols.length} رموز`);
-        }
-      }
-    }
+  if (tables.length === 0 && !isProduction) {
+    console.log('⚠️ [Schema Detection] لم يتم اكتشاف أي جداول');
   }
   
   return tables;
@@ -180,7 +172,6 @@ function getExpectedTablesFromSchema(): string[] {
 
 /**
  * استخراج الأعمدة المتوقعة من جدول معين في المخطط
- * يستخدم Table.Symbol.Columns للكشف الموثوق
  */
 function getExpectedColumnsFromTable(tableName: string): string[] {
   const columns: string[] = [];
@@ -194,8 +185,8 @@ function getExpectedColumnsFromTable(tableName: string): string[] {
     
     if (tblName === tableName) {
       try {
-        // الطريقة الموثوقة: استخدام Table.Symbol.Columns
-        const tableColumns = tableObj[Table.Symbol.Columns];
+        // استخدام Drizzle API للحصول على الأعمدة
+        const tableColumns = getTableColumns(tableObj);
         if (tableColumns && typeof tableColumns === 'object') {
           for (const colKey of Object.keys(tableColumns)) {
             const col = tableColumns[colKey];
@@ -438,18 +429,20 @@ async function checkSchemaConsistency(): Promise<SchemaCheckResult> {
     const isConsistent = missingTables.length === 0 && 
                         missingColumns.length === 0;
     
-    console.log(`📊 [Schema Check] الجداول المفقودة: ${missingTables.length}`);
-    console.log(`📊 [Schema Check] الجداول الزائدة: ${extraTables.length}`);
-    console.log(`📊 [Schema Check] الأعمدة المفقودة: ${missingColumns.length}`);
-    console.log(`📊 [Schema Check] المشاكل القابلة للإصلاح: ${fixableIssues}`);
-    console.log(`📊 [Schema Check] إجمالي المشاكل: ${issues.length}`);
-    
-    if (missingTables.length > 0) {
-      console.log(`   الجداول المفقودة: ${missingTables.join(', ')}`);
-    }
-    if (missingColumns.length > 0) {
-      console.log(`   الأعمدة المفقودة:`);
-      missingColumns.forEach(c => console.log(`     - ${c.table}.${c.column}`));
+    if (!isProduction) {
+      console.log(`📊 [Schema Check] الجداول المفقودة: ${missingTables.length}`);
+      console.log(`📊 [Schema Check] الجداول الزائدة: ${extraTables.length}`);
+      console.log(`📊 [Schema Check] الأعمدة المفقودة: ${missingColumns.length}`);
+      console.log(`📊 [Schema Check] المشاكل القابلة للإصلاح: ${fixableIssues}`);
+      console.log(`📊 [Schema Check] إجمالي المشاكل: ${issues.length}`);
+      
+      if (missingTables.length > 0) {
+        console.log(`   الجداول المفقودة: ${missingTables.join(', ')}`);
+      }
+      if (missingColumns.length > 0) {
+        console.log(`   الأعمدة المفقودة:`);
+        missingColumns.forEach(c => console.log(`     - ${c.table}.${c.column}`));
+      }
     }
     
     return {
@@ -1011,16 +1004,23 @@ function runDrizzlePush(): Promise<{ success: boolean; output: string }> {
  * تطبيق المخطط التلقائي مع معالجة ذكية
  */
 export async function autoSchemaPush(): Promise<void> {
-  console.log('🚀 [Schema Push] بدء النظام الذكي للتحقق والتطبيق...');
-  console.log('═'.repeat(60));
+  if (!isProduction) {
+    console.log('🚀 [Schema Push] بدء النظام الذكي للتحقق والتطبيق...');
+    console.log('═'.repeat(60));
+  }
   
   let consistencyCheck = await checkSchemaConsistency();
   let skipLockCheck = false;
   
-  await sendSchemaReport(consistencyCheck);
+  // في الإنتاج، أرسل التقرير فقط إذا كانت هناك مشاكل حرجة
+  if (!isProduction || consistencyCheck.criticalIssues > 0) {
+    await sendSchemaReport(consistencyCheck);
+  }
   
   if (!consistencyCheck.isConsistent || consistencyCheck.extraTables.length > 0) {
-    console.log('⚠️ [Schema Check] تم اكتشاف اختلافات في المخطط!');
+    if (!isProduction) {
+      console.log('⚠️ [Schema Check] تم اكتشاف اختلافات في المخطط!');
+    }
     
     if (consistencyCheck.criticalIssues > 0) {
       console.log('🚨 [Schema Check] مشاكل حرجة! سيتم تجاوز فحص القفل');

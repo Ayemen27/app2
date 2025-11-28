@@ -2,7 +2,7 @@
 import { Pool, Client } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
-import { getCredential } from '../config/credentials';
+import { getCredential, isSupabaseConfigured } from '../config/credentials';
 import fs from 'fs';
 
 /**
@@ -19,6 +19,7 @@ export class SmartConnectionManager {
     local: false,
     supabase: false
   };
+  private isProduction = process.env.NODE_ENV === 'production';
 
   private constructor() {
     this.initialize();
@@ -35,15 +36,19 @@ export class SmartConnectionManager {
    * 🚀 تهيئة جميع الاتصالات
    */
   private async initialize(): Promise<void> {
-    console.log('🧠 [Smart Connection Manager] بدء التهيئة...');
+    if (!this.isProduction) {
+      console.log('🧠 [Smart Connection Manager] بدء التهيئة...');
+    }
     
     await Promise.all([
       this.initializeLocalConnection(),
       this.initializeSupabaseConnection()
     ]);
 
-    console.log('✅ [Smart Connection Manager] تم إكمال التهيئة');
-    this.logConnectionStatus();
+    if (!this.isProduction) {
+      console.log('✅ [Smart Connection Manager] تم إكمال التهيئة');
+      this.logConnectionStatus();
+    }
   }
 
   /**
@@ -85,13 +90,17 @@ export class SmartConnectionManager {
       client.release();
 
       this.connectionStatus.local = true;
-      console.log('✅ [Local DB] اتصال محلي نجح:', {
-        database: result.rows[0].current_database,
-        user: result.rows[0].current_user
-      });
+      if (!this.isProduction) {
+        console.log('✅ [Local DB] اتصال محلي نجح:', {
+          database: result.rows[0].current_database,
+          user: result.rows[0].current_user
+        });
+      }
 
     } catch (error: any) {
-      console.error('❌ [Local DB] فشل الاتصال المحلي:', error.message);
+      if (!this.isProduction) {
+        console.error('❌ [Local DB] فشل الاتصال المحلي:', error.message);
+      }
       this.connectionStatus.local = false;
     }
   }
@@ -100,12 +109,19 @@ export class SmartConnectionManager {
    * ☁️ تهيئة اتصال Supabase
    */
   private async initializeSupabaseConnection(): Promise<void> {
+    // التحقق من تكوين Supabase قبل المحاولة
+    if (!isSupabaseConfigured()) {
+      if (!this.isProduction) {
+        console.log('ℹ️ [Supabase] غير مكون - سيتم تخطيه');
+      }
+      return;
+    }
+    
     try {
       const supabaseUrl = getCredential('SUPABASE_URL');
       const supabasePassword = getCredential('SUPABASE_DATABASE_PASSWORD');
       
-      if (!supabaseUrl || !supabasePassword || supabaseUrl === 'https://placeholder.supabase.co') {
-        console.warn('⚠️ [Supabase] بيانات الاتصال غير مكتملة');
+      if (!supabaseUrl || !supabasePassword) {
         return;
       }
 
@@ -151,14 +167,14 @@ export class SmartConnectionManager {
       client.release();
 
       this.connectionStatus.supabase = true;
-      console.log('✅ [Supabase] اتصال Supabase نجح:', {
-        database: result.rows[0].current_database,
-        user: result.rows[0].current_user,
-        project: project
-      });
+      if (!this.isProduction) {
+        console.log('✅ [Supabase] اتصال Supabase نجح');
+      }
 
     } catch (error: any) {
-      console.error('❌ [Supabase] فشل اتصال Supabase:', error.message);
+      if (!this.isProduction) {
+        console.error('❌ [Supabase] فشل اتصال Supabase:', error.message);
+      }
       this.connectionStatus.supabase = false;
     }
   }
@@ -257,6 +273,8 @@ export class SmartConnectionManager {
    * 📝 عرض حالة الاتصالات
    */
   private logConnectionStatus(): void {
+    if (this.isProduction) return;
+    
     const status = this.getConnectionStatus();
     console.log('📊 [Smart Connection Manager] حالة الاتصالات:', {
       '🏠 محلي': status.local ? '✅ متصل' : '❌ غير متصل',
@@ -272,7 +290,10 @@ export class SmartConnectionManager {
     local: { status: boolean; details?: any; error?: string };
     supabase: { status: boolean; details?: any; error?: string };
   }> {
-    const results = {
+    const results: {
+      local: { status: boolean; details?: any; error?: string };
+      supabase: { status: boolean; details?: any; error?: string };
+    } = {
       local: { status: false },
       supabase: { status: false }
     };

@@ -95,10 +95,10 @@ export default function WorkerAttendance() {
 
   // Get today's attendance records
   const { data: todayAttendance = [] } = useQuery({
-    queryKey: ["/api/projects", selectedProjectId, "attendance", selectedDate],
+    queryKey: ["/api/projects", selectedProjectId, "worker-attendance", selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/attendance?date=${selectedDate}`, "GET");
+        const response = await apiRequest(`/api/projects/${selectedProjectId}/worker-attendance?date=${selectedDate}`, "GET");
         // معالجة الهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data;

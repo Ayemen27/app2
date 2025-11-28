@@ -1,5 +1,13 @@
 var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
 var __esm = (fn, res) => function __init() {
   return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
 };
@@ -7,6 +15,15 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
+var __copyProps = (to, from, except, desc8) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc8 = __getOwnPropDesc(from, key)) || desc8.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // shared/schema.ts
 var schema_exports = {};
@@ -9668,11 +9685,18 @@ publicRouter.get("/status", (req, res) => {
 publicRouter.use("/auth/*", authRouteRateLimit);
 publicRouter.get("/worker-types", async (req, res) => {
   try {
+    const { workerTypes: workerTypes2 } = (init_schema(), __toCommonJS(schema_exports));
+    const { db: db2 } = __require("../../db.js");
+    console.log("\u{1F4CB} [API] \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644 \u0645\u0646 public router");
+    const allWorkerTypes = await db2.select().from(workerTypes2).orderBy(workerTypes2.name);
+    console.log(`\u2705 \u062A\u0645 \u062C\u0644\u0628 ${allWorkerTypes.length} \u0646\u0648\u0639 \u0639\u0627\u0645\u0644`);
     res.json({
       success: true,
-      message: "\u0645\u0633\u0627\u0631 \u0639\u0627\u0645 - \u064A\u062A\u0645 \u0627\u0644\u062A\u0639\u0627\u0645\u0644 \u0645\u0639\u0647 \u0641\u064A \u0627\u0644\u0640 controller \u0627\u0644\u0623\u0635\u0644\u064A"
+      data: allWorkerTypes,
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644 \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
+    console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644:", error);
     res.status(500).json({
       success: false,
       error: "\u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644",
@@ -11947,19 +11971,14 @@ workerRouter.get("/autocomplete/workerMiscDescriptions", async (req, res) => {
 });
 workerRouter.get("/worker-types", async (req, res) => {
   try {
-    const workerTypes2 = [
-      { id: "1", name: "\u0645\u0639\u0644\u0645", usageCount: 1 },
-      { id: "2", name: "\u0639\u0627\u0645\u0644", usageCount: 1 },
-      { id: "3", name: "\u0645\u0633\u0627\u0639\u062F", usageCount: 1 },
-      { id: "4", name: "\u0633\u0627\u0626\u0642", usageCount: 1 },
-      { id: "5", name: "\u062D\u0627\u0631\u0633", usageCount: 1 }
-    ];
+    const allWorkerTypes = await db.select().from(workerTypes).orderBy(workerTypes.name);
     res.json({
       success: true,
-      data: workerTypes2,
-      message: "Worker types loaded successfully"
+      data: allWorkerTypes,
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644 \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
+    console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644:", error);
     res.status(500).json({
       success: false,
       data: [],
@@ -11982,37 +12001,25 @@ workerRouter.post("/worker-types", async (req, res) => {
         processingTime: duration2
       });
     }
-    const defaultWorkerTypes = [
-      { id: "1", name: "\u0645\u0639\u0644\u0645", usageCount: 1 },
-      { id: "2", name: "\u0639\u0627\u0645\u0644", usageCount: 1 },
-      { id: "3", name: "\u0645\u0633\u0627\u0639\u062F", usageCount: 1 },
-      { id: "4", name: "\u0633\u0627\u0626\u0642", usageCount: 1 },
-      { id: "5", name: "\u062D\u0627\u0631\u0633", usageCount: 1 }
-    ];
-    const existingType = defaultWorkerTypes.find(
-      (t) => t.name.toLowerCase() === name.trim().toLowerCase()
-    );
-    if (existingType) {
+    const existingType = await db.select().from(workerTypes).where(sql8`LOWER(name) = LOWER(${name.trim()})`);
+    if (existingType.length > 0) {
       const duration2 = Date.now() - startTime;
       return res.status(409).json({
         success: false,
         error: "\u0646\u0648\u0639 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B",
-        message: `\u0646\u0648\u0639 \u0627\u0644\u0639\u0627\u0645\u0644 "${existingType.name}" \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u0627\u0644\u0646\u0638\u0627\u0645`,
+        message: `\u0646\u0648\u0639 \u0627\u0644\u0639\u0627\u0645\u0644 "${name.trim()}" \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u0627\u0644\u0646\u0638\u0627\u0645`,
         processingTime: duration2
       });
     }
-    const newId = (Math.max(...defaultWorkerTypes.map((t) => parseInt(t.id))) + 1).toString();
-    const newWorkerType = {
-      id: newId,
-      name: name.trim(),
-      usageCount: 1
-    };
+    const newWorkerType = await db.insert(workerTypes).values({
+      name: name.trim()
+    }).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0646\u0648\u0639 \u0639\u0627\u0645\u0644 \u062C\u062F\u064A\u062F "${name}" \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.status(201).json({
       success: true,
-      data: newWorkerType,
-      message: `\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0646\u0648\u0639 \u0627\u0644\u0639\u0627\u0645\u0644 "${name}" \u0628\u0646\u062C\u0627\u062D`,
+      data: newWorkerType[0],
+      message: `\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0646\u0648\u0639 \u0627\u0644\u0639\u0627\u0645\u0644 "${name.trim()}" \u0628\u0646\u062C\u0627\u062D`,
       processingTime: duration
     });
   } catch (error) {

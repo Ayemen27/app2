@@ -121,47 +121,12 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
   next();
 };
 
-// Middleware لتتبع محاولات المصادقة المشبوهة
-const suspiciousActivityTracker = new Map<string, { attempts: number; lastAttempt: number }>();
+// ⚠️ تم تعطيل خدمة تتبع النشاط المشبوه
+// Middleware لتتبع محاولات المصادقة المشبوهة - معطل حالياً
+// const suspiciousActivityTracker = new Map<string, { attempts: number; lastAttempt: number }>();
 
 export const trackSuspiciousActivity = (req: Request, res: Response, next: NextFunction) => {
-  const rawIp = req.ip || req.connection.remoteAddress || 'unknown';
-  const userAgent = req.get('User-Agent') || 'unknown';
-  
-  // تطبيع عنوان IP - إزالة بادئة IPv6-mapped IPv4
-  const ip = rawIp.replace(/^::ffff:/, '');
-
-  // تجاهل الطلبات المحلية وطلبات Replit الداخلية وتطبيق Replit Mobile
-  const isLocalRequest = ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || 
-                         ip === '::ffff:127.0.0.1' || userAgent.includes('HeadlessChrome') ||
-                         userAgent.includes('Replit-Bonsai') || userAgent.includes('Replit') ||
-                         ip.startsWith('10.') || ip.startsWith('172.') || ip.startsWith('192.168.');
-  if (isLocalRequest) {
-    return next();
-  }
-
-  // تتبع الأنشطة المشبوهة
-  const activity = suspiciousActivityTracker.get(ip) || { attempts: 0, lastAttempt: 0 };
-  const now = Date.now();
-
-  // إعادة تعيين العداد كل ساعة
-  if (now - activity.lastAttempt > 60 * 60 * 1000) {
-    activity.attempts = 0;
-  }
-
-  activity.attempts++;
-  activity.lastAttempt = now;
-  suspiciousActivityTracker.set(ip, activity);
-
-  // حظر IP إذا تجاوز 50 محاولة في الساعة
-  if (activity.attempts > 50) {
-    console.warn(`🚨 نشاط مشبوه من IP: ${ip}, User-Agent: ${userAgent}`);
-    return res.status(429).json({
-      success: false,
-      message: 'تم حظر هذا العنوان مؤقتاً بسبب النشاط المشبوه'
-    });
-  }
-
+  // ✅ تم تعطيل هذه الخدمة - السماح بجميع الطلبات
   next();
 };
 

@@ -258,29 +258,29 @@ export function CreateNotificationDialog({
         <div className="p-3 md:p-5 overflow-y-auto max-h-[80vh]">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 md:space-y-4">
-              {/* الصف الأول: العنوان + النوع + الأولوية */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-3">
-                {/* العنوان - يأخذ 1/3 المساحة */}
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs md:text-sm font-semibold text-gray-800">العنوان</FormLabel>
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          placeholder="أدخل العنوان..."
-                          className="h-9 md:h-10 border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 rounded-lg text-sm"
-                          data-testid="notification-title-input"
-                        />
-                      </FormControl>
-                      <FormMessage className="text-xs" />
-                    </FormItem>
-                  )}
-                />
+              {/* الصف الأول: العنوان فقط */}
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs md:text-sm font-semibold text-gray-800">العنوان</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        placeholder="أدخل العنوان..."
+                        className="h-9 md:h-10 border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 rounded-lg text-sm"
+                        data-testid="notification-title-input"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
 
-                {/* نوع الإشعار - 1/3 المساحة */}
+              {/* الصف الثاني: النوع والحالة جنباً إلى جنب */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* نوع الإشعار */}
                 <FormField
                   control={form.control}
                   name="type"
@@ -306,7 +306,7 @@ export function CreateNotificationDialog({
                   )}
                 />
 
-                {/* مستوى الأولوية - 1/3 المساحة */}
+                {/* مستوى الأولوية */}
                 <FormField
                   control={form.control}
                   name="priority"

@@ -183,10 +183,12 @@ export default function WorkerAttendance() {
       });
       queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('❌ [DeleteAttendance] خطأ في الحذف:', error);
+      const errorMessage = error.message || "حدث خطأ أثناء حذف سجل الحضور";
       toast({
         title: "خطأ",
-        description: "حدث خطأ أثناء حذف سجل الحضور",
+        description: errorMessage,
         variant: "destructive",
       });
     }

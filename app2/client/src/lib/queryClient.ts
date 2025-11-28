@@ -3,7 +3,7 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     let errorMessage = "حدث خطأ غير متوقع";
-    
+
     try {
       const errorData = await res.json();
       errorMessage = errorData.message || errorMessage;
@@ -19,7 +19,7 @@ async function throwIfResNotOk(res: Response) {
         errorMessage = "حدث خطأ في الاتصال";
       }
     }
-    
+
     throw new Error(errorMessage);
   }
 }
@@ -50,117 +50,129 @@ async function refreshAuthToken(): Promise<boolean> {
   if (authProviderHelpers) {
     return await authProviderHelpers.refreshToken();
   }
-  
+
   // fallback للتوافق المؤقت
   console.warn('⚠️ AuthProvider helpers غير مسجلة - استخدام fallback');
   return false;
 }
 
 export async function apiRequest(
-  url: string,
-  method: string,
-  data?: unknown | undefined,
+  endpoint: string,
+  method: string = "GET",
+  data?: any,
+  retryCount: number = 0
 ): Promise<any> {
-  // إضافة timeout 30 ثانية للطلبات
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const url = `${endpoint.startsWith("http") ? "" : window.location.origin}${endpoint}`;
 
-  async function makeRequest(retryCount = 0): Promise<any> {
-    try {
-      // جمع headers مع Authorization إذا كان متوفراً
-      const headers: Record<string, string> = {};
-      if (data) {
-        headers["Content-Type"] = "application/json";
-      }
-      
-      // إضافة رمز المصادقة إذا كان متوفراً
-      const accessToken = getStoredAccessToken();
-      if (accessToken) {
-        headers["Authorization"] = `Bearer ${accessToken}`;
-      }
+  const token = localStorage.getItem("accessToken");
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
 
-      const res = await fetch(url, {
-        method,
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-        credentials: "include",
-        signal: controller.signal,
-      });
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
-      // التعامل مع خطأ 401 (انتهاء صلاحية التوكن)
-      if (res.status === 401) {
-        console.log('🚨 [401] انتهت جلسة المصادقة - تسجيل خروج فوري');
-        // تسجيل خروج فوري بدون محاولات متعددة
-        if (authProviderHelpers) {
-          await authProviderHelpers.logout();
-        }
-        // عدم رمي خطأ - سيتم التعامل مع الخروج في logout
-        throw new Error('SESSION_EXPIRED');
-      }
+  const config: RequestInit = {
+    method,
+    headers,
+    credentials: "include",
+  };
 
-      await throwIfResNotOk(res);
-      
-      // إذا كانت استجابة DELETE فارغة، لا نحاول تحليل JSON
-      if (method === "DELETE" && res.status === 204) {
-        return {};
-      }
-      
-      // ✅ تحسين معالجة JSON - فحص content-type أولاً
-      const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const responseText = await res.text();
-        console.error(`❌ [apiRequest] الخادم أرسل ${contentType || 'غير محدد'} بدلاً من JSON:`, {
-          url,
-          method,
-          status: res.status,
-          contentType,
-          responsePreview: responseText.substring(0, 200)
-        });
-        throw new Error(`خطأ في نوع الاستجابة: متوقع JSON لكن تم استلام ${contentType || 'غير محدد'}`);
-      }
-      
-      // ✅ إصلاح: استخدام clone لتجنب قراءة body مرتين
-      let jsonData;
-      try {
-        jsonData = await res.json();
-      } catch (parseError) {
-        // استخدام clone للحصول على نسخة من response قبل قراءة الـ text
-        const responseText = await res.clone().text();
-        console.error(`❌ [apiRequest] خطأ في تحليل JSON:`, {
-          url,
-          method,
-          parseError,
-          responsePreview: responseText.substring(0, 200)
-        });
-        throw new Error(`خطأ في تحليل استجابة JSON من الخادم`);
-      }
-      
-      // تسجيل للتتبع والتشخيص
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🔍 [apiRequest] ${method} ${url} - البيانات المستلمة:`, {
-          hasSuccess: jsonData?.success !== undefined,
-          hasData: jsonData?.data !== undefined,
-          dataType: typeof jsonData?.data,
-          isDataArray: Array.isArray(jsonData?.data),
-          actualData: jsonData
-        });
-      }
-      
-      return jsonData;
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('انتهت مهلة الطلب، يرجى المحاولة مرة أخرى');
-      }
-      throw error;
-    }
+  if (data && method !== "GET") {
+    config.body = JSON.stringify(data);
   }
 
   try {
-    const result = await makeRequest();
-    clearTimeout(timeoutId);
+    console.log(`🔄 API Request: ${method} ${endpoint}`, data || '');
+
+    const response = await fetch(url, config);
+
+    // فحص نوع المحتوى
+    const contentType = response.headers.get("content-type");
+
+    // إذا كان الرد 401 ولم نحاول التجديد بعد
+    if (response.status === 401 && retryCount === 0) {
+      console.log('🔄 [apiRequest] محاولة تجديد الـ token...');
+
+      // محاولة تجديد الـ token
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (refreshToken) {
+        try {
+          const refreshResponse = await fetch(`${window.location.origin}/api/auth/refresh`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ refreshToken })
+          });
+
+          if (refreshResponse.ok) {
+            const refreshData = await refreshResponse.json();
+            if (refreshData.accessToken) {
+              localStorage.setItem("accessToken", refreshData.accessToken);
+              console.log('✅ [apiRequest] تم تجديد الـ token بنجاح، إعادة المحاولة...');
+
+              // إعادة المحاولة مع الـ token الجديد
+              return apiRequest(endpoint, method, data, retryCount + 1);
+            }
+          }
+        } catch (refreshError) {
+          console.error('❌ [apiRequest] فشل تجديد الـ token:', refreshError);
+        }
+      }
+
+      // إذا فشل التجديد، حذف البيانات وإعادة التوجيه
+      console.log('🚪 [apiRequest] فشل تجديد الـ token، إعادة التوجيه لتسجيل الدخول...');
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+      window.location.href = '/login';
+      throw new Error('انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى');
+    }
+
+    if (!response.ok) {
+      // محاولة استخراج رسالة الخطأ من JSON
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } else {
+          const errorText = await response.text();
+          console.error('❌ [apiRequest] الخادم أرسل text/html; charset=UTF-8 بدلاً من JSON:', {
+            url: endpoint,
+            method,
+            status: response.status,
+            contentType,
+            responsePreview: errorText.substring(0, 200)
+          });
+        }
+      } catch (e) {
+        // إذا فشل parse JSON، استخدم الرسالة الافتراضية
+      }
+      throw new Error(errorMessage);
+    }
+
+    // تحقق من أن الاستجابة هي JSON
+    if (!contentType || !contentType.includes("application/json")) {
+      const responseText = await response.text();
+      console.error('❌ [apiRequest] الخادم أرسل text/html; charset=UTF-8 بدلاً من JSON:', {
+        url: endpoint,
+        method,
+        status: response.status,
+        contentType,
+        responsePreview: responseText.substring(0, 200)
+      });
+      throw new Error(`خطأ في نوع الاستجابة: متوقع JSON لكن تم استلام ${contentType}`);
+    }
+
+    const result = await response.json();
+    console.log(`✅ API Response: ${method} ${endpoint}`, result);
     return result;
   } catch (error) {
-    clearTimeout(timeoutId);
+    console.error(`❌ API Error: ${method} ${endpoint}`, error);
     throw error;
   }
 }
@@ -171,7 +183,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    
+
     async function makeQueryRequest(retryCount = 0): Promise<any> {
       // إعداد timeout للطلب
       const controller = new AbortController();
@@ -204,12 +216,12 @@ export const getQueryFn: <T>(options: {
             hasToken: !!localStorage.getItem('accessToken'),
             queryKey: queryKey.join("/")
           });
-          
+
           // ❌ إزالة returnNull التي تُخفي الأخطاء الحقيقية
           // if (unauthorizedBehavior === "returnNull") {
           //   return null as any;
           // }
-          
+
           // محاولة تجديد التوكن إذا كانت المحاولة الأولى
           if (retryCount === 0) {
             console.log('🔄 محاولة تجديد التوكن في query...');
@@ -219,7 +231,7 @@ export const getQueryFn: <T>(options: {
               return makeQueryRequest(1);
             }
           }
-          
+
           // إذا فشل التجديد - إظهار الخطأ الحقيقي بدلاً من إخفاءه
           console.error('❌ فشل المصادقة - إظهار الخطأ الحقيقي');
           throw new Error(`خطأ في المصادقة (401): ${queryKey.join("/")} - يرجى تسجيل الدخول مرة أخرى`);
@@ -227,16 +239,16 @@ export const getQueryFn: <T>(options: {
 
         await throwIfResNotOk(res);
         const data = await res.json();
-        
+
         console.log(`✅ [QueryClient] استجابة ناجحة لـ ${queryKey.join("/")}:`, {
           hasData: !!data,
           dataType: typeof data
         });
-      
+
         // تسجيل مبسط في بيئة التطوير فقط
         if (process.env.NODE_ENV === 'development') {
           console.log(`📊 ${queryKey[0]} - تم استلام البيانات بنجاح`);
-          
+
           // إضافة debugging خاص للإشعارات - مع guard للأمان
           if (typeof queryKey[0] === 'string' && queryKey[0].includes('notifications')) {
             console.log('🔍 [DEBUG] تفاصيل استجابة الإشعارات:', {
@@ -262,7 +274,7 @@ export const getQueryFn: <T>(options: {
         if (data && typeof data === 'object') {
           // للتحقق من endpoints الهجرة التي تُرجع objects
           const isMigrationEndpoint = typeof queryKey[0] === 'string' && queryKey[0].includes('migration');
-          
+
           // إذا كانت البيانات في الشكل { success, data, count } (شكل API)
           if (data.success !== undefined && data.data !== undefined) {
             console.log(`✅ [QueryClient] بيانات API صحيحة لـ ${queryKey.join("/")}:`, {
@@ -271,45 +283,45 @@ export const getQueryFn: <T>(options: {
               dataType: typeof data.data,
               isArray: Array.isArray(data.data)
             });
-            
+
             // لنقاط النهاية الخاصة بالهجرة، نُرجع البيانات كما هي
             if (isMigrationEndpoint) {
               return data.data; // إرجاع البيانات كما هي (object أو array)
             }
-            
+
             // ✅ إصلاح جذري: إرجاع البيانات كما هي دون تعديل
             // إذا كانت null أو undefined فقط، إرجاع مصفوفة فارغة
             if (data.data === null || data.data === undefined) {
               console.warn(`⚠️ [QueryClient] البيانات null/undefined لـ ${queryKey.join("/")} - إرجاع مصفوفة فارغة`);
               return [];
             }
-            
+
             return data.data; // إرجاع البيانات الحقيقية كما هي
           }
-          
+
           // إذا كانت البيانات مصفوفة مباشرة (شكل Replit)
           if (Array.isArray(data)) {
             console.log(`📋 [QueryClient] مصفوفة مباشرة لـ ${queryKey.join("/")}:`, data.length);
             return data;
           }
-          
+
           // إذا كان لديها خاصية data مباشرة
           if (data.data !== undefined) {
             console.log(`🔗 [QueryClient] خاصية data مباشرة لـ ${queryKey.join("/")}:`, data.data);
             return data.data !== null ? data.data : [];
           }
         }
-        
+
         console.log(`🔄 [QueryClient] إرجاع البيانات كما هي لـ ${queryKey.join("/")}:`, data);
         return data;
       } catch (error) {
         clearTimeout(timeoutId);
-        
+
         if (error instanceof Error && error.name === 'AbortError') {
           console.log(`⏰ [QueryClient] timeout لـ ${queryKey.join("/")}`);
           throw new Error('انتهت مهلة الطلب، يرجى المحاولة مرة أخرى');
         }
-        
+
         console.error(`❌ [QueryClient] خطأ في ${queryKey.join("/")}`, error);
         throw error;
       }

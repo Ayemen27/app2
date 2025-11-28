@@ -94,10 +94,16 @@ autocompleteRouter.post('/', async (req: Request, res: Response) => {
 });
 
 /**
- * HEAD request للتحقق من وجود الـ endpoint - لا نحتاج مصادقة للفحص
- * نقل مباشر من routes.ts السطر 5424-5426
+ * HEAD request للتحقق من وجود الـ endpoint - بدون مصادقة (public)
  */
 autocompleteRouter.head('/', (req: Request, res: Response) => {
+  res.status(200).end();
+});
+
+/**
+ * HEAD /transferTypes - بدون مصادقة (for health check)
+ */
+autocompleteRouter.head('/transferTypes', (req: Request, res: Response) => {
   res.status(200).end();
 });
 
@@ -162,15 +168,13 @@ autocompleteRouter.get('/transferNumbers', requireAuth, async (req: Request, res
 });
 
 /**
- * GET /api/autocomplete/transferTypes
- * نقل مباشر من routes.ts السطر 5463-5478
+ * GET /api/autocomplete/transferTypes - بدون مصادقة
  */
-autocompleteRouter.get('/transferTypes', requireAuth, async (req: Request, res: Response) => {
+autocompleteRouter.get('/transferTypes', async (req: Request, res: Response) => {
   try {
-    // جلب أنواع التحويلات من قاعدة البيانات أو إرجاع قائمة فارغة
     res.json({
       success: true,
-      data: [],
+      data: ['تحويل داخلي', 'تحويل خارجي', 'تحويل مؤقت'],
       message: 'تم جلب أنواع التحويلات بنجاح'
     });
   } catch (error: any) {

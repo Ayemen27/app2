@@ -154,10 +154,22 @@ privateRouter.get('/workers', async (req: Request, res: Response) => {
 
 // مسارات المواد  
 privateRouter.get('/materials', async (req: Request, res: Response) => {
-  res.json({
-    success: true,
-    message: 'مسار المواد - يتم التعامل معه في الـ controller الأصلي'
-  });
+  try {
+    const { db } = await import('../db.js');
+    const { materials } = await import('@shared/schema');
+    const allMaterials = await db.select().from(materials);
+    res.json({
+      success: true,
+      data: allMaterials,
+      message: `تم جلب ${allMaterials.length} مادة بنجاح`
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب المواد'
+    });
+  }
 });
 
 /**

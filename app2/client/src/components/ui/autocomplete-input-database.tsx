@@ -61,6 +61,7 @@ export function AutocompleteInput({
       apiRequest(`/api/autocomplete/${category}/${encodeURIComponent(value)}`, 'DELETE'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autocomplete', category] });
+      queryClient.refetchQueries({ queryKey: ['autocomplete', category] });
     },
   });
 

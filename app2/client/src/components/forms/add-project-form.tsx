@@ -37,6 +37,7 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
       toast({
         title: "تم الحفظ",
         description: "تم إضافة المشروع بنجاح",
@@ -44,7 +45,9 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
       setName("");
       setStatus("active");
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
       onSuccess?.();
     },
     onError: async (error: any, variables) => {

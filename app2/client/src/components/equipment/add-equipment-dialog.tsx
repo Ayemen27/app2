@@ -111,6 +111,9 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
       queryClient.invalidateQueries({ 
         predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment'
       });
+      queryClient.refetchQueries({ 
+        predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment'
+      });
       toast({
         title: "نجح الحفظ",
         description: isEditing ? "تم تحديث المعدة بنجاح" : "تم إضافة المعدة بنجاح",

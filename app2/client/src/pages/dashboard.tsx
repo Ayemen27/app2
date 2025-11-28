@@ -397,13 +397,21 @@ export default function Dashboard() {
                         <SelectItem value="سائق">سائق</SelectItem>
                         <SelectItem value="كهربائي">كهربائي</SelectItem>
                         <SelectItem value="سباك">سباك</SelectItem>
+                        <SelectItem value="تمرير">تمرير</SelectItem>
                       </>
                     )}
                   </SelectContent>
                 </Select>
                 <Dialog open={showAddTypeDialog} onOpenChange={setShowAddTypeDialog}>
                   <DialogTrigger asChild>
-                    <Button type="button" variant="outline" size="icon" className="shrink-0" title="إضافة نوع جديد">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="icon" 
+                      className="shrink-0" 
+                      title="إضافة نوع جديد"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Plus className="h-4 w-4" />
                     </Button>
                   </DialogTrigger>
@@ -426,10 +434,12 @@ export default function Dashboard() {
                           required
                         />
                       </div>
-                      <div className="form-actions">
+                      <div className="form-actions" onClick={(e) => e.stopPropagation()}>
                         <Button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             if (newTypeName.trim()) {
                               addWorkerTypeMutation.mutate({ name: newTypeName.trim() });
                             }
@@ -441,7 +451,9 @@ export default function Dashboard() {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             setShowAddTypeDialog(false);
                             setNewTypeName("");
                           }}

@@ -314,9 +314,22 @@ export default function ProjectsPage() {
   };
 
   const handleEditProject = (data: InsertProject) => {
-    if (editingProject) {
-      updateProjectMutation.mutate({ id: editingProject.id, data });
+    if (!editingProject) {
+      toast({
+        title: "خطأ",
+        description: "لم يتم تحديد المشروع للتعديل",
+        variant: "destructive",
+      });
+      return;
     }
+    
+    console.log('🔄 [Projects] تحديث المشروع:', {
+      id: editingProject.id,
+      name: editingProject.name,
+      newData: data
+    });
+    
+    updateProjectMutation.mutate({ id: editingProject.id, data });
   };
 
   const handleDeleteProject = (id: string) => {
@@ -656,11 +669,16 @@ export default function ProjectsPage() {
                   type="button" 
                   variant="outline" 
                   onClick={() => setIsEditDialogOpen(false)}
+                  disabled={updateProjectMutation.isPending}
                 >
                   إلغاء
                 </Button>
-                <Button type="submit" disabled={updateProjectMutation.isPending}>
-                  {updateProjectMutation.isPending ? "جاري التحديث..." : "تحديث المشروع"}
+                <Button 
+                  type="submit" 
+                  disabled={updateProjectMutation.isPending || !editingProject}
+                  className="gap-2"
+                >
+                  {updateProjectMutation.isPending ? "⏳ جاري التحديث..." : "✅ تحديث المشروع"}
                 </Button>
               </DialogFooter>
             </form>

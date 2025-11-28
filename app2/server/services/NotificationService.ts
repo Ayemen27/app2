@@ -442,16 +442,42 @@ export class NotificationService {
         ) : [];
 
     console.log(`📖 تم العثور على ${readStates.length} حالة قراءة للمستخدم ${userId}`);
+    
+    // تسجيل تفاصيل حالات القراءة للتشخيص
+    if (readStates.length > 0) {
+      console.log(`📋 [DEBUG] عينة من حالات القراءة:`, readStates.slice(0, 3).map((rs: any) => ({
+        notificationId: rs.notificationId,
+        userId: rs.userId,
+        isRead: rs.isRead,
+        readAt: rs.readAt
+      })));
+    }
+
+    // إنشاء خريطة للبحث السريع - استخدام notificationId من Drizzle
+    const readStateMap = new Map<string, any>();
+    for (const rs of readStates) {
+      readStateMap.set(rs.notificationId, rs);
+    }
 
     // دمج حالة القراءة مع الإشعارات
     const enrichedNotifications = notificationList.map((notification: any) => {
-      const readState = readStates.find((rs: any) => rs.notificationId === notification.id);
+      const readState = readStateMap.get(notification.id);
+      const isRead = readState ? readState.isRead === true : false;
       return {
         ...notification,
-        isRead: readState ? readState.isRead : false,
+        isRead: isRead,
+        status: isRead ? 'read' : 'unread',
         readAt: readState ? readState.readAt : null
       };
     });
+    
+    // تسجيل عينة من النتائج للتأكد
+    console.log(`📋 [DEBUG] عينة من الإشعارات المدمجة:`, enrichedNotifications.slice(0, 2).map((n: any) => ({
+      id: n.id,
+      title: n.title?.substring(0, 30),
+      isRead: n.isRead,
+      status: n.status
+    })));
 
     // فلترة غير المقروءة إذا طُلب ذلك
     const filteredNotifications = filters.unreadOnly 

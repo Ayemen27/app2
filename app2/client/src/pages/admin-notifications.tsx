@@ -100,8 +100,8 @@ export default function AdminNotificationsPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" dir="rtl">
       {/* Header Section */}
       <div className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 shadow-lg">
-        <div className="px-4 py-3 md:px-6 md:py-4">
-          <div className="flex items-center justify-between gap-3">
+        <div className="px-2 py-2 md:px-6 md:py-4">
+          <div className="flex items-center justify-between gap-2 md:gap-3">
             {/* العنوان مع الأيقونة */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <div className="relative flex-shrink-0">
@@ -125,35 +125,35 @@ export default function AdminNotificationsPage() {
             </div>
 
             {/* الأزرار */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => refetch()}
                 disabled={isLoadingNotifications}
-                className="gap-2 border-2 h-10 px-3"
+                className="gap-1 md:gap-2 border-2 h-9 md:h-10 px-2 md:px-3"
               >
                 <RefreshCw className={cn("h-4 w-4", isLoadingNotifications && "animate-spin")} />
-                <span className="hidden md:inline">تحديث</span>
+                <span className="hidden md:inline text-xs md:text-sm">تحديث</span>
               </Button>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="border-2 h-10 px-3">
+                  <Button variant="outline" size="sm" className="border-2 h-9 md:h-10 px-2">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem className="gap-2">
+                  <DropdownMenuItem className="gap-2 text-xs md:text-sm">
                     <Download className="h-4 w-4" />
                     تصدير البيانات
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="gap-2">
+                  <DropdownMenuItem className="gap-2 text-xs md:text-sm">
                     <Upload className="h-4 w-4" />
                     استيراد بيانات
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="gap-2">
+                  <DropdownMenuItem className="gap-2 text-xs md:text-sm">
                     <Settings className="h-4 w-4" />
                     الإعدادات
                   </DropdownMenuItem>
@@ -166,9 +166,9 @@ export default function AdminNotificationsPage() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-4 py-4 md:px-6 md:py-6">
+        <div className="px-2 py-3 md:px-6 md:py-6 w-full">
           {/* Quick Stats Cards - 3 بطائق أفقية */}
-          <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
+          <div className="grid grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-8">
             <StatsCard
               icon={Bell}
               label="إجمالي الإشعارات"
@@ -196,10 +196,10 @@ export default function AdminNotificationsPage() {
             />
           </div>
 
-          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4 md:space-y-6">
+          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-3 md:space-y-6">
             {/* Tabs Navigation */}
-            <div className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-xl p-4 md:p-6 shadow-xl border-2 border-slate-200 dark:border-slate-700">
-              <TabsList className="flex w-full gap-2 md:gap-3 bg-transparent p-0 h-auto justify-start overflow-x-auto">
+            <div className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-lg md:rounded-xl p-3 md:p-6 shadow-lg md:shadow-xl border-2 border-slate-200 dark:border-slate-700">
+              <TabsList className="flex w-full gap-1 md:gap-3 bg-transparent p-0 h-auto justify-start overflow-x-auto">
                 <TabTriggerEnhanced value="overview" icon={BarChart3} label="لوحة التحكم" />
                 <TabTriggerEnhanced value="notifications" icon={Bell} label="الإشعارات" badge={stats.unread} />
                 <TabTriggerEnhanced value="users" icon={Users} label="المستخدمين" />
@@ -208,8 +208,8 @@ export default function AdminNotificationsPage() {
             </div>
 
             {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-4 md:space-y-6 mt-0">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+            <TabsContent value="overview" className="space-y-3 md:space-y-6 mt-0">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-6">
                 {/* Activity Chart */}
                 <Card className="lg:col-span-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
                   <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 md:p-5">
@@ -289,26 +289,26 @@ export default function AdminNotificationsPage() {
             </TabsContent>
 
             {/* Notifications Tab */}
-            <TabsContent value="notifications" className="space-y-4 md:space-y-6 mt-0">
+            <TabsContent value="notifications" className="space-y-3 md:space-y-6 mt-0">
               {/* Search and Filter Bar */}
               <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
-                <CardContent className="p-4 md:p-5">
-                  <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+                <CardContent className="p-3 md:p-5">
+                  <div className="flex flex-col gap-2 md:gap-3">
                     <div className="relative flex-1">
                       <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <Input
-                        placeholder="ابحث في الإشعارات..."
-                        className="pr-10 border-2 h-10 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 transition-all text-sm"
+                        placeholder="ابحث..."
+                        className="pr-10 border-2 h-9 md:h-10 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-sm"
                         value={filters.search}
                         onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                       />
                     </div>
-                    <div className="flex gap-2 md:gap-3">
-                      <Button variant="outline" className="gap-2 h-10 border-2 px-4 text-sm flex-1 md:flex-none">
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="gap-1 md:gap-2 h-9 md:h-10 border-2 px-2 md:px-4 text-xs md:text-sm flex-1 md:flex-none">
                         <Filter className="h-4 w-4" />
                         <span className="hidden md:inline">فلترة</span>
                       </Button>
-                      <Button className="gap-2 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-4 shadow-lg shadow-blue-500/30 text-sm flex-1 md:flex-none">
+                      <Button className="gap-1 md:gap-2 h-9 md:h-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-2 md:px-4 shadow-lg shadow-blue-500/30 text-xs md:text-sm flex-1 md:flex-none">
                         <RefreshCw className={cn("h-4 w-4", isLoadingNotifications && "animate-spin")} />
                         <span className="hidden md:inline">تحديث</span>
                       </Button>
@@ -318,7 +318,7 @@ export default function AdminNotificationsPage() {
               </Card>
 
               {/* Notifications List */}
-              <div className="space-y-4 md:space-y-5">
+              <div className="space-y-3 md:space-y-4">
                 {isLoadingNotifications ? (
                   <LoadingNotifications />
                 ) : notifications.length === 0 ? (
@@ -340,20 +340,20 @@ export default function AdminNotificationsPage() {
 
             {/* Users Tab */}
             <TabsContent value="users" className="mt-0">
-              <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xl">
-                <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 p-4 md:p-5">
-                  <CardTitle className="flex items-center gap-3 text-slate-900 dark:text-white text-base md:text-lg">
-                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg flex-shrink-0">
+              <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
+                <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 p-3 md:p-5">
+                  <CardTitle className="flex items-center gap-2 md:gap-3 text-slate-900 dark:text-white text-base md:text-lg">
+                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg flex-shrink-0">
                       <Users className="h-5 w-5 md:h-6 md:w-6 text-white" />
                     </div>
                     نشاط المستخدمين
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 md:p-5 max-h-96 overflow-y-auto">
+                <CardContent className="p-3 md:p-4 max-h-96 overflow-y-auto">
                   {isLoadingActivity ? (
                     <LoadingUsers />
                   ) : (
-                    <div className="space-y-3 md:space-y-4">
+                    <div className="space-y-2 md:space-y-3">
                       {activityData?.userStats?.map((user: any, i: number) => (
                         <UserActivityCard key={user.userId} user={user} rank={i + 1} detailed />
                       ))}
@@ -381,14 +381,14 @@ const StatsCard = ({ icon: Icon, label, value, gradient, iconBg, iconColor, puls
     pulse && "animate-pulse"
   )}>
     <div className={cn("absolute inset-0 bg-gradient-to-br opacity-5 group-hover:opacity-10 transition-opacity", gradient)} />
-    <CardContent className="p-4 md:p-5 relative">
-      <div className="flex items-start justify-between mb-3">
-        <div className={cn("w-10 h-10 md:w-11 md:h-11 rounded-lg md:rounded-xl flex items-center justify-center transition-transform group-hover:scale-110", iconBg)}>
-          <Icon className={cn("h-5 w-5 md:h-6 md:w-6", iconColor)} />
+    <CardContent className="p-3 md:p-4 relative">
+      <div className="flex items-start justify-between mb-2">
+        <div className={cn("w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110", iconBg)}>
+          <Icon className={cn("h-4 w-4 md:h-5 md:w-5", iconColor)} />
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <ChevronRight className="h-3 w-3 md:h-4 md:w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
-      <p className="text-lg md:text-2xl font-black text-slate-900 dark:text-white mb-1">{value}</p>
+      <p className="text-base md:text-lg font-black text-slate-900 dark:text-white mb-0.5">{value}</p>
       <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</p>
     </CardContent>
   </Card>
@@ -397,14 +397,14 @@ const StatsCard = ({ icon: Icon, label, value, gradient, iconBg, iconColor, puls
 const TabTriggerEnhanced = ({ value, icon: Icon, label, badge }: any) => (
   <TabsTrigger
     value={value}
-    className="relative flex-shrink-0 rounded-lg md:rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-600 data-[state=active]:via-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/40 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all h-10 md:h-12 px-3 md:px-5 font-semibold border-2 border-transparent data-[state=active]:border-blue-400 dark:data-[state=active]:border-blue-500 whitespace-nowrap text-xs md:text-sm"
+    className="relative flex-shrink-0 rounded-lg data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-600 data-[state=active]:via-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/40 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all h-9 md:h-11 px-2 md:px-4 font-semibold border-2 border-transparent data-[state=active]:border-blue-400 dark:data-[state=active]:border-blue-500 whitespace-nowrap text-xs md:text-sm"
   >
-    <div className="flex items-center gap-2 md:gap-2.5">
+    <div className="flex items-center gap-1.5 md:gap-2">
       <Icon className="h-4 w-4 md:h-5 md:w-5" />
-      <span className="font-semibold">{label}</span>
+      <span className="font-semibold hidden sm:inline">{label}</span>
     </div>
     {badge > 0 && (
-      <Badge className="absolute -top-2 -left-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-extrabold bg-gradient-to-br from-red-500 to-rose-600 text-white border-2 border-white dark:border-slate-900 shadow-lg animate-pulse">
+      <Badge className="absolute -top-2 -left-2 h-5 w-5 md:h-6 md:w-6 p-0 flex items-center justify-center text-xs font-extrabold bg-gradient-to-br from-red-500 to-rose-600 text-white border-2 border-white dark:border-slate-900 shadow-lg animate-pulse">
         {badge}
       </Badge>
     )}

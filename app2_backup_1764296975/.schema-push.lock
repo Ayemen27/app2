@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-11-28T01:34:44.359Z",
+  "success": false,
+  "version": "3.0",
+  "lastCheck": {
+    "isConsistent": false,
+    "missingTables": [],
+    "extraTables": [],
+    "missingColumns": [],
+    "extraColumns": [],
+    "fixableIssues": 0,
+    "criticalIssues": 1,
+    "issues": [
+      {
+        "type": "missing_table",
+        "severity": "critical",
+        "entity": "database_connection",
+        "description": "فشل الاتصال بقاعدة البيانات أو خطأ في الاستعلام",
+        "suggestion": "تحقق من اتصال قاعدة البيانات ومتغيرات البيئة",
+        "autoFixable": false
+      }
+    ]
+  }
+}

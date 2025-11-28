@@ -397,17 +397,17 @@ export default function ProjectTransfers() {
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
                       {/* Row 1: Projects */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                      <div className="grid grid-cols-2 gap-2 md:gap-4">
                         <FormField
                           control={form.control}
                           name="fromProjectId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-sm font-semibold">المشروع المرسل</FormLabel>
+                              <FormLabel className="text-xs md:text-sm font-semibold">المشروع المرسل</FormLabel>
                               <FormControl>
                                 <Select value={field.value} onValueChange={field.onChange}>
-                                  <SelectTrigger className="h-10 md:h-11 border-2">
-                                    <SelectValue placeholder="اختر المشروع" />
+                                  <SelectTrigger className="h-10 md:h-11 border-2 text-xs md:text-sm">
+                                    <SelectValue placeholder="المرسل" />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {projects.map(p => (
@@ -425,11 +425,11 @@ export default function ProjectTransfers() {
                           name="toProjectId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-sm font-semibold">المشروع المستقبل</FormLabel>
+                              <FormLabel className="text-xs md:text-sm font-semibold">المشروع المستقبل</FormLabel>
                               <FormControl>
                                 <Select value={field.value} onValueChange={field.onChange}>
-                                  <SelectTrigger className="h-10 md:h-11 border-2">
-                                    <SelectValue placeholder="اختر المشروع" />
+                                  <SelectTrigger className="h-10 md:h-11 border-2 text-xs md:text-sm">
+                                    <SelectValue placeholder="المستقبل" />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {projects.map(p => (

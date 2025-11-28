@@ -5,6 +5,18 @@ A comprehensive construction project management system designed for the Middle E
 
 ## Recent Changes
 
+### November 28, 2025 - Socket.IO Real-Time Updates & Critical API Routing Fix
+- **CRITICAL FIX**: Fixed API routing issue where POST/DELETE/GET requests were returning HTML instead of JSON
+  - Root cause: Vite catch-all middleware was intercepting `/api/*` routes
+  - Solution: Modified `server/vite.ts` to skip API routes (`if (req.originalUrl.startsWith('/api/')) return next()`)
+- **Socket.IO Integration**: Implemented WebSocket for real-time updates
+  - Added Socket.IO server initialization in `server/index.ts`
+  - Broadcast events on worker attendance updates via `io.emit('entity:update', ...)`
+  - Enabled `useWebSocketSync()` hook in `App.tsx` for client-side listening
+  - Global `io` instance available at `(global as any).io` for mutations
+- **Result**: All API endpoints now return JSON correctly, real-time updates functional
+- **Verified**: `curl http://localhost:5000/api/health` returns valid JSON ✅
+
 ### November 28, 2025 - Real-Time Data Updates & Deployment Scripts
 - **Fixed Real-Time Updates**: Added `refetchQueries()` to all mutations - now deletes/edits update UI immediately
 - **Deployment Automation**: Created comprehensive deployment script (`DEPLOY_TO_SERVER.sh`) that:

@@ -171,7 +171,7 @@ export function CreateNotificationDialog({
   const createNotificationMutation = useMutation({
     mutationFn: async (data: NotificationFormData & { projectId?: string }) => {
       let endpoint = '/api/notifications';
-      
+
       // اختيار endpoint بناء على نوع الإشعار
       switch (data.type) {
         case 'safety':
@@ -213,10 +213,10 @@ export function CreateNotificationDialog({
         title: "تم بنجاح",
         description: "تم إنشاء الإشعار بنجاح",
       });
-      
+
       // تحديث cache الإشعارات
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      
+
       // إغلاق الحوار وإعادة تعيين النموذج
       onOpenChange(false);
       form.reset();
@@ -258,78 +258,7 @@ export function CreateNotificationDialog({
         <div className="p-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-base font-semibold text-gray-800 flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-blue-600" />
-                      نوع الإشعار
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-12 border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 rounded-xl" data-testid="notification-type-select">
-                          <SelectValue placeholder="اختر نوع الإشعار" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="rounded-xl border-0 shadow-xl">
-                        {notificationTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value} className="p-3 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-lg bg-gradient-to-r ${type.color} flex items-center justify-center`}>
-                                <span className="text-sm">{type.icon}</span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="font-semibold text-gray-900">{type.label}</span>
-                                <span className="text-xs text-gray-500">
-                                  {type.description}
-                                </span>
-                              </div>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-base font-semibold text-gray-800 flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-orange-600" />
-                      مستوى الأولوية
-                    </FormLabel>
-                    <Select 
-                      onValueChange={(value) => field.onChange(parseInt(value))} 
-                      defaultValue={field.value.toString()}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="h-12 border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 rounded-xl" data-testid="priority-select">
-                          <SelectValue placeholder="اختر مستوى الأولوية" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="rounded-xl border-0 shadow-xl">
-                        {priorityLevels.map((level) => (
-                          <SelectItem key={level.value} value={level.value.toString()} className="p-3 rounded-lg">
-                            <div className={`flex items-center gap-3 p-2 rounded-lg border ${level.bg}`}>
-                              <div className={`w-3 h-3 rounded-full ${level.color === 'text-red-600' ? 'bg-red-500' : level.color === 'text-orange-600' ? 'bg-orange-500' : level.color === 'text-yellow-600' ? 'bg-yellow-500' : level.color === 'text-blue-600' ? 'bg-blue-500' : 'bg-gray-500'}`} />
-                              <span className={`font-semibold ${level.color}`}>{level.label}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+              {/* العنوان والمحتوى - عرض كامل */}
               <FormField
                 control={form.control}
                 name="title"
@@ -374,127 +303,207 @@ export function CreateNotificationDialog({
                 )}
               />
 
-              {/* خيارات المستقبلين */}
-              <FormField
-                control={form.control}
-                name="recipientType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-base font-semibold text-gray-800 flex items-center gap-2">
-                      <Users className="h-4 w-4 text-blue-600" />
-                      المستقبلين
-                    </FormLabel>
-                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {[
-                          { value: 'all', label: 'جميع المستخدمين', icon: Users, color: 'text-blue-600', bg: 'hover:border-blue-300' },
-                          { value: 'admins', label: 'المسؤولين فقط', icon: Shield, color: 'text-red-600', bg: 'hover:border-red-300' },
-                          { value: 'workers', label: 'الموظفين', icon: User, color: 'text-green-600', bg: 'hover:border-green-300' },
-                          { value: 'specific', label: 'مستخدم محدد', icon: User, color: 'text-purple-600', bg: 'hover:border-purple-300' },
-                        ].map((option) => {
-                          const IconComponent = option.icon;
-                          const isSelected = field.value === option.value;
-                          return (
-                            <div
-                              key={option.value}
-                              onClick={() => {
-                                field.onChange(option.value);
-                                setSelectedRecipientType(option.value);
-                              }}
-                              className={`flex items-center gap-2 p-3 bg-white rounded-lg border-2 transition-colors cursor-pointer ${
-                                isSelected ? `border-blue-500 bg-blue-50` : `border-gray-200 ${option.bg}`
-                              }`}
-                              data-testid={`recipient-type-${option.value}`}
-                            >
-                              <IconComponent className={`h-4 w-4 ${isSelected ? 'text-blue-600' : option.color}`} />
-                              <span className={`text-sm font-medium ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
-                                {option.label}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
+              {/* صف من 4 حقول: النوع، الأولوية، المستقبلين، (مكان فارغ أو حقل آخر) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* نوع الإشعار */}
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-blue-600" />
+                        نوع الإشعار
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-12 border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 rounded-xl" data-testid="notification-type-select">
+                            <SelectValue placeholder="اختر نوع الإشعار" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="rounded-xl border-0 shadow-xl">
+                          {notificationTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value} className="p-3 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-lg bg-gradient-to-r ${type.color} flex items-center justify-center`}>
+                                  <span className="text-sm">{type.icon}</span>
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-gray-900">{type.label}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {type.description}
+                                  </span>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                      {/* قائمة اختيار المستخدم المحدد */}
-                      {field.value === 'specific' && (
-                        <div className="mt-4">
-                          <FormField
-                            control={form.control}
-                            name="specificUserId"
-                            render={({ field: userField }) => (
-                              <FormItem>
-                                <FormLabel className="text-sm font-semibold text-gray-700">اختر المستخدم</FormLabel>
-                                <Select onValueChange={userField.onChange} value={userField.value}>
-                                  <FormControl>
-                                    <SelectTrigger 
-                                      className="h-12 border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 rounded-xl"
-                                      data-testid="specific-user-select"
-                                    >
-                                      <SelectValue placeholder="اختر المستخدم المحدد..." />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent className="rounded-xl border-0 shadow-xl max-h-48">
-                                    {isLoadingUsers ? (
-                                      <div className="p-3 text-center text-gray-500">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mx-auto"></div>
-                                        <span className="text-sm mt-2">جاري التحميل...</span>
-                                      </div>
-                                    ) : users.length > 0 ? (
-                                      users.map((user: any) => {
-                                        const roleInfo = getRoleInfo(user.role);
-                                        const RoleIcon = roleInfo.icon;
-                                        const displayName = user.firstName && user.lastName 
-                                          ? `${user.firstName} ${user.lastName}`
-                                          : user.name || 'بدون اسم';
-                                        
-                                        return (
-                                          <SelectItem 
-                                            key={user.id} 
-                                            value={user.id} 
-                                            className="p-3 rounded-lg hover:bg-gray-50"
-                                            data-testid={`user-option-${user.id}`}
-                                          >
-                                            <div className="flex items-center gap-3 w-full">
-                                              <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${roleInfo.color} flex items-center justify-center shadow-sm`}>
-                                                <RoleIcon className="h-5 w-5 text-white" />
-                                              </div>
-                                              <div className="flex flex-col flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                  <span className="font-bold text-gray-900 truncate text-sm">
-                                                    {displayName}
-                                                  </span>
-                                                  <div className={`px-2 py-0.5 rounded-full ${roleInfo.bgColor} ${roleInfo.borderColor} border`}>
-                                                    <span className={`text-xs font-semibold ${roleInfo.textColor}`}>
-                                                      {roleInfo.label}
-                                                    </span>
-                                                  </div>
-                                                </div>
-                                                <span className="text-xs text-gray-500 truncate">
-                                                  {user.email}
-                                                </span>
-                                              </div>
-                                            </div>
-                                          </SelectItem>
-                                        );
-                                      })
-                                    ) : (
-                                      <div className="p-3 text-center text-gray-500">
-                                        <span className="text-sm">لا توجد مستخدمون متاحون</span>
-                                      </div>
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                {/* مستوى الأولوية */}
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-orange-600" />
+                        مستوى الأولوية
+                      </FormLabel>
+                      <Select 
+                        onValueChange={(value) => field.onChange(parseInt(value))} 
+                        defaultValue={field.value.toString()}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-12 border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 rounded-xl" data-testid="priority-select">
+                            <SelectValue placeholder="اختر مستوى الأولوية" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="rounded-xl border-0 shadow-xl">
+                          {priorityLevels.map((level) => (
+                            <SelectItem key={level.value} value={level.value.toString()} className="p-3 rounded-lg">
+                              <div className={`flex items-center gap-3 p-2 rounded-lg border ${level.bg}`}>
+                                <div className={`w-3 h-3 rounded-full ${level.color === 'text-red-600' ? 'bg-red-500' : level.color === 'text-orange-600' ? 'bg-orange-500' : level.color === 'text-yellow-600' ? 'bg-yellow-500' : level.color === 'text-blue-600' ? 'bg-blue-500' : 'bg-gray-500'}`} />
+                                <span className={`font-semibold ${level.color}`}>{level.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* خيارات المستقبلين */}
+                <FormField
+                  control={form.control}
+                  name="recipientType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                        <Users className="h-4 w-4 text-blue-600" />
+                        المستقبلين
+                      </FormLabel>
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {[
+                            { value: 'all', label: 'جميع المستخدمين', icon: Users, color: 'text-blue-600', bg: 'hover:border-blue-300' },
+                            { value: 'admins', label: 'المسؤولين فقط', icon: Shield, color: 'text-red-600', bg: 'hover:border-red-300' },
+                            { value: 'workers', label: 'الموظفين', icon: User, color: 'text-green-600', bg: 'hover:border-green-300' },
+                            { value: 'specific', label: 'مستخدم محدد', icon: User, color: 'text-purple-600', bg: 'hover:border-purple-300' },
+                          ].map((option) => {
+                            const IconComponent = option.icon;
+                            const isSelected = field.value === option.value;
+                            return (
+                              <div
+                                key={option.value}
+                                onClick={() => {
+                                  field.onChange(option.value);
+                                  setSelectedRecipientType(option.value);
+                                }}
+                                className={`flex items-center gap-2 p-3 bg-white rounded-lg border-2 transition-colors cursor-pointer ${
+                                  isSelected ? `border-blue-500 bg-blue-50` : `border-gray-200 ${option.bg}`
+                                }`}
+                                data-testid={`recipient-type-${option.value}`}
+                              >
+                                <IconComponent className={`h-4 w-4 ${isSelected ? 'text-blue-600' : option.color}`} />
+                                <span className={`text-sm font-medium ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
+                                  {option.label}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
-                      )}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+
+                        {/* قائمة اختيار المستخدم المحدد */}
+                        {field.value === 'specific' && (
+                          <div className="mt-4">
+                            <FormField
+                              control={form.control}
+                              name="specificUserId"
+                              render={({ field: userField }) => (
+                                <FormItem>
+                                  <FormLabel className="text-sm font-semibold text-gray-700">اختر المستخدم</FormLabel>
+                                  <Select onValueChange={userField.onChange} value={userField.value}>
+                                    <FormControl>
+                                      <SelectTrigger 
+                                        className="h-12 border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 rounded-xl"
+                                        data-testid="specific-user-select"
+                                      >
+                                        <SelectValue placeholder="اختر المستخدم المحدد..." />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent className="rounded-xl border-0 shadow-xl max-h-48">
+                                      {isLoadingUsers ? (
+                                        <div className="p-3 text-center text-gray-500">
+                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mx-auto"></div>
+                                          <span className="text-sm mt-2">جاري التحميل...</span>
+                                        </div>
+                                      ) : users.length > 0 ? (
+                                        users.map((user: any) => {
+                                          const roleInfo = getRoleInfo(user.role);
+                                          const RoleIcon = roleInfo.icon;
+                                          const displayName = user.firstName && user.lastName 
+                                            ? `${user.firstName} ${user.lastName}`
+                                            : user.name || 'بدون اسم';
+
+                                          return (
+                                            <SelectItem 
+                                              key={user.id} 
+                                              value={user.id} 
+                                              className="p-3 rounded-lg hover:bg-gray-50"
+                                              data-testid={`user-option-${user.id}`}
+                                            >
+                                              <div className="flex items-center gap-3 w-full">
+                                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${roleInfo.color} flex items-center justify-center shadow-sm`}>
+                                                  <RoleIcon className="h-5 w-5 text-white" />
+                                                </div>
+                                                <div className="flex flex-col flex-1 min-w-0">
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-gray-900 truncate text-sm">
+                                                      {displayName}
+                                                    </span>
+                                                    <div className={`px-2 py-0.5 rounded-full ${roleInfo.bgColor} ${roleInfo.borderColor} border`}>
+                                                      <span className={`text-xs font-semibold ${roleInfo.textColor}`}>
+                                                        {roleInfo.label}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+                                                  <span className="text-xs text-gray-500 truncate">
+                                                    {user.email}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </SelectItem>
+                                          );
+                                        })
+                                      ) : (
+                                        <div className="p-3 text-center text-gray-500">
+                                          <span className="text-sm">لا توجد مستخدمون متاحون</span>
+                                        </div>
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* هذا الحقل الفارغ يضمن وجود 4 عناصر في الصف إذا لزم الأمر، أو يمكن استبداله بحقل آخر */}
+                <div /> 
+              </div>
 
               <div className="flex gap-3 pt-4">
                 <Button

@@ -9,6 +9,7 @@ import Dashboard from "@/pages/dashboard";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import EmailVerificationPage from "@/pages/EmailVerificationPage";
+import { useWebSocketSync } from "@/hooks/useWebSocketSync";
 
 import WorkerAttendance from "@/pages/worker-attendance";
 
@@ -40,6 +41,9 @@ import { AdminRoute } from "@/components/AdminRoute";
 import EmailVerificationGuard from "@/components/EmailVerificationGuard";
 
 function Router() {
+  // Enable real-time WebSocket updates
+  useWebSocketSync();
+  
   return (
     <Switch>
       <Route path="/" component={Dashboard} />

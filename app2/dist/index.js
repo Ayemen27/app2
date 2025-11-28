@@ -15,11 +15,11 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-var __copyProps = (to, from, except, desc8) => {
+var __copyProps = (to, from, except, desc7) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc8 = __getOwnPropDesc(from, key)) || desc8.enumerable });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc7 = __getOwnPropDesc(from, key)) || desc7.enumerable });
   }
   return to;
 };
@@ -1750,8 +1750,8 @@ var init_schema = __esm({
 });
 
 // server/utils/env-loader.ts
-import fs from "fs";
-import path from "path";
+import fs2 from "fs";
+import path3 from "path";
 function initializeEnvironment() {
   envLoader.load();
 }
@@ -1794,14 +1794,14 @@ var init_env_loader = __esm({
        * قراءة ملف .env
        */
       loadFromEnvFile() {
-        const envPath = path.join(process.cwd(), ".env");
-        if (!fs.existsSync(envPath)) {
+        const envPath = path3.join(process.cwd(), ".env");
+        if (!fs2.existsSync(envPath)) {
           console.log("\u26A0\uFE0F \u0645\u0644\u0641 .env \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F");
           return;
         }
         try {
           console.log("\u{1F4C4} \u0642\u0631\u0627\u0621\u0629 \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0645\u0646 \u0645\u0644\u0641 .env");
-          const content = fs.readFileSync(envPath, "utf-8");
+          const content = fs2.readFileSync(envPath, "utf-8");
           const lines = content.split("\n");
           for (const line of lines) {
             const trimmedLine = line.trim();
@@ -1827,14 +1827,14 @@ var init_env_loader = __esm({
           console.log("\u26A0\uFE0F \u062A\u062C\u0627\u0647\u0644 ecosystem.config.json \u0641\u064A \u0628\u064A\u0626\u0629 \u0627\u0644\u062A\u0637\u0648\u064A\u0631");
           return;
         }
-        const ecosystemPath = path.join(process.cwd(), "ecosystem.config.json");
-        if (!fs.existsSync(ecosystemPath)) {
+        const ecosystemPath = path3.join(process.cwd(), "ecosystem.config.json");
+        if (!fs2.existsSync(ecosystemPath)) {
           console.log("\u26A0\uFE0F \u0645\u0644\u0641 ecosystem.config.json \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F");
           return;
         }
         try {
           console.log("\u{1F4C4} \u0642\u0631\u0627\u0621\u0629 \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0645\u0646 ecosystem.config.json");
-          const content = fs.readFileSync(ecosystemPath, "utf-8");
+          const content = fs2.readFileSync(ecosystemPath, "utf-8");
           const config = JSON.parse(content);
           if (config.apps && config.apps.length > 0) {
             const currentApp = config.apps.find(
@@ -1955,7 +1955,7 @@ var init_credentials = __esm({
 // server/services/smart-connection-manager.ts
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
-import fs2 from "fs";
+import fs3 from "fs";
 var SmartConnectionManager, smartConnectionManager;
 var init_smart_connection_manager = __esm({
   "server/services/smart-connection-manager.ts"() {
@@ -2062,8 +2062,8 @@ var init_smart_connection_manager = __esm({
           }
           let sslConfig2 = { rejectUnauthorized: false };
           const certPath = "./pg_cert.pem";
-          if (fs2.existsSync(certPath)) {
-            const ca = fs2.readFileSync(certPath, { encoding: "utf8" });
+          if (fs3.existsSync(certPath)) {
+            const ca = fs3.readFileSync(certPath, { encoding: "utf8" });
             sslConfig2 = {
               rejectUnauthorized: false,
               ca,
@@ -2263,7 +2263,7 @@ __export(db_exports, {
 });
 import { Pool as Pool2 } from "pg";
 import { drizzle as drizzle2 } from "drizzle-orm/node-postgres";
-import fs3 from "fs";
+import fs4 from "fs";
 function maskConnectionString(url) {
   return url.replace(/\/\/[^:]+:[^@]+@/, "//***:***@").replace(/\d+\.\d+\.\d+\.\d+/, "***.***.***.**");
 }
@@ -2304,9 +2304,9 @@ function setupSSLConfig() {
       console.log("\u2705 [SSL] \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0634\u0647\u0627\u062F\u0629 - \u062A\u0639\u0637\u064A\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0627\u062E\u062A\u0628\u0627\u0631");
     } else {
       const certPath = "./pg_cert.pem";
-      if (fs3.existsSync(certPath)) {
+      if (fs4.existsSync(certPath)) {
         console.log("\u{1F4DC} [SSL] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0634\u0647\u0627\u062F\u0629 SSL \u0645\u0646 \u0627\u0644\u0645\u0644\u0641");
-        sslConfig2.ca = fs3.readFileSync(certPath);
+        sslConfig2.ca = fs4.readFileSync(certPath);
         sslConfig2.rejectUnauthorized = false;
         console.log("\u2705 [SSL] \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0634\u0647\u0627\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0644\u0641 - \u062A\u0639\u0637\u064A\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0634\u0647\u0627\u062F\u0627\u062A \u0627\u0644\u0645\u0648\u0642\u0639\u0629 \u0630\u0627\u062A\u064A\u0627\u064B");
       } else {
@@ -2384,7 +2384,7 @@ __export(NotificationService_exports, {
   NotificationStatus: () => NotificationStatus,
   NotificationTypes: () => NotificationTypes
 });
-import { eq as eq2, and as and2, desc, or, inArray, sql as sql2 } from "drizzle-orm";
+import { eq as eq10, and as and9, desc as desc6, or as or3, inArray, sql as sql8 } from "drizzle-orm";
 var NotificationPriority, NotificationTypes, NotificationStatus, NotificationService;
 var init_NotificationService = __esm({
   "server/services/NotificationService.ts"() {
@@ -2569,9 +2569,9 @@ var init_NotificationService = __esm({
           try {
             const defaultUser = await db.query.users.findFirst({
               columns: { id: true },
-              where: (users2, { eq: eq12, or: or5 }) => or5(
-                eq12(users2.role, "admin"),
-                eq12(users2.email, "admin")
+              where: (users2, { eq: eq11, or: or4 }) => or4(
+                eq11(users2.role, "admin"),
+                eq11(users2.email, "admin")
               )
             });
             return defaultUser ? [defaultUser.id] : [];
@@ -2590,9 +2590,9 @@ var init_NotificationService = __esm({
             return true;
           }
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq12, or: or5 }) => or5(
-              eq12(users2.id, userId),
-              eq12(users2.email, userId)
+            where: (users2, { eq: eq11, or: or4 }) => or4(
+              eq11(users2.id, userId),
+              eq11(users2.email, userId)
             )
           });
           if (!user) {
@@ -2614,9 +2614,9 @@ var init_NotificationService = __esm({
       async getAllowedNotificationTypes(userId) {
         try {
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq12, or: or5 }) => or5(
-              eq12(users2.id, userId),
-              eq12(users2.email, userId)
+            where: (users2, { eq: eq11, or: or4 }) => or4(
+              eq11(users2.id, userId),
+              eq11(users2.email, userId)
             )
           });
           if (!user) {
@@ -2646,36 +2646,36 @@ var init_NotificationService = __esm({
           conditions.push(inArray(notifications.type, allowedTypes));
         }
         if (filters.type && allowedTypes.includes(filters.type)) {
-          conditions.push(eq2(notifications.type, filters.type));
+          conditions.push(eq10(notifications.type, filters.type));
         }
         if (filters.projectId) {
-          conditions.push(eq2(notifications.projectId, filters.projectId));
+          conditions.push(eq10(notifications.projectId, filters.projectId));
         }
         if (isUserAdmin) {
           conditions.push(
-            or(
-              sql2`${notifications.recipients}::text LIKE '%' || ${userId} || '%'`,
-              sql2`${notifications.recipients}::text LIKE '%admin%'`,
-              sql2`${notifications.recipients}::text LIKE '%مسؤول%'`,
-              sql2`${notifications.recipients} IS NULL`
+            or3(
+              sql8`${notifications.recipients}::text LIKE '%' || ${userId} || '%'`,
+              sql8`${notifications.recipients}::text LIKE '%admin%'`,
+              sql8`${notifications.recipients}::text LIKE '%مسؤول%'`,
+              sql8`${notifications.recipients} IS NULL`
               // الإشعارات العامة
             )
           );
         } else {
           conditions.push(
-            or(
-              sql2`${notifications.recipients}::text LIKE '%' || ${userId} || '%'`,
-              sql2`${notifications.recipients} IS NULL`
+            or3(
+              sql8`${notifications.recipients}::text LIKE '%' || ${userId} || '%'`,
+              sql8`${notifications.recipients} IS NULL`
               // الإشعارات العامة
             )
           );
         }
-        const notificationList = await db.select().from(notifications).where(and2(...conditions)).orderBy(desc(notifications.createdAt)).limit(filters.limit || 50).offset(filters.offset || 0);
+        const notificationList = await db.select().from(notifications).where(and9(...conditions)).orderBy(desc6(notifications.createdAt)).limit(filters.limit || 50).offset(filters.offset || 0);
         console.log(`\u{1F50D} \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 ${notificationList.length} \u0625\u0634\u0639\u0627\u0631 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId}`);
         const notificationIds = notificationList.map((n) => n.id);
         const readStates = notificationIds.length > 0 ? await db.select().from(notificationReadStates).where(
-          and2(
-            eq2(notificationReadStates.userId, userId),
+          and9(
+            eq10(notificationReadStates.userId, userId),
             // مهم: حالة القراءة مخصصة للمستخدم
             inArray(notificationReadStates.notificationId, notificationIds)
           )
@@ -2725,9 +2725,9 @@ var init_NotificationService = __esm({
         try {
           console.log(`\u{1F50D} \u0628\u062F\u0621 \u0641\u062D\u0635 \u062D\u0627\u0644\u0629 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 ${notificationId} \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId}`);
           const readState = await db.select().from(notificationReadStates).where(
-            and2(
-              eq2(notificationReadStates.userId, userId),
-              eq2(notificationReadStates.notificationId, notificationId)
+            and9(
+              eq10(notificationReadStates.userId, userId),
+              eq10(notificationReadStates.notificationId, notificationId)
             )
           ).limit(1);
           console.log(`\u{1F4D6} \u0646\u062A\u0627\u0626\u062C \u0641\u062D\u0635 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 ${notificationId}:`, readState);
@@ -2745,7 +2745,7 @@ var init_NotificationService = __esm({
       async recreateReadStatesTable() {
         try {
           console.log("\u{1F527} \u0627\u0644\u062A\u0623\u0643\u062F \u0645\u0646 \u0648\u062C\u0648\u062F \u062C\u062F\u0648\u0644 notification_read_states (\u0628\u062F\u0648\u0646 \u062D\u0630\u0641 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A)...");
-          await db.execute(sql2`
+          await db.execute(sql8`
         CREATE TABLE IF NOT EXISTS notification_read_states (
           id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
           user_id VARCHAR NOT NULL,
@@ -2769,17 +2769,17 @@ var init_NotificationService = __esm({
       async markAsRead(notificationId, userId) {
         console.log(`\u2705 \u0628\u062F\u0621 \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0643\u0645\u0642\u0631\u0648\u0621: ${notificationId} \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
         try {
-          const deleteResult = await db.execute(sql2`
+          const deleteResult = await db.execute(sql8`
         DELETE FROM notification_read_states 
         WHERE user_id = ${userId} AND notification_id = ${notificationId}
       `);
           console.log(`\u{1F5D1}\uFE0F \u062A\u0645 \u062D\u0630\u0641 ${deleteResult.rowCount || 0} \u0633\u062C\u0644 \u0633\u0627\u0628\u0642`);
-          const insertResult = await db.execute(sql2`
+          const insertResult = await db.execute(sql8`
         INSERT INTO notification_read_states (user_id, notification_id, is_read, read_at)
         VALUES (${userId}, ${notificationId}, true, NOW())
       `);
           console.log(`\u2795 \u062A\u0645 \u0625\u062F\u0631\u0627\u062C \u0633\u062C\u0644 \u062C\u062F\u064A\u062F: ${insertResult.rowCount || 0} \u0635\u0641`);
-          const verifyResult = await db.execute(sql2`
+          const verifyResult = await db.execute(sql8`
         SELECT * FROM notification_read_states 
         WHERE user_id = ${userId} AND notification_id = ${notificationId}
       `);
@@ -2810,9 +2810,9 @@ var init_NotificationService = __esm({
         })));
         const conditions = [];
         if (projectId) {
-          conditions.push(eq2(notifications.projectId, projectId));
+          conditions.push(eq10(notifications.projectId, projectId));
         }
-        const userNotifications = conditions.length > 0 ? await db.select({ id: notifications.id }).from(notifications).where(and2(...conditions)) : await db.select({ id: notifications.id }).from(notifications);
+        const userNotifications = conditions.length > 0 ? await db.select({ id: notifications.id }).from(notifications).where(and9(...conditions)) : await db.select({ id: notifications.id }).from(notifications);
         console.log(`\u{1F3AF} \u0639\u062F\u062F \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u064F\u0641\u0644\u062A\u0631\u0629: ${userNotifications.length}`);
         let markedCount = 0;
         for (const notification of userNotifications) {
@@ -2831,8 +2831,8 @@ var init_NotificationService = __esm({
        */
       async deleteNotification(notificationId) {
         console.log(`\u{1F5D1}\uFE0F \u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631: ${notificationId}`);
-        await db.delete(notificationReadStates).where(eq2(notificationReadStates.notificationId, notificationId));
-        await db.delete(notifications).where(eq2(notifications.id, notificationId));
+        await db.delete(notificationReadStates).where(eq10(notificationReadStates.notificationId, notificationId));
+        await db.delete(notifications).where(eq10(notifications.id, notificationId));
         console.log(`\u2705 \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631: ${notificationId}`);
       }
       /**
@@ -2844,26 +2844,26 @@ var init_NotificationService = __esm({
         const allowedTypes = await this.getAllowedNotificationTypes(userId);
         const conditions = [inArray(notifications.type, allowedTypes)];
         if (isAdmin) {
-          const adminCondition = or(
-            sql2`${notifications.recipients} @> ARRAY[${userId}]`,
-            sql2`${notifications.recipients} @> ARRAY['admin']`,
-            sql2`${notifications.recipients} @> ARRAY['مسؤول']`,
-            sql2`${notifications.recipients} IS NULL`
+          const adminCondition = or3(
+            sql8`${notifications.recipients} @> ARRAY[${userId}]`,
+            sql8`${notifications.recipients} @> ARRAY['admin']`,
+            sql8`${notifications.recipients} @> ARRAY['مسؤول']`,
+            sql8`${notifications.recipients} IS NULL`
           );
           if (adminCondition) {
             conditions.push(adminCondition);
           }
         } else {
-          const userCondition = or(
-            sql2`${notifications.recipients} @> ARRAY[${userId}]`,
-            sql2`${notifications.recipients} IS NULL`
+          const userCondition = or3(
+            sql8`${notifications.recipients} @> ARRAY[${userId}]`,
+            sql8`${notifications.recipients} IS NULL`
           );
           if (userCondition) {
             conditions.push(userCondition);
           }
         }
-        const userNotifications = await db.select().from(notifications).where(and2(...conditions));
-        const readStates = await db.select().from(notificationReadStates).where(eq2(notificationReadStates.userId, userId));
+        const userNotifications = await db.select().from(notifications).where(and9(...conditions));
+        const readStates = await db.select().from(notificationReadStates).where(eq10(notificationReadStates.userId, userId));
         const readNotificationIds = readStates.filter((rs) => rs.isRead).map((rs) => rs.notificationId);
         const unread = userNotifications.filter((n) => !readNotificationIds.includes(n.id));
         const byType = {};
@@ -2893,19 +2893,19 @@ var init_NotificationService = __esm({
         const { limit = 50, offset = 0, type, priority } = options;
         const conditions = [];
         if (type) {
-          conditions.push(eq2(notifications.type, type));
+          conditions.push(eq10(notifications.type, type));
         }
         if (priority !== void 0) {
-          conditions.push(eq2(notifications.priority, priority));
+          conditions.push(eq10(notifications.priority, priority));
         }
         let query = db.select().from(notifications);
         if (conditions.length > 0) {
-          query = query.where(and2(...conditions));
+          query = query.where(and9(...conditions));
         }
-        const allNotifications = await query.orderBy(desc(notifications.createdAt)).limit(limit).offset(offset);
+        const allNotifications = await query.orderBy(desc6(notifications.createdAt)).limit(limit).offset(offset);
         const notificationsWithStats = await Promise.all(
           allNotifications.map(async (notification) => {
-            const readStates = await db.select().from(notificationReadStates).where(eq2(notificationReadStates.notificationId, notification.id));
+            const readStates = await db.select().from(notificationReadStates).where(eq10(notificationReadStates.notificationId, notification.id));
             const totalReads = readStates.filter((rs) => rs.isRead).length;
             const totalUsers = readStates.length || 1;
             return {
@@ -2921,9 +2921,9 @@ var init_NotificationService = __esm({
             };
           })
         );
-        const countQuery = db.select({ count: sql2`count(*)` }).from(notifications);
+        const countQuery = db.select({ count: sql8`count(*)` }).from(notifications);
         if (conditions.length > 0) {
-          countQuery.where(and2(...conditions));
+          countQuery.where(and9(...conditions));
         }
         const countResult = await countQuery;
         const total = Number(countResult[0]?.count || 0);
@@ -2946,7 +2946,7 @@ var init_NotificationService = __esm({
         }).from(users);
         const userStats = await Promise.all(
           allUsers.map(async (user) => {
-            const userReadStates = await db.select().from(notificationReadStates).where(eq2(notificationReadStates.userId, user.id));
+            const userReadStates = await db.select().from(notificationReadStates).where(eq10(notificationReadStates.userId, user.id));
             const readNotifications = userReadStates.filter((rs) => rs.isRead).length;
             const unreadNotifications = userReadStates.filter((rs) => !rs.isRead).length;
             const totalNotifications = userReadStates.length;
@@ -2975,3358 +2975,17 @@ var init_NotificationService = __esm({
 import express11 from "express";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit3 from "express-rate-limit";
-
-// server/routes.ts
-init_db();
-init_schema();
-import { createServer } from "http";
-import { eq as eq3, and as and3, sql as sql3, gte, lt, lte, desc as desc2 } from "drizzle-orm";
-
-// server/middleware/auth.ts
-init_db();
-init_schema();
-import jwt from "jsonwebtoken";
-import { eq, and, gt } from "drizzle-orm";
-import rateLimit from "express-rate-limit";
-var generalRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1e3,
-  // 15 دقيقة
-  max: 2e3,
-  // 2000 طلب لكل IP (زيادة الحد للأداء الأفضل)
-  message: {
-    success: false,
-    message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0645\u0646 \u0627\u0644\u0637\u0644\u0628\u0627\u062A\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F \u0642\u0644\u064A\u0644",
-    retryAfter: 15 * 60
-    // 15 دقيقة
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => {
-    return req.path === "/api/health" || req.path === "/health";
-  }
-});
-var authRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1e3,
-  // 15 دقيقة
-  max: 10,
-  // 10 محاولات تسجيل دخول لكل IP
-  message: {
-    success: false,
-    message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0639\u062F\u062F \u0645\u062D\u0627\u0648\u0644\u0627\u062A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0627\u0644\u0645\u0633\u0645\u0648\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F 15 \u062F\u0642\u064A\u0642\u0629",
-    retryAfter: 15 * 60
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true
-  // لا تحسب الطلبات الناجحة
-});
-var sensitiveOperationsRateLimit = rateLimit({
-  windowMs: 5 * 60 * 1e3,
-  // 5 دقائق
-  max: 5,
-  // 5 عمليات فقط
-  message: {
-    success: false,
-    message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u062D\u0633\u0627\u0633\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F 5 \u062F\u0642\u0627\u0626\u0642",
-    retryAfter: 5 * 60
-  }
-});
-var verifyToken = async (token) => {
-  try {
-    if (!process.env.JWT_ACCESS_SECRET) {
-      throw new Error("JWT_ACCESS_SECRET \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F");
-    }
-    return jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-  } catch (error) {
-    throw new Error("\u0631\u0645\u0632 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D");
-  }
-};
-var verifySession = async (userId, sessionId) => {
-  try {
-    const session = await db.select().from(authUserSessions).where(
-      and(
-        eq(authUserSessions.userId, userId),
-        eq(authUserSessions.sessionToken, sessionId),
-        eq(authUserSessions.isRevoked, false),
-        gt(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
-      )
-    ).limit(1);
-    return session.length > 0 ? session[0] : null;
-  } catch (error) {
-    console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u062C\u0644\u0633\u0629:", error);
-    return null;
-  }
-};
-var securityHeaders = (req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
-  next();
-};
-var trackSuspiciousActivity = (req, res, next) => {
-  next();
-};
-var authenticate = async (req, res, next) => {
-  try {
-    const startTime = Date.now();
-    const authHeader = req.headers.authorization;
-    const ip = req.ip || req.connection.remoteAddress || "unknown";
-    console.log(`\u{1F50D} [AUTH] \u0641\u062D\u0635 \u0645\u062A\u0642\u062F\u0645 - \u0627\u0644\u0645\u0633\u0627\u0631: ${req.method} ${req.originalUrl} | IP: ${ip}`);
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("\u274C [AUTH] \u0644\u0627 \u064A\u0648\u062C\u062F token \u0641\u064A \u0627\u0644\u0637\u0644\u0628");
-      return res.status(401).json({
-        success: false,
-        message: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0644\u0643 \u0628\u0627\u0644\u0648\u0635\u0648\u0644 - \u0644\u0627 \u064A\u0648\u062C\u062F \u0631\u0645\u0632 \u0645\u0635\u0627\u062F\u0642\u0629",
-        code: "NO_TOKEN"
-      });
-    }
-    const token = authHeader.substring(7);
-    let decoded;
-    try {
-      decoded = await verifyToken(token);
-    } catch (error) {
-      console.log("\u274C [AUTH] token \u063A\u064A\u0631 \u0635\u0627\u0644\u062D:", error);
-      return res.status(401).json({
-        success: false,
-        message: "\u0631\u0645\u0632 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D \u0623\u0648 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629",
-        code: "INVALID_TOKEN"
-      });
-    }
-    const session = await verifySession(decoded.userId, decoded.sessionId);
-    if (!session) {
-      console.log("\u274C [AUTH] \u0627\u0644\u062C\u0644\u0633\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629 \u0623\u0648 \u0645\u0646\u062A\u0647\u064A\u0629");
-      return res.status(401).json({
-        success: false,
-        message: "\u0627\u0644\u062C\u0644\u0633\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629 \u0623\u0648 \u0645\u0646\u062A\u0647\u064A\u0629 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629",
-        code: "INVALID_SESSION"
-      });
-    }
-    const user = await db.select({
-      id: users.id,
-      email: users.email,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      role: users.role,
-      isActive: users.isActive,
-      mfaEnabled: users.mfaEnabled
-    }).from(users).where(eq(users.id, decoded.userId)).limit(1);
-    if (!user.length || !user[0].isActive) {
-      console.log("\u274C [AUTH] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u063A\u064A\u0631 \u0646\u0634\u0637");
-      return res.status(401).json({
-        success: false,
-        message: "\u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0646\u0634\u0637 \u0623\u0648 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-        code: "USER_INACTIVE"
-      });
-    }
-    await db.update(authUserSessions).set({
-      lastActivity: /* @__PURE__ */ new Date(),
-      ipAddress: ip,
-      userAgent: req.get("User-Agent") || "unknown"
-    }).where(eq(authUserSessions.sessionToken, decoded.sessionId));
-    req.user = {
-      id: user[0].id,
-      userId: user[0].id,
-      email: user[0].email,
-      firstName: user[0].firstName || void 0,
-      lastName: user[0].lastName || void 0,
-      role: user[0].role,
-      isActive: user[0].isActive,
-      mfaEnabled: user[0].mfaEnabled || void 0,
-      sessionId: decoded.sessionId
-    };
-    const duration = Date.now() - startTime;
-    console.log(`\u2705 [AUTH] \u0645\u0635\u0627\u062F\u0642\u0629 \u0646\u0627\u062C\u062D\u0629 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${user[0].email} | ${req.method} ${req.originalUrl} | ${duration}ms`);
-    next();
-  } catch (error) {
-    console.error("\u274C [AUTH] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629:", error);
-    res.status(500).json({
-      success: false,
-      message: "\u062E\u0637\u0623 \u0641\u064A \u062E\u0627\u062F\u0645 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629",
-      code: "AUTH_SERVER_ERROR"
-    });
-  }
-};
-var oneHour = 60 * 60 * 1e3;
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, activity] of Array.from(suspiciousActivityTracker.entries())) {
-    if (now - activity.lastAttempt > oneHour) {
-      suspiciousActivityTracker.delete(ip);
-    }
-  }
-}, oneHour);
-var requireAuth = authenticate;
-var requireRole = (role) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0644\u0643 \u0628\u0627\u0644\u0648\u0635\u0648\u0644",
-        code: "UNAUTHORIZED"
-      });
-    }
-    if (req.user.role !== role) {
-      console.log(`\u{1F6AB} [AUTH] \u0645\u062D\u0627\u0648\u0644\u0629 \u0648\u0635\u0648\u0644 \u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0628\u0647\u0627 \u0645\u0646: ${req.user.email} \u0644\u0644\u062F\u0648\u0631: ${role}`);
-      return res.status(403).json({
-        success: false,
-        message: `\u062A\u062D\u062A\u0627\u062C \u0635\u0644\u0627\u062D\u064A\u0627\u062A ${role} \u0644\u0644\u0648\u0635\u0648\u0644 \u0644\u0647\u0630\u0627 \u0627\u0644\u0645\u062D\u062A\u0648\u0649`,
-        code: "ROLE_REQUIRED"
-      });
-    }
-    next();
-  };
-};
-
-// server/routes.ts
-async function registerRoutes(app2) {
-  app2.get("/api/health", (req, res) => {
-    res.json({ status: "healthy", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
-  });
-  app2.get("/api/db/info", async (req, res) => {
-    try {
-      const result = await db.execute(`
-        SELECT 
-          current_database() as database_name, 
-          current_user as username,
-          version() as version_info
-      `);
-      res.json({
-        success: true,
-        database: result.rows[0],
-        message: "\u0645\u062A\u0635\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0628\u064A\u0627\u0646\u0627\u062A app2data \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "Database connection failed"
-      });
-    }
-  });
-  app2.get("/api/projects", requireAuth, async (req, res) => {
-    try {
-      console.log("\u{1F4CA} [API] \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-      const projectsList = await db.select().from(projects).orderBy(projects.createdAt);
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${projectsList.length} \u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A`);
-      res.json({
-        success: true,
-        data: projectsList,
-        message: `\u062A\u0645 \u062C\u0644\u0628 ${projectsList.length} \u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D`
-      });
-    } catch (error) {
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639:", error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
-      });
-    }
-  });
-  app2.get("/api/projects/:projectId/fund-transfers", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const { projectId } = req.params;
-      console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0647\u062F\u0629 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}`);
-      if (!projectId) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
-          processingTime: Date.now() - startTime
-        });
-      }
-      const transfers = await db.select().from(fundTransfers).where(eq3(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: transfers,
-        message: `\u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0644\u0644\u0645\u0634\u0631\u0648\u0639`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0647\u062F\u0629:", error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.get("/api/projects/:projectId/material-purchases", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const { projectId } = req.params;
-      console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}`);
-      if (!projectId) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
-          processingTime: Date.now() - startTime
-        });
-      }
-      const purchases = await db.select().from(materialPurchases).where(eq3(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${purchases.length} \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0648\u0627\u062F \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: purchases,
-        message: `\u062A\u0645 \u062C\u0644\u0628 ${purchases.length} \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0648\u0627\u062F \u0644\u0644\u0645\u0634\u0631\u0648\u0639`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.get("/api/projects/:projectId/transportation-expenses", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const { projectId } = req.params;
-      console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}`);
-      if (!projectId) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
-          processingTime: Date.now() - startTime
-        });
-      }
-      const expenses = await db.select().from(transportationExpenses).where(eq3(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644 \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: expenses,
-        message: `\u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644 \u0644\u0644\u0645\u0634\u0631\u0648\u0639`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644:", error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.get("/api/projects/:projectId/worker-misc-expenses", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const { projectId } = req.params;
-      console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639\u0629 \u0644\u0644\u0639\u0645\u0627\u0644 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}`);
-      if (!projectId) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
-          processingTime: Date.now() - startTime
-        });
-      }
-      const expenses = await db.select().from(workerMiscExpenses).where(eq3(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: expenses,
-        message: `\u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0645\u0634\u0631\u0648\u0639`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639\u0629:", error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.get("/api/projects/with-stats", requireAuth, async (req, res) => {
-    try {
-      console.log("\u{1F4CA} [API] \u062C\u0644\u0628 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0645\u0639 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-      const projectsList = await db.select().from(projects).orderBy(projects.createdAt);
-      const projectsWithStats = await Promise.all(projectsList.map(async (project) => {
-        const projectId = project.id;
-        try {
-          const cleanDbValue = (value, type = "decimal") => {
-            if (value === null || value === void 0) return 0;
-            const strValue = String(value).trim();
-            if (strValue.match(/^(\d{1,3})\1{2,}$/)) {
-              console.warn("\u26A0\uFE0F [API] \u0642\u064A\u0645\u0629 \u0645\u0634\u0628\u0648\u0647\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A:", strValue);
-              return 0;
-            }
-            const parsed = type === "integer" ? parseInt(strValue, 10) : parseFloat(strValue);
-            if (isNaN(parsed) || !isFinite(parsed)) return 0;
-            const maxValue = type === "integer" ? strValue.includes("worker") || strValue.includes("total_workers") ? 1e4 : 1e6 : 1e11;
-            if (Math.abs(parsed) > maxValue) {
-              console.warn(`\u26A0\uFE0F [API] \u0642\u064A\u0645\u0629 \u062A\u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0646\u0637\u0642\u064A (${type}):`, parsed);
-              return 0;
-            }
-            return Math.max(0, parsed);
-          };
-          const workersStats = await db.execute(sql3`
-            SELECT 
-              COUNT(DISTINCT wa.worker_id) as total_workers,
-              COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
-            FROM worker_attendance wa
-            INNER JOIN workers w ON wa.worker_id = w.id
-            WHERE wa.project_id = ${projectId}
-          `);
-          const materialStats = await db.execute(sql3`
-            SELECT 
-              COUNT(*) as material_purchases,
-              COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
-            FROM material_purchases 
-            WHERE project_id = ${projectId}
-          `);
-          const workerWagesStats = await db.execute(sql3`
-            SELECT 
-              COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
-              COUNT(DISTINCT date) as completed_days
-            FROM worker_attendance 
-            WHERE project_id = ${projectId} AND is_present = true
-          `);
-          const fundTransfersStats = await db.execute(sql3`
-            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
-            FROM fund_transfers 
-            WHERE project_id = ${projectId}
-          `);
-          const transportStats = await db.execute(sql3`
-            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
-            FROM transportation_expenses 
-            WHERE project_id = ${projectId}
-          `);
-          const workerTransfersStats = await db.execute(sql3`
-            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
-            FROM worker_transfers 
-            WHERE project_id = ${projectId}
-          `);
-          const miscExpensesStats = await db.execute(sql3`
-            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
-            FROM worker_misc_expenses 
-            WHERE project_id = ${projectId}
-          `);
-          const totalWorkers = cleanDbValue(workersStats.rows[0]?.total_workers || "0", "integer");
-          const activeWorkers = cleanDbValue(workersStats.rows[0]?.active_workers || "0", "integer");
-          const materialExpenses = cleanDbValue(materialStats.rows[0]?.material_expenses || "0");
-          const materialPurchases2 = cleanDbValue(materialStats.rows[0]?.material_purchases || "0", "integer");
-          const workerWages = cleanDbValue(workerWagesStats.rows[0]?.worker_wages || "0");
-          const completedDays = cleanDbValue(workerWagesStats.rows[0]?.completed_days || "0", "integer");
-          const totalIncome = cleanDbValue(fundTransfersStats.rows[0]?.total_income || "0");
-          const transportExpenses = cleanDbValue(transportStats.rows[0]?.transport_expenses || "0");
-          const workerTransfers2 = cleanDbValue(workerTransfersStats.rows[0]?.worker_transfers || "0");
-          const miscExpenses = cleanDbValue(miscExpensesStats.rows[0]?.misc_expenses || "0");
-          if (totalWorkers > 1e3) {
-            console.warn(`\u26A0\uFE0F [API] \u0639\u062F\u062F \u0639\u0645\u0627\u0644 \u063A\u064A\u0631 \u0645\u0646\u0637\u0642\u064A \u0644\u0644\u0645\u0634\u0631\u0648\u0639 ${project.name}: ${totalWorkers}`);
-          }
-          const totalExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers2 + miscExpenses;
-          const currentBalance = totalIncome - totalExpenses;
-          if (process.env.NODE_ENV === "development") {
-            console.log(`\u{1F4CA} [API] \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0645\u0634\u0631\u0648\u0639 "${project.name}":`, {
-              totalWorkers,
-              activeWorkers,
-              totalIncome,
-              totalExpenses,
-              currentBalance,
-              completedDays,
-              materialPurchases: materialPurchases2
-            });
-          }
-          return {
-            ...project,
-            stats: {
-              totalWorkers: Math.max(0, totalWorkers),
-              totalExpenses: Math.max(0, totalExpenses),
-              totalIncome: Math.max(0, totalIncome),
-              currentBalance,
-              // يمكن أن يكون سالباً
-              activeWorkers: Math.max(0, activeWorkers),
-              completedDays: Math.max(0, completedDays),
-              materialPurchases: Math.max(0, materialPurchases2),
-              lastActivity: project.createdAt.toISOString()
-            }
-          };
-        } catch (error) {
-          console.error(`\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0633\u0627\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0645\u0634\u0631\u0648\u0639 ${project.name}:`, error);
-          return {
-            ...project,
-            stats: {
-              totalWorkers: 0,
-              totalExpenses: 0,
-              totalIncome: 0,
-              currentBalance: 0,
-              activeWorkers: 0,
-              completedDays: 0,
-              materialPurchases: 0,
-              lastActivity: project.createdAt.toISOString()
-            }
-          };
-        }
-      }));
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${projectsWithStats.length} \u0645\u0634\u0631\u0648\u0639 \u0645\u0639 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A`);
-      res.json({
-        success: true,
-        data: projectsWithStats,
-        message: `\u062A\u0645 \u062C\u0644\u0628 ${projectsWithStats.length} \u0645\u0634\u0631\u0648\u0639 \u0645\u0639 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0628\u0646\u062C\u0627\u062D`
-      });
-    } catch (error) {
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0645\u0639 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A:", error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0645\u0639 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A"
-      });
-    }
-  });
-  app2.get("/api/projects/:id/daily-summary/:date", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const { id: projectId, date: date2 } = req.params;
-      console.log(`\u{1F4CA} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u062E\u0635 \u0627\u0644\u064A\u0648\u0645\u064A \u0644\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${req.user?.email}`);
-      console.log(`\u{1F4CB} [API] \u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0627\u0644\u0637\u0644\u0628: projectId=${projectId}, date=${date2}`);
-      if (!projectId || !date2) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0645\u0637\u0644\u0648\u0628\u0629 \u0645\u0641\u0642\u0648\u062F\u0629:", { projectId, date: date2 });
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0645\u0637\u0644\u0648\u0628\u0629 \u0645\u0641\u0642\u0648\u062F\u0629",
-          message: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0648\u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0645\u0637\u0644\u0648\u0628\u0627\u0646",
-          processingTime: duration2
-        });
-      }
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(date2)) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u062A\u0646\u0633\u064A\u0642 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u063A\u064A\u0631 \u0635\u062D\u064A\u062D:", date2);
-        return res.status(400).json({
-          success: false,
-          error: "\u062A\u0646\u0633\u064A\u0642 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u063A\u064A\u0631 \u0635\u062D\u064A\u062D",
-          message: "\u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0628\u0635\u064A\u063A\u0629 YYYY-MM-DD",
-          processingTime: duration2
-        });
-      }
-      console.log("\u{1F50D} [API] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0648\u062C\u0648\u062F \u0627\u0644\u0645\u0634\u0631\u0648\u0639...");
-      const projectExists = await db.select().from(projects).where(eq3(projects.id, projectId)).limit(1);
-      if (projectExists.length === 0) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0634\u0631\u0648\u0639 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${projectId}`,
-          processingTime: duration2
-        });
-      }
-      console.log("\u{1F4BE} [API] \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u062E\u0635 \u0627\u0644\u064A\u0648\u0645\u064A \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      let dailySummary = null;
-      try {
-        console.log("\u26A1 [API] \u0645\u062D\u0627\u0648\u0644\u0629 \u062C\u0644\u0628 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 daily_summary_mv...");
-        const mvResult = await db.execute(sql3`
-          SELECT 
-            id,
-            project_id,
-            summary_date,
-            carried_forward_amount,
-            total_fund_transfers,
-            total_worker_wages,
-            total_material_costs,
-            total_transportation_expenses,
-            total_worker_transfers,
-            total_worker_misc_expenses,
-            total_income,
-            total_expenses,
-            remaining_balance,
-            notes,
-            created_at,
-            updated_at,
-            project_name
-          FROM daily_summary_mv 
-          WHERE project_id = ${projectId} AND summary_date = ${date2}
-          LIMIT 1
-        `);
-        if (mvResult.rows && mvResult.rows.length > 0) {
-          dailySummary = mvResult.rows[0];
-          console.log("\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 Materialized View \u0628\u0646\u062C\u0627\u062D");
-        }
-      } catch (mvError) {
-        console.log("\u26A0\uFE0F [API] Materialized View \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u060C \u0627\u0644\u062A\u0628\u062F\u064A\u0644 \u0644\u0644\u062C\u062F\u0648\u0644 \u0627\u0644\u0639\u0627\u062F\u064A...");
-        const regularResult = await db.select({
-          id: dailyExpenseSummaries.id,
-          project_id: dailyExpenseSummaries.projectId,
-          summary_date: dailyExpenseSummaries.date,
-          carried_forward_amount: dailyExpenseSummaries.carriedForwardAmount,
-          total_fund_transfers: dailyExpenseSummaries.totalFundTransfers,
-          total_worker_wages: dailyExpenseSummaries.totalWorkerWages,
-          total_material_costs: dailyExpenseSummaries.totalMaterialCosts,
-          total_transportation_expenses: dailyExpenseSummaries.totalTransportationCosts,
-          total_worker_transfers: sql3`COALESCE(${dailyExpenseSummaries.totalWorkerTransfers}, 0)`,
-          total_worker_misc_expenses: sql3`COALESCE(${dailyExpenseSummaries.totalWorkerMiscExpenses}, 0)`,
-          total_income: dailyExpenseSummaries.totalIncome,
-          total_expenses: dailyExpenseSummaries.totalExpenses,
-          remaining_balance: dailyExpenseSummaries.remainingBalance,
-          notes: sql3`COALESCE(${dailyExpenseSummaries.notes}, '')`,
-          created_at: dailyExpenseSummaries.createdAt,
-          updated_at: sql3`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
-          project_name: projects.name
-        }).from(dailyExpenseSummaries).leftJoin(projects, eq3(dailyExpenseSummaries.projectId, projects.id)).where(and3(
-          eq3(dailyExpenseSummaries.projectId, projectId),
-          eq3(dailyExpenseSummaries.date, date2)
-        )).limit(1);
-        if (regularResult.length > 0) {
-          dailySummary = regularResult[0];
-          console.log("\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 \u0627\u0644\u062C\u062F\u0648\u0644 \u0627\u0644\u0639\u0627\u062F\u064A \u0628\u0646\u062C\u0627\u062D");
-        }
-      }
-      const duration = Date.now() - startTime;
-      if (!dailySummary) {
-        console.log(`\u{1F4ED} [API] \u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0644\u062E\u0635 \u064A\u0648\u0645\u064A \u0644\u0644\u0645\u0634\u0631\u0648\u0639 ${projectId} \u0641\u064A \u062A\u0627\u0631\u064A\u062E ${date2} - \u0625\u0631\u062C\u0627\u0639 \u0628\u064A\u0627\u0646\u0627\u062A \u0641\u0627\u0631\u063A\u0629`);
-        return res.json({
-          success: true,
-          data: {
-            id: null,
-            projectId,
-            date: date2,
-            totalIncome: 0,
-            totalExpenses: 0,
-            remainingBalance: 0,
-            notes: null,
-            isEmpty: true,
-            message: `\u0644\u0627 \u064A\u0648\u062C\u062F \u0645\u0644\u062E\u0635 \u0645\u0627\u0644\u064A \u0645\u062D\u0641\u0648\u0638 \u0644\u0644\u0645\u0634\u0631\u0648\u0639 \u0641\u064A \u062A\u0627\u0631\u064A\u062E ${date2}`
-          },
-          processingTime: duration,
-          metadata: {
-            projectId,
-            date: date2,
-            projectName: projectExists[0].name,
-            isEmptyResult: true
-          }
-        });
-      }
-      const formattedSummary = {
-        id: dailySummary.id,
-        projectId: dailySummary.project_id,
-        projectName: dailySummary.project_name || projectExists[0].name,
-        date: dailySummary.summary_date || date2,
-        financialSummary: {
-          carriedForwardAmount: parseFloat(String(dailySummary.carried_forward_amount || "0")),
-          totalFundTransfers: parseFloat(String(dailySummary.total_fund_transfers || "0")),
-          totalWorkerWages: parseFloat(String(dailySummary.total_worker_wages || "0")),
-          totalMaterialCosts: parseFloat(String(dailySummary.total_material_costs || "0")),
-          totalTransportationExpenses: parseFloat(String(dailySummary.total_transportation_expenses || "0")),
-          totalWorkerTransfers: parseFloat(String(dailySummary.total_worker_transfers || "0")),
-          totalWorkerMiscExpenses: parseFloat(String(dailySummary.total_worker_misc_expenses || "0")),
-          totalIncome: parseFloat(String(dailySummary.total_income || "0")),
-          totalExpenses: parseFloat(String(dailySummary.total_expenses || "0")),
-          remainingBalance: parseFloat(String(dailySummary.remaining_balance || "0"))
-        },
-        notes: String(dailySummary.notes || ""),
-        createdAt: dailySummary.created_at,
-        updatedAt: dailySummary.updated_at || dailySummary.created_at
-      };
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u062E\u0635 \u0627\u0644\u064A\u0648\u0645\u064A \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        projectId,
-        projectName: formattedSummary.projectName,
-        date: date2,
-        totalIncome: formattedSummary.financialSummary.totalIncome,
-        totalExpenses: formattedSummary.financialSummary.totalExpenses,
-        remainingBalance: formattedSummary.financialSummary.remainingBalance
-      });
-      res.json({
-        success: true,
-        data: formattedSummary,
-        message: `\u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0627\u0644\u064A \u0644\u0644\u0645\u0634\u0631\u0648\u0639 "${formattedSummary.projectName}" \u0641\u064A \u062A\u0627\u0631\u064A\u062E ${date2} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u062E\u0635 \u0627\u0644\u064A\u0648\u0645\u064A:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u062E\u0635 \u0627\u0644\u064A\u0648\u0645\u064A";
-      let statusCode = 500;
-      if (error.code === "42P01") {
-        errorMessage = "\u062C\u062F\u0648\u0644 \u0627\u0644\u0645\u0644\u062E\u0635\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F";
-        statusCode = 503;
-      } else if (error.code === "22008") {
-        errorMessage = "\u062A\u0646\u0633\u064A\u0642 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u063A\u064A\u0631 \u0635\u062D\u064A\u062D";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        data: null,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.get("/api/projects/:projectId/previous-balance/:date", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const { projectId, date: date2 } = req.params;
-      console.log(`\u{1F4B0} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062A\u0628\u0642\u064A \u0645\u0646 \u0627\u0644\u064A\u0648\u0645 \u0627\u0644\u0633\u0627\u0628\u0642: projectId=${projectId}, date=${date2}`);
-      if (!projectId || !date2) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0645\u0637\u0644\u0648\u0628\u0629 \u0645\u0641\u0642\u0648\u062F\u0629",
-          message: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0648\u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0645\u0637\u0644\u0648\u0628\u0627\u0646",
-          processingTime: duration2
-        });
-      }
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(date2)) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u062A\u0646\u0633\u064A\u0642 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u063A\u064A\u0631 \u0635\u062D\u064A\u062D",
-          message: "\u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0628\u0635\u064A\u063A\u0629 YYYY-MM-DD",
-          processingTime: duration2
-        });
-      }
-      const currentDate = new Date(date2);
-      const previousDate = new Date(currentDate);
-      previousDate.setDate(currentDate.getDate() - 1);
-      const previousDateStr = previousDate.toISOString().split("T")[0];
-      console.log(`\u{1F4B0} [API] \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062A\u0628\u0642\u064A \u0644\u064A\u0648\u0645: ${previousDateStr}`);
-      let previousBalance = 0;
-      let source = "none";
-      try {
-        const latestSummary = await db.select({
-          remainingBalance: dailyExpenseSummaries.remainingBalance,
-          date: dailyExpenseSummaries.date
-        }).from(dailyExpenseSummaries).where(and3(
-          eq3(dailyExpenseSummaries.projectId, projectId),
-          lt(dailyExpenseSummaries.date, date2)
-        )).orderBy(desc2(dailyExpenseSummaries.date)).limit(1);
-        if (latestSummary.length > 0) {
-          const summaryDate = latestSummary[0].date;
-          const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || "0"));
-          if (summaryDate === previousDateStr) {
-            previousBalance = summaryBalance;
-            source = "summary";
-            console.log(`\u{1F4B0} [API] \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0644\u062E\u0635 \u0644\u0644\u064A\u0648\u0645 \u0627\u0644\u0633\u0627\u0628\u0642: ${previousBalance}`);
-          } else {
-            console.log(`\u{1F4B0} [API] \u0622\u062E\u0631 \u0645\u0644\u062E\u0635 \u0645\u062D\u0641\u0648\u0638 \u0641\u064A ${summaryDate}, \u062D\u0633\u0627\u0628 \u062A\u0631\u0627\u0643\u0645\u064A \u0625\u0644\u0649 ${previousDateStr}`);
-            const startFromDate = new Date(summaryDate);
-            startFromDate.setDate(startFromDate.getDate() + 1);
-            const startFromStr = startFromDate.toISOString().split("T")[0];
-            const cumulativeBalance = await calculateCumulativeBalance2(projectId, startFromStr, previousDateStr);
-            previousBalance = summaryBalance + cumulativeBalance;
-            source = "computed-from-summary";
-            console.log(`\u{1F4B0} [API] \u0631\u0635\u064A\u062F \u062A\u0631\u0627\u0643\u0645\u064A \u0645\u0646 ${summaryDate} (${summaryBalance}) + ${cumulativeBalance} = ${previousBalance}`);
-          }
-        } else {
-          console.log(`\u{1F4B0} [API] \u0644\u0627 \u064A\u0648\u062C\u062F \u0645\u0644\u062E\u0635 \u0645\u062D\u0641\u0648\u0638\u060C \u062D\u0633\u0627\u0628 \u062A\u0631\u0627\u0643\u0645\u064A \u0645\u0646 \u0627\u0644\u0628\u062F\u0627\u064A\u0629`);
-          previousBalance = await calculateCumulativeBalance2(projectId, null, previousDateStr);
-          source = "computed-full";
-          console.log(`\u{1F4B0} [API] \u0631\u0635\u064A\u062F \u062A\u0631\u0627\u0643\u0645\u064A \u0643\u0627\u0645\u0644: ${previousBalance}`);
-        }
-      } catch (error) {
-        console.warn(`\u26A0\uFE0F [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0633\u0627\u0628\u0642\u060C \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0642\u064A\u0645\u0629 \u0627\u0644\u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629 0:`, error);
-        previousBalance = 0;
-        source = "error";
-      }
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062A\u0628\u0642\u064A \u0645\u0646 \u0627\u0644\u064A\u0648\u0645 \u0627\u0644\u0633\u0627\u0628\u0642 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms: ${previousBalance}`);
-      res.json({
-        success: true,
-        data: {
-          balance: previousBalance.toString(),
-          previousDate: previousDateStr,
-          currentDate: date2,
-          source
-        },
-        message: `\u062A\u0645 \u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062A\u0628\u0642\u064A \u0645\u0646 \u064A\u0648\u0645 ${previousDateStr} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062A\u0628\u0642\u064A \u0645\u0646 \u0627\u0644\u064A\u0648\u0645 \u0627\u0644\u0633\u0627\u0628\u0642:", error);
-      res.status(500).json({
-        success: false,
-        data: {
-          balance: "0"
-        },
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062A\u0628\u0642\u064A",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  async function calculateCumulativeBalance2(projectId, fromDate, toDate) {
-    try {
-      const whereConditions = [eq3(fundTransfers.projectId, projectId)];
-      if (fromDate) {
-        whereConditions.push(gte(fundTransfers.transferDate, sql3`${fromDate}::date`));
-      }
-      whereConditions.push(lt(fundTransfers.transferDate, sql3`(${toDate}::date + interval '1 day')`));
-      const [
-        ftRows,
-        waRows,
-        mpRows,
-        teRows,
-        wtRows,
-        wmRows,
-        incomingPtRows,
-        outgoingPtRows
-      ] = await Promise.all([
-        // تحويلات العهدة
-        db.select().from(fundTransfers).where(and3(...whereConditions)),
-        // أجور العمال
-        db.select().from(workerAttendance).where(and3(
-          eq3(workerAttendance.projectId, projectId),
-          fromDate ? gte(workerAttendance.date, fromDate) : sql3`true`,
-          lte(workerAttendance.date, toDate)
-        )),
-        // مشتريات المواد النقدية فقط
-        db.select().from(materialPurchases).where(and3(
-          eq3(materialPurchases.projectId, projectId),
-          eq3(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
-          fromDate ? gte(materialPurchases.purchaseDate, fromDate) : sql3`true`,
-          lte(materialPurchases.purchaseDate, toDate)
-        )),
-        // مصاريف النقل
-        db.select().from(transportationExpenses).where(and3(
-          eq3(transportationExpenses.projectId, projectId),
-          fromDate ? gte(transportationExpenses.date, fromDate) : sql3`true`,
-          lte(transportationExpenses.date, toDate)
-        )),
-        // حوالات العمال
-        db.select().from(workerTransfers).where(and3(
-          eq3(workerTransfers.projectId, projectId),
-          fromDate ? gte(workerTransfers.transferDate, fromDate) : sql3`true`,
-          lte(workerTransfers.transferDate, toDate)
-        )),
-        // مصاريف متنوعة للعمال
-        db.select().from(workerMiscExpenses).where(and3(
-          eq3(workerMiscExpenses.projectId, projectId),
-          fromDate ? gte(workerMiscExpenses.date, fromDate) : sql3`true`,
-          lte(workerMiscExpenses.date, toDate)
-        )),
-        // تحويلات واردة من مشاريع أخرى
-        db.select().from(projectFundTransfers).where(and3(
-          eq3(projectFundTransfers.toProjectId, projectId),
-          fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql3`true`,
-          lte(projectFundTransfers.transferDate, toDate)
-        )),
-        // تحويلات صادرة إلى مشاريع أخرى
-        db.select().from(projectFundTransfers).where(and3(
-          eq3(projectFundTransfers.fromProjectId, projectId),
-          fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql3`true`,
-          lte(projectFundTransfers.transferDate, toDate)
-        ))
-      ]);
-      const totalFundTransfers = ftRows.reduce((sum, t) => sum + parseFloat(String(t.amount || "0")), 0);
-      const totalWorkerWages = waRows.reduce((sum, w) => sum + parseFloat(String(w.paidAmount || "0")), 0);
-      const totalMaterialCosts = mpRows.reduce((sum, m) => sum + parseFloat(String(m.totalAmount || "0")), 0);
-      const totalTransportation = teRows.reduce((sum, t) => sum + parseFloat(String(t.amount || "0")), 0);
-      const totalWorkerTransfers = wtRows.reduce((sum, w) => sum + parseFloat(String(w.amount || "0")), 0);
-      const totalMiscExpenses = wmRows.reduce((sum, m) => sum + parseFloat(String(m.amount || "0")), 0);
-      const totalIncomingProjectTransfers = incomingPtRows.reduce((sum, p) => sum + parseFloat(String(p.amount || "0")), 0);
-      const totalOutgoingProjectTransfers = outgoingPtRows.reduce((sum, p) => sum + parseFloat(String(p.amount || "0")), 0);
-      const totalIncome = totalFundTransfers + totalIncomingProjectTransfers;
-      const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses + totalOutgoingProjectTransfers;
-      const balance = totalIncome - totalExpenses;
-      console.log(`\u{1F4B0} [Calc] \u0641\u062A\u0631\u0629 ${fromDate || "\u0627\u0644\u0628\u062F\u0627\u064A\u0629"} \u0625\u0644\u0649 ${toDate}: \u062F\u062E\u0644=${totalIncome}, \u0645\u0635\u0627\u0631\u064A\u0641=${totalExpenses}, \u0631\u0635\u064A\u062F=${balance}`);
-      return balance;
-    } catch (error) {
-      console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u062A\u0631\u0627\u0643\u0645\u064A:", error);
-      return 0;
-    }
-  }
-  app2.post("/api/projects", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4DD} [API] \u0637\u0644\u0628 \u0625\u0636\u0627\u0641\u0629 \u0645\u0634\u0631\u0648\u0639 \u062C\u062F\u064A\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      const validationResult = enhancedInsertProjectSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      console.log("\u2705 [API] \u0646\u062C\u062D validation \u0627\u0644\u0645\u0634\u0631\u0648\u0639");
-      console.log("\u{1F4BE} [API] \u062D\u0641\u0638 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const newProject = await db.insert(projects).values(validationResult.data).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: newProject[0].id,
-        name: newProject[0].name,
-        status: newProject[0].status
-      });
-      res.status(201).json({
-        success: true,
-        data: newProject[0],
-        message: `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 "${newProject[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0634\u0631\u0648\u0639";
-      let statusCode = 500;
-      if (error.code === "23505") {
-        errorMessage = "\u0627\u0633\u0645 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B";
-        statusCode = 409;
-      } else if (error.code === "23502") {
-        errorMessage = "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0646\u0627\u0642\u0635\u0629";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.post("/api/materials", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4DD} [API] \u0637\u0644\u0628 \u0625\u0636\u0627\u0641\u0629 \u0645\u0627\u062F\u0629 \u062C\u062F\u064A\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0627\u062F\u0629 \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      const validationResult = insertMaterialSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u0627\u0644\u0645\u0627\u062F\u0629:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      console.log("\u2705 [API] \u0646\u062C\u062D validation \u0627\u0644\u0645\u0627\u062F\u0629");
-      console.log("\u{1F4BE} [API] \u062D\u0641\u0638 \u0627\u0644\u0645\u0627\u062F\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const newMaterial = await db.insert(materials).values(validationResult.data).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0627\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: newMaterial[0].id,
-        name: newMaterial[0].name,
-        category: newMaterial[0].category,
-        unit: newMaterial[0].unit
-      });
-      res.status(201).json({
-        success: true,
-        data: newMaterial[0],
-        message: `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0627\u062F\u0629 "${newMaterial[0].name}" (${newMaterial[0].category}) \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0627\u062F\u0629:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0627\u062F\u0629";
-      let statusCode = 500;
-      if (error.code === "23505") {
-        errorMessage = "\u0627\u0644\u0645\u0627\u062F\u0629 \u0645\u0648\u062C\u0648\u062F\u0629 \u0645\u0633\u0628\u0642\u0627\u064B";
-        statusCode = 409;
-      } else if (error.code === "23502") {
-        errorMessage = "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0627\u062F\u0629 \u0646\u0627\u0642\u0635\u0629";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.post("/api/suppliers", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4DD} [API] \u0637\u0644\u0628 \u0625\u0636\u0627\u0641\u0629 \u0645\u0648\u0631\u062F \u062C\u062F\u064A\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0648\u0631\u062F \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      const validationResult = insertSupplierSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u0627\u0644\u0645\u0648\u0631\u062F:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0648\u0631\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0648\u0631\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      console.log("\u2705 [API] \u0646\u062C\u062D validation \u0627\u0644\u0645\u0648\u0631\u062F");
-      console.log("\u{1F4BE} [API] \u062D\u0641\u0638 \u0627\u0644\u0645\u0648\u0631\u062F \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const newSupplier = await db.insert(suppliers).values(validationResult.data).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0648\u0631\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: newSupplier[0].id,
-        name: newSupplier[0].name,
-        contactPerson: newSupplier[0].contactPerson
-      });
-      res.status(201).json({
-        success: true,
-        data: newSupplier[0],
-        message: `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0648\u0631\u062F "${newSupplier[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0648\u0631\u062F:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0648\u0631\u062F";
-      let statusCode = 500;
-      if (error.code === "23505") {
-        errorMessage = "\u0627\u0633\u0645 \u0627\u0644\u0645\u0648\u0631\u062F \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B";
-        statusCode = 409;
-      } else if (error.code === "23502") {
-        errorMessage = "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0648\u0631\u062F \u0646\u0627\u0642\u0635\u0629";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/material-purchases/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const purchaseId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629:", purchaseId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!purchaseId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).limit(1);
-      if (existingPurchase.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0634\u062A\u0631\u064A\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${purchaseId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = insertMaterialPurchaseSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      const updatedPurchase = await db.update(materialPurchases).set({
-        ...validationResult.data,
-        updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq3(materialPurchases.id, purchaseId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedPurchase[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.post("/api/material-purchases", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4DD} [API] \u0637\u0644\u0628 \u0625\u0636\u0627\u0641\u0629 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0645\u0648\u0627\u062F \u062C\u062F\u064A\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      const validationResult = insertMaterialPurchaseSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      console.log("\u2705 [API] \u0646\u062C\u062D validation \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F");
-      console.log("\u{1F4BE} [API] \u062D\u0641\u0638 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const newPurchase = await db.insert(materialPurchases).values(validationResult.data).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: newPurchase[0].id,
-        projectId: newPurchase[0].projectId,
-        totalAmount: newPurchase[0].totalAmount
-      });
-      res.status(201).json({
-        success: true,
-        data: newPurchase[0],
-        message: `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0642\u064A\u0645\u0629 ${newPurchase[0].totalAmount} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F";
-      let statusCode = 500;
-      if (error.code === "23503") {
-        errorMessage = "\u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0623\u0648 \u0627\u0644\u0645\u0627\u062F\u0629 \u0623\u0648 \u0627\u0644\u0645\u0648\u0631\u062F \u0627\u0644\u0645\u062D\u062F\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F";
-        statusCode = 400;
-      } else if (error.code === "23502") {
-        errorMessage = "\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0646\u0627\u0642\u0635\u0629";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.get("/api/projects/:projectId/daily-expenses/:date", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const { projectId, date: date2 } = req.params;
-      console.log(`\u{1F4CA} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629: projectId=${projectId}, date=${date2}`);
-      if (!projectId || !date2) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0645\u0637\u0644\u0648\u0628\u0629 \u0645\u0641\u0642\u0648\u062F\u0629",
-          message: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0648\u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0645\u0637\u0644\u0648\u0628\u0627\u0646",
-          processingTime: duration2
-        });
-      }
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(date2)) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u062A\u0646\u0633\u064A\u0642 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u063A\u064A\u0631 \u0635\u062D\u064A\u062D",
-          message: "\u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0628\u0635\u064A\u063A\u0629 YYYY-MM-DD",
-          processingTime: duration2
-        });
-      }
-      const [
-        fundTransfersResult,
-        workerAttendanceResult,
-        materialPurchasesResult,
-        transportationResult,
-        workerTransfersResult,
-        miscExpensesResult,
-        projectInfo
-      ] = await Promise.all([
-        db.select().from(fundTransfers).where(and3(eq3(fundTransfers.projectId, projectId), gte(fundTransfers.transferDate, sql3`${date2}::date`), lt(fundTransfers.transferDate, sql3`(${date2}::date + interval '1 day')`))),
-        db.select({
-          id: workerAttendance.id,
-          workerId: workerAttendance.workerId,
-          projectId: workerAttendance.projectId,
-          date: workerAttendance.date,
-          paidAmount: workerAttendance.paidAmount,
-          actualWage: workerAttendance.actualWage,
-          workDays: workerAttendance.workDays,
-          workerName: workers.name
-        }).from(workerAttendance).leftJoin(workers, eq3(workerAttendance.workerId, workers.id)).where(and3(eq3(workerAttendance.projectId, projectId), eq3(workerAttendance.date, date2))),
-        db.select().from(materialPurchases).where(and3(eq3(materialPurchases.projectId, projectId), eq3(materialPurchases.purchaseDate, date2))),
-        db.select().from(transportationExpenses).where(and3(eq3(transportationExpenses.projectId, projectId), eq3(transportationExpenses.date, date2))),
-        db.select().from(workerTransfers).where(and3(eq3(workerTransfers.projectId, projectId), eq3(workerTransfers.transferDate, date2))),
-        db.select().from(workerMiscExpenses).where(and3(eq3(workerMiscExpenses.projectId, projectId), eq3(workerMiscExpenses.date, date2))),
-        db.select().from(projects).where(eq3(projects.id, projectId)).limit(1)
-      ]);
-      const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-      const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
-      const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
-      const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-      const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
-      const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
-      const totalIncome = totalFundTransfers;
-      const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
-      const remainingBalance = totalIncome - totalExpenses;
-      const responseData = {
-        date: date2,
-        projectName: projectInfo[0]?.name || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641",
-        projectId,
-        totalIncome,
-        totalExpenses,
-        remainingBalance,
-        fundTransfers: fundTransfersResult,
-        workerAttendance: workerAttendanceResult,
-        materialPurchases: materialPurchasesResult,
-        transportationExpenses: transportationResult,
-        workerTransfers: workerTransfersResult,
-        miscExpenses: miscExpensesResult
-      };
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: responseData,
-        message: `\u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0644\u062A\u0627\u0631\u064A\u062E ${date2} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.post("/api/fund-transfers", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4DD} [API] \u0637\u0644\u0628 \u0625\u0636\u0627\u0641\u0629 \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u062C\u062F\u064A\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      const validationResult = insertFundTransferSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      console.log("\u2705 [API] \u0646\u062C\u062D validation \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629");
-      console.log("\u{1F4BE} [API] \u062D\u0641\u0638 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const newTransfer = await db.insert(fundTransfers).values(validationResult.data).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: newTransfer[0].id,
-        amount: newTransfer[0].amount,
-        transferType: newTransfer[0].transferType
-      });
-      res.status(201).json({
-        success: true,
-        data: newTransfer[0],
-        message: `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0628\u0642\u064A\u0645\u0629 ${newTransfer[0].amount} (${newTransfer[0].transferType}) \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629";
-      let statusCode = 500;
-      if (error.code === "23505") {
-        errorMessage = "\u0631\u0642\u0645 \u0627\u0644\u062A\u062D\u0648\u064A\u0644 \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B";
-        statusCode = 409;
-      } else if (error.code === "23503") {
-        errorMessage = "\u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0627\u0644\u0645\u062D\u062F\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F";
-        statusCode = 400;
-      } else if (error.code === "23502") {
-        errorMessage = "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0646\u0627\u0642\u0635\u0629";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.post("/api/transportation-expenses", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4DD} [API] \u0637\u0644\u0628 \u0625\u0636\u0627\u0641\u0629 \u0645\u0635\u0631\u0648\u0641 \u0645\u0648\u0627\u0635\u0644\u0627\u062A \u062C\u062F\u064A\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      const validationResult = insertTransportationExpenseSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      console.log("\u2705 [API] \u0646\u062C\u062D validation \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A");
-      console.log("\u{1F4BE} [API] \u062D\u0641\u0638 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const newExpense = await db.insert(transportationExpenses).values(validationResult.data).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: newExpense[0].id,
-        amount: newExpense[0].amount,
-        description: newExpense[0].description
-      });
-      res.status(201).json({
-        success: true,
-        data: newExpense[0],
-        message: `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0635\u0631\u0648\u0641 \u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0642\u064A\u0645\u0629 ${newExpense[0].amount} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A";
-      let statusCode = 500;
-      if (error.code === "23503") {
-        errorMessage = "\u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0623\u0648 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062D\u062F\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F";
-        statusCode = 400;
-      } else if (error.code === "23502") {
-        errorMessage = "\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0646\u0627\u0642\u0635\u0629";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.post("/api/daily-expense-summaries", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4DD} [API] \u0637\u0644\u0628 \u0625\u0636\u0627\u0641\u0629 \u0645\u0644\u062E\u0635 \u0645\u0635\u0627\u0631\u064A\u0641 \u064A\u0648\u0645\u064A\u0629 \u062C\u062F\u064A\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      const validationResult = insertDailyExpenseSummarySchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      console.log("\u2705 [API] \u0646\u062C\u062D validation \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629");
-      console.log("\u{1F4BE} [API] \u062D\u0641\u0638 \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const newSummary = await db.insert(dailyExpenseSummaries).values(validationResult.data).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: newSummary[0].id,
-        date: newSummary[0].date,
-        totalExpenses: newSummary[0].totalExpenses
-      });
-      res.status(201).json({
-        success: true,
-        data: newSummary[0],
-        message: `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0644\u062A\u0627\u0631\u064A\u062E ${newSummary[0].date} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629";
-      let statusCode = 500;
-      if (error.code === "23503") {
-        errorMessage = "\u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0627\u0644\u0645\u062D\u062F\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F";
-        statusCode = 400;
-      } else if (error.code === "23502") {
-        errorMessage = "\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0646\u0627\u0642\u0635\u0629";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.get("/api/material-purchases/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const purchaseId = req.params.id;
-      console.log(`\u{1F4CA} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0627\u062F\u0629 \u0644\u0644\u062A\u0639\u062F\u064A\u0644: ${purchaseId}`);
-      if (!purchaseId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0637\u0644\u0648\u0628",
-          processingTime: duration2
-        });
-      }
-      const purchase = await db.select({
-        id: materialPurchases.id,
-        projectId: materialPurchases.projectId,
-        materialName: materialPurchases.materialName,
-        materialCategory: materialPurchases.materialCategory,
-        materialUnit: materialPurchases.materialUnit,
-        quantity: materialPurchases.quantity,
-        unit: materialPurchases.unit,
-        unitPrice: materialPurchases.unitPrice,
-        totalAmount: materialPurchases.totalAmount,
-        purchaseType: materialPurchases.purchaseType,
-        supplierName: materialPurchases.supplierName,
-        invoiceNumber: materialPurchases.invoiceNumber,
-        invoiceDate: materialPurchases.invoiceDate,
-        invoicePhoto: materialPurchases.invoicePhoto,
-        notes: materialPurchases.notes,
-        purchaseDate: materialPurchases.purchaseDate,
-        createdAt: materialPurchases.createdAt
-      }).from(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).limit(1);
-      if (purchase.length === 0) {
-        const duration2 = Date.now() - startTime;
-        console.log(`\u{1F4ED} [API] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629: ${purchaseId}`);
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0634\u062A\u0631\u064A\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${purchaseId}`,
-          processingTime: duration2
-        });
-      }
-      const purchaseData = purchase[0];
-      let materialData = null;
-      let finalMaterialCategory = purchaseData.materialCategory;
-      let finalMaterialUnit = purchaseData.materialUnit || purchaseData.unit;
-      if ((!finalMaterialCategory || !finalMaterialUnit) && purchaseData.materialName) {
-        try {
-          console.log(`\u{1F50D} [API] \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0641\u0626\u0629 \u0627\u0644\u0645\u0627\u062F\u0629 \u0644\u0640: ${purchaseData.materialName}`);
-          let similarMaterial = await db.select().from(materials).where(eq3(materials.name, purchaseData.materialName)).limit(1);
-          if (similarMaterial.length === 0) {
-            similarMaterial = await db.select().from(materials).where(sql3`LOWER(${materials.name}) LIKE LOWER(${`%${purchaseData.materialName}%`})`).limit(1);
-          }
-          if (similarMaterial.length === 0) {
-            const firstWord = purchaseData.materialName.split(" ")[0];
-            if (firstWord.length > 2) {
-              similarMaterial = await db.select().from(materials).where(sql3`LOWER(${materials.name}) LIKE LOWER(${`${firstWord}%`})`).limit(1);
-            }
-          }
-          if (similarMaterial.length > 0) {
-            materialData = similarMaterial[0];
-            finalMaterialCategory = finalMaterialCategory || materialData.category;
-            finalMaterialUnit = finalMaterialUnit || materialData.unit;
-            console.log(`\u2705 [API] \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0627\u062F\u0629 \u0645\u0634\u0627\u0628\u0647\u0629:`, {
-              foundMaterial: materialData.name,
-              category: materialData.category,
-              unit: materialData.unit
-            });
-          } else {
-            console.log(`\u26A0\uFE0F [API] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0627\u062F\u0629 \u0645\u0634\u0627\u0628\u0647\u0629 \u0644\u0640: ${purchaseData.materialName}`);
-          }
-        } catch (materialError) {
-          console.warn("\u26A0\uFE0F [API] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0645\u0627\u062F\u0629 \u0645\u0634\u0627\u0628\u0647\u0629:", materialError);
-        }
-      }
-      const duration = Date.now() - startTime;
-      const completeData = {
-        ...purchaseData,
-        materialCategory: finalMaterialCategory,
-        materialUnit: finalMaterialUnit,
-        material: materialData
-      };
-      console.log(`\u{1F50D} [API] \u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u0631\u062C\u0639\u0629:`, {
-        purchaseData: {
-          id: purchaseData.id,
-          materialName: purchaseData.materialName,
-          materialCategory: purchaseData.materialCategory,
-          materialUnit: purchaseData.materialUnit,
-          unit: purchaseData.unit
-        },
-        materialData: materialData ? {
-          id: materialData.id,
-          name: materialData.name,
-          category: materialData.category,
-          unit: materialData.unit
-        } : "\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0627\u062F\u0629 \u0645\u0631\u062A\u0628\u0637\u0629",
-        completeData: {
-          materialCategory: completeData.materialCategory,
-          materialUnit: completeData.materialUnit
-        }
-      });
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0644\u0644\u062A\u0639\u062F\u064A\u0644 \u0641\u064A ${duration}ms:`, {
-        id: completeData.id,
-        materialName: completeData.materialName,
-        materialCategory: completeData.materialCategory,
-        materialUnit: completeData.materialUnit,
-        totalAmount: completeData.totalAmount
-      });
-      res.json({
-        success: true,
-        data: completeData,
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629 \u0628\u0646\u062C\u0627\u062D",
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.post("/api/equipment", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4DD} [API] \u0637\u0644\u0628 \u0625\u0636\u0627\u0641\u0629 \u0645\u0639\u062F\u0629 \u062C\u062F\u064A\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0639\u062F\u0629 \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      const validationResult = insertToolSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u0627\u0644\u0645\u0639\u062F\u0629:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0639\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0639\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      console.log("\u2705 [API] \u0646\u062C\u062D validation \u0627\u0644\u0645\u0639\u062F\u0629");
-      console.log("\u{1F4BE} [API] \u062D\u0641\u0638 \u0627\u0644\u0645\u0639\u062F\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const newEquipment = await db.insert(tools).values(validationResult.data).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0639\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: newEquipment[0].id,
-        name: newEquipment[0].name,
-        categoryId: newEquipment[0].categoryId
-      });
-      res.status(201).json({
-        success: true,
-        data: newEquipment[0],
-        message: `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0639\u062F\u0629 "${newEquipment[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0639\u062F\u0629:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0639\u062F\u0629";
-      let statusCode = 500;
-      if (error.code === "23505") {
-        errorMessage = "\u0627\u0633\u0645 \u0627\u0644\u0645\u0639\u062F\u0629 \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B";
-        statusCode = 409;
-      } else if (error.code === "23502") {
-        errorMessage = "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0639\u062F\u0629 \u0646\u0627\u0642\u0635\u0629";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.post("/api/equipment-transfers", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      console.log("\u{1F4DD} [API] \u0637\u0644\u0628 \u0625\u0636\u0627\u0641\u0629 \u062A\u062D\u0648\u064A\u0644 \u0645\u0639\u062F\u0629 \u062C\u062F\u064A\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      const validationResult = insertToolMovementSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      console.log("\u2705 [API] \u0646\u062C\u062D validation \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629");
-      console.log("\u{1F4BE} [API] \u062D\u0641\u0638 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const newTransfer = await db.insert(toolMovements).values(validationResult.data).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: newTransfer[0].id,
-        toolId: newTransfer[0].toolId,
-        movementType: newTransfer[0].movementType
-      });
-      res.status(201).json({
-        success: true,
-        data: newTransfer[0],
-        message: `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629";
-      let statusCode = 500;
-      if (error.code === "23503") {
-        errorMessage = "\u0627\u0644\u0645\u0639\u062F\u0629 \u0623\u0648 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0627\u0644\u0645\u062D\u062F\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F";
-        statusCode = 400;
-      } else if (error.code === "23502") {
-        errorMessage = "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0646\u0627\u0642\u0635\u0629";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/materials/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const materialId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0627\u0644\u0645\u0627\u062F\u0629:", materialId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!materialId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingMaterial = await db.select().from(materials).where(eq3(materials.id, materialId)).limit(1);
-      if (existingMaterial.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0627\u062F\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${materialId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = insertMaterialSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      const updatedMaterial = await db.update(materials).set(validationResult.data).where(eq3(materials.id, materialId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedMaterial[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 "${updatedMaterial[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/suppliers/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const supplierId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0627\u0644\u0645\u0648\u0631\u062F:", supplierId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!supplierId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingSupplier = await db.select().from(suppliers).where(eq3(suppliers.id, supplierId)).limit(1);
-      if (existingSupplier.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0645\u0648\u0631\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0648\u0631\u062F \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${supplierId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = insertSupplierSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      const updatedSupplier = await db.update(suppliers).set(validationResult.data).where(eq3(suppliers.id, supplierId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedSupplier[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F "${updatedSupplier[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/material-purchases/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const purchaseId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", purchaseId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!purchaseId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).limit(1);
-      if (existingPurchase.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0645\u0648\u0627\u062F \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${purchaseId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = insertMaterialPurchaseSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      const updatedPurchase = await db.update(materialPurchases).set(validationResult.data).where(eq3(materialPurchases.id, purchaseId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedPurchase[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0642\u064A\u0645\u0629 ${updatedPurchase[0].totalAmount} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/fund-transfers/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const transferId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629:", transferId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!transferId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingTransfer = await db.select().from(fundTransfers).where(eq3(fundTransfers.id, transferId)).limit(1);
-      if (existingTransfer.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${transferId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = insertFundTransferSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq3(fundTransfers.id, transferId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedTransfer[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0642\u064A\u0645\u0629 ${updatedTransfer[0].amount} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/transportation-expenses/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const expenseId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A:", expenseId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!expenseId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingExpense = await db.select().from(transportationExpenses).where(eq3(transportationExpenses.id, expenseId)).limit(1);
-      if (existingExpense.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0635\u0631\u0648\u0641 \u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${expenseId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = insertTransportationExpenseSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      const updatedExpense = await db.update(transportationExpenses).set(validationResult.data).where(eq3(transportationExpenses.id, expenseId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedExpense[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0642\u064A\u0645\u0629 ${updatedExpense[0].amount} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/daily-expense-summaries/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const summaryId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629:", summaryId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!summaryId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingSummary = await db.select().from(dailyExpenseSummaries).where(eq3(dailyExpenseSummaries.id, summaryId)).limit(1);
-      if (existingSummary.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0644\u062E\u0635 \u0645\u0635\u0627\u0631\u064A\u0641 \u064A\u0648\u0645\u064A\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${summaryId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = insertDailyExpenseSummarySchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      const updatedSummary = await db.update(dailyExpenseSummaries).set(validationResult.data).where(eq3(dailyExpenseSummaries.id, summaryId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedSummary[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0644\u062A\u0627\u0631\u064A\u062E ${updatedSummary[0].date} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/equipment/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const equipmentId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0639\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0627\u0644\u0645\u0639\u062F\u0629:", equipmentId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!equipmentId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0639\u062F\u0629 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0639\u062F\u0629 \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingEquipment = await db.select().from(tools).where(eq3(tools.id, equipmentId)).limit(1);
-      if (existingEquipment.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0645\u0639\u062F\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0639\u062F\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${equipmentId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = insertToolSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0639\u062F\u0629:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0639\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0639\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      const updatedEquipment = await db.update(tools).set(validationResult.data).where(eq3(tools.id, equipmentId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0639\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedEquipment[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0639\u062F\u0629 "${updatedEquipment[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0639\u062F\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0639\u062F\u0629",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/equipment-transfers/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const transferId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629:", transferId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!transferId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingTransfer = await db.select().from(toolMovements).where(eq3(toolMovements.id, transferId)).limit(1);
-      if (existingTransfer.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062A\u062D\u0648\u064A\u0644 \u0645\u0639\u062F\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${transferId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = insertToolMovementSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      const updatedTransfer = await db.update(toolMovements).set(validationResult.data).where(eq3(toolMovements.id, transferId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedTransfer[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.delete("/api/material-purchases/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const purchaseId = req.params.id;
-      console.log("\u274C [API] \u0637\u0644\u0628 \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0627\u0644\u0645\u0631\u0627\u062F \u062D\u0630\u0641\u0647\u0627:", purchaseId);
-      if (!purchaseId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0644\u0644\u062D\u0630\u0641",
-          processingTime: duration2
-        });
-      }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).limit(1);
-      if (existingPurchase.length === 0) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", purchaseId);
-        return res.status(404).json({
-          success: false,
-          error: "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0645\u0648\u0627\u062F \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${purchaseId}`,
-          processingTime: duration2
-        });
-      }
-      const purchaseToDelete = existingPurchase[0];
-      console.log("\u{1F5D1}\uFE0F [API] \u0633\u064A\u062A\u0645 \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", {
-        id: purchaseToDelete.id,
-        projectId: purchaseToDelete.projectId,
-        totalAmount: purchaseToDelete.totalAmount
-      });
-      console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedPurchase = await db.delete(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: deletedPurchase[0].id,
-        totalAmount: deletedPurchase[0].totalAmount
-      });
-      res.json({
-        success: true,
-        data: deletedPurchase[0],
-        message: `\u062A\u0645 \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0642\u064A\u0645\u0629 ${deletedPurchase[0].totalAmount} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F";
-      let statusCode = 500;
-      if (error.code === "23503") {
-        errorMessage = "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F - \u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0628\u064A\u0627\u0646\u0627\u062A \u0623\u062E\u0631\u0649";
-        statusCode = 409;
-      } else if (error.code === "22P02") {
-        errorMessage = "\u0645\u0639\u0631\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.delete("/api/suppliers/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const supplierId = req.params.id;
-      console.log("\u274C [API] \u0637\u0644\u0628 \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0627\u0644\u0645\u0648\u0631\u062F \u0627\u0644\u0645\u0631\u0627\u062F \u062D\u0630\u0641\u0647:", supplierId);
-      if (!supplierId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u0644\u0644\u062D\u0630\u0641",
-          processingTime: duration2
-        });
-      }
-      const existingSupplier = await db.select().from(suppliers).where(eq3(suppliers.id, supplierId)).limit(1);
-      if (existingSupplier.length === 0) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0627\u0644\u0645\u0648\u0631\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", supplierId);
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0645\u0648\u0631\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0648\u0631\u062F \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${supplierId}`,
-          processingTime: duration2
-        });
-      }
-      const supplierToDelete = existingSupplier[0];
-      console.log("\u{1F5D1}\uFE0F [API] \u0633\u064A\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F:", {
-        id: supplierToDelete.id,
-        name: supplierToDelete.name,
-        contactPerson: supplierToDelete.contactPerson
-      });
-      console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedSupplier = await db.delete(suppliers).where(eq3(suppliers.id, supplierId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: deletedSupplier[0].id,
-        name: deletedSupplier[0].name
-      });
-      res.json({
-        success: true,
-        data: deletedSupplier[0],
-        message: `\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F "${deletedSupplier[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F";
-      let statusCode = 500;
-      if (error.code === "23503") {
-        errorMessage = "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F - \u0645\u0631\u062A\u0628\u0637 \u0628\u0628\u064A\u0627\u0646\u0627\u062A \u0623\u062E\u0631\u0649";
-        statusCode = 409;
-      } else if (error.code === "22P02") {
-        errorMessage = "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/workers/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const workerId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0627\u0644\u0639\u0627\u0645\u0644:", workerId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!workerId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingWorker = await db.select().from(workers).where(eq3(workers.id, workerId)).limit(1);
-      if (existingWorker.length === 0) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0639\u0627\u0645\u0644 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${workerId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = enhancedInsertWorkerSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      console.log("\u2705 [API] \u0646\u062C\u062D validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644");
-      console.log("\u{1F4BE} [API] \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const updatedWorker = await db.update(workers).set(validationResult.data).where(eq3(workers.id, workerId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: updatedWorker[0].id,
-        name: updatedWorker[0].name,
-        type: updatedWorker[0].type,
-        dailyWage: updatedWorker[0].dailyWage,
-        isActive: updatedWorker[0].isActive
-      });
-      res.json({
-        success: true,
-        data: updatedWorker[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 "${updatedWorker[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644";
-      let statusCode = 500;
-      if (error.code === "23505") {
-        errorMessage = "\u0627\u0633\u0645 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B";
-        statusCode = 409;
-      } else if (error.code === "23502") {
-        errorMessage = "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0644 \u0646\u0627\u0642\u0635\u0629";
-        statusCode = 400;
-      } else if (error.code === "22P02") {
-        errorMessage = "\u062A\u0646\u0633\u064A\u0642 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.delete("/api/workers/:id", requireAuth, requireRole("admin"), async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const workerId = req.params.id;
-      console.log("\u274C [API] \u0637\u0644\u0628 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u0631\u0627\u062F \u062D\u0630\u0641\u0647:", workerId);
-      if (!workerId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0644\u0644\u062D\u0630\u0641",
-          processingTime: duration2
-        });
-      }
-      const existingWorker = await db.select().from(workers).where(eq3(workers.id, workerId)).limit(1);
-      if (existingWorker.length === 0) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0639\u0627\u0645\u0644 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${workerId}`,
-          processingTime: duration2
-        });
-      }
-      const workerToDelete = existingWorker[0];
-      console.log("\u{1F5D1}\uFE0F [API] \u0641\u062D\u0635 \u0625\u0645\u0643\u0627\u0646\u064A\u0629 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644:", {
-        id: workerToDelete.id,
-        name: workerToDelete.name,
-        type: workerToDelete.type
-      });
-      console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062D\u0636\u0648\u0631 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-      const attendanceRecords = await db.select({
-        id: workerAttendance.id,
-        date: workerAttendance.date,
-        projectId: workerAttendance.projectId
-      }).from(workerAttendance).where(eq3(workerAttendance.workerId, workerId)).limit(5);
-      if (attendanceRecords.length > 0) {
-        const duration2 = Date.now() - startTime;
-        const totalAttendanceCount = await db.select({
-          count: sql3`COUNT(*)`
-        }).from(workerAttendance).where(eq3(workerAttendance.workerId, workerId));
-        const totalCount = totalAttendanceCount[0]?.count || attendanceRecords.length;
-        console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${totalCount} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631`);
-        return res.status(409).json({
-          success: false,
-          error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644",
-          message: `\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 "${workerToDelete.name}" \u0644\u0623\u0646\u0647 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${totalCount} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631. \u064A\u062C\u0628 \u062D\u0630\u0641 \u062C\u0645\u064A\u0639 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062D\u0636\u0648\u0631 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644 \u0623\u0648\u0644\u0627\u064B \u0645\u0646 \u0635\u0641\u062D\u0629 \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644.`,
-          userAction: "\u064A\u062C\u0628 \u062D\u0630\u0641 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062D\u0636\u0648\u0631 \u0623\u0648\u0644\u0627\u064B",
-          relatedRecordsCount: totalCount,
-          relatedRecordsType: "\u0633\u062C\u0644\u0627\u062A \u062D\u0636\u0648\u0631",
-          processingTime: duration2
-        });
-      }
-      console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-      const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq3(workerTransfers.workerId, workerId)).limit(1);
-      if (transferRecords.length > 0) {
-        const duration2 = Date.now() - startTime;
-        const totalTransfersCount = await db.select({
-          count: sql3`COUNT(*)`
-        }).from(workerTransfers).where(eq3(workerTransfers.workerId, workerId));
-        const transfersCount = totalTransfersCount[0]?.count || transferRecords.length;
-        console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transfersCount} \u062A\u062D\u0648\u064A\u0644 \u0645\u0627\u0644\u064A`);
-        return res.status(409).json({
-          success: false,
-          error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644",
-          message: `\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 "${workerToDelete.name}" \u0644\u0623\u0646\u0647 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transfersCount} \u062A\u062D\u0648\u064A\u0644 \u0645\u0627\u0644\u064A. \u064A\u062C\u0628 \u062D\u0630\u0641 \u062C\u0645\u064A\u0639 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644 \u0623\u0648\u0644\u0627\u064B \u0645\u0646 \u0635\u0641\u062D\u0629 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644.`,
-          userAction: "\u064A\u062C\u0628 \u062D\u0630\u0641 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0623\u0648\u0644\u0627\u064B",
-          relatedRecordsCount: transfersCount,
-          relatedRecordsType: "\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0645\u0627\u0644\u064A\u0629",
-          processingTime: duration2
-        });
-      }
-      console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-      const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq3(transportationExpenses.workerId, workerId)).limit(1);
-      if (transportRecords.length > 0) {
-        const duration2 = Date.now() - startTime;
-        const totalTransportCount = await db.select({
-          count: sql3`COUNT(*)`
-        }).from(transportationExpenses).where(eq3(transportationExpenses.workerId, workerId));
-        const transportCount = totalTransportCount[0]?.count || transportRecords.length;
-        console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transportCount} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644`);
-        return res.status(409).json({
-          success: false,
-          error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644",
-          message: `\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 "${workerToDelete.name}" \u0644\u0623\u0646\u0647 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transportCount} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644. \u064A\u062C\u0628 \u062D\u0630\u0641 \u062C\u0645\u064A\u0639 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644 \u0623\u0648\u0644\u0627\u064B \u0645\u0646 \u0635\u0641\u062D\u0629 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644.`,
-          userAction: "\u064A\u062C\u0628 \u062D\u0630\u0641 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644 \u0623\u0648\u0644\u0627\u064B",
-          relatedRecordsCount: transportCount,
-          relatedRecordsType: "\u0645\u0635\u0627\u0631\u064A\u0641 \u0646\u0642\u0644",
-          processingTime: duration2
-        });
-      }
-      console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0623\u0631\u0635\u062F\u0629 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-      const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq3(workerBalances.workerId, workerId)).limit(1);
-      if (balanceRecords.length > 0) {
-        const duration2 = Date.now() - startTime;
-        const totalBalanceCount = await db.select({
-          count: sql3`COUNT(*)`
-        }).from(workerBalances).where(eq3(workerBalances.workerId, workerId));
-        const balanceCount = totalBalanceCount[0]?.count || balanceRecords.length;
-        console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${balanceCount} \u0633\u062C\u0644 \u0631\u0635\u064A\u062F`);
-        return res.status(409).json({
-          success: false,
-          error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644",
-          message: `\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 "${workerToDelete.name}" \u0644\u0623\u0646\u0647 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${balanceCount} \u0633\u062C\u0644 \u0631\u0635\u064A\u062F. \u064A\u062C\u0628 \u062A\u0635\u0641\u064A\u0629 \u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u0631\u0635\u062F\u0629 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644 \u0623\u0648\u0644\u0627\u064B \u0645\u0646 \u0635\u0641\u062D\u0629 \u0623\u0631\u0635\u062F\u0629 \u0627\u0644\u0639\u0645\u0627\u0644.`,
-          userAction: "\u064A\u062C\u0628 \u062A\u0635\u0641\u064A\u0629 \u0627\u0644\u0623\u0631\u0635\u062F\u0629 \u0623\u0648\u0644\u0627\u064B",
-          relatedRecordsCount: balanceCount,
-          relatedRecordsType: "\u0623\u0631\u0635\u062F\u0629",
-          processingTime: duration2
-        });
-      }
-      console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A (\u0644\u0627 \u062A\u0648\u062C\u062F \u0633\u062C\u0644\u0627\u062A \u0645\u0631\u062A\u0628\u0637\u0629)...");
-      const deletedWorker = await db.delete(workers).where(eq3(workers.id, workerId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: deletedWorker[0].id,
-        name: deletedWorker[0].name,
-        type: deletedWorker[0].type
-      });
-      res.json({
-        success: true,
-        data: deletedWorker[0],
-        message: `\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 "${deletedWorker[0].name}" (${deletedWorker[0].type}) \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644";
-      let statusCode = 500;
-      let userAction = "\u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B \u0623\u0648 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u062F\u0639\u0645 \u0627\u0644\u0641\u0646\u064A";
-      let relatedInfo = {};
-      if (error.code === "23503") {
-        console.error("\u{1F6A8} [API] \u062E\u0637\u0623 \u0642\u064A\u062F \u0627\u0644\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u062E\u0627\u0631\u062C\u064A \u0644\u0645 \u064A\u062A\u0645 \u0627\u0643\u062A\u0634\u0627\u0641\u0647 \u0645\u0633\u0628\u0642\u0627\u064B (Race Condition \u0645\u062D\u062A\u0645\u0644):", {
-          code: error.code,
-          detail: error.detail,
-          constraint: error.constraint,
-          table: error.table,
-          column: error.column,
-          fullError: error.message
-        });
-        errorMessage = "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0644\u0648\u062C\u0648\u062F \u0633\u062C\u0644\u0627\u062A \u0645\u0631\u062A\u0628\u0637\u0629 \u0644\u0645 \u064A\u062A\u0645 \u0627\u0643\u062A\u0634\u0627\u0641\u0647\u0627 \u0645\u0633\u0628\u0642\u0627\u064B";
-        statusCode = 409;
-        userAction = "\u062A\u062D\u0642\u0642 \u0645\u0646 \u062C\u0645\u064A\u0639 \u0627\u0644\u0633\u062C\u0644\u0627\u062A \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644 \u0641\u064A \u0627\u0644\u0646\u0638\u0627\u0645 \u0648\u0642\u0645 \u0628\u062D\u0630\u0641\u0647\u0627 \u0623\u0648\u0644\u0627\u064B";
-        const constraintDetails = error.constraint ? ` (${error.constraint})` : "";
-        const tableDetails = error.table ? ` \u0641\u064A \u0627\u0644\u062C\u062F\u0648\u0644: ${error.table}` : "";
-        relatedInfo = {
-          raceConditionDetected: true,
-          constraintViolated: error.constraint || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F",
-          affectedTable: error.table || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F",
-          affectedColumn: error.column || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F",
-          technicalDetail: `\u0627\u0646\u062A\u0647\u0627\u0643 \u0642\u064A\u062F FK${constraintDetails}${tableDetails}`,
-          suggestedAction: "\u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0625\u0636\u0627\u0641\u064A\u0629 \u0642\u062F \u062A\u0643\u0648\u0646 \u0623\u064F\u0646\u0634\u0626\u062A \u0628\u064A\u0646 \u0641\u062D\u0635 \u0627\u0644\u0634\u0631\u0648\u0637 \u0648\u062A\u0646\u0641\u064A\u0630 \u0627\u0644\u062D\u0630\u0641"
-        };
-      } else if (error.code === "22P02") {
-        errorMessage = "\u0645\u0639\u0631\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D \u0623\u0648 \u062A\u0627\u0644\u0641";
-        statusCode = 400;
-        userAction = "\u062A\u062D\u0642\u0642 \u0645\u0646 \u0635\u062D\u0629 \u0645\u0639\u0631\u0641 \u0627\u0644\u0639\u0627\u0645\u0644";
-        relatedInfo = {
-          invalidInputDetected: true,
-          inputValue: req.params.id,
-          expectedFormat: "UUID \u0635\u062D\u064A\u062D"
-        };
-      } else if (error.code === "42P01") {
-        errorMessage = "\u062E\u0637\u0623 \u0641\u064A \u0628\u0646\u064A\u0629 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A - \u062C\u062F\u0648\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F";
-        statusCode = 500;
-        userAction = "\u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u062F\u0639\u0645 \u0627\u0644\u0641\u0646\u064A \u0641\u0648\u0631\u0627\u064B";
-        relatedInfo = {
-          databaseStructureIssue: true,
-          missingTable: error.message
-        };
-      } else if (error.code === "08003") {
-        errorMessage = "\u0627\u0646\u0642\u0637\u0639 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A";
-        statusCode = 503;
-        userAction = "\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u062A\u0635\u0627\u0644 \u0627\u0644\u0625\u0646\u062A\u0631\u0646\u062A \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649";
-        relatedInfo = {
-          connectionIssue: true
-        };
-      } else if (error.code === "08006") {
-        errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A";
-        statusCode = 503;
-        userAction = "\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u062A\u0635\u0627\u0644 \u0627\u0644\u0625\u0646\u062A\u0631\u0646\u062A \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649";
-        relatedInfo = {
-          connectionFailure: true
-        };
-      } else {
-        console.error("\u{1F50D} [API] \u062E\u0637\u0623 \u063A\u064A\u0631 \u0645\u062A\u0648\u0642\u0639 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644:", {
-          code: error.code,
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
-        relatedInfo = {
-          unexpectedError: true,
-          errorCode: error.code,
-          errorName: error.name,
-          timestamp: (/* @__PURE__ */ new Date()).toISOString()
-        };
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: `\u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644: ${error.message}`,
-        userAction,
-        processingTime: duration,
-        troubleshooting: relatedInfo,
-        // معلومات إضافية للمطورين فقط في بيئة التطوير
-        ...process.env.NODE_ENV === "development" && {
-          debug: {
-            errorCode: error.code,
-            constraint: error.constraint,
-            table: error.table,
-            column: error.column,
-            detail: error.detail
-          }
-        }
-      });
-    }
-  });
-  app2.patch("/api/projects/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const projectId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", projectId);
-      if (!projectId) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
-          processingTime: Date.now() - startTime
-        });
-      }
-      const existingProject = await db.select().from(projects).where(eq3(projects.id, projectId)).limit(1);
-      if (existingProject.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          processingTime: Date.now() - startTime
-        });
-      }
-      const updatedProject = await db.update(projects).set(req.body).where(eq3(projects.id, projectId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedProject[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639 "${updatedProject[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/materials/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const materialId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0627\u0644\u0645\u0627\u062F\u0629:", materialId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!materialId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingMaterial = await db.select().from(materials).where(eq3(materials.id, materialId)).limit(1);
-      if (existingMaterial.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0627\u062F\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${materialId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = insertMaterialSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      const updatedMaterial = await db.update(materials).set(validationResult.data).where(eq3(materials.id, materialId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedMaterial[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 "${updatedMaterial[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.delete("/api/projects/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const projectId = req.params.id;
-      console.log("\u274C [API] \u0637\u0644\u0628 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0627\u0644\u0645\u0631\u0627\u062F \u062D\u0630\u0641\u0647:", projectId);
-      if (!projectId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0644\u0644\u062D\u0630\u0641",
-          processingTime: duration2
-        });
-      }
-      const existingProject = await db.select().from(projects).where(eq3(projects.id, projectId)).limit(1);
-      if (existingProject.length === 0) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0634\u0631\u0648\u0639 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${projectId}`,
-          processingTime: duration2
-        });
-      }
-      const projectToDelete = existingProject[0];
-      console.log("\u{1F5D1}\uFE0F [API] \u0633\u064A\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", {
-        id: projectToDelete.id,
-        name: projectToDelete.name,
-        status: projectToDelete.status
-      });
-      console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedProject = await db.delete(projects).where(eq3(projects.id, projectId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: deletedProject[0].id,
-        name: deletedProject[0].name,
-        status: deletedProject[0].status
-      });
-      res.json({
-        success: true,
-        data: deletedProject[0],
-        message: `\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 "${deletedProject[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639";
-      let statusCode = 500;
-      if (error.code === "23503") {
-        errorMessage = "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 - \u0645\u0631\u062A\u0628\u0637 \u0628\u0628\u064A\u0627\u0646\u0627\u062A \u0623\u062E\u0631\u0649 (\u0639\u0645\u0627\u0644\u060C \u0645\u0648\u0627\u062F\u060C \u0645\u0635\u0631\u0648\u0641\u0627\u062A)";
-        statusCode = 409;
-      } else if (error.code === "22P02") {
-        errorMessage = "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.delete("/api/materials/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const materialId = req.params.id;
-      console.log("\u274C [API] \u0637\u0644\u0628 \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0627\u0644\u0645\u0627\u062F\u0629 \u0627\u0644\u0645\u0631\u0627\u062F \u062D\u0630\u0641\u0647\u0627:", materialId);
-      if (!materialId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0644\u0644\u062D\u0630\u0641",
-          processingTime: duration2
-        });
-      }
-      const existingMaterial = await db.select().from(materials).where(eq3(materials.id, materialId)).limit(1);
-      if (existingMaterial.length === 0) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", materialId);
-        return res.status(404).json({
-          success: false,
-          error: "\u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0627\u062F\u0629 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${materialId}`,
-          processingTime: duration2
-        });
-      }
-      const materialToDelete = existingMaterial[0];
-      console.log("\u{1F5D1}\uFE0F [API] \u0633\u064A\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629:", {
-        id: materialToDelete.id,
-        name: materialToDelete.name,
-        category: materialToDelete.category
-      });
-      console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedMaterial = await db.delete(materials).where(eq3(materials.id, materialId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
-        id: deletedMaterial[0].id,
-        name: deletedMaterial[0].name,
-        category: deletedMaterial[0].category
-      });
-      res.json({
-        success: true,
-        data: deletedMaterial[0],
-        message: `\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 "${deletedMaterial[0].name}" \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629:", error);
-      let errorMessage = "\u0641\u0634\u0644 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629";
-      let statusCode = 500;
-      if (error.code === "23503") {
-        errorMessage = "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 - \u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0628\u064A\u0627\u0646\u0627\u062A \u0623\u062E\u0631\u0649";
-        statusCode = 409;
-      } else if (error.code === "22P02") {
-        errorMessage = "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D";
-        statusCode = 400;
-      }
-      res.status(statusCode).json({
-        success: false,
-        error: errorMessage,
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/material-purchases/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const purchaseId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
-      console.log("\u{1F4CB} [API] ID \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", purchaseId);
-      console.log("\u{1F4CB} [API] \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0631\u0633\u0644\u0629:", req.body);
-      if (!purchaseId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0644\u0644\u062A\u062D\u062F\u064A\u062B",
-          processingTime: duration2
-        });
-      }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq3(materialPurchases.id, purchaseId)).limit(1);
-      if (existingPurchase.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0645\u0648\u0627\u062F \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${purchaseId}`,
-          processingTime: duration2
-        });
-      }
-      const validationResult = insertMaterialPurchaseSchema.partial().safeParse(req.body);
-      if (!validationResult.success) {
-        const duration2 = Date.now() - startTime;
-        console.error("\u274C [API] \u0641\u0634\u0644 \u0641\u064A validation \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", validationResult.error.flatten());
-        const errorMessages = validationResult.error.flatten().fieldErrors;
-        const firstError = Object.values(errorMessages)[0]?.[0] || "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
-        return res.status(400).json({
-          success: false,
-          error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629",
-          message: firstError,
-          details: errorMessages,
-          processingTime: duration2
-        });
-      }
-      const updatedPurchase = await db.update(materialPurchases).set(validationResult.data).where(eq3(materialPurchases.id, purchaseId)).returning();
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: updatedPurchase[0],
-        message: `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0642\u064A\u0645\u0629 ${updatedPurchase[0].totalAmount} \u0628\u0646\u062C\u0627\u062D`,
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/suppliers/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const supplierId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F:", supplierId);
-      res.json({
-        success: true,
-        message: "endpoint \u062C\u0627\u0647\u0632 - \u0633\u064A\u062A\u0645 \u062A\u0641\u0639\u064A\u0644\u0647 \u0639\u0646\u062F \u0625\u0646\u0634\u0627\u0621 \u062C\u062F\u0648\u0644 \u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646",
-        processingTime: Date.now() - startTime
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.get("/api/worker-attendance/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const attendanceId = req.params.id;
-      console.log("\u{1F4D6} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u0633\u062C\u0644 \u062D\u0636\u0648\u0631:", attendanceId);
-      if (!attendanceId) {
-        const duration2 = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: "\u0645\u0639\u0631\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u0645\u0637\u0644\u0648\u0628",
-          message: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0631\u0641 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631",
-          processingTime: duration2
-        });
-      }
-      const attendanceRecord = await db.select().from(workerAttendance).where(eq3(workerAttendance.id, attendanceId)).limit(1);
-      if (attendanceRecord.length === 0) {
-        const duration2 = Date.now() - startTime;
-        return res.status(404).json({
-          success: false,
-          error: "\u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-          message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${attendanceId}`,
-          processingTime: duration2
-        });
-      }
-      const duration = Date.now() - startTime;
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
-      res.json({
-        success: true,
-        data: attendanceRecord[0],
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u0628\u0646\u062C\u0627\u062D",
-        processingTime: duration
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/worker-attendance/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const attendanceId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062D\u0636\u0648\u0631:", attendanceId);
-      res.json({
-        success: true,
-        message: "endpoint \u062C\u0627\u0647\u0632 - \u0633\u064A\u062A\u0645 \u062A\u0641\u0639\u064A\u0644\u0647 \u0639\u0646\u062F \u0625\u0646\u0634\u0627\u0621 \u062C\u062F\u0648\u0644 \u0627\u0644\u062D\u0636\u0648\u0631",
-        processingTime: Date.now() - startTime
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062D\u0636\u0648\u0631:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062D\u0636\u0648\u0631",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/fund-transfers/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const transferId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0627\u0644\u064A:", transferId);
-      res.json({
-        success: true,
-        message: "endpoint \u062C\u0627\u0647\u0632 - \u0633\u064A\u062A\u0645 \u062A\u0641\u0639\u064A\u0644\u0647 \u0639\u0646\u062F \u0625\u0646\u0634\u0627\u0621 \u062C\u062F\u0648\u0644 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629",
-        processingTime: Date.now() - startTime
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0627\u0644\u064A:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0627\u0644\u064A",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/transportation-expenses/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const expenseId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A:", expenseId);
-      res.json({
-        success: true,
-        message: "endpoint \u062C\u0627\u0647\u0632 - \u0633\u064A\u062A\u0645 \u062A\u0641\u0639\u064A\u0644\u0647 \u0639\u0646\u062F \u0625\u0646\u0634\u0627\u0621 \u062C\u062F\u0648\u0644 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A",
-        processingTime: Date.now() - startTime
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.patch("/api/notifications/:id", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const notificationId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0625\u0634\u0639\u0627\u0631:", notificationId);
-      const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-      const notificationService = new NotificationService2();
-      const userId = req.user?.userId || req.user?.email || null;
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          error: "\u063A\u064A\u0631 \u0645\u062E\u0648\u0644 - \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645",
-          processingTime: Date.now() - startTime
-        });
-      }
-      res.json({
-        success: true,
-        message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0628\u0646\u062C\u0627\u062D",
-        processingTime: Date.now() - startTime
-      });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0625\u0634\u0639\u0627\u0631:", error);
-      res.status(500).json({
-        success: false,
-        error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0625\u0634\u0639\u0627\u0631",
-        message: error.message,
-        processingTime: duration
-      });
-    }
-  });
-  app2.get("/api/daily-expenses", requireAuth, (req, res) => {
-    res.json({ success: true, data: [], message: "Daily expenses endpoint working - NOW SECURED \u2705" });
-  });
-  app2.get("/api/material-purchases", requireAuth, (req, res) => {
-    res.json({ success: true, data: [], message: "Material purchases endpoint working - NOW SECURED \u2705" });
-  });
-  app2.get("/api/notifications", requireAuth, async (req, res) => {
-    try {
-      const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-      const notificationService = new NotificationService2();
-      const userId = req.user?.userId || req.user?.email || null;
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          error: "\u063A\u064A\u0631 \u0645\u062E\u0648\u0644 - \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645",
-          message: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649"
-        });
-      }
-      const { limit, offset, type, unreadOnly, projectId } = req.query;
-      console.log(`\u{1F4E5} [API] \u062C\u0644\u0628 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
-      const result = await notificationService.getUserNotifications(userId, {
-        limit: limit ? parseInt(limit) : 50,
-        offset: offset ? parseInt(offset) : 0,
-        type,
-        unreadOnly: unreadOnly === "true",
-        projectId
-      });
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${result.notifications.length} \u0625\u0634\u0639\u0627\u0631 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId}`);
-      res.json({
-        success: true,
-        data: result.notifications,
-        count: result.total,
-        unreadCount: result.unreadCount,
-        message: result.notifications.length > 0 ? "\u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0628\u0646\u062C\u0627\u062D" : "\u0644\u0627 \u062A\u0648\u062C\u062F \u0625\u0634\u0639\u0627\u0631\u0627\u062A"
-      });
-    } catch (error) {
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A:", error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        count: 0,
-        unreadCount: 0,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A"
-      });
-    }
-  });
-  app2.post("/api/notifications/:id/read", requireAuth, async (req, res) => {
-    try {
-      const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-      const notificationService = new NotificationService2();
-      const userId = req.user?.userId || req.user?.email || null;
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          error: "\u063A\u064A\u0631 \u0645\u062E\u0648\u0644 - \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645",
-          message: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649"
-        });
-      }
-      const notificationId = req.params.id;
-      console.log(`\u2705 [API] \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 ${notificationId} \u0643\u0645\u0642\u0631\u0648\u0621 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
-      await notificationService.markAsRead(notificationId, userId);
-      res.json({
-        success: true,
-        message: "\u062A\u0645 \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0643\u0645\u0642\u0631\u0648\u0621"
-      });
-    } catch (error) {
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0643\u0645\u0642\u0631\u0648\u0621:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0643\u0645\u0642\u0631\u0648\u0621"
-      });
-    }
-  });
-  app2.post("/api/notifications/:id/mark-read", requireAuth, async (req, res) => {
-    try {
-      const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-      const notificationService = new NotificationService2();
-      const userId = req.user?.userId || req.user?.email || null;
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          error: "\u063A\u064A\u0631 \u0645\u062E\u0648\u0644 - \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645",
-          message: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649"
-        });
-      }
-      const notificationId = req.params.id;
-      console.log(`\u2705 [API] \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 ${notificationId} \u0643\u0645\u0642\u0631\u0648\u0621 (\u0645\u0633\u0627\u0631 \u0628\u062F\u064A\u0644) \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
-      await notificationService.markAsRead(notificationId, userId);
-      res.json({
-        success: true,
-        message: "\u062A\u0645 \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0643\u0645\u0642\u0631\u0648\u0621"
-      });
-    } catch (error) {
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0643\u0645\u0642\u0631\u0648\u0621 (\u0645\u0633\u0627\u0631 \u0628\u062F\u064A\u0644):", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0643\u0645\u0642\u0631\u0648\u0621"
-      });
-    }
-  });
-  app2.post("/api/notifications/mark-all-read", requireAuth, async (req, res) => {
-    try {
-      const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-      const notificationService = new NotificationService2();
-      const userId = req.user?.userId || req.user?.email || null;
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          error: "\u063A\u064A\u0631 \u0645\u062E\u0648\u0644 - \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645",
-          message: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649"
-        });
-      }
-      const projectId = req.body.projectId;
-      console.log(`\u2705 [API] \u062A\u0639\u0644\u064A\u0645 \u062C\u0645\u064A\u0639 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0643\u0645\u0642\u0631\u0648\u0621\u0629 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
-      await notificationService.markAllAsRead(userId, projectId);
-      res.json({
-        success: true,
-        message: "\u062A\u0645 \u062A\u0639\u0644\u064A\u0645 \u062C\u0645\u064A\u0639 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0643\u0645\u0642\u0631\u0648\u0621\u0629"
-      });
-    } catch (error) {
-      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0643\u0645\u0642\u0631\u0648\u0621\u0629:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0643\u0645\u0642\u0631\u0648\u0621\u0629"
-      });
-    }
-  });
-  app2.get("/api/admin/notifications/all", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-      const notificationService = new NotificationService2();
-      const { limit, offset, type, priority } = req.query;
-      console.log("\u{1F4CB} [Admin] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0644\u0644\u0645\u0633\u0624\u0648\u0644");
-      const result = await notificationService.getAllNotificationsForAdmin({
-        limit: limit ? parseInt(limit) : 50,
-        offset: offset ? parseInt(offset) : 0,
-        type,
-        priority: priority ? parseInt(priority) : void 0
-      });
-      res.json({
-        success: true,
-        notifications: result.notifications || [],
-        total: result.total || 0,
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      console.error("\u274C [Admin] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A:", error);
-      res.status(500).json({
-        success: false,
-        notifications: [],
-        total: 0,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A"
-      });
-    }
-  });
-  app2.get("/api/admin/notifications/user-activity", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-      const notificationService = new NotificationService2();
-      console.log("\u{1F4CA} [Admin] \u062C\u0644\u0628 \u0646\u0634\u0627\u0637 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646 \u0644\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A");
-      const userStats = await notificationService.getUserActivityStats();
-      res.json({
-        success: true,
-        userStats: userStats || [],
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0646\u0634\u0627\u0637 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646 \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      console.error("\u274C [Admin] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0646\u0634\u0627\u0637 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646:", error);
-      res.status(500).json({
-        success: false,
-        userStats: [],
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0646\u0634\u0627\u0637 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646"
-      });
-    }
-  });
-  app2.post("/api/admin/notifications/send", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-      const notificationService = new NotificationService2();
-      const userId = req.user?.userId || req.user?.email || null;
-      const { type, title, body, priority, recipients, projectId } = req.body;
-      console.log(`\u{1F4E4} [Admin] \u0625\u0631\u0633\u0627\u0644 \u0625\u0634\u0639\u0627\u0631 \u062C\u062F\u064A\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u0624\u0648\u0644: ${userId}`);
-      const notificationData = {
-        type: type || "announcement",
-        title: title || "\u0625\u0634\u0639\u0627\u0631 \u062C\u062F\u064A\u062F",
-        body: body || "",
-        priority: priority || 3,
-        recipients: recipients === "all" ? null : recipients,
-        projectId: projectId || null
-      };
-      const notification = await notificationService.createNotification(notificationData);
-      console.log(`\u2705 [Admin] \u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0628\u0646\u062C\u0627\u062D: ${notification.id}`);
-      res.json({
-        success: true,
-        data: notification,
-        message: "\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      console.error("\u274C [Admin] \u062E\u0637\u0623 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0625\u0634\u0639\u0627\u0631:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0625\u0634\u0639\u0627\u0631"
-      });
-    }
-  });
-  app2.delete("/api/admin/notifications/:id", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-      const notificationService = new NotificationService2();
-      const notificationId = req.params.id;
-      console.log(`\u{1F5D1}\uFE0F [Admin] \u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631: ${notificationId}`);
-      await notificationService.deleteNotification(notificationId);
-      res.json({
-        success: true,
-        message: "\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      console.error("\u274C [Admin] \u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631"
-      });
-    }
-  });
-  app2.get("/api/users", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      const { users: users2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      console.log("\u{1F465} [Admin] \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646");
-      const usersList = await db2.select({
-        id: users2.id,
-        email: users2.email,
-        firstName: users2.firstName,
-        lastName: users2.lastName,
-        role: users2.role,
-        isActive: users2.isActive
-      }).from(users2);
-      const usersWithName = usersList.map((user) => ({
-        ...user,
-        name: [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email?.split("@")[0] || "\u0645\u0633\u062A\u062E\u062F\u0645"
-      }));
-      res.json({
-        success: true,
-        data: usersWithName,
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646 \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      console.error("\u274C [Admin] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646:", error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646"
-      });
-    }
-  });
-  app2.post("/api/test/notifications/create", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-      const notificationService = new NotificationService2();
-      const userId = req.user?.userId || req.user?.email || null;
-      const { type, title, body, priority, recipients, projectId } = req.body;
-      console.log(`\u{1F527} [TEST] \u0625\u0646\u0634\u0627\u0621 \u0625\u0634\u0639\u0627\u0631 \u0627\u062E\u062A\u0628\u0627\u0631 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
-      const notificationData = {
-        type: type || "announcement",
-        title: title || "\u0625\u0634\u0639\u0627\u0631 \u0627\u062E\u062A\u0628\u0627\u0631",
-        body: body || "\u0647\u0630\u0627 \u0625\u0634\u0639\u0627\u0631 \u0627\u062E\u062A\u0628\u0627\u0631 \u0644\u0641\u062D\u0635 \u0627\u0644\u0646\u0638\u0627\u0645",
-        priority: priority || 3,
-        recipients: recipients || [userId],
-        projectId: projectId || null
-      };
-      const notification = await notificationService.createNotification(notificationData);
-      res.json({
-        success: true,
-        data: notification,
-        message: "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      console.error("\u274C [TEST] \u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0625\u0634\u0639\u0627\u0631:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0625\u0634\u0639\u0627\u0631"
-      });
-    }
-  });
-  app2.get("/api/test/notifications/stats", requireAuth, requireRole("admin"), async (req, res) => {
-    try {
-      const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-      const notificationService = new NotificationService2();
-      const userId = req.user?.userId || req.user?.email || null;
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          error: "\u063A\u064A\u0631 \u0645\u062E\u0648\u0644 - \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645",
-          message: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649"
-        });
-      }
-      console.log(`\u{1F4CA} [TEST] \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
-      const stats = await notificationService.getNotificationStats(userId);
-      res.json({
-        success: true,
-        data: stats,
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
-      });
-    } catch (error) {
-      console.error("\u274C [TEST] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message,
-        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A"
-      });
-    }
-  });
-  app2.use((error, req, res, next) => {
-    console.error(`\u{1F4A5} [\u062E\u0637\u0623 \u062E\u0627\u062F\u0645] ${req.method} ${req.originalUrl}:`, error);
-    if (!res.headersSent) {
-      res.status(500).json({
-        success: false,
-        error: "\u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645",
-        message: "\u062D\u062F\u062B \u062E\u0637\u0623 \u063A\u064A\u0631 \u0645\u062A\u0648\u0642\u0639\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649",
-        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-        method: req.method,
-        path: req.originalUrl
-      });
-    }
-  });
-  const server = createServer(app2);
-  return server;
-}
 
 // server/vite.ts
 import express from "express";
-import fs4 from "fs";
-import path3 from "path";
+import fs from "fs";
+import path2 from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 
 // vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import path2 from "node:path";
+import path from "node:path";
 var vite_config_default = defineConfig({
   plugins: [react()],
   root: "client",
@@ -6366,10 +3025,10 @@ var vite_config_default = defineConfig({
   },
   resolve: {
     alias: {
-      "@": path2.resolve(process.cwd(), "client/src"),
-      "@assets": path2.resolve(process.cwd(), "attached_assets"),
-      "@shared": path2.resolve(process.cwd(), "shared"),
-      "@lib": path2.resolve(process.cwd(), "client/src/lib")
+      "@": path.resolve(process.cwd(), "client/src"),
+      "@assets": path.resolve(process.cwd(), "attached_assets"),
+      "@shared": path.resolve(process.cwd(), "shared"),
+      "@lib": path.resolve(process.cwd(), "client/src/lib")
     }
   },
   server: {
@@ -6392,7 +3051,7 @@ function log(message, source = "express") {
   });
   console.log(`${formattedTime} [${source}] ${message}`);
 }
-async function setupVite(app2, server) {
+async function setupVite(app2, server2) {
   const replitHost = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
   const vite = await createViteServer({
     ...vite_config_default,
@@ -6407,7 +3066,7 @@ async function setupVite(app2, server) {
     server: {
       middlewareMode: true,
       hmr: {
-        server,
+        server: server2,
         protocol: "wss",
         host: replitHost,
         clientPort: 443
@@ -6420,13 +3079,13 @@ async function setupVite(app2, server) {
   app2.use("*", async (req, res, next) => {
     const url = req.originalUrl;
     try {
-      const clientTemplate = path3.resolve(
+      const clientTemplate = path2.resolve(
         import.meta.dirname,
         "..",
         "client",
         "index.html"
       );
-      let template = await fs4.promises.readFile(clientTemplate, "utf-8");
+      let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`
@@ -6440,15 +3099,15 @@ async function setupVite(app2, server) {
   });
 }
 function serveStatic(app2) {
-  const distPath = path3.resolve(import.meta.dirname, "..", "dist", "public");
-  if (!fs4.existsSync(distPath)) {
+  const distPath = path2.resolve(import.meta.dirname, "..", "dist", "public");
+  if (!fs.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`
     );
   }
   app2.use(express.static(distPath));
   app2.use("*", (_req, res) => {
-    res.sendFile(path3.resolve(distPath, "index.html"));
+    res.sendFile(path2.resolve(distPath, "index.html"));
   });
 }
 
@@ -6460,7 +3119,7 @@ init_db();
 init_schema();
 import { Router } from "express";
 import { z as z2 } from "zod";
-import { eq as eq7, sql as sql5 } from "drizzle-orm";
+import { eq as eq5, sql as sql3 } from "drizzle-orm";
 
 // server/auth/crypto-utils.ts
 import bcrypt from "bcrypt";
@@ -6592,14 +3251,14 @@ function validatePasswordStrength(password) {
 // server/auth/auth-service.ts
 init_db();
 init_schema();
-import { eq as eq6 } from "drizzle-orm";
+import { eq as eq3 } from "drizzle-orm";
 
 // server/auth/jwt-utils.ts
 init_db();
 init_schema();
-import jwt2 from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import crypto2 from "crypto";
-import { eq as eq4, and as and4, lt as lt2, or as or3, ne, gte as gte2 } from "drizzle-orm";
+import { eq, and, lt, or, ne, gte } from "drizzle-orm";
 if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
   throw new Error("JWT_ACCESS_SECRET \u0648 JWT_REFRESH_SECRET \u0645\u0637\u0644\u0648\u0628\u0627\u0646 \u0641\u064A \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629 \u0644\u0644\u0623\u0645\u0627\u0646");
 }
@@ -6621,11 +3280,11 @@ async function generateTokenPair(userId, email, role, ipAddress, userAgent, devi
   const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
   const accessPayload = { userId, email, role, sessionId, type: "access" };
   const refreshPayload = { userId, email, sessionId, type: "refresh" };
-  const accessToken = jwt2.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
+  const accessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
     expiresIn: JWT_CONFIG.accessTokenExpiry,
     issuer: JWT_CONFIG.issuer
   });
-  const refreshToken = jwt2.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
+  const refreshToken = jwt.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
     expiresIn: JWT_CONFIG.refreshTokenExpiry,
     issuer: JWT_CONFIG.issuer
   });
@@ -6662,7 +3321,7 @@ async function refreshAccessTokenDev(refreshToken) {
   const startTime = Date.now();
   console.log("\u{1F504} [JWT-DEV] \u0628\u062F\u0621 \u062A\u062C\u062F\u064A\u062F \u0645\u0628\u0633\u0637 \u0644\u0644\u062A\u0637\u0648\u064A\u0631...");
   try {
-    const payload = jwt2.verify(refreshToken, JWT_CONFIG.refreshTokenSecret, {
+    const payload = jwt.verify(refreshToken, JWT_CONFIG.refreshTokenSecret, {
       issuer: JWT_CONFIG.issuer
     });
     if (payload.type !== "refresh") {
@@ -6673,12 +3332,12 @@ async function refreshAccessTokenDev(refreshToken) {
     const userWithSession = await db.select({
       user: users,
       session: authUserSessions
-    }).from(users).leftJoin(authUserSessions, and4(
-      eq4(authUserSessions.userId, users.id),
-      eq4(authUserSessions.refreshTokenHash, refreshTokenHash),
-      eq4(authUserSessions.isRevoked, false),
-      gte2(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
-    )).where(eq4(users.id, payload.userId)).limit(1);
+    }).from(users).leftJoin(authUserSessions, and(
+      eq(authUserSessions.userId, users.id),
+      eq(authUserSessions.refreshTokenHash, refreshTokenHash),
+      eq(authUserSessions.isRevoked, false),
+      gte(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
+    )).where(eq(users.id, payload.userId)).limit(1);
     if (userWithSession.length === 0 || !userWithSession[0].user || !userWithSession[0].user.isActive) {
       console.log("\u274C [JWT-DEV] \u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u063A\u064A\u0631 \u0646\u0634\u0637");
       return null;
@@ -6694,17 +3353,17 @@ async function refreshAccessTokenDev(refreshToken) {
     const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
     const accessPayload = { userId: payload.userId, email: user.email, role: user.role, sessionId: payload.sessionId, type: "access" };
     const refreshPayload = { userId: payload.userId, email: user.email, sessionId: payload.sessionId, type: "refresh" };
-    const newAccessToken = jwt2.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
+    const newAccessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
       expiresIn: JWT_CONFIG.accessTokenExpiry,
       issuer: JWT_CONFIG.issuer
     });
-    const newRefreshToken = jwt2.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
+    const newRefreshToken = jwt.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
       expiresIn: JWT_CONFIG.refreshTokenExpiry,
       issuer: JWT_CONFIG.issuer
     });
     await db.update(authUserSessions).set({
       lastActivity: /* @__PURE__ */ new Date()
-    }).where(eq4(authUserSessions.id, session.id));
+    }).where(eq(authUserSessions.id, session.id));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [JWT-DEV] \u062A\u062C\u062F\u064A\u062F \u0645\u0628\u0633\u0637 \u0645\u0643\u062A\u0645\u0644 \u0641\u064A ${duration}ms`);
     return {
@@ -6724,23 +3383,23 @@ async function refreshAccessTokenProd(refreshToken) {
   const startTime = Date.now();
   console.log("\u{1F504} [JWT-PROD] \u0628\u062F\u0621 \u062A\u062C\u062F\u064A\u062F \u0643\u0627\u0645\u0644 \u0644\u0644\u0625\u0646\u062A\u0627\u062C...");
   try {
-    const payload = jwt2.verify(refreshToken, JWT_CONFIG.refreshTokenSecret, {
+    const payload = jwt.verify(refreshToken, JWT_CONFIG.refreshTokenSecret, {
       issuer: JWT_CONFIG.issuer
     });
     if (payload.type !== "refresh") {
       return null;
     }
-    const user = await db.select().from(users).where(eq4(users.id, payload.userId)).limit(1);
+    const user = await db.select().from(users).where(eq(users.id, payload.userId)).limit(1);
     if (user.length === 0 || !user[0].isActive) {
       return null;
     }
     const refreshTokenHash = hashToken(refreshToken);
     const session = await db.select().from(authUserSessions).where(
-      and4(
-        eq4(authUserSessions.userId, payload.userId),
-        eq4(authUserSessions.refreshTokenHash, refreshTokenHash),
-        eq4(authUserSessions.isRevoked, false),
-        gte2(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
+      and(
+        eq(authUserSessions.userId, payload.userId),
+        eq(authUserSessions.refreshTokenHash, refreshTokenHash),
+        eq(authUserSessions.isRevoked, false),
+        gte(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
       )
     ).limit(1);
     if (session.length === 0) {
@@ -6752,11 +3411,11 @@ async function refreshAccessTokenProd(refreshToken) {
     const newSessionId = crypto2.randomUUID();
     const accessPayload = { userId: payload.userId, email: user[0].email, role: user[0].role, sessionId: newSessionId, type: "access" };
     const refreshPayload = { userId: payload.userId, email: user[0].email, sessionId: newSessionId, type: "refresh" };
-    const newAccessToken = jwt2.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
+    const newAccessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
       expiresIn: JWT_CONFIG.accessTokenExpiry,
       issuer: JWT_CONFIG.issuer
     });
-    const newRefreshToken = jwt2.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
+    const newRefreshToken = jwt.sign(refreshPayload, JWT_CONFIG.refreshTokenSecret, {
       expiresIn: JWT_CONFIG.refreshTokenExpiry,
       issuer: JWT_CONFIG.issuer
     });
@@ -6768,7 +3427,7 @@ async function refreshAccessTokenProd(refreshToken) {
       refreshTokenHash: newRefreshTokenHash,
       expiresAt: refreshExpiresAt,
       lastActivity: /* @__PURE__ */ new Date()
-    }).where(eq4(authUserSessions.id, session[0].id));
+    }).where(eq(authUserSessions.id, session[0].id));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [JWT-PROD] \u062A\u0645 \u062A\u062F\u0648\u064A\u0631 \u0627\u0644\u0631\u0645\u0648\u0632 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       userId: payload.userId,
@@ -6802,17 +3461,17 @@ async function revokeToken(tokenOrSessionId, reason) {
       isRevoked: true,
       revokedAt: /* @__PURE__ */ new Date(),
       revokedReason: reason || "manual_revoke"
-    }).where(eq4(authUserSessions.sessionToken, tokenOrSessionId));
+    }).where(eq(authUserSessions.sessionToken, tokenOrSessionId));
     if ((updated.rowCount || 0) === 0) {
       updated = await db.update(authUserSessions).set({
         isRevoked: true,
         revokedAt: /* @__PURE__ */ new Date(),
         revokedReason: reason || "manual_revoke"
       }).where(
-        or3(
-          eq4(authUserSessions.accessTokenHash, tokenOrSessionId),
-          eq4(authUserSessions.refreshTokenHash, tokenOrSessionId),
-          eq4(authUserSessions.deviceId, tokenOrSessionId)
+        or(
+          eq(authUserSessions.accessTokenHash, tokenOrSessionId),
+          eq(authUserSessions.refreshTokenHash, tokenOrSessionId),
+          eq(authUserSessions.deviceId, tokenOrSessionId)
         )
       );
     }
@@ -6832,8 +3491,8 @@ async function revokeToken(tokenOrSessionId, reason) {
 async function revokeAllUserSessions(userId, exceptSessionId) {
   try {
     const conditions = [
-      eq4(authUserSessions.userId, userId),
-      eq4(authUserSessions.isRevoked, false)
+      eq(authUserSessions.userId, userId),
+      eq(authUserSessions.isRevoked, false)
     ];
     if (exceptSessionId) {
       conditions.push(ne(authUserSessions.deviceId, exceptSessionId));
@@ -6842,7 +3501,7 @@ async function revokeAllUserSessions(userId, exceptSessionId) {
       isRevoked: true,
       revokedAt: /* @__PURE__ */ new Date(),
       revokedReason: "logout_all_devices"
-    }).where(and4(...conditions));
+    }).where(and(...conditions));
     return updated.rowCount || 0;
   } catch (error) {
     console.error("\u062E\u0637\u0623 \u0641\u064A \u0625\u0628\u0637\u0627\u0644 \u062C\u0644\u0633\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", error);
@@ -6859,9 +3518,9 @@ async function getUserActiveSessions(userId) {
     lastUsedAt: authUserSessions.lastActivity,
     expiresAt: authUserSessions.expiresAt
   }).from(authUserSessions).where(
-    and4(
-      eq4(authUserSessions.userId, userId),
-      eq4(authUserSessions.isRevoked, false)
+    and(
+      eq(authUserSessions.userId, userId),
+      eq(authUserSessions.isRevoked, false)
     )
   ).orderBy(authUserSessions.lastActivity);
 }
@@ -6870,7 +3529,7 @@ async function getUserActiveSessions(userId) {
 init_db();
 init_schema();
 import nodemailer from "nodemailer";
-import { eq as eq5, and as and5 } from "drizzle-orm";
+import { eq as eq2, and as and2 } from "drizzle-orm";
 import crypto3 from "crypto";
 var emailTransporter = null;
 var getEmailTransporter = () => {
@@ -7107,9 +3766,9 @@ async function sendVerificationEmail(userId, email, ipAddress, userAgent, userFu
         message: "\u062E\u0637\u0623 \u0641\u064A \u0625\u0639\u062F\u0627\u062F \u062E\u062F\u0645\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A"
       };
     }
-    await db.delete(emailVerificationTokens).where(and5(
-      eq5(emailVerificationTokens.userId, userId),
-      eq5(emailVerificationTokens.email, email)
+    await db.delete(emailVerificationTokens).where(and2(
+      eq2(emailVerificationTokens.userId, userId),
+      eq2(emailVerificationTokens.email, email)
     ));
     const verificationCode = generateVerificationCode();
     const tokenHash = await hashToken2(verificationCode);
@@ -7155,9 +3814,9 @@ async function sendVerificationEmail(userId, email, ipAddress, userAgent, userFu
 async function verifyEmailToken(userId, token) {
   try {
     console.log("\u{1F50D} [EmailService] \u0628\u062F\u0621 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0645\u0632:", { userId, tokenLength: token.length });
-    const tokenRecord = await db.select().from(emailVerificationTokens).where(and5(
-      eq5(emailVerificationTokens.userId, userId),
-      eq5(emailVerificationTokens.token, token)
+    const tokenRecord = await db.select().from(emailVerificationTokens).where(and2(
+      eq2(emailVerificationTokens.userId, userId),
+      eq2(emailVerificationTokens.token, token)
     )).limit(1);
     console.log("\u{1F50D} [EmailService] \u0646\u062A\u064A\u062C\u0629 \u0627\u0644\u0628\u062D\u062B:", { found: tokenRecord.length > 0, userId, token });
     if (tokenRecord.length === 0) {
@@ -7171,7 +3830,7 @@ async function verifyEmailToken(userId, token) {
     console.log("\u2705 [EmailService] \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0631\u0645\u0632:", { id: record.id, verifiedAt: record.verifiedAt });
     if (/* @__PURE__ */ new Date() > record.expiresAt) {
       console.log("\u274C [EmailService] \u0627\u0644\u0631\u0645\u0632 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629");
-      await db.delete(emailVerificationTokens).where(eq5(emailVerificationTokens.id, record.id));
+      await db.delete(emailVerificationTokens).where(eq2(emailVerificationTokens.id, record.id));
       return {
         success: false,
         message: "\u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629. \u064A\u0631\u062C\u0649 \u0637\u0644\u0628 \u0631\u0645\u0632 \u062C\u062F\u064A\u062F"
@@ -7185,15 +3844,15 @@ async function verifyEmailToken(userId, token) {
       };
     }
     console.log("\u{1F504} [EmailService] \u0628\u062F\u0621 \u062A\u062D\u062F\u064A\u062B \u062C\u062F\u0627\u0648\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0648\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646...");
-    const tokenUpdate = await db.update(emailVerificationTokens).set({ verifiedAt: /* @__PURE__ */ new Date() }).where(eq5(emailVerificationTokens.id, record.id));
+    const tokenUpdate = await db.update(emailVerificationTokens).set({ verifiedAt: /* @__PURE__ */ new Date() }).where(eq2(emailVerificationTokens.id, record.id));
     console.log("\u{1F4DD} [EmailService] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B email_verification_tokens");
-    const userUpdate = await db.update(users).set({ emailVerifiedAt: /* @__PURE__ */ new Date() }).where(eq5(users.id, userId));
+    const userUpdate = await db.update(users).set({ emailVerifiedAt: /* @__PURE__ */ new Date() }).where(eq2(users.id, userId));
     console.log("\u{1F4DD} [EmailService] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B users \u0628\u0646\u062C\u0627\u062D");
     const verifyUpdate = await db.select({
       id: users.id,
       email: users.email,
       emailVerifiedAt: users.emailVerifiedAt
-    }).from(users).where(eq5(users.id, userId)).limit(1);
+    }).from(users).where(eq2(users.id, userId)).limit(1);
     console.log("\u{1F50D} [EmailService] \u0641\u062D\u0635 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0639\u062F \u0627\u0644\u062A\u062D\u062F\u064A\u062B:", verifyUpdate.length > 0 ? verifyUpdate[0] : "\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A");
     console.log("\u2705 [EmailService] \u0627\u0643\u062A\u0645\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0628\u0646\u062C\u0627\u062D \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", userId);
     return {
@@ -7211,7 +3870,7 @@ async function verifyEmailToken(userId, token) {
 async function sendPasswordResetEmail(email, ipAddress, userAgent) {
   try {
     console.log("\u{1F511} [EmailService] \u0628\u062F\u0621 \u0625\u0631\u0633\u0627\u0644 \u0631\u0627\u0628\u0637 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0644\u0644\u0628\u0631\u064A\u062F:", email);
-    const userResult = await db.select().from(users).where(eq5(users.email, email)).limit(1);
+    const userResult = await db.select().from(users).where(eq2(users.email, email)).limit(1);
     if (userResult.length === 0) {
       return {
         success: true,
@@ -7226,7 +3885,7 @@ async function sendPasswordResetEmail(email, ipAddress, userAgent) {
         message: "\u062E\u0637\u0623 \u0641\u064A \u0625\u0639\u062F\u0627\u062F \u062E\u062F\u0645\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A"
       };
     }
-    await db.delete(passwordResetTokens).where(eq5(passwordResetTokens.userId, user.id));
+    await db.delete(passwordResetTokens).where(eq2(passwordResetTokens.userId, user.id));
     const resetToken = generateSecureToken();
     const tokenHash = await hashToken2(resetToken);
     const domain = getDynamicDomain();
@@ -7269,7 +3928,7 @@ async function sendPasswordResetEmail(email, ipAddress, userAgent) {
 async function resetPasswordWithToken(token, newPassword) {
   try {
     console.log("\u{1F510} [EmailService] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631");
-    const tokenRecord = await db.select().from(passwordResetTokens).where(eq5(passwordResetTokens.token, token)).limit(1);
+    const tokenRecord = await db.select().from(passwordResetTokens).where(eq2(passwordResetTokens.token, token)).limit(1);
     if (tokenRecord.length === 0) {
       return {
         success: false,
@@ -7278,7 +3937,7 @@ async function resetPasswordWithToken(token, newPassword) {
     }
     const record = tokenRecord[0];
     if (/* @__PURE__ */ new Date() > record.expiresAt) {
-      await db.delete(passwordResetTokens).where(eq5(passwordResetTokens.id, record.id));
+      await db.delete(passwordResetTokens).where(eq2(passwordResetTokens.id, record.id));
       return {
         success: false,
         message: "\u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629. \u064A\u0631\u062C\u0649 \u0637\u0644\u0628 \u0631\u0645\u0632 \u062C\u062F\u064A\u062F"
@@ -7291,8 +3950,8 @@ async function resetPasswordWithToken(token, newPassword) {
       };
     }
     const hashedPassword = await hashPassword(newPassword);
-    await db.update(users).set({ password: hashedPassword }).where(eq5(users.id, record.userId));
-    await db.update(passwordResetTokens).set({ usedAt: /* @__PURE__ */ new Date() }).where(eq5(passwordResetTokens.id, record.id));
+    await db.update(users).set({ password: hashedPassword }).where(eq2(users.id, record.userId));
+    await db.update(passwordResetTokens).set({ usedAt: /* @__PURE__ */ new Date() }).where(eq2(passwordResetTokens.id, record.id));
     console.log("\u2705 [EmailService] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0628\u0646\u062C\u0627\u062D \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", record.userId);
     return {
       success: true,
@@ -7308,7 +3967,7 @@ async function resetPasswordWithToken(token, newPassword) {
 }
 async function validatePasswordResetToken(token) {
   try {
-    const tokenRecord = await db.select().from(passwordResetTokens).where(eq5(passwordResetTokens.token, token)).limit(1);
+    const tokenRecord = await db.select().from(passwordResetTokens).where(eq2(passwordResetTokens.token, token)).limit(1);
     if (tokenRecord.length === 0) {
       return {
         success: false,
@@ -7410,7 +4069,7 @@ async function registerUser(request) {
       };
     }
     console.log("\u{1F50D} [Register] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0648\u062C\u0648\u062F \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0633\u0628\u0642\u0627\u064B...");
-    const existingUser = await db.select().from(users).where(eq6(users.email, email.toLowerCase())).limit(1);
+    const existingUser = await db.select().from(users).where(eq3(users.email, email.toLowerCase())).limit(1);
     if (existingUser.length > 0) {
       console.log("\u274C [Register] \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0648\u062C\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B");
       return {
@@ -7446,7 +4105,7 @@ async function registerUser(request) {
     );
     if (!emailResult.success) {
       console.error("\u274C [Register] \u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642:", emailResult.message);
-      await db.delete(users).where(eq6(users.id, userId));
+      await db.delete(users).where(eq3(users.id, userId));
       return {
         success: false,
         message: "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062D\u0633\u0627\u0628 \u0644\u0643\u0646 \u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649"
@@ -7503,7 +4162,7 @@ async function verifyEmail(userId, code, ipAddress, userAgent) {
     console.log("\u{1F510} [AuthService.verifyEmail] \u0628\u062F\u0621 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0628\u0631\u064A\u062F \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", userId);
     await db.update(users).set({
       emailVerifiedAt: /* @__PURE__ */ new Date()
-    }).where(eq6(users.id, userId));
+    }).where(eq3(users.id, userId));
     console.log("\u2705 [AuthService.verifyEmail] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B emailVerifiedAt \u0628\u0646\u062C\u0627\u062D");
     await logAuditEvent({
       userId,
@@ -7532,7 +4191,7 @@ async function setupTOTP(userId, email) {
     await db.update(users).set({
       totpSecret: secret
       // mfaEnabled حقل غير موجود في جدول users
-    }).where(eq6(users.id, userId));
+    }).where(eq3(users.id, userId));
     return {
       success: true,
       secret,
@@ -7550,7 +4209,7 @@ async function setupTOTP(userId, email) {
 }
 async function enableTOTP(userId, totpCode, ipAddress, userAgent) {
   try {
-    const user = await db.select().from(users).where(eq6(users.id, userId)).limit(1);
+    const user = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
     if (user.length === 0 || !user[0].totpSecret) {
       return {
         success: false,
@@ -7607,7 +4266,7 @@ async function terminateAllOtherSessions(userId, exceptSessionId) {
 }
 async function changePassword(userId, currentPassword, newPassword, ipAddress, userAgent) {
   try {
-    const user = await db.select().from(users).where(eq6(users.id, userId)).limit(1);
+    const user = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
     if (user.length === 0) {
       return {
         success: false,
@@ -7642,7 +4301,7 @@ async function changePassword(userId, currentPassword, newPassword, ipAddress, u
     const newPasswordHash = await hashPassword(newPassword);
     await db.update(users).set({
       password: newPasswordHash
-    }).where(eq6(users.id, userId));
+    }).where(eq3(users.id, userId));
     await revokeAllUserSessions(userId);
     await logAuditEvent({
       userId,
@@ -7673,6 +4332,203 @@ async function changePassword(userId, currentPassword, newPassword, ipAddress, u
     };
   }
 }
+
+// server/middleware/auth.ts
+init_db();
+init_schema();
+import jwt2 from "jsonwebtoken";
+import { eq as eq4, and as and4, gt } from "drizzle-orm";
+import rateLimit from "express-rate-limit";
+var generalRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1e3,
+  // 15 دقيقة
+  max: 2e3,
+  // 2000 طلب لكل IP (زيادة الحد للأداء الأفضل)
+  message: {
+    success: false,
+    message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0645\u0646 \u0627\u0644\u0637\u0644\u0628\u0627\u062A\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F \u0642\u0644\u064A\u0644",
+    retryAfter: 15 * 60
+    // 15 دقيقة
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    return req.path === "/api/health" || req.path === "/health";
+  }
+});
+var authRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1e3,
+  // 15 دقيقة
+  max: 10,
+  // 10 محاولات تسجيل دخول لكل IP
+  message: {
+    success: false,
+    message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0639\u062F\u062F \u0645\u062D\u0627\u0648\u0644\u0627\u062A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0627\u0644\u0645\u0633\u0645\u0648\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F 15 \u062F\u0642\u064A\u0642\u0629",
+    retryAfter: 15 * 60
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true
+  // لا تحسب الطلبات الناجحة
+});
+var sensitiveOperationsRateLimit = rateLimit({
+  windowMs: 5 * 60 * 1e3,
+  // 5 دقائق
+  max: 5,
+  // 5 عمليات فقط
+  message: {
+    success: false,
+    message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u062D\u0633\u0627\u0633\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F 5 \u062F\u0642\u0627\u0626\u0642",
+    retryAfter: 5 * 60
+  }
+});
+var verifyToken = async (token) => {
+  try {
+    if (!process.env.JWT_ACCESS_SECRET) {
+      throw new Error("JWT_ACCESS_SECRET \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F");
+    }
+    return jwt2.verify(token, process.env.JWT_ACCESS_SECRET);
+  } catch (error) {
+    throw new Error("\u0631\u0645\u0632 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D");
+  }
+};
+var verifySession = async (userId, sessionId) => {
+  try {
+    const session = await db.select().from(authUserSessions).where(
+      and4(
+        eq4(authUserSessions.userId, userId),
+        eq4(authUserSessions.sessionToken, sessionId),
+        eq4(authUserSessions.isRevoked, false),
+        gt(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
+      )
+    ).limit(1);
+    return session.length > 0 ? session[0] : null;
+  } catch (error) {
+    console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u062C\u0644\u0633\u0629:", error);
+    return null;
+  }
+};
+var securityHeaders = (req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+  next();
+};
+var trackSuspiciousActivity = (req, res, next) => {
+  next();
+};
+var authenticate = async (req, res, next) => {
+  try {
+    const startTime = Date.now();
+    const authHeader = req.headers.authorization;
+    const ip = req.ip || req.connection.remoteAddress || "unknown";
+    console.log(`\u{1F50D} [AUTH] \u0641\u062D\u0635 \u0645\u062A\u0642\u062F\u0645 - \u0627\u0644\u0645\u0633\u0627\u0631: ${req.method} ${req.originalUrl} | IP: ${ip}`);
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("\u274C [AUTH] \u0644\u0627 \u064A\u0648\u062C\u062F token \u0641\u064A \u0627\u0644\u0637\u0644\u0628");
+      return res.status(401).json({
+        success: false,
+        message: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0644\u0643 \u0628\u0627\u0644\u0648\u0635\u0648\u0644 - \u0644\u0627 \u064A\u0648\u062C\u062F \u0631\u0645\u0632 \u0645\u0635\u0627\u062F\u0642\u0629",
+        code: "NO_TOKEN"
+      });
+    }
+    const token = authHeader.substring(7);
+    let decoded;
+    try {
+      decoded = await verifyToken(token);
+    } catch (error) {
+      console.log("\u274C [AUTH] token \u063A\u064A\u0631 \u0635\u0627\u0644\u062D:", error);
+      return res.status(401).json({
+        success: false,
+        message: "\u0631\u0645\u0632 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D \u0623\u0648 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629",
+        code: "INVALID_TOKEN"
+      });
+    }
+    const session = await verifySession(decoded.userId, decoded.sessionId);
+    if (!session) {
+      console.log("\u274C [AUTH] \u0627\u0644\u062C\u0644\u0633\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629 \u0623\u0648 \u0645\u0646\u062A\u0647\u064A\u0629");
+      return res.status(401).json({
+        success: false,
+        message: "\u0627\u0644\u062C\u0644\u0633\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629 \u0623\u0648 \u0645\u0646\u062A\u0647\u064A\u0629 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629",
+        code: "INVALID_SESSION"
+      });
+    }
+    const user = await db.select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      role: users.role,
+      isActive: users.isActive,
+      mfaEnabled: users.mfaEnabled
+    }).from(users).where(eq4(users.id, decoded.userId)).limit(1);
+    if (!user.length || !user[0].isActive) {
+      console.log("\u274C [AUTH] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u063A\u064A\u0631 \u0646\u0634\u0637");
+      return res.status(401).json({
+        success: false,
+        message: "\u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0646\u0634\u0637 \u0623\u0648 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+        code: "USER_INACTIVE"
+      });
+    }
+    await db.update(authUserSessions).set({
+      lastActivity: /* @__PURE__ */ new Date(),
+      ipAddress: ip,
+      userAgent: req.get("User-Agent") || "unknown"
+    }).where(eq4(authUserSessions.sessionToken, decoded.sessionId));
+    req.user = {
+      id: user[0].id,
+      userId: user[0].id,
+      email: user[0].email,
+      firstName: user[0].firstName || void 0,
+      lastName: user[0].lastName || void 0,
+      role: user[0].role,
+      isActive: user[0].isActive,
+      mfaEnabled: user[0].mfaEnabled || void 0,
+      sessionId: decoded.sessionId
+    };
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [AUTH] \u0645\u0635\u0627\u062F\u0642\u0629 \u0646\u0627\u062C\u062D\u0629 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${user[0].email} | ${req.method} ${req.originalUrl} | ${duration}ms`);
+    next();
+  } catch (error) {
+    console.error("\u274C [AUTH] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629:", error);
+    res.status(500).json({
+      success: false,
+      message: "\u062E\u0637\u0623 \u0641\u064A \u062E\u0627\u062F\u0645 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629",
+      code: "AUTH_SERVER_ERROR"
+    });
+  }
+};
+var oneHour = 60 * 60 * 1e3;
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, activity] of Array.from(suspiciousActivityTracker.entries())) {
+    if (now - activity.lastAttempt > oneHour) {
+      suspiciousActivityTracker.delete(ip);
+    }
+  }
+}, oneHour);
+var requireAuth = authenticate;
+var requireRole = (role) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0644\u0643 \u0628\u0627\u0644\u0648\u0635\u0648\u0644",
+        code: "UNAUTHORIZED"
+      });
+    }
+    if (req.user.role !== role) {
+      console.log(`\u{1F6AB} [AUTH] \u0645\u062D\u0627\u0648\u0644\u0629 \u0648\u0635\u0648\u0644 \u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0628\u0647\u0627 \u0645\u0646: ${req.user.email} \u0644\u0644\u062F\u0648\u0631: ${role}`);
+      return res.status(403).json({
+        success: false,
+        message: `\u062A\u062D\u062A\u0627\u062C \u0635\u0644\u0627\u062D\u064A\u0627\u062A ${role} \u0644\u0644\u0648\u0635\u0648\u0644 \u0644\u0647\u0630\u0627 \u0627\u0644\u0645\u062D\u062A\u0648\u0649`,
+        code: "ROLE_REQUIRED"
+      });
+    }
+    next();
+  };
+};
 
 // server/routes/auth.ts
 console.log("\u{1F527} [Auth] \u0625\u0639\u062F\u0627\u062F JWT secrets:", {
@@ -7738,7 +4594,7 @@ router.post("/login", async (req, res) => {
     const isBypassLogin = email === "admin@demo.local" && password === "bypass-demo-login";
     if (isBypassLogin && isDevEnvironment && quickLoginEnabled) {
       console.log("\u{1F680} [Auth] \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644 \u0633\u0631\u064A\u0639 \u062A\u062C\u0631\u064A\u0628\u064A (\u0628\u064A\u0626\u0629 \u062A\u0637\u0648\u064A\u0631 \u0641\u0642\u0637)");
-      let user2 = await db.select().from(users).where(eq7(users.role, "admin")).limit(1);
+      let user2 = await db.select().from(users).where(eq5(users.role, "admin")).limit(1);
       if (user2.length === 0) {
         console.log("\u{1F464} [Auth] \u0625\u0646\u0634\u0627\u0621 \u0645\u0633\u062A\u062E\u062F\u0645 admin \u062A\u062C\u0631\u064A\u0628\u064A");
         const newUser = await db.insert(users).values({
@@ -7816,7 +4672,7 @@ router.post("/login", async (req, res) => {
       lastLogin: users.lastLogin,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt
-    }).from(users).where(eq7(users.email, email.toLowerCase())).limit(1);
+    }).from(users).where(eq5(users.email, email.toLowerCase())).limit(1);
     if (userResult.length === 0) {
       console.log("\u274C [Auth] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", email);
       return res.status(401).json({
@@ -7858,7 +4714,7 @@ router.post("/login", async (req, res) => {
       user.role
     );
     console.log("\u{1F4DD} [Auth] \u062A\u062D\u062F\u064A\u062B \u0622\u062E\u0631 \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644...");
-    await db.update(users).set({ lastLogin: /* @__PURE__ */ new Date() }).where(eq7(users.id, user.id));
+    await db.update(users).set({ lastLogin: /* @__PURE__ */ new Date() }).where(eq5(users.id, user.id));
     console.log("\u2705 [Auth] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0646\u062C\u0627\u062D");
     const responseData = {
       success: true,
@@ -8160,7 +5016,7 @@ router.post("/validate-field", async (req, res) => {
           isValid = false;
           message = "\u0635\u064A\u063A\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
         } else {
-          const existingUser = await db.execute(sql5`
+          const existingUser = await db.execute(sql3`
             SELECT id FROM users WHERE LOWER(email) = LOWER(${value})
           `);
           const emailExists = existingUser.rows.length > 0;
@@ -8337,7 +5193,7 @@ router.get("/me", requireAuth, async (req, res) => {
     const role = req.user?.role || "user";
     let userData = null;
     try {
-      const userResult = await db.select().from(users).where(eq7(users.id, userId)).limit(1);
+      const userResult = await db.select().from(users).where(eq5(users.id, userId)).limit(1);
       if (userResult.length > 0) {
         userData = userResult[0];
       }
@@ -8497,12 +5353,12 @@ var auth_default = router;
 init_db();
 init_schema();
 import express2 from "express";
-import { eq as eq8, and as and7, sql as sql6, desc as desc5 } from "drizzle-orm";
+import { eq as eq6, and as and5, sql as sql4, desc as desc3 } from "drizzle-orm";
 var permissionsRouter = express2.Router();
 permissionsRouter.use(requireAuth);
 async function isSuperAdmin(userId) {
   try {
-    const user = await db.select({ role: users.role }).from(users).where(eq8(users.id, userId)).limit(1);
+    const user = await db.select({ role: users.role }).from(users).where(eq6(users.id, userId)).limit(1);
     return user.length > 0 && user[0].role === "super_admin";
   } catch (error) {
     console.error("\u274C [Permissions] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0645\u062F\u064A\u0631:", error);
@@ -8512,9 +5368,9 @@ async function isSuperAdmin(userId) {
 async function getUserPermissionsForProject(userId, projectId) {
   try {
     const permissions = await db.select().from(userProjectPermissions).where(
-      and7(
-        eq8(userProjectPermissions.userId, userId),
-        eq8(userProjectPermissions.projectId, projectId)
+      and5(
+        eq6(userProjectPermissions.userId, userId),
+        eq6(userProjectPermissions.projectId, projectId)
       )
     ).limit(1);
     if (permissions.length === 0) {
@@ -8583,7 +5439,7 @@ permissionsRouter.get("/users", requireSuperAdmin, async (req, res) => {
           canEdit: userProjectPermissions.canEdit,
           canDelete: userProjectPermissions.canDelete,
           assignedAt: userProjectPermissions.assignedAt
-        }).from(userProjectPermissions).leftJoin(projects, eq8(userProjectPermissions.projectId, projects.id)).where(eq8(userProjectPermissions.userId, user.id));
+        }).from(userProjectPermissions).leftJoin(projects, eq6(userProjectPermissions.projectId, projects.id)).where(eq6(userProjectPermissions.userId, user.id));
         return {
           ...user,
           projectPermissions: permissions,
@@ -8607,7 +5463,7 @@ permissionsRouter.get("/projects", requireSuperAdmin, async (req, res) => {
     const projectsList = await db.select().from(projects).orderBy(projects.createdAt);
     const projectsWithUserCount = await Promise.all(
       projectsList.map(async (project) => {
-        const userCount = await db.select({ count: sql6`count(*)` }).from(userProjectPermissions).where(eq8(userProjectPermissions.projectId, project.id));
+        const userCount = await db.select({ count: sql4`count(*)` }).from(userProjectPermissions).where(eq6(userProjectPermissions.projectId, project.id));
         return {
           ...project,
           userCount: Number(userCount[0]?.count || 0)
@@ -8628,7 +5484,7 @@ permissionsRouter.get("/user/:userId", requireSuperAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
     console.log(`\u{1F4CB} [Permissions] \u062C\u0644\u0628 \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
-    const user = await db.select().from(users).where(eq8(users.id, userId)).limit(1);
+    const user = await db.select().from(users).where(eq6(users.id, userId)).limit(1);
     if (user.length === 0) {
       return res.status(404).json({ success: false, message: "\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
     }
@@ -8642,7 +5498,7 @@ permissionsRouter.get("/user/:userId", requireSuperAdmin, async (req, res) => {
       canEdit: userProjectPermissions.canEdit,
       canDelete: userProjectPermissions.canDelete,
       assignedAt: userProjectPermissions.assignedAt
-    }).from(userProjectPermissions).leftJoin(projects, eq8(userProjectPermissions.projectId, projects.id)).where(eq8(userProjectPermissions.userId, userId));
+    }).from(userProjectPermissions).leftJoin(projects, eq6(userProjectPermissions.projectId, projects.id)).where(eq6(userProjectPermissions.userId, userId));
     res.json({
       success: true,
       data: {
@@ -8671,9 +5527,9 @@ permissionsRouter.post("/assign", requireSuperAdmin, async (req, res) => {
     }
     console.log(`\u{1F4CB} [Permissions] \u0631\u0628\u0637 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId} \u0628\u0627\u0644\u0645\u0634\u0631\u0648\u0639 ${projectId}`);
     const existingPermission = await db.select().from(userProjectPermissions).where(
-      and7(
-        eq8(userProjectPermissions.userId, userId),
-        eq8(userProjectPermissions.projectId, projectId)
+      and5(
+        eq6(userProjectPermissions.userId, userId),
+        eq6(userProjectPermissions.projectId, projectId)
       )
     ).limit(1);
     if (existingPermission.length > 0) {
@@ -8718,9 +5574,9 @@ permissionsRouter.delete("/unassign", requireSuperAdmin, async (req, res) => {
     console.log(`\u{1F4CB} [Permissions] \u0641\u0635\u0644 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId} \u0645\u0646 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 ${projectId}`);
     const oldPermissions = await getUserPermissionsForProject(userId, projectId);
     const deleted = await db.delete(userProjectPermissions).where(
-      and7(
-        eq8(userProjectPermissions.userId, userId),
-        eq8(userProjectPermissions.projectId, projectId)
+      and5(
+        eq6(userProjectPermissions.userId, userId),
+        eq6(userProjectPermissions.projectId, projectId)
       )
     ).returning();
     if (deleted.length === 0) {
@@ -8768,9 +5624,9 @@ permissionsRouter.put("/update", requireSuperAdmin, async (req, res) => {
       canDelete: canDelete ?? oldPermissions.canDelete,
       updatedAt: /* @__PURE__ */ new Date()
     }).where(
-      and7(
-        eq8(userProjectPermissions.userId, userId),
-        eq8(userProjectPermissions.projectId, projectId)
+      and5(
+        eq6(userProjectPermissions.userId, userId),
+        eq6(userProjectPermissions.projectId, projectId)
       )
     ).returning();
     await logAuditAction({
@@ -8817,9 +5673,9 @@ permissionsRouter.post("/bulk-assign", requireSuperAdmin, async (req, res) => {
     for (const userId of userIds) {
       try {
         const existingPermission = await db.select().from(userProjectPermissions).where(
-          and7(
-            eq8(userProjectPermissions.userId, userId),
-            eq8(userProjectPermissions.projectId, projectId)
+          and5(
+            eq6(userProjectPermissions.userId, userId),
+            eq6(userProjectPermissions.projectId, projectId)
           )
         ).limit(1);
         if (existingPermission.length === 0) {
@@ -8868,13 +5724,13 @@ permissionsRouter.get("/audit-logs", requireSuperAdmin, async (req, res) => {
     console.log("\u{1F4CB} [Permissions] \u062C\u0644\u0628 \u0633\u062C\u0644 \u0627\u0644\u062A\u063A\u064A\u064A\u0631\u0627\u062A");
     const conditions = [];
     if (userId) {
-      conditions.push(eq8(permissionAuditLogs.targetUserId, userId));
+      conditions.push(eq6(permissionAuditLogs.targetUserId, userId));
     }
     if (projectId) {
-      conditions.push(eq8(permissionAuditLogs.projectId, projectId));
+      conditions.push(eq6(permissionAuditLogs.projectId, projectId));
     }
     if (action) {
-      conditions.push(eq8(permissionAuditLogs.action, action));
+      conditions.push(eq6(permissionAuditLogs.action, action));
     }
     let query = db.select({
       id: permissionAuditLogs.id,
@@ -8890,9 +5746,9 @@ permissionsRouter.get("/audit-logs", requireSuperAdmin, async (req, res) => {
       ipAddress: permissionAuditLogs.ipAddress,
       notes: permissionAuditLogs.notes,
       createdAt: permissionAuditLogs.createdAt
-    }).from(permissionAuditLogs).leftJoin(users, eq8(permissionAuditLogs.actorId, users.id)).leftJoin(projects, eq8(permissionAuditLogs.projectId, projects.id)).orderBy(desc5(permissionAuditLogs.createdAt));
+    }).from(permissionAuditLogs).leftJoin(users, eq6(permissionAuditLogs.actorId, users.id)).leftJoin(projects, eq6(permissionAuditLogs.projectId, projects.id)).orderBy(desc3(permissionAuditLogs.createdAt));
     if (conditions.length > 0) {
-      query = query.where(and7(...conditions));
+      query = query.where(and5(...conditions));
     }
     const limitNum = limitStr ? parseInt(limitStr) : 100;
     const offsetNum = offsetStr ? parseInt(offsetStr) : 0;
@@ -8924,16 +5780,16 @@ permissionsRouter.get("/my-projects", async (req, res) => {
       });
     }
     const userPermissions = await db.select({ projectId: userProjectPermissions.projectId }).from(userProjectPermissions).where(
-      and7(
-        eq8(userProjectPermissions.userId, req.user.userId),
-        eq8(userProjectPermissions.canView, true)
+      and5(
+        eq6(userProjectPermissions.userId, req.user.userId),
+        eq6(userProjectPermissions.canView, true)
       )
     );
     const projectIds = userPermissions.map((p) => p.projectId);
     if (projectIds.length === 0) {
       return res.json({ success: true, data: [], message: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0634\u0627\u0631\u064A\u0639 \u0645\u0631\u062A\u0628\u0637\u0629" });
     }
-    const userProjects = await db.select().from(projects).where(sql6`${projects.id} IN (${sql6.join(projectIds.map((id) => sql6`${id}`), sql6`, `)})`);
+    const userProjects = await db.select().from(projects).where(sql4`${projects.id} IN (${sql4.join(projectIds.map((id) => sql4`${id}`), sql4`, `)})`);
     res.json({
       success: true,
       data: userProjects,
@@ -8958,7 +5814,7 @@ permissionsRouter.get("/my-permissions", async (req, res) => {
       canAdd: userProjectPermissions.canAdd,
       canEdit: userProjectPermissions.canEdit,
       canDelete: userProjectPermissions.canDelete
-    }).from(userProjectPermissions).leftJoin(projects, eq8(userProjectPermissions.projectId, projects.id)).where(eq8(userProjectPermissions.userId, req.user.userId));
+    }).from(userProjectPermissions).leftJoin(projects, eq6(userProjectPermissions.projectId, projects.id)).where(eq6(userProjectPermissions.userId, req.user.userId));
     res.json({
       success: true,
       data: {
@@ -8980,9 +5836,9 @@ permissionsRouter.post("/make-super-admin", requireSuperAdmin, async (req, res) 
       return res.status(400).json({ success: false, message: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0637\u0644\u0648\u0628" });
     }
     console.log(`\u{1F4CB} [Permissions] \u062A\u0631\u0642\u064A\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId} \u0625\u0644\u0649 \u0645\u062F\u064A\u0631 \u0623\u0648\u0644`);
-    const existingUser = await db.select().from(users).where(eq8(users.id, userId)).limit(1);
+    const existingUser = await db.select().from(users).where(eq6(users.id, userId)).limit(1);
     const oldRole = existingUser[0]?.role;
-    const updated = await db.update(users).set({ role: "super_admin", updatedAt: /* @__PURE__ */ new Date() }).where(eq8(users.id, userId)).returning();
+    const updated = await db.update(users).set({ role: "super_admin", updatedAt: /* @__PURE__ */ new Date() }).where(eq6(users.id, userId)).returning();
     if (updated.length === 0) {
       return res.status(404).json({ success: false, message: "\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
     }
@@ -9455,7 +6311,7 @@ var AdvancedRouteManager = class {
   /**
    * معالجة مسار واحد وإضافته للخرائط المناسبة
    */
-  processRoute(route, isPublic, globalRateLimit2) {
+  processRoute(route, isPublic, globalRateLimit) {
     if (route.isWildcard || route.path.includes("*")) {
       const regexPattern = route.path.replace(/\*/g, ".*").replace(/:[^/]+/g, "[^/]+");
       this.wildcardRoutes.push({
@@ -9477,8 +6333,8 @@ var AdvancedRouteManager = class {
       });
       targetMap.set(route.path, methodSet);
     }
-    if (route.rateLimit || globalRateLimit2) {
-      const rateLimitConfig = route.rateLimit || globalRateLimit2;
+    if (route.rateLimit || globalRateLimit) {
+      const rateLimitConfig = route.rateLimit || globalRateLimit;
       const limiterId = `${route.path}:${route.methods.join(",")}`;
       this.rateLimiters.set(limiterId, rateLimit2({
         windowMs: rateLimitConfig.windowMs,
@@ -9932,7 +6788,7 @@ healthRouter.get("/status", (req, res) => {
 });
 healthRouter.get("/schema-check", requireAuth2, requireRole3("admin"), async (req, res) => {
   try {
-    const sql12 = (query) => query.join("");
+    const sql11 = (query) => query.join("");
     const dbTablesResult = await db.execute(`
       SELECT table_name 
       FROM information_schema.tables 
@@ -9996,7 +6852,7 @@ var healthRoutes_default = healthRouter;
 init_db();
 init_schema();
 import express6 from "express";
-import { eq as eq9, and as and8, sql as sql7, gte as gte6, lt as lt3, lte as lte3, desc as desc6 } from "drizzle-orm";
+import { eq as eq7, and as and6, sql as sql5, gte as gte5, lt as lt2, lte as lte2, desc as desc4 } from "drizzle-orm";
 var projectRouter = express6.Router();
 projectRouter.use(requireAuth);
 projectRouter.get("/", async (req, res) => {
@@ -10042,7 +6898,7 @@ projectRouter.get("/with-stats", async (req, res) => {
           }
           return Math.max(0, parsed);
         };
-        const workersStats = await db.execute(sql7`
+        const workersStats = await db.execute(sql5`
           SELECT 
             COUNT(DISTINCT wa.worker_id) as total_workers,
             COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
@@ -10050,46 +6906,46 @@ projectRouter.get("/with-stats", async (req, res) => {
           INNER JOIN workers w ON wa.worker_id = w.id
           WHERE wa.project_id = ${projectId}
         `);
-        const materialStats = await db.execute(sql7`
+        const materialStats = await db.execute(sql5`
           SELECT 
             COUNT(*) as material_purchases,
             COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
           FROM material_purchases 
           WHERE project_id = ${projectId}
         `);
-        const workerWagesStats = await db.execute(sql7`
+        const workerWagesStats = await db.execute(sql5`
           SELECT 
             COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
             COUNT(DISTINCT date) as completed_days
           FROM worker_attendance 
           WHERE project_id = ${projectId} AND is_present = true
         `);
-        const fundTransfersStats = await db.execute(sql7`
+        const fundTransfersStats = await db.execute(sql5`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
           FROM fund_transfers 
           WHERE project_id = ${projectId}
         `);
-        const transportStats = await db.execute(sql7`
+        const transportStats = await db.execute(sql5`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
           FROM transportation_expenses 
           WHERE project_id = ${projectId}
         `);
-        const workerTransfersStats = await db.execute(sql7`
+        const workerTransfersStats = await db.execute(sql5`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
           FROM worker_transfers 
           WHERE project_id = ${projectId}
         `);
-        const miscExpensesStats = await db.execute(sql7`
+        const miscExpensesStats = await db.execute(sql5`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
           FROM worker_misc_expenses 
           WHERE project_id = ${projectId}
         `);
-        const outgoingProjectTransfersStats = await db.execute(sql7`
+        const outgoingProjectTransfersStats = await db.execute(sql5`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as outgoing_project_transfers
           FROM project_fund_transfers 
           WHERE from_project_id = ${projectId}
         `);
-        const incomingProjectTransfersStats = await db.execute(sql7`
+        const incomingProjectTransfersStats = await db.execute(sql5`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as incoming_project_transfers
           FROM project_fund_transfers 
           WHERE to_project_id = ${projectId}
@@ -10240,7 +7096,7 @@ projectRouter.get("/:id", async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const projectResult = await db.select().from(projects).where(eq9(projects.id, id)).limit(1);
+    const projectResult = await db.select().from(projects).where(eq7(projects.id, id)).limit(1);
     if (projectResult.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", id);
@@ -10272,7 +7128,7 @@ projectRouter.get("/:id", async (req, res) => {
           workerTransfersStats,
           miscExpensesStats
         ] = await Promise.all([
-          db.execute(sql7`
+          db.execute(sql5`
             SELECT 
               COUNT(DISTINCT wa.worker_id) as total_workers,
               COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
@@ -10280,36 +7136,36 @@ projectRouter.get("/:id", async (req, res) => {
             INNER JOIN workers w ON wa.worker_id = w.id
             WHERE wa.project_id = ${id}
           `),
-          db.execute(sql7`
+          db.execute(sql5`
             SELECT 
               COUNT(*) as material_purchases,
               COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
             FROM material_purchases 
             WHERE project_id = ${id}
           `),
-          db.execute(sql7`
+          db.execute(sql5`
             SELECT 
               COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
               COUNT(DISTINCT date) as completed_days
             FROM worker_attendance 
             WHERE project_id = ${id} AND is_present = true
           `),
-          db.execute(sql7`
+          db.execute(sql5`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
             FROM fund_transfers 
             WHERE project_id = ${id}
           `),
-          db.execute(sql7`
+          db.execute(sql5`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
             FROM transportation_expenses 
             WHERE project_id = ${id}
           `),
-          db.execute(sql7`
+          db.execute(sql5`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
             FROM worker_transfers 
             WHERE project_id = ${id}
           `),
-          db.execute(sql7`
+          db.execute(sql5`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
             FROM worker_misc_expenses 
             WHERE project_id = ${id}
@@ -10387,7 +7243,7 @@ projectRouter.patch("/:id", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const existingProject = await db.select().from(projects).where(eq9(projects.id, projectId)).limit(1);
+    const existingProject = await db.select().from(projects).where(eq7(projects.id, projectId)).limit(1);
     if (existingProject.length === 0) {
       return res.status(404).json({
         success: false,
@@ -10395,7 +7251,7 @@ projectRouter.patch("/:id", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const updatedProject = await db.update(projects).set(req.body).where(eq9(projects.id, projectId)).returning();
+    const updatedProject = await db.update(projects).set(req.body).where(eq7(projects.id, projectId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -10430,7 +7286,7 @@ projectRouter.delete("/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingProject = await db.select().from(projects).where(eq9(projects.id, projectId)).limit(1);
+    const existingProject = await db.select().from(projects).where(eq7(projects.id, projectId)).limit(1);
     if (existingProject.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -10448,7 +7304,7 @@ projectRouter.delete("/:id", async (req, res) => {
       status: projectToDelete.status
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedProject = await db.delete(projects).where(eq9(projects.id, projectId)).returning();
+    const deletedProject = await db.delete(projects).where(eq7(projects.id, projectId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedProject[0].id,
@@ -10493,7 +7349,7 @@ projectRouter.get("/:projectId/fund-transfers", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const transfers = await db.select().from(fundTransfers).where(eq9(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
+    const transfers = await db.select().from(fundTransfers).where(eq7(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
     res.json({
@@ -10537,7 +7393,7 @@ projectRouter.get("/:projectId/worker-attendance", async (req, res) => {
       isPresent: workerAttendance.isPresent,
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
-    }).from(workerAttendance).leftJoin(workers, eq9(workerAttendance.workerId, workers.id)).where(eq9(workerAttendance.projectId, projectId)).orderBy(workerAttendance.date);
+    }).from(workerAttendance).leftJoin(workers, eq7(workerAttendance.workerId, workers.id)).where(eq7(workerAttendance.projectId, projectId)).orderBy(workerAttendance.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -10569,7 +7425,7 @@ projectRouter.get("/:projectId/material-purchases", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const purchases = await db.select().from(materialPurchases).where(eq9(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
+    const purchases = await db.select().from(materialPurchases).where(eq7(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${purchases.length} \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0648\u0627\u062F \u0641\u064A ${duration}ms`);
     res.json({
@@ -10601,7 +7457,7 @@ projectRouter.get("/:projectId/transportation-expenses", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(transportationExpenses).where(eq9(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
+    const expenses = await db.select().from(transportationExpenses).where(eq7(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644 \u0641\u064A ${duration}ms`);
     res.json({
@@ -10633,7 +7489,7 @@ projectRouter.get("/:projectId/worker-misc-expenses", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
+    const expenses = await db.select().from(workerMiscExpenses).where(eq7(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
     res.json({
@@ -10672,9 +7528,9 @@ projectRouter.get("/fund-transfers/incoming/:projectId", async (req, res) => {
       amount: projectFundTransfers.amount,
       transferDate: projectFundTransfers.transferDate,
       description: projectFundTransfers.description,
-      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq9(projectFundTransfers.toProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
+      fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq7(projectFundTransfers.toProjectId, projectId)).orderBy(desc4(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0641\u064A ${duration}ms`);
     res.json({
@@ -10713,9 +7569,9 @@ projectRouter.get("/fund-transfers/outgoing/:projectId", async (req, res) => {
       amount: projectFundTransfers.amount,
       transferDate: projectFundTransfers.transferDate,
       description: projectFundTransfers.description,
-      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq9(projectFundTransfers.fromProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
+      fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq7(projectFundTransfers.fromProjectId, projectId)).orderBy(desc4(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -10760,7 +7616,7 @@ projectRouter.get("/:projectId/worker-transfers", async (req, res) => {
       notes: workerTransfers.notes,
       createdAt: workerTransfers.createdAt,
       workerName: workers.name
-    }).from(workerTransfers).leftJoin(workers, eq9(workerTransfers.workerId, workers.id)).where(eq9(workerTransfers.projectId, projectId)).orderBy(workerTransfers.transferDate);
+    }).from(workerTransfers).leftJoin(workers, eq7(workerTransfers.workerId, workers.id)).where(eq7(workerTransfers.projectId, projectId)).orderBy(workerTransfers.transferDate);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062D\u0648\u0644\u0629 \u0639\u0645\u0627\u0644 \u0641\u064A ${duration}ms`);
     res.json({
@@ -10801,10 +7657,10 @@ projectRouter.get("/:projectId/actual-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      direction: sql7`'incoming'`.as("direction"),
-      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq9(projectFundTransfers.toProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
+      direction: sql5`'incoming'`.as("direction"),
+      fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq7(projectFundTransfers.toProjectId, projectId)).orderBy(desc4(projectFundTransfers.transferDate));
     const outgoingTransfers = await db.select({
       id: projectFundTransfers.id,
       fromProjectId: projectFundTransfers.fromProjectId,
@@ -10814,10 +7670,10 @@ projectRouter.get("/:projectId/actual-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      direction: sql7`'outgoing'`.as("direction"),
-      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
-    }).from(projectFundTransfers).where(eq9(projectFundTransfers.fromProjectId, projectId)).orderBy(desc6(projectFundTransfers.transferDate));
+      direction: sql5`'outgoing'`.as("direction"),
+      fromProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql5`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+    }).from(projectFundTransfers).where(eq7(projectFundTransfers.fromProjectId, projectId)).orderBy(desc4(projectFundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${incomingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0648\u0627\u0631\u062F \u0648 ${outgoingTransfers.length} \u062A\u062D\u0648\u064A\u0644 \u0635\u0627\u062F\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -10874,7 +7730,7 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0648\u062C\u0648\u062F \u0627\u0644\u0645\u0634\u0631\u0648\u0639...");
-    const projectExists = await db.select().from(projects).where(eq9(projects.id, projectId)).limit(1);
+    const projectExists = await db.select().from(projects).where(eq7(projects.id, projectId)).limit(1);
     if (projectExists.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -10889,7 +7745,7 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
     let dailySummary = null;
     try {
       console.log("\u26A1 [API] \u0645\u062D\u0627\u0648\u0644\u0629 \u062C\u0644\u0628 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 daily_summary_mv...");
-      const mvResult = await db.execute(sql7`
+      const mvResult = await db.execute(sql5`
         SELECT 
           id,
           project_id,
@@ -10927,8 +7783,8 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
         total_worker_wages: dailyExpenseSummaries.totalWorkerWages,
         total_material_costs: dailyExpenseSummaries.totalMaterialCosts,
         total_transportation_expenses: dailyExpenseSummaries.totalTransportationCosts,
-        total_worker_transfers: sql7`COALESCE(CAST(${dailyExpenseSummaries.totalWorkerTransfers} AS DECIMAL), 0)`,
-        total_worker_misc_expenses: sql7`COALESCE(CAST(${dailyExpenseSummaries.totalWorkerMiscExpenses} AS DECIMAL), 0)`,
+        total_worker_transfers: sql5`COALESCE(CAST(${dailyExpenseSummaries.totalWorkerTransfers} AS DECIMAL), 0)`,
+        total_worker_misc_expenses: sql5`COALESCE(CAST(${dailyExpenseSummaries.totalWorkerMiscExpenses} AS DECIMAL), 0)`,
         total_income: dailyExpenseSummaries.totalIncome,
         total_expenses: dailyExpenseSummaries.totalExpenses,
         remaining_balance: dailyExpenseSummaries.remainingBalance,
@@ -10936,9 +7792,9 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
         created_at: dailyExpenseSummaries.createdAt,
         updated_at: dailyExpenseSummaries.updatedAt,
         project_name: projects.name
-      }).from(dailyExpenseSummaries).leftJoin(projects, eq9(dailyExpenseSummaries.projectId, projects.id)).where(and8(
-        eq9(dailyExpenseSummaries.projectId, projectId),
-        eq9(dailyExpenseSummaries.date, date2)
+      }).from(dailyExpenseSummaries).leftJoin(projects, eq7(dailyExpenseSummaries.projectId, projects.id)).where(and6(
+        eq7(dailyExpenseSummaries.projectId, projectId),
+        eq7(dailyExpenseSummaries.date, date2)
       )).limit(1);
       if (regularResult.length > 0) {
         dailySummary = regularResult[0];
@@ -11059,7 +7915,7 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
       miscExpensesResult,
       projectInfo
     ] = await Promise.all([
-      db.select().from(fundTransfers).where(and8(eq9(fundTransfers.projectId, projectId), gte6(fundTransfers.transferDate, sql7`${date2}::date`), lt3(fundTransfers.transferDate, sql7`(${date2}::date + interval '1 day')`))),
+      db.select().from(fundTransfers).where(and6(eq7(fundTransfers.projectId, projectId), gte5(fundTransfers.transferDate, sql5`${date2}::date`), lt2(fundTransfers.transferDate, sql5`(${date2}::date + interval '1 day')`))),
       db.select({
         id: workerAttendance.id,
         workerId: workerAttendance.workerId,
@@ -11069,12 +7925,12 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
         actualWage: workerAttendance.actualWage,
         workDays: workerAttendance.workDays,
         workerName: workers.name
-      }).from(workerAttendance).leftJoin(workers, eq9(workerAttendance.workerId, workers.id)).where(and8(eq9(workerAttendance.projectId, projectId), eq9(workerAttendance.date, date2))),
-      db.select().from(materialPurchases).where(and8(eq9(materialPurchases.projectId, projectId), eq9(materialPurchases.purchaseDate, date2))),
-      db.select().from(transportationExpenses).where(and8(eq9(transportationExpenses.projectId, projectId), eq9(transportationExpenses.date, date2))),
-      db.select().from(workerTransfers).where(and8(eq9(workerTransfers.projectId, projectId), eq9(workerTransfers.transferDate, date2))),
-      db.select().from(workerMiscExpenses).where(and8(eq9(workerMiscExpenses.projectId, projectId), eq9(workerMiscExpenses.date, date2))),
-      db.select().from(projects).where(eq9(projects.id, projectId)).limit(1)
+      }).from(workerAttendance).leftJoin(workers, eq7(workerAttendance.workerId, workers.id)).where(and6(eq7(workerAttendance.projectId, projectId), eq7(workerAttendance.date, date2))),
+      db.select().from(materialPurchases).where(and6(eq7(materialPurchases.projectId, projectId), eq7(materialPurchases.purchaseDate, date2))),
+      db.select().from(transportationExpenses).where(and6(eq7(transportationExpenses.projectId, projectId), eq7(transportationExpenses.date, date2))),
+      db.select().from(workerTransfers).where(and6(eq7(workerTransfers.projectId, projectId), eq7(workerTransfers.transferDate, date2))),
+      db.select().from(workerMiscExpenses).where(and6(eq7(workerMiscExpenses.projectId, projectId), eq7(workerMiscExpenses.date, date2))),
+      db.select().from(projects).where(eq7(projects.id, projectId)).limit(1)
     ]);
     const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
     const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
@@ -11096,10 +7952,10 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
       const latestSummary = await db.select({
         remainingBalance: dailyExpenseSummaries.remainingBalance,
         date: dailyExpenseSummaries.date
-      }).from(dailyExpenseSummaries).where(and8(
-        eq9(dailyExpenseSummaries.projectId, projectId),
-        lt3(dailyExpenseSummaries.date, date2)
-      )).orderBy(desc6(dailyExpenseSummaries.date)).limit(1);
+      }).from(dailyExpenseSummaries).where(and6(
+        eq7(dailyExpenseSummaries.projectId, projectId),
+        lt2(dailyExpenseSummaries.date, date2)
+      )).orderBy(desc4(dailyExpenseSummaries.date)).limit(1);
       if (latestSummary.length > 0) {
         const summaryDate = latestSummary[0].date;
         const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || "0"));
@@ -11199,10 +8055,10 @@ projectRouter.get("/:projectId/previous-balance/:date", async (req, res) => {
       const latestSummary = await db.select({
         remainingBalance: dailyExpenseSummaries.remainingBalance,
         date: dailyExpenseSummaries.date
-      }).from(dailyExpenseSummaries).where(and8(
-        eq9(dailyExpenseSummaries.projectId, projectId),
-        lt3(dailyExpenseSummaries.date, date2)
-      )).orderBy(desc6(dailyExpenseSummaries.date)).limit(1);
+      }).from(dailyExpenseSummaries).where(and6(
+        eq7(dailyExpenseSummaries.projectId, projectId),
+        lt2(dailyExpenseSummaries.date, date2)
+      )).orderBy(desc4(dailyExpenseSummaries.date)).limit(1);
       if (latestSummary.length > 0) {
         const summaryDate = latestSummary[0].date;
         const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || "0"));
@@ -11260,11 +8116,11 @@ projectRouter.get("/:projectId/previous-balance/:date", async (req, res) => {
 });
 async function calculateCumulativeBalance(projectId, fromDate, toDate) {
   try {
-    const whereConditions = [eq9(fundTransfers.projectId, projectId)];
+    const whereConditions = [eq7(fundTransfers.projectId, projectId)];
     if (fromDate) {
-      whereConditions.push(gte6(fundTransfers.transferDate, sql7`${fromDate}::date`));
+      whereConditions.push(gte5(fundTransfers.transferDate, sql5`${fromDate}::date`));
     }
-    whereConditions.push(lt3(fundTransfers.transferDate, sql7`(${toDate}::date + interval '1 day')`));
+    whereConditions.push(lt2(fundTransfers.transferDate, sql5`(${toDate}::date + interval '1 day')`));
     const [
       ftRows,
       waRows,
@@ -11276,49 +8132,49 @@ async function calculateCumulativeBalance(projectId, fromDate, toDate) {
       outgoingPtRows
     ] = await Promise.all([
       // تحويلات العهدة
-      db.select().from(fundTransfers).where(and8(...whereConditions)),
+      db.select().from(fundTransfers).where(and6(...whereConditions)),
       // أجور العمال
-      db.select().from(workerAttendance).where(and8(
-        eq9(workerAttendance.projectId, projectId),
-        fromDate ? gte6(workerAttendance.date, fromDate) : sql7`true`,
-        lte3(workerAttendance.date, toDate)
+      db.select().from(workerAttendance).where(and6(
+        eq7(workerAttendance.projectId, projectId),
+        fromDate ? gte5(workerAttendance.date, fromDate) : sql5`true`,
+        lte2(workerAttendance.date, toDate)
       )),
       // مشتريات المواد النقدية فقط
-      db.select().from(materialPurchases).where(and8(
-        eq9(materialPurchases.projectId, projectId),
-        eq9(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
-        fromDate ? gte6(materialPurchases.purchaseDate, fromDate) : sql7`true`,
-        lte3(materialPurchases.purchaseDate, toDate)
+      db.select().from(materialPurchases).where(and6(
+        eq7(materialPurchases.projectId, projectId),
+        eq7(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
+        fromDate ? gte5(materialPurchases.purchaseDate, fromDate) : sql5`true`,
+        lte2(materialPurchases.purchaseDate, toDate)
       )),
       // مصاريف النقل
-      db.select().from(transportationExpenses).where(and8(
-        eq9(transportationExpenses.projectId, projectId),
-        fromDate ? gte6(transportationExpenses.date, fromDate) : sql7`true`,
-        lte3(transportationExpenses.date, toDate)
+      db.select().from(transportationExpenses).where(and6(
+        eq7(transportationExpenses.projectId, projectId),
+        fromDate ? gte5(transportationExpenses.date, fromDate) : sql5`true`,
+        lte2(transportationExpenses.date, toDate)
       )),
       // حوالات العمال
-      db.select().from(workerTransfers).where(and8(
-        eq9(workerTransfers.projectId, projectId),
-        fromDate ? gte6(workerTransfers.transferDate, fromDate) : sql7`true`,
-        lte3(workerTransfers.transferDate, toDate)
+      db.select().from(workerTransfers).where(and6(
+        eq7(workerTransfers.projectId, projectId),
+        fromDate ? gte5(workerTransfers.transferDate, fromDate) : sql5`true`,
+        lte2(workerTransfers.transferDate, toDate)
       )),
       // مصاريف متنوعة للعمال
-      db.select().from(workerMiscExpenses).where(and8(
-        eq9(workerMiscExpenses.projectId, projectId),
-        fromDate ? gte6(workerMiscExpenses.date, fromDate) : sql7`true`,
-        lte3(workerMiscExpenses.date, toDate)
+      db.select().from(workerMiscExpenses).where(and6(
+        eq7(workerMiscExpenses.projectId, projectId),
+        fromDate ? gte5(workerMiscExpenses.date, fromDate) : sql5`true`,
+        lte2(workerMiscExpenses.date, toDate)
       )),
       // تحويلات واردة من مشاريع أخرى
-      db.select().from(projectFundTransfers).where(and8(
-        eq9(projectFundTransfers.toProjectId, projectId),
-        fromDate ? gte6(projectFundTransfers.transferDate, fromDate) : sql7`true`,
-        lte3(projectFundTransfers.transferDate, toDate)
+      db.select().from(projectFundTransfers).where(and6(
+        eq7(projectFundTransfers.toProjectId, projectId),
+        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql5`true`,
+        lte2(projectFundTransfers.transferDate, toDate)
       )),
       // تحويلات صادرة إلى مشاريع أخرى
-      db.select().from(projectFundTransfers).where(and8(
-        eq9(projectFundTransfers.fromProjectId, projectId),
-        fromDate ? gte6(projectFundTransfers.transferDate, fromDate) : sql7`true`,
-        lte3(projectFundTransfers.transferDate, toDate)
+      db.select().from(projectFundTransfers).where(and6(
+        eq7(projectFundTransfers.fromProjectId, projectId),
+        fromDate ? gte5(projectFundTransfers.transferDate, fromDate) : sql5`true`,
+        lte2(projectFundTransfers.transferDate, toDate)
       ))
     ]);
     const totalFundTransfers = ftRows.reduce((sum, t) => sum + parseFloat(String(t.amount || "0")), 0);
@@ -11346,7 +8202,7 @@ var projectRoutes_default = projectRouter;
 init_db();
 init_schema();
 import express7 from "express";
-import { eq as eq10, sql as sql8, and as and9 } from "drizzle-orm";
+import { eq as eq8, sql as sql6, and as and7 } from "drizzle-orm";
 var workerRouter = express7.Router();
 workerRouter.get("/worker-types", async (req, res) => {
   try {
@@ -11456,7 +8312,7 @@ workerRouter.get("/workers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const worker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
+    const worker = await db.select().from(workers).where(eq8(workers.id, workerId)).limit(1);
     if (worker.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -11505,7 +8361,7 @@ workerRouter.patch("/workers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingWorker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
+    const existingWorker = await db.select().from(workers).where(eq8(workers.id, workerId)).limit(1);
     if (existingWorker.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -11532,7 +8388,7 @@ workerRouter.patch("/workers/:id", async (req, res) => {
     }
     console.log("\u2705 [API] \u0646\u062C\u062D validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644");
     console.log("\u{1F4BE} [API] \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const updatedWorker = await db.update(workers).set(validationResult.data).where(eq10(workers.id, workerId)).returning();
+    const updatedWorker = await db.update(workers).set(validationResult.data).where(eq8(workers.id, workerId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: updatedWorker[0].id,
@@ -11581,7 +8437,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingWorker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
+    const existingWorker = await db.select().from(workers).where(eq8(workers.id, workerId)).limit(1);
     if (existingWorker.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -11603,12 +8459,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       id: workerAttendance.id,
       date: workerAttendance.date,
       projectId: workerAttendance.projectId
-    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId)).limit(5);
+    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId)).limit(5);
     if (attendanceRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalAttendanceCount = await db.select({
-        count: sql8`COUNT(*)`
-      }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
+        count: sql6`COUNT(*)`
+      }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));
       const totalCount = totalAttendanceCount[0]?.count || attendanceRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${totalCount} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631`);
       return res.status(409).json({
@@ -11622,12 +8478,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq10(workerTransfers.workerId, workerId)).limit(1);
+    const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq8(workerTransfers.workerId, workerId)).limit(1);
     if (transferRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalTransfersCount = await db.select({
-        count: sql8`COUNT(*)`
-      }).from(workerTransfers).where(eq10(workerTransfers.workerId, workerId));
+        count: sql6`COUNT(*)`
+      }).from(workerTransfers).where(eq8(workerTransfers.workerId, workerId));
       const transfersCount = totalTransfersCount[0]?.count || transferRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transfersCount} \u062A\u062D\u0648\u064A\u0644 \u0645\u0627\u0644\u064A`);
       return res.status(409).json({
@@ -11641,12 +8497,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq10(transportationExpenses.workerId, workerId)).limit(1);
+    const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq8(transportationExpenses.workerId, workerId)).limit(1);
     if (transportRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalTransportCount = await db.select({
-        count: sql8`COUNT(*)`
-      }).from(transportationExpenses).where(eq10(transportationExpenses.workerId, workerId));
+        count: sql6`COUNT(*)`
+      }).from(transportationExpenses).where(eq8(transportationExpenses.workerId, workerId));
       const transportCount = totalTransportCount[0]?.count || transportRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transportCount} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644`);
       return res.status(409).json({
@@ -11660,12 +8516,12 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0623\u0631\u0635\u062F\u0629 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-    const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq10(workerBalances.workerId, workerId)).limit(1);
+    const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq8(workerBalances.workerId, workerId)).limit(1);
     if (balanceRecords.length > 0) {
       const duration2 = Date.now() - startTime;
       const totalBalanceCount = await db.select({
-        count: sql8`COUNT(*)`
-      }).from(workerBalances).where(eq10(workerBalances.workerId, workerId));
+        count: sql6`COUNT(*)`
+      }).from(workerBalances).where(eq8(workerBalances.workerId, workerId));
       const balanceCount = totalBalanceCount[0]?.count || balanceRecords.length;
       console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${balanceCount} \u0633\u062C\u0644 \u0631\u0635\u064A\u062F`);
       return res.status(409).json({
@@ -11679,7 +8535,7 @@ workerRouter.delete("/workers/:id", requireRole("admin"), async (req, res) => {
       });
     }
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A (\u0644\u0627 \u062A\u0648\u062C\u062F \u0633\u062C\u0644\u0627\u062A \u0645\u0631\u062A\u0628\u0637\u0629)...");
-    const deletedWorker = await db.delete(workers).where(eq10(workers.id, workerId)).returning();
+    const deletedWorker = await db.delete(workers).where(eq8(workers.id, workerId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedWorker[0].id,
@@ -11745,7 +8601,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq8(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -11769,7 +8625,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq10(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq8(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -11804,7 +8660,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq8(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -11823,7 +8679,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq10(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq8(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -11864,14 +8720,14 @@ workerRouter.get("/worker-misc-expenses", async (req, res) => {
     console.log("\u{1F50D} [API] \u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0627\u0644\u0641\u0644\u062A\u0631\u0629:", { projectId, date: date2 });
     let query;
     if (projectId && date2) {
-      query = db.select().from(workerMiscExpenses).where(and9(
-        eq10(workerMiscExpenses.projectId, projectId),
-        eq10(workerMiscExpenses.date, date2)
+      query = db.select().from(workerMiscExpenses).where(and7(
+        eq8(workerMiscExpenses.projectId, projectId),
+        eq8(workerMiscExpenses.date, date2)
       ));
     } else if (projectId) {
-      query = db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.projectId, projectId));
+      query = db.select().from(workerMiscExpenses).where(eq8(workerMiscExpenses.projectId, projectId));
     } else if (date2) {
-      query = db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.date, date2));
+      query = db.select().from(workerMiscExpenses).where(eq8(workerMiscExpenses.date, date2));
     } else {
       query = db.select().from(workerMiscExpenses);
     }
@@ -11912,7 +8768,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq8(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -11936,7 +8792,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq10(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq8(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -11987,7 +8843,7 @@ workerRouter.post("/worker-types", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingType = await db.select().from(workerTypes).where(sql8`LOWER(name) = LOWER(${name.trim()})`);
+    const existingType = await db.select().from(workerTypes).where(sql6`LOWER(name) = LOWER(${name.trim()})`);
     if (existingType.length > 0) {
       const duration2 = Date.now() - startTime;
       return res.status(409).json({
@@ -12034,12 +8890,12 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
     }
     let whereCondition;
     if (date2) {
-      whereCondition = and9(
-        eq10(workerAttendance.projectId, projectId),
-        eq10(workerAttendance.date, date2)
+      whereCondition = and7(
+        eq8(workerAttendance.projectId, projectId),
+        eq8(workerAttendance.date, date2)
       );
     } else {
-      whereCondition = eq10(workerAttendance.projectId, projectId);
+      whereCondition = eq8(workerAttendance.projectId, projectId);
     }
     const attendance = await db.select({
       id: workerAttendance.id,
@@ -12059,7 +8915,7 @@ workerRouter.get("/projects/:projectId/worker-attendance", async (req, res) => {
       isPresent: workerAttendance.isPresent,
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
-    }).from(workerAttendance).leftJoin(workers, eq10(workerAttendance.workerId, workers.id)).where(whereCondition).orderBy(workerAttendance.date);
+    }).from(workerAttendance).leftJoin(workers, eq8(workerAttendance.workerId, workers.id)).where(whereCondition).orderBy(workerAttendance.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12161,7 +9017,7 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingAttendance = await db.select().from(workerAttendance).where(eq10(workerAttendance.id, attendanceId)).limit(1);
+    const existingAttendance = await db.select().from(workerAttendance).where(eq8(workerAttendance.id, attendanceId)).limit(1);
     if (existingAttendance.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -12198,7 +9054,7 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
       updateData.actualWage = actualWageValue.toString();
       updateData.totalPay = actualWageValue.toString();
     }
-    const updatedAttendance = await db.update(workerAttendance).set(updateData).where(eq10(workerAttendance.id, attendanceId)).returning();
+    const updatedAttendance = await db.update(workerAttendance).set(updateData).where(eq8(workerAttendance.id, attendanceId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -12246,7 +9102,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq8(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -12270,7 +9126,7 @@ workerRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq10(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq8(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -12314,7 +9170,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq10(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq8(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -12333,7 +9189,7 @@ workerRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq10(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq8(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -12375,7 +9231,7 @@ workerRouter.get("/projects/:projectId/worker-misc-expenses", async (req, res) =
         processingTime: Date.now() - startTime
       });
     }
-    const expenses = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
+    const expenses = await db.select().from(workerMiscExpenses).where(eq8(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12411,7 +9267,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq10(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq8(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -12435,7 +9291,7 @@ workerRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq10(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq8(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -12478,7 +9334,7 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
         processingTime: duration2
       });
     }
-    const worker = await db.select().from(workers).where(eq10(workers.id, workerId)).limit(1);
+    const worker = await db.select().from(workers).where(eq8(workers.id, workerId)).limit(1);
     if (worker.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -12489,37 +9345,37 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
       });
     }
     const totalWorkDaysResult = await db.select({
-      totalDays: sql8`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
+      totalDays: sql6`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
     const lastAttendanceResult = await db.select({
       lastAttendanceDate: workerAttendance.attendanceDate,
       projectId: workerAttendance.projectId
-    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId)).orderBy(sql8`${workerAttendance.attendanceDate} DESC`).limit(1);
+    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId)).orderBy(sql6`${workerAttendance.attendanceDate} DESC`).limit(1);
     const lastAttendanceDate = lastAttendanceResult[0]?.lastAttendanceDate || null;
     const thirtyDaysAgo = /* @__PURE__ */ new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoString = thirtyDaysAgo.toISOString().split("T")[0];
     const monthlyAttendanceResult = await db.select({
-      monthlyDays: sql8`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(and9(
-      eq10(workerAttendance.workerId, workerId),
-      sql8`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
+      monthlyDays: sql6`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(and7(
+      eq8(workerAttendance.workerId, workerId),
+      sql6`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
     ));
     const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
     const totalTransfersResult = await db.select({
-      totalTransfers: sql8`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
-      transfersCount: sql8`COUNT(*)`
-    }).from(workerTransfers).where(eq10(workerTransfers.workerId, workerId));
+      totalTransfers: sql6`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+      transfersCount: sql6`COUNT(*)`
+    }).from(workerTransfers).where(eq8(workerTransfers.workerId, workerId));
     const totalTransfers = Number(totalTransfersResult[0]?.totalTransfers) || 0;
     const transfersCount = Number(totalTransfersResult[0]?.transfersCount) || 0;
     const projectsWorkedResult = await db.select({
-      projectsCount: sql8`COUNT(DISTINCT ${workerAttendance.projectId})`
-    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
+      projectsCount: sql6`COUNT(DISTINCT ${workerAttendance.projectId})`
+    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));
     const projectsWorked = Number(projectsWorkedResult[0]?.projectsCount) || 0;
     const totalEarningsResult = await db.select({
-      totalEarnings: sql8`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq10(workerAttendance.workerId, workerId));
+      totalEarnings: sql6`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));
     const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;
     const stats = {
       totalWorkDays,
@@ -12569,7 +9425,7 @@ var workerRoutes_default = workerRouter;
 init_db();
 init_schema();
 import express8 from "express";
-import { eq as eq11, and as and10, sql as sql9, gte as gte7, lte as lte4, desc as desc7 } from "drizzle-orm";
+import { eq as eq9, and as and8, sql as sql7, gte as gte6, lte as lte3, desc as desc5 } from "drizzle-orm";
 var financialRouter = express8.Router();
 financialRouter.use(requireAuth);
 financialRouter.get("/fund-transfers", async (req, res) => {
@@ -12587,7 +9443,7 @@ financialRouter.get("/fund-transfers", async (req, res) => {
       notes: fundTransfers.notes,
       createdAt: fundTransfers.createdAt,
       projectName: projects.name
-    }).from(fundTransfers).leftJoin(projects, eq11(fundTransfers.projectId, projects.id)).orderBy(desc7(fundTransfers.transferDate));
+    }).from(fundTransfers).leftJoin(projects, eq9(fundTransfers.projectId, projects.id)).orderBy(desc5(fundTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12668,7 +9524,7 @@ financialRouter.patch("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(fundTransfers).where(eq11(fundTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(fundTransfers).where(eq9(fundTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -12692,7 +9548,7 @@ financialRouter.patch("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq11(fundTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq9(fundTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -12726,7 +9582,7 @@ financialRouter.delete("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(fundTransfers).where(eq11(fundTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(fundTransfers).where(eq9(fundTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -12736,7 +9592,7 @@ financialRouter.delete("/fund-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const deletedTransfer = await db.delete(fundTransfers).where(eq11(fundTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(fundTransfers).where(eq9(fundTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -12785,14 +9641,14 @@ financialRouter.get("/daily-project-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      fromProjectName: sql9`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
-      toProjectName: sql9`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
+      fromProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
+      toProjectName: sql7`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
     }).from(projectFundTransfers).where(
-      and10(
-        sql9`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
-        eq11(projectFundTransfers.transferDate, date2)
+      and8(
+        sql7`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
+        eq9(projectFundTransfers.transferDate, date2)
       )
-    ).orderBy(desc7(projectFundTransfers.createdAt));
+    ).orderBy(desc5(projectFundTransfers.createdAt));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0645\u0634\u0631\u0648\u0639 \u0644\u0644\u0635\u0641\u062D\u0629 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0641\u064A ${duration}ms`);
     res.json({
@@ -12828,45 +9684,45 @@ financialRouter.get("/project-fund-transfers", async (req, res) => {
       transferReason: projectFundTransfers.transferReason,
       transferDate: projectFundTransfers.transferDate,
       createdAt: projectFundTransfers.createdAt,
-      fromProjectName: sql9`from_project.name`.as("fromProjectName"),
-      toProjectName: sql9`to_project.name`.as("toProjectName")
-    }).from(projectFundTransfers).leftJoin(sql9`${projects} as from_project`, eq11(projectFundTransfers.fromProjectId, sql9`from_project.id`)).leftJoin(sql9`${projects} as to_project`, eq11(projectFundTransfers.toProjectId, sql9`to_project.id`));
+      fromProjectName: sql7`from_project.name`.as("fromProjectName"),
+      toProjectName: sql7`to_project.name`.as("toProjectName")
+    }).from(projectFundTransfers).leftJoin(sql7`${projects} as from_project`, eq9(projectFundTransfers.fromProjectId, sql7`from_project.id`)).leftJoin(sql7`${projects} as to_project`, eq9(projectFundTransfers.toProjectId, sql7`to_project.id`));
     const conditions = [];
     if (projectId && projectId !== "all") {
-      conditions.push(sql9`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`);
+      conditions.push(sql7`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`);
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", projectId);
     }
     if (date2) {
       const startOfDay = `${date2} 00:00:00`;
       const endOfDay = `${date2} 23:59:59.999`;
-      conditions.push(and10(
-        gte7(projectFundTransfers.transferDate, startOfDay),
-        lte4(projectFundTransfers.transferDate, endOfDay)
+      conditions.push(and8(
+        gte6(projectFundTransfers.transferDate, startOfDay),
+        lte3(projectFundTransfers.transferDate, endOfDay)
       ));
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u062A\u0627\u0631\u064A\u062E \u0645\u062D\u062F\u062F:", date2);
     } else if (dateFrom && dateTo) {
       const startOfPeriod = `${dateFrom} 00:00:00`;
       const endOfPeriod = `${dateTo} 23:59:59.999`;
-      conditions.push(and10(
-        gte7(projectFundTransfers.transferDate, startOfPeriod),
-        lte4(projectFundTransfers.transferDate, endOfPeriod)
+      conditions.push(and8(
+        gte6(projectFundTransfers.transferDate, startOfPeriod),
+        lte3(projectFundTransfers.transferDate, endOfPeriod)
       ));
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0641\u062A\u0631\u0629 \u0632\u0645\u0646\u064A\u0629:", `${dateFrom} - ${dateTo}`);
     } else if (dateFrom) {
       const startOfPeriod = `${dateFrom} 00:00:00`;
-      conditions.push(gte7(projectFundTransfers.transferDate, startOfPeriod));
+      conditions.push(gte6(projectFundTransfers.transferDate, startOfPeriod));
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0645\u0646 \u062A\u0627\u0631\u064A\u062E:", dateFrom);
     } else if (dateTo) {
       const endOfPeriod = `${dateTo} 23:59:59.999`;
-      conditions.push(lte4(projectFundTransfers.transferDate, endOfPeriod));
+      conditions.push(lte3(projectFundTransfers.transferDate, endOfPeriod));
       console.log("\u2705 [API] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u062D\u062A\u0649 \u062A\u0627\u0631\u064A\u062E:", dateTo);
     }
     let transfers;
     if (conditions.length > 0) {
-      const whereClause = conditions.length === 1 ? conditions[0] : and10(...conditions);
-      transfers = await baseQuery.where(whereClause).orderBy(desc7(projectFundTransfers.transferDate));
+      const whereClause = conditions.length === 1 ? conditions[0] : and8(...conditions);
+      transfers = await baseQuery.where(whereClause).orderBy(desc5(projectFundTransfers.transferDate));
     } else {
-      transfers = await baseQuery.orderBy(desc7(projectFundTransfers.transferDate));
+      transfers = await baseQuery.orderBy(desc5(projectFundTransfers.transferDate));
     }
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0645\u0634\u0631\u0648\u0639 \u0641\u064A ${duration}ms`);
@@ -12951,7 +9807,7 @@ financialRouter.delete("/project-fund-transfers/:id", async (req, res) => {
   try {
     const { id } = req.params;
     console.log("\u{1F5D1}\uFE0F [API] \u0637\u0644\u0628 \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0623\u0645\u0648\u0627\u0644 \u0645\u0634\u0631\u0648\u0639:", id);
-    const transfer = await db.select().from(projectFundTransfers).where(eq11(projectFundTransfers.id, id));
+    const transfer = await db.select().from(projectFundTransfers).where(eq9(projectFundTransfers.id, id));
     if (!transfer || transfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", id);
@@ -12963,7 +9819,7 @@ financialRouter.delete("/project-fund-transfers/:id", async (req, res) => {
       });
     }
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0633\u062C\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const result = await db.delete(projectFundTransfers).where(eq11(projectFundTransfers.id, id));
+    const result = await db.delete(projectFundTransfers).where(eq9(projectFundTransfers.id, id));
     console.log("\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0633\u062C\u0644:", { deletedCount: result.rowCount });
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, id);
@@ -12988,7 +9844,7 @@ financialRouter.get("/worker-transfers", async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("\u{1F477}\u200D\u2642\uFE0F [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-    const transfers = await db.select().from(workerTransfers).orderBy(desc7(workerTransfers.transferDate));
+    const transfers = await db.select().from(workerTransfers).orderBy(desc5(workerTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0627\u0645\u0644 \u0641\u064A ${duration}ms`);
     res.json({
@@ -13068,7 +9924,7 @@ financialRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq9(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -13092,7 +9948,7 @@ financialRouter.patch("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq11(workerTransfers.id, transferId)).returning();
+    const updatedTransfer = await db.update(workerTransfers).set(validationResult.data).where(eq9(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -13127,7 +9983,7 @@ financialRouter.delete("/worker-transfers/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingTransfer = await db.select().from(workerTransfers).where(eq11(workerTransfers.id, transferId)).limit(1);
+    const existingTransfer = await db.select().from(workerTransfers).where(eq9(workerTransfers.id, transferId)).limit(1);
     if (existingTransfer.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", transferId);
@@ -13146,7 +10002,7 @@ financialRouter.delete("/worker-transfers/:id", async (req, res) => {
       recipientName: transferToDelete.recipientName
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedTransfer = await db.delete(workerTransfers).where(eq11(workerTransfers.id, transferId)).returning();
+    const deletedTransfer = await db.delete(workerTransfers).where(eq9(workerTransfers.id, transferId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u062D\u0648\u0627\u0644\u0629 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedTransfer[0].id,
@@ -13183,7 +10039,7 @@ financialRouter.get("/worker-misc-expenses", async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("\u{1F4B8} [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-    const expenses = await db.select().from(workerMiscExpenses).orderBy(desc7(workerMiscExpenses.date));
+    const expenses = await db.select().from(workerMiscExpenses).orderBy(desc5(workerMiscExpenses.date));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
     res.json({
@@ -13263,7 +10119,7 @@ financialRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       return res.status(404).json({
@@ -13287,7 +10143,7 @@ financialRouter.patch("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq11(workerMiscExpenses.id, expenseId)).returning();
+    const updatedExpense = await db.update(workerMiscExpenses).set(validationResult.data).where(eq9(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0644\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({
@@ -13322,7 +10178,7 @@ financialRouter.delete("/worker-misc-expenses/:id", async (req, res) => {
         processingTime: duration2
       });
     }
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).limit(1);
+    const existingExpense = await db.select().from(workerMiscExpenses).where(eq9(workerMiscExpenses.id, expenseId)).limit(1);
     if (existingExpense.length === 0) {
       const duration2 = Date.now() - startTime;
       console.error("\u274C [API] \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", expenseId);
@@ -13341,7 +10197,7 @@ financialRouter.delete("/worker-misc-expenses/:id", async (req, res) => {
       description: expenseToDelete.description
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-    const deletedExpense = await db.delete(workerMiscExpenses).where(eq11(workerMiscExpenses.id, expenseId)).returning();
+    const deletedExpense = await db.delete(workerMiscExpenses).where(eq9(workerMiscExpenses.id, expenseId)).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u062A\u0646\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedExpense[0].id,
@@ -13388,37 +10244,37 @@ financialRouter.get("/reports/summary", async (req, res) => {
       workersCount
     ] = await Promise.all([
       // إحصائيات تحويلات العهدة
-      db.execute(sql9`
+      db.execute(sql7`
         SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM fund_transfers
       `),
       // إحصائيات تحويلات المشاريع
-      db.execute(sql9`
+      db.execute(sql7`
         SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM project_fund_transfers
       `),
       // إحصائيات تحويلات العمال
-      db.execute(sql9`
+      db.execute(sql7`
         SELECT
           COUNT(*) as total_transfers,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM worker_transfers
       `),
       // إحصائيات مصاريف العمال المتنوعة
-      db.execute(sql9`
+      db.execute(sql7`
         SELECT
           COUNT(*) as total_expenses,
           COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
         FROM worker_misc_expenses
       `),
       // عدد المشاريع
-      db.execute(sql9`SELECT COUNT(*) as total_projects FROM projects`),
+      db.execute(sql7`SELECT COUNT(*) as total_projects FROM projects`),
       // عدد العمال
-      db.execute(sql9`SELECT COUNT(*) as total_workers FROM workers WHERE is_active = true`)
+      db.execute(sql7`SELECT COUNT(*) as total_workers FROM workers WHERE is_active = true`)
     ]);
     const cleanValue = (value) => {
       if (value === null || value === void 0) return 0;
@@ -13493,7 +10349,7 @@ financialRouter.get("/suppliers", async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("\u{1F3EA} [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-    const suppliersList = await db.select().from(suppliers).where(eq11(suppliers.isActive, true)).orderBy(suppliers.name);
+    const suppliersList = await db.select().from(suppliers).where(eq9(suppliers.isActive, true)).orderBy(suppliers.name);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${suppliersList.length} \u0645\u0648\u0631\u062F \u0641\u064A ${duration}ms`);
     res.json({
@@ -14266,16 +11122,6 @@ var compressionMiddleware = compression({
   // ضغط الاستجابات الصغيرة أيضاً
   chunkSize: 1024
 });
-var cacheHeaders = (req, res, next) => {
-  if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
-    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-  } else if (req.url.match(/\.(html|htm)$/)) {
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  } else {
-    res.setHeader("Cache-Control", "public, max-age=300");
-  }
-  next();
-};
 var performanceHeaders = (req, res, next) => {
   res.setHeader("X-DNS-Prefetch-Control", "on");
   res.setHeader("X-XSS-Protection", "1; mode=block");
@@ -14291,14 +11137,14 @@ import { spawn } from "child_process";
 import { existsSync as existsSync2, writeFileSync as writeFileSync2, readFileSync as readFileSync2, unlinkSync as unlinkSync2 } from "fs";
 import { join as join2, dirname } from "path";
 import { fileURLToPath } from "url";
-import { sql as sql11 } from "drizzle-orm";
+import { sql as sql10 } from "drizzle-orm";
 import { getTableName as drizzleGetTableName, getTableColumns } from "drizzle-orm";
 
 // server/backup-manager.ts
 init_db();
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, unlinkSync, statSync } from "fs";
 import { join } from "path";
-import { sql as sql10 } from "drizzle-orm";
+import { sql as sql9 } from "drizzle-orm";
 var BackupManager = class {
   config;
   constructor(config = {}) {
@@ -14399,14 +11245,14 @@ var BackupManager = class {
     const tables = [];
     for (const tableName of tableNames) {
       try {
-        const columnsResult = await db.execute(sql10`
+        const columnsResult = await db.execute(sql9`
           SELECT column_name, data_type, is_nullable, column_default
           FROM information_schema.columns
           WHERE table_schema = 'public'
           AND table_name = ${tableName}
           ORDER BY ordinal_position
         `);
-        const dataResult = await db.execute(sql10.raw(`SELECT * FROM "${tableName}"`));
+        const dataResult = await db.execute(sql9.raw(`SELECT * FROM "${tableName}"`));
         const schema = columnsResult.rows.map((row) => ({
           name: row.column_name,
           type: row.data_type,
@@ -14684,7 +11530,7 @@ async function checkSchemaConsistency() {
   console.log("\u{1F50D} [Schema Check] \u0628\u062F\u0621 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u062A\u0648\u0627\u0641\u0642 \u0627\u0644\u0645\u062E\u0637\u0637...");
   const issues = [];
   try {
-    const dbTablesResult = await db.execute(sql11`
+    const dbTablesResult = await db.execute(sql10`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
@@ -14721,7 +11567,7 @@ async function checkSchemaConsistency() {
     const missingDefaults = [];
     for (const tableName of expectedTables) {
       if (!dbTables.includes(tableName)) continue;
-      const columnsResult = await db.execute(sql11`
+      const columnsResult = await db.execute(sql10`
         SELECT column_name, data_type, is_nullable, column_default
         FROM information_schema.columns 
         WHERE table_schema = 'public' 
@@ -14895,7 +11741,7 @@ async function createMissingTable(tableName) {
   ${columns.join(",\n  ")}
 )`;
           console.log(`   SQL: ${createSQL.substring(0, 100)}...`);
-          await db.execute(sql11.raw(createSQL));
+          await db.execute(sql10.raw(createSQL));
           console.log(`\u2705 [SQL Fix] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u062C\u062F\u0648\u0644 ${tableName}`);
           return true;
         }
@@ -14932,7 +11778,7 @@ async function addMissingColumn(tableName, columnName) {
                 alterSQL = `ALTER TABLE "${tableName}" ADD COLUMN IF NOT EXISTS "${columnName}" ${pgType}${defaultClause}`;
               }
               console.log(`   SQL: ${alterSQL}`);
-              await db.execute(sql11.raw(alterSQL));
+              await db.execute(sql10.raw(alterSQL));
               console.log(`\u2705 [SQL Fix] \u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0639\u0645\u0648\u062F ${columnName} \u0625\u0644\u0649 ${tableName}`);
               if (col.notNull) {
                 console.log(`   \u2139\uFE0F \u0627\u0644\u0639\u0645\u0648\u062F ${columnName} \u064A\u062D\u062A\u0627\u062C NOT NULL - \u064A\u0645\u0643\u0646 \u062A\u0637\u0628\u064A\u0642\u0647 \u064A\u062F\u0648\u064A\u0627\u064B \u0644\u0627\u062D\u0642\u0627\u064B`);
@@ -15328,6 +12174,8 @@ async function autoSchemaPush() {
 }
 
 // server/index.ts
+import http from "http";
+import { Server } from "socket.io";
 var app = express11();
 app.use(helmet({
   contentSecurityPolicy: {
@@ -15357,8 +12205,8 @@ var getAllowedOrigins = () => {
     origins.push(`https://${process.env.CUSTOM_DOMAIN}`);
   }
   if (!isProduction3) {
-    const PORT = process.env.PORT || "5000";
-    origins.push(`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`, `http://0.0.0.0:${PORT}`);
+    const PORT2 = process.env.PORT || "5000";
+    origins.push(`http://localhost:${PORT2}`, `http://127.0.0.1:${PORT2}`, `http://0.0.0.0:${PORT2}`);
   }
   if (isProduction3 && origins.length === 0) {
     console.warn("\u26A0\uFE0F [CORS] \u0644\u0645 \u064A\u062A\u0645 \u062A\u0643\u0648\u064A\u0646 \u0646\u0637\u0627\u0642\u0627\u062A \u0644\u0644\u0625\u0646\u062A\u0627\u062C - \u064A\u064F\u0631\u062C\u0649 \u062A\u0639\u064A\u064A\u0646 REPLIT_DOMAINS \u0623\u0648 CUSTOM_DOMAIN");
@@ -15373,117 +12221,88 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 }));
 app.set("trust proxy", 1);
-var globalRateLimit = rateLimit3({
-  windowMs: 15 * 60 * 1e3,
-  // 15 دقيقة
-  max: 1e3,
-  // 1000 طلب كحد أقصى لكل IP
-  message: {
-    success: false,
-    error: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0639\u062F\u062F \u0627\u0644\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0645\u0633\u0645\u0648\u062D. \u062D\u0627\u0648\u0644 \u0644\u0627\u062D\u0642\u0627\u064B",
-    retryAfter: 15 * 60
-    // بالثواني
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  // 🛡️ **IPv6-safe key generator للحماية الآمنة**
-  keyGenerator: (req) => {
-    const forwarded = req.headers["x-forwarded-for"];
-    const ip = (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0]) || req.connection.remoteAddress || req.socket.remoteAddress || "unknown";
-    if (typeof ip === "string") {
-      return ip.replace(/^::ffff:/, "").trim();
-    }
-    return ip || "unknown";
-  }
-});
-app.use(globalRateLimit);
-app.use(express11.json({ limit: "10mb" }));
-app.use(express11.urlencoded({ extended: false, limit: "10mb" }));
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path4 = req.path;
-  let capturedJsonResponse = void 0;
-  const originalResJson = res.json;
-  res.json = function(bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path4.startsWith("/api")) {
-      let logLine = `${req.method} ${path4} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "\u2026";
-      }
-      log(logLine);
-    }
-  });
-  next();
-});
+app.use(express11.json({ limit: "1mb" }));
 app.use(compressionMiddleware);
 app.use(performanceHeaders);
-app.use(cacheHeaders);
 app.use(generalRateLimit);
 app.use(trackSuspiciousActivity);
 app.use(securityHeaders);
-app.use(cors({
-  origin: getAllowedOrigins(),
-  credentials: true,
-  optionsSuccessStatus: 200
-}));
-app.use(express11.json({ limit: "50mb" }));
-app.use(express11.urlencoded({ extended: true, limit: "50mb" }));
-(async () => {
-  app.use("/api/auth", auth_default);
-  app.use("/api/permissions", permissionsRouter);
-  initializeRouteOrganizer(app);
-  const server = await registerRoutes(app);
-  app.use((err, _req, res, _next) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-    throw err;
-  });
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+var server = http.createServer(app);
+var io = new Server(server, {
+  cors: {
+    origin: getAllowedOrigins(),
+    methods: ["GET", "POST"],
+    credentials: true
   }
-  app.use("*", (req, res) => {
-    console.log(`\u274C [404] \u0645\u0633\u0627\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F: ${req.method} ${req.originalUrl}`);
-    res.status(404).json({
-      success: false,
-      error: "\u0627\u0644\u0645\u0633\u0627\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
-      message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0633\u0627\u0631: ${req.method} ${req.originalUrl}`,
-      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      method: req.method,
-      path: req.originalUrl
+});
+global.io = io;
+io.on("connection", (socket) => {
+  console.log("\u{1F50C} [WebSocket] \u0639\u0645\u064A\u0644 \u0645\u062A\u0635\u0644:", socket.id);
+  socket.on("disconnect", () => {
+    console.log("\u{1F50C} [WebSocket] \u0639\u0645\u064A\u0644 \u0642\u0637\u0639 \u0627\u0644\u0627\u062A\u0635\u0627\u0644:", socket.id);
+  });
+});
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "healthy",
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    uptime: process.uptime(),
+    version: "2.0.0-organized"
+  });
+});
+app.use("/api/auth", auth_default);
+app.use("/api/permissions", permissionsRouter);
+initializeRouteOrganizer(app);
+app.use((err, _req, res, _next) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  res.status(status).json({ message });
+  throw err;
+});
+if (app.get("env") === "development") {
+  setupVite(app, server);
+} else {
+  serveStatic(app);
+}
+app.use("*", (req, res) => {
+  console.log(`\u274C [404] \u0645\u0633\u0627\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    success: false,
+    error: "\u0627\u0644\u0645\u0633\u0627\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+    message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0633\u0627\u0631: ${req.method} ${req.originalUrl}`,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    method: req.method,
+    path: req.originalUrl
+  });
+});
+var PORT = parseInt(process.env.PORT || "5000", 10);
+var NODE_ENV = process.env.NODE_ENV || "development";
+console.log("\u{1F680} \u0628\u062F\u0621 \u062A\u0634\u063A\u064A\u0644 \u0627\u0644\u062E\u0627\u062F\u0645...");
+console.log("\u{1F4C2} \u0645\u062C\u0644\u062F \u0627\u0644\u0639\u0645\u0644:", process.cwd());
+console.log("\u{1F310} \u0627\u0644\u0645\u0646\u0641\u0630:", PORT);
+console.log("\u{1F527} \u0628\u064A\u0626\u0629 \u0627\u0644\u062A\u0634\u063A\u064A\u0644:", NODE_ENV);
+(async () => {
+  try {
+    const serverInstance = server.listen(PORT, "0.0.0.0", async () => {
+      log(`serving on port ${PORT}`);
+      console.log("\u2705 Socket.IO server \u0645\u062A\u0634\u063A\u0644");
+      setTimeout(async () => {
+        try {
+          await autoSchemaPush();
+        } catch (error) {
+          console.error("\u26A0\uFE0F [Schema Push] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A:", error);
+        }
+      }, 2e3);
     });
-  });
-  const PORT = parseInt(process.env.PORT || "5000", 10);
-  const NODE_ENV = process.env.NODE_ENV || "development";
-  console.log("\u{1F680} \u0628\u062F\u0621 \u062A\u0634\u063A\u064A\u0644 \u0627\u0644\u062E\u0627\u062F\u0645...");
-  console.log("\u{1F4C2} \u0645\u062C\u0644\u062F \u0627\u0644\u0639\u0645\u0644:", process.cwd());
-  console.log("\u{1F310} \u0627\u0644\u0645\u0646\u0641\u0630:", PORT);
-  console.log("\u{1F527} \u0628\u064A\u0626\u0629 \u0627\u0644\u062A\u0634\u063A\u064A\u0644:", NODE_ENV);
-  const serverInstance = app.listen(PORT, "0.0.0.0", async () => {
-    log(`serving on port ${PORT}`);
-    setTimeout(async () => {
-      try {
-        await autoSchemaPush();
-      } catch (error) {
-        console.error("\u26A0\uFE0F [Schema Push] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A:", error);
-      }
-    }, 2e3);
-  });
-  process.on("SIGTERM", () => {
-    console.log("SIGTERM signal received: closing HTTP server");
-    serverInstance.close(() => {
-      console.log("HTTP server closed");
-      process.exit(0);
+    process.on("SIGTERM", () => {
+      console.log("SIGTERM signal received: closing HTTP server");
+      serverInstance.close(() => {
+        console.log("HTTP server closed");
+        process.exit(0);
+      });
     });
-  });
+  } catch (error) {
+    console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u0628\u062F\u0621 \u0627\u0644\u062E\u0627\u062F\u0645:", error);
+    process.exit(1);
+  }
 })();

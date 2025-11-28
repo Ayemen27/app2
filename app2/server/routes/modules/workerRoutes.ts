@@ -1098,6 +1098,17 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       date: newAttendance[0].date
     });
     
+    // 🔌 Broadcast real-time update via WebSocket
+    const io = (global as any).io;
+    if (io) {
+      io.emit('entity:update', {
+        type: 'INVALIDATE',
+        entity: 'worker-attendance',
+        projectId: newAttendance[0].projectId,
+        date: newAttendance[0].date
+      });
+    }
+    
     res.status(201).json({
       success: true,
       data: newAttendance[0],
@@ -1211,6 +1222,17 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
       .set(updateData)
       .where(eq(workerAttendance.id, attendanceId))
       .returning();
+    
+    // 🔌 Broadcast real-time update via WebSocket
+    const io = (global as any).io;
+    if (io && updatedAttendance[0]) {
+      io.emit('entity:update', {
+        type: 'INVALIDATE',
+        entity: 'worker-attendance',
+        projectId: updatedAttendance[0].projectId,
+        date: updatedAttendance[0].date
+      });
+    }
     
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث حضور العامل بنجاح في ${duration}ms`);

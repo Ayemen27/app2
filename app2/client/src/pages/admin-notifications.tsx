@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { CreateNotificationDialog } from '@/components/notifications/CreateNotificationDialog';
+import UnifiedSearchFilter, { useUnifiedFilter, FilterConfig } from '@/components/ui/unified-search-filter';
 import { 
   TrendingUp, Bell, Users, Zap, BarChart3, AlertCircle, CheckCircle2,
   Filter, Search, Calendar, Clock, Eye, Trash2, Send, Star,
@@ -32,8 +33,41 @@ export default function AdminNotificationsPage() {
   const { toast } = useToast();
   const { isAuthenticated, getAccessToken, isLoading: isAuthLoading } = useAuth();
   const [selectedTab, setSelectedTab] = useState('overview');
-  const [filters, setFilters] = useState({ type: '', priority: '', search: '', limit: 50 });
   const [selectedNotification, setSelectedNotification] = useState<string | null>(null);
+  
+  const filterConfigs: FilterConfig[] = [
+    {
+      key: 'type',
+      label: 'النوع',
+      type: 'select',
+      placeholder: 'اختر النوع',
+      options: [
+        { value: 'safety', label: 'تنبيه أمني' },
+        { value: 'task', label: 'إشعار مهمة' },
+        { value: 'payroll', label: 'إشعار راتب' },
+        { value: 'announcement', label: 'إعلان عام' },
+        { value: 'system', label: 'إشعار نظام' },
+      ]
+    },
+    {
+      key: 'priority',
+      label: 'الأولوية',
+      type: 'select',
+      placeholder: 'اختر الأولوية',
+      options: [
+        { value: '1', label: 'حرج جداً' },
+        { value: '2', label: 'عاجل' },
+        { value: '3', label: 'متوسط' },
+        { value: '4', label: 'منخفض' },
+        { value: '5', label: 'معلومة' },
+      ]
+    }
+  ];
+
+  const { searchValue, filterValues, onSearchChange, onFilterChange, onReset } = useUnifiedFilter(
+    { type: '', priority: '' },
+    ''
+  );
 
   const getAuthHeaders = () => ({
     'Content-Type': 'application/json',
@@ -42,13 +76,14 @@ export default function AdminNotificationsPage() {
 
   // جلب البيانات
   const { data: notificationsData, isLoading: isLoadingNotifications, refetch } = useQuery({
-    queryKey: ['admin-notifications', filters],
+    queryKey: ['admin-notifications', filterValues, searchValue],
     queryFn: async () => {
       const params = new URLSearchParams({
         requesterId: 'admin',
-        limit: filters.limit.toString(),
-        ...(filters.type && { type: filters.type }),
-        ...(filters.priority && { priority: filters.priority })
+        limit: '50',
+        ...(filterValues.type && { type: filterValues.type }),
+        ...(filterValues.priority && { priority: filterValues.priority }),
+        ...(searchValue && { search: searchValue })
       });
       const response = await fetch(`/api/admin/notifications/all?${params}`, {
         headers: getAuthHeaders()
@@ -197,45 +232,24 @@ export default function AdminNotificationsPage() {
           </div>
 
           <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-3 md:space-y-6">
+            {/* Unified Filter */}
+            <UnifiedSearchFilter
+              showSearch={true}
+              searchPlaceholder="ابحث عن الإشعارات..."
+              searchValue={searchValue}
+              onSearchChange={onSearchChange}
+              filters={filterConfigs}
+              filterValues={filterValues}
+              onFilterChange={onFilterChange}
+              onReset={onReset}
+              showResetButton={true}
+              compact={false}
+              showActiveFilters={true}
+            />
+
             {/* Tabs Navigation Card */}
             <Card className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-lg md:rounded-xl shadow-lg md:shadow-xl border-2 border-slate-200 dark:border-slate-700">
-              <CardContent className="p-3 md:p-5 space-y-3 md:space-y-4">
-                {/* Search and Actions Bar */}
-                <div className="flex flex-col md:flex-row gap-2 md:gap-3 items-stretch md:items-center">
-                  {/* Search */}
-                  <div className="flex-1 relative min-w-0">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 flex-shrink-0" />
-                    <Input
-                      placeholder="ابحث عن الإشعارات..."
-                      className="pr-10 border-2 h-9 md:h-10 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-sm"
-                      value={filters.search}
-                      onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    />
-                  </div>
-                  
-                  {/* Filter and Refresh Buttons */}
-                  <div className="flex gap-2 md:gap-3 flex-shrink-0">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="gap-1 md:gap-2 border-2 h-9 md:h-10 px-2 md:px-3"
-                    >
-                      <Filter className="h-4 w-4 flex-shrink-0" />
-                      <span className="hidden md:inline text-xs md:text-sm">فلترة</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => refetch()}
-                      disabled={isLoadingNotifications}
-                      className="gap-1 md:gap-2 border-2 h-9 md:h-10 px-2 md:px-3"
-                    >
-                      <RefreshCw className={cn("h-4 w-4 flex-shrink-0", isLoadingNotifications && "animate-spin")} />
-                      <span className="hidden md:inline text-xs md:text-sm">تحديث</span>
-                    </Button>
-                  </div>
-                </div>
-
+              <CardContent className="p-3 md:p-5">
                 {/* Tabs List */}
                 <div className="overflow-x-auto -mx-3 md:-mx-5 px-3 md:px-5">
                   <TabsList className="flex gap-1 md:gap-3 bg-transparent p-0 h-auto justify-start w-max">
@@ -331,33 +345,6 @@ export default function AdminNotificationsPage() {
 
             {/* Notifications Tab */}
             <TabsContent value="notifications" className="space-y-3 md:space-y-6 mt-0">
-              {/* Search and Filter Bar */}
-              <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
-                <CardContent className="p-3 md:p-5">
-                  <div className="flex flex-col gap-2 md:gap-3">
-                    <div className="relative flex-1">
-                      <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input
-                        placeholder="ابحث..."
-                        className="pr-10 border-2 h-9 md:h-10 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-sm"
-                        value={filters.search}
-                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" className="gap-1 md:gap-2 h-9 md:h-10 border-2 px-2 md:px-4 text-xs md:text-sm flex-1 md:flex-none">
-                        <Filter className="h-4 w-4" />
-                        <span className="hidden md:inline">فلترة</span>
-                      </Button>
-                      <Button className="gap-1 md:gap-2 h-9 md:h-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-2 md:px-4 shadow-lg shadow-blue-500/30 text-xs md:text-sm flex-1 md:flex-none">
-                        <RefreshCw className={cn("h-4 w-4", isLoadingNotifications && "animate-spin")} />
-                        <span className="hidden md:inline">تحديث</span>
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
               {/* Notifications List */}
               <div className="space-y-3 md:space-y-4">
                 {isLoadingNotifications ? (

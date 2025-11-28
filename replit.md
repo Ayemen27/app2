@@ -5,6 +5,16 @@ A comprehensive construction project management system designed for the Middle E
 
 ## Recent Changes
 
+### November 2025 - Production Security Hardening
+- **CORS Security**: Fixed CORS configuration to use dynamic REPLIT_DOMAINS instead of placeholder URL
+- **Credentials Security**: Removed ALL hardcoded secrets from credentials.ts - now uses environment variables only
+- **Log Masking**: Implemented sensitive data masking in all database connection logs (connection strings hidden with ***)
+- **Supabase Integration**: Added isSupabaseConfigured() check for graceful fallback when Supabase is not configured
+- **Production Logging**: Reduced log verbosity in production mode (schema checks, connection details)
+- **LSP Fixes**: Fixed Drizzle ORM Table.Symbol errors using getTableName/getTableColumns API
+- **Deployment Config**: Configured autoscale deployment with npm build and npm start commands
+- **Required Secrets**: DATABASE_URL, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET (must be set in Replit Secrets)
+
 ### November 2025 - Permissions Management System (قيد التطوير)
 - **New Module**: نظام إدارة الصلاحيات في مجلد `permissions-system/`
 - **Database Tables**: 

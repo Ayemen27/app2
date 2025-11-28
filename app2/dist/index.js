@@ -8972,6 +8972,15 @@ workerRouter.post("/worker-attendance", async (req, res) => {
       workerId: newAttendance[0].workerId,
       date: newAttendance[0].date
     });
+    const io2 = global.io;
+    if (io2) {
+      io2.emit("entity:update", {
+        type: "INVALIDATE",
+        entity: "worker-attendance",
+        projectId: newAttendance[0].projectId,
+        date: newAttendance[0].date
+      });
+    }
     res.status(201).json({
       success: true,
       data: newAttendance[0],
@@ -9055,6 +9064,15 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
       updateData.totalPay = actualWageValue.toString();
     }
     const updatedAttendance = await db.update(workerAttendance).set(updateData).where(eq8(workerAttendance.id, attendanceId)).returning();
+    const io2 = global.io;
+    if (io2 && updatedAttendance[0]) {
+      io2.emit("entity:update", {
+        type: "INVALIDATE",
+        entity: "worker-attendance",
+        projectId: updatedAttendance[0].projectId,
+        date: updatedAttendance[0].date
+      });
+    }
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
     res.json({

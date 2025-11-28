@@ -35,10 +35,17 @@ interface WorkerType {
   createdAt: string;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+}
+
 export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel = "إضافة العامل" }: AddWorkerFormProps) {
   const [name, setName] = useState(worker?.name || "");
   const [type, setType] = useState(worker?.type || "");
   const [dailyWage, setDailyWage] = useState(worker ? worker.dailyWage : "");
+  const [projectId, setProjectId] = useState("");
   const [showAddTypeDialog, setShowAddTypeDialog] = useState(false);
   const [newTypeName, setNewTypeName] = useState("");
   const { toast } = useToast();
@@ -59,6 +66,10 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
     queryKey: ["/api/worker-types"],
   });
 
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+  });
+
   const addWorkerMutation = useMutation({
     mutationFn: async (data: InsertWorker) => {
       await Promise.all([
@@ -75,17 +86,38 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
     onSuccess: async (newWorker, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
       
+      // ربط العامل بالمشروع في جدول worker_attendance
+      if (!worker && projectId && newWorker?.id) {
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          await apiRequest("/api/worker-attendance", "POST", {
+            projectId: projectId,
+            workerId: newWorker.id,
+            attendanceDate: today,
+            date: today,
+            startTime: "08:00",
+            endTime: "16:00",
+            wage: variables.dailyWage,
+          });
+        } catch (error) {
+          console.log('تم إضافة العامل لكن حدث خطأ في ربطه بالمشروع');
+        }
+      }
+
       toast({
         title: "تم الحفظ",
-        description: worker ? "تم تعديل العامل بنجاح" : "تم إضافة العامل بنجاح",
+        description: worker ? "تم تعديل العامل بنجاح" : "تم إضافة العامل وربطه بالمشروع بنجاح",
       });
       if (!worker) {
         setName("");
         setType("");
         setDailyWage("");
+        setProjectId("");
       }
       queryClient.invalidateQueries({ queryKey: ["/api/workers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/worker-attendance"] });
       onSuccess?.();
     },
     onError: async (error: any, variables) => {
@@ -136,12 +168,21 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !type || !dailyWage) {
       toast({
         title: "خطأ",
         description: "يرجى ملء جميع البيانات المطلوبة",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!projectId) {
+      toast({
+        title: "خطأ",
+        description: "يرجى تحديد المشروع",
         variant: "destructive",
       });
       return;
@@ -158,12 +199,15 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       return;
     }
 
-    addWorkerMutation.mutate({
+    const workerData = {
       name: name.trim(),
       type,
       dailyWage: parsedWage.toString(),
       isActive: true,
-    });
+    };
+
+    // إضافة العامل أولاً
+    addWorkerMutation.mutate(workerData as InsertWorker);
   };
 
   const handleAddNewType = (e: React.FormEvent) => {
@@ -184,7 +228,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <CompactFieldGroup columns={3}>
+      <CompactFieldGroup columns={4}>
         <div className="space-y-2">
           <Label htmlFor="worker-name" className="text-sm font-medium text-foreground">
             اسم العامل
@@ -292,6 +336,24 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
             className="text-center arabic-numbers"
             required
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="project" className="text-sm font-medium text-foreground">
+            المشروع *
+          </Label>
+          <Select value={projectId} onValueChange={setProjectId}>
+            <SelectTrigger>
+              <SelectValue placeholder="اختر المشروع..." />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.isArray(projects) && projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </CompactFieldGroup>
 

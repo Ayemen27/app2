@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UnifiedSearchFilter, { useUnifiedFilter, FilterConfig } from "@/components/ui/unified-search-filter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { StatsCard } from "@/components/ui/stats-card";
+import { UnifiedStats } from "@/components/ui/unified-stats";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 
@@ -214,11 +214,16 @@ export default function ProjectTransfers() {
   };
 
   const formatCurrency = (amount: number) => {
+    if (typeof amount !== 'number') {
+      const num = parseFloat(String(amount));
+      if (isNaN(num)) return '0 ر.ي';
+      amount = num;
+    }
     return new Intl.NumberFormat('en-US', {
       style: 'decimal',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount) + ' ريال';
+    }).format(amount) + ' ر.ي';
   };
 
 
@@ -227,69 +232,51 @@ export default function ProjectTransfers() {
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-2 py-3 md:px-6 md:py-6 w-full space-y-4 md:space-y-8">
-          {/* Stats Cards - 3 in row */}
-          <div className="grid grid-cols-3 gap-2 md:gap-3">
-            <div>
-              <StatsCard
-                icon={ArrowRightLeft}
-                label="إجمالي العمليات"
-                value={stats.total}
-                gradient="from-amber-500 to-orange-500"
-                iconBg="bg-amber-100 dark:bg-amber-900/30"
-                iconColor="text-amber-600 dark:text-amber-400"
-              />
-            </div>
-            <div>
-              <StatsCard
-                icon={DollarSign}
-                label="إجمالي المبالغ"
-                value={formatCurrency(stats.totalAmount)}
-                gradient="from-green-500 to-emerald-500"
-                iconBg="bg-green-100 dark:bg-green-900/30"
-                iconColor="text-green-600 dark:text-green-400"
-              />
-            </div>
-            <div>
-              <StatsCard
-                icon={TrendingDown}
-                label="النتائج المفلترة"
-                value={stats.filtered}
-                gradient="from-blue-500 to-indigo-500"
-                iconBg="bg-blue-100 dark:bg-blue-900/30"
-                iconColor="text-blue-600 dark:text-blue-400"
-              />
-            </div>
-            <div>
-              <StatsCard
-                icon={TrendingUp}
-                label="عمليات اليوم"
-                value={filteredTransfers.filter(t => new Date(t.transferDate).toDateString() === new Date().toDateString()).length}
-                gradient="from-purple-500 to-pink-500"
-                iconBg="bg-purple-100 dark:bg-purple-900/30"
-                iconColor="text-purple-600 dark:text-purple-400"
-              />
-            </div>
-            <div>
-              <StatsCard
-                icon={Calendar}
-                label="متوسط العملية"
-                value={formatCurrency(stats.total > 0 ? stats.totalAmount / stats.total : 0)}
-                gradient="from-rose-500 to-pink-500"
-                iconBg="bg-rose-100 dark:bg-rose-900/30"
-                iconColor="text-rose-600 dark:text-rose-400"
-              />
-            </div>
-            <div>
-              <StatsCard
-                icon={BarChart3}
-                label="المشاريع النشطة"
-                value={projects.length}
-                gradient="from-cyan-500 to-blue-500"
-                iconBg="bg-cyan-100 dark:bg-cyan-900/30"
-                iconColor="text-cyan-600 dark:text-cyan-400"
-              />
-            </div>
-          </div>
+          {/* Stats Cards */}
+          <UnifiedStats
+            stats={[
+              {
+                title: "إجمالي العمليات",
+                value: stats.total,
+                icon: ArrowRightLeft,
+                color: "orange"
+              },
+              {
+                title: "إجمالي المبالغ",
+                value: stats.totalAmount,
+                icon: DollarSign,
+                color: "green",
+                formatter: formatCurrency
+              },
+              {
+                title: "النتائج المفلترة",
+                value: stats.filtered,
+                icon: TrendingDown,
+                color: "blue"
+              },
+              {
+                title: "عمليات اليوم",
+                value: filteredTransfers.filter(t => new Date(t.transferDate).toDateString() === new Date().toDateString()).length,
+                icon: TrendingUp,
+                color: "purple"
+              },
+              {
+                title: "متوسط العملية",
+                value: stats.total > 0 ? stats.totalAmount / stats.total : 0,
+                icon: Calendar,
+                color: "red",
+                formatter: formatCurrency
+              },
+              {
+                title: "المشاريع النشطة",
+                value: projects.length,
+                icon: BarChart3,
+                color: "indigo"
+              }
+            ]}
+            columns={3}
+            hideHeader={true}
+          />
 
           {/* Unified Filter */}
           <UnifiedSearchFilter

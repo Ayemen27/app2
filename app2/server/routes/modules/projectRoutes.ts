@@ -1265,14 +1265,14 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
         total_worker_wages: dailyExpenseSummaries.totalWorkerWages,
         total_material_costs: dailyExpenseSummaries.totalMaterialCosts,
         total_transportation_expenses: dailyExpenseSummaries.totalTransportationCosts,
-        total_worker_transfers: sql`COALESCE(${dailyExpenseSummaries.totalWorkerTransfers}, 0)`,
-        total_worker_misc_expenses: sql`COALESCE(${dailyExpenseSummaries.totalWorkerMiscExpenses}, 0)`,
+        total_worker_transfers: sql`COALESCE(CAST(${dailyExpenseSummaries.totalWorkerTransfers} AS DECIMAL), 0)`,
+        total_worker_misc_expenses: sql`COALESCE(CAST(${dailyExpenseSummaries.totalWorkerMiscExpenses} AS DECIMAL), 0)`,
         total_income: dailyExpenseSummaries.totalIncome,
         total_expenses: dailyExpenseSummaries.totalExpenses,
         remaining_balance: dailyExpenseSummaries.remainingBalance,
-        notes: sql`COALESCE(${dailyExpenseSummaries.notes}, '')`,
+        notes: dailyExpenseSummaries.notes,
         created_at: dailyExpenseSummaries.createdAt,
-        updated_at: sql`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
+        updated_at: dailyExpenseSummaries.updatedAt,
         project_name: projects.name
       })
       .from(dailyExpenseSummaries)

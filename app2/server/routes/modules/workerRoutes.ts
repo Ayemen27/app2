@@ -16,7 +16,31 @@ import { requireAuth, requireRole } from '../../middleware/auth.js';
 
 export const workerRouter = express.Router();
 
-// تطبيق المصادقة على جميع مسارات العمال
+/**
+ * 📋 جلب أنواع العمال - بدون مصادقة (بيانات عامة)
+ * GET /worker-types
+ */
+workerRouter.get('/worker-types', async (req: Request, res: Response) => {
+  try {
+    const allWorkerTypes = await db.select().from(workerTypes).orderBy(workerTypes.name);
+
+    res.json({ 
+      success: true, 
+      data: allWorkerTypes, 
+      message: "تم جلب أنواع العمال بنجاح" 
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب أنواع العمال:', error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      error: error.message,
+      message: "فشل في جلب أنواع العمال"
+    });
+  }
+});
+
+// تطبيق المصادقة على جميع مسارات العمال (بعد الـ public endpoints)
 workerRouter.use(requireAuth);
 
 /**
@@ -878,30 +902,6 @@ workerRouter.get('/autocomplete/workerMiscDescriptions', async (req: Request, re
 // ===========================================
 // Worker Types Routes (أنواع العمال)
 // ===========================================
-
-/**
- * 📋 جلب أنواع العمال
- * GET /worker-types
- */
-workerRouter.get('/worker-types', async (req: Request, res: Response) => {
-  try {
-    const allWorkerTypes = await db.select().from(workerTypes).orderBy(workerTypes.name);
-
-    res.json({ 
-      success: true, 
-      data: allWorkerTypes, 
-      message: "تم جلب أنواع العمال بنجاح" 
-    });
-  } catch (error: any) {
-    console.error('❌ خطأ في جلب أنواع العمال:', error);
-    res.status(500).json({
-      success: false,
-      data: [],
-      error: error.message,
-      message: "فشل في جلب أنواع العمال"
-    });
-  }
-});
 
 /**
  * ➕ إضافة نوع عامل جديد

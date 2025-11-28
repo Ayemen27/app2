@@ -10918,14 +10918,14 @@ projectRouter.get("/:id/daily-summary/:date", async (req, res) => {
         total_worker_wages: dailyExpenseSummaries.totalWorkerWages,
         total_material_costs: dailyExpenseSummaries.totalMaterialCosts,
         total_transportation_expenses: dailyExpenseSummaries.totalTransportationCosts,
-        total_worker_transfers: sql7`COALESCE(${dailyExpenseSummaries.totalWorkerTransfers}, 0)`,
-        total_worker_misc_expenses: sql7`COALESCE(${dailyExpenseSummaries.totalWorkerMiscExpenses}, 0)`,
+        total_worker_transfers: sql7`COALESCE(CAST(${dailyExpenseSummaries.totalWorkerTransfers} AS DECIMAL), 0)`,
+        total_worker_misc_expenses: sql7`COALESCE(CAST(${dailyExpenseSummaries.totalWorkerMiscExpenses} AS DECIMAL), 0)`,
         total_income: dailyExpenseSummaries.totalIncome,
         total_expenses: dailyExpenseSummaries.totalExpenses,
         remaining_balance: dailyExpenseSummaries.remainingBalance,
-        notes: sql7`COALESCE(${dailyExpenseSummaries.notes}, '')`,
+        notes: dailyExpenseSummaries.notes,
         created_at: dailyExpenseSummaries.createdAt,
-        updated_at: sql7`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
+        updated_at: dailyExpenseSummaries.updatedAt,
         project_name: projects.name
       }).from(dailyExpenseSummaries).leftJoin(projects, eq9(dailyExpenseSummaries.projectId, projects.id)).where(and8(
         eq9(dailyExpenseSummaries.projectId, projectId),
@@ -11339,6 +11339,24 @@ init_schema();
 import express7 from "express";
 import { eq as eq10, sql as sql8, and as and9 } from "drizzle-orm";
 var workerRouter = express7.Router();
+workerRouter.get("/worker-types", async (req, res) => {
+  try {
+    const allWorkerTypes = await db.select().from(workerTypes).orderBy(workerTypes.name);
+    res.json({
+      success: true,
+      data: allWorkerTypes,
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644 \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644:", error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644"
+    });
+  }
+});
 workerRouter.use(requireAuth);
 workerRouter.get("/workers", async (req, res) => {
   try {
@@ -11943,24 +11961,6 @@ workerRouter.get("/autocomplete/workerMiscDescriptions", async (req, res) => {
       success: false,
       error: error.message,
       message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0648\u0635\u0641 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0645\u062A\u0646\u0648\u0639\u0629"
-    });
-  }
-});
-workerRouter.get("/worker-types", async (req, res) => {
-  try {
-    const allWorkerTypes = await db.select().from(workerTypes).orderBy(workerTypes.name);
-    res.json({
-      success: true,
-      data: allWorkerTypes,
-      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644 \u0628\u0646\u062C\u0627\u062D"
-    });
-  } catch (error) {
-    console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644:", error);
-    res.status(500).json({
-      success: false,
-      data: [],
-      error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0627\u0644"
     });
   }
 });

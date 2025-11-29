@@ -21,7 +21,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/suppliers-pro': { title: 'إدارة الموردين', icon: Truck },
   '/worker-attendance': { title: 'حضور العمال', icon: UserCheck },
   '/worker-accounts': { title: 'حسابات العمال', icon: DollarSign },
-  '/daily-expenses': { title: 'المصاريف اليومية', icon: Calculator },
+  '/reports': { title: 'المصاريف اليومية', icon: Calculator },
   '/material-purchase': { title: 'شراء المواد', icon: Package },
   '/project-transfers': { title: 'تحويلات العهدة', icon: ArrowLeftRight },
   '/project-transactions': { title: 'سجل العمليات', icon: FileText },

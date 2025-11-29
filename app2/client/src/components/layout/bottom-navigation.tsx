@@ -18,7 +18,7 @@ const navigationItems = [
   { path: "/projects", icon: Building2, label: "المشاريع", key: "projects" },
   { path: "/workers", icon: Users, label: "العمال", key: "workers" },
   { path: "/suppliers-pro", icon: Truck, label: "الموردين", key: "suppliers" },
-  { path: "/daily-expenses", icon: Calculator, label: "المصاريف", key: "expenses" },
+  { path: "/reports", icon: Calculator, label: "المصاريف", key: "expenses" },
 ];
 
 // قائمة الصفحات مع مستوى الحماية المطلوب
@@ -38,7 +38,7 @@ const allPagesData = [
     category: "العمليات اليومية",
     pages: [
       { path: "/worker-attendance", icon: UserCheck, label: "حضور العمال", description: "تسجيل حضور وغياب العمال", requireAdmin: false },
-      { path: "/daily-expenses", icon: Calculator, label: "المصاريف اليومية", description: "تسجيل المصاريف اليومية للمشاريع", requireAdmin: false },
+      { path: "/reports", icon: Calculator, label: "المصاريف اليومية", description: "تسجيل المصاريف اليومية للمشاريع", requireAdmin: false },
       { path: "/material-purchase", icon: Package, label: "شراء المواد", description: "إدارة مشتريات مواد البناء", requireAdmin: false },
       { path: "/worker-accounts", icon: DollarSign, label: "حسابات العمال", description: "إدارة حوالات وتحويلات العمال", requireAdmin: true },
       { path: "/equipment", icon: Settings, label: "إدارة المعدات", description: "إدارة المعدات مع النقل والتتبع", requireAdmin: true },

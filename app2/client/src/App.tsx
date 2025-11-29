@@ -13,7 +13,6 @@ import { useWebSocketSync } from "@/hooks/useWebSocketSync";
 
 import WorkerAttendance from "@/pages/worker-attendance";
 
-import DailyExpenses from "@/pages/daily-expenses";
 import MaterialPurchase from "@/pages/material-purchase";
 import ProjectTransfers from "@/pages/project-transfers";
 import ProjectTransactionsPage from "@/pages/project-transactions-simple";
@@ -29,8 +28,7 @@ import NotificationsPage from "@/pages/notifications";
 import AdminNotificationsPage from "@/pages/admin-notifications";
 import SmartErrorsPage from "@/pages/SmartErrorsPage";
 import { SecurityPoliciesPage } from "@/pages/SecurityPoliciesPage";
-import ExcelStyleDailyExpenses from "@/pages/excel-style-daily-expenses";
-import ExcelStyleWorkerStatement from "@/pages/excel-style-worker-statement";
+import Reports from "@/pages/reports";
 
 import { LayoutShell } from "@/components/layout/layout-shell";
 import { FloatingButtonProvider } from "@/components/layout/floating-button-context";
@@ -61,7 +59,6 @@ function Router() {
         </AdminRoute>
       </Route>
       <Route path="/worker-attendance" component={WorkerAttendance} />
-      <Route path="/daily-expenses" component={DailyExpenses} />
       <Route path="/material-purchase" component={MaterialPurchase} />
       <Route path="/project-transfers">
         <AdminRoute>
@@ -95,8 +92,7 @@ function Router() {
           <SecurityPoliciesPage />
         </AdminRoute>
       </Route>
-      <Route path="/reports-daily-expenses" component={ExcelStyleDailyExpenses} />
-      <Route path="/reports-worker-statement" component={ExcelStyleWorkerStatement} />
+      <Route path="/reports" component={Reports} />
       <Route component={NotFound} />
     </Switch>
   );

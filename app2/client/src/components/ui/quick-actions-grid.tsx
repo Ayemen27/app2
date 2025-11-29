@@ -45,7 +45,7 @@ export function QuickActionsGrid({ onAddWorker, onAddProject }: QuickActionsGrid
       id: "daily-expenses",
       label: "مصروفات يومية",
       icon: Receipt,
-      route: "/daily-expenses",
+      route: "/reports",
       gradient: "from-emerald-500 to-emerald-600",
       iconColor: "text-white",
     },

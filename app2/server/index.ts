@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات app2data
@@ -156,7 +157,7 @@ if (app.get("env") === "development") {
 
 // ✅ معالج شامل للأخطاء 404 - بعد إعداد الملفات الثابتة
 // Only return 404 JSON for API routes, otherwise serve the React app
-app.use("*", (req, res) => {
+app.use("*", async (req, res) => {
   // If it's an API request, return JSON 404
   if (req.originalUrl.startsWith('/api/')) {
     console.log(`❌ [404] مسار API غير موجود: ${req.method} ${req.originalUrl}`);
@@ -170,10 +171,30 @@ app.use("*", (req, res) => {
     });
   }
 
-  // For non-API routes in production, this is handled by serveStatic
-  // For development, this is handled by Vite
-  // If we reach here, it means neither handled it
-  console.log(`⚠️ [Fallback] طلب غير معالج: ${req.method} ${req.originalUrl}`);
+  // For non-API routes, serve the SPA index.html
+  if (NODE_ENV === "development") {
+    // In development, Vite should have handled this, but as fallback serve index.html
+    const { fileURLToPath } = await import('url');
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const indexPath = path.resolve(__dirname, '..', 'client', 'index.html');
+    try {
+      return res.sendFile(indexPath);
+    } catch (e) {
+      console.error('❌ فشل في خدمة index.html:', e);
+      return res.status(500).json({ error: 'فشل في تحميل الصفحة' });
+    }
+  } else {
+    // In production, serveStatic should have handled this
+    return res.status(404).json({
+      success: false,
+      error: "المسار غير موجود",
+      message: `لم يتم العثور على المسار: ${req.method} ${req.originalUrl}`,
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      path: req.originalUrl
+    });
+  }
 });
 
 // ALWAYS serve the app on the port specified in the environment variable PORT

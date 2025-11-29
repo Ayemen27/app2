@@ -50,9 +50,20 @@ export default function ExcelStyleWorkerStatement() {
 
   // جلب قائمة العمال
   const { data: workers = [] } = useQuery({
-    queryKey: ["/api/workers", selectedProjectId],
-    queryFn: () => selectedProjectId ? apiRequest(`/api/workers?projectId=${selectedProjectId}`, "GET") : [],
-    enabled: !!selectedProjectId
+    queryKey: ["/api/workers"],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest(`/api/workers`, "GET");
+        // معالجة هيكل الاستجابة
+        if (response && response.data) {
+          return Array.isArray(response.data) ? response.data : [];
+        }
+        return Array.isArray(response) ? response : [];
+      } catch (error) {
+        console.error("❌ خطأ في جلب العمال:", error);
+        return [];
+      }
+    }
   });
 
   // جلب بيان العامل

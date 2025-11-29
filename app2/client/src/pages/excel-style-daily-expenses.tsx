@@ -2,12 +2,12 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { FileSpreadsheet, Printer, RefreshCw } from "lucide-react";
+import { FileSpreadsheet, Printer, RefreshCw, TrendingUp } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import ProjectSelector from "@/components/project-selector";
 import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { UnifiedSearchFilter, FilterConfig } from "@/components/ui/unified-search-filter";
 import '@/styles/excel-print-styles.css';
 
 interface DailyExpenseData {
@@ -19,7 +19,19 @@ interface DailyExpenseData {
   total: number;
 }
 
+interface FilterValues {
+  dateRange?: { from?: Date; to?: Date };
+  reportType?: string;
+}
+
 export default function ExcelStyleDailyExpenses() {
+  const [filterValues, setFilterValues] = useState<FilterValues>({
+    dateRange: {
+      from: new Date(new Date().setDate(new Date().getDate() - 7)),
+      to: new Date()
+    },
+    reportType: "daily"
+  });
   const [selectedDate, setSelectedDate] = useState(getCurrentDate());
   const { selectedProjectId, projects } = useSelectedProject();
   
@@ -62,7 +74,7 @@ export default function ExcelStyleDailyExpenses() {
       const titleRow = worksheet.addRow(['تقرير المصاريف اليومية']);
       titleRow.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
       titleRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
-      titleRow.alignment = { horizontal: 'center', vertical: 'center', rtl: true };
+      titleRow.alignment = { horizontal: 'center', vertical: 'middle' };
       worksheet.mergeCells(`A${titleRow.number}:C${titleRow.number}`);
       
       // Add project info
@@ -74,7 +86,7 @@ export default function ExcelStyleDailyExpenses() {
       const headerRow = worksheet.addRow(['البند', 'المبلغ (ريال)', 'النسبة %']);
       headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
-      headerRow.alignment = { horizontal: 'center', vertical: 'center', rtl: true };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
       
       // Add data rows
       const dataRows = [
@@ -86,7 +98,7 @@ export default function ExcelStyleDailyExpenses() {
       
       dataRows.forEach(row => {
         const r = worksheet.addRow(row);
-        r.alignment = { rtl: true };
+        r.alignment = { horizontal: 'right', vertical: 'middle' };
         r.getCell(2).numFmt = '#,##0.00';
       });
       
@@ -94,7 +106,7 @@ export default function ExcelStyleDailyExpenses() {
       const totalRow = worksheet.addRow(['الإجمالي', expenseData.total, 100]);
       totalRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
-      totalRow.alignment = { horizontal: 'center', vertical: 'center', rtl: true };
+      totalRow.alignment = { horizontal: 'center', vertical: 'middle' };
       totalRow.getCell(2).numFmt = '#,##0.00';
       
       // Generate file
@@ -130,47 +142,109 @@ export default function ExcelStyleDailyExpenses() {
     );
   }
 
+  const filterConfigs: FilterConfig[] = [
+    {
+      key: "dateRange",
+      label: "نطاق التاريخ",
+      type: "date-range",
+      placeholder: "من التاريخ إلى التاريخ"
+    },
+    {
+      key: "reportType",
+      label: "نوع التقرير",
+      type: "select",
+      defaultValue: "daily",
+      options: [
+        { value: "daily", label: "يومي" },
+        { value: "weekly", label: "أسبوعي" },
+        { value: "monthly", label: "شهري" }
+      ]
+    }
+  ];
+
+  const handleFilterChange = (key: string, value: any) => {
+    setFilterValues(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleReset = () => {
+    setFilterValues({
+      dateRange: {
+        from: new Date(new Date().setDate(new Date().getDate() - 7)),
+        to: new Date()
+      },
+      reportType: "daily"
+    });
+  };
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* أدوات التحكم */}
-      <div className="flex justify-between items-center no-print">
-        <h1 className="text-2xl font-bold">المصاريف اليومية - نمط Excel</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="w-4 h-4 mr-2" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-6 no-print">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-2">
+            <TrendingUp className="h-8 w-8" />
+            التقارير اليومية
+          </h1>
+          <p className="text-slate-600">عرض وتحليل المصاريف اليومية مع تصدير Excel</p>
+        </div>
+
+        {/* Project Selector */}
+        <div className="mb-6">
+          <ProjectSelector onProjectChange={() => {}} />
+        </div>
+
+        {/* Unified Filter */}
+        <Card className="mb-6 shadow-sm border-0">
+          <CardContent className="pt-6">
+            <UnifiedSearchFilter
+              filters={filterConfigs}
+              filterValues={filterValues}
+              onFilterChange={handleFilterChange}
+              onReset={handleReset}
+              showResetButton={true}
+              showActiveFilters={true}
+              showSearch={false}
+              compact={true}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 mb-6 flex-wrap">
+          <Button
+            onClick={() => refetch()}
+            variant="outline"
+            className="gap-2"
+            disabled={isLoading}
+          >
+            <RefreshCw className="h-4 w-4" />
             تحديث
           </Button>
-          <Button variant="outline" size="sm" onClick={handlePrint}>
-            <Printer className="w-4 h-4 mr-2" />
+          <Button
+            onClick={handlePrint}
+            variant="outline"
+            className="gap-2"
+          >
+            <Printer className="h-4 w-4" />
             طباعة
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportExcel}>
-            <FileSpreadsheet className="w-4 h-4 mr-2" />
+          <Button
+            onClick={handleExportExcel}
+            variant="outline"
+            className="gap-2"
+            disabled={isLoading || !expenseData}
+          >
+            <FileSpreadsheet className="h-4 w-4" />
             تصدير Excel
           </Button>
         </div>
       </div>
 
-      {/* فلاتر */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
-        <div>
-          <label className="block text-sm font-medium">المشروع</label>
-          <ProjectSelector onProjectChange={(projectId) => {
-            console.log('تم تغيير المشروع في Excel Style:', projectId);
-          }} />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">التاريخ</label>
-          <Input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          />
-        </div>
-      </div>
-
       {/* تقرير بنمط Excel */}
-      <div className="excel-style-report bg-white border border-gray-300 rounded-lg overflow-hidden">
+      <div className="max-w-6xl mx-auto excel-style-report bg-white border border-gray-300 rounded-lg overflow-hidden print:shadow-none print:border-0">
         {/* Header */}
         <div className="bg-blue-600 text-white p-4 text-center">
           <h2 className="text-xl font-bold">تقرير المصاريف اليومية</h2>

@@ -57,8 +57,7 @@ const allPagesData = [
   {
     category: "التقارير",
     pages: [
-      { path: "/reports-daily-expenses", icon: FileSpreadsheet, label: "تقرير المصاريف اليومية", description: "تقرير شامل للمصاريف اليومية مع تصدير Excel", requireAdmin: false },
-      { path: "/reports-worker-statement", icon: FileSpreadsheet, label: "كشف حساب العامل", description: "تفاصيل كاملة لحضور وأجور العامل", requireAdmin: false },
+      { path: "/reports", icon: FileSpreadsheet, label: "مركز التقارير الشامل", description: "التقارير الموحدة مع المصاريف اليومية وكشوفات العمال", requireAdmin: false },
     ]
   },
   // الإشعارات والتنبيهات - متاحة للجميع

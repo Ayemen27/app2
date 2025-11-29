@@ -91,10 +91,6 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Deploy to Production"
-
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -115,17 +111,6 @@ author = 47788345
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd app2 && npm run build "
-
-[[workflows.workflow]]
-name = "Deploy to Production"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd app2 && bash DEPLOY_CUSTOM_DOMAIN.sh"
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [agent]
 expertMode = true

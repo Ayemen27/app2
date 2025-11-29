@@ -3077,6 +3077,9 @@ async function setupVite(app2, server2) {
   });
   app2.use(vite.middlewares);
   app2.use("*", async (req, res, next) => {
+    if (req.originalUrl.startsWith("/api/")) {
+      return next();
+    }
     const url = req.originalUrl;
     try {
       const clientTemplate = path2.resolve(

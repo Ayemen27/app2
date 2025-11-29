@@ -5,6 +5,23 @@ A comprehensive construction project management system designed for the Middle E
 
 ## Recent Changes
 
+### November 29, 2025 - Material Purchases API Endpoints ✅ COMPLETED
+- **Missing Endpoints Added**: Created 5 Material Purchase endpoints in `financialRoutes.ts`
+  1. `GET /api/material-purchases` - جلب جميع المشتريات مع فلاتر (projectId, supplierId, paymentType)
+  2. `POST /api/material-purchases` - إضافة مشتراة مادية جديدة
+  3. `GET /api/material-purchases/:id` - الحصول على تفاصيل مشتراة محددة
+  4. `PATCH /api/material-purchases/:id` - تحديث بيانات المشتراة
+  5. `DELETE /api/material-purchases/:id` - حذف مشتراة
+- **Problem Fixed**: Frontend was getting `404 with text/html` for POST requests - now returns proper JSON API
+- **Schema Integration**: Integrated with existing `materialPurchases` Drizzle ORM schema
+- **Error Handling**: Full error handling with proper HTTP status codes (201, 404, 400, 500)
+- **Response Format**: All endpoints return consistent JSON format with success, data, message, processingTime
+- **Results**: 
+  - ✅ All 5 endpoints fully functional
+  - ✅ Proper validation with `insertMaterialPurchaseSchema`
+  - ✅ Dynamic query filtering support
+  - ✅ Deployed to production successfully
+
 ### November 29, 2025 - Socket.IO Real-Time Updates & Complete System Fixes ✅ COMPLETED
 - **CRITICAL FIXES COMPLETED**:
   1. **Duplicate Catch-All Handlers**: Removed duplicate SPA fallback handler

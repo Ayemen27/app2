@@ -10520,6 +10520,161 @@ financialRouter.post("/suppliers", async (req, res) => {
     });
   }
 });
+financialRouter.get("/material-purchases", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, supplierId, dateFrom, dateTo, paymentTypeFilter } = req.query;
+    const conditions = [];
+    if (projectId) conditions.push(eq9(materialPurchases.projectId, projectId));
+    if (supplierId) conditions.push(eq9(materialPurchases.supplierId, supplierId));
+    if (paymentTypeFilter) conditions.push(eq9(materialPurchases.purchaseType, paymentTypeFilter));
+    let query = db.select().from(materialPurchases);
+    if (conditions.length > 0) {
+      query = query.where(and8(...conditions));
+    }
+    const purchases = await query.orderBy(desc5(materialPurchases.purchaseDate));
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: purchases,
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${purchases.length} \u0639\u0645\u0644\u064A\u0629 \u0634\u0631\u0627\u0621 \u0645\u0627\u062F\u064A\u0629`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [MaterialPurchases] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0627\u062A:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0627\u062F\u064A\u0629",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+financialRouter.post("/material-purchases", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const validated = insertMaterialPurchaseSchema.parse(req.body);
+    const newPurchase = await db.insert(materialPurchases).values({
+      ...validated,
+      projectId: validated.projectId,
+      quantity: validated.quantity,
+      unit: validated.unit,
+      unitPrice: validated.unitPrice,
+      totalAmount: validated.totalAmount,
+      purchaseDate: validated.purchaseDate
+    }).returning();
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [MaterialPurchases] \u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0645\u0634\u062A\u0631\u0627\u0629 \u062C\u062F\u064A\u062F\u0629 \u0641\u064A ${duration}ms`);
+    res.status(201).json({
+      success: true,
+      data: newPurchase[0],
+      message: "\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629 \u0627\u0644\u0645\u0627\u062F\u064A\u0629 \u0628\u0646\u062C\u0627\u062D",
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [MaterialPurchases] \u062E\u0637\u0623 \u0641\u064A \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629:", error);
+    res.status(400).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629 \u0627\u0644\u0645\u0627\u062F\u064A\u0629",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+financialRouter.get("/material-purchases/:id", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const purchase = await db.select().from(materialPurchases).where(eq9(materialPurchases.id, req.params.id));
+    if (!purchase.length) {
+      const duration2 = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: "\u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
+        processingTime: duration2
+      });
+    }
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: purchase[0],
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [MaterialPurchases] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+financialRouter.patch("/material-purchases/:id", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const validated = insertMaterialPurchaseSchema.partial().parse(req.body);
+    const updated = await db.update(materialPurchases).set(validated).where(eq9(materialPurchases.id, req.params.id)).returning();
+    if (!updated.length) {
+      const duration2 = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: "\u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
+        processingTime: duration2
+      });
+    }
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [MaterialPurchases] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629 \u0641\u064A ${duration}ms`);
+    res.json({
+      success: true,
+      data: updated[0],
+      message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629 \u0628\u0646\u062C\u0627\u062D",
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [MaterialPurchases] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629:", error);
+    res.status(400).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+financialRouter.delete("/material-purchases/:id", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const deleted = await db.delete(materialPurchases).where(eq9(materialPurchases.id, req.params.id)).returning();
+    if (!deleted.length) {
+      const duration2 = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: "\u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
+        processingTime: duration2
+      });
+    }
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [MaterialPurchases] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629 \u0641\u064A ${duration}ms`);
+    res.json({
+      success: true,
+      data: deleted[0],
+      message: "\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629 \u0628\u0646\u062C\u0627\u062D",
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [MaterialPurchases] \u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629:", error);
+    res.status(400).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u062A\u0631\u0627\u0629",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 financialRouter.get("/reports/summary", async (req, res) => {
   try {
     res.json({

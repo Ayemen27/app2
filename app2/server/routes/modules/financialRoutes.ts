@@ -8,8 +8,8 @@ import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc } from 'drizzle-orm';
 import { db } from '../../db';
 import {
-  fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects,
-  insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema
+  fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects, materialPurchases,
+  insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema, insertMaterialPurchaseSchema
 } from '@shared/schema';
 import { requireAuth } from '../../middleware/auth.js';
 
@@ -1314,6 +1314,207 @@ financialRouter.post('/suppliers', async (req: Request, res: Response) => {
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
+ * 🛒 المشتريات المادية
+ * Material Purchases
+ */
+
+// جلب جميع المشتريات المادية مع الفلاتر
+financialRouter.get('/material-purchases', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, supplierId, dateFrom, dateTo, paymentTypeFilter } = req.query;
+    
+    // بناء شروط ديناميكية
+    const conditions: any[] = [];
+    if (projectId) conditions.push(eq(materialPurchases.projectId, projectId as string));
+    if (supplierId) conditions.push(eq(materialPurchases.supplierId, supplierId as string));
+    if (paymentTypeFilter) conditions.push(eq(materialPurchases.purchaseType, paymentTypeFilter as string));
+    
+    // بناء الـ query
+    let query: any = db.select().from(materialPurchases);
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    const purchases = await query.orderBy(desc(materialPurchases.purchaseDate));
+    
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: purchases,
+      message: `تم جلب ${purchases.length} عملية شراء مادية`,
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [MaterialPurchases] خطأ في جلب المشتريات:', error);
+    res.status(500).json({
+      success: false,
+      error: 'فشل في جلب المشتريات المادية',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+// إضافة مشتراة مادية جديدة
+financialRouter.post('/material-purchases', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const validated = insertMaterialPurchaseSchema.parse(req.body);
+    
+    const newPurchase = await db
+      .insert(materialPurchases)
+      .values({
+        ...validated,
+        projectId: validated.projectId,
+        quantity: validated.quantity,
+        unit: validated.unit,
+        unitPrice: validated.unitPrice,
+        totalAmount: validated.totalAmount,
+        purchaseDate: validated.purchaseDate
+      })
+      .returning();
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [MaterialPurchases] تم إضافة مشتراة جديدة في ${duration}ms`);
+    
+    res.status(201).json({
+      success: true,
+      data: newPurchase[0],
+      message: 'تم إضافة المشتراة المادية بنجاح',
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [MaterialPurchases] خطأ في إضافة المشتراة:', error);
+    res.status(400).json({
+      success: false,
+      error: 'فشل في إضافة المشتراة المادية',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+// جلب تفاصيل مشتراة مادية محددة
+financialRouter.get('/material-purchases/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const purchase = await db
+      .select()
+      .from(materialPurchases)
+      .where(eq(materialPurchases.id, req.params.id));
+    
+    if (!purchase.length) {
+      const duration = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: 'المشتراة غير موجودة',
+        processingTime: duration
+      });
+    }
+    
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: purchase[0],
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [MaterialPurchases] خطأ في جلب المشتراة:', error);
+    res.status(500).json({
+      success: false,
+      error: 'فشل في جلب المشتراة',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+// تحديث مشتراة مادية
+financialRouter.patch('/material-purchases/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const validated = insertMaterialPurchaseSchema.partial().parse(req.body);
+    
+    const updated = await db
+      .update(materialPurchases)
+      .set(validated)
+      .where(eq(materialPurchases.id, req.params.id))
+      .returning();
+    
+    if (!updated.length) {
+      const duration = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: 'المشتراة غير موجودة',
+        processingTime: duration
+      });
+    }
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [MaterialPurchases] تم تحديث المشتراة في ${duration}ms`);
+    
+    res.json({
+      success: true,
+      data: updated[0],
+      message: 'تم تحديث المشتراة بنجاح',
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [MaterialPurchases] خطأ في تحديث المشتراة:', error);
+    res.status(400).json({
+      success: false,
+      error: 'فشل في تحديث المشتراة',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+// حذف مشتراة مادية
+financialRouter.delete('/material-purchases/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const deleted = await db
+      .delete(materialPurchases)
+      .where(eq(materialPurchases.id, req.params.id))
+      .returning();
+    
+    if (!deleted.length) {
+      const duration = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: 'المشتراة غير موجودة',
+        processingTime: duration
+      });
+    }
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [MaterialPurchases] تم حذف المشتراة في ${duration}ms`);
+    
+    res.json({
+      success: true,
+      data: deleted[0],
+      message: 'تم حذف المشتراة بنجاح',
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [MaterialPurchases] خطأ في حذف المشتراة:', error);
+    res.status(400).json({
+      success: false,
+      error: 'فشل في حذف المشتراة',
       message: error.message,
       processingTime: duration
     });

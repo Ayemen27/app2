@@ -292,17 +292,16 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
   next();
 };
 
-// تنظيف البيانات المؤقتة كل ساعة
-const oneHour = 60 * 60 * 1000;
-setInterval(() => {
-  const now = Date.now();
-
-  for (const [ip, activity] of Array.from(suspiciousActivityTracker.entries())) {
-    if (now - activity.lastAttempt > oneHour) {
-      suspiciousActivityTracker.delete(ip);
-    }
-  }
-}, oneHour);
+// ✅ تم تعطيل تنظيف البيانات المؤقتة - الميزة معطلة حالياً
+// const oneHour = 60 * 60 * 1000;
+// setInterval(() => {
+//   const now = Date.now();
+//   for (const [ip, activity] of Array.from(suspiciousActivityTracker.entries())) {
+//     if (now - activity.lastAttempt > oneHour) {
+//       suspiciousActivityTracker.delete(ip);
+//     }
+//   }
+// }, oneHour);
 
 // تصدير middleware الأساسي
 export const requireAuth = authenticate;

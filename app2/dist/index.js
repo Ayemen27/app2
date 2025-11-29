@@ -4510,15 +4510,6 @@ var authenticate = async (req, res, next) => {
     });
   }
 };
-var oneHour = 60 * 60 * 1e3;
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, activity] of Array.from(suspiciousActivityTracker.entries())) {
-    if (now - activity.lastAttempt > oneHour) {
-      suspiciousActivityTracker.delete(ip);
-    }
-  }
-}, oneHour);
 var requireAuth = authenticate;
 var requireRole = (role) => {
   return (req, res, next) => {

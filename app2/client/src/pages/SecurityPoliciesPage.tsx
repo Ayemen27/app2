@@ -493,7 +493,7 @@ export function SecurityPoliciesPage() {
                       </div>
                       <div className="text-left">
                         <p className="text-gray-500">
-                          وقت الاكتشاف: {new Date(item.violation.detectedAt).toLocaleString('ar')}
+                          وقت الاكتشاف: {new Date(item.violation.detectedAt).toLocaleString('en-GB')}
                         </p>
                       </div>
                     </div>

@@ -48,12 +48,12 @@ export function EquipmentMovementHistoryDialog({
   const formatMovementDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('ar-EG', {
+      return date.toLocaleDateString('en-GB', {
         year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long'
-      }) + ' - ' + date.toLocaleTimeString('ar-EG', {
+        month: '2-digit',
+        day: '2-digit',
+        weekday: 'short'
+      }) + ' - ' + date.toLocaleTimeString('en-GB', {
         hour: '2-digit',
         minute: '2-digit'
       });

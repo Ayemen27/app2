@@ -100,10 +100,11 @@ export const formatDate = (dateInput: string | Date): string => {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
 
   if (isNaN(date.getTime())) {
-    return 'تاريخ غير صالح';
+    return 'Invalid Date';
   }
 
-  return new Intl.DateTimeFormat('ar-SA', {
+  // صيغة بريطانية: DD/MM/YYYY مع أرقام إنجليزية
+  return new Intl.DateTimeFormat('en-GB', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -130,7 +131,8 @@ export const formatNumber = (num: number | string | null | undefined): string =>
 export function formatTime(time: string): string {
   if (!time) return "";
   const [hours, minutes] = time.split(":");
-  return `${hours}:${minutes}`;
+  // أرقام إنجليزية فقط
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 export function getCurrentDate(): string {

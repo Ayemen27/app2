@@ -797,7 +797,7 @@ export function EquipmentManagement() {
             <div class="footer">
               <div class="footer-info">تم إنشاء هذا التقرير بواسطة نظام إدارة المشاريع الإنشائية</div>
               <div class="footer-info">شركة الفتيني للمقاولات والاستشارات الهندسية</div>
-              <div class="footer-info">تاريخ الطباعة: ${formatDate(new Date().toISOString().split('T')[0])} - ${new Date().toLocaleTimeString('ar-SA', { 
+              <div class="footer-info">تاريخ الطباعة: ${formatDate(new Date().toISOString().split('T')[0])} - ${new Date().toLocaleTimeString('en-GB', { 
                 hour: '2-digit', 
                 minute: '2-digit', 
                 hour12: false 

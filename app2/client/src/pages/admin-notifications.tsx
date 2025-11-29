@@ -545,7 +545,7 @@ const NotificationCardEnhanced = ({ notification, onDelete, onView }: any) => {
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                 <Clock className="h-3 w-3" />
-                <span>{new Date(notification.createdAt).toLocaleDateString('ar-SA')}</span>
+                <span>{new Date(notification.createdAt).toLocaleDateString('en-GB'SA')}</span>
               </div>
 
               <div className="flex items-center gap-2">

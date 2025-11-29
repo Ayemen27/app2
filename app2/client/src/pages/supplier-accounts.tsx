@@ -606,7 +606,7 @@ export default function SupplierAccountsPage() {
       { label: 'إجمالي المشتريات', value: formatCurrency(totals.totalAmount), color: '1f4e79' },
       { label: 'إجمالي المدفوع', value: formatCurrency(totals.paidAmount), color: '228b22' },
       { label: 'إجمالي المتبقي', value: formatCurrency(totals.remainingAmount), color: 'cc0000' },
-      { label: 'عدد الفواتير', value: purchases.length.toLocaleString('ar-SA'), color: '1f4e79' }
+      { label: 'عدد الفواتير', value: purchases.length.toLocaleString('en-GB'SA'), color: '1f4e79' }
     ];
 
     // إنشاء جدول احترافي للملخص

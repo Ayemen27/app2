@@ -1,21 +1,19 @@
 export function formatArabicTime(date: Date): string {
-  const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-  const time = date.toLocaleTimeString('ar-SA', {
+  // أرقام إنجليزية فقط بالصيغة البريطانية HH:MM:SS
+  return date.toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
     hour12: false
   });
-  
-  // Convert English numerals to Arabic numerals
-  return time.replace(/\d/g, (digit) => arabicNumerals[parseInt(digit)]);
 }
 
 export function formatArabicDate(date: Date): string {
-  return date.toLocaleDateString('ar-SA', {
+  // صيغة بريطانية: DD/MM/YYYY مع أرقام إنجليزية
+  return date.toLocaleDateString('en-GB', {
     year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+    month: '2-digit',
+    day: '2-digit'
   });
 }
 

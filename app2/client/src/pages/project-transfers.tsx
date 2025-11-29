@@ -356,7 +356,7 @@ export default function ProjectTransfers() {
                                 {formatCurrency(parseFloat(transfer.amount))}
                               </p>
                               <Badge variant="outline" className="text-xs">
-                                {new Date(transfer.transferDate).toLocaleDateString('ar-EG')}
+                                {new Date(transfer.transferDate).toLocaleDateString('en-GB')}
                               </Badge>
                             </div>
                             <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400 mb-1">

@@ -2,7 +2,7 @@
 
 ## Recent Changes
 
-### November 29, 2025 - Comprehensive Unified Reports Dashboard ✅ COMPLETED
+### November 29, 2025 - Comprehensive Unified Reports Dashboard + International Date/Number Format ✅ COMPLETED
 - **Deleted Old Report Pages**: Removed fragmented report pages
   - ✅ Deleted `daily-expenses.tsx`
   - ✅ Deleted `excel-style-daily-expenses.tsx`
@@ -19,7 +19,15 @@
   - ✅ فلترة متقدمة: تواريخ, اختيار العمال, إعادة تعيين سريعة
   - ✅ تصدير Excel و طباعة احترافية
   - ✅ واجهة عربية كاملة (RTL compatible)
-  - ✅ ألوان احترافية: أزرق (البيانات)، أخضر (الدفع)، أبيض (خلفيات)
+  - ✅ ألوان احترافية: أزرق (البيانات)، أخضر (الدفع)، رمادي (خلفيات)
+- **International Date & Number Format** - معايير عالمية:
+  - ✅ جميع التواريخ بالصيغة البريطانية: DD/MM/YYYY مع أرقام إنجليزية
+  - ✅ جميع الأوقات بصيغة 24 ساعة: HH:MM:SS مع أرقام إنجليزية
+  - ✅ جميع الأرقام والمبالغ بالإنجليزية مع فواصل الآلاف
+  - ✅ تحديث `formatDate()` لاستخدام `en-GB` locale
+  - ✅ تحديث `formatTime()` للأرقام الإنجليزية فقط
+  - ✅ تحديث `formatCurrency()` لعرض أرقام إنجليزية (en-US)
+  - ✅ تحديث جميع الملفات: `arabic-utils.ts`, `equipment-movement-history-dialog.tsx`, `EnhancedErrorDisplay.tsx`, `enhanced-worker-card.tsx`, `notifications-dropdown.tsx`, `SecurityPoliciesPage.tsx`, `equipment-management.tsx`, `excel-export-utils.ts`
 - **تحديثات التنقل**:
   - ✅ حذف الصفحات القديمة من App.tsx
   - ✅ توحيد جميع مسارات التقارير إلى `/reports`
@@ -28,6 +36,7 @@
 - **النتائج**:
   - ✅ مركز تقارير موحد احترافي
   - ✅ تصميم يطابق المنصات الدولية (Google Material, Apple HIG)
+  - ✅ جميع التواريخ والأوقات والأرقام بالمعايير الدولية
   - ✅ أداء سلس على جميع الأجهزة
   - ✅ بناء ناجح بدون أخطاء
   - ✅ التطبيق يعمل بصحة على المنفذ 5000

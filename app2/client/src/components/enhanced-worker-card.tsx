@@ -179,7 +179,7 @@ export default function EnhancedWorkerCard({
   const formatDate = (dateString: string | Date) => {
     if (!dateString) return 'غير محدد';
     const date = new Date(dateString);
-    return date.toLocaleDateString('ar-SA', {
+    return date.toLocaleDateString('en-GB', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'

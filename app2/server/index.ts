@@ -156,7 +156,6 @@ if (app.get("env") === "development") {
 }
 
 // ✅ معالج شامل للأخطاء 404 - بعد إعداد الملفات الثابتة
-// Only return 404 JSON for API routes, otherwise serve the React app
 app.use("*", async (req, res) => {
   // If it's an API request, return JSON 404
   if (req.originalUrl.startsWith('/api/')) {
@@ -171,9 +170,8 @@ app.use("*", async (req, res) => {
     });
   }
 
-  // For non-API routes, serve the SPA index.html
+  // For non-API routes, serve index.html as fallback for SPA routing
   if (NODE_ENV === "development") {
-    // In development, Vite should have handled this, but as fallback serve index.html
     const { fileURLToPath } = await import('url');
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
@@ -182,19 +180,18 @@ app.use("*", async (req, res) => {
       return res.sendFile(indexPath);
     } catch (e) {
       console.error('❌ فشل في خدمة index.html:', e);
-      return res.status(500).json({ error: 'فشل في تحميل الصفحة' });
     }
-  } else {
-    // In production, serveStatic should have handled this
-    return res.status(404).json({
-      success: false,
-      error: "المسار غير موجود",
-      message: `لم يتم العثور على المسار: ${req.method} ${req.originalUrl}`,
-      timestamp: new Date().toISOString(),
-      method: req.method,
-      path: req.originalUrl
-    });
   }
+
+  // If we reach here, it's a 404
+  return res.status(404).json({
+    success: false,
+    error: "المسار غير موجود",
+    message: `لم يتم العثور على المسار: ${req.method} ${req.originalUrl}`,
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    path: req.originalUrl
+  });
 });
 
 // ALWAYS serve the app on the port specified in the environment variable PORT

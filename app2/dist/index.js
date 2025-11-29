@@ -2975,6 +2975,7 @@ var init_NotificationService = __esm({
 import express11 from "express";
 import cors from "cors";
 import helmet from "helmet";
+import path4 from "path";
 
 // server/vite.ts
 import express from "express";
@@ -6355,13 +6356,13 @@ var AdvancedRouteManager = class {
   /**
    * فحص ما إذا كان المسار عامًا (لا يحتاج مصادقة)
    */
-  isPublicRoute(path4, method) {
-    const publicMethods = this.publicRouteMap.get(path4);
+  isPublicRoute(path5, method) {
+    const publicMethods = this.publicRouteMap.get(path5);
     if (publicMethods && (publicMethods.has(method) || publicMethods.has("*"))) {
       return true;
     }
     for (const wildcardRoute of this.wildcardRoutes) {
-      if (wildcardRoute.isPublic && wildcardRoute.pattern.test(path4) && (wildcardRoute.methods.has(method) || wildcardRoute.methods.has("*"))) {
+      if (wildcardRoute.isPublic && wildcardRoute.pattern.test(path5) && (wildcardRoute.methods.has(method) || wildcardRoute.methods.has("*"))) {
         return true;
       }
     }
@@ -6370,13 +6371,13 @@ var AdvancedRouteManager = class {
   /**
    * فحص ما إذا كان المسار محميًا (يحتاج مصادقة)
    */
-  isProtectedRoute(path4, method) {
-    const protectedMethods = this.protectedRouteMap.get(path4);
+  isProtectedRoute(path5, method) {
+    const protectedMethods = this.protectedRouteMap.get(path5);
     if (protectedMethods && (protectedMethods.has(method) || protectedMethods.has("*"))) {
       return true;
     }
     for (const wildcardRoute of this.wildcardRoutes) {
-      if (!wildcardRoute.isPublic && wildcardRoute.pattern.test(path4) && (wildcardRoute.methods.has(method) || wildcardRoute.methods.has("*"))) {
+      if (!wildcardRoute.isPublic && wildcardRoute.pattern.test(path5) && (wildcardRoute.methods.has(method) || wildcardRoute.methods.has("*"))) {
         return true;
       }
     }
@@ -6385,11 +6386,11 @@ var AdvancedRouteManager = class {
   /**
    * الحصول على rate limiter للمسار إذا وجد - محسن لدعم المعاملات
    */
-  getRateLimiter(path4, method) {
+  getRateLimiter(path5, method) {
     for (const [limiterId, limiter] of Array.from(this.rateLimiters.entries())) {
       const [limiterPath, methods] = limiterId.split(":");
       const methodsList = methods.split(",");
-      const isPathMatch = limiterPath === path4 || this.matchesPatternWithParams(path4, limiterPath);
+      const isPathMatch = limiterPath === path5 || this.matchesPatternWithParams(path5, limiterPath);
       const isMethodMatch = methodsList.includes(method) || methodsList.includes("*");
       if (isPathMatch && isMethodMatch) {
         return limiter;
@@ -6462,9 +6463,9 @@ var publicRouteRateLimit = rateLimit2({
   legacyHeaders: false,
   // تطبيق فقط على المسارات العامة
   skip: (req) => {
-    const path4 = req.path || req.url || "";
+    const path5 = req.path || req.url || "";
     const method = req.method || "GET";
-    return !routeManager.isPublicRoute(path4, method);
+    return !routeManager.isPublicRoute(path5, method);
   }
 });
 var authRouteRateLimit = rateLimit2({
@@ -6481,8 +6482,8 @@ var authRouteRateLimit = rateLimit2({
   legacyHeaders: false,
   // تطبيق فقط على مسارات المصادقة
   skip: (req) => {
-    const path4 = req.path || req.url || "";
-    return !path4.startsWith("/api/auth/");
+    const path5 = req.path || req.url || "";
+    return !path5.startsWith("/api/auth/");
   }
 });
 
@@ -12363,7 +12364,7 @@ if (app.get("env") === "development") {
 } else {
   serveStatic(app);
 }
-app.use("*", (req, res) => {
+app.use("*", async (req, res) => {
   if (req.originalUrl.startsWith("/api/")) {
     console.log(`\u274C [404] \u0645\u0633\u0627\u0631 API \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F: ${req.method} ${req.originalUrl}`);
     return res.status(404).json({
@@ -12375,7 +12376,27 @@ app.use("*", (req, res) => {
       path: req.originalUrl
     });
   }
-  console.log(`\u26A0\uFE0F [Fallback] \u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0639\u0627\u0644\u062C: ${req.method} ${req.originalUrl}`);
+  if (NODE_ENV === "development") {
+    const { fileURLToPath: fileURLToPath2 } = await import("url");
+    const __filename2 = fileURLToPath2(import.meta.url);
+    const __dirname2 = path4.dirname(__filename2);
+    const indexPath = path4.resolve(__dirname2, "..", "client", "index.html");
+    try {
+      return res.sendFile(indexPath);
+    } catch (e) {
+      console.error("\u274C \u0641\u0634\u0644 \u0641\u064A \u062E\u062F\u0645\u0629 index.html:", e);
+      return res.status(500).json({ error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0635\u0641\u062D\u0629" });
+    }
+  } else {
+    return res.status(404).json({
+      success: false,
+      error: "\u0627\u0644\u0645\u0633\u0627\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+      message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0633\u0627\u0631: ${req.method} ${req.originalUrl}`,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      method: req.method,
+      path: req.originalUrl
+    });
+  }
 });
 var PORT = parseInt(process.env.PORT || "5000", 10);
 var NODE_ENV = process.env.NODE_ENV || "development";

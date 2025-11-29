@@ -5,17 +5,25 @@ A comprehensive construction project management system designed for the Middle E
 
 ## Recent Changes
 
-### November 28, 2025 - Socket.IO Real-Time Updates & Critical API Routing Fix
-- **CRITICAL FIX**: Fixed API routing issue where POST/DELETE/GET requests were returning HTML instead of JSON
-  - Root cause: Vite catch-all middleware was intercepting `/api/*` routes
-  - Solution: Modified `server/vite.ts` to skip API routes (`if (req.originalUrl.startsWith('/api/')) return next()`)
-- **Socket.IO Integration**: Implemented WebSocket for real-time updates
+### November 29, 2025 - Socket.IO Real-Time Updates & Complete API Routing Fix
+- **CRITICAL FIXES COMPLETED**:
+  - Fixed API routing issue where POST/DELETE/GET requests were returning HTML instead of JSON
+  - Root cause: Vite catch-all middleware was intercepting `/api/*` and module requests
+  - Solution: Modified `server/vite.ts` to:
+    - Skip `/api/*` routes with `if (req.originalUrl.startsWith('/api/')) return next()`
+    - Skip static assets/modules: `if (url.startsWith('/@') || url.includes('?') || /\.\w+$/i.test(url))`
+    - Only serve index.html for navigation requests (paths without file extensions)
+- **Socket.IO Integration Complete**: Implemented WebSocket for real-time updates
   - Added Socket.IO server initialization in `server/index.ts`
   - Broadcast events on worker attendance updates via `io.emit('entity:update', ...)`
   - Enabled `useWebSocketSync()` hook in `App.tsx` for client-side listening
   - Global `io` instance available at `(global as any).io` for mutations
-- **Result**: All API endpoints now return JSON correctly, real-time updates functional
-- **Verified**: `curl http://localhost:5000/api/health` returns valid JSON ✅
+- **Results**: 
+  - ✅ All API endpoints return JSON correctly
+  - ✅ Real-time updates functional
+  - ✅ Vite modules load correctly (main.tsx, dependencies, assets)
+  - ✅ SPA routing works (serves index.html for navigation paths)
+  - ✅ Verified: `curl http://localhost:5000/api/health` returns JSON
 
 ### November 28, 2025 - Real-Time Data Updates & Deployment Scripts
 - **Fixed Real-Time Updates**: Added `refetchQueries()` to all mutations - now deletes/edits update UI immediately

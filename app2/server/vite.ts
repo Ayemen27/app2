@@ -47,14 +47,31 @@ export async function setupVite(app: Express, server: Server) {
   });
 
   app.use(vite.middlewares);
+  
+  // SPA fallback - serve index.html for all non-API routes
   app.use("*", async (req, res, next) => {
     // Skip API routes - let them be handled by route handlers
     if (req.originalUrl.startsWith('/api/')) {
+      console.log(`[Vite] Skipping API route: ${req.originalUrl}`);
       return next();
     }
 
     const url = req.originalUrl;
 
+    // Skip Vite special URLs
+    if (url.startsWith('/@')) {
+      console.log(`[Vite] Skipping Vite special URL: ${url}`);
+      return next();
+    }
+
+    // Skip requests with file extensions (let Vite handle them)
+    if (/\.\w+$/i.test(url)) {
+      console.log(`[Vite] Skipping file request: ${url}`);
+      return next();
+    }
+
+    // Serve index.html for SPA navigation
+    console.log(`[Vite] Serving index.html for: ${url}`);
     try {
       const clientTemplate = path.resolve(
         import.meta.dirname,
@@ -63,7 +80,6 @@ export async function setupVite(app: Express, server: Server) {
         "index.html",
       );
 
-      // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
@@ -72,6 +88,7 @@ export async function setupVite(app: Express, server: Server) {
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
+      console.error(`[Vite] Error serving index.html for ${url}:`, e);
       vite.ssrFixStacktrace(e as Error);
       next(e);
     }

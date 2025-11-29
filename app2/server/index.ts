@@ -155,51 +155,6 @@ if (app.get("env") === "development") {
   serveStatic(app);
 }
 
-// ✅ معالج شامل للأخطاء 404 - بعد إعداد الملفات الثابتة
-app.use("*", async (req, res) => {
-  // If it's an API request, return JSON 404
-  if (req.originalUrl.startsWith('/api/')) {
-    console.log(`❌ [404] مسار API غير موجود: ${req.method} ${req.originalUrl}`);
-    return res.status(404).json({
-      success: false,
-      error: "المسار غير موجود",
-      message: `لم يتم العثور على المسار: ${req.method} ${req.originalUrl}`,
-      timestamp: new Date().toISOString(),
-      method: req.method,
-      path: req.originalUrl
-    });
-  }
-
-  // Skip file requests - these should be handled by Vite or express.static
-  const url = req.originalUrl;
-  if (/\.\w+$/i.test(url) || url.startsWith('/@')) {
-    return res.status(404).json({ error: 'Not found' });
-  }
-
-  // For non-API, non-file routes, serve index.html as fallback for SPA routing
-  if (NODE_ENV === "development") {
-    const { fileURLToPath } = await import('url');
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const indexPath = path.resolve(__dirname, '..', 'client', 'index.html');
-    try {
-      return res.sendFile(indexPath);
-    } catch (e) {
-      console.error('❌ فشل في خدمة index.html:', e);
-    }
-  }
-
-  // If we reach here, it's a 404
-  return res.status(404).json({
-    success: false,
-    error: "المسار غير موجود",
-    message: `لم يتم العثور على المسار: ${req.method} ${req.originalUrl}`,
-    timestamp: new Date().toISOString(),
-    method: req.method,
-    path: req.originalUrl
-  });
-});
-
 // ALWAYS serve the app on the port specified in the environment variable PORT
 // Other ports are firewalled. Default to 5000 if not specified.
 // this serves both the API and the client.

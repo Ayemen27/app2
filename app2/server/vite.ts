@@ -48,30 +48,23 @@ export async function setupVite(app: Express, server: Server) {
 
   app.use(vite.middlewares);
   
-  // SPA fallback - serve index.html for all non-API routes
+  // SPA fallback - serve index.html ONLY for navigation routes (no file extension)
   app.use("*", async (req, res, next) => {
-    // Skip API routes - let them be handled by route handlers
+    // Skip API routes
     if (req.originalUrl.startsWith('/api/')) {
-      console.log(`[Vite] Skipping API route: ${req.originalUrl}`);
       return next();
     }
 
     const url = req.originalUrl;
 
-    // Skip Vite special URLs
-    if (url.startsWith('/@')) {
-      console.log(`[Vite] Skipping Vite special URL: ${url}`);
-      return next();
-    }
-
-    // Skip requests with file extensions (let Vite handle them)
+    // Only serve index.html for non-file requests (no extension at end)
+    // This allows Vite to handle /src/main.tsx and other files
     if (/\.\w+$/i.test(url)) {
-      console.log(`[Vite] Skipping file request: ${url}`);
+      // This is a file request - skip and let it 404 or be handled elsewhere
       return next();
     }
 
-    // Serve index.html for SPA navigation
-    console.log(`[Vite] Serving index.html for: ${url}`);
+    // This is a navigation request - serve index.html for SPA
     try {
       const clientTemplate = path.resolve(
         import.meta.dirname,
@@ -88,7 +81,6 @@ export async function setupVite(app: Express, server: Server) {
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
-      console.error(`[Vite] Error serving index.html for ${url}:`, e);
       vite.ssrFixStacktrace(e as Error);
       next(e);
     }

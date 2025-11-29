@@ -170,7 +170,13 @@ app.use("*", async (req, res) => {
     });
   }
 
-  // For non-API routes, serve index.html as fallback for SPA routing
+  // Skip file requests - these should be handled by Vite or express.static
+  const url = req.originalUrl;
+  if (/\.\w+$/i.test(url) || url.startsWith('/@')) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  // For non-API, non-file routes, serve index.html as fallback for SPA routing
   if (NODE_ENV === "development") {
     const { fileURLToPath } = await import('url');
     const __filename = fileURLToPath(import.meta.url);

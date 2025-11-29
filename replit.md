@@ -1,5 +1,23 @@
 # Construction Project Management System
 
+## Recent Changes
+
+### November 29, 2025 - Enhanced Reports Page with Horizontal Date Filter ✅ COMPLETED
+- **Improved Reports Page**: Enhanced `excel-style-daily-expenses.tsx` with horizontal date range filtering
+  - ✅ Created unified filter bar with two separate date fields (من التاريخ - إلى التاريخ)
+  - ✅ Date fields positioned horizontally in single row (RTL layout)
+  - ✅ Added reset button "إعادة تعيين" in the same filter bar
+  - ✅ Improved layout with gradient background and better visual hierarchy
+  - ✅ Action buttons: تحديث، طباعة، تصدير Excel
+  - ✅ Fixed all ExcelJS alignment errors
+  - ✅ Responsive design: stacks on mobile, horizontal on desktop
+- **Results**:
+  - ✅ Single unified reports page with simple date filtering
+  - ✅ Clean horizontal filter bar on the right (RTL compatible)
+  - ✅ Two separate date input fields (From Date, To Date)
+  - ✅ Reset button for quick filter restoration
+  - ✅ Build successful with no errors
+
 ## Overview
 A comprehensive construction project management system designed for the Middle East, featuring a full Arabic interface with RTL support. This full-stack web and mobile application provides advanced financial management, project tracking, worker management, material purchasing, and intelligent reporting. Its primary purpose is to offer construction companies a complete solution for efficient operational management, with a vision for significant market potential in the region.
 

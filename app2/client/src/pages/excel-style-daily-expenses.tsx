@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileSpreadsheet, Printer, RefreshCw, TrendingUp } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { FileSpreadsheet, Printer, RefreshCw, TrendingUp, Calendar } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import ProjectSelector from "@/components/project-selector";
 import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
-import { UnifiedSearchFilter, FilterConfig } from "@/components/ui/unified-search-filter";
 import '@/styles/excel-print-styles.css';
 
 interface DailyExpenseData {
@@ -19,19 +20,13 @@ interface DailyExpenseData {
   total: number;
 }
 
-interface FilterValues {
-  dateRange?: { from?: Date; to?: Date };
-  reportType?: string;
-}
-
 export default function ExcelStyleDailyExpenses() {
-  const [filterValues, setFilterValues] = useState<FilterValues>({
-    dateRange: {
-      from: new Date(new Date().setDate(new Date().getDate() - 7)),
-      to: new Date()
-    },
-    reportType: "daily"
+  const [dateFrom, setDateFrom] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 7);
+    return date.toISOString().split('T')[0];
   });
+  const [dateTo, setDateTo] = useState(getCurrentDate());
   const [selectedDate, setSelectedDate] = useState(getCurrentDate());
   const { selectedProjectId, projects } = useSelectedProject();
   
@@ -142,41 +137,11 @@ export default function ExcelStyleDailyExpenses() {
     );
   }
 
-  const filterConfigs: FilterConfig[] = [
-    {
-      key: "dateRange",
-      label: "نطاق التاريخ",
-      type: "date-range",
-      placeholder: "من التاريخ إلى التاريخ"
-    },
-    {
-      key: "reportType",
-      label: "نوع التقرير",
-      type: "select",
-      defaultValue: "daily",
-      options: [
-        { value: "daily", label: "يومي" },
-        { value: "weekly", label: "أسبوعي" },
-        { value: "monthly", label: "شهري" }
-      ]
-    }
-  ];
-
-  const handleFilterChange = (key: string, value: any) => {
-    setFilterValues(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
-
   const handleReset = () => {
-    setFilterValues({
-      dateRange: {
-        from: new Date(new Date().setDate(new Date().getDate() - 7)),
-        to: new Date()
-      },
-      reportType: "daily"
-    });
+    const date = new Date();
+    date.setDate(date.getDate() - 7);
+    setDateFrom(date.toISOString().split('T')[0]);
+    setDateTo(getCurrentDate());
   };
 
   return (
@@ -196,19 +161,43 @@ export default function ExcelStyleDailyExpenses() {
           <ProjectSelector onProjectChange={() => {}} />
         </div>
 
-        {/* Unified Filter */}
+        {/* Unified Filter Bar */}
         <Card className="mb-6 shadow-sm border-0">
           <CardContent className="pt-6">
-            <UnifiedSearchFilter
-              filters={filterConfigs}
-              filterValues={filterValues}
-              onFilterChange={handleFilterChange}
-              onReset={handleReset}
-              showResetButton={true}
-              showActiveFilters={true}
-              showSearch={false}
-              compact={true}
-            />
+            <div className="flex flex-row-reverse items-end gap-3">
+              {/* Reset Button */}
+              <Button
+                onClick={handleReset}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                إعادة تعيين
+              </Button>
+
+              {/* To Date Field */}
+              <div className="flex-1 min-w-[200px]">
+                <Label className="text-xs font-medium text-slate-600 mb-1.5 block">إلى التاريخ</Label>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="h-9 text-sm text-right"
+                />
+              </div>
+
+              {/* From Date Field */}
+              <div className="flex-1 min-w-[200px]">
+                <Label className="text-xs font-medium text-slate-600 mb-1.5 block">من التاريخ</Label>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="h-9 text-sm text-right"
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 

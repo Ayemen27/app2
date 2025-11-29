@@ -10675,6 +10675,149 @@ financialRouter.delete("/material-purchases/:id", async (req, res) => {
     });
   }
 });
+financialRouter.get("/transportation-expenses", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.query;
+    let query = db.select().from(transportationExpenses);
+    if (projectId) {
+      query = query.where(eq9(transportationExpenses.projectId, projectId));
+    }
+    const expenses = await query.orderBy(desc5(transportationExpenses.date));
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: expenses,
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0646\u0641\u0642\u0629 \u0645\u0648\u0627\u0635\u0644\u0627\u062A`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [TransportationExpenses] \u062E\u0637\u0623:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0646\u0641\u0642\u0627\u062A",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+financialRouter.post("/transportation-expenses", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const validated = insertTransportationExpenseSchema.parse(req.body);
+    const newExpense = await db.insert(transportationExpenses).values(validated).returning();
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [TransportationExpenses] \u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0646\u0641\u0642\u0629 \u062C\u062F\u064A\u062F\u0629 \u0641\u064A ${duration}ms`);
+    res.status(201).json({
+      success: true,
+      data: newExpense[0],
+      message: "\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0646\u0641\u0642\u0629 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D",
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [TransportationExpenses] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0625\u0636\u0627\u0641\u0629:", error);
+    res.status(400).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0646\u0641\u0642\u0629",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+financialRouter.get("/transportation-expenses/:id", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const expense = await db.select().from(transportationExpenses).where(eq9(transportationExpenses.id, req.params.id));
+    if (!expense.length) {
+      const duration2 = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: "\u0627\u0644\u0646\u0641\u0642\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
+        processingTime: duration2
+      });
+    }
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: expense[0],
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [TransportationExpenses] \u062E\u0637\u0623:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0646\u0641\u0642\u0629",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+financialRouter.patch("/transportation-expenses/:id", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const validated = insertTransportationExpenseSchema.partial().parse(req.body);
+    const updated = await db.update(transportationExpenses).set(validated).where(eq9(transportationExpenses.id, req.params.id)).returning();
+    if (!updated.length) {
+      const duration2 = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: "\u0627\u0644\u0646\u0641\u0642\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
+        processingTime: duration2
+      });
+    }
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [TransportationExpenses] \u062A\u0645 \u0627\u0644\u062A\u062D\u062F\u064A\u062B \u0641\u064A ${duration}ms`);
+    res.json({
+      success: true,
+      data: updated[0],
+      message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0646\u0641\u0642\u0629 \u0628\u0646\u062C\u0627\u062D",
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [TransportationExpenses] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u062F\u064A\u062B:", error);
+    res.status(400).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0646\u0641\u0642\u0629",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+financialRouter.delete("/transportation-expenses/:id", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const deleted = await db.delete(transportationExpenses).where(eq9(transportationExpenses.id, req.params.id)).returning();
+    if (!deleted.length) {
+      const duration2 = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: "\u0627\u0644\u0646\u0641\u0642\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629",
+        processingTime: duration2
+      });
+    }
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [TransportationExpenses] \u062A\u0645 \u0627\u0644\u062D\u0630\u0641 \u0641\u064A ${duration}ms`);
+    res.json({
+      success: true,
+      data: deleted[0],
+      message: "\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0646\u0641\u0642\u0629 \u0628\u0646\u062C\u0627\u062D",
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [TransportationExpenses] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062D\u0630\u0641:", error);
+    res.status(400).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0646\u0641\u0642\u0629",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 financialRouter.get("/reports/summary", async (req, res) => {
   try {
     res.json({

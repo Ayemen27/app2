@@ -8,8 +8,8 @@ import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc } from 'drizzle-orm';
 import { db } from '../../db';
 import {
-  fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects, materialPurchases,
-  insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema, insertMaterialPurchaseSchema
+  fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects, materialPurchases, transportationExpenses,
+  insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema
 } from '@shared/schema';
 import { requireAuth } from '../../middleware/auth.js';
 
@@ -1515,6 +1515,192 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
     res.status(400).json({
       success: false,
       error: 'فشل في حذف المشتراة',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
+ * 🚚 نفقات المواصلات
+ * Transportation Expenses
+ */
+
+// جلب جميع نفقات المواصلات
+financialRouter.get('/transportation-expenses', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.query;
+    
+    let query: any = db.select().from(transportationExpenses);
+    if (projectId) {
+      query = query.where(eq(transportationExpenses.projectId, projectId as string));
+    }
+    
+    const expenses = await query.orderBy(desc(transportationExpenses.date));
+    
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: expenses,
+      message: `تم جلب ${expenses.length} نفقة مواصلات`,
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [TransportationExpenses] خطأ:', error);
+    res.status(500).json({
+      success: false,
+      error: 'فشل في جلب النفقات',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+// إضافة نفقة مواصلات جديدة
+financialRouter.post('/transportation-expenses', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const validated = insertTransportationExpenseSchema.parse(req.body);
+    
+    const newExpense = await db
+      .insert(transportationExpenses)
+      .values(validated)
+      .returning();
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [TransportationExpenses] تم إضافة نفقة جديدة في ${duration}ms`);
+    
+    res.status(201).json({
+      success: true,
+      data: newExpense[0],
+      message: 'تم إضافة نفقة المواصلات بنجاح',
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [TransportationExpenses] خطأ في الإضافة:', error);
+    res.status(400).json({
+      success: false,
+      error: 'فشل في إضافة النفقة',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+// جلب تفاصيل نفقة محددة
+financialRouter.get('/transportation-expenses/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const expense = await db
+      .select()
+      .from(transportationExpenses)
+      .where(eq(transportationExpenses.id, req.params.id));
+    
+    if (!expense.length) {
+      const duration = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: 'النفقة غير موجودة',
+        processingTime: duration
+      });
+    }
+    
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: expense[0],
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [TransportationExpenses] خطأ:', error);
+    res.status(500).json({
+      success: false,
+      error: 'فشل في جلب النفقة',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+// تحديث نفقة مواصلات
+financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const validated = insertTransportationExpenseSchema.partial().parse(req.body);
+    
+    const updated = await db
+      .update(transportationExpenses)
+      .set(validated)
+      .where(eq(transportationExpenses.id, req.params.id))
+      .returning();
+    
+    if (!updated.length) {
+      const duration = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: 'النفقة غير موجودة',
+        processingTime: duration
+      });
+    }
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [TransportationExpenses] تم التحديث في ${duration}ms`);
+    
+    res.json({
+      success: true,
+      data: updated[0],
+      message: 'تم تحديث النفقة بنجاح',
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [TransportationExpenses] خطأ في التحديث:', error);
+    res.status(400).json({
+      success: false,
+      error: 'فشل في تحديث النفقة',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+// حذف نفقة مواصلات
+financialRouter.delete('/transportation-expenses/:id', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const deleted = await db
+      .delete(transportationExpenses)
+      .where(eq(transportationExpenses.id, req.params.id))
+      .returning();
+    
+    if (!deleted.length) {
+      const duration = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: 'النفقة غير موجودة',
+        processingTime: duration
+      });
+    }
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [TransportationExpenses] تم الحذف في ${duration}ms`);
+    
+    res.json({
+      success: true,
+      data: deleted[0],
+      message: 'تم حذف النفقة بنجاح',
+      processingTime: duration
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [TransportationExpenses] خطأ في الحذف:', error);
+    res.status(400).json({
+      success: false,
+      error: 'فشل في حذف النفقة',
       message: error.message,
       processingTime: duration
     });

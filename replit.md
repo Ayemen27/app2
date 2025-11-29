@@ -5,21 +5,28 @@ A comprehensive construction project management system designed for the Middle E
 
 ## Recent Changes
 
-### November 29, 2025 - Material Purchases API Endpoints ✅ COMPLETED
-- **Missing Endpoints Added**: Created 5 Material Purchase endpoints in `financialRoutes.ts`
-  1. `GET /api/material-purchases` - جلب جميع المشتريات مع فلاتر (projectId, supplierId, paymentType)
-  2. `POST /api/material-purchases` - إضافة مشتراة مادية جديدة
-  3. `GET /api/material-purchases/:id` - الحصول على تفاصيل مشتراة محددة
-  4. `PATCH /api/material-purchases/:id` - تحديث بيانات المشتراة
-  5. `DELETE /api/material-purchases/:id` - حذف مشتراة
+### November 29, 2025 - Missing Financial API Endpoints ✅ COMPLETED
+- **Material Purchases Endpoints Added**: 5 endpoints in `financialRoutes.ts`
+  1. `GET /api/material-purchases` - جلب جميع المشتريات مع فلاتر
+  2. `POST /api/material-purchases` - إضافة مشتراة جديدة
+  3. `GET /api/material-purchases/:id` - جلب تفاصيل المشتراة
+  4. `PATCH /api/material-purchases/:id` - تحديث المشتراة
+  5. `DELETE /api/material-purchases/:id` - حذف المشتراة
+- **Transportation Expenses Endpoints Added**: 5 endpoints in `financialRoutes.ts`
+  1. `GET /api/transportation-expenses` - جلب جميع نفقات المواصلات
+  2. `POST /api/transportation-expenses` - إضافة نفقة جديدة
+  3. `GET /api/transportation-expenses/:id` - جلب تفاصيل النفقة
+  4. `PATCH /api/transportation-expenses/:id` - تحديث النفقة
+  5. `DELETE /api/transportation-expenses/:id` - حذف النفقة
 - **Problem Fixed**: Frontend was getting `404 with text/html` for POST requests - now returns proper JSON API
-- **Schema Integration**: Integrated with existing `materialPurchases` Drizzle ORM schema
+- **Schema Integration**: Integrated with existing `materialPurchases` and `transportationExpenses` Drizzle ORM schemas
 - **Error Handling**: Full error handling with proper HTTP status codes (201, 404, 400, 500)
 - **Response Format**: All endpoints return consistent JSON format with success, data, message, processingTime
 - **Results**: 
-  - ✅ All 5 endpoints fully functional
-  - ✅ Proper validation with `insertMaterialPurchaseSchema`
+  - ✅ All 10 endpoints fully functional (5 material purchases + 5 transportation expenses)
+  - ✅ Proper validation with Zod schemas
   - ✅ Dynamic query filtering support
+  - ✅ Clean error messages in Arabic
   - ✅ Deployed to production successfully
 
 ### November 29, 2025 - Socket.IO Real-Time Updates & Complete System Fixes ✅ COMPLETED

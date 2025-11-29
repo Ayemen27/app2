@@ -38,10 +38,6 @@ localPort = 36743
 localPort = 37473
 
 [[ports]]
-localPort = 37867
-externalPort = 3000
-
-[[ports]]
 localPort = 37879
 
 [[ports]]
@@ -84,6 +80,10 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Deploy to Production"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -104,6 +104,17 @@ author = 47788345
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd app2 && npm run build "
+
+[[workflows.workflow]]
+name = "Deploy to Production"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd app2 && chmod +x DEPLOY_CUSTOM_DOMAIN.sh && ./DEPLOY_CUSTOM_DOMAIN.sh"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 expertMode = true

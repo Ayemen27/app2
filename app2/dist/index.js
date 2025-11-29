@@ -3111,7 +3111,13 @@ function serveStatic(app2) {
     );
   }
   app2.use(express.static(distPath));
-  app2.use("*", (_req, res) => {
+  app2.use("*", (req, res, next) => {
+    if (req.originalUrl.startsWith("/api/")) {
+      return next();
+    }
+    if (/\.\w+(\?|$)/i.test(req.originalUrl)) {
+      return next();
+    }
     res.sendFile(path2.resolve(distPath, "index.html"));
   });
 }
@@ -12278,18 +12284,37 @@ async function autoSchemaPush() {
 import http from "http";
 import { Server } from "socket.io";
 var app = express11();
+var getCSPDirectives = () => {
+  const isProduction3 = process.env.NODE_ENV === "production";
+  const scriptSources = ["'self'", "'unsafe-inline'", "'unsafe-eval'"];
+  if (isProduction3 && process.env.CUSTOM_DOMAIN) {
+    scriptSources.push(`https://${process.env.CUSTOM_DOMAIN}`);
+  }
+  scriptSources.push("https://static.cloudflareinsights.com", "https://replit.com", "https://cdn.jsdelivr.net");
+  const connectSources = ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "ws:", "wss:", "https:", "http:"];
+  if (isProduction3 && process.env.CUSTOM_DOMAIN) {
+    connectSources.push(`https://${process.env.CUSTOM_DOMAIN}`, `wss://${process.env.CUSTOM_DOMAIN}`);
+  }
+  return {
+    defaultSrc: ["'self'"],
+    styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+    fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:"],
+    scriptSrc: scriptSources,
+    imgSrc: ["'self'", "data:", "https:", "blob:"],
+    connectSrc: connectSources,
+    frameSrc: ["'self'"],
+    objectSrc: ["'none'"],
+    mediaSrc: ["'self'"],
+    childSrc: ["'self'"],
+    formAction: ["'self'"],
+    frameAncestors: ["'self'"]
+  };
+};
 app.use(helmet({
   contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://static.cloudflareinsights.com", "https://replit.com"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "ws:", "wss:", "https:", "http:"],
-      frameSrc: ["'self'"],
-      objectSrc: ["'none'"]
-    }
+    directives: getCSPDirectives(),
+    reportOnly: false
+    // enforced, not just reported
   },
   crossOriginEmbedderPolicy: false
 }));

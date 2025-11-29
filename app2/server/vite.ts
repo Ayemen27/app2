@@ -94,8 +94,19 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  // SPA fallback - serve index.html only for navigation routes (not API or files)
+  app.use("*", (req, res, next) => {
+    // Skip API routes
+    if (req.originalUrl.startsWith('/api/')) {
+      return next();
+    }
+
+    // Skip file requests
+    if (/\.\w+(\?|$)/i.test(req.originalUrl)) {
+      return next();
+    }
+
+    // Serve index.html for navigation routes
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

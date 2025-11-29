@@ -27,18 +27,45 @@ const setupSession = (app: express.Express) => {
 const app = express();
 
 // 🛡️ **Security Headers - يحمي من XSS, clickjacking, MIME sniffing**
+const getCSPDirectives = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const scriptSources = ["'self'", "'unsafe-inline'", "'unsafe-eval'"];
+  
+  // Add production domain if available
+  if (isProduction && process.env.CUSTOM_DOMAIN) {
+    scriptSources.push(`https://${process.env.CUSTOM_DOMAIN}`);
+  }
+  
+  // Add CloudFlare and external services
+  scriptSources.push("https://static.cloudflareinsights.com", "https://replit.com", "https://cdn.jsdelivr.net");
+  
+  const connectSources = ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "ws:", "wss:", "https:", "http:"];
+  
+  // Add WebSocket support for Socket.IO
+  if (isProduction && process.env.CUSTOM_DOMAIN) {
+    connectSources.push(`https://${process.env.CUSTOM_DOMAIN}`, `wss://${process.env.CUSTOM_DOMAIN}`);
+  }
+  
+  return {
+    defaultSrc: ["'self'"],
+    styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+    fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:"],
+    scriptSrc: scriptSources,
+    imgSrc: ["'self'", "data:", "https:", "blob:"],
+    connectSrc: connectSources,
+    frameSrc: ["'self'"],
+    objectSrc: ["'none'"],
+    mediaSrc: ["'self'"],
+    childSrc: ["'self'"],
+    formAction: ["'self'"],
+    frameAncestors: ["'self'"]
+  };
+};
+
 app.use(helmet({
   contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://static.cloudflareinsights.com", "https://replit.com"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "ws:", "wss:", "https:", "http:"],
-      frameSrc: ["'self'"],
-      objectSrc: ["'none'"]
-    }
+    directives: getCSPDirectives(),
+    reportOnly: false // enforced, not just reported
   },
   crossOriginEmbedderPolicy: false
 }));

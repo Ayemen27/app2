@@ -12,12 +12,12 @@ export function useWebSocketSync() {
     console.log(`ℹ️ [WebSocket] WebSocket محسّن - الإنتاج: ${isProduction}`);
 
     const connectWebSocket = () => {
-      // Determine WebSocket URL based on environment
+      // ✅ إصلاح: استخدام window.location.origin بدلاً من host للحصول على الرابط الصحيح
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}`;
+      const origin = window.location.origin;
+      const wsUrl = origin.replace(/^http/, 'ws');
       
-      console.log('🔌 [WebSocket] محاولة الاتصال بـ:', wsUrl);
+      console.log('🔌 [WebSocket] محاولة الاتصال بـ:', wsUrl, '(من origin:', origin, ')');
 
       // Note: Socket.IO is handled by the server-side HTTP upgrade
       // We'll use native WebSocket for now

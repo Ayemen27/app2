@@ -29,14 +29,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     timestamp: new Date().toISOString()
   });
 
-  // انتظار تحميل AuthProvider لفترة معقولة
+  // ✅ إصلاح: تحديث authCheckComplete بناءً على حالة المصادقة الفعلية
   useEffect(() => {
     if (!isLoading) {
-      const timer = setTimeout(() => {
-        setAuthCheckComplete(true);
-      }, 1000); // انتظار ثانية واحدة للتأكد من تحميل البيانات
-
-      return () => clearTimeout(timer);
+      // إذا انتهى التحميل، ضع علامة على أن الفحص انتهى
+      setAuthCheckComplete(true);
+      console.log('✅ [ProtectedRoute] تم إكمال فحص المصادقة، isLoading=false');
     }
   }, [isLoading]);
 

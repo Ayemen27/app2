@@ -20,8 +20,8 @@ if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
 export const JWT_CONFIG = {
   accessTokenSecret: process.env.JWT_ACCESS_SECRET as string,
   refreshTokenSecret: process.env.JWT_REFRESH_SECRET as string,
-  accessTokenExpiry: '15m', // 15 دقيقة
-  refreshTokenExpiry: '30d', // 30 يوم
+  accessTokenExpiry: '24h', // 24 ساعة - تم تزويدها من 15 دقيقة
+  refreshTokenExpiry: '90d', // 90 يوم - تم تزويدها من 30 يوم
   issuer: 'construction-management-app',
   algorithm: 'HS256' as const,
 };
@@ -89,8 +89,8 @@ export async function generateTokenPair(
   const sessionId = crypto.randomUUID();
   const deviceId = deviceInfo?.deviceId || crypto.randomUUID();
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + 15 * 60 * 1000); // 15 دقيقة
-  const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 يوم
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 ساعة
+  const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 يوم
 
   // إنشاء JWT payload مع sessionId
   const accessPayload = { userId, email, role, sessionId, type: 'access' as const };
@@ -300,8 +300,8 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
 
     // إنشاء رموز جديدة - بدون تدوير معقد في التطوير
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 15 * 60 * 1000); // 15 دقيقة
-    const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 يوم
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 ساعة
+    const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 يوم
 
     // استخدام نفس sessionId لتجنب تعقيدات التدوير في التطوير
     const accessPayload = { userId: payload.userId, email: user.email, role: user.role, sessionId: payload.sessionId, type: 'access' as const };
@@ -394,8 +394,8 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
 
     // إنشاء رموز جديدة
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 15 * 60 * 1000); // 15 دقيقة
-    const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 يوم
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 ساعة
+    const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 يوم
 
     const newSessionId = crypto.randomUUID();
     const accessPayload = { userId: payload.userId, email: user[0].email, role: user[0].role, sessionId: newSessionId, type: 'access' as const };

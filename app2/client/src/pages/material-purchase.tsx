@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, Save, Plus, Camera, Package, ChartGantt, Edit, Trash2, Users, CreditCard, DollarSign } from "lucide-react";
+import { ArrowRight, Save, Plus, Camera, Package, ChartGantt, Edit, Trash2, Users, CreditCard, DollarSign, TrendingUp, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,12 +19,26 @@ import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
+import FilterStatsBar from "@/components/ui/filter-stats-bar";
+import { useFilterStats } from "@/hooks/use-filter-stats";
 import type { Material, InsertMaterialPurchase, InsertMaterial, Supplier, InsertSupplier } from "@shared/schema";
 
 export default function MaterialPurchase() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
   const [activeFilters, setActiveFilters] = useState({});
+  const {
+    searchValue,
+    filterValues,
+    setSearchValue,
+    setFilterValue,
+    resetAll,
+    refresh,
+    isRefreshing,
+  } = useFilterStats({
+    initialFilters: { paymentType: 'all' },
+    queryKeys: ["/api/projects", selectedProjectId, "material-purchases"],
+  });
   
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);
@@ -647,13 +661,27 @@ export default function MaterialPurchase() {
     staleTime: 0, // Always fetch fresh data
   });
 
-  // Filter purchases by selected purchase date
+  // Filter purchases by selected purchase date and search
   const materialPurchases = allMaterialPurchases.filter((purchase: any) => {
     if (!purchase.purchaseDate) return false;
     const purchaseDateTime = new Date(purchase.purchaseDate);
     const selectedDateTime = new Date(purchaseDate);
-    return purchaseDateTime.toDateString() === selectedDateTime.toDateString();
+    const matchesDate = purchaseDateTime.toDateString() === selectedDateTime.toDateString();
+    const matchesSearch = searchValue === '' || 
+      purchase.materialName?.toLowerCase().includes(searchValue.toLowerCase()) ||
+      purchase.supplierName?.toLowerCase().includes(searchValue.toLowerCase());
+    const matchesPaymentType = filterValues.paymentType === 'all' || 
+      purchase.purchaseType === filterValues.paymentType;
+    return matchesDate && matchesSearch && matchesPaymentType;
   });
+
+  // Calculate stats
+  const stats = {
+    total: allMaterialPurchases.length,
+    today: materialPurchases.length,
+    cash: allMaterialPurchases.filter((p: any) => p.purchaseType === 'نقد').length,
+    credit: allMaterialPurchases.filter((p: any) => p.purchaseType?.includes('آجل') || p.purchaseType?.includes('جل')).length,
+  };
 
   // Auto-refresh when page loads or purchase date changes
   useEffect(() => {
@@ -683,6 +711,66 @@ export default function MaterialPurchase() {
 
   return (
     <div className="p-4 slide-in">
+      {/* شريط البحث والفلترة والإحصائيات الموحد */}
+      {selectedProjectId && (
+        <FilterStatsBar
+          title="شراء المواد"
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          searchPlaceholder="ابحث عن مادة أو مورد..."
+          filters={[
+            {
+              key: 'paymentType',
+              label: 'نوع الدفع',
+              placeholder: 'اختر نوع الدفع',
+              options: [
+                { value: 'all', label: 'جميع الأنواع' },
+                { value: 'نقد', label: 'نقد' },
+                { value: 'آجل', label: 'آجل' },
+                { value: 'توريد', label: 'توريد' }
+              ],
+              defaultValue: 'all',
+            },
+          ]}
+          filterValues={filterValues}
+          onFilterChange={setFilterValue}
+          onReset={resetAll}
+          onRefresh={refresh}
+          isRefreshing={isRefreshing}
+          metrics={[
+            {
+              key: 'total',
+              label: 'إجمالي المشتريات',
+              value: stats.total,
+              icon: Package,
+              color: 'blue',
+            },
+            {
+              key: 'today',
+              label: 'مشتريات اليوم',
+              value: stats.today,
+              icon: ShoppingCart,
+              color: 'green',
+            },
+            {
+              key: 'cash',
+              label: 'مشتريات نقد',
+              value: stats.cash,
+              icon: DollarSign,
+              color: 'orange',
+            },
+            {
+              key: 'credit',
+              label: 'مشتريات آجلة',
+              value: stats.credit,
+              icon: CreditCard,
+              color: 'red',
+            },
+          ]}
+          actions={[]}
+        />
+      )}
+
       {/* مؤشر التحميل لبيانات التعديل */}
       {isLoadingEdit && editId && (
         <Card className="mb-4 border-blue-200 bg-blue-50">

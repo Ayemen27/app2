@@ -1912,8 +1912,8 @@ financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Res
           id: t.id,
           date: t.transferDate,
           amount: parseFloat(t.amount || '0'),
-          description: t.description,
-          method: t.method
+          description: t.notes || '',
+          method: t.transferMethod || ''
         })),
         total: totalTransfers
       },
@@ -1977,10 +1977,11 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
       eq(workerAttendance.workerId, workerId as string)
     ];
 
-    if (dateFrom) {
+    // إذا لم يتم توفير التواريخ، جلب جميع السجلات
+    if (dateFrom && dateFrom !== '') {
       conditions.push(gte(workerAttendance.date, dateFrom as string));
     }
-    if (dateTo) {
+    if (dateTo && dateTo !== '') {
       conditions.push(lte(workerAttendance.date, dateTo as string));
     }
 
@@ -2023,10 +2024,11 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
       eq(workerTransfers.workerId, workerId as string)
     ];
 
-    if (dateFrom) {
+    // إذا لم يتم توفير التواريخ، جلب جميع الحوالات
+    if (dateFrom && dateFrom !== '') {
       transferConditions.push(gte(workerTransfers.transferDate, dateFrom as string));
     }
-    if (dateTo) {
+    if (dateTo && dateTo !== '') {
       transferConditions.push(lte(workerTransfers.transferDate, dateTo as string));
     }
 

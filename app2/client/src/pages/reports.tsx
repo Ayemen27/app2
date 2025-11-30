@@ -814,7 +814,13 @@ export default function Reports() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {transfersData.transfers.map((transfer: any, idx: number) => (
+                                {transfersData.transfers.filter((t: any) => {
+                                  // فلترة الحوالات حسب نطاق التاريخ
+                                  const tDate = new Date(t.date).toISOString().split('T')[0];
+                                  const from = dateFrom || '';
+                                  const to = dateTo || '';
+                                  return (!from || tDate >= from) && (!to || tDate <= to);
+                                }).map((transfer: any, idx: number) => (
                                   <tr key={idx} className="border-t border-gray-200 hover:bg-red-50">
                                     <td className="px-4 py-3 text-gray-900">{transfer.date}</td>
                                     <td className="px-4 py-3 font-medium text-red-600">{formatCurrency(transfer.amount.toString())}</td>

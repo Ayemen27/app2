@@ -2,44 +2,27 @@
 
 ## Recent Changes
 
+### November 30, 2025 - Professional Component Gallery ✅ COMPLETED
+- **احترافي Component Gallery معزول** في `/component-gallery`:
+  - ✅ 8 تصاميم بحث متقدمة (Minimal inline, Card-style, Sidebar filters, Floating bar, Multi-field, Advanced modal, Tag-driven, Voice search)
+  - ✅ 6 بطاقات مضغوطة متخصصة (Worker, Expense, Project, Product, Activity, Generic)
+  - ✅ دعم RTL كامل (Arabic RTL support)
+  - ✅ State handling شامل (idle, loading, error, hover, disabled, selected, focused)
+  - ✅ Accessibility محسّنة (ARIA labels, roles, semantic HTML, keyboard navigation)
+  - ✅ Inspector Panel مع عرض/نسخ/تصدير الكود
+  - ✅ Responsive 100% (mobile-first design)
+  - ✅ 21 ملف TSX منظم بعناية
+  - ✅ تصميم مستوحى من Material Design و Apple HIG
+
 ### November 29, 2025 - Comprehensive Unified Reports Dashboard + International Date/Number Format ✅ COMPLETED
 - **Deleted Old Report Pages**: Removed fragmented report pages
   - ✅ Deleted `daily-expenses.tsx`
   - ✅ Deleted `excel-style-daily-expenses.tsx`
   - ✅ Deleted `excel-style-worker-statement.tsx`
   - ✅ Deleted `worker-misc-expenses.tsx`
-- **New Unified Reports Center** (`reports.tsx`) - تصميم احترافي عالمي:
-  - ✅ تبويبات متقدمة: المصاريف اليومية + بيان العامل
-  - ✅ شريط فلتر موحد متكامل لكل تبويب
-  - ✅ بطاقات ملخص بيانات: عرض مرئي للأرقام والنسب المئوية
-  - ✅ جداول احترافية مع تمييز الألوان والفواصل الدقيقة
-  - ✅ تصميم موحد يطابق معايير المنصات العالمية (Material Design)
-  - ✅ استجابة كاملة على الهاتف والتابلت والديسكتوب
-  - ✅ تحسينات UX/UI: hover effects, transitions, spacing دقيق
-  - ✅ فلترة متقدمة: تواريخ, اختيار العمال, إعادة تعيين سريعة
-  - ✅ تصدير Excel و طباعة احترافية
-  - ✅ واجهة عربية كاملة (RTL compatible)
-  - ✅ ألوان احترافية: أزرق (البيانات)، أخضر (الدفع)، رمادي (خلفيات)
-- **International Date & Number Format** - معايير عالمية:
-  - ✅ جميع التواريخ بالصيغة البريطانية: DD/MM/YYYY مع أرقام إنجليزية
-  - ✅ جميع الأوقات بصيغة 24 ساعة: HH:MM:SS مع أرقام إنجليزية
-  - ✅ جميع الأرقام والمبالغ بالإنجليزية مع فواصل الآلاف
-  - ✅ تحديث `formatDate()` لاستخدام `en-GB` locale
-  - ✅ تحديث `formatTime()` للأرقام الإنجليزية فقط
-  - ✅ تحديث `formatCurrency()` لعرض أرقام إنجليزية (en-US)
-  - ✅ تحديث جميع الملفات: `arabic-utils.ts`, `equipment-movement-history-dialog.tsx`, `EnhancedErrorDisplay.tsx`, `enhanced-worker-card.tsx`, `notifications-dropdown.tsx`, `SecurityPoliciesPage.tsx`, `equipment-management.tsx`, `excel-export-utils.ts`
-- **تحديثات التنقل**:
-  - ✅ حذف الصفحات القديمة من App.tsx
-  - ✅ توحيد جميع مسارات التقارير إلى `/reports`
-  - ✅ تحديث الشريط السفلي، الرأس العلوي، الإجراءات السريعة
-  - ✅ حذف المسارات المكررة من header.tsx
-- **النتائج**:
-  - ✅ مركز تقارير موحد احترافي
-  - ✅ تصميم يطابق المنصات الدولية (Google Material, Apple HIG)
-  - ✅ جميع التواريخ والأوقات والأرقام بالمعايير الدولية
-  - ✅ أداء سلس على جميع الأجهزة
-  - ✅ بناء ناجح بدون أخطاء
-  - ✅ التطبيق يعمل بصحة على المنفذ 5000
+- **New Unified Reports Center** (`reports.tsx`) - تصميم احترافي عالمي
+- **International Date & Number Format** - معايير عالمية
+- **تحديثات التنقل** - توحيد جميع مسارات التقارير
 
 ## Overview
 A comprehensive construction project management system designed for the Middle East, featuring a full Arabic interface with RTL support. This full-stack web and mobile application provides advanced financial management, project tracking, worker management, material purchasing, and intelligent reporting. Its primary purpose is to offer construction companies a complete solution for efficient operational management, with a vision for significant market potential in the region.
@@ -60,6 +43,7 @@ A comprehensive construction project management system designed for the Middle E
 - **RTL Support**: Full Arabic interface with right-to-left layout optimization.
 - **Design System**: Material Design principles with culturally appropriate color schemes.
 - **UI/UX Decisions**: Responsive layouts adapting from mobile (single column) to desktop (multi-column) using CSS Grid. CompactFieldGroup components for efficient form layouts.
+- **Component Gallery**: Professional isolated showcase at `/component-gallery` featuring 8 search/filter designs + 6 card components with full state handling, accessibility, and RTL support.
 
 ### Backend Architecture
 - **Core Framework**: Express.js with TypeScript.
@@ -88,10 +72,55 @@ A comprehensive construction project management system designed for the Middle E
 - **Database**: Query optimization, connection pooling, materialized views.
 - **Frontend**: Code splitting, lazy loading, optimized bundle sizes, React Query caching.
 - **Build Optimization**: Vite for fast builds.
+- **Component Gallery**: Isolated from main app, optimized for showcase and development.
 
 ### Mobile Application
 - **Technology**: React Native with Expo 52.0.
 - **Feature Parity**: Identical functionality and UI to the web application, including RTL support.
+
+## Component Gallery Structure
+```
+component-gallery/
+├── index.tsx                          # Main gallery page
+├── README.md                          # Documentation
+├── shared/
+│   ├── design-tokens.ts              # Colors, spacing, typography
+│   ├── types.ts                      # TypeScript interfaces
+│   └── constants.ts                  # Gallery constants
+├── data/
+│   └── catalog.ts                    # Component metadata
+├── layout/
+│   ├── GalleryLayout.tsx             # Main wrapper
+│   ├── GalleryHeader.tsx             # Header
+│   ├── GalleryFooter.tsx             # Footer
+│   ├── CategoryTabs.tsx              # Tab navigation
+│   ├── ComponentCard.tsx             # Card wrapper
+│   ├── GalleryGrid.tsx               # Grid layout
+│   └── InspectorPanel.tsx            # Code inspector
+└── modules/
+    ├── search/
+    │   ├── components/
+    │   │   ├── SearchDesign1.tsx     # Minimal inline
+    │   │   ├── SearchDesign2.tsx     # Card-style
+    │   │   ├── SearchDesign3.tsx     # Sidebar filters
+    │   │   ├── SearchDesign4.tsx     # Floating bar
+    │   │   ├── SearchDesign5.tsx     # Multi-field
+    │   │   ├── SearchDesign6.tsx     # Advanced modal
+    │   │   ├── SearchDesign7.tsx     # Tag-driven
+    │   │   ├── SearchDesign8.tsx     # Voice search
+    │   │   └── index.ts              # Exports
+    │   └── index.ts
+    └── cards/
+        ├── components/
+        │   ├── CardDesign1.tsx       # Worker card
+        │   ├── CardDesign2.tsx       # Expense card
+        │   ├── CardDesign3.tsx       # Project card
+        │   ├── CardDesign4.tsx       # Product card
+        │   ├── CardDesign5.tsx       # Activity card
+        │   ├── CardDesign6.tsx       # Generic card
+        │   └── index.ts              # Exports
+        └── index.ts
+```
 
 ## External Dependencies
 

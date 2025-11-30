@@ -72,7 +72,7 @@ export function AutocompleteInput({
 
   // فلترة البيانات حسب البحث
   const filteredData = Array.isArray(autocompleteData) ? autocompleteData.filter(item =>
-    item.value.toLowerCase().includes(searchQuery.toLowerCase())
+    item?.value && typeof item.value === 'string' ? item.value.toLowerCase().includes(searchQuery.toLowerCase()) : false
   ) : [];
 
   // حفظ البيانات عند اختيار القيمة

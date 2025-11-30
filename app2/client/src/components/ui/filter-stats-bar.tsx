@@ -559,14 +559,29 @@ export function FilterStatsBar({
           )}
         </div>
 
-        {/* قسم الإحصائيات - شبكة 3 أعمدة دائماً */}
+        {/* قسم الإحصائيات */}
         {metrics.length > 0 && (!collapsible || isExpanded) && (
           <div className="border-t border-border/50 bg-muted/30 p-4">
-            <div className="grid gap-3 grid-cols-3">
-              {metrics.map((metric) => (
-                <MetricCard key={metric.key} metric={metric} />
-              ))}
-            </div>
+            {metricsLayout === 'two-columns' ? (
+              <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                <div className="space-y-3">
+                  {metrics.filter(m => m.column === 'right').map((metric) => (
+                    <MetricCard key={metric.key} metric={metric} />
+                  ))}
+                </div>
+                <div className="space-y-3">
+                  {metrics.filter(m => m.column === 'left').map((metric) => (
+                    <MetricCard key={metric.key} metric={metric} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-3 grid-cols-3">
+                {metrics.map((metric) => (
+                  <MetricCard key={metric.key} metric={metric} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

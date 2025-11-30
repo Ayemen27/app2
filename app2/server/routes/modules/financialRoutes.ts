@@ -1940,6 +1940,8 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
   try {
     const { projectId, workerId, dateFrom, dateTo } = req.query;
     
+    console.log('📋 [WorkerStatement] طلب بيان العامل:', { projectId, workerId, dateFrom, dateTo });
+    
     if (!projectId || !workerId) {
       return res.status(400).json({
         success: false,
@@ -1971,25 +1973,27 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
 
     const worker = workerData[0];
 
-    // جلب سجلات الحضور - بناء القيود الديناميكية
-    const conditions = [
-      eq(workerAttendance.projectId, projectId as string),
-      eq(workerAttendance.workerId, workerId as string)
-    ];
-
-    // إذا لم يتم توفير التواريخ، جلب جميع السجلات
-    if (dateFrom && dateFrom !== '') {
-      conditions.push(gte(workerAttendance.date, dateFrom as string));
-    }
-    if (dateTo && dateTo !== '') {
-      conditions.push(lte(workerAttendance.date, dateTo as string));
-    }
-
-    const attendanceRecords = await db
+    // جلب سجلات الحضور - بدون فلترة التواريخ (جميع السجلات)
+    let attendanceRecords = await db
       .select()
       .from(workerAttendance)
-      .where(and(...conditions))
+      .where(and(
+        eq(workerAttendance.projectId, projectId as string),
+        eq(workerAttendance.workerId, workerId as string)
+      ))
       .orderBy(desc(workerAttendance.date));
+    
+    console.log(`🔍 [WorkerStatement] عدد سجلات الحضور الكاملة: ${attendanceRecords.length}`);
+    
+    // فلترة يدوية حسب التاريخ على مستوى التطبيق
+    if (dateFrom && dateFrom !== '') {
+      attendanceRecords = attendanceRecords.filter(r => r.date >= (dateFrom as string));
+      console.log(`🔍 [WorkerStatement] بعد فلترة dateFrom (${dateFrom}): ${attendanceRecords.length} سجل`);
+    }
+    if (dateTo && dateTo !== '') {
+      attendanceRecords = attendanceRecords.filter(r => r.date <= (dateTo as string));
+      console.log(`🔍 [WorkerStatement] بعد فلترة dateTo (${dateTo}): ${attendanceRecords.length} سجل`);
+    }
 
     // حساب الملخص
     let totalWorkDays = 0;
@@ -2019,23 +2023,25 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
     });
 
     // جلب الحوالات أيضاً لحساب المتبقي بشكل صحيح
-    const transferConditions = [
-      eq(workerTransfers.projectId, projectId as string),
-      eq(workerTransfers.workerId, workerId as string)
-    ];
-
-    // إذا لم يتم توفير التواريخ، جلب جميع الحوالات
-    if (dateFrom && dateFrom !== '') {
-      transferConditions.push(gte(workerTransfers.transferDate, dateFrom as string));
-    }
-    if (dateTo && dateTo !== '') {
-      transferConditions.push(lte(workerTransfers.transferDate, dateTo as string));
-    }
-
-    const transferRecords = await db
+    let transferRecords = await db
       .select()
       .from(workerTransfers)
-      .where(and(...transferConditions));
+      .where(and(
+        eq(workerTransfers.projectId, projectId as string),
+        eq(workerTransfers.workerId, workerId as string)
+      ));
+    
+    console.log(`🔍 [WorkerStatement] عدد الحوالات الكاملة: ${transferRecords.length}`);
+    
+    // فلترة يدوية حسب التاريخ على مستوى التطبيق
+    if (dateFrom && dateFrom !== '') {
+      transferRecords = transferRecords.filter(t => t.transferDate >= (dateFrom as string));
+      console.log(`🔍 [WorkerStatement] بعد فلترة dateFrom (${dateFrom}): ${transferRecords.length} حوالة`);
+    }
+    if (dateTo && dateTo !== '') {
+      transferRecords = transferRecords.filter(t => t.transferDate <= (dateTo as string));
+      console.log(`🔍 [WorkerStatement] بعد فلترة dateTo (${dateTo}): ${transferRecords.length} حوالة`);
+    }
 
     let totalTransfers = 0;
     transferRecords.forEach(t => {

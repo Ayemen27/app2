@@ -18,9 +18,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UnifiedSearchFilter, { useUnifiedFilter, FilterConfig } from "@/components/ui/unified-search-filter";
+import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { UnifiedStats } from "@/components/ui/unified-stats";
-import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 
@@ -29,7 +29,6 @@ type TransferFormData = z.infer<typeof insertProjectFundTransferSchema>;
 export default function ProjectTransfers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { setFloatingAction } = useFloatingButton();
   const [editingTransfer, setEditingTransfer] = useState<ProjectFundTransfer | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -242,16 +241,6 @@ export default function ProjectTransfers() {
   useEffect(() => {
     setFloatingAction(() => {
       setShowCreateModal(true);
-      setEditingTransfer(null);
-      form.reset();
-    }, 'إضافة تحويل عهدة جديد');
-
-    return () => {
-      setFloatingAction(null);
-    };
-  }, [setFloatingAction, form]);
-
-  return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">

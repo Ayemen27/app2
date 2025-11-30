@@ -4539,6 +4539,7 @@ var requireRole = (role) => {
     next();
   };
 };
+var auth_default = authenticate;
 
 // server/routes/auth.ts
 console.log("\u{1F527} [Auth] \u0625\u0639\u062F\u0627\u062F JWT secrets:", {
@@ -5357,7 +5358,7 @@ router.get("/validate-reset-token", async (req, res) => {
     });
   }
 });
-var auth_default = router;
+var auth_default2 = router;
 
 // server/routes/permissions.ts
 init_db();
@@ -11666,6 +11667,223 @@ function initializeRouteOrganizer(app2) {
   }
 }
 
+// server/routes/modules/sshRoutes.ts
+import { Router as Router2 } from "express";
+
+// server/utils/ssh-connection.ts
+import { Client as Client2 } from "ssh2";
+import * as fs5 from "fs";
+var SSHConnection = class {
+  client;
+  config;
+  isConnected = false;
+  constructor(config) {
+    this.client = new Client2();
+    this.config = config;
+  }
+  async connect() {
+    return new Promise((resolve, reject) => {
+      this.client.on("ready", () => {
+        console.log("\u2705 [SSH] \u062A\u0645 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0646\u062C\u0627\u062D \u0628\u0627\u0644\u0640 Server");
+        this.isConnected = true;
+        resolve();
+      });
+      this.client.on("error", (err) => {
+        console.error("\u274C [SSH] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0627\u062A\u0635\u0627\u0644:", err.message);
+        reject(err);
+      });
+      this.client.on("close", () => {
+        console.log("\u{1F50C} [SSH] \u062A\u0645 \u0642\u0637\u0639 \u0627\u0644\u0627\u062A\u0635\u0627\u0644");
+        this.isConnected = false;
+      });
+      const connectConfig = {
+        host: this.config.host,
+        port: this.config.port,
+        username: this.config.username
+      };
+      if (this.config.password) {
+        connectConfig.password = this.config.password;
+      } else if (this.config.privateKey) {
+        connectConfig.privateKey = this.config.privateKey;
+      }
+      console.log(`\u{1F50C} [SSH] \u0645\u062D\u0627\u0648\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640 ${this.config.host}:${this.config.port} \u0643\u0640 ${this.config.username}...`);
+      this.client.connect(connectConfig);
+    });
+  }
+  async executeCommand(command) {
+    return new Promise((resolve, reject) => {
+      if (!this.isConnected) {
+        reject(new Error("SSH connection not established"));
+        return;
+      }
+      this.client.exec(command, (err, stream) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        let output = "";
+        let errorOutput = "";
+        stream.on("data", (data) => {
+          output += data.toString();
+        });
+        stream.stderr.on("data", (data) => {
+          errorOutput += data.toString();
+        });
+        stream.on("end", () => {
+          if (errorOutput) {
+            console.error("\u26A0\uFE0F [SSH] stderr:", errorOutput);
+          }
+          resolve(output);
+        });
+        stream.on("close", (code) => {
+          if (code !== 0) {
+            reject(new Error(`Command failed with exit code ${code}`));
+          }
+        });
+      });
+    });
+  }
+  async uploadFile(localPath, remotePath) {
+    return new Promise((resolve, reject) => {
+      if (!this.isConnected) {
+        reject(new Error("SSH connection not established"));
+        return;
+      }
+      this.client.sftp((err, sftp) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        const readStream = fs5.createReadStream(localPath);
+        const writeStream = sftp.createWriteStream(remotePath);
+        writeStream.on("error", (err2) => {
+          reject(err2);
+        });
+        writeStream.on("close", () => {
+          console.log(`\u2705 [SSH] \u062A\u0645 \u0631\u0641\u0639 \u0627\u0644\u0645\u0644\u0641: ${localPath} \u2192 ${remotePath}`);
+          resolve();
+        });
+        readStream.pipe(writeStream);
+      });
+    });
+  }
+  async downloadFile(remotePath, localPath) {
+    return new Promise((resolve, reject) => {
+      if (!this.isConnected) {
+        reject(new Error("SSH connection not established"));
+        return;
+      }
+      this.client.sftp((err, sftp) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        const readStream = sftp.createReadStream(remotePath);
+        const writeStream = fs5.createWriteStream(localPath);
+        writeStream.on("error", (err2) => {
+          reject(err2);
+        });
+        writeStream.on("close", () => {
+          console.log(`\u2705 [SSH] \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0645\u0644\u0641: ${remotePath} \u2192 ${localPath}`);
+          resolve();
+        });
+        readStream.pipe(writeStream);
+      });
+    });
+  }
+  disconnect() {
+    this.client.end();
+  }
+};
+function createSSHConnection() {
+  const config = {
+    host: process.env.SSH_HOST || "93.127.142.144",
+    port: parseInt(process.env.SSH_PORT || "22"),
+    username: process.env.SSH_USER || "administrator",
+    password: process.env.SSH_PASSWORD,
+    privateKey: process.env.SSH_PUBLIC_KEY
+  };
+  return new SSHConnection(config);
+}
+
+// server/routes/modules/sshRoutes.ts
+var router2 = Router2();
+router2.post("/api/ssh/test-connection", auth_default, async (req, res) => {
+  try {
+    console.log("\u{1F50C} [SSH] \u0627\u062E\u062A\u0628\u0627\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644...");
+    const ssh = createSSHConnection();
+    await ssh.connect();
+    const result = await ssh.executeCommand('echo "\u2705 SSH Connection Successful" && whoami');
+    ssh.disconnect();
+    res.json({
+      success: true,
+      message: "\u062A\u0645 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0646\u062C\u0627\u062D",
+      output: result.trim(),
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "\u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644",
+      error: error.message
+    });
+  }
+});
+router2.post("/api/ssh/execute", auth_default, async (req, res) => {
+  try {
+    const { command } = req.body;
+    if (!command) {
+      return res.status(400).json({
+        success: false,
+        message: "\u064A\u062C\u0628 \u062A\u0648\u0641\u064A\u0631 \u0627\u0644\u0623\u0645\u0631 (command)"
+      });
+    }
+    console.log(`\u{1F680} [SSH] \u062A\u0646\u0641\u064A\u0630 \u0627\u0644\u0623\u0645\u0631: ${command}`);
+    const ssh = createSSHConnection();
+    await ssh.connect();
+    const result = await ssh.executeCommand(command);
+    ssh.disconnect();
+    res.json({
+      success: true,
+      command,
+      output: result,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "\u0641\u0634\u0644 \u062A\u0646\u0641\u064A\u0630 \u0627\u0644\u0623\u0645\u0631",
+      error: error.message
+    });
+  }
+});
+router2.get("/api/ssh/server-info", auth_default, async (req, res) => {
+  try {
+    const ssh = createSSHConnection();
+    await ssh.connect();
+    const osInfo = await ssh.executeCommand("cat /etc/os-release | grep PRETTY_NAME");
+    const uptime = await ssh.executeCommand("uptime");
+    const diskUsage = await ssh.executeCommand("df -h / | tail -1");
+    const memoryUsage = await ssh.executeCommand("free -h | grep Mem");
+    ssh.disconnect();
+    res.json({
+      success: true,
+      osInfo: osInfo.trim(),
+      uptime: uptime.trim(),
+      diskUsage: diskUsage.trim(),
+      memoryUsage: memoryUsage.trim(),
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "\u0641\u0634\u0644 \u062C\u0644\u0628 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u0640 Server",
+      error: error.message
+    });
+  }
+});
+var sshRoutes_default = router2;
+
 // server/middleware/compression.ts
 import compression from "compression";
 var compressionMiddleware = compression({
@@ -12833,8 +13051,9 @@ app.get("/api/health", (req, res) => {
     version: "2.0.0-organized"
   });
 });
-app.use("/api/auth", auth_default);
+app.use("/api/auth", auth_default2);
 app.use("/api/permissions", permissionsRouter);
+app.use(sshRoutes_default);
 initializeRouteOrganizer(app);
 app.use((err, _req, res, _next) => {
   const status = err.status || err.statusCode || 500;

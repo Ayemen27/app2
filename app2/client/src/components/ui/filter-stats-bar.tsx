@@ -180,8 +180,8 @@ function MetricCard({ metric }: { metric: MetricConfig }) {
       <span className="text-xs text-muted-foreground line-clamp-2 pr-5">{metric.label}</span>
       
       {/* المبلغ أو العدد في الأسفل */}
-      <div className="flex items-center gap-1">
-        <span className={cn('text-base font-bold arabic-numbers', colors.text)}>
+      <div className="flex items-center justify-center gap-1">
+        <span className={cn('text-sm font-bold arabic-numbers', colors.text)}>
           {cleanValue(metric.value)}
         </span>
         {metric.trend && (

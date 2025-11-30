@@ -8,7 +8,7 @@ import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc } from 'drizzle-orm';
 import { db } from '../../db';
 import {
-  fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects, materialPurchases, transportationExpenses, dailyExpenseSummaries,
+  fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects, materialPurchases, transportationExpenses, dailyExpenseSummaries, workers, workerAttendance,
   insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema
 } from '@shared/schema';
 import { requireAuth } from '../../middleware/auth.js';
@@ -1788,7 +1788,7 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
 financialRouter.get('/worker-statement-excel', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, workerId } = req.query;
+    const { projectId, workerId, dateFrom, dateTo } = req.query;
     
     if (!projectId || !workerId) {
       return res.status(400).json({
@@ -1798,12 +1798,92 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
       });
     }
 
+    // جلب بيانات العامل
+    const workerData = await db
+      .select()
+      .from(workers)
+      .where(eq(workers.id, workerId as string))
+      .limit(1);
+
+    if (workerData.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          worker: { id: workerId, name: '', type: '', dailyWage: 0 },
+          attendance: [],
+          summary: { totalWorkDays: 0, totalEarned: 0, totalPaid: 0, remainingBalance: 0 }
+        },
+        message: 'العامل غير موجود',
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    const worker = workerData[0];
+
+    // جلب سجلات الحضور
+    let attendanceQuery = db
+      .select()
+      .from(workerAttendance)
+      .where(
+        and(
+          eq(workerAttendance.projectId, projectId as string),
+          eq(workerAttendance.workerId, workerId as string)
+        )
+      );
+
+    // إضافة فلاتر التاريخ إذا تم توفيرها
+    if (dateFrom) {
+      attendanceQuery = attendanceQuery.where(gte(workerAttendance.date, dateFrom as string));
+    }
+    if (dateTo) {
+      attendanceQuery = attendanceQuery.where(lte(workerAttendance.date, dateTo as string));
+    }
+
+    const attendanceRecords = await attendanceQuery.orderBy(desc(workerAttendance.date));
+
+    // حساب الملخص
+    let totalWorkDays = 0;
+    let totalEarned = 0;
+    let totalPaid = 0;
+
+    const attendanceData = attendanceRecords.map((record: any) => {
+      const workDays = parseFloat(record.workDays || '0');
+      const dailyWage = parseFloat(worker.dailyWage || '0');
+      const actualWage = workDays * dailyWage;
+      const paidAmount = parseFloat(record.paidAmount || '0');
+      const remainingAmount = actualWage - paidAmount;
+
+      totalWorkDays += workDays;
+      totalEarned += actualWage;
+      totalPaid += paidAmount;
+
+      return {
+        date: record.date,
+        workDays,
+        dailyWage,
+        actualWage: actualWage.toFixed(2),
+        paidAmount: paidAmount.toFixed(2),
+        remainingAmount: remainingAmount.toFixed(2),
+        workDescription: record.workDescription || ''
+      };
+    });
+
     res.json({
       success: true,
       data: {
-        worker: { id: workerId, name: '', type: '', dailyWage: 0 },
-        attendance: [],
-        summary: { totalWorkDays: 0, totalEarned: 0, totalPaid: 0, remainingBalance: 0 }
+        worker: {
+          id: worker.id,
+          name: worker.name,
+          type: worker.type || '',
+          dailyWage: parseFloat(worker.dailyWage || '0')
+        },
+        attendance: attendanceData,
+        summary: {
+          totalWorkDays: totalWorkDays.toFixed(2),
+          totalEarned: totalEarned.toFixed(2),
+          totalPaid: totalPaid.toFixed(2),
+          remainingBalance: (totalEarned - totalPaid).toFixed(2)
+        }
       },
       message: 'تم جلب بيان العامل بنجاح',
       processingTime: Date.now() - startTime

@@ -896,18 +896,11 @@ export default function WorkerAttendance() {
                   const worker = workers.find(w => w.id === record.workerId);
                   return (
                     <div key={record.id} className="border rounded-lg p-3 bg-card">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-foreground">{worker?.name || record.workerId}</span>
                             <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded">حاضر</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p>التاريخ: {record.date || record.attendanceDate}</p>
-                            <p>الوقت: {record.startTime || 'غير محدد'} - {record.endTime || 'غير محدد'}</p>
-                            <p>الراتب اليومي: {record.dailyWage || '0'} ر.ي</p>
-                            <p>المدفوع: {record.paidAmount || '0'} ر.ي | المتبقي: {record.remainingAmount || '0'} ر.ي</p>
-                            {record.workDescription && <p>الوصف: {record.workDescription}</p>}
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -928,6 +921,42 @@ export default function WorkerAttendance() {
                           </Button>
                         </div>
                       </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">التاريخ</p>
+                          <p className="font-bold text-foreground">{record.date || record.attendanceDate}</p>
+                        </div>
+                        <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">الوقت</p>
+                          <p className="font-bold text-foreground">{record.startTime || 'غير محدد'} - {record.endTime || 'غير محدد'}</p>
+                        </div>
+                        <div className="bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">الراتب اليومي</p>
+                          <p className="font-bold text-foreground arabic-numbers">{formatCurrency(record.dailyWage || '0')}</p>
+                        </div>
+                        <div className="bg-purple-50 dark:bg-purple-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">عدد الأيام</p>
+                          <p className="font-bold text-foreground arabic-numbers">{record.workDays || '0'}</p>
+                        </div>
+                        <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">المستحق</p>
+                          <p className="font-bold text-blue-600 dark:text-blue-400 arabic-numbers">{formatCurrency(record.actualWage || '0')}</p>
+                        </div>
+                        <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">المدفوع</p>
+                          <p className="font-bold text-green-600 dark:text-green-400 arabic-numbers">{formatCurrency(record.paidAmount || '0')}</p>
+                        </div>
+                        <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded col-span-2">
+                          <p className="text-muted-foreground font-medium">المتبقي</p>
+                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(record.remainingAmount || '0')}</p>
+                        </div>
+                        {record.workDescription && (
+                          <div className="bg-gray-50 dark:bg-gray-950/20 p-2 rounded col-span-2">
+                            <p className="text-muted-foreground font-medium">الوصف</p>
+                            <p className="font-bold text-foreground">{record.workDescription}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -939,18 +968,11 @@ export default function WorkerAttendance() {
                   const worker = workers.find(w => w.id === record.workerId);
                   return (
                     <div key={record.id} className="border rounded-lg p-3 bg-card">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-foreground">{worker?.name || record.workerId}</span>
                             <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded">حاضر</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p>التاريخ: {record.date || record.attendanceDate}</p>
-                            <p>الوقت: {record.startTime || 'غير محدد'} - {record.endTime || 'غير محدد'}</p>
-                            <p>الراتب اليومي: {record.dailyWage || '0'} ر.ي</p>
-                            <p>المدفوع: {record.paidAmount || '0'} ر.ي | المتبقي: {record.remainingAmount || '0'} ر.ي</p>
-                            {record.workDescription && <p>الوصف: {record.workDescription}</p>}
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -970,6 +992,42 @@ export default function WorkerAttendance() {
                             حذف
                           </Button>
                         </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">التاريخ</p>
+                          <p className="font-bold text-foreground">{record.date || record.attendanceDate}</p>
+                        </div>
+                        <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">الوقت</p>
+                          <p className="font-bold text-foreground">{record.startTime || 'غير محدد'} - {record.endTime || 'غير محدد'}</p>
+                        </div>
+                        <div className="bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">الراتب اليومي</p>
+                          <p className="font-bold text-foreground arabic-numbers">{formatCurrency(record.dailyWage || '0')}</p>
+                        </div>
+                        <div className="bg-purple-50 dark:bg-purple-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">عدد الأيام</p>
+                          <p className="font-bold text-foreground arabic-numbers">{record.workDays || '0'}</p>
+                        </div>
+                        <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">المستحق</p>
+                          <p className="font-bold text-blue-600 dark:text-blue-400 arabic-numbers">{formatCurrency(record.actualWage || '0')}</p>
+                        </div>
+                        <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                          <p className="text-muted-foreground font-medium">المدفوع</p>
+                          <p className="font-bold text-green-600 dark:text-green-400 arabic-numbers">{formatCurrency(record.paidAmount || '0')}</p>
+                        </div>
+                        <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded col-span-2">
+                          <p className="text-muted-foreground font-medium">المتبقي</p>
+                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(record.remainingAmount || '0')}</p>
+                        </div>
+                        {record.workDescription && (
+                          <div className="bg-gray-50 dark:bg-gray-950/20 p-2 rounded col-span-2">
+                            <p className="text-muted-foreground font-medium">الوصف</p>
+                            <p className="font-bold text-foreground">{record.workDescription}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

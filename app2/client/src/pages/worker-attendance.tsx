@@ -554,6 +554,7 @@ export default function WorkerAttendance() {
           remainingAmount: remainingAmount.toString(),
           paymentType: data.paymentType || "partial",
           notes: data.notes || "",
+          recordType: data.recordType || "work",
         };
       });
 

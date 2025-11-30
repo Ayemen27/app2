@@ -299,16 +299,42 @@ export default function EnhancedWorkerCard({
           
           <div className="flex items-center space-x-reverse space-x-2 flex-shrink-0">
             {localAttendance.isPresent && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDetails(!showDetails)}
-                className="px-2 py-1 h-8"
-                data-testid={`toggle-details-${worker.id}`}
-              >
-                {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                <span className="text-xs mr-1">تفاصيل</span>
-              </Button>
+              <>
+                <Button
+                  variant={recordType === "work" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setRecordType("work");
+                    updateAttendance({ recordType: "work" });
+                  }}
+                  className="px-2 py-1 h-8 text-xs"
+                  data-testid={`record-type-work-${worker.id}`}
+                >
+                  عمل
+                </Button>
+                <Button
+                  variant={recordType === "advance" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setRecordType("advance");
+                    updateAttendance({ recordType: "advance" });
+                  }}
+                  className="px-2 py-1 h-8 text-xs"
+                  data-testid={`record-type-advance-${worker.id}`}
+                >
+                  سحب
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDetails(!showDetails)}
+                  className="px-2 py-1 h-8"
+                  data-testid={`toggle-details-${worker.id}`}
+                >
+                  {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  <span className="text-xs mr-1">تفاصيل</span>
+                </Button>
+              </>
             )}
             <Label htmlFor={`present-${worker.id}`} className="text-sm font-medium text-foreground cursor-pointer">
               حاضر
@@ -345,32 +371,56 @@ export default function EnhancedWorkerCard({
             </div>
             
             {/* العمود الأيسر */}
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20 p-2 rounded-lg border border-purple-200 dark:border-purple-800">
+            <div className={`bg-gradient-to-br ${recordType === "advance" ? "from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/20 border-red-200 dark:border-red-800" : "from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20 border-purple-200 dark:border-purple-800"} p-2 rounded-lg border`}>
               <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground font-medium">عدد الأيام</span>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.1"
-                    min="0"
-                    max="2.0"
-                    value={localAttendance.workDays || ""}
-                    onChange={(e) => updateAttendance({ workDays: parseFloat(e.target.value) || 0 })}
-                    placeholder="0"
-                    className="w-24 text-center arabic-numbers text-sm h-7"
-                  />
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground font-medium">المدفوع</span>
-                  <span className="font-bold text-foreground arabic-numbers">{formatCurrency(parseFloat(localAttendance.paidAmount || "0"))}</span>
-                </div>
-                <div className="flex justify-between items-center pt-1 border-t border-purple-200 dark:border-purple-700">
-                  <span className="text-muted-foreground font-medium">المتبقي</span>
-                  <span className={`font-bold arabic-numbers ${
-                    calculateRemainingAmount() > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'
-                  }`}>{formatCurrency(calculateRemainingAmount() > 0 ? calculateRemainingAmount() : 0)}</span>
-                </div>
+                {recordType === "work" ? (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground font-medium">عدد الأيام</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.1"
+                        min="0"
+                        max="2.0"
+                        value={localAttendance.workDays ?? ""}
+                        onChange={(e) => updateAttendance({ workDays: e.target.value === "" ? 0 : parseFloat(e.target.value) })}
+                        placeholder="0"
+                        className="w-24 text-center arabic-numbers text-sm h-7"
+                      />
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground font-medium">المدفوع</span>
+                      <span className="font-bold text-foreground arabic-numbers">{formatCurrency(parseFloat(localAttendance.paidAmount || "0"))}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-1 border-t border-purple-200 dark:border-purple-700">
+                      <span className="text-muted-foreground font-medium">المتبقي</span>
+                      <span className={`font-bold arabic-numbers ${
+                        calculateRemainingAmount() > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'
+                      }`}>{formatCurrency(Math.abs(calculateRemainingAmount()))}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground font-medium">المبلغ المسحوب</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.1"
+                        min="0"
+                        placeholder="0"
+                        value={localAttendance.paidAmount || ""}
+                        onChange={(e) => updateAttendance({ paidAmount: e.target.value })}
+                        className="w-24 text-center arabic-numbers text-sm h-7"
+                      />
+                    </div>
+                    <div className="flex justify-between items-center pt-1 border-t border-red-200 dark:border-red-700">
+                      <span className="text-muted-foreground font-medium">الدين</span>
+                      <span className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(Math.abs(calculateRemainingAmount()))}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

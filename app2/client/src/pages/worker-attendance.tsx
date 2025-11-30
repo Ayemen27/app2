@@ -453,11 +453,24 @@ export default function WorkerAttendance() {
       return;
     }
 
+    // التحقق من أن جميع السجلات الحاضرة لها أيام عمل > 0
+    const invalidRecords = Object.entries(attendanceData)
+      .filter(([_, data]) => data.isPresent && (!data.workDays || data.workDays <= 0));
+    
+    if (invalidRecords.length > 0) {
+      toast({
+        title: "خطأ في البيانات",
+        description: "يجب أن تكون أيام العمل أكبر من صفر لجميع العمال الحاضرين",
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.log("=== تصحيح الأخطاء - بيانات الحضور قبل الحفظ ===");
     console.log("attendanceData:", attendanceData);
 
     const attendanceRecords: InsertWorkerAttendance[] = Object.entries(attendanceData)
-      .filter(([_, data]) => data.isPresent)
+      .filter(([_, data]) => data.isPresent && data.workDays && data.workDays > 0)
       .map(([workerId, data]) => {
         const worker = workers.find(w => w.id === workerId);
         const dailyWage = parseFloat(worker?.dailyWage || "0");
@@ -637,16 +650,31 @@ export default function WorkerAttendance() {
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">عدد الأيام</Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.1"
-                  min="0.1"
-                  max="2.0"
-                  value={bulkSettings.workDays}
-                  onChange={(e) => setBulkSettings(prev => ({ ...prev, workDays: parseFloat(e.target.value) || 1.0 }))}
-                  className="mt-1 arabic-numbers"
-                />
+                <div className="relative mt-1">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.1"
+                    min="0"
+                    max="2.0"
+                    value={bulkSettings.workDays || ""}
+                    onChange={(e) => setBulkSettings(prev => ({ 
+                      ...prev, 
+                      workDays: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 
+                    }))}
+                    placeholder="0"
+                    className="mt-1 arabic-numbers"
+                  />
+                  {bulkSettings.workDays !== 0 && (
+                    <button
+                      onClick={() => setBulkSettings(prev => ({ ...prev, workDays: 0 }))}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      title="مسح"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">نوع الدفع</Label>

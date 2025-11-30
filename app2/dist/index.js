@@ -11104,7 +11104,7 @@ autocompleteRouter.get("/projectNames", async (req, res) => {
     });
   }
 });
-autocompleteRouter.get("-admin/stats", async (req, res) => {
+autocompleteRouter.get("/admin/stats", async (req, res) => {
   try {
     const allData = await db.select().from(autocompleteData);
     const categories = new Set(allData.map((d) => d.category));
@@ -11132,7 +11132,7 @@ autocompleteRouter.get("-admin/stats", async (req, res) => {
     });
   }
 });
-autocompleteRouter.post("-admin/maintenance", async (req, res) => {
+autocompleteRouter.post("/admin/maintenance", async (req, res) => {
   try {
     res.json({
       success: true,
@@ -11151,7 +11151,7 @@ autocompleteRouter.post("-admin/maintenance", async (req, res) => {
     });
   }
 });
-autocompleteRouter.post("-admin/cleanup", async (req, res) => {
+autocompleteRouter.post("/admin/cleanup", async (req, res) => {
   try {
     res.json({
       success: true,
@@ -11177,6 +11177,54 @@ console.log("   GET /api/autocomplete/transportDescriptions (\u0645\u0646 DB)");
 console.log("   GET /api/autocomplete/notes (\u0645\u0646 DB)");
 console.log("   GET /api/autocomplete/projectNames (\u0645\u0646 DB)");
 console.log("   GET /api/autocomplete-admin/stats (\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0645\u0646 DB)");
+autocompleteRouter.get("/operatorNames", requireAuth, async (req, res) => {
+  try {
+    const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "operatorNames")).orderBy(desc6(autocompleteData.usageCount));
+    res.json({
+      success: true,
+      data: data.map((d) => d.value),
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0634\u063A\u0644\u064A\u0646 \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0634\u063A\u0644\u064A\u0646"
+    });
+  }
+});
+autocompleteRouter.get("/equipmentTypes", requireAuth, async (req, res) => {
+  try {
+    const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "equipmentTypes")).orderBy(desc6(autocompleteData.usageCount));
+    res.json({
+      success: true,
+      data: data.map((d) => d.value),
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0622\u0644\u064A\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0622\u0644\u064A\u0627\u062A"
+    });
+  }
+});
+autocompleteRouter.get("/materialTypes", requireAuth, async (req, res) => {
+  try {
+    const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "materialTypes")).orderBy(desc6(autocompleteData.usageCount));
+    res.json({
+      success: true,
+      data: data.map((d) => d.value),
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0645\u0648\u0627\u062F"
+    });
+  }
+});
 var autocompleteRoutes_default = autocompleteRouter;
 
 // server/routes/modules/notificationRoutes.ts

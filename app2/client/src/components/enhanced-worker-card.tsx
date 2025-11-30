@@ -223,14 +223,14 @@ export default function EnhancedWorkerCard({
   };
   
   return (
-    <Card className={`mb-2 shadow-sm border-r-4 w-full max-w-full overflow-hidden worker-card-enhanced ${
+    <Card className={`mb-3 shadow-sm border-r-4 w-full max-w-full overflow-hidden worker-card-enhanced ${
       isPresentToday 
         ? "border-r-green-400 bg-gradient-to-r from-green-50/50 to-green-100/30 dark:from-green-950/20 dark:to-green-900/10 animate-pulse-slow attended-worker-glow" 
         : "border-r-primary/20 hover:border-r-primary/40"
     }`} data-testid={`worker-card-detailed-${worker.id}`}>
       <CardContent className="p-2 sm:p-3 max-w-full overflow-hidden">
         {/* رأس البطاقة - معلومات العامل */}
-        <div className="flex items-center justify-between mb-2 border-b border-border/30 w-full max-w-full">
+        <div className="flex items-center justify-between mb-3 pb-2 border-b border-border/30 w-full max-w-full">
           <div className="flex items-center space-x-reverse space-x-2 flex-1 min-w-0 max-w-full overflow-hidden">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md profession-icon-container ${getProfessionColor(worker.type)}`}>
               {getProfessionIcon(worker.type)}
@@ -291,6 +291,49 @@ export default function EnhancedWorkerCard({
             />
           </div>
         </div>
+        
+        {/* بطاقات البيانات في عمودين - ظاهرة دائماً عند الحضور */}
+        {localAttendance.isPresent && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+            {/* العمود الأيمن */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 p-2 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">الاسم</span>
+                  <span className="font-bold text-foreground">{worker.name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">الأجر اليومي</span>
+                  <span className="font-bold text-foreground arabic-numbers">{formatCurrency(worker.dailyWage)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-blue-200 dark:border-blue-700">
+                  <span className="text-muted-foreground font-medium">المستحق</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400 arabic-numbers">{formatCurrency(calculateBaseWage())}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* العمود الأيسر */}
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20 p-2 rounded-lg border border-purple-200 dark:border-purple-800">
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">عدد الأيام</span>
+                  <span className="font-bold text-foreground arabic-numbers">{(localAttendance.workDays || 1.0).toFixed(1)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">المدفوع</span>
+                  <span className="font-bold text-foreground arabic-numbers">{formatCurrency(parseFloat(localAttendance.paidAmount || "0"))}</span>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-purple-200 dark:border-purple-700">
+                  <span className="text-muted-foreground font-medium">المتبقي</span>
+                  <span className={`font-bold arabic-numbers ${
+                    calculateRemainingAmount() > 0 ? 'text-red-600 dark:text-red-400' : calculateRemainingAmount() < 0 ? 'text-green-600 dark:text-green-400' : 'text-slate-700 dark:text-slate-300'
+                  }`}>{formatCurrency(Math.abs(calculateRemainingAmount()))}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* تفاصيل الحضور */}
         {localAttendance.isPresent && showDetails && (

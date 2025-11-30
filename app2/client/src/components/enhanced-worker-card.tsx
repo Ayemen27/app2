@@ -29,6 +29,7 @@ interface AttendanceData {
   totalPay?: number;
   remainingAmount?: number;
   notes?: string;
+  recordType?: "work" | "advance"; // نوع السجل: عمل عادي أو سحب مقدم
 }
 
 interface EnhancedWorkerCardProps {
@@ -46,6 +47,7 @@ export default function EnhancedWorkerCard({
 }: EnhancedWorkerCardProps) {
   const [localAttendance, setLocalAttendance] = useState<AttendanceData>(attendance);
   const [showDetails, setShowDetails] = useState(false);
+  const [recordType, setRecordType] = useState<"work" | "advance">(attendance.recordType || "work");
   
   // جلب إحصائيات العامل
   const { data: workerStats } = useQuery({
@@ -95,15 +97,34 @@ export default function EnhancedWorkerCard({
       setShowDetails(false);
     }
     
-    updateAttendance({
+    const baseUpdate = {
       isPresent: isPresent,
-      startTime: isPresent ? (localAttendance.startTime || "07:00") : undefined,
-      endTime: isPresent ? (localAttendance.endTime || "15:00") : undefined,
-      workDescription: isPresent ? localAttendance.workDescription : undefined,
-      workDays: isPresent ? (localAttendance.workDays || 0) : undefined,
-      paidAmount: isPresent ? localAttendance.paidAmount : undefined,
-      paymentType: isPresent ? (localAttendance.paymentType || "partial") : undefined,
-    });
+      recordType: isPresent ? recordType : undefined,
+    };
+    
+    if (isPresent && recordType === "work") {
+      updateAttendance({
+        ...baseUpdate,
+        startTime: localAttendance.startTime || "07:00",
+        endTime: localAttendance.endTime || "15:00",
+        workDescription: localAttendance.workDescription,
+        workDays: localAttendance.workDays || 0,
+        paidAmount: localAttendance.paidAmount,
+        paymentType: localAttendance.paymentType || "partial",
+      });
+    } else if (isPresent && recordType === "advance") {
+      // سحب مقدم: workDays = 0، المبلغ يصير دين
+      updateAttendance({
+        ...baseUpdate,
+        workDays: 0,
+        paidAmount: localAttendance.paidAmount || "0",
+        paymentType: "advance",
+        startTime: undefined,
+        endTime: undefined,
+      });
+    } else {
+      updateAttendance(baseUpdate);
+    }
   };
 
   // حساب ساعات العمل
@@ -125,6 +146,7 @@ export default function EnhancedWorkerCard({
   // حساب الأجر الأساسي (بدون الوقت الإضافي)
   const calculateBaseWage = () => {
     if (!localAttendance.isPresent) return 0;
+    if (recordType === "advance") return 0; // سحب مقدم = لا يوجد أجر
     const workDays = localAttendance.workDays || 0;
     const dailyWage = parseFloat(worker.dailyWage || "0");
     return Math.max(0, dailyWage * workDays);
@@ -146,6 +168,11 @@ export default function EnhancedWorkerCard({
 
   // حساب المتبقي (المستحق - المدفوع)
   const calculateRemainingAmount = () => {
+    if (recordType === "advance") {
+      // سحب مقدم: دين = -المبلغ المسحوب
+      const advanceAmount = parseFloat(localAttendance.paidAmount || "0");
+      return -advanceAmount;
+    }
     const totalPay = calculateTotalPay();
     const paidAmount = parseFloat(localAttendance.paidAmount || "0");
     const remaining = totalPay - paidAmount;

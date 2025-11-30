@@ -214,7 +214,7 @@ export default function WorkerAttendance() {
     }
   });
 
-  // Edit Attendance Function
+  // Edit Attendance Function - حفظ ID السجل الأصلي للتعديل
   const handleEditAttendance = (record: any) => {
     const worker = Array.isArray(workers) ? workers.find(w => w.id === record.workerId) : null;
     if (worker) {
@@ -226,7 +226,9 @@ export default function WorkerAttendance() {
         workDescription: record.workDescription || "",
         workDays: parseFloat(record.workDays || '0'),
         paidAmount: record.paidAmount,
-        paymentType: record.paymentType || "partial"
+        paymentType: record.paymentType || "partial",
+        recordId: record.id, // حفظ ID السجل الأصلي
+        recordType: record.recordType || "work"
       };
       setAttendanceData(newAttendanceData);
     }
@@ -258,38 +260,48 @@ export default function WorkerAttendance() {
         try {
           console.log(`🔄 محاولة حفظ حضور العامل: ${record.workerId} في التاريخ: ${record.date}`);
 
-          // أولاً: محاولة التحقق من وجود سجل موجود
-          try {
-            const existingRecordResponse = await apiRequest(
-              `/api/projects/${record.projectId}/attendance?date=${record.date}&workerId=${record.workerId}`, 
-              "GET"
+          // إذا كان هناك recordId (من التعديل)، قم بالتعديل مباشرة
+          if ((record as any).recordId) {
+            console.log(`📝 تحديث سجل موجود للعامل: ${record.workerId} برقم: ${(record as any).recordId}`);
+            const recordToUpdate = { ...record };
+            delete (recordToUpdate as any).recordId; // حذف recordId من البيانات المُرسلة
+            const updatedRecord = await apiRequest(
+              `/api/worker-attendance/${(record as any).recordId}`, 
+              "PATCH", 
+              recordToUpdate
             );
-
-            const existingRecords = existingRecordResponse?.data || existingRecordResponse || [];
-            const existingRecord = Array.isArray(existingRecords) 
-              ? existingRecords.find((r: any) => r.workerId === record.workerId)
-              : null;
-
-            if (existingRecord) {
-              console.log(`📝 تحديث سجل موجود للعامل: ${record.workerId}`);
-              // تحديث السجل الموجود باستخدام PATCH
-              const updatedRecord = await apiRequest(
-                `/api/worker-attendance/${existingRecord.id}`, 
-                "PATCH", 
-                record
+            results.push(updatedRecord);
+          } else {
+            // البحث عن سجل موجود (حالة إضافة جديدة)
+            try {
+              const existingRecordResponse = await apiRequest(
+                `/api/projects/${record.projectId}/attendance?date=${record.date}&workerId=${record.workerId}`, 
+                "GET"
               );
-              results.push(updatedRecord);
-            } else {
-              console.log(`➕ إنشاء سجل جديد للعامل: ${record.workerId}`);
-              // إنشاء سجل جديد باستخدام POST
+
+              const existingRecords = existingRecordResponse?.data || existingRecordResponse || [];
+              const existingRecord = Array.isArray(existingRecords) 
+                ? existingRecords.find((r: any) => r.workerId === record.workerId)
+                : null;
+
+              if (existingRecord) {
+                console.log(`📝 تحديث سجل موجود للعامل: ${record.workerId}`);
+                const updatedRecord = await apiRequest(
+                  `/api/worker-attendance/${existingRecord.id}`, 
+                  "PATCH", 
+                  record
+                );
+                results.push(updatedRecord);
+              } else {
+                console.log(`➕ إنشاء سجل جديد للعامل: ${record.workerId}`);
+                const newRecord = await apiRequest("/api/worker-attendance", "POST", record);
+                results.push(newRecord);
+              }
+            } catch (checkError) {
+              console.log(`➕ سجل غير موجود، إنشاء جديد للعامل: ${record.workerId}`);
               const newRecord = await apiRequest("/api/worker-attendance", "POST", record);
               results.push(newRecord);
             }
-          } catch (checkError) {
-            console.log(`➕ سجل غير موجود، إنشاء جديد للعامل: ${record.workerId}`);
-            // إذا فشل التحقق، نحاول إنشاء سجل جديد
-            const newRecord = await apiRequest("/api/worker-attendance", "POST", record);
-            results.push(newRecord);
           }
 
         } catch (error: any) {
@@ -489,8 +501,8 @@ export default function WorkerAttendance() {
     console.log("=== تصحيح الأخطاء - بيانات الحضور قبل الحفظ ===");
     console.log("attendanceData:", attendanceData);
 
-    const attendanceRecords: InsertWorkerAttendance[] = Object.entries(attendanceData)
-      .filter(([_, data]) => data.isPresent && data.workDays && data.workDays > 0)
+    const attendanceRecords: any[] = Object.entries(attendanceData)
+      .filter(([_, data]) => data.isPresent && (data.workDays && data.workDays > 0 || (data as any).recordType === "advance"))
       .map(([workerId, data]) => {
         const worker = workers.find(w => w.id === workerId);
         const dailyWage = parseFloat(worker?.dailyWage || "0");
@@ -533,7 +545,7 @@ export default function WorkerAttendance() {
         console.log(`  - المبلغ المدفوع: ${paidAmount}`);
         console.log(`  - المبلغ المتبقي: ${remainingAmount}`);
 
-        return {
+        const recordData: any = {
           projectId: selectedProjectId,
           workerId,
           date: selectedDate,
@@ -556,6 +568,13 @@ export default function WorkerAttendance() {
           notes: data.notes || "",
           recordType: data.recordType || "work",
         };
+        
+        // إذا كان هناك recordId، أضفه للحفظ حتى نعرف أنه تعديل
+        if ((data as any).recordId) {
+          recordData.recordId = (data as any).recordId;
+        }
+        
+        return recordData;
       });
 
     if (attendanceRecords.length === 0) {

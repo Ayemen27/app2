@@ -570,6 +570,11 @@ export default function WorkerAttendance() {
     .filter(a => a.isPresent && a.paidAmount)
     .reduce((sum, a) => sum + parseFloat(a.paidAmount || '0'), 0);
 
+  // resetFilters function for FilterStatsBar
+  const resetAttendanceFilters = () => {
+    resetAll();
+  };
+
   return (
     <div className="p-4 slide-in">
 
@@ -583,7 +588,7 @@ export default function WorkerAttendance() {
           filters={[]}
           filterValues={filterValues}
           onFilterChange={setFilterValue}
-          onReset={resetAll}
+          onReset={resetAttendanceFilters}
           onRefresh={refresh}
           isRefreshing={isRefreshing}
           metrics={[

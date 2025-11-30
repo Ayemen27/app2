@@ -227,6 +227,11 @@ export default function WorkersPage() {
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
 
+  // resetFilters function for FilterStatsBar
+  const resetFilters = () => {
+    resetAll();
+  };
+
   // تعيين إجراء الزر العائم لإضافة عامل جديد
   useEffect(() => {
     const handleAddWorker = () => {
@@ -504,7 +509,7 @@ export default function WorkersPage() {
         filters={filterConfigs}
         filterValues={{ status: statusFilter, type: typeFilter }}
         onFilterChange={setFilterValue}
-        onReset={resetAll}
+        onReset={resetFilters}
         onRefresh={refresh}
         isRefreshing={isRefreshing}
         metrics={[

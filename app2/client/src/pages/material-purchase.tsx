@@ -683,6 +683,11 @@ export default function MaterialPurchase() {
     credit: allMaterialPurchases.filter((p: any) => p.purchaseType?.includes('آجل') || p.purchaseType?.includes('جل')).length,
   };
 
+  // resetFilters function for FilterStatsBar
+  const resetFilters = () => {
+    resetAll();
+  };
+
   // Auto-refresh when page loads or purchase date changes
   useEffect(() => {
     if (selectedProjectId) {
@@ -734,7 +739,7 @@ export default function MaterialPurchase() {
           ]}
           filterValues={filterValues}
           onFilterChange={setFilterValue}
-          onReset={resetAll}
+          onReset={resetFilters}
           onRefresh={refresh}
           isRefreshing={isRefreshing}
           metrics={[

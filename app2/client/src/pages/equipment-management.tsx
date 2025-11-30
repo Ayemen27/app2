@@ -927,6 +927,15 @@ export function EquipmentManagement() {
   const maintenanceCount = Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'maintenance').length : 0;
   const outOfServiceCount = Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'out_of_service').length : 0;
 
+  // resetFilters function for FilterStatsBar
+  const resetEquipmentFilters = () => {
+    resetAll();
+    setSearchTerm('');
+    setStatusFilter('all');
+    setTypeFilter('all');
+    setProjectFilter('all');
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto" dir="rtl">
 
@@ -944,13 +953,7 @@ export function EquipmentManagement() {
           if (key === 'type') setTypeFilter(value);
           if (key === 'project') setProjectFilter(value);
         }}
-        onReset={() => {
-          resetAll();
-          setSearchTerm('');
-          setStatusFilter('all');
-          setTypeFilter('all');
-          setProjectFilter('all');
-        }}
+        onReset={resetEquipmentFilters}
         onRefresh={refresh}
         isRefreshing={isRefreshing}
         metrics={[

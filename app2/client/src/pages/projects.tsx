@@ -498,6 +498,11 @@ export default function ProjectsPage() {
   // استخدام دالة formatCurrency من utils.ts لضمان التوحيد
   const formatCurrencyLocal = formatCurrency;
 
+  // resetFilters function for FilterStatsBar
+  const resetFilters = () => {
+    resetAll();
+  };
+
   // معالجة حالة التحميل
   if (isLoading) {
     return (
@@ -546,7 +551,6 @@ export default function ProjectsPage() {
           {
             key: 'status',
             label: 'حالة المشروع',
-            type: 'select',
             placeholder: 'اختر الحالة',
             options: PROJECT_STATUS_OPTIONS,
             defaultValue: 'all',
@@ -554,7 +558,7 @@ export default function ProjectsPage() {
         ]}
         filterValues={filterValues}
         onFilterChange={setFilterValue}
-        onReset={resetAll}
+        onReset={resetFilters}
         onRefresh={refresh}
         isRefreshing={isRefreshing}
         metrics={[

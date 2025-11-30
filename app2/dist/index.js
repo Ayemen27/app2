@@ -10845,12 +10845,20 @@ financialRouter.get("/daily-expenses-excel", async (req, res) => {
         eq9(dailyExpenseSummaries.date, date2)
       )
     ).limit(1);
+    const attendanceRecords = await db.select().from(workerAttendance).where(
+      and8(
+        eq9(workerAttendance.projectId, projectId),
+        eq9(workerAttendance.date, date2)
+      )
+    );
+    const totalWorkDays = attendanceRecords.reduce((sum, record) => sum + parseFloat(record.workDays || "0"), 0);
     if (summary.length === 0) {
       return res.json({
         success: true,
         data: {
           date: date2,
           workerWages: 0,
+          workDays: totalWorkDays,
           materialCosts: 0,
           transportation: 0,
           miscExpenses: 0,
@@ -10866,6 +10874,7 @@ financialRouter.get("/daily-expenses-excel", async (req, res) => {
       data: {
         date: data.date,
         workerWages: parseFloat(data.totalWorkerWages || "0"),
+        workDays: totalWorkDays,
         materialCosts: parseFloat(data.totalMaterialCosts || "0"),
         transportation: parseFloat(data.totalTransportationCosts || "0"),
         miscExpenses: parseFloat(data.totalWorkerMiscExpenses || "0"),
@@ -10885,10 +10894,113 @@ financialRouter.get("/daily-expenses-excel", async (req, res) => {
     });
   }
 });
+financialRouter.get("/daily-attendance-details", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, date: date2 } = req.query;
+    if (!projectId || !date2) {
+      return res.status(400).json({
+        success: false,
+        message: "projectId \u0648 date \u0645\u0637\u0644\u0648\u0628\u0627\u0646",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const attendanceRecords = await db.select({
+      id: workerAttendance.id,
+      workerId: workerAttendance.workerId,
+      workerName: workers.name,
+      workDays: workerAttendance.workDays,
+      dailyWage: workers.dailyWage,
+      actualWage: workerAttendance.actualWage,
+      paidAmount: workerAttendance.paidAmount
+    }).from(workerAttendance).leftJoin(workers, eq9(workerAttendance.workerId, workers.id)).where(
+      and8(
+        eq9(workerAttendance.projectId, projectId),
+        eq9(workerAttendance.date, date2)
+      )
+    ).orderBy(workers.name);
+    const detailedRecords = attendanceRecords.map((record) => {
+      const actualWage = parseFloat(record.actualWage || "0");
+      const paidAmount = parseFloat(record.paidAmount || "0");
+      const remainingAmount = actualWage - paidAmount;
+      return {
+        ...record,
+        actualWage,
+        paidAmount,
+        remainingAmount
+      };
+    });
+    res.json({
+      success: true,
+      data: detailedRecords,
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${detailedRecords.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631`,
+      processingTime: Date.now() - startTime
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [DailyAttendance] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0633\u062C\u0644\u0627\u062A:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062D\u0636\u0648\u0631",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+financialRouter.get("/worker-transfers-by-period", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, workerId, dateFrom, dateTo } = req.query;
+    if (!projectId || !workerId) {
+      return res.status(400).json({
+        success: false,
+        message: "projectId \u0648 workerId \u0645\u0637\u0644\u0648\u0628\u0627\u0646",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const conditions = [
+      eq9(workerTransfers.projectId, projectId),
+      eq9(workerTransfers.workerId, workerId)
+    ];
+    if (dateFrom) {
+      conditions.push(gte6(workerTransfers.transferDate, dateFrom));
+    }
+    if (dateTo) {
+      conditions.push(lte3(workerTransfers.transferDate, dateTo));
+    }
+    const transfers = await db.select().from(workerTransfers).where(and8(...conditions)).orderBy(desc5(workerTransfers.transferDate));
+    const totalTransfers = transfers.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+    res.json({
+      success: true,
+      data: {
+        transfers: transfers.map((t) => ({
+          id: t.id,
+          date: t.transferDate,
+          amount: parseFloat(t.amount || "0"),
+          description: t.notes || "",
+          method: t.transferMethod || ""
+        })),
+        total: totalTransfers
+      },
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062D\u0648\u0627\u0644\u0629`,
+      processingTime: Date.now() - startTime
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [WorkerTransfers] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u062D\u0648\u0627\u0644\u0627\u062A:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u062D\u0648\u0627\u0644\u0627\u062A",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 financialRouter.get("/worker-statement-excel", async (req, res) => {
   const startTime = Date.now();
   try {
     const { projectId, workerId, dateFrom, dateTo } = req.query;
+    console.log("\u{1F4CB} [WorkerStatement] \u0637\u0644\u0628 \u0628\u064A\u0627\u0646 \u0627\u0644\u0639\u0627\u0645\u0644:", { projectId, workerId, dateFrom, dateTo });
     if (!projectId || !workerId) {
       return res.status(400).json({
         success: false,
@@ -10903,24 +11015,27 @@ financialRouter.get("/worker-statement-excel", async (req, res) => {
         data: {
           worker: { id: workerId, name: "", type: "", dailyWage: 0 },
           attendance: [],
-          summary: { totalWorkDays: 0, totalEarned: 0, totalPaid: 0, remainingBalance: 0 }
+          transfers: [],
+          summary: { totalWorkDays: 0, totalEarned: 0, totalPaid: 0, totalTransfers: 0, remainingBalance: 0 }
         },
         message: "\u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
         processingTime: Date.now() - startTime
       });
     }
     const worker = workerData[0];
-    const conditions = [
+    let attendanceRecords = await db.select().from(workerAttendance).where(and8(
       eq9(workerAttendance.projectId, projectId),
       eq9(workerAttendance.workerId, workerId)
-    ];
-    if (dateFrom) {
-      conditions.push(gte6(workerAttendance.date, dateFrom));
+    )).orderBy(desc5(workerAttendance.date));
+    console.log(`\u{1F50D} [WorkerStatement] \u0639\u062F\u062F \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062D\u0636\u0648\u0631 \u0627\u0644\u0643\u0627\u0645\u0644\u0629: ${attendanceRecords.length}`);
+    if (dateFrom && dateFrom !== "") {
+      attendanceRecords = attendanceRecords.filter((r) => r.date >= dateFrom);
+      console.log(`\u{1F50D} [WorkerStatement] \u0628\u0639\u062F \u0641\u0644\u062A\u0631\u0629 dateFrom (${dateFrom}): ${attendanceRecords.length} \u0633\u062C\u0644`);
     }
-    if (dateTo) {
-      conditions.push(lte3(workerAttendance.date, dateTo));
+    if (dateTo && dateTo !== "") {
+      attendanceRecords = attendanceRecords.filter((r) => r.date <= dateTo);
+      console.log(`\u{1F50D} [WorkerStatement] \u0628\u0639\u062F \u0641\u0644\u062A\u0631\u0629 dateTo (${dateTo}): ${attendanceRecords.length} \u0633\u062C\u0644`);
     }
-    const attendanceRecords = await db.select().from(workerAttendance).where(and8(...conditions)).orderBy(desc5(workerAttendance.date));
     let totalWorkDays = 0;
     let totalEarned = 0;
     let totalPaid = 0;
@@ -10943,6 +11058,23 @@ financialRouter.get("/worker-statement-excel", async (req, res) => {
         workDescription: record.workDescription || ""
       };
     });
+    let transferRecords = await db.select().from(workerTransfers).where(and8(
+      eq9(workerTransfers.projectId, projectId),
+      eq9(workerTransfers.workerId, workerId)
+    ));
+    console.log(`\u{1F50D} [WorkerStatement] \u0639\u062F\u062F \u0627\u0644\u062D\u0648\u0627\u0644\u0627\u062A \u0627\u0644\u0643\u0627\u0645\u0644\u0629: ${transferRecords.length}`);
+    if (dateFrom && dateFrom !== "") {
+      transferRecords = transferRecords.filter((t) => t.transferDate >= dateFrom);
+      console.log(`\u{1F50D} [WorkerStatement] \u0628\u0639\u062F \u0641\u0644\u062A\u0631\u0629 dateFrom (${dateFrom}): ${transferRecords.length} \u062D\u0648\u0627\u0644\u0629`);
+    }
+    if (dateTo && dateTo !== "") {
+      transferRecords = transferRecords.filter((t) => t.transferDate <= dateTo);
+      console.log(`\u{1F50D} [WorkerStatement] \u0628\u0639\u062F \u0641\u0644\u062A\u0631\u0629 dateTo (${dateTo}): ${transferRecords.length} \u062D\u0648\u0627\u0644\u0629`);
+    }
+    let totalTransfers = 0;
+    transferRecords.forEach((t) => {
+      totalTransfers += parseFloat(t.amount || "0");
+    });
     res.json({
       success: true,
       data: {
@@ -10957,7 +11089,8 @@ financialRouter.get("/worker-statement-excel", async (req, res) => {
           totalWorkDays: totalWorkDays.toFixed(2),
           totalEarned: totalEarned.toFixed(2),
           totalPaid: totalPaid.toFixed(2),
-          remainingBalance: (totalEarned - totalPaid).toFixed(2)
+          totalTransfers: totalTransfers.toFixed(2),
+          remainingBalance: (totalEarned - totalPaid - totalTransfers).toFixed(2)
         }
       },
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D",

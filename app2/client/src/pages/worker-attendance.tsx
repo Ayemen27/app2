@@ -72,7 +72,7 @@ export default function WorkerAttendance() {
   const [bulkSettings, setBulkSettings] = useState({
     startTime: "07:00",
     endTime: "15:00",
-    workDays: 1.0,
+    workDays: 0,
     paymentType: "partial",
     paidAmount: "",
     workDescription: ""
@@ -180,7 +180,7 @@ export default function WorkerAttendance() {
         startTime: attendanceToEdit.startTime,
         endTime: attendanceToEdit.endTime,
         workDescription: attendanceToEdit.workDescription || "",
-        workDays: parseFloat(attendanceToEdit.workDays || '1.0'),
+        workDays: parseFloat(attendanceToEdit.workDays || '0'),
         paidAmount: attendanceToEdit.paidAmount?.toString() || "",
         paymentType: attendanceToEdit.paymentType || "partial"
       };
@@ -219,7 +219,7 @@ export default function WorkerAttendance() {
         startTime: record.startTime,
         endTime: record.endTime,
         workDescription: record.workDescription || "",
-        workDays: parseFloat(record.workDays || '1.0'),
+        workDays: parseFloat(record.workDays || '0'),
         paidAmount: record.paidAmount,
         paymentType: record.paymentType || "partial"
       };
@@ -468,14 +468,14 @@ export default function WorkerAttendance() {
       return;
     }
 
-    // التحقق من أن جميع السجلات الحاضرة لها أيام عمل > 0
+    // التحقق من أن جميع السجلات الحاضرة لها أيام عمل > 0 عند الحفظ
     const invalidRecords = Object.entries(attendanceData)
       .filter(([_, data]) => data.isPresent && (!data.workDays || data.workDays <= 0));
     
     if (invalidRecords.length > 0) {
       toast({
         title: "خطأ في البيانات",
-        description: "يجب أن تكون أيام العمل أكبر من صفر لجميع العمال الحاضرين",
+        description: "يرجى إدخال عدد أيام العمل أكبر من صفر لجميع العمال الحاضرين قبل الحفظ",
         variant: "destructive",
       });
       return;
@@ -489,7 +489,7 @@ export default function WorkerAttendance() {
       .map(([workerId, data]) => {
         const worker = workers.find(w => w.id === workerId);
         const dailyWage = parseFloat(worker?.dailyWage || "0");
-        const workDays = data.workDays || 1.0;
+        const workDays = data.workDays || 0;
         
         // حساب الأجر الأساسي
         const baseWage = dailyWage * workDays;

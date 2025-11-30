@@ -10,6 +10,14 @@ import {
   SearchDesign6, searchDesign6Code,
   SearchDesign7, searchDesign7Code,
   SearchDesign8, searchDesign8Code,
+  SearchDesign9, searchDesign9Code,
+  SearchDesign10, searchDesign10Code,
+  SearchDesign11, searchDesign11Code,
+  SearchDesign12, searchDesign12Code,
+  SearchDesign13, searchDesign13Code,
+  SearchDesign14, searchDesign14Code,
+  SearchDesign15, searchDesign15Code,
+  SearchDesign16, searchDesign16Code,
 } from '../modules/search';
 
 import {

@@ -130,7 +130,7 @@ export const workerAttendance = pgTable("worker_attendance", {
   overtime: decimal("overtime", { precision: 5, scale: 2 }).default('0.00'),
   overtimeRate: decimal("overtime_rate", { precision: 10, scale: 2 }).default('0.00'),
   // أعمدة جديدة
-  workDays: decimal("work_days", { precision: 3, scale: 2 }).default('1.00'), // عدد أيام العمل (مثل 0.5، 1.0، 1.5)
+  workDays: decimal("work_days", { precision: 3, scale: 2 }).default('0.00'), // عدد أيام العمل (مثل 0.5، 1.0، 1.5) - افتراضي 0
   dailyWage: decimal("daily_wage", { precision: 10, scale: 2 }).notNull(), // الأجر اليومي الكامل
   actualWage: decimal("actual_wage", { precision: 10, scale: 2 }), // الأجر الفعلي = dailyWage * workDays - nullable في قاعدة البيانات
   totalPay: decimal("total_pay", { precision: 10, scale: 2 }).notNull(), // إجمالي الدفع المطلوب = actualWage

@@ -260,6 +260,12 @@ export default function WorkerAttendance() {
         try {
           console.log(`🔄 محاولة حفظ حضور العامل: ${record.workerId} في التاريخ: ${record.date}`);
 
+          // إذا كان نوع السجل = سحب (advance)، فرض workDays = 0
+          if ((record as any).recordType === "advance") {
+            record.workDays = 0;
+            console.log(`💳 سحب مقدم - فرض workDays = 0`);
+          }
+
           // إذا كان هناك recordId (من التعديل)، قم بالتعديل مباشرة
           if ((record as any).recordId) {
             console.log(`📝 تحديث سجل موجود للعامل: ${record.workerId} برقم: ${(record as any).recordId}`);
@@ -285,7 +291,8 @@ export default function WorkerAttendance() {
                 : null;
 
               if (existingRecord) {
-                console.log(`📝 تحديث سجل موجود للعامل: ${record.workerId}`);
+                console.log(`📝 سجل موجود بالفعل للعامل: ${record.workerId} في هذا اليوم - يجب التعديل وليس الإنشاء`);
+                // منع إنشاء سجل جديد - يجب تعديل السجل الموجود
                 const updatedRecord = await apiRequest(
                   `/api/worker-attendance/${existingRecord.id}`, 
                   "PATCH", 
@@ -298,9 +305,20 @@ export default function WorkerAttendance() {
                 results.push(newRecord);
               }
             } catch (checkError) {
-              console.log(`➕ سجل غير موجود، إنشاء جديد للعامل: ${record.workerId}`);
-              const newRecord = await apiRequest("/api/worker-attendance", "POST", record);
-              results.push(newRecord);
+              console.log(`❌ خطأ في البحث عن السجل الموجود - محاولة الإنشاء:`, checkError);
+              // إذا فشل التحقق، نحاول إنشاء سجل جديد
+              try {
+                const newRecord = await apiRequest("/api/worker-attendance", "POST", record);
+                results.push(newRecord);
+              } catch (createError: any) {
+                // إذا فشل الإنشاء (خطأ UNIQUE)، قد يكون هناك سجل موجود
+                if (createError.message && createError.message.includes("unique") || createError.message.includes("UNIQUE")) {
+                  console.log(`⚠️ هناك سجل موجود بالفعل للعامل ${record.workerId} في هذا اليوم`);
+                  // لا نتابع - السجل موجود ولم نتمكن من الوصول إليه
+                  throw new Error(`سجل موجود بالفعل للعامل في هذا اليوم. يرجى تحديث الصفحة وتعديل السجل الموجود.`);
+                }
+                throw createError;
+              }
             }
           }
 
@@ -485,14 +503,33 @@ export default function WorkerAttendance() {
       return;
     }
 
-    // التحقق من أن جميع السجلات الحاضرة لها أيام عمل > 0 عند الحفظ
+    // التحقق من أن جميع السجلات الحاضرة من نوع "work" لها أيام عمل > 0
+    // أما "advance" فيجب أن يكون workDays = 0
     const invalidRecords = Object.entries(attendanceData)
-      .filter(([_, data]) => data.isPresent && (!data.workDays || data.workDays <= 0));
+      .filter(([_, data]) => {
+        if (!data.isPresent) return false;
+        // إذا كان عمل عادي - يجب أن يكون هناك أيام
+        if ((data as any).recordType !== "advance" && (!data.workDays || data.workDays <= 0)) {
+          return true;
+        }
+        // إذا كان سحب مقدم - يجب أن يكون هناك مبلغ مسحوب
+        if ((data as any).recordType === "advance" && (!data.paidAmount || data.paidAmount === "0")) {
+          return true;
+        }
+        return false;
+      });
     
     if (invalidRecords.length > 0) {
+      const hasWorkErrors = invalidRecords.some(([_, data]) => (data as any).recordType !== "advance");
+      const hasAdvanceErrors = invalidRecords.some(([_, data]) => (data as any).recordType === "advance");
+      
+      let errorMsg = "";
+      if (hasWorkErrors) errorMsg += "يرجى إدخال عدد أيام عمل > 0 للعمل العادي. ";
+      if (hasAdvanceErrors) errorMsg += "يرجى إدخال مبلغ مسحوب > 0 للسحب المقدم.";
+      
       toast({
         title: "خطأ في البيانات",
-        description: "يرجى إدخال عدد أيام العمل أكبر من صفر لجميع العمال الحاضرين قبل الحفظ",
+        description: errorMsg,
         variant: "destructive",
       });
       return;
@@ -502,11 +539,20 @@ export default function WorkerAttendance() {
     console.log("attendanceData:", attendanceData);
 
     const attendanceRecords: any[] = Object.entries(attendanceData)
-      .filter(([_, data]) => data.isPresent && (data.workDays && data.workDays > 0 || (data as any).recordType === "advance"))
+      .filter(([_, data]) => {
+        if (!data.isPresent) return false;
+        // للعمل العادي: workDays > 0
+        if ((data as any).recordType !== "advance") {
+          return data.workDays && data.workDays > 0;
+        }
+        // للسحب المقدم: paidAmount > 0
+        return data.paidAmount && parseFloat(data.paidAmount) > 0;
+      })
       .map(([workerId, data]) => {
         const worker = workers.find(w => w.id === workerId);
         const dailyWage = parseFloat(worker?.dailyWage || "0");
-        const workDays = data.workDays || 0;
+        // للسحب المقدم: workDays = 0 دائماً
+        const workDays = (data as any).recordType === "advance" ? 0 : (data.workDays || 0);
         
         // حساب الأجر الأساسي
         const baseWage = dailyWage * workDays;

@@ -1738,12 +1738,12 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     // حساب إجمالي عدد أيام العمل من جدول workerAttendance
     // استبعد السحب المقدم (advance) - لا يُعتبر "عمل" حقيقي
     const totalWorkDaysResult = await db.select({
-      totalDays: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, 0) AS DECIMAL)), 0)`
+      totalDays: sql`COALESCE(SUM(CAST(COALESCE(work_days, 0) AS DECIMAL)), 0)`
     })
     .from(workerAttendance)
     .where(and(
       eq(workerAttendance.workerId, workerId),
-      sql`(${workerAttendance.recordType} IS NULL OR ${workerAttendance.recordType} != 'advance')`
+      sql`(record_type IS NULL OR record_type != 'advance')`
     ));
     
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
@@ -1768,13 +1768,13 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     
     // استبعد السحب المقدم من معدل الحضور الشهري أيضاً
     const monthlyAttendanceResult = await db.select({
-      monthlyDays: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, 0) AS DECIMAL)), 0)`
+      monthlyDays: sql`COALESCE(SUM(CAST(COALESCE(work_days, 0) AS DECIMAL)), 0)`
     })
     .from(workerAttendance)
     .where(and(
       eq(workerAttendance.workerId, workerId),
-      sql`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`,
-      sql`(${workerAttendance.recordType} IS NULL OR ${workerAttendance.recordType} != 'advance')`
+      sql`attendance_date >= ${thirtyDaysAgoString}`,
+      sql`(record_type IS NULL OR record_type != 'advance')`
     ));
     
     const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
@@ -1802,12 +1802,12 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     
     // حساب إجمالي الأرباح (من جدول الحضور) - فقط من الأيام الفعلية بدون السحب المقدم
     const totalEarningsResult = await db.select({
-      totalEarnings: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.actualWage}, 0) AS DECIMAL)), 0)`
+      totalEarnings: sql`COALESCE(SUM(CAST(COALESCE(actual_wage, 0) AS DECIMAL)), 0)`
     })
     .from(workerAttendance)
     .where(and(
       eq(workerAttendance.workerId, workerId),
-      sql`(${workerAttendance.recordType} IS NULL OR ${workerAttendance.recordType} != 'advance')`
+      sql`(record_type IS NULL OR record_type != 'advance')`
     ));
     
     const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;

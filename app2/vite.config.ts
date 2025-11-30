@@ -49,6 +49,14 @@ export default defineConfig({
   },
   server: {
     allowedHosts: true,
+    hmr: {
+      host: undefined,
+      port: undefined,
+      protocol: 'ws',
+    },
+    fs: {
+      allow: ['..'],
+    },
   },
   optimizeDeps: {
     include: ['react', 'react-dom'],

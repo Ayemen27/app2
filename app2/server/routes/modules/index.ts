@@ -11,7 +11,7 @@ import healthRouter from './healthRoutes.js';
 import projectRouter from './projectRoutes.js';
 import workerRouter from './workerRoutes.js';
 import financialRouter from './financialRoutes.js';
-import autocompleteRouter from './autocompleteRoutes.js';
+import autocompleteRouter, { registerAutocompleteAdminRoutes } from './autocompleteRoutes.js';
 import notificationRouter from './notificationRoutes.js';
 // authRouter moved to main routes/auth.ts to avoid duplication
 
@@ -31,6 +31,9 @@ export function registerOrganizedRoutes(app: Express) {
   
   // مسارات autocomplete - منطق مختلط (عام/محمي)
   app.use('/api/autocomplete', autocompleteRouter);
+  
+  // مسارات إدارة autocomplete - مسجلة مباشرة على المستوى الرئيسي
+  registerAutocompleteAdminRoutes(app);
 
   // ===== المسارات المحمية - تحتاج مصادقة =====
   

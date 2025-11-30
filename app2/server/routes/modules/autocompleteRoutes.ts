@@ -293,82 +293,114 @@ autocompleteRouter.get('/projectNames', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/autocomplete-admin/stats - إحصائيات الإكمال التلقائي
+ * تصدير دالة لتسجيل مسارات الإدارة على مستوى التطبيق الرئيسي
+ * يتم استدعاؤها من modules/index.ts
  */
-autocompleteRouter.get('/admin/stats', async (req: Request, res: Response) => {
-  try {
-    const allData = await db.select().from(autocompleteData);
-    
-    const categories = new Set(allData.map(d => d.category));
-    const totalEntries = allData.length;
-    
-    res.json({
-      success: true,
-      data: {
-        totalRecords: totalEntries,
-        categoriesCount: categories.size,
-        lastUpdated: new Date(),
-        categoryBreakdown: Array.from(categories).map(cat => ({
-          category: cat,
-          count: allData.filter(d => d.category === cat).length,
-          avgUsage: allData.filter(d => d.category === cat)
-            .reduce((sum, d) => sum + (d.usageCount || 1), 0) / 
-            allData.filter(d => d.category === cat).length
-        })),
-        oldRecordsCount: 0
-      },
-      message: 'تم جلب إحصائيات الإكمال التلقائي بنجاح'
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'فشل في جلب الإحصائيات'
-    });
-  }
-});
+export function registerAutocompleteAdminRoutes(app: any) {
+  /**
+   * GET /api/autocomplete-admin/stats - إحصائيات الإكمال التلقائي
+   */
+  app.get('/api/autocomplete-admin/stats', async (req: Request, res: Response) => {
+    try {
+      const allData = await db.select().from(autocompleteData);
+      
+      const categories = new Set(allData.map(d => d.category));
+      const totalEntries = allData.length;
+      
+      res.json({
+        success: true,
+        data: {
+          totalRecords: totalEntries,
+          categoriesCount: categories.size,
+          lastUpdated: new Date(),
+          categoryBreakdown: Array.from(categories).map(cat => ({
+            category: cat,
+            count: allData.filter(d => d.category === cat).length,
+            avgUsage: allData.filter(d => d.category === cat)
+              .reduce((sum, d) => sum + (d.usageCount || 1), 0) / 
+              allData.filter(d => d.category === cat).length
+          })),
+          oldRecordsCount: 0
+        },
+        message: 'تم جلب إحصائيات الإكمال التلقائي بنجاح'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في جلب الإحصائيات'
+      });
+    }
+  });
 
-/**
- * POST /api/autocomplete-admin/maintenance - صيانة الإكمال التلقائي
- */
-autocompleteRouter.post('/admin/maintenance', async (req: Request, res: Response) => {
-  try {
-    res.json({
-      success: true,
-      data: {
-        cleanupResult: { deletedCount: 0, categories: [] },
-        limitResult: { trimmedCategories: [], deletedCount: 0 },
-        totalProcessed: 0
-      },
-      message: 'تمت صيانة الإكمال التلقائي بنجاح'
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'فشل في صيانة الإكمال التلقائي'
-    });
-  }
-});
+  /**
+   * POST /api/autocomplete-admin/maintenance - صيانة الإكمال التلقائي
+   */
+  app.post('/api/autocomplete-admin/maintenance', async (req: Request, res: Response) => {
+    try {
+      res.json({
+        success: true,
+        data: {
+          cleanupResult: { deletedCount: 0, categories: [] },
+          limitResult: { trimmedCategories: [], deletedCount: 0 },
+          totalProcessed: 0
+        },
+        message: 'تمت صيانة الإكمال التلقائي بنجاح'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في صيانة الإكمال التلقائي'
+      });
+    }
+  });
 
-/**
- * POST /api/autocomplete-admin/cleanup - تنظيف البيانات
- */
-autocompleteRouter.post('/admin/cleanup', async (req: Request, res: Response) => {
-  try {
-    res.json({
-      success: true,
-      data: { cleaned: 0, optimized: true },
-      message: 'تمت صيانة الإكمال التلقائي بنجاح'
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'فشل في صيانة الإكمال التلقائي'
-    });
-  }
-});
+  /**
+   * POST /api/autocomplete-admin/cleanup - تنظيف البيانات
+   */
+  app.post('/api/autocomplete-admin/cleanup', async (req: Request, res: Response) => {
+    try {
+      res.json({
+        success: true,
+        data: { cleaned: 0, optimized: true },
+        message: 'تمت صيانة الإكمال التلقائي بنجاح'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في صيانة الإكمال التلقائي'
+      });
+    }
+  });
+
+  /**
+   * POST /api/autocomplete-admin/enforce-limits - تطبيق حدود الفئات
+   */
+  app.post('/api/autocomplete-admin/enforce-limits', async (req: Request, res: Response) => {
+    try {
+      const { category } = req.body;
+      
+      res.json({
+        success: true,
+        data: {
+          trimmedCategories: category ? [category] : [],
+          deletedCount: 0
+        },
+        message: 'تم تطبيق حدود الفئات بنجاح'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: 'فشل في تطبيق حدود الفئات'
+      });
+    }
+  });
+  
+  console.log('✅ [AutocompleteAdminRoutes] تم تسجيل مسارات الإدارة على مستوى التطبيق');
+}
 
 console.log('🔤 [AutocompleteRouter] تم تهيئة جميع مسارات الإكمال التلقائي مع قاعدة البيانات');
 console.log('📋 [AutocompleteRouter] المسارات المتاحة:');

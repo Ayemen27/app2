@@ -53,10 +53,18 @@ interface WorkerStatementData {
     remainingAmount: number;
     workDescription: string;
   }>;
+  transfers?: Array<{
+    id: string;
+    date: string;
+    amount: number;
+    description: string;
+    method: string;
+  }>;
   summary: {
     totalWorkDays: number;
     totalEarned: number;
     totalPaid: number;
+    totalTransfers?: number;
     remainingBalance: number;
   };
 }
@@ -165,6 +173,28 @@ export default function Reports() {
       } catch (error) {
         console.error("❌ خطأ في جلب بيان العامل:", error);
         return null;
+      }
+    },
+    enabled: !!selectedProjectId && !!selectedWorkerId,
+  });
+
+  // جلب حوالات العامل
+  const { data: transfersData = { transfers: [], total: 0 }, isLoading: transfersLoading } = useQuery({
+    queryKey: ["/api/worker-transfers-by-period", selectedProjectId, selectedWorkerId, dateFrom, dateTo],
+    queryFn: async () => {
+      if (!selectedProjectId || !selectedWorkerId) return { transfers: [], total: 0 };
+      try {
+        const params = new URLSearchParams({
+          projectId: selectedProjectId,
+          workerId: selectedWorkerId,
+          ...(dateFrom && { dateFrom }),
+          ...(dateTo && { dateTo }),
+        });
+        const response = await apiRequest(`/api/worker-transfers-by-period?${params}`, "GET");
+        return (response?.data || { transfers: [], total: 0 }) as any;
+      } catch (error) {
+        console.error("❌ خطأ في جلب الحوالات:", error);
+        return { transfers: [], total: 0 };
       }
     },
     enabled: !!selectedProjectId && !!selectedWorkerId,

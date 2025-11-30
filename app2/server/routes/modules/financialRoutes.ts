@@ -1867,6 +1867,72 @@ financialRouter.get('/daily-attendance-details', async (req: Request, res: Respo
 });
 
 /**
+ * GET /api/worker-transfers - جلب حوالات العامل في فترة زمنية
+ */
+financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, workerId, dateFrom, dateTo } = req.query;
+    
+    if (!projectId || !workerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'projectId و workerId مطلوبان',
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    // بناء القيود الديناميكية
+    const conditions = [
+      eq(workerTransfers.projectId, projectId as string),
+      eq(workerTransfers.workerId, workerId as string)
+    ];
+
+    if (dateFrom) {
+      conditions.push(gte(workerTransfers.transferDate, dateFrom as string));
+    }
+    if (dateTo) {
+      conditions.push(lte(workerTransfers.transferDate, dateTo as string));
+    }
+
+    // جلب الحوالات
+    const transfers = await db
+      .select()
+      .from(workerTransfers)
+      .where(and(...conditions))
+      .orderBy(desc(workerTransfers.transferDate));
+
+    // حساب الإجمالي
+    const totalTransfers = transfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+
+    res.json({
+      success: true,
+      data: {
+        transfers: transfers.map(t => ({
+          id: t.id,
+          date: t.transferDate,
+          amount: parseFloat(t.amount || '0'),
+          description: t.description,
+          method: t.method
+        })),
+        total: totalTransfers
+      },
+      message: `تم جلب ${transfers.length} حوالة`,
+      processingTime: Date.now() - startTime
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [WorkerTransfers] خطأ في جلب الحوالات:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في جلب الحوالات',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
  * GET /api/worker-statement-excel - جلب بيان العامل
  */
 financialRouter.get('/worker-statement-excel', async (req: Request, res: Response) => {
@@ -1895,7 +1961,8 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
         data: {
           worker: { id: workerId, name: '', type: '', dailyWage: 0 },
           attendance: [],
-          summary: { totalWorkDays: 0, totalEarned: 0, totalPaid: 0, remainingBalance: 0 }
+          transfers: [],
+          summary: { totalWorkDays: 0, totalEarned: 0, totalPaid: 0, totalTransfers: 0, remainingBalance: 0 }
         },
         message: 'العامل غير موجود',
         processingTime: Date.now() - startTime

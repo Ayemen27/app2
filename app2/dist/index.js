@@ -10809,6 +10809,95 @@ financialRouter.delete("/transportation-expenses/:id", async (req, res) => {
     });
   }
 });
+financialRouter.get("/daily-expenses-excel", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, date: date2 } = req.query;
+    if (!projectId || !date2) {
+      return res.status(400).json({
+        success: false,
+        message: "projectId \u0648 date \u0645\u0637\u0644\u0648\u0628\u0627\u0646",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const summary = await db.select().from(dailyExpenseSummaries).where(
+      and8(
+        eq9(dailyExpenseSummaries.projectId, projectId),
+        eq9(dailyExpenseSummaries.date, date2)
+      )
+    ).limit(1);
+    if (summary.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          date: date2,
+          workerWages: 0,
+          materialCosts: 0,
+          transportation: 0,
+          miscExpenses: 0,
+          total: 0
+        },
+        message: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0635\u0627\u0631\u064A\u0641 \u0644\u0647\u0630\u0627 \u0627\u0644\u064A\u0648\u0645",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const data = summary[0];
+    res.json({
+      success: true,
+      data: {
+        date: data.date,
+        workerWages: parseFloat(data.totalWorkerWages || "0"),
+        materialCosts: parseFloat(data.totalMaterialCosts || "0"),
+        transportation: parseFloat(data.totalTransportationCosts || "0"),
+        miscExpenses: parseFloat(data.totalWorkerMiscExpenses || "0"),
+        total: parseFloat(data.totalExpenses || "0")
+      },
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645 \u0628\u0646\u062C\u0627\u062D",
+      processingTime: Date.now() - startTime
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [DailyExpenses] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+financialRouter.get("/worker-statement-excel", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, workerId } = req.query;
+    if (!projectId || !workerId) {
+      return res.status(400).json({
+        success: false,
+        message: "projectId \u0648 workerId \u0645\u0637\u0644\u0648\u0628\u0627\u0646",
+        processingTime: Date.now() - startTime
+      });
+    }
+    res.json({
+      success: true,
+      data: {
+        worker: { id: workerId, name: "", type: "", dailyWage: 0 },
+        attendance: [],
+        summary: { totalWorkDays: 0, totalEarned: 0, totalPaid: 0, remainingBalance: 0 }
+      },
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D",
+      processingTime: Date.now() - startTime
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [WorkerStatement] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0628\u064A\u0627\u0646 \u0627\u0644\u0639\u0627\u0645\u0644:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0628\u064A\u0627\u0646",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 financialRouter.get("/reports/summary", async (req, res) => {
   try {
     res.json({
@@ -10819,7 +10908,7 @@ financialRouter.get("/reports/summary", async (req, res) => {
         totalWorkerExpenses: 0,
         totalProjectFunds: 0
       },
-      message: "\u0645\u0644\u062E\u0635 \u0627\u0644\u062A\u0642\u0627\u0631\u064A\u0631 \u0627\u0644\u0645\u0627\u0644\u064A\u0629 - \u0633\u064A\u062A\u0645 \u0646\u0642\u0644 \u0627\u0644\u0645\u0646\u0637\u0642"
+      message: "\u0645\u0644\u062E\u0635 \u0627\u0644\u062A\u0642\u0627\u0631\u064A\u0631 \u0627\u0644\u0645\u0627\u0644\u064A\u0629"
     });
   } catch (error) {
     res.status(500).json({
@@ -10828,7 +10917,7 @@ financialRouter.get("/reports/summary", async (req, res) => {
     });
   }
 });
-console.log("\u{1F4B0} [FinancialRouter] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629");
+console.log("\u{1F4B0} [FinancialRouter] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 + endpoints \u0627\u0644\u062A\u0642\u0627\u0631\u064A\u0631");
 var financialRoutes_default = financialRouter;
 
 // server/routes/modules/autocompleteRoutes.ts
@@ -11015,7 +11104,7 @@ autocompleteRouter.get("/projectNames", async (req, res) => {
     });
   }
 });
-autocompleteRouter.get("/admin/stats", async (req, res) => {
+autocompleteRouter.get("-admin/stats", async (req, res) => {
   try {
     const allData = await db.select().from(autocompleteData);
     const categories = new Set(allData.map((d) => d.category));
@@ -11023,14 +11112,15 @@ autocompleteRouter.get("/admin/stats", async (req, res) => {
     res.json({
       success: true,
       data: {
-        totalEntries,
+        totalRecords: totalEntries,
         categoriesCount: categories.size,
         lastUpdated: /* @__PURE__ */ new Date(),
         categoryBreakdown: Array.from(categories).map((cat) => ({
           category: cat,
           count: allData.filter((d) => d.category === cat).length,
           avgUsage: allData.filter((d) => d.category === cat).reduce((sum, d) => sum + (d.usageCount || 1), 0) / allData.filter((d) => d.category === cat).length
-        }))
+        })),
+        oldRecordsCount: 0
       },
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
     });
@@ -11042,38 +11132,15 @@ autocompleteRouter.get("/admin/stats", async (req, res) => {
     });
   }
 });
-autocompleteRouter.get("/admin-stats", async (req, res) => {
+autocompleteRouter.post("-admin/maintenance", async (req, res) => {
   try {
-    const allData = await db.select().from(autocompleteData);
-    const categories = new Set(allData.map((d) => d.category));
-    const totalEntries = allData.length;
     res.json({
       success: true,
       data: {
-        totalEntries,
-        categoriesCount: categories.size,
-        lastUpdated: /* @__PURE__ */ new Date(),
-        categoryBreakdown: Array.from(categories).map((cat) => ({
-          category: cat,
-          count: allData.filter((d) => d.category === cat).length,
-          avgUsage: allData.filter((d) => d.category === cat).reduce((sum, d) => sum + (d.usageCount || 1), 0) / allData.filter((d) => d.category === cat).length
-        }))
+        cleanupResult: { deletedCount: 0, categories: [] },
+        limitResult: { trimmedCategories: [], deletedCount: 0 },
+        totalProcessed: 0
       },
-      message: "\u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A"
-    });
-  }
-});
-autocompleteRouter.post("/admin/maintenance", async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      data: { cleaned: 0, optimized: true },
       message: "\u062A\u0645\u062A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -11084,7 +11151,7 @@ autocompleteRouter.post("/admin/maintenance", async (req, res) => {
     });
   }
 });
-autocompleteRouter.post("/admin-cleanup", async (req, res) => {
+autocompleteRouter.post("-admin/cleanup", async (req, res) => {
   try {
     res.json({
       success: true,

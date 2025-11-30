@@ -9468,9 +9468,13 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
       });
     }
     const totalWorkDaysResult = await db.select({
-      totalDays: sql6`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));
+      totalDays: sql6`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, 0) AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(and7(
+      eq8(workerAttendance.workerId, workerId),
+      sql6`(${workerAttendance.recordType} IS NULL OR ${workerAttendance.recordType} != 'advance')`
+    ));
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
+    console.log(`\u{1F4CA} [API] \u0625\u062C\u0645\u0627\u0644\u064A \u0623\u064A\u0627\u0645 \u0627\u0644\u0639\u0645\u0644 \u0644\u0644\u0639\u0627\u0645\u0644 ${workerId}: ${totalWorkDays}`);
     const lastAttendanceResult = await db.select({
       lastAttendanceDate: workerAttendance.attendanceDate,
       projectId: workerAttendance.projectId
@@ -9480,12 +9484,14 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoString = thirtyDaysAgo.toISOString().split("T")[0];
     const monthlyAttendanceResult = await db.select({
-      monthlyDays: sql6`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
+      monthlyDays: sql6`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, 0) AS DECIMAL)), 0)`
     }).from(workerAttendance).where(and7(
       eq8(workerAttendance.workerId, workerId),
-      sql6`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
+      sql6`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`,
+      sql6`(${workerAttendance.recordType} IS NULL OR ${workerAttendance.recordType} != 'advance')`
     ));
     const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
+    console.log(`\u{1F4CA} [API] \u0623\u064A\u0627\u0645 \u0627\u0644\u0639\u0645\u0644 \u0641\u064A \u0622\u062E\u0631 30 \u064A\u0648\u0645: ${monthlyAttendanceRate}`);
     const totalTransfersResult = await db.select({
       totalTransfers: sql6`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
       transfersCount: sql6`COUNT(*)`
@@ -9497,9 +9503,13 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
     }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));
     const projectsWorked = Number(projectsWorkedResult[0]?.projectsCount) || 0;
     const totalEarningsResult = await db.select({
-      totalEarnings: sql6`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));
+      totalEarnings: sql6`COALESCE(SUM(CAST(COALESCE(${workerAttendance.actualWage}, 0) AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(and7(
+      eq8(workerAttendance.workerId, workerId),
+      sql6`(${workerAttendance.recordType} IS NULL OR ${workerAttendance.recordType} != 'advance')`
+    ));
     const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;
+    console.log(`\u{1F4B0} [API] \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0623\u0631\u0628\u0627\u062D: ${totalEarnings}`);
     const stats = {
       totalWorkDays,
       lastAttendanceDate,

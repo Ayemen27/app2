@@ -1736,13 +1736,18 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     }
     
     // حساب إجمالي عدد أيام العمل من جدول workerAttendance
+    // استبعد السحب المقدم (advance) - لا يُعتبر "عمل" حقيقي
     const totalWorkDaysResult = await db.select({
-      totalDays: sql`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
+      totalDays: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, 0) AS DECIMAL)), 0)`
     })
     .from(workerAttendance)
-    .where(eq(workerAttendance.workerId, workerId));
+    .where(and(
+      eq(workerAttendance.workerId, workerId),
+      sql`(${workerAttendance.recordType} IS NULL OR ${workerAttendance.recordType} != 'advance')`
+    ));
     
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
+    console.log(`📊 [API] إجمالي أيام العمل للعامل ${workerId}: ${totalWorkDays}`);
     
     // جلب تاريخ آخر حضور للعامل
     const lastAttendanceResult = await db.select({
@@ -1761,16 +1766,19 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoString = thirtyDaysAgo.toISOString().split('T')[0]; // YYYY-MM-DD format
     
+    // استبعد السحب المقدم من معدل الحضور الشهري أيضاً
     const monthlyAttendanceResult = await db.select({
-      monthlyDays: sql`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`
+      monthlyDays: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, 0) AS DECIMAL)), 0)`
     })
     .from(workerAttendance)
     .where(and(
       eq(workerAttendance.workerId, workerId),
-      sql`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
+      sql`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`,
+      sql`(${workerAttendance.recordType} IS NULL OR ${workerAttendance.recordType} != 'advance')`
     ));
     
     const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
+    console.log(`📊 [API] أيام العمل في آخر 30 يوم: ${monthlyAttendanceRate}`);
     
     // حساب إجمالي التحويلات المالية من جدول workerTransfers
     const totalTransfersResult = await db.select({
@@ -1792,14 +1800,18 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     
     const projectsWorked = Number(projectsWorkedResult[0]?.projectsCount) || 0;
     
-    // حساب إجمالي الأرباح (من جدول الحضور)
+    // حساب إجمالي الأرباح (من جدول الحضور) - فقط من الأيام الفعلية بدون السحب المقدم
     const totalEarningsResult = await db.select({
-      totalEarnings: sql`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`
+      totalEarnings: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.actualWage}, 0) AS DECIMAL)), 0)`
     })
     .from(workerAttendance)
-    .where(eq(workerAttendance.workerId, workerId));
+    .where(and(
+      eq(workerAttendance.workerId, workerId),
+      sql`(${workerAttendance.recordType} IS NULL OR ${workerAttendance.recordType} != 'advance')`
+    ));
     
     const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;
+    console.log(`💰 [API] إجمالي الأرباح: ${totalEarnings}`);
     
     // تجميع الإحصائيات
     const stats = {

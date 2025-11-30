@@ -1798,6 +1798,75 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
 });
 
 /**
+ * GET /api/daily-attendance-details - جلب تفاصيل سجلات الحضور اليومية
+ */
+financialRouter.get('/daily-attendance-details', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, date } = req.query;
+    
+    if (!projectId || !date) {
+      return res.status(400).json({
+        success: false,
+        message: 'projectId و date مطلوبان',
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    // جلب سجلات الحضور مع بيانات العمال
+    const attendanceRecords = await db
+      .select({
+        id: workerAttendance.id,
+        workerId: workerAttendance.workerId,
+        workerName: workers.name,
+        workDays: workerAttendance.workDays,
+        dailyWage: workers.dailyWage,
+        actualWage: workerAttendance.actualWage,
+        paidAmount: workerAttendance.paidAmount
+      })
+      .from(workerAttendance)
+      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+      .where(
+        and(
+          eq(workerAttendance.projectId, projectId as string),
+          eq(workerAttendance.date, date as string)
+        )
+      )
+      .orderBy(workers.name);
+
+    // حساب المتبقي لكل سجل
+    const detailedRecords = attendanceRecords.map(record => {
+      const actualWage = parseFloat(record.actualWage || '0');
+      const paidAmount = parseFloat(record.paidAmount || '0');
+      const remainingAmount = actualWage - paidAmount;
+      
+      return {
+        ...record,
+        actualWage: actualWage,
+        paidAmount: paidAmount,
+        remainingAmount: remainingAmount
+      };
+    });
+
+    res.json({
+      success: true,
+      data: detailedRecords,
+      message: `تم جلب ${detailedRecords.length} سجل حضور`,
+      processingTime: Date.now() - startTime
+    });
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [DailyAttendance] خطأ في جلب السجلات:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في جلب سجلات الحضور',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
  * GET /api/worker-statement-excel - جلب بيان العامل
  */
 financialRouter.get('/worker-statement-excel', async (req: Request, res: Response) => {

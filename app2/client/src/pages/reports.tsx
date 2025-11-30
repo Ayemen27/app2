@@ -101,6 +101,7 @@ export default function Reports() {
         return {
           date: selectedDate,
           workerWages: 0,
+          workDays: 0,
           materialCosts: 0,
           transportation: 0,
           miscExpenses: 0,
@@ -117,11 +118,31 @@ export default function Reports() {
         return {
           date: selectedDate,
           workerWages: 0,
+          workDays: 0,
           materialCosts: 0,
           transportation: 0,
           miscExpenses: 0,
           total: 0,
         };
+      }
+    },
+    enabled: !!selectedProjectId,
+  });
+
+  // جلب تفاصيل سجلات الحضور اليومية
+  const { data: attendanceDetails = [], isLoading: attendanceLoading } = useQuery({
+    queryKey: ["/api/daily-attendance-details", selectedProjectId, selectedDate],
+    queryFn: async () => {
+      if (!selectedProjectId) return [];
+      try {
+        const response = await apiRequest(
+          `/api/daily-attendance-details?projectId=${selectedProjectId}&date=${selectedDate}`,
+          "GET"
+        );
+        return (response?.data || []) as any[];
+      } catch (error) {
+        console.error("❌ خطأ في جلب تفاصيل الحضور:", error);
+        return [];
       }
     },
     enabled: !!selectedProjectId,
@@ -477,6 +498,45 @@ export default function Reports() {
                     </CardContent>
                   </Card>
                 ) : null}
+
+                {/* جدول تسجيل الحضور */}
+                {attendanceDetails && attendanceDetails.length > 0 && (
+                  <Card className="border-gray-300 shadow-md">
+                    <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100 border-b border-gray-200">
+                      <CardTitle className="text-lg text-gray-900">تفاصيل تسجيل الحضور</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gradient-to-r from-gray-800 to-gray-900 text-white">
+                              <th className="px-4 py-3 text-right font-semibold">اسم العامل</th>
+                              <th className="px-4 py-3 text-right font-semibold">أيام العمل</th>
+                              <th className="px-4 py-3 text-right font-semibold">الأجر اليومي</th>
+                              <th className="px-4 py-3 text-right font-semibold">الأجر المستحق</th>
+                              <th className="px-4 py-3 text-right font-semibold">المدفوع</th>
+                              <th className="px-4 py-3 text-right font-semibold">المتبقي</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {attendanceDetails.map((record: any, idx: number) => (
+                              <tr key={idx} className="border-t border-gray-200 hover:bg-purple-50 transition-colors">
+                                <td className="px-4 py-3 font-medium text-gray-900">{record.workerName || 'غير محدد'}</td>
+                                <td className="px-4 py-3 text-gray-900">{parseFloat(record.workDays || '0').toFixed(2)}</td>
+                                <td className="px-4 py-3 text-gray-900">{formatCurrency((parseFloat(record.dailyWage || '0')).toString())}</td>
+                                <td className="px-4 py-3 font-medium text-blue-600">{formatCurrency((record.actualWage || 0).toString())}</td>
+                                <td className="px-4 py-3 font-medium text-green-600">{formatCurrency((record.paidAmount || 0).toString())}</td>
+                                <td className={`px-4 py-3 font-medium ${record.remainingAmount > 0 ? 'text-orange-600' : 'text-gray-500'}`}>
+                                  {formatCurrency((record.remainingAmount || 0).toString())}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               {/* تبويب بيان العامل */}

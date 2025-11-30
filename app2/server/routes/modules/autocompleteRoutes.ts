@@ -382,4 +382,80 @@ console.log('   GET /api/autocomplete/notes (من DB)');
 console.log('   GET /api/autocomplete/projectNames (من DB)');
 console.log('   GET /api/autocomplete-admin/stats (إحصائيات من DB)');
 
+
+/**
+ * GET /api/autocomplete/operatorNames - أسماء المشغلين
+ */
+autocompleteRouter.get('/operatorNames', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const data = await db
+      .select()
+      .from(autocompleteData)
+      .where(eq(autocompleteData.category, 'operatorNames'))
+      .orderBy(desc(autocompleteData.usageCount));
+    
+    res.json({
+      success: true,
+      data: data.map(d => d.value),
+      message: 'تم جلب أسماء المشغلين بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب أسماء المشغلين'
+    });
+  }
+});
+
+/**
+ * GET /api/autocomplete/equipmentTypes - أنواع الآليات
+ */
+autocompleteRouter.get('/equipmentTypes', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const data = await db
+      .select()
+      .from(autocompleteData)
+      .where(eq(autocompleteData.category, 'equipmentTypes'))
+      .orderBy(desc(autocompleteData.usageCount));
+    
+    res.json({
+      success: true,
+      data: data.map(d => d.value),
+      message: 'تم جلب أنواع الآليات بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب أنواع الآليات'
+    });
+  }
+});
+
+/**
+ * GET /api/autocomplete/materialTypes - أنواع المواد
+ */
+autocompleteRouter.get('/materialTypes', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const data = await db
+      .select()
+      .from(autocompleteData)
+      .where(eq(autocompleteData.category, 'materialTypes'))
+      .orderBy(desc(autocompleteData.usageCount));
+    
+    res.json({
+      success: true,
+      data: data.map(d => d.value),
+      message: 'تم جلب أنواع المواد بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب أنواع المواد'
+    });
+  }
+});
+
 export default autocompleteRouter;

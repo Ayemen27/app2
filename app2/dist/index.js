@@ -10958,17 +10958,19 @@ financialRouter.get("/worker-transfers-by-period", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
-    const conditions = [
+    let transfers = await db.select().from(workerTransfers).where(and8(
       eq9(workerTransfers.projectId, projectId),
       eq9(workerTransfers.workerId, workerId)
-    ];
-    if (dateFrom) {
-      conditions.push(gte6(workerTransfers.transferDate, dateFrom));
+    )).orderBy(desc5(workerTransfers.transferDate));
+    console.log(`\u{1F4CC} [Transfers] \u0639\u062F\u062F \u0627\u0644\u062D\u0648\u0627\u0644\u0627\u062A \u0627\u0644\u0643\u0627\u0645\u0644\u0629: ${transfers.length}`);
+    if (dateFrom && dateFrom !== "") {
+      transfers = transfers.filter((t) => t.transferDate >= dateFrom);
+      console.log(`\u{1F4CC} [Transfers] \u0628\u0639\u062F dateFrom: ${transfers.length}`);
     }
-    if (dateTo) {
-      conditions.push(lte3(workerTransfers.transferDate, dateTo));
+    if (dateTo && dateTo !== "") {
+      transfers = transfers.filter((t) => t.transferDate <= dateTo);
+      console.log(`\u{1F4CC} [Transfers] \u0628\u0639\u062F dateTo: ${transfers.length}`);
     }
-    const transfers = await db.select().from(workerTransfers).where(and8(...conditions)).orderBy(desc5(workerTransfers.transferDate));
     const totalTransfers = transfers.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
     res.json({
       success: true,

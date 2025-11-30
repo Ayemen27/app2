@@ -569,23 +569,21 @@ export default function WorkerAttendance() {
     saveAttendanceMutation.mutate(attendanceRecords);
   };
 
-  // حساب إحصائيات الحضور
-  const presentWorkers = Object.values(attendanceData).filter(a => a.isPresent).length;
-  const totalWorkDays = Object.values(attendanceData)
-    .filter(a => a.isPresent)
-    .reduce((sum, a) => sum + parseFloat(a.workDays || '0'), 0);
+  // حساب إحصائيات الحضور من البيانات المجلوبة للتاريخ المختار
+  const todayRecords = Array.isArray(todayAttendance) ? todayAttendance : [];
+  
+  const presentWorkers = todayRecords.length;
+  const totalWorkDays = todayRecords
+    .reduce((sum, record) => sum + parseFloat(record.workDays || '0'), 0);
   
   let totalEarned = 0;
   let totalPaid = 0;
-  Object.entries(attendanceData).forEach(([workerId, data]) => {
-    if (data.isPresent) {
-      const worker = workers.find(w => w.id === workerId);
-      if (worker) {
-        const earned = parseFloat(worker.dailyWage || '0') * parseFloat(data.workDays || '0');
-        totalEarned += earned;
-        totalPaid += parseFloat(data.paidAmount || '0');
-      }
-    }
+  
+  todayRecords.forEach(record => {
+    const earned = parseFloat(record.actualWage || '0');
+    const paid = parseFloat(record.paidAmount || '0');
+    totalEarned += earned;
+    totalPaid += paid;
   });
     
   const totalRemaining = totalEarned - totalPaid;

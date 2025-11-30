@@ -3276,10 +3276,10 @@ if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
 var JWT_CONFIG = {
   accessTokenSecret: process.env.JWT_ACCESS_SECRET,
   refreshTokenSecret: process.env.JWT_REFRESH_SECRET,
-  accessTokenExpiry: "15m",
-  // 15 دقيقة
-  refreshTokenExpiry: "30d",
-  // 30 يوم
+  accessTokenExpiry: "24h",
+  // 24 ساعة - تم تزويدها من 15 دقيقة
+  refreshTokenExpiry: "90d",
+  // 90 يوم - تم تزويدها من 30 يوم
   issuer: "construction-management-app",
   algorithm: "HS256"
 };
@@ -3287,8 +3287,8 @@ async function generateTokenPair(userId, email, role, ipAddress, userAgent, devi
   const sessionId = crypto2.randomUUID();
   const deviceId = deviceInfo?.deviceId || crypto2.randomUUID();
   const now = /* @__PURE__ */ new Date();
-  const expiresAt = new Date(now.getTime() + 15 * 60 * 1e3);
-  const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1e3);
+  const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1e3);
   const accessPayload = { userId, email, role, sessionId, type: "access" };
   const refreshPayload = { userId, email, sessionId, type: "refresh" };
   const accessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
@@ -3360,8 +3360,8 @@ async function refreshAccessTokenDev(refreshToken) {
     const user = userWithSession[0].user;
     const session = userWithSession[0].session;
     const now = /* @__PURE__ */ new Date();
-    const expiresAt = new Date(now.getTime() + 15 * 60 * 1e3);
-    const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1e3);
+    const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1e3);
     const accessPayload = { userId: payload.userId, email: user.email, role: user.role, sessionId: payload.sessionId, type: "access" };
     const refreshPayload = { userId: payload.userId, email: user.email, sessionId: payload.sessionId, type: "refresh" };
     const newAccessToken = jwt.sign(accessPayload, JWT_CONFIG.accessTokenSecret, {
@@ -3417,8 +3417,8 @@ async function refreshAccessTokenProd(refreshToken) {
       return null;
     }
     const now = /* @__PURE__ */ new Date();
-    const expiresAt = new Date(now.getTime() + 15 * 60 * 1e3);
-    const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1e3);
+    const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1e3);
     const newSessionId = crypto2.randomUUID();
     const accessPayload = { userId: payload.userId, email: user[0].email, role: user[0].role, sessionId: newSessionId, type: "access" };
     const refreshPayload = { userId: payload.userId, email: user[0].email, sessionId: newSessionId, type: "refresh" };
@@ -11064,7 +11064,41 @@ autocompleteRouter.get("/admin/stats", async (req, res) => {
     });
   }
 });
+autocompleteRouter.get("/admin-stats", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        totalEntries: 0,
+        categoriesCount: 0,
+        lastUpdated: /* @__PURE__ */ new Date()
+      },
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A"
+    });
+  }
+});
 autocompleteRouter.post("/admin/maintenance", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: { cleaned: 0, optimized: true },
+      message: "\u062A\u0645\u062A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A"
+    });
+  }
+});
+autocompleteRouter.post("/admin-cleanup", async (req, res) => {
   try {
     res.json({
       success: true,
@@ -11087,7 +11121,9 @@ console.log("   POST /api/autocomplete (\u0639\u0627\u0645)");
 console.log("   GET /api/autocomplete/projectNames (\u0639\u0627\u0645)");
 console.log("   GET /api/autocomplete/transferTypes (\u0639\u0627\u0645)");
 console.log("   GET /api/autocomplete/admin/stats (\u0639\u0627\u0645)");
+console.log("   GET /api/autocomplete/admin-stats (\u0639\u0627\u0645)");
 console.log("   POST /api/autocomplete/admin/maintenance (\u0639\u0627\u0645)");
+console.log("   POST /api/autocomplete/admin-cleanup (\u0639\u0627\u0645)");
 var autocompleteRoutes_default = autocompleteRouter;
 
 // server/routes/modules/notificationRoutes.ts

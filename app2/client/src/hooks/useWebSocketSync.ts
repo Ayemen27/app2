@@ -1,79 +1,77 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { io, Socket } from 'socket.io-client';
 
 export function useWebSocketSync() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    // WebSocket enabled with proper error handling
-    const isProduction = window.location.hostname.includes('binarjoinanelytic.info');
-    console.log(`ℹ️ [WebSocket] WebSocket محسّن - الإنتاج: ${isProduction}`);
-
-    const connectWebSocket = () => {
+    const connectSocket = () => {
       try {
-        // ✅ Use proper WebSocket endpoint with Socket.IO-like protocol
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
+        console.log('🔌 [Socket.IO] محاولة الاتصال...');
         
-        // Socket.IO endpoint: /socket.io/?transport=websocket
-        const wsUrl = `${protocol}//${host}/socket.io/?transport=websocket&EIO=4&transport=websocket`;
-        
-        console.log('🔌 [WebSocket] محاولة الاتصال بـ:', wsUrl);
+        // Socket.IO سيتعامل مع كل شيء تلقائياً
+        const socket = io({
+          // ترك الـ URL فارغ = استخدام نفس الـ origin الحالي
+          reconnection: true,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          reconnectionAttempts: 10,
+          transports: ['websocket', 'polling'],
+          // إذا كنا في development على localhost
+          ...(window.location.hostname === 'localhost' && {
+            // لا نحتاج إلى أي تخصيص - Socket.IO يعرف أنه localhost
+          }),
+        });
 
-        // Use native WebSocket with proper error handling
-        const ws = new WebSocket(wsUrl);
+        socketRef.current = socket;
 
-        ws.onopen = () => {
-          console.log('🔌 [WebSocket] تم الاتصال بنجاح');
-        };
+        socket.on('connect', () => {
+          console.log('✅ [Socket.IO] تم الاتصال بنجاح!', socket.id);
+        });
 
-        ws.onmessage = (event) => {
+        socket.on('disconnect', (reason: string) => {
+          console.log('🔌 [Socket.IO] تم قطع الاتصال:', reason);
+        });
+
+        socket.on('error', (error: any) => {
+          console.error('❌ [Socket.IO] خطأ:', error);
+        });
+
+        socket.on('message', (message: any) => {
           try {
-            const message = JSON.parse(event.data);
-            console.log('📨 [WebSocket] رسالة مستلمة:', message);
+            console.log('📨 [Socket.IO] رسالة مستلمة:', message);
 
             // Handle different message types
             if (message.type === 'INVALIDATE') {
               const queryKey = [message.entity, message.id].filter(Boolean);
-              console.log('🔄 [WebSocket] تحديث الـ cache:', queryKey);
+              console.log('🔄 [Socket.IO] تحديث الـ cache:', queryKey);
               queryClient.invalidateQueries({ queryKey });
             } else if (message.type === 'UPDATE_ALL') {
-              // Invalidate all queries for an entity
               queryClient.invalidateQueries({ 
                 queryKey: [message.entity],
                 exact: false 
               });
             }
           } catch (error) {
-            console.error('❌ [WebSocket] خطأ في معالجة الرسالة:', error);
+            console.error('❌ [Socket.IO] خطأ في معالجة الرسالة:', error);
           }
-        };
+        });
 
-        ws.onerror = (error) => {
-          console.error('❌ [WebSocket] خطأ في الاتصال:', error);
-        };
-
-        ws.onclose = () => {
-          console.log('🔌 [WebSocket] تم قطع الاتصال - إعادة الاتصال خلال 3 ثوانٍ');
-          // Reconnect after 3 seconds
-          setTimeout(connectWebSocket, 3000);
-        };
-
-        return ws;
       } catch (error) {
-        console.error('❌ [WebSocket] خطأ في إنشاء الاتصال:', error);
-        // Retry after 5 seconds
-        setTimeout(connectWebSocket, 5000);
+        console.error('❌ [Socket.IO] خطأ في الاتصال:', error);
       }
     };
 
-    // Only connect WebSocket if we're not already connected
-    connectWebSocket();
+    connectSocket();
 
     return () => {
-      // Cleanup handled in ws.onclose
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
     };
   }, [queryClient, toast]);
 }

@@ -36,7 +36,7 @@ export function EquipmentManagement() {
     queryKeys: ['equipment'],
   });
 
-  const [searchTerm, setSearchValue] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");

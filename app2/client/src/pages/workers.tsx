@@ -7,8 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Edit2, Trash2, Users, Clock, DollarSign, Calendar, User, Activity } from 'lucide-react';
-import { StatsCard } from "@/components/ui/stats-card";
-import { UnifiedSearchFilter, STATUS_FILTER_OPTIONS, type FilterConfig } from '@/components/ui/unified-search-filter';
+import { FilterStatsBar, type FilterConfig, type MetricConfig } from "@/components/ui/filter-stats-bar";
+import { useFilterStats } from "@/hooks/use-filter-stats";
 import { apiRequest } from '@/lib/queryClient';
 import AddWorkerForm from '@/components/forms/add-worker-form';
 import { useFloatingButton } from '@/components/layout/floating-button-context';
@@ -197,12 +197,31 @@ const WorkerDialog = ({ worker, onClose, isOpen }: {
   );
 };
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'all', label: 'جميع الحالات' },
+  { value: 'active', label: 'نشط' },
+  { value: 'inactive', label: 'غير نشط' },
+];
+
 export default function WorkersPage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [editingWorker, setEditingWorker] = useState<Worker | undefined>();
   const [showDialog, setShowDialog] = useState(false);
+  
+  const {
+    searchValue: searchTerm,
+    filterValues,
+    setSearchValue: setSearchTerm,
+    setFilterValue,
+    resetAll,
+    refresh,
+    isRefreshing,
+  } = useFilterStats({
+    initialFilters: { status: 'all', type: 'all' },
+    queryKeys: ['/api/workers'],
+  });
+
+  const statusFilter = (filterValues.status || 'all') as 'all' | 'active' | 'inactive';
+  const typeFilter = filterValues.type || 'all';
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -476,51 +495,56 @@ export default function WorkersPage() {
   return (
     <div className="container mx-auto p-4 space-y-1">
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatsCard
-          title="إجمالي العمال"
-          value={stats.total}
-          icon={Users}
-          color="blue"
-        />
-        <StatsCard
-          title="العمال النشطون"
-          value={stats.active}
-          icon={Activity}
-          color="green"
-        />
-        <StatsCard
-          title="العمال غير النشطين"
-          value={stats.inactive}
-          icon={Clock}
-          color="orange"
-        />
-        <StatsCard
-          title="متوسط الأجر"
-          value={stats.avgWage}
-          icon={DollarSign}
-          color="purple"
-          formatter={(value: number) => formatCurrency(value)}
-        />
-      </div>
-
-      {/* Filters - مكون موحد */}
-      <UnifiedSearchFilter
+      {/* شريط البحث والفلترة والإحصائيات الموحد */}
+      <FilterStatsBar
+        title="إدارة العمال"
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         searchPlaceholder="ابحث عن عامل..."
         filters={filterConfigs}
         filterValues={{ status: statusFilter, type: typeFilter }}
-        onFilterChange={(key, value) => {
-          if (key === 'status') setStatusFilter(value as 'all' | 'active' | 'inactive');
-          if (key === 'type') setTypeFilter(value);
-        }}
-        onReset={() => {
-          setSearchTerm('');
-          setStatusFilter('all');
-          setTypeFilter('all');
-        }}
+        onFilterChange={setFilterValue}
+        onReset={resetAll}
+        onRefresh={refresh}
+        isRefreshing={isRefreshing}
+        metrics={[
+          {
+            key: 'total',
+            label: 'إجمالي العمال',
+            value: stats.total,
+            icon: Users,
+            color: 'blue',
+          },
+          {
+            key: 'active',
+            label: 'العمال النشطون',
+            value: stats.active,
+            icon: Activity,
+            color: 'green',
+          },
+          {
+            key: 'inactive',
+            label: 'العمال غير النشطين',
+            value: stats.inactive,
+            icon: Clock,
+            color: 'orange',
+          },
+          {
+            key: 'avgWage',
+            label: 'متوسط الأجر',
+            value: formatCurrency(stats.avgWage),
+            icon: DollarSign,
+            color: 'purple',
+          },
+        ]}
+        actions={[
+          {
+            key: 'add',
+            label: 'إضافة عامل',
+            icon: Users,
+            onClick: handleNewWorker,
+          },
+        ]}
       />
 
       {/* Workers Grid */}

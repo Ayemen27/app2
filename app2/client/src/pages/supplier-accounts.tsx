@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Building2, 
@@ -17,10 +17,11 @@ import {
   ShoppingCart,
   Receipt,
   Wallet,
-  Search
+  Search,
+  RefreshCw
 } from "lucide-react";
-import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
-import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
+import { FilterStatsBar, FilterConfig, MetricConfig } from "@/components/ui/filter-stats-bar";
+import { useFilterStats } from "@/hooks/use-filter-stats";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,13 +56,26 @@ interface SupplierAccountSummary {
 }
 
 export default function SupplierAccountsPage() {
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all");
-  const [searchTerm, setSearchTerm] = useState("");
   const { setFloatingAction } = useFloatingButton();
+
+  const {
+    searchValue: searchTerm,
+    filterValues,
+    setSearchValue: setSearchTerm,
+    setFilterValue,
+    resetAll,
+    refresh,
+    isRefreshing,
+  } = useFilterStats({
+    initialFilters: { project: 'all', paymentType: 'all' },
+    queryKeys: ['/api/suppliers', '/api/material-purchases'],
+  });
+
+  const selectedProjectId = filterValues.project || 'all';
+  const paymentTypeFilter = filterValues.paymentType || 'all';
 
   // إزالة الزر العائم
   useEffect(() => {
@@ -702,12 +716,10 @@ export default function SupplierAccountsPage() {
   };
 
   const resetFilters = () => {
-    setSelectedProjectId("all");
     setSelectedSupplierId("");
     setDateFrom("");
     setDateTo("");
-    setPaymentTypeFilter("all");
-    setSearchTerm("");
+    resetAll();
   };
 
   // تحديد التواريخ تلقائياً عند اختيار مورد
@@ -718,126 +730,143 @@ export default function SupplierAccountsPage() {
     }
   }, [selectedSupplierId, dateRange]);
 
+  const filterConfigs: FilterConfig[] = useMemo(() => [
+    {
+      key: 'supplier',
+      label: 'المورد',
+      placeholder: 'اختر المورد',
+      options: [
+        { value: '', label: 'اختر مورد...' },
+        ...filteredSuppliers.map(s => ({
+          value: s.id,
+          label: `${s.name}${parseFloat(s.totalDebt) > 0 ? ` - ${formatCurrency(s.totalDebt)}` : ''}`
+        }))
+      ],
+      defaultValue: '',
+    },
+    {
+      key: 'project',
+      label: 'المشروع',
+      placeholder: 'اختر المشروع',
+      options: [
+        { value: 'all', label: 'جميع المشاريع' },
+        ...projects.map(p => ({ value: p.id, label: p.name }))
+      ],
+      defaultValue: 'all',
+    },
+    {
+      key: 'paymentType',
+      label: 'نوع الدفع',
+      placeholder: 'اختر نوع الدفع',
+      options: [
+        { value: 'all', label: 'جميع الأنواع' },
+        { value: 'نقد', label: 'نقد' },
+        { value: 'أجل', label: 'أجل' }
+      ],
+      defaultValue: 'all',
+    }
+  ], [filteredSuppliers, projects, formatCurrency]);
+
+  const baseMetrics: MetricConfig[] = [
+    {
+      key: 'totalSuppliers',
+      label: 'إجمالي الموردين',
+      value: overallStats.totalSuppliers.toLocaleString('en-US'),
+      icon: Users,
+      color: 'blue',
+    },
+    {
+      key: 'cashPurchases',
+      label: 'المشتريات النقدية',
+      value: formatCurrency(overallStats.totalCashPurchases),
+      icon: Wallet,
+      color: 'green',
+    },
+    {
+      key: 'creditPurchases',
+      label: 'المشتريات الآجلة',
+      value: formatCurrency(overallStats.totalCreditPurchases),
+      icon: CreditCard,
+      color: 'orange',
+    },
+    {
+      key: 'activeSuppliers',
+      label: 'الموردين النشطين',
+      value: overallStats.activeSuppliers.toLocaleString('en-US'),
+      icon: Building2,
+      color: 'purple',
+    },
+  ];
+
+  const supplierMetrics: MetricConfig[] = selectedSupplierId ? [
+    {
+      key: 'supplierTotal',
+      label: 'مشتريات المورد',
+      value: formatCurrency(totals.totalAmount),
+      icon: ShoppingCart,
+      color: 'indigo',
+    },
+    {
+      key: 'supplierPaid',
+      label: 'المدفوع للمورد',
+      value: formatCurrency(totals.paidAmount),
+      icon: TrendingUp,
+      color: 'emerald',
+    },
+    {
+      key: 'supplierRemaining',
+      label: 'المتبقي على المورد',
+      value: formatCurrency(totals.remainingAmount),
+      icon: TrendingDown,
+      color: 'red',
+    },
+    {
+      key: 'supplierInvoices',
+      label: 'فواتير المورد',
+      value: purchases.length.toLocaleString('en-US'),
+      icon: Receipt,
+      color: 'amber',
+    },
+  ] : [];
+
+  const allMetrics = [...baseMetrics, ...supplierMetrics];
+
   return (
     <div className="container mx-auto p-6 space-y-1" dir="rtl">
 
-      {/* الإحصائيات الشاملة - منطقة واحدة للجميع */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
-        {/* الإحصائيات العامة */}
-        <StatsCard
-          title="إجمالي الموردين"
-          value={overallStats.totalSuppliers.toLocaleString('en-US')}
-          icon={Users}
-          color="blue"
-        />
-        <StatsCard
-          title="المشتريات النقدية"
-          value={formatCurrency(overallStats.totalCashPurchases)}
-          icon={Wallet}
-          color="green"
-        />
-        <StatsCard
-          title="المشتريات الآجلة"
-          value={formatCurrency(overallStats.totalCreditPurchases)}
-          icon={CreditCard}
-          color="orange"
-        />
-        <StatsCard
-          title="الموردين النشطين"
-          value={overallStats.activeSuppliers.toLocaleString('en-US')}
-          icon={Building2}
-          color="purple"
-        />
-        
-        {/* الإحصائيات الخاصة بالمورد المحدد */}
-        {selectedSupplierId && (
-          <>
-            <StatsCard
-              title="مشتريات المورد (إجمالي)"
-              value={formatCurrency(totals.totalAmount)}
-              icon={ShoppingCart}
-              color="indigo"
-            />
-            <StatsCard
-              title="المدفوع للمورد"
-              value={formatCurrency(totals.paidAmount)}
-              icon={TrendingUp}
-              color="emerald"
-            />
-            <StatsCard
-              title="المتبقي على المورد"
-              value={formatCurrency(totals.remainingAmount)}
-              icon={TrendingDown}
-              color="red"
-            />
-            <StatsCard
-              title="فواتير المورد"
-              value={purchases.length.toLocaleString('en-US')}
-              icon={Receipt}
-              color="amber"
-            />
-          </>
-        )}
-      </div>
-
-      {/* فلاتر البحث الموحدة */}
-      <div className="mb-6">
-        <UnifiedSearchFilter
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          searchPlaceholder="ابحث عن مورد..."
-          filters={[
-            {
-              key: 'supplier',
-              label: 'المورد',
-              options: filteredSuppliers.map(s => ({
-                value: s.id,
-                label: `${s.name}${parseFloat(s.totalDebt) > 0 ? ` - ${formatCurrency(s.totalDebt)}` : ''}`
-              }))
-            },
-            {
-              key: 'project',
-              label: 'المشروع',
-              options: [
-                { value: 'all', label: 'جميع المشاريع' },
-                ...projects.map(p => ({ value: p.id, label: p.name }))
-              ]
-            },
-            {
-              key: 'paymentType',
-              label: 'نوع الدفع',
-              options: [
-                { value: 'all', label: 'جميع الأنواع' },
-                { value: 'نقد', label: 'نقد' },
-                { value: 'أجل', label: 'أجل' }
-              ]
-            }
-          ]}
-          filterValues={{
-            supplier: selectedSupplierId,
-            project: selectedProjectId,
-            paymentType: paymentTypeFilter
-          }}
-          onFilterChange={(key, value) => {
-            switch(key) {
-              case 'supplier': setSelectedSupplierId(value); break;
-              case 'project': setSelectedProjectId(value); break;
-              case 'paymentType': setPaymentTypeFilter(value); break;
-            }
-          }}
-          onReset={resetFilters}
-        />
-        <div className="mt-3">
-          <Button
-            onClick={exportToExcel}
-            disabled={!selectedSupplierId || purchases.length === 0}
-            className="w-full md:w-auto"
-          >
-            <Download className="w-4 h-4 ml-2" />
-            تصدير التقرير
-          </Button>
-        </div>
-      </div>
+      {/* شريط البحث والفلترة والإحصائيات الموحد */}
+      <FilterStatsBar
+        title="حسابات الموردين"
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="ابحث عن مورد..."
+        filters={filterConfigs}
+        filterValues={{
+          supplier: selectedSupplierId,
+          project: selectedProjectId,
+          paymentType: paymentTypeFilter
+        }}
+        onFilterChange={(key, value) => {
+          if (key === 'supplier') {
+            setSelectedSupplierId(value);
+          } else {
+            setFilterValue(key, value);
+          }
+        }}
+        onReset={resetFilters}
+        onRefresh={refresh}
+        isRefreshing={isRefreshing}
+        metrics={allMetrics}
+        actions={[
+          {
+            key: 'export',
+            label: 'تصدير التقرير',
+            icon: Download,
+            onClick: exportToExcel,
+            disabled: !selectedSupplierId || purchases.length === 0,
+          },
+        ]}
+      />
 
       {/* معلومات المورد المحدد - مضغوطة */}
       {selectedSupplier && (

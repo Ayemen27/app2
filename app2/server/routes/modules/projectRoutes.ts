@@ -719,8 +719,9 @@ projectRouter.get('/:projectId/worker-attendance', async (req: Request, res: Res
   const startTime = Date.now();
   try {
     const { projectId } = req.params;
+    const { date } = req.query;
 
-    console.log(`📊 [API] جلب حضور العمال للمشروع: ${projectId}`);
+    console.log(`📊 [API] جلب حضور العمال للمشروع: ${projectId}${date ? ` للتاريخ: ${date}` : ''}`);
 
     if (!projectId) {
       return res.status(400).json({
@@ -728,6 +729,13 @@ projectRouter.get('/:projectId/worker-attendance', async (req: Request, res: Res
         error: 'معرف المشروع مطلوب',
         processingTime: Date.now() - startTime
       });
+    }
+
+    // بناء شروط الـ WHERE
+    const conditions = [eq(workerAttendance.projectId, projectId)];
+    if (date && date !== '') {
+      conditions.push(eq(workerAttendance.date, date as string));
+      console.log(`🔍 [API] تطبيق فلترة التاريخ: ${date}`);
     }
 
     const attendance = await db.select({
@@ -745,7 +753,7 @@ projectRouter.get('/:projectId/worker-attendance', async (req: Request, res: Res
     })
     .from(workerAttendance)
     .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
-    .where(eq(workerAttendance.projectId, projectId))
+    .where(and(...conditions))
     .orderBy(workerAttendance.date);
 
     const duration = Date.now() - startTime;

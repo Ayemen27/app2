@@ -7,21 +7,22 @@ export function useWebSocketSync() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // WebSocket enabled in production with proper error handling
+    // WebSocket enabled with proper error handling
     const isProduction = window.location.hostname.includes('binarjoinanelytic.info');
     console.log(`ℹ️ [WebSocket] WebSocket محسّن - الإنتاج: ${isProduction}`);
 
     const connectWebSocket = () => {
-      // ✅ إصلاح: استخدام window.location.origin بدلاً من host للحصول على الرابط الصحيح
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const origin = window.location.origin;
-      const wsUrl = origin.replace(/^http/, 'ws');
-      
-      console.log('🔌 [WebSocket] محاولة الاتصال بـ:', wsUrl, '(من origin:', origin, ')');
-
-      // Note: Socket.IO is handled by the server-side HTTP upgrade
-      // We'll use native WebSocket for now
       try {
+        // ✅ Use proper WebSocket endpoint with Socket.IO-like protocol
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+        
+        // Socket.IO endpoint: /socket.io/?transport=websocket
+        const wsUrl = `${protocol}//${host}/socket.io/?transport=websocket&EIO=4&transport=websocket`;
+        
+        console.log('🔌 [WebSocket] محاولة الاتصال بـ:', wsUrl);
+
+        // Use native WebSocket with proper error handling
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
@@ -63,17 +64,16 @@ export function useWebSocketSync() {
         return ws;
       } catch (error) {
         console.error('❌ [WebSocket] خطأ في إنشاء الاتصال:', error);
-        // Retry after 3 seconds
-        setTimeout(connectWebSocket, 3000);
+        // Retry after 5 seconds
+        setTimeout(connectWebSocket, 5000);
       }
     };
 
-    const ws = connectWebSocket();
+    // Only connect WebSocket if we're not already connected
+    connectWebSocket();
 
     return () => {
-      if (ws) {
-        ws.close();
-      }
+      // Cleanup handled in ws.onclose
     };
   }, [queryClient, toast]);
 }

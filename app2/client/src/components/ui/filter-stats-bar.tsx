@@ -166,30 +166,33 @@ function MetricCard({ metric }: { metric: MetricConfig }) {
 
   return (
     <div className={cn(
-      'flex items-center gap-2 px-3 py-2 rounded-lg border transition-all',
+      'relative flex flex-col gap-2 px-3 py-3 rounded-lg border transition-all',
       colors.bg,
       colors.border,
       'hover:shadow-sm'
     )}>
-      <div className={cn('p-1.5 rounded-lg', colors.bg)}>
-        <Icon className={cn('h-4 w-4', colors.icon)} />
+      {/* الأيقونة الصغيرة في الزاوية العلوية */}
+      <div className={cn('absolute top-1.5 right-1.5 p-0.5 rounded', colors.bg)}>
+        <Icon className={cn('h-3 w-3', colors.icon)} />
       </div>
-      <div className="flex flex-col min-w-0">
-        <span className="text-xs text-muted-foreground truncate">{metric.label}</span>
-        <div className="flex items-center gap-1.5">
-          <span className={cn('text-sm font-bold arabic-numbers', colors.text)}>
-            {cleanValue(metric.value)}
+      
+      {/* العنوان */}
+      <span className="text-xs text-muted-foreground line-clamp-2 pr-5">{metric.label}</span>
+      
+      {/* المبلغ أو العدد في الأسفل */}
+      <div className="flex items-center gap-1">
+        <span className={cn('text-base font-bold arabic-numbers', colors.text)}>
+          {cleanValue(metric.value)}
+        </span>
+        {metric.trend && (
+          <span className={cn(
+            'text-xs flex items-center gap-0.5',
+            metric.trend.isPositive ? 'text-green-500' : 'text-red-500'
+          )}>
+            {metric.trend.isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            {metric.trend.value}%
           </span>
-          {metric.trend && (
-            <span className={cn(
-              'text-xs flex items-center gap-0.5',
-              metric.trend.isPositive ? 'text-green-500' : 'text-red-500'
-            )}>
-              {metric.trend.isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {metric.trend.value}%
-            </span>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

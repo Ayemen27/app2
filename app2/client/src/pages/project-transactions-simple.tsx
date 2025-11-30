@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -41,21 +42,7 @@ export default function ProjectTransactionsSimple() {
       if (!selectedProject) return [];
       try {
         console.log(`🔄 جلب تحويلات العهدة للمشروع: ${selectedProject}`);
-        const response = await fetch(`/api/projects/${selectedProject}/fund-transfers`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-            'Content-Type': 'application/json',
-          }
-        });
-        if (!response.ok) {
-          if (response.status === 401) {
-            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
-            return [];
-          }
-          console.error(`❌ خطأ في جلب تحويلات العهدة: ${response.status}`);
-          return [];
-        }
-        const data = await response.json();
+        const data = await apiRequest(`/api/projects/${selectedProject}/fund-transfers`);
         console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} تحويل عهدة`);
         return Array.isArray(data?.data) ? data.data : [];
       } catch (error) {

@@ -133,21 +133,14 @@ export default function SupplierAccountsPage() {
       
       console.log('🔍 طلب مشتريات المورد:', { selectedSupplierId, selectedProjectId, dateFrom, dateTo, paymentTypeFilter });
       
-      const response = await fetch(`/api/material-purchases?${params.toString()}`);
-      if (!response.ok) {
-        console.error('خطأ في جلب المشتريات:', response.status, response.statusText);
+      try {
+        const allPurchases = await apiRequest(`/api/material-purchases?${params.toString()}`);
+        const data = allPurchases.data || allPurchases || [];
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('خطأ في جلب المشتريات:', error);
         return [];
       }
-      const allPurchases = await response.json();
-      
-      console.log('📊 تم جلب المشتريات:', allPurchases.length);
-      
-      // إضافة الحقول المفقودة للتوافق مع النوع MaterialPurchase
-      return allPurchases.map((purchase: any) => ({
-        ...purchase,
-        paidAmount: purchase.paidAmount || "0",
-        remainingAmount: purchase.remainingAmount || "0"
-      }));
     },
     enabled: !!selectedSupplierId,
     refetchOnWindowFocus: false,
@@ -166,9 +159,19 @@ export default function SupplierAccountsPage() {
   }>({
     queryKey: ["/api/suppliers/statistics"],
     queryFn: async () => {
-      const response = await fetch('/api/suppliers/statistics');
-      if (!response.ok) {
-        console.error('خطأ في جلب الإحصائيات العامة:', response.status, response.statusText);
+      try {
+        const result = await apiRequest('/api/suppliers/statistics');
+        return result.data || result || {
+          totalSuppliers: 0,
+          totalCashPurchases: "0",
+          totalCreditPurchases: "0",
+          totalDebt: "0",
+          totalPaid: "0",
+          remainingDebt: "0",
+          activeSuppliers: 0
+        };
+      } catch (error) {
+        console.error('خطأ في جلب الإحصائيات العامة:', error);
         return {
           totalSuppliers: 0,
           totalCashPurchases: "0",
@@ -179,7 +182,6 @@ export default function SupplierAccountsPage() {
           activeSuppliers: 0
         };
       }
-      return await response.json();
     },
     refetchOnWindowFocus: false,
     staleTime: 60000 // 1 minute
@@ -206,9 +208,19 @@ export default function SupplierAccountsPage() {
       
       console.log('🔄 إرسال طلب إحصائيات مفلترة:', Object.fromEntries(params));
       
-      const response = await fetch(`/api/suppliers/statistics?${params.toString()}`);
-      if (!response.ok) {
-        console.error('خطأ في جلب إحصائيات الموردين المفلترة:', response.status, response.statusText);
+      try {
+        const result = await apiRequest(`/api/suppliers/statistics?${params.toString()}`);
+        return result.data || result || {
+          totalSuppliers: 0,
+          totalCashPurchases: "0",
+          totalCreditPurchases: "0",
+          totalDebt: "0",
+          totalPaid: "0",
+          remainingDebt: "0",
+          activeSuppliers: 0
+        };
+      } catch (error) {
+        console.error('خطأ في جلب إحصائيات الموردين المفلترة:', error);
         return {
           totalSuppliers: 0,
           totalCashPurchases: "0",
@@ -219,7 +231,6 @@ export default function SupplierAccountsPage() {
           activeSuppliers: 0
         };
       }
-      return await response.json();
     },
     refetchOnWindowFocus: false,
     staleTime: 30000, // 30 seconds

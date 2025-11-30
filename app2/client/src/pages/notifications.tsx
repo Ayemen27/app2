@@ -1,3 +1,4 @@
+import { apiRequest } from '@/lib/queryClient';
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -266,17 +267,12 @@ export default function NotificationsPage() {
   const { data: notificationsData, isLoading, refetch } = useQuery({
     queryKey: ['/api/notifications', userId],
     queryFn: async () => {
-      const response = await fetch(`/api/notifications?userId=${userId}&limit=100`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-        },
-      });
-      if (!response.ok) throw new Error('Failed to fetch notifications');
-      return response.json() as Promise<{
-        notifications: Notification[];
-        unreadCount: number;
-        total: number;
-      }>;
+      try {
+        const result = await apiRequest(`/api/notifications?userId=${userId}&limit=100`);
+        return result.data || result || { notifications: [], unreadCount: 0, total: 0 };
+      } catch (error) {
+        return { notifications: [], unreadCount: 0, total: 0 };
+      }
     },
     refetchInterval: 30000,
     enabled: !!user,
@@ -338,15 +334,7 @@ export default function NotificationsPage() {
 
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
-      const response = await fetch(`/api/notifications/${notificationId}/mark-read`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-        },
-      });
-      if (!response.ok) throw new Error('Failed to mark notification as read');
-      return response.json();
+      return await apiRequest(`/api/notifications/${notificationId}/mark-read`, 'POST');
     },
     onMutate: async (notificationId: string) => {
       await queryClient.cancelQueries({ queryKey: ['/api/notifications', userId] });
@@ -375,15 +363,7 @@ export default function NotificationsPage() {
 
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/notifications/mark-all-read', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-        },
-      });
-      if (!response.ok) throw new Error('Failed to mark all as read');
-      return response.json();
+      return await apiRequest('/api/notifications/mark-all-read', 'POST');
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['/api/notifications', userId] });

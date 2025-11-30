@@ -65,9 +65,12 @@ export function EquipmentManagement() {
         params.append('projectId', '');
       }
       
-      const response = await fetch(`/api/equipment?${params}`);
-      if (!response.ok) throw new Error('فشل في جلب المعدات');
-      return response.json();
+      try {
+        const result = await apiRequest(`/api/equipment?${params}`);
+        return result.data || result || [];
+      } catch (error) {
+        throw new Error('فشل في جلب المعدات');
+      }
     },
     // تحسين أداء فائق مع Cache محلي
     staleTime: 30 * 60 * 1000, // البيانات طازجة لـ 30 دقيقة!

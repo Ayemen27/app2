@@ -10888,7 +10888,7 @@ financialRouter.get("/daily-expenses-excel", async (req, res) => {
 financialRouter.get("/worker-statement-excel", async (req, res) => {
   const startTime = Date.now();
   try {
-    const { projectId, workerId } = req.query;
+    const { projectId, workerId, dateFrom, dateTo } = req.query;
     if (!projectId || !workerId) {
       return res.status(400).json({
         success: false,
@@ -10896,12 +10896,69 @@ financialRouter.get("/worker-statement-excel", async (req, res) => {
         processingTime: Date.now() - startTime
       });
     }
+    const workerData = await db.select().from(workers).where(eq9(workers.id, workerId)).limit(1);
+    if (workerData.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          worker: { id: workerId, name: "", type: "", dailyWage: 0 },
+          attendance: [],
+          summary: { totalWorkDays: 0, totalEarned: 0, totalPaid: 0, remainingBalance: 0 }
+        },
+        message: "\u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const worker = workerData[0];
+    const conditions = [
+      eq9(workerAttendance.projectId, projectId),
+      eq9(workerAttendance.workerId, workerId)
+    ];
+    if (dateFrom) {
+      conditions.push(gte6(workerAttendance.date, dateFrom));
+    }
+    if (dateTo) {
+      conditions.push(lte3(workerAttendance.date, dateTo));
+    }
+    const attendanceRecords = await db.select().from(workerAttendance).where(and8(...conditions)).orderBy(desc5(workerAttendance.date));
+    let totalWorkDays = 0;
+    let totalEarned = 0;
+    let totalPaid = 0;
+    const attendanceData = attendanceRecords.map((record) => {
+      const workDays = parseFloat(record.workDays || "0");
+      const dailyWage = parseFloat(worker.dailyWage || "0");
+      const actualWage = workDays * dailyWage;
+      const paidAmount = parseFloat(record.paidAmount || "0");
+      const remainingAmount = actualWage - paidAmount;
+      totalWorkDays += workDays;
+      totalEarned += actualWage;
+      totalPaid += paidAmount;
+      return {
+        date: record.date,
+        workDays,
+        dailyWage,
+        actualWage: actualWage.toFixed(2),
+        paidAmount: paidAmount.toFixed(2),
+        remainingAmount: remainingAmount.toFixed(2),
+        workDescription: record.workDescription || ""
+      };
+    });
     res.json({
       success: true,
       data: {
-        worker: { id: workerId, name: "", type: "", dailyWage: 0 },
-        attendance: [],
-        summary: { totalWorkDays: 0, totalEarned: 0, totalPaid: 0, remainingBalance: 0 }
+        worker: {
+          id: worker.id,
+          name: worker.name,
+          type: worker.type || "",
+          dailyWage: parseFloat(worker.dailyWage || "0")
+        },
+        attendance: attendanceData,
+        summary: {
+          totalWorkDays: totalWorkDays.toFixed(2),
+          totalEarned: totalEarned.toFixed(2),
+          totalPaid: totalPaid.toFixed(2),
+          remainingBalance: (totalEarned - totalPaid).toFixed(2)
+        }
       },
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D",
       processingTime: Date.now() - startTime

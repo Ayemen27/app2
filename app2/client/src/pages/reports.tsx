@@ -30,6 +30,7 @@ import "@/styles/excel-print-styles.css";
 interface DailyExpenseData {
   date: string;
   workerWages: number;
+  workDays: number;
   materialCosts: number;
   transportation: number;
   miscExpenses: number;
@@ -342,7 +343,7 @@ export default function Reports() {
         <div className="flex-1 overflow-hidden px-4 md:px-6 py-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
             {/* قائمة التبويبات */}
-            <TabsList className="grid w-full grid-cols-2 bg-white rounded-lg shadow-md border border-gray-200">
+            <TabsList className="grid w-full grid-cols-2 bg-white rounded-lg shadow-md border border-gray-200 max-w-sm">
               <TabsTrigger value="daily-expenses" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white gap-2">
                 <DollarSign className="h-4 w-4" />
                 <span className="hidden sm:inline">المصاريف اليومية</span>
@@ -433,14 +434,14 @@ export default function Reports() {
                       <CardTitle className="text-lg text-gray-900">ملخص المصاريف</CardTitle>
                     </CardHeader>
                     <CardContent className="p-6">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
                           <div className="flex items-center justify-between mb-2">
                             <p className="text-xs font-medium text-gray-600">أجور العمال</p>
                             <Users className="h-4 w-4 text-blue-600" />
                           </div>
                           <p className="text-2xl font-bold text-blue-600">{formatCurrency((expenseData.workerWages || 0).toString())}</p>
-                          <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.workerWages / expenseData.total) * 100).toFixed(1) : 0}%</p>
+                          <p className="text-xs text-gray-500 mt-1">عدد الأيام: <span className="font-semibold">{(expenseData.workDays || 0).toFixed(2)}</span></p>
                         </div>
                         <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
                           <div className="flex items-center justify-between mb-2">

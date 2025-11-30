@@ -1740,12 +1740,26 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
       )
       .limit(1);
 
+    // جلب عدد أيام العمل من سجلات الحضور
+    const attendanceRecords = await db
+      .select()
+      .from(workerAttendance)
+      .where(
+        and(
+          eq(workerAttendance.projectId, projectId as string),
+          eq(workerAttendance.date, date as string)
+        )
+      );
+
+    const totalWorkDays = attendanceRecords.reduce((sum, record) => sum + (parseFloat(record.workDays || '0')), 0);
+
     if (summary.length === 0) {
       return res.json({
         success: true,
         data: {
           date: date as string,
           workerWages: 0,
+          workDays: totalWorkDays,
           materialCosts: 0,
           transportation: 0,
           miscExpenses: 0,
@@ -1762,6 +1776,7 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
       data: {
         date: data.date,
         workerWages: parseFloat(data.totalWorkerWages || '0'),
+        workDays: totalWorkDays,
         materialCosts: parseFloat(data.totalMaterialCosts || '0'),
         transportation: parseFloat(data.totalTransportationCosts || '0'),
         miscExpenses: parseFloat(data.totalWorkerMiscExpenses || '0'),

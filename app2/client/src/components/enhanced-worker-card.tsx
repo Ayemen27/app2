@@ -100,7 +100,7 @@ export default function EnhancedWorkerCard({
       startTime: isPresent ? (localAttendance.startTime || "07:00") : undefined,
       endTime: isPresent ? (localAttendance.endTime || "15:00") : undefined,
       workDescription: isPresent ? localAttendance.workDescription : undefined,
-      workDays: isPresent ? (localAttendance.workDays || 1.0) : undefined,
+      workDays: isPresent ? (localAttendance.workDays || 0) : undefined,
       paidAmount: isPresent ? localAttendance.paidAmount : undefined,
       paymentType: isPresent ? (localAttendance.paymentType || "partial") : undefined,
     });
@@ -389,10 +389,11 @@ export default function EnhancedWorkerCard({
                     type="number"
                     inputMode="decimal"
                     step="0.1"
-                    min="0.1"
+                    min="0"
                     max="2.0"
-                    value={localAttendance.workDays || 1.0}
-                    onChange={(e) => updateAttendance({ workDays: parseFloat(e.target.value) || 1.0 })}
+                    value={localAttendance.workDays ?? ""}
+                    onChange={(e) => updateAttendance({ workDays: e.target.value === "" ? 0 : parseFloat(e.target.value) })}
+                    placeholder="0"
                     className="text-center arabic-numbers text-sm h-8"
                     data-testid={`work-days-input-${worker.id}`}
                   />
@@ -556,7 +557,7 @@ export default function EnhancedWorkerCard({
                     {/* تفصيل الحساب */}
                     <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
                       <div className="flex justify-between">
-                        <span>الأجر الأساسي ({localAttendance.workDays || 1.0} يوم):</span>
+                        <span>الأجر الأساسي ({localAttendance.workDays ?? 0} يوم):</span>
                         <span className="arabic-numbers">{formatCurrency(calculateBaseWage())}</span>
                       </div>
                       {(localAttendance.overtime && localAttendance.overtimeRate) ? (

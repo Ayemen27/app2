@@ -52,12 +52,18 @@ export default function AutocompleteAdminPage() {
   // جلب الإحصائيات
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['autocomplete-admin', 'stats'],
-    queryFn: () => apiRequest('/api/autocomplete-admin/stats', 'GET') as Promise<AutocompleteStats>,
+    queryFn: async () => {
+      const response = await apiRequest('/api/autocomplete-admin/stats', 'GET');
+      return (response?.data || response) as AutocompleteStats;
+    },
   });
 
   // تنظيف البيانات القديمة
   const cleanupMutation = useMutation({
-    mutationFn: () => apiRequest('/api/autocomplete-admin/cleanup', 'POST'),
+    mutationFn: async () => {
+      const response = await apiRequest('/api/autocomplete-admin/cleanup', 'POST');
+      return response?.data || response;
+    },
     onSuccess: (result: any) => {
       toast({
         title: "تم التنظيف بنجاح",
@@ -76,8 +82,10 @@ export default function AutocompleteAdminPage() {
 
   // تطبيق حدود الفئات
   const enforceLimitsMutation = useMutation({
-    mutationFn: (category?: string) => 
-      apiRequest('/api/autocomplete-admin/enforce-limits', 'POST', { category }),
+    mutationFn: async (category?: string) => {
+      const response = await apiRequest('/api/autocomplete-admin/enforce-limits', 'POST', { category });
+      return response?.data || response;
+    },
     onSuccess: (result: any) => {
       toast({
         title: "تم تطبيق الحدود بنجاح",
@@ -96,7 +104,10 @@ export default function AutocompleteAdminPage() {
 
   // صيانة شاملة
   const maintenanceMutation = useMutation({
-    mutationFn: () => apiRequest('/api/autocomplete-admin/maintenance', 'POST'),
+    mutationFn: async () => {
+      const response = await apiRequest('/api/autocomplete-admin/maintenance', 'POST');
+      return response?.data || response;
+    },
     onSuccess: (result: MaintenanceResult) => {
       toast({
         title: "اكتملت الصيانة الشاملة",
@@ -353,7 +364,7 @@ export default function AutocompleteAdminPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {stats?.categoryBreakdown.map((category, index) => (
+                {stats?.categoryBreakdown && stats.categoryBreakdown.length > 0 && stats.categoryBreakdown.map((category, index) => (
                   <div key={category.category} className="group bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-700 p-4 rounded-xl border border-gray-200 dark:border-gray-600 hover:shadow-md transition-all duration-200">
                     <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                       {/* معلومات الفئة */}

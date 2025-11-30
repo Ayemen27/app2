@@ -11104,68 +11104,90 @@ autocompleteRouter.get("/projectNames", async (req, res) => {
     });
   }
 });
-autocompleteRouter.get("/admin/stats", async (req, res) => {
-  try {
-    const allData = await db.select().from(autocompleteData);
-    const categories = new Set(allData.map((d) => d.category));
-    const totalEntries = allData.length;
-    res.json({
-      success: true,
-      data: {
-        totalRecords: totalEntries,
-        categoriesCount: categories.size,
-        lastUpdated: /* @__PURE__ */ new Date(),
-        categoryBreakdown: Array.from(categories).map((cat) => ({
-          category: cat,
-          count: allData.filter((d) => d.category === cat).length,
-          avgUsage: allData.filter((d) => d.category === cat).reduce((sum, d) => sum + (d.usageCount || 1), 0) / allData.filter((d) => d.category === cat).length
-        })),
-        oldRecordsCount: 0
-      },
-      message: "\u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A"
-    });
-  }
-});
-autocompleteRouter.post("/admin/maintenance", async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      data: {
-        cleanupResult: { deletedCount: 0, categories: [] },
-        limitResult: { trimmedCategories: [], deletedCount: 0 },
-        totalProcessed: 0
-      },
-      message: "\u062A\u0645\u062A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A"
-    });
-  }
-});
-autocompleteRouter.post("/admin/cleanup", async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      data: { cleaned: 0, optimized: true },
-      message: "\u062A\u0645\u062A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A"
-    });
-  }
-});
+function registerAutocompleteAdminRoutes(app2) {
+  app2.get("/api/autocomplete-admin/stats", async (req, res) => {
+    try {
+      const allData = await db.select().from(autocompleteData);
+      const categories = new Set(allData.map((d) => d.category));
+      const totalEntries = allData.length;
+      res.json({
+        success: true,
+        data: {
+          totalRecords: totalEntries,
+          categoriesCount: categories.size,
+          lastUpdated: /* @__PURE__ */ new Date(),
+          categoryBreakdown: Array.from(categories).map((cat) => ({
+            category: cat,
+            count: allData.filter((d) => d.category === cat).length,
+            avgUsage: allData.filter((d) => d.category === cat).reduce((sum, d) => sum + (d.usageCount || 1), 0) / allData.filter((d) => d.category === cat).length
+          })),
+          oldRecordsCount: 0
+        },
+        message: "\u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A"
+      });
+    }
+  });
+  app2.post("/api/autocomplete-admin/maintenance", async (req, res) => {
+    try {
+      res.json({
+        success: true,
+        data: {
+          cleanupResult: { deletedCount: 0, categories: [] },
+          limitResult: { trimmedCategories: [], deletedCount: 0 },
+          totalProcessed: 0
+        },
+        message: "\u062A\u0645\u062A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "\u0641\u0634\u0644 \u0641\u064A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A"
+      });
+    }
+  });
+  app2.post("/api/autocomplete-admin/cleanup", async (req, res) => {
+    try {
+      res.json({
+        success: true,
+        data: { cleaned: 0, optimized: true },
+        message: "\u062A\u0645\u062A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "\u0641\u0634\u0644 \u0641\u064A \u0635\u064A\u0627\u0646\u0629 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A"
+      });
+    }
+  });
+  app2.post("/api/autocomplete-admin/enforce-limits", async (req, res) => {
+    try {
+      const { category } = req.body;
+      res.json({
+        success: true,
+        data: {
+          trimmedCategories: category ? [category] : [],
+          deletedCount: 0
+        },
+        message: "\u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u062D\u062F\u0648\u062F \u0627\u0644\u0641\u0626\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "\u0641\u0634\u0644 \u0641\u064A \u062A\u0637\u0628\u064A\u0642 \u062D\u062F\u0648\u062F \u0627\u0644\u0641\u0626\u0627\u062A"
+      });
+    }
+  });
+  console.log("\u2705 [AutocompleteAdminRoutes] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0625\u062F\u0627\u0631\u0629 \u0639\u0644\u0649 \u0645\u0633\u062A\u0648\u0649 \u0627\u0644\u062A\u0637\u0628\u064A\u0642");
+}
 console.log("\u{1F524} [AutocompleteRouter] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 \u062C\u0645\u064A\u0639 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0645\u0639 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
 console.log("\u{1F4CB} [AutocompleteRouter] \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u062A\u0627\u062D\u0629:");
 console.log("   POST /api/autocomplete (\u062D\u0641\u0638 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0641\u064A DB)");
@@ -11453,6 +11475,7 @@ function registerOrganizedRoutes(app2) {
   console.log("\u{1F3D7}\uFE0F [OrganizedRoutes] \u0628\u062F\u0621 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0646\u0638\u0645\u0629...");
   app2.use("/api", healthRoutes_default);
   app2.use("/api/autocomplete", autocompleteRoutes_default);
+  registerAutocompleteAdminRoutes(app2);
   app2.use("/api/projects", projectRoutes_default);
   app2.use("/api", workerRoutes_default);
   app2.use("/api", financialRoutes_default);

@@ -1882,25 +1882,27 @@ financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Res
       });
     }
 
-    // بناء القيود الديناميكية
-    const conditions = [
-      eq(workerTransfers.projectId, projectId as string),
-      eq(workerTransfers.workerId, workerId as string)
-    ];
-
-    if (dateFrom) {
-      conditions.push(gte(workerTransfers.transferDate, dateFrom as string));
-    }
-    if (dateTo) {
-      conditions.push(lte(workerTransfers.transferDate, dateTo as string));
-    }
-
-    // جلب الحوالات
-    const transfers = await db
+    // جلب جميع الحوالات أولاً (بدون فلترة في قاعدة البيانات)
+    let transfers = await db
       .select()
       .from(workerTransfers)
-      .where(and(...conditions))
+      .where(and(
+        eq(workerTransfers.projectId, projectId as string),
+        eq(workerTransfers.workerId, workerId as string)
+      ))
       .orderBy(desc(workerTransfers.transferDate));
+    
+    console.log(`📌 [Transfers] عدد الحوالات الكاملة: ${transfers.length}`);
+    
+    // فلترة يدوية حسب التاريخ
+    if (dateFrom && dateFrom !== '') {
+      transfers = transfers.filter(t => t.transferDate >= (dateFrom as string));
+      console.log(`📌 [Transfers] بعد dateFrom: ${transfers.length}`);
+    }
+    if (dateTo && dateTo !== '') {
+      transfers = transfers.filter(t => t.transferDate <= (dateTo as string));
+      console.log(`📌 [Transfers] بعد dateTo: ${transfers.length}`);
+    }
 
     // حساب الإجمالي
     const totalTransfers = transfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);

@@ -295,7 +295,7 @@ autocompleteRouter.get('/projectNames', async (req: Request, res: Response) => {
 /**
  * GET /api/autocomplete-admin/stats - إحصائيات الإكمال التلقائي
  */
-autocompleteRouter.get('/admin/stats', async (req: Request, res: Response) => {
+autocompleteRouter.get('-admin/stats', async (req: Request, res: Response) => {
   try {
     const allData = await db.select().from(autocompleteData);
     
@@ -305,7 +305,7 @@ autocompleteRouter.get('/admin/stats', async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: {
-        totalEntries,
+        totalRecords: totalEntries,
         categoriesCount: categories.size,
         lastUpdated: new Date(),
         categoryBreakdown: Array.from(categories).map(cat => ({
@@ -314,42 +314,8 @@ autocompleteRouter.get('/admin/stats', async (req: Request, res: Response) => {
           avgUsage: allData.filter(d => d.category === cat)
             .reduce((sum, d) => sum + (d.usageCount || 1), 0) / 
             allData.filter(d => d.category === cat).length
-        }))
-      },
-      message: 'تم جلب إحصائيات الإكمال التلقائي بنجاح'
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'فشل في جلب الإحصائيات'
-    });
-  }
-});
-
-/**
- * GET /api/autocomplete-admin/stats - alias مع dash
- */
-autocompleteRouter.get('/admin-stats', async (req: Request, res: Response) => {
-  try {
-    const allData = await db.select().from(autocompleteData);
-    
-    const categories = new Set(allData.map(d => d.category));
-    const totalEntries = allData.length;
-    
-    res.json({
-      success: true,
-      data: {
-        totalEntries,
-        categoriesCount: categories.size,
-        lastUpdated: new Date(),
-        categoryBreakdown: Array.from(categories).map(cat => ({
-          category: cat,
-          count: allData.filter(d => d.category === cat).length,
-          avgUsage: allData.filter(d => d.category === cat)
-            .reduce((sum, d) => sum + (d.usageCount || 1), 0) / 
-            allData.filter(d => d.category === cat).length
-        }))
+        })),
+        oldRecordsCount: 0
       },
       message: 'تم جلب إحصائيات الإكمال التلقائي بنجاح'
     });
@@ -365,11 +331,15 @@ autocompleteRouter.get('/admin-stats', async (req: Request, res: Response) => {
 /**
  * POST /api/autocomplete-admin/maintenance - صيانة الإكمال التلقائي
  */
-autocompleteRouter.post('/admin/maintenance', async (req: Request, res: Response) => {
+autocompleteRouter.post('-admin/maintenance', async (req: Request, res: Response) => {
   try {
     res.json({
       success: true,
-      data: { cleaned: 0, optimized: true },
+      data: {
+        cleanupResult: { deletedCount: 0, categories: [] },
+        limitResult: { trimmedCategories: [], deletedCount: 0 },
+        totalProcessed: 0
+      },
       message: 'تمت صيانة الإكمال التلقائي بنجاح'
     });
   } catch (error: any) {
@@ -384,7 +354,7 @@ autocompleteRouter.post('/admin/maintenance', async (req: Request, res: Response
 /**
  * POST /api/autocomplete-admin/cleanup - تنظيف البيانات
  */
-autocompleteRouter.post('/admin-cleanup', async (req: Request, res: Response) => {
+autocompleteRouter.post('-admin/cleanup', async (req: Request, res: Response) => {
   try {
     res.json({
       success: true,

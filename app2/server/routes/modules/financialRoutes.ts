@@ -1820,26 +1820,24 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
 
     const worker = workerData[0];
 
-    // جلب سجلات الحضور
-    let attendanceQuery = db
-      .select()
-      .from(workerAttendance)
-      .where(
-        and(
-          eq(workerAttendance.projectId, projectId as string),
-          eq(workerAttendance.workerId, workerId as string)
-        )
-      );
+    // جلب سجلات الحضور - بناء القيود الديناميكية
+    const conditions = [
+      eq(workerAttendance.projectId, projectId as string),
+      eq(workerAttendance.workerId, workerId as string)
+    ];
 
-    // إضافة فلاتر التاريخ إذا تم توفيرها
     if (dateFrom) {
-      attendanceQuery = attendanceQuery.where(gte(workerAttendance.date, dateFrom as string));
+      conditions.push(gte(workerAttendance.date, dateFrom as string));
     }
     if (dateTo) {
-      attendanceQuery = attendanceQuery.where(lte(workerAttendance.date, dateTo as string));
+      conditions.push(lte(workerAttendance.date, dateTo as string));
     }
 
-    const attendanceRecords = await attendanceQuery.orderBy(desc(workerAttendance.date));
+    const attendanceRecords = await db
+      .select()
+      .from(workerAttendance)
+      .where(and(...conditions))
+      .orderBy(desc(workerAttendance.date));
 
     // حساب الملخص
     let totalWorkDays = 0;

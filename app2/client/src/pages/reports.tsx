@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,7 @@ export default function Reports() {
   const [dateTo, setDateTo] = useState(getCurrentDate());
   const [selectedDate, setSelectedDate] = useState(getCurrentDate());
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
+  const [searchAttendance, setSearchAttendance] = useState("");
   const { selectedProjectId, projects } = useSelectedProject();
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -615,40 +616,65 @@ export default function Reports() {
                     {/* جدول السجل */}
                     <Card className="border-gray-300 shadow-md">
                       <CardHeader className="bg-gradient-to-r from-green-50 to-green-100 border-b border-gray-200">
-                        <CardTitle className="text-lg text-gray-900">سجل الحضور والأجور</CardTitle>
+                        <div className="flex items-center justify-between gap-4">
+                          <CardTitle className="text-lg text-gray-900">سجل الحضور والأجور</CardTitle>
+                          <Input
+                            type="text"
+                            placeholder="ابحث في التاريخ أو وصف العمل..."
+                            value={searchAttendance}
+                            onChange={(e) => setSearchAttendance(e.target.value)}
+                            className="w-full md:w-64 h-9 text-sm"
+                          />
+                        </div>
                       </CardHeader>
                       <CardContent className="p-0">
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
                             <thead>
                               <tr className="bg-gradient-to-r from-gray-800 to-gray-900 text-white">
+                                <th className="px-4 py-3 text-right font-semibold">اسم العامل</th>
                                 <th className="px-4 py-3 text-right font-semibold">التاريخ</th>
                                 <th className="px-4 py-3 text-right font-semibold">أيام</th>
                                 <th className="px-4 py-3 text-right font-semibold">يومي</th>
                                 <th className="px-4 py-3 text-right font-semibold">مستحق</th>
                                 <th className="px-4 py-3 text-right font-semibold">مدفوع</th>
                                 <th className="px-4 py-3 text-right font-semibold">متبقي</th>
+                                <th className="px-4 py-3 text-right font-semibold">الوصف</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {statementData?.attendance && statementData.attendance.length > 0 ? (
-                                statementData.attendance.map((record: any, idx: number) => (
-                                  <tr key={idx} className="border-t border-gray-200 hover:bg-blue-50 transition-colors">
-                                    <td className="px-4 py-3 text-gray-900">{record.date}</td>
-                                    <td className="px-4 py-3 text-gray-900">{record.workDays}</td>
-                                    <td className="px-4 py-3 text-gray-900">{formatCurrency((record.dailyWage || 0).toString())}</td>
-                                    <td className="px-4 py-3 font-medium text-blue-600">{formatCurrency((record.actualWage || 0).toString())}</td>
-                                    <td className="px-4 py-3 font-medium text-green-600">{formatCurrency(record.paidAmount.toString())}</td>
-                                    <td className="px-4 py-3 font-medium text-orange-600">{formatCurrency(record.remainingAmount.toString())}</td>
+                              {(() => {
+                                const filteredAttendance = statementData?.attendance && statementData.attendance.length > 0
+                                  ? statementData.attendance.filter((record: any) => {
+                                      const searchLower = searchAttendance.toLowerCase();
+                                      return (
+                                        record.date.toLowerCase().includes(searchLower) ||
+                                        (record.workDescription && record.workDescription.toLowerCase().includes(searchLower))
+                                      );
+                                    })
+                                  : [];
+                                
+                                return filteredAttendance.length > 0 ? (
+                                  filteredAttendance.map((record: any, idx: number) => (
+                                    <tr key={idx} className="border-t border-gray-200 hover:bg-blue-50 transition-colors">
+                                      <td className="px-4 py-3 font-medium text-gray-900">{statementData?.worker?.name}</td>
+                                      <td className="px-4 py-3 text-gray-900">{record.date}</td>
+                                      <td className="px-4 py-3 text-gray-900">{record.workDays}</td>
+                                      <td className="px-4 py-3 text-gray-900">{formatCurrency((record.dailyWage || 0).toString())}</td>
+                                      <td className="px-4 py-3 font-medium text-blue-600">{formatCurrency((record.actualWage || 0).toString())}</td>
+                                      <td className="px-4 py-3 font-medium text-green-600">{formatCurrency(record.paidAmount.toString())}</td>
+                                      <td className="px-4 py-3 font-medium text-orange-600">{formatCurrency(record.remainingAmount.toString())}</td>
+                                      <td className="px-4 py-3 text-gray-600 text-xs">{record.workDescription || '-'}</td>
+                                    </tr>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                                      {statementData?.attendance?.length === 0 ? 'لا توجد سجلات للفترة المختارة' : 'لا توجد نتائج للبحث'}
+                                    </td>
                                   </tr>
-                                ))
-                              ) : (
-                                <tr>
-                                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                                    لا توجد سجلات للفترة المختارة
-                                  </td>
-                                </tr>
-                              )}
+                                );
+                              })()}
                             </tbody>
                           </table>
                         </div>

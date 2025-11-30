@@ -773,7 +773,7 @@ export default function Reports() {
                     </Card>
 
                     {/* ملخص النهاية */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                       <div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white rounded-lg p-4 text-center shadow-lg">
                         <p className="text-xs font-medium opacity-80 mb-2">أيام العمل</p>
                         <p className="text-3xl font-bold">{statementData?.summary?.totalWorkDays || 0}</p>
@@ -786,11 +786,54 @@ export default function Reports() {
                         <p className="text-xs font-medium opacity-80 mb-2">المدفوع</p>
                         <p className="text-2xl font-bold">{formatCurrency((statementData?.summary?.totalPaid || 0).toString())}</p>
                       </div>
-                      <div className={`bg-gradient-to-br ${(statementData?.summary?.remainingBalance || 0) >= 0 ? 'from-orange-500 to-orange-600' : 'from-red-500 to-red-600'} text-white rounded-lg p-4 text-center shadow-lg`}>
+                      <div className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg p-4 text-center shadow-lg">
+                        <p className="text-xs font-medium opacity-80 mb-2">الحوالات</p>
+                        <p className="text-2xl font-bold">{formatCurrency((transfersData.total || 0).toString())}</p>
+                      </div>
+                      <div className={`bg-gradient-to-br ${((statementData?.summary?.totalEarned || 0) - (statementData?.summary?.totalPaid || 0) - (transfersData.total || 0)) >= 0 ? 'from-orange-500 to-orange-600' : 'from-red-600 to-red-700'} text-white rounded-lg p-4 text-center shadow-lg`}>
                         <p className="text-xs font-medium opacity-80 mb-2">المتبقي</p>
-                        <p className="text-2xl font-bold">{formatCurrency((statementData?.summary?.remainingBalance || 0).toString())}</p>
+                        <p className="text-2xl font-bold">{formatCurrency(((statementData?.summary?.totalEarned || 0) - (statementData?.summary?.totalPaid || 0) - (transfersData.total || 0)).toString())}</p>
                       </div>
                     </div>
+
+                    {/* جدول الحوالات المرسلة */}
+                    {transfersData.transfers && transfersData.transfers.length > 0 && (
+                      <Card className="border-gray-300 shadow-md mt-6">
+                        <CardHeader className="bg-gradient-to-r from-red-50 to-red-100 border-b border-gray-200">
+                          <CardTitle className="text-lg text-gray-900">الحوالات المرسلة للعامل</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-gradient-to-r from-red-800 to-red-900 text-white">
+                                  <th className="px-4 py-3 text-right font-semibold">التاريخ</th>
+                                  <th className="px-4 py-3 text-right font-semibold">المبلغ</th>
+                                  <th className="px-4 py-3 text-right font-semibold">الطريقة</th>
+                                  <th className="px-4 py-3 text-right font-semibold">الوصف</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {transfersData.transfers.map((transfer: any, idx: number) => (
+                                  <tr key={idx} className="border-t border-gray-200 hover:bg-red-50">
+                                    <td className="px-4 py-3 text-gray-900">{transfer.date}</td>
+                                    <td className="px-4 py-3 font-medium text-red-600">{formatCurrency(transfer.amount.toString())}</td>
+                                    <td className="px-4 py-3 text-gray-600">{transfer.method || '-'}</td>
+                                    <td className="px-4 py-3 text-gray-600">{transfer.description || '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="bg-gray-100 border-t-2 border-gray-300">
+                                  <td colSpan={3} className="px-4 py-3 font-bold text-gray-900 text-right">إجمالي الحوالات:</td>
+                                  <td className="px-4 py-3 font-bold text-red-600">{formatCurrency((transfersData.total || 0).toString())}</td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
                 ) : null}
               </TabsContent>

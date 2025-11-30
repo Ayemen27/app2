@@ -2017,6 +2017,29 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
       };
     });
 
+    // جلب الحوالات أيضاً لحساب المتبقي بشكل صحيح
+    const transferConditions = [
+      eq(workerTransfers.projectId, projectId as string),
+      eq(workerTransfers.workerId, workerId as string)
+    ];
+
+    if (dateFrom) {
+      transferConditions.push(gte(workerTransfers.transferDate, dateFrom as string));
+    }
+    if (dateTo) {
+      transferConditions.push(lte(workerTransfers.transferDate, dateTo as string));
+    }
+
+    const transferRecords = await db
+      .select()
+      .from(workerTransfers)
+      .where(and(...transferConditions));
+
+    let totalTransfers = 0;
+    transferRecords.forEach(t => {
+      totalTransfers += parseFloat(t.amount || '0');
+    });
+
     res.json({
       success: true,
       data: {
@@ -2031,7 +2054,8 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
           totalWorkDays: totalWorkDays.toFixed(2),
           totalEarned: totalEarned.toFixed(2),
           totalPaid: totalPaid.toFixed(2),
-          remainingBalance: (totalEarned - totalPaid).toFixed(2)
+          totalTransfers: totalTransfers.toFixed(2),
+          remainingBalance: (totalEarned - totalPaid - totalTransfers).toFixed(2)
         }
       },
       message: 'تم جلب بيان العامل بنجاح',

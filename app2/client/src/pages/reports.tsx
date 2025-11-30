@@ -218,7 +218,7 @@ export default function Reports() {
       worksheet.mergeCells(`A${titleRow.number}:G${titleRow.number}`);
 
       worksheet.addRow(["اسم العامل:", statementData.worker.name, "", "نوع العامل:", statementData.worker.type]);
-      worksheet.addRow(["الأجر اليومي:", formatCurrency(statementData.worker.dailyWage.toString()), "", "المشروع:", selectedProject?.name]);
+      worksheet.addRow(["الأجر اليومي:", formatCurrency((statementData.worker.dailyWage || 0).toString()), "", "المشروع:", selectedProject?.name]);
       worksheet.addRow(["من تاريخ:", dateFrom || "البداية", "", "إلى تاريخ:", dateTo]);
       worksheet.addRow([]);
 
@@ -407,22 +407,22 @@ export default function Reports() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border-b border-gray-200">
                             <div className="p-4 border-l border-gray-200 last:border-l-0">
                               <p className="text-xs font-medium text-gray-600 mb-1">أجور العمال</p>
-                              <p className="text-lg md:text-xl font-bold text-blue-600">{formatCurrency(expenseData.workerWages.toString())}</p>
+                              <p className="text-lg md:text-xl font-bold text-blue-600">{formatCurrency((expenseData.workerWages || 0).toString())}</p>
                               <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.workerWages / expenseData.total) * 100).toFixed(1) : 0}%</p>
                             </div>
                             <div className="p-4 border-l border-gray-200 last:border-l-0">
                               <p className="text-xs font-medium text-gray-600 mb-1">تكاليف المواد</p>
-                              <p className="text-lg md:text-xl font-bold text-green-600">{formatCurrency(expenseData.materialCosts.toString())}</p>
+                              <p className="text-lg md:text-xl font-bold text-green-600">{formatCurrency((expenseData.materialCosts || 0).toString())}</p>
                               <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.materialCosts / expenseData.total) * 100).toFixed(1) : 0}%</p>
                             </div>
                             <div className="p-4 border-l border-gray-200 last:border-l-0">
                               <p className="text-xs font-medium text-gray-600 mb-1">النقل</p>
-                              <p className="text-lg md:text-xl font-bold text-orange-600">{formatCurrency(expenseData.transportation.toString())}</p>
+                              <p className="text-lg md:text-xl font-bold text-orange-600">{formatCurrency((expenseData.transportation || 0).toString())}</p>
                               <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.transportation / expenseData.total) * 100).toFixed(1) : 0}%</p>
                             </div>
                             <div className="p-4 border-l border-gray-200 last:border-l-0">
                               <p className="text-xs font-medium text-gray-600 mb-1">مصاريف متنوعة</p>
-                              <p className="text-lg md:text-xl font-bold text-red-600">{formatCurrency(expenseData.miscExpenses.toString())}</p>
+                              <p className="text-lg md:text-xl font-bold text-red-600">{formatCurrency((expenseData.miscExpenses || 0).toString())}</p>
                               <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.miscExpenses / expenseData.total) * 100).toFixed(1) : 0}%</p>
                             </div>
                           </div>
@@ -430,7 +430,7 @@ export default function Reports() {
                           {/* صف الإجمالي */}
                           <div className="bg-gray-900 text-white px-4 py-4 flex justify-between items-center">
                             <span className="font-semibold">الإجمالي</span>
-                            <span className="text-xl font-bold">{formatCurrency(expenseData.total.toString())}</span>
+                            <span className="text-xl font-bold">{formatCurrency((expenseData.total || 0).toString())}</span>
                           </div>
                         </div>
                       ) : null}
@@ -549,11 +549,11 @@ export default function Reports() {
                             </div>
                             <div className="bg-white rounded-lg border border-gray-200 p-4">
                               <p className="text-xs font-medium text-gray-600 mb-2">الأجر اليومي</p>
-                              <p className="text-sm md:text-base font-bold text-blue-600">{formatCurrency(statementData.worker.dailyWage.toString())}</p>
+                              <p className="text-sm md:text-base font-bold text-blue-600">{formatCurrency((statementData.worker.dailyWage || 0).toString())}</p>
                             </div>
                             <div className="bg-white rounded-lg border border-gray-200 p-4">
                               <p className="text-xs font-medium text-gray-600 mb-2">الرصيد المتبقي</p>
-                              <p className="text-sm md:text-base font-bold text-green-600">{formatCurrency(statementData.summary.remainingBalance.toString())}</p>
+                              <p className="text-sm md:text-base font-bold text-green-600">{formatCurrency((statementData.summary.remainingBalance || 0).toString())}</p>
                             </div>
                           </div>
 
@@ -576,8 +576,8 @@ export default function Reports() {
                                     <tr key={idx} className="border-t border-gray-200 hover:bg-gray-50 transition-colors">
                                       <td className="px-4 py-3 text-gray-900">{record.date}</td>
                                       <td className="px-4 py-3 text-gray-900">{record.workDays}</td>
-                                      <td className="px-4 py-3 text-gray-900">{formatCurrency(record.dailyWage.toString())}</td>
-                                      <td className="px-4 py-3 font-medium text-blue-600">{formatCurrency(record.actualWage.toString())}</td>
+                                      <td className="px-4 py-3 text-gray-900">{formatCurrency((record.dailyWage || 0).toString())}</td>
+                                      <td className="px-4 py-3 font-medium text-blue-600">{formatCurrency((record.actualWage || 0).toString())}</td>
                                       <td className="px-4 py-3 font-medium text-green-600">{formatCurrency(record.paidAmount.toString())}</td>
                                       <td className="px-4 py-3 font-medium text-orange-600">{formatCurrency(record.remainingAmount.toString())}</td>
                                     </tr>
@@ -603,7 +603,7 @@ export default function Reports() {
                             </div>
                             <div className="bg-orange-600 text-white rounded-lg p-4 text-center">
                               <p className="text-xs font-medium opacity-80 mb-2">المتبقي</p>
-                              <p className="text-xl font-bold">{formatCurrency(statementData.summary.remainingBalance.toString())}</p>
+                              <p className="text-xl font-bold">{formatCurrency((statementData.summary.remainingBalance || 0).toString())}</p>
                             </div>
                           </div>
                         </div>

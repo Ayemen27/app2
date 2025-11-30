@@ -37,8 +37,16 @@ export function AutocompleteInput({
   // جلب البيانات من قاعدة البيانات
   const { data: autocompleteData = [], isLoading } = useQuery({
     queryKey: ['autocomplete', category],
-    queryFn: () => apiRequest(`/api/autocomplete/${category}`, 'GET') as Promise<AutocompleteData[]>,
+    queryFn: async () => {
+      const response = await apiRequest(`/api/autocomplete/${category}`, 'GET');
+      // ✅ إصلاح: معالجة الاستجابة بشكل صحيح
+      if (response && typeof response === 'object') {
+        return (response.data || response) as AutocompleteData[];
+      }
+      return [];
+    },
     enabled: !!category,
+    staleTime: 1000 * 60 * 5, // 5 دقائق
   });
 
   // حفظ البيانات في قاعدة البيانات

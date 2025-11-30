@@ -295,7 +295,7 @@ autocompleteRouter.get('/projectNames', async (req: Request, res: Response) => {
 /**
  * GET /api/autocomplete-admin/stats - إحصائيات الإكمال التلقائي
  */
-autocompleteRouter.get('-admin/stats', async (req: Request, res: Response) => {
+autocompleteRouter.get('/admin/stats', async (req: Request, res: Response) => {
   try {
     const allData = await db.select().from(autocompleteData);
     
@@ -331,7 +331,7 @@ autocompleteRouter.get('-admin/stats', async (req: Request, res: Response) => {
 /**
  * POST /api/autocomplete-admin/maintenance - صيانة الإكمال التلقائي
  */
-autocompleteRouter.post('-admin/maintenance', async (req: Request, res: Response) => {
+autocompleteRouter.post('/admin/maintenance', async (req: Request, res: Response) => {
   try {
     res.json({
       success: true,
@@ -354,7 +354,7 @@ autocompleteRouter.post('-admin/maintenance', async (req: Request, res: Response
 /**
  * POST /api/autocomplete-admin/cleanup - تنظيف البيانات
  */
-autocompleteRouter.post('-admin/cleanup', async (req: Request, res: Response) => {
+autocompleteRouter.post('/admin/cleanup', async (req: Request, res: Response) => {
   try {
     res.json({
       success: true,

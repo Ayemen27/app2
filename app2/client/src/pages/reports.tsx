@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,10 @@ import {
   Download,
   TrendingDown,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  BarChart3,
+  Wallet,
+  Truck
 } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import ProjectSelector from "@/components/project-selector";
@@ -101,26 +104,45 @@ export default function Reports() {
           miscExpenses: 0,
           total: 0,
         };
-      return apiRequest(
-        `/api/daily-expenses-excel?projectId=${selectedProjectId}&date=${selectedDate}`,
-        "GET"
-      );
+      try {
+        const response = await apiRequest(
+          `/api/daily-expenses-excel?projectId=${selectedProjectId}&date=${selectedDate}`,
+          "GET"
+        );
+        return (response?.data || response) as DailyExpenseData;
+      } catch (error) {
+        console.error("❌ خطأ في جلب بيانات المصاريف:", error);
+        return {
+          date: selectedDate,
+          workerWages: 0,
+          materialCosts: 0,
+          transportation: 0,
+          miscExpenses: 0,
+          total: 0,
+        };
+      }
     },
     enabled: !!selectedProjectId,
   });
 
   // جلب بيان العامل
-  const { data: statementData, isLoading: statementLoading, refetch: refetchStatement } = useQuery<WorkerStatementData>({
+  const { data: statementData, isLoading: statementLoading, refetch: refetchStatement } = useQuery<WorkerStatementData | null>({
     queryKey: ["/api/worker-statement-excel", selectedProjectId, selectedWorkerId, dateFrom, dateTo],
     queryFn: async () => {
       if (!selectedProjectId || !selectedWorkerId) return null;
-      const params = new URLSearchParams({
-        projectId: selectedProjectId,
-        workerId: selectedWorkerId,
-        ...(dateFrom && { dateFrom }),
-        ...(dateTo && { dateTo }),
-      });
-      return apiRequest(`/api/worker-statement-excel?${params}`, "GET");
+      try {
+        const params = new URLSearchParams({
+          projectId: selectedProjectId,
+          workerId: selectedWorkerId,
+          ...(dateFrom && { dateFrom }),
+          ...(dateTo && { dateTo }),
+        });
+        const response = await apiRequest(`/api/worker-statement-excel?${params}`, "GET");
+        return (response?.data || response) as WorkerStatementData | null;
+      } catch (error) {
+        console.error("❌ خطأ في جلب بيان العامل:", error);
+        return null;
+      }
     },
     enabled: !!selectedProjectId && !!selectedWorkerId,
   });
@@ -273,35 +295,40 @@ export default function Reports() {
 
   if (!selectedProjectId) {
     return (
-      <div className="h-full flex flex-col items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md">
-          <Card className="border-2 border-dashed border-gray-300">
-            <CardContent className="p-8 text-center space-y-4">
-              <div className="flex justify-center">
-                <AlertCircle className="h-12 w-12 text-gray-400" />
+      <div className="h-full flex flex-col items-center justify-center px-4 py-8 bg-gradient-to-br from-slate-50 to-slate-100">
+        <Card className="w-full max-w-md border-2 border-dashed border-blue-300 shadow-lg">
+          <CardContent className="p-8 text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="bg-blue-100 p-3 rounded-full">
+                <AlertCircle className="h-12 w-12 text-blue-600" />
               </div>
-              <h2 className="text-lg font-semibold text-gray-900">اختر مشروعاً</h2>
-              <p className="text-sm text-gray-600">يرجى اختيار مشروع لعرض التقارير</p>
-              <div className="pt-4">
-                <ProjectSelector onProjectChange={() => {}} />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">اختر مشروعاً</h2>
+            <p className="text-sm text-gray-600">يرجى اختيار مشروع من القائمة لعرض التقارير المالية والإحصائيات</p>
+            <div className="pt-4">
+              <ProjectSelector onProjectChange={() => {}} />
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 overflow-hidden no-print">
+    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden no-print">
       <div className="flex-1 flex flex-col overflow-y-auto">
-        {/* المشروع المختار */}
-        <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 md:px-6 py-3 shadow-sm">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-500 mb-1">المشروع المختار</p>
-                <p className="text-sm md:text-base font-semibold text-gray-900 truncate">{selectedProject?.name}</p>
+        {/* رأس الصفحة مع المشروع */}
+        <div className="sticky top-0 z-20 bg-white border-b border-gray-300 shadow-sm">
+          <div className="px-4 md:px-6 py-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <FileSpreadsheet className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h1 className="text-lg md:text-2xl font-bold text-gray-900">{selectedProject?.name}</h1>
+                  <p className="text-xs md:text-sm text-gray-500">التقارير والإحصائيات</p>
+                </div>
               </div>
               <div className="w-full md:w-auto">
                 <ProjectSelector onProjectChange={() => {}} />
@@ -310,310 +337,348 @@ export default function Reports() {
           </div>
         </div>
 
-        {/* التبويبات والفلاتر */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="bg-white border-b border-gray-200 px-4 md:px-6">
-            <div className="max-w-7xl mx-auto">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="w-full justify-start bg-transparent border-b border-gray-200 rounded-none h-auto p-0 gap-0">
-                  <TabsTrigger 
-                    value="daily-expenses" 
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent px-4 py-3 font-medium text-sm"
-                  >
-                    <DollarSign className="h-4 w-4 ml-2" />
-                    <span className="hidden sm:inline">المصاريف اليومية</span>
-                    <span className="sm:hidden">المصاريف</span>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="worker-statement" 
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent px-4 py-3 font-medium text-sm"
-                  >
-                    <Users className="h-4 w-4 ml-2" />
-                    <span className="hidden sm:inline">بيان العامل</span>
-                    <span className="sm:hidden">العامل</span>
-                  </TabsTrigger>
-                </TabsList>
+        {/* التبويبات والمحتوى الرئيسي */}
+        <div className="flex-1 overflow-hidden px-4 md:px-6 py-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            {/* قائمة التبويبات */}
+            <TabsList className="grid w-full grid-cols-2 bg-white rounded-lg shadow-md border border-gray-200">
+              <TabsTrigger value="daily-expenses" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white gap-2">
+                <DollarSign className="h-4 w-4" />
+                <span className="hidden sm:inline">المصاريف اليومية</span>
+                <span className="sm:hidden">المصاريف</span>
+              </TabsTrigger>
+              <TabsTrigger value="worker-statement" className="data-[state=active]:bg-green-500 data-[state=active]:text-white gap-2">
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">بيان العامل</span>
+                <span className="sm:hidden">العامل</span>
+              </TabsTrigger>
+            </TabsList>
 
-                {/* المحتوى */}
-                <div className="flex-1 overflow-y-auto">
-                  {/* Tab 1: Daily Expenses */}
-                  <TabsContent value="daily-expenses" className="m-0 p-4 md:p-6 space-y-4">
-                    <div className="max-w-7xl mx-auto w-full space-y-4">
-                      {/* شريط الفلتر الموحد */}
-                      <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-                        <div className="flex flex-col md:flex-row-reverse gap-3 items-end">
-                          <Button
-                            onClick={handleReset}
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 w-full md:w-auto"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                            إعادة تعيين
-                          </Button>
-                          <div className="flex-1 min-w-0 w-full">
-                            <Label className="text-xs font-medium text-gray-700 block mb-2">التاريخ</Label>
-                            <Input
-                              type="date"
-                              value={selectedDate}
-                              onChange={(e) => setSelectedDate(e.target.value)}
-                              className="w-full h-9 text-sm"
-                            />
-                          </div>
-                        </div>
+            {/* المحتوى */}
+            <div className="flex-1 overflow-y-auto mt-6">
+              {/* تبويب المصاريف اليومية */}
+              <TabsContent value="daily-expenses" className="space-y-4">
+                {/* الفلاتر والأزرار */}
+                <Card className="border-gray-300 shadow-md">
+                  <CardContent className="p-4 space-y-4">
+                    <div className="flex flex-col md:flex-row gap-3 items-end">
+                      <div className="flex-1 min-w-0">
+                        <Label className="text-sm font-semibold text-gray-700 block mb-2">
+                          <Calendar className="h-4 w-4 inline mr-1" />
+                          اختر التاريخ
+                        </Label>
+                        <Input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                          className="w-full h-10 text-sm"
+                        />
                       </div>
-
-                      {/* أزرار العمليات */}
-                      <div className="flex flex-wrap gap-2 md:gap-3">
-                        <Button
-                          onClick={() => refetchExpenses()}
-                          size="sm"
-                          variant="outline"
-                          className="gap-2 flex-1 md:flex-none"
-                          disabled={expenseLoading}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                          <span className="hidden sm:inline">تحديث</span>
-                        </Button>
-                        <Button
-                          onClick={handlePrint}
-                          size="sm"
-                          variant="outline"
-                          className="gap-2 flex-1 md:flex-none"
-                        >
-                          <Printer className="h-4 w-4" />
-                          <span className="hidden sm:inline">طباعة</span>
-                        </Button>
-                        <Button
-                          onClick={handleExportDailyExpenses}
-                          size="sm"
-                          variant="outline"
-                          className="gap-2 flex-1 md:flex-none"
-                          disabled={expenseLoading || !expenseData}
-                        >
-                          <Download className="h-4 w-4" />
-                          <span className="hidden sm:inline">تصدير</span>
-                        </Button>
-                      </div>
-
-                      {/* البيانات */}
-                      {expenseLoading ? (
-                        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                          <p className="text-gray-600 text-sm">جاري التحميل...</p>
-                        </div>
-                      ) : expenseData ? (
-                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                          {/* ملخص المصاريف - 4 بطاقات */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border-b border-gray-200">
-                            <div className="p-4 border-l border-gray-200 last:border-l-0">
-                              <p className="text-xs font-medium text-gray-600 mb-1">أجور العمال</p>
-                              <p className="text-lg md:text-xl font-bold text-blue-600">{formatCurrency((expenseData.workerWages || 0).toString())}</p>
-                              <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.workerWages / expenseData.total) * 100).toFixed(1) : 0}%</p>
-                            </div>
-                            <div className="p-4 border-l border-gray-200 last:border-l-0">
-                              <p className="text-xs font-medium text-gray-600 mb-1">تكاليف المواد</p>
-                              <p className="text-lg md:text-xl font-bold text-green-600">{formatCurrency((expenseData.materialCosts || 0).toString())}</p>
-                              <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.materialCosts / expenseData.total) * 100).toFixed(1) : 0}%</p>
-                            </div>
-                            <div className="p-4 border-l border-gray-200 last:border-l-0">
-                              <p className="text-xs font-medium text-gray-600 mb-1">النقل</p>
-                              <p className="text-lg md:text-xl font-bold text-orange-600">{formatCurrency((expenseData.transportation || 0).toString())}</p>
-                              <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.transportation / expenseData.total) * 100).toFixed(1) : 0}%</p>
-                            </div>
-                            <div className="p-4 border-l border-gray-200 last:border-l-0">
-                              <p className="text-xs font-medium text-gray-600 mb-1">مصاريف متنوعة</p>
-                              <p className="text-lg md:text-xl font-bold text-red-600">{formatCurrency((expenseData.miscExpenses || 0).toString())}</p>
-                              <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.miscExpenses / expenseData.total) * 100).toFixed(1) : 0}%</p>
-                            </div>
-                          </div>
-
-                          {/* صف الإجمالي */}
-                          <div className="bg-gray-900 text-white px-4 py-4 flex justify-between items-center">
-                            <span className="font-semibold">الإجمالي</span>
-                            <span className="text-xl font-bold">{formatCurrency((expenseData.total || 0).toString())}</span>
-                          </div>
-                        </div>
-                      ) : null}
+                      <Button
+                        onClick={handleReset}
+                        variant="outline"
+                        className="gap-2 w-full md:w-auto"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        إعادة تعيين
+                      </Button>
                     </div>
-                  </TabsContent>
 
-                  {/* Tab 2: Worker Statement */}
-                  <TabsContent value="worker-statement" className="m-0 p-4 md:p-6 space-y-4">
-                    <div className="max-w-7xl mx-auto w-full space-y-4">
-                      {/* شريط الفلتر الموحد */}
-                      <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                          <div>
-                            <Label className="text-xs font-medium text-gray-700 block mb-2">العامل</Label>
-                            <Select value={selectedWorkerId} onValueChange={setSelectedWorkerId}>
-                              <SelectTrigger className="h-9 text-sm">
-                                <SelectValue placeholder="اختر العامل" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Array.isArray(workers) && workers.map((worker: any) => (
-                                  <SelectItem key={worker.id} value={worker.id}>
-                                    {worker.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                    {/* أزرار العمليات */}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        onClick={() => refetchExpenses()}
+                        variant="secondary"
+                        size="sm"
+                        className="gap-2 flex-1 md:flex-none"
+                        disabled={expenseLoading}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        <span className="hidden sm:inline">تحديث</span>
+                      </Button>
+                      <Button
+                        onClick={handlePrint}
+                        variant="secondary"
+                        size="sm"
+                        className="gap-2 flex-1 md:flex-none"
+                      >
+                        <Printer className="h-4 w-4" />
+                        <span className="hidden sm:inline">طباعة</span>
+                      </Button>
+                      <Button
+                        onClick={handleExportDailyExpenses}
+                        size="sm"
+                        className="gap-2 flex-1 md:flex-none bg-blue-600 hover:bg-blue-700"
+                        disabled={expenseLoading || !expenseData}
+                      >
+                        <Download className="h-4 w-4" />
+                        <span className="hidden sm:inline">تصدير Excel</span>
+                        <span className="sm:hidden">تصدير</span>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                          <div>
-                            <Label className="text-xs font-medium text-gray-700 block mb-2">من التاريخ</Label>
-                            <Input
-                              type="date"
-                              value={dateFrom}
-                              onChange={(e) => setDateFrom(e.target.value)}
-                              className="h-9 text-sm"
-                            />
+                {/* البيانات */}
+                {expenseLoading ? (
+                  <Card className="border-gray-300 shadow-md">
+                    <CardContent className="p-8 text-center">
+                      <p className="text-gray-600 text-sm animate-pulse">جاري التحميل...</p>
+                    </CardContent>
+                  </Card>
+                ) : expenseData ? (
+                  <Card className="border-gray-300 shadow-md">
+                    <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 border-b border-gray-200">
+                      <CardTitle className="text-lg text-gray-900">ملخص المصاريف</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-medium text-gray-600">أجور العمال</p>
+                            <Users className="h-4 w-4 text-blue-600" />
                           </div>
-
-                          <div>
-                            <Label className="text-xs font-medium text-gray-700 block mb-2">إلى التاريخ</Label>
-                            <Input
-                              type="date"
-                              value={dateTo}
-                              onChange={(e) => setDateTo(e.target.value)}
-                              className="h-9 text-sm"
-                            />
+                          <p className="text-2xl font-bold text-blue-600">{formatCurrency((expenseData.workerWages || 0).toString())}</p>
+                          <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.workerWages / expenseData.total) * 100).toFixed(1) : 0}%</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-medium text-gray-600">المواد</p>
+                            <BarChart3 className="h-4 w-4 text-green-600" />
                           </div>
-
-                          <div className="flex items-end gap-2">
-                            <Button
-                              onClick={handleReset}
-                              variant="outline"
-                              size="sm"
-                              className="gap-2 flex-1"
-                            >
-                              <RefreshCw className="h-4 w-4" />
-                              <span className="hidden sm:inline">إعادة</span>
-                            </Button>
+                          <p className="text-2xl font-bold text-green-600">{formatCurrency((expenseData.materialCosts || 0).toString())}</p>
+                          <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.materialCosts / expenseData.total) * 100).toFixed(1) : 0}%</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-medium text-gray-600">النقل</p>
+                            <Truck className="h-4 w-4 text-orange-600" />
                           </div>
+                          <p className="text-2xl font-bold text-orange-600">{formatCurrency((expenseData.transportation || 0).toString())}</p>
+                          <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.transportation / expenseData.total) * 100).toFixed(1) : 0}%</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg border border-red-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-medium text-gray-600">متنوعة</p>
+                            <AlertCircle className="h-4 w-4 text-red-600" />
+                          </div>
+                          <p className="text-2xl font-bold text-red-600">{formatCurrency((expenseData.miscExpenses || 0).toString())}</p>
+                          <p className="text-xs text-gray-500 mt-1">{expenseData.total > 0 ? ((expenseData.miscExpenses / expenseData.total) * 100).toFixed(1) : 0}%</p>
                         </div>
                       </div>
 
-                      {/* أزرار العمليات */}
-                      <div className="flex flex-wrap gap-2 md:gap-3">
+                      {/* الإجمالي */}
+                      <div className="mt-6 bg-gradient-to-r from-gray-900 to-gray-800 text-white px-6 py-4 rounded-lg flex justify-between items-center shadow-lg">
+                        <span className="font-semibold text-lg">الإجمالي</span>
+                        <span className="text-3xl font-bold">{formatCurrency((expenseData.total || 0).toString())}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+              </TabsContent>
+
+              {/* تبويب بيان العامل */}
+              <TabsContent value="worker-statement" className="space-y-4">
+                {/* الفلاتر والأزرار */}
+                <Card className="border-gray-300 shadow-md">
+                  <CardContent className="p-4 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div>
+                        <Label className="text-sm font-semibold text-gray-700 block mb-2">العامل</Label>
+                        <Select value={selectedWorkerId} onValueChange={setSelectedWorkerId}>
+                          <SelectTrigger className="h-10 text-sm">
+                            <SelectValue placeholder="اختر العامل" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.isArray(workers) && workers.map((worker: any) => (
+                              <SelectItem key={worker.id} value={worker.id}>
+                                {worker.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-semibold text-gray-700 block mb-2">من التاريخ</Label>
+                        <Input
+                          type="date"
+                          value={dateFrom}
+                          onChange={(e) => setDateFrom(e.target.value)}
+                          className="h-10 text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-semibold text-gray-700 block mb-2">إلى التاريخ</Label>
+                        <Input
+                          type="date"
+                          value={dateTo}
+                          onChange={(e) => setDateTo(e.target.value)}
+                          className="h-10 text-sm"
+                        />
+                      </div>
+
+                      <div className="flex items-end gap-2">
                         <Button
-                          onClick={() => refetchStatement()}
-                          size="sm"
+                          onClick={handleReset}
                           variant="outline"
-                          className="gap-2 flex-1 md:flex-none"
-                          disabled={statementLoading}
+                          className="gap-2 flex-1"
                         >
                           <RefreshCw className="h-4 w-4" />
-                          <span className="hidden sm:inline">تحديث</span>
-                        </Button>
-                        <Button
-                          onClick={handlePrint}
-                          size="sm"
-                          variant="outline"
-                          className="gap-2 flex-1 md:flex-none"
-                        >
-                          <Printer className="h-4 w-4" />
-                          <span className="hidden sm:inline">طباعة</span>
-                        </Button>
-                        <Button
-                          onClick={handleExportWorkerStatement}
-                          size="sm"
-                          variant="outline"
-                          className="gap-2 flex-1 md:flex-none"
-                          disabled={statementLoading || !statementData}
-                        >
-                          <Download className="h-4 w-4" />
-                          <span className="hidden sm:inline">تصدير</span>
+                          إعادة
                         </Button>
                       </div>
+                    </div>
 
-                      {/* البيانات */}
-                      {!selectedWorkerId ? (
-                        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                          <p className="text-gray-600 text-sm">اختر عامل لعرض بيانه</p>
-                        </div>
-                      ) : statementLoading ? (
-                        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                          <p className="text-gray-600 text-sm">جاري التحميل...</p>
-                        </div>
-                      ) : statementData ? (
-                        <div className="space-y-4">
-                          {/* معلومات العامل - 4 بطاقات */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                              <p className="text-xs font-medium text-gray-600 mb-2">اسم العامل</p>
-                              <p className="text-sm md:text-base font-bold text-gray-900">{statementData.worker.name}</p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                              <p className="text-xs font-medium text-gray-600 mb-2">نوع العامل</p>
-                              <p className="text-sm md:text-base font-bold text-gray-900">{statementData.worker.type}</p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                              <p className="text-xs font-medium text-gray-600 mb-2">الأجر اليومي</p>
-                              <p className="text-sm md:text-base font-bold text-blue-600">{formatCurrency((statementData.worker.dailyWage || 0).toString())}</p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                              <p className="text-xs font-medium text-gray-600 mb-2">الرصيد المتبقي</p>
-                              <p className="text-sm md:text-base font-bold text-green-600">{formatCurrency((statementData.summary.remainingBalance || 0).toString())}</p>
-                            </div>
-                          </div>
+                    {/* أزرار العمليات */}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        onClick={() => refetchStatement()}
+                        variant="secondary"
+                        size="sm"
+                        className="gap-2 flex-1 md:flex-none"
+                        disabled={statementLoading}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        <span className="hidden sm:inline">تحديث</span>
+                      </Button>
+                      <Button
+                        onClick={handlePrint}
+                        variant="secondary"
+                        size="sm"
+                        className="gap-2 flex-1 md:flex-none"
+                      >
+                        <Printer className="h-4 w-4" />
+                        <span className="hidden sm:inline">طباعة</span>
+                      </Button>
+                      <Button
+                        onClick={handleExportWorkerStatement}
+                        size="sm"
+                        className="gap-2 flex-1 md:flex-none bg-green-600 hover:bg-green-700"
+                        disabled={statementLoading || !statementData}
+                      >
+                        <Download className="h-4 w-4" />
+                        <span className="hidden sm:inline">تصدير Excel</span>
+                        <span className="sm:hidden">تصدير</span>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                          {/* جدول السجل */}
-                          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-sm">
-                                <thead>
-                                  <tr className="bg-gray-900 text-white">
-                                    <th className="px-4 py-3 text-right font-semibold">التاريخ</th>
-                                    <th className="px-4 py-3 text-right font-semibold">أيام</th>
-                                    <th className="px-4 py-3 text-right font-semibold">يومي</th>
-                                    <th className="px-4 py-3 text-right font-semibold">مستحق</th>
-                                    <th className="px-4 py-3 text-right font-semibold">مدفوع</th>
-                                    <th className="px-4 py-3 text-right font-semibold">متبقي</th>
+                {/* البيانات */}
+                {!selectedWorkerId ? (
+                  <Card className="border-gray-300 shadow-md">
+                    <CardContent className="p-8 text-center">
+                      <AlertCircle className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                      <p className="text-gray-600 text-sm">اختر عامل من القائمة لعرض بيان حسابه</p>
+                    </CardContent>
+                  </Card>
+                ) : statementLoading ? (
+                  <Card className="border-gray-300 shadow-md">
+                    <CardContent className="p-8 text-center">
+                      <p className="text-gray-600 text-sm animate-pulse">جاري التحميل...</p>
+                    </CardContent>
+                  </Card>
+                ) : statementData ? (
+                  <div className="space-y-4">
+                    {/* معلومات العامل */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <Card className="border-gray-300 shadow-md">
+                        <CardContent className="p-4">
+                          <p className="text-xs font-medium text-gray-600 mb-2">اسم العامل</p>
+                          <p className="text-lg font-bold text-gray-900">{statementData?.worker?.name}</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-gray-300 shadow-md">
+                        <CardContent className="p-4">
+                          <p className="text-xs font-medium text-gray-600 mb-2">نوع العامل</p>
+                          <p className="text-lg font-bold text-gray-900">{statementData?.worker?.type}</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-gray-300 shadow-md">
+                        <CardContent className="p-4">
+                          <p className="text-xs font-medium text-gray-600 mb-2">الأجر اليومي</p>
+                          <p className="text-lg font-bold text-blue-600">{formatCurrency((statementData?.worker?.dailyWage || 0).toString())}</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-gray-300 shadow-md">
+                        <CardContent className="p-4">
+                          <p className="text-xs font-medium text-gray-600 mb-2">الرصيد المتبقي</p>
+                          <p className={`text-lg font-bold ${(statementData?.summary?.remainingBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency((statementData?.summary?.remainingBalance || 0).toString())}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* جدول السجل */}
+                    <Card className="border-gray-300 shadow-md">
+                      <CardHeader className="bg-gradient-to-r from-green-50 to-green-100 border-b border-gray-200">
+                        <CardTitle className="text-lg text-gray-900">سجل الحضور والأجور</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-gradient-to-r from-gray-800 to-gray-900 text-white">
+                                <th className="px-4 py-3 text-right font-semibold">التاريخ</th>
+                                <th className="px-4 py-3 text-right font-semibold">أيام</th>
+                                <th className="px-4 py-3 text-right font-semibold">يومي</th>
+                                <th className="px-4 py-3 text-right font-semibold">مستحق</th>
+                                <th className="px-4 py-3 text-right font-semibold">مدفوع</th>
+                                <th className="px-4 py-3 text-right font-semibold">متبقي</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {statementData?.attendance && statementData.attendance.length > 0 ? (
+                                statementData.attendance.map((record: any, idx: number) => (
+                                  <tr key={idx} className="border-t border-gray-200 hover:bg-blue-50 transition-colors">
+                                    <td className="px-4 py-3 text-gray-900">{record.date}</td>
+                                    <td className="px-4 py-3 text-gray-900">{record.workDays}</td>
+                                    <td className="px-4 py-3 text-gray-900">{formatCurrency((record.dailyWage || 0).toString())}</td>
+                                    <td className="px-4 py-3 font-medium text-blue-600">{formatCurrency((record.actualWage || 0).toString())}</td>
+                                    <td className="px-4 py-3 font-medium text-green-600">{formatCurrency(record.paidAmount.toString())}</td>
+                                    <td className="px-4 py-3 font-medium text-orange-600">{formatCurrency(record.remainingAmount.toString())}</td>
                                   </tr>
-                                </thead>
-                                <tbody>
-                                  {statementData.attendance.map((record, idx) => (
-                                    <tr key={idx} className="border-t border-gray-200 hover:bg-gray-50 transition-colors">
-                                      <td className="px-4 py-3 text-gray-900">{record.date}</td>
-                                      <td className="px-4 py-3 text-gray-900">{record.workDays}</td>
-                                      <td className="px-4 py-3 text-gray-900">{formatCurrency((record.dailyWage || 0).toString())}</td>
-                                      <td className="px-4 py-3 font-medium text-blue-600">{formatCurrency((record.actualWage || 0).toString())}</td>
-                                      <td className="px-4 py-3 font-medium text-green-600">{formatCurrency(record.paidAmount.toString())}</td>
-                                      <td className="px-4 py-3 font-medium text-orange-600">{formatCurrency(record.remainingAmount.toString())}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-
-                          {/* ملخص النهاية - 4 بطاقات */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <div className="bg-gray-900 text-white rounded-lg p-4 text-center">
-                              <p className="text-xs font-medium opacity-80 mb-2">إجمالي أيام العمل</p>
-                              <p className="text-2xl font-bold">{statementData.summary.totalWorkDays}</p>
-                            </div>
-                            <div className="bg-blue-600 text-white rounded-lg p-4 text-center">
-                              <p className="text-xs font-medium opacity-80 mb-2">المستحق</p>
-                              <p className="text-xl font-bold">{formatCurrency(statementData.summary.totalEarned.toString())}</p>
-                            </div>
-                            <div className="bg-green-600 text-white rounded-lg p-4 text-center">
-                              <p className="text-xs font-medium opacity-80 mb-2">المدفوع</p>
-                              <p className="text-xl font-bold">{formatCurrency(statementData.summary.totalPaid.toString())}</p>
-                            </div>
-                            <div className="bg-orange-600 text-white rounded-lg p-4 text-center">
-                              <p className="text-xs font-medium opacity-80 mb-2">المتبقي</p>
-                              <p className="text-xl font-bold">{formatCurrency((statementData.summary.remainingBalance || 0).toString())}</p>
-                            </div>
-                          </div>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                                    لا توجد سجلات للفترة المختارة
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
                         </div>
-                      ) : null}
+                      </CardContent>
+                    </Card>
+
+                    {/* ملخص النهاية */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white rounded-lg p-4 text-center shadow-lg">
+                        <p className="text-xs font-medium opacity-80 mb-2">أيام العمل</p>
+                        <p className="text-3xl font-bold">{statementData?.summary?.totalWorkDays || 0}</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-4 text-center shadow-lg">
+                        <p className="text-xs font-medium opacity-80 mb-2">المستحق</p>
+                        <p className="text-2xl font-bold">{formatCurrency((statementData?.summary?.totalEarned || 0).toString())}</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-4 text-center shadow-lg">
+                        <p className="text-xs font-medium opacity-80 mb-2">المدفوع</p>
+                        <p className="text-2xl font-bold">{formatCurrency((statementData?.summary?.totalPaid || 0).toString())}</p>
+                      </div>
+                      <div className={`bg-gradient-to-br ${(statementData?.summary?.remainingBalance || 0) >= 0 ? 'from-orange-500 to-orange-600' : 'from-red-500 to-red-600'} text-white rounded-lg p-4 text-center shadow-lg`}>
+                        <p className="text-xs font-medium opacity-80 mb-2">المتبقي</p>
+                        <p className="text-2xl font-bold">{formatCurrency((statementData?.summary?.remainingBalance || 0).toString())}</p>
+                      </div>
                     </div>
-                  </TabsContent>
-                </div>
-              </Tabs>
+                  </div>
+                ) : null}
+              </TabsContent>
             </div>
-          </div>
+          </Tabs>
         </div>
       </div>
     </div>

@@ -64,7 +64,7 @@ export async function apiRequest(
 ): Promise<any> {
   const url = `${endpoint.startsWith("http") ? "" : window.location.origin}${endpoint}`;
 
-  const token = localStorage.getItem("accessToken");
+  const token = getStoredAccessToken();
   const headers: HeadersInit = {
     "Content-Type": "application/json",
   };

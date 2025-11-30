@@ -13,7 +13,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { UnifiedSearchFilter, PROJECT_STATUS_OPTIONS } from "@/components/ui/unified-search-filter";
+import { FilterStatsBar, type FilterConfig, type MetricConfig } from "@/components/ui/filter-stats-bar";
+import { useFilterStats } from "@/hooks/use-filter-stats";
 import { 
   Edit, 
   Trash2, 
@@ -33,7 +34,6 @@ import {
   Eye,
   Calendar
 } from "lucide-react";
-import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
 import type { Project, InsertProject } from "@shared/schema";
 import { insertProjectSchema } from "@shared/schema";
 import { formatDate, formatCurrency } from "@/lib/utils";
@@ -96,14 +96,36 @@ const cleanNumber = (value: any): number => {
 };
 
 
+const PROJECT_STATUS_OPTIONS = [
+  { value: 'all', label: 'جميع الحالات' },
+  { value: 'active', label: 'نشط' },
+  { value: 'paused', label: 'متوقف' },
+  { value: 'completed', label: 'مكتمل' },
+];
+
 export default function ProjectsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [activeFilters, setActiveFilters] = useState({});
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
   const { setFloatingAction } = useFloatingButton();
+
+  const {
+    searchValue,
+    filterValues,
+    setSearchValue,
+    setFilterValue,
+    resetAll,
+    refresh,
+    isRefreshing,
+  } = useFilterStats({
+    initialFilters: { status: 'all' },
+    queryKeys: ['/api/projects/with-stats'],
+  });
 
 
   // تعيين إجراء الزر العائم لإضافة مشروع جديد
@@ -514,42 +536,68 @@ export default function ProjectsPage() {
     <>
       <div className="space-y-2 p-2">
 
-      {/* شريط البحث والفلترة الموحد */}
-      <UnifiedSearchFilter
-        onFilterChange={setActiveFilters}
-        enableSearch={true}
-        enableFilters={true}
-        filterOptions={PROJECT_STATUS_OPTIONS}
+      {/* شريط البحث والفلترة والإحصائيات الموحد */}
+      <FilterStatsBar
+        title="إدارة المشاريع"
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        searchPlaceholder="بحث في المشاريع..."
+        filters={[
+          {
+            key: 'status',
+            label: 'حالة المشروع',
+            type: 'select',
+            placeholder: 'اختر الحالة',
+            options: PROJECT_STATUS_OPTIONS,
+            defaultValue: 'all',
+          },
+        ]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValue}
+        onReset={resetAll}
+        onRefresh={refresh}
+        isRefreshing={isRefreshing}
+        metrics={[
+          {
+            key: 'totalProjects',
+            label: 'إجمالي المشاريع',
+            value: overallStats.totalProjects,
+            icon: Building2,
+            color: 'blue',
+          },
+          {
+            key: 'activeProjects',
+            label: 'المشاريع النشطة',
+            value: overallStats.activeProjects,
+            icon: TrendingUp,
+            color: 'green',
+          },
+          {
+            key: 'currentBalance',
+            label: 'الرصيد الإجمالي',
+            value: formatCurrencyLocal(currentBalance),
+            icon: DollarSign,
+            color: currentBalance >= 0 ? 'green' : 'red',
+          },
+          {
+            key: 'totalWorkers',
+            label: 'إجمالي العمال',
+            value: overallStats.totalWorkers,
+            icon: Users,
+            color: 'purple',
+          },
+        ]}
+        actions={[
+          {
+            key: 'add',
+            label: 'إضافة مشروع',
+            icon: Plus,
+            onClick: () => setIsCreateDialogOpen(true),
+          },
+        ]}
       />
 
-      <StatsGrid>
-        <StatsCard
-          title="إجمالي المشاريع"
-          value={overallStats.totalProjects.toString()}
-          icon={Building2}
-          color="blue"
-        />
-        <StatsCard
-          title="المشاريع النشطة"
-          value={overallStats.activeProjects.toString()}
-          icon={TrendingUp}
-          color="green"
-        />
-        <StatsCard
-          title="الرصيد الإجمالي"
-          value={formatCurrencyLocal(currentBalance)}
-          icon={DollarSign}
-          color={currentBalance >= 0 ? "green" : "red"}
-        />
-        <StatsCard
-          title="إجمالي العمال"
-          value={overallStats.totalWorkers.toString()}
-          icon={Users}
-          color="purple"
-        />
-      </StatsGrid>
-
-      <div className="mt-8 mb-4" />
+      <div className="mt-4" />
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent>

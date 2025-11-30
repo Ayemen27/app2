@@ -328,9 +328,51 @@ autocompleteRouter.get('/admin/stats', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/autocomplete-admin/stats - alias with dash instead of slash
+ */
+autocompleteRouter.get('/admin-stats', async (req: Request, res: Response) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        totalEntries: 0,
+        categoriesCount: 0,
+        lastUpdated: new Date()
+      },
+      message: 'تم جلب إحصائيات الإكمال التلقائي بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب الإحصائيات'
+    });
+  }
+});
+
+/**
  * POST /api/autocomplete-admin/maintenance - صيانة الإكمال التلقائي
  */
 autocompleteRouter.post('/admin/maintenance', async (req: Request, res: Response) => {
+  try {
+    res.json({
+      success: true,
+      data: { cleaned: 0, optimized: true },
+      message: 'تمت صيانة الإكمال التلقائي بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في صيانة الإكمال التلقائي'
+    });
+  }
+});
+
+/**
+ * POST /api/autocomplete-admin/cleanup - alias with dash instead of slash
+ */
+autocompleteRouter.post('/admin-cleanup', async (req: Request, res: Response) => {
   try {
     res.json({
       success: true,
@@ -354,6 +396,8 @@ console.log('   POST /api/autocomplete (عام)');
 console.log('   GET /api/autocomplete/projectNames (عام)');
 console.log('   GET /api/autocomplete/transferTypes (عام)');
 console.log('   GET /api/autocomplete/admin/stats (عام)');
+console.log('   GET /api/autocomplete/admin-stats (عام)');
 console.log('   POST /api/autocomplete/admin/maintenance (عام)');
+console.log('   POST /api/autocomplete/admin-cleanup (عام)');
 
 export default autocompleteRouter;

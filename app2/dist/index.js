@@ -6122,6 +6122,11 @@ var PROTECTED_ROUTES = [
         parameters: ["id"]
       },
       {
+        path: "/api/suppliers/statistics",
+        methods: ["GET"],
+        description: "\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646"
+      },
+      {
         path: "/api/material-purchases",
         methods: ["GET", "POST"],
         description: "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F"
@@ -6131,6 +6136,11 @@ var PROTECTED_ROUTES = [
         methods: ["PUT", "DELETE"],
         description: "\u0625\u062F\u0627\u0631\u0629 \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0648\u0627\u062F \u0645\u062D\u062F\u062F\u0629",
         parameters: ["id"]
+      },
+      {
+        path: "/api/material-purchases/date-range",
+        methods: ["GET"],
+        description: "\u062C\u0644\u0628 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0628\u0646\u0637\u0627\u0642 \u062A\u0627\u0631\u064A\u062E\u064A"
       },
       {
         path: "/api/worker-attendance",

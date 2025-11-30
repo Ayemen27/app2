@@ -284,6 +284,11 @@ export const PROTECTED_ROUTES: RouteGroup[] = [
         parameters: ["id"]
       },
       {
+        path: "/api/suppliers/statistics",
+        methods: ["GET"],
+        description: "إحصائيات الموردين"
+      },
+      {
         path: "/api/material-purchases",
         methods: ["GET", "POST"],
         description: "مشتريات المواد"
@@ -293,6 +298,11 @@ export const PROTECTED_ROUTES: RouteGroup[] = [
         methods: ["PUT", "DELETE"],
         description: "إدارة مشترية مواد محددة",
         parameters: ["id"]
+      },
+      {
+        path: "/api/material-purchases/date-range",
+        methods: ["GET"],
+        description: "جلب المشتريات بنطاق تاريخي"
       },
       {
         path: "/api/worker-attendance",

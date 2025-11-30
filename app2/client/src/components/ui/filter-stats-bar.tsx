@@ -166,18 +166,18 @@ function MetricCard({ metric }: { metric: MetricConfig }) {
 
   return (
     <div className={cn(
-      'flex items-center gap-3 px-4 py-3 rounded-lg border transition-all',
+      'flex items-center gap-2 px-3 py-2 rounded-lg border transition-all',
       colors.bg,
       colors.border,
       'hover:shadow-sm'
     )}>
-      <div className={cn('p-2 rounded-lg', colors.bg)}>
-        <Icon className={cn('h-5 w-5', colors.icon)} />
+      <div className={cn('p-1.5 rounded-lg', colors.bg)}>
+        <Icon className={cn('h-4 w-4', colors.icon)} />
       </div>
       <div className="flex flex-col min-w-0">
         <span className="text-xs text-muted-foreground truncate">{metric.label}</span>
-        <div className="flex items-center gap-2">
-          <span className={cn('text-lg font-bold arabic-numbers', colors.text)}>
+        <div className="flex items-center gap-1.5">
+          <span className={cn('text-sm font-bold arabic-numbers', colors.text)}>
             {cleanValue(metric.value)}
           </span>
           {metric.trend && (
@@ -542,16 +542,10 @@ export function FilterStatsBar({
           )}
         </div>
 
-        {/* قسم الإحصائيات */}
+        {/* قسم الإحصائيات - شبكة 3 أعمدة دائماً */}
         {metrics.length > 0 && (!collapsible || isExpanded) && (
           <div className="border-t border-border/50 bg-muted/30 p-4">
-            <div className={cn(
-              'grid gap-3',
-              metrics.length === 1 && 'grid-cols-1',
-              metrics.length === 2 && 'grid-cols-1 sm:grid-cols-2',
-              metrics.length === 3 && 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
-              metrics.length >= 4 && 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-            )}>
+            <div className="grid gap-3 grid-cols-3">
               {metrics.map((metric) => (
                 <MetricCard key={metric.key} metric={metric} />
               ))}

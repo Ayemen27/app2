@@ -15,11 +15,11 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-var __copyProps = (to, from, except, desc7) => {
+var __copyProps = (to, from, except, desc8) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc7 = __getOwnPropDesc(from, key)) || desc7.enumerable });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc8 = __getOwnPropDesc(from, key)) || desc8.enumerable });
   }
   return to;
 };
@@ -2384,7 +2384,7 @@ __export(NotificationService_exports, {
   NotificationStatus: () => NotificationStatus,
   NotificationTypes: () => NotificationTypes
 });
-import { eq as eq10, and as and9, desc as desc6, or as or3, inArray, sql as sql8 } from "drizzle-orm";
+import { eq as eq11, and as and9, desc as desc7, or as or3, inArray, sql as sql8 } from "drizzle-orm";
 var NotificationPriority, NotificationTypes, NotificationStatus, NotificationService;
 var init_NotificationService = __esm({
   "server/services/NotificationService.ts"() {
@@ -2569,9 +2569,9 @@ var init_NotificationService = __esm({
           try {
             const defaultUser = await db.query.users.findFirst({
               columns: { id: true },
-              where: (users2, { eq: eq11, or: or4 }) => or4(
-                eq11(users2.role, "admin"),
-                eq11(users2.email, "admin")
+              where: (users2, { eq: eq12, or: or4 }) => or4(
+                eq12(users2.role, "admin"),
+                eq12(users2.email, "admin")
               )
             });
             return defaultUser ? [defaultUser.id] : [];
@@ -2590,9 +2590,9 @@ var init_NotificationService = __esm({
             return true;
           }
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq11, or: or4 }) => or4(
-              eq11(users2.id, userId),
-              eq11(users2.email, userId)
+            where: (users2, { eq: eq12, or: or4 }) => or4(
+              eq12(users2.id, userId),
+              eq12(users2.email, userId)
             )
           });
           if (!user) {
@@ -2614,9 +2614,9 @@ var init_NotificationService = __esm({
       async getAllowedNotificationTypes(userId) {
         try {
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq11, or: or4 }) => or4(
-              eq11(users2.id, userId),
-              eq11(users2.email, userId)
+            where: (users2, { eq: eq12, or: or4 }) => or4(
+              eq12(users2.id, userId),
+              eq12(users2.email, userId)
             )
           });
           if (!user) {
@@ -2646,10 +2646,10 @@ var init_NotificationService = __esm({
           conditions.push(inArray(notifications.type, allowedTypes));
         }
         if (filters.type && allowedTypes.includes(filters.type)) {
-          conditions.push(eq10(notifications.type, filters.type));
+          conditions.push(eq11(notifications.type, filters.type));
         }
         if (filters.projectId) {
-          conditions.push(eq10(notifications.projectId, filters.projectId));
+          conditions.push(eq11(notifications.projectId, filters.projectId));
         }
         if (isUserAdmin) {
           conditions.push(
@@ -2670,12 +2670,12 @@ var init_NotificationService = __esm({
             )
           );
         }
-        const notificationList = await db.select().from(notifications).where(and9(...conditions)).orderBy(desc6(notifications.createdAt)).limit(filters.limit || 50).offset(filters.offset || 0);
+        const notificationList = await db.select().from(notifications).where(and9(...conditions)).orderBy(desc7(notifications.createdAt)).limit(filters.limit || 50).offset(filters.offset || 0);
         console.log(`\u{1F50D} \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 ${notificationList.length} \u0625\u0634\u0639\u0627\u0631 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId}`);
         const notificationIds = notificationList.map((n) => n.id);
         const readStates = notificationIds.length > 0 ? await db.select().from(notificationReadStates).where(
           and9(
-            eq10(notificationReadStates.userId, userId),
+            eq11(notificationReadStates.userId, userId),
             // مهم: حالة القراءة مخصصة للمستخدم
             inArray(notificationReadStates.notificationId, notificationIds)
           )
@@ -2726,8 +2726,8 @@ var init_NotificationService = __esm({
           console.log(`\u{1F50D} \u0628\u062F\u0621 \u0641\u062D\u0635 \u062D\u0627\u0644\u0629 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 ${notificationId} \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId}`);
           const readState = await db.select().from(notificationReadStates).where(
             and9(
-              eq10(notificationReadStates.userId, userId),
-              eq10(notificationReadStates.notificationId, notificationId)
+              eq11(notificationReadStates.userId, userId),
+              eq11(notificationReadStates.notificationId, notificationId)
             )
           ).limit(1);
           console.log(`\u{1F4D6} \u0646\u062A\u0627\u0626\u062C \u0641\u062D\u0635 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 ${notificationId}:`, readState);
@@ -2810,7 +2810,7 @@ var init_NotificationService = __esm({
         })));
         const conditions = [];
         if (projectId) {
-          conditions.push(eq10(notifications.projectId, projectId));
+          conditions.push(eq11(notifications.projectId, projectId));
         }
         const userNotifications = conditions.length > 0 ? await db.select({ id: notifications.id }).from(notifications).where(and9(...conditions)) : await db.select({ id: notifications.id }).from(notifications);
         console.log(`\u{1F3AF} \u0639\u062F\u062F \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u064F\u0641\u0644\u062A\u0631\u0629: ${userNotifications.length}`);
@@ -2831,8 +2831,8 @@ var init_NotificationService = __esm({
        */
       async deleteNotification(notificationId) {
         console.log(`\u{1F5D1}\uFE0F \u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631: ${notificationId}`);
-        await db.delete(notificationReadStates).where(eq10(notificationReadStates.notificationId, notificationId));
-        await db.delete(notifications).where(eq10(notifications.id, notificationId));
+        await db.delete(notificationReadStates).where(eq11(notificationReadStates.notificationId, notificationId));
+        await db.delete(notifications).where(eq11(notifications.id, notificationId));
         console.log(`\u2705 \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631: ${notificationId}`);
       }
       /**
@@ -2863,7 +2863,7 @@ var init_NotificationService = __esm({
           }
         }
         const userNotifications = await db.select().from(notifications).where(and9(...conditions));
-        const readStates = await db.select().from(notificationReadStates).where(eq10(notificationReadStates.userId, userId));
+        const readStates = await db.select().from(notificationReadStates).where(eq11(notificationReadStates.userId, userId));
         const readNotificationIds = readStates.filter((rs) => rs.isRead).map((rs) => rs.notificationId);
         const unread = userNotifications.filter((n) => !readNotificationIds.includes(n.id));
         const byType = {};
@@ -2893,19 +2893,19 @@ var init_NotificationService = __esm({
         const { limit = 50, offset = 0, type, priority } = options;
         const conditions = [];
         if (type) {
-          conditions.push(eq10(notifications.type, type));
+          conditions.push(eq11(notifications.type, type));
         }
         if (priority !== void 0) {
-          conditions.push(eq10(notifications.priority, priority));
+          conditions.push(eq11(notifications.priority, priority));
         }
         let query = db.select().from(notifications);
         if (conditions.length > 0) {
           query = query.where(and9(...conditions));
         }
-        const allNotifications = await query.orderBy(desc6(notifications.createdAt)).limit(limit).offset(offset);
+        const allNotifications = await query.orderBy(desc7(notifications.createdAt)).limit(limit).offset(offset);
         const notificationsWithStats = await Promise.all(
           allNotifications.map(async (notification) => {
-            const readStates = await db.select().from(notificationReadStates).where(eq10(notificationReadStates.notificationId, notification.id));
+            const readStates = await db.select().from(notificationReadStates).where(eq11(notificationReadStates.notificationId, notification.id));
             const totalReads = readStates.filter((rs) => rs.isRead).length;
             const totalUsers = readStates.length || 1;
             return {
@@ -2946,7 +2946,7 @@ var init_NotificationService = __esm({
         }).from(users);
         const userStats = await Promise.all(
           allUsers.map(async (user) => {
-            const userReadStates = await db.select().from(notificationReadStates).where(eq10(notificationReadStates.userId, user.id));
+            const userReadStates = await db.select().from(notificationReadStates).where(eq11(notificationReadStates.userId, user.id));
             const readNotifications = userReadStates.filter((rs) => rs.isRead).length;
             const unreadNotifications = userReadStates.filter((rs) => !rs.isRead).length;
             const totalNotifications = userReadStates.length;
@@ -10833,21 +10833,71 @@ var financialRoutes_default = financialRouter;
 
 // server/routes/modules/autocompleteRoutes.ts
 import express9 from "express";
+init_db();
+init_schema();
+import { eq as eq10, desc as desc6 } from "drizzle-orm";
 var autocompleteRouter = express9.Router();
+autocompleteRouter.post("/", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { category, value, usageCount = 1 } = req.body;
+    if (!category || !value) {
+      return res.status(400).json({
+        success: false,
+        message: "category \u0648 value \u0645\u0637\u0644\u0648\u0628\u0627\u0646"
+      });
+    }
+    console.log("\u{1F4DD} [API] \u062D\u0641\u0638 \u0625\u0643\u0645\u0627\u0644 \u062A\u0644\u0642\u0627\u0626\u064A:", { category, value });
+    const existing = await db.select().from(autocompleteData).where(eq10(autocompleteData.value, value)).limit(1);
+    let saved;
+    if (existing.length > 0) {
+      saved = await db.update(autocompleteData).set({
+        usageCount: (existing[0].usageCount || 1) + 1,
+        lastUsed: /* @__PURE__ */ new Date()
+      }).where(eq10(autocompleteData.id, existing[0].id)).returning();
+    } else {
+      saved = await db.insert(autocompleteData).values({
+        category,
+        value,
+        usageCount: 1,
+        lastUsed: /* @__PURE__ */ new Date()
+      }).returning();
+    }
+    const duration = Date.now() - startTime;
+    console.log("\u2705 [API] \u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D:", saved[0].id);
+    res.status(201).json({
+      success: true,
+      data: saved[0],
+      message: "\u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D",
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u0625\u0643\u0645\u0627\u0644:", error);
+    res.status(500).json({
+      success: false,
+      message: "\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062D\u0641\u0638",
+      error: error.message,
+      processingTime: duration
+    });
+  }
+});
 autocompleteRouter.get("/", requireAuth, async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("\u{1F4CA} [API] \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A");
+    const data = await db.select().from(autocompleteData).orderBy(desc6(autocompleteData.usageCount)).limit(1e3);
+    const grouped = {};
+    data.forEach((item) => {
+      if (!grouped[item.category]) {
+        grouped[item.category] = [];
+      }
+      grouped[item.category].push(item.value);
+    });
     const duration = Date.now() - startTime;
     res.json({
       success: true,
-      data: {
-        senderNames: [],
-        transferNumbers: [],
-        transferTypes: [],
-        transportDescriptions: [],
-        notes: []
-      },
+      data: grouped,
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D",
       processingTime: duration
     });
@@ -10863,58 +10913,18 @@ autocompleteRouter.get("/", requireAuth, async (req, res) => {
     });
   }
 });
-autocompleteRouter.post("/", async (req, res) => {
-  const startTime = Date.now();
-  try {
-    const { category, value, usageCount = 1 } = req.body;
-    if (!category || !value) {
-      return res.status(400).json({
-        success: false,
-        message: "category \u0648 value \u0645\u0637\u0644\u0648\u0628\u0627\u0646"
-      });
-    }
-    console.log("\u{1F4DD} [API] \u062D\u0641\u0638 \u0625\u0643\u0645\u0627\u0644 \u062A\u0644\u0642\u0627\u0626\u064A:", { category, value });
-    res.json({
-      success: true,
-      data: { category, value, usageCount },
-      message: "\u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A",
-      processingTime: Date.now() - startTime
-    });
-  } catch (error) {
-    console.error("\u274C \u062E\u0637\u0623 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u0625\u0643\u0645\u0627\u0644:", error);
-    res.status(500).json({
-      success: false,
-      message: "\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062D\u0641\u0638",
-      processingTime: Date.now() - startTime
-    });
-  }
-});
 autocompleteRouter.head("/", (req, res) => {
   res.status(200).end();
 });
 autocompleteRouter.head("/transferTypes", (req, res) => {
   res.status(200).end();
 });
-autocompleteRouter.get("/projectNames", async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      data: [],
-      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0628\u0646\u062C\u0627\u062D"
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
-    });
-  }
-});
 autocompleteRouter.get("/senderNames", requireAuth, async (req, res) => {
   try {
+    const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "senderNames")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: [],
+      data: data.map((d) => d.value),
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0631\u0633\u0644\u064A\u0646 \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -10927,9 +10937,10 @@ autocompleteRouter.get("/senderNames", requireAuth, async (req, res) => {
 });
 autocompleteRouter.get("/transferNumbers", requireAuth, async (req, res) => {
   try {
+    const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "transferNumbers")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: [],
+      data: data.map((d) => d.value),
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -10942,9 +10953,10 @@ autocompleteRouter.get("/transferNumbers", requireAuth, async (req, res) => {
 });
 autocompleteRouter.get("/transferTypes", async (req, res) => {
   try {
+    const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "transferTypes")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: ["\u062A\u062D\u0648\u064A\u0644 \u062F\u0627\u062E\u0644\u064A", "\u062A\u062D\u0648\u064A\u0644 \u062E\u0627\u0631\u062C\u064A", "\u062A\u062D\u0648\u064A\u0644 \u0645\u0624\u0642\u062A"],
+      data: data.map((d) => d.value),
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -10955,86 +10967,28 @@ autocompleteRouter.get("/transferTypes", async (req, res) => {
     });
   }
 });
-autocompleteRouter.get("/materialNames", async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      data: [],
-      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D"
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0648\u0627\u062F"
-    });
-  }
-});
-autocompleteRouter.get("/materialCategories", async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      data: [],
-      message: "\u062A\u0645 \u062C\u0644\u0628 \u0641\u0626\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D"
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0641\u0626\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F"
-    });
-  }
-});
-autocompleteRouter.get("/materialUnits", async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      data: [],
-      message: "\u062A\u0645 \u062C\u0644\u0628 \u0648\u062D\u062F\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D"
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0648\u062D\u062F\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F"
-    });
-  }
-});
-autocompleteRouter.get("/invoiceNumbers", async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      data: [],
-      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u0641\u0648\u0627\u062A\u064A\u0631 \u0628\u0646\u062C\u0627\u062D"
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u0641\u0648\u0627\u062A\u064A\u0631"
-    });
-  }
-});
 autocompleteRouter.get("/transportDescriptions", requireAuth, async (req, res) => {
   try {
+    const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "transportDescriptions")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: [],
-      message: "\u062A\u0645 \u062C\u0644\u0628 \u0648\u0635\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
+      data: data.map((d) => d.value),
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0648\u0635\u0627\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: error.message,
-      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0648\u0635\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A"
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0648\u0635\u0627\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A"
     });
   }
 });
 autocompleteRouter.get("/notes", requireAuth, async (req, res) => {
   try {
+    const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "notes")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: [],
+      data: data.map((d) => d.value),
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u0627\u062D\u0638\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -11045,14 +10999,38 @@ autocompleteRouter.get("/notes", requireAuth, async (req, res) => {
     });
   }
 });
+autocompleteRouter.get("/projectNames", async (req, res) => {
+  try {
+    const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "projectNames")).orderBy(desc6(autocompleteData.usageCount));
+    res.json({
+      success: true,
+      data: data.map((d) => d.value),
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
+    });
+  }
+});
 autocompleteRouter.get("/admin/stats", async (req, res) => {
   try {
+    const allData = await db.select().from(autocompleteData);
+    const categories = new Set(allData.map((d) => d.category));
+    const totalEntries = allData.length;
     res.json({
       success: true,
       data: {
-        totalEntries: 0,
-        categoriesCount: 0,
-        lastUpdated: /* @__PURE__ */ new Date()
+        totalEntries,
+        categoriesCount: categories.size,
+        lastUpdated: /* @__PURE__ */ new Date(),
+        categoryBreakdown: Array.from(categories).map((cat) => ({
+          category: cat,
+          count: allData.filter((d) => d.category === cat).length,
+          avgUsage: allData.filter((d) => d.category === cat).reduce((sum, d) => sum + (d.usageCount || 1), 0) / allData.filter((d) => d.category === cat).length
+        }))
       },
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
     });
@@ -11066,12 +11044,20 @@ autocompleteRouter.get("/admin/stats", async (req, res) => {
 });
 autocompleteRouter.get("/admin-stats", async (req, res) => {
   try {
+    const allData = await db.select().from(autocompleteData);
+    const categories = new Set(allData.map((d) => d.category));
+    const totalEntries = allData.length;
     res.json({
       success: true,
       data: {
-        totalEntries: 0,
-        categoriesCount: 0,
-        lastUpdated: /* @__PURE__ */ new Date()
+        totalEntries,
+        categoriesCount: categories.size,
+        lastUpdated: /* @__PURE__ */ new Date(),
+        categoryBreakdown: Array.from(categories).map((cat) => ({
+          category: cat,
+          count: allData.filter((d) => d.category === cat).length,
+          avgUsage: allData.filter((d) => d.category === cat).reduce((sum, d) => sum + (d.usageCount || 1), 0) / allData.filter((d) => d.category === cat).length
+        }))
       },
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D"
     });
@@ -11113,17 +11099,17 @@ autocompleteRouter.post("/admin-cleanup", async (req, res) => {
     });
   }
 });
-console.log("\u{1F524} [AutocompleteRouter] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 \u062C\u0645\u064A\u0639 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A");
+console.log("\u{1F524} [AutocompleteRouter] \u062A\u0645 \u062A\u0647\u064A\u0626\u0629 \u062C\u0645\u064A\u0639 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0645\u0639 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
 console.log("\u{1F4CB} [AutocompleteRouter] \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u062A\u0627\u062D\u0629:");
-console.log("   HEAD /api/autocomplete (\u0639\u0627\u0645)");
-console.log("   GET /api/autocomplete (\u0639\u0627\u0645)");
-console.log("   POST /api/autocomplete (\u0639\u0627\u0645)");
-console.log("   GET /api/autocomplete/projectNames (\u0639\u0627\u0645)");
-console.log("   GET /api/autocomplete/transferTypes (\u0639\u0627\u0645)");
-console.log("   GET /api/autocomplete/admin/stats (\u0639\u0627\u0645)");
-console.log("   GET /api/autocomplete/admin-stats (\u0639\u0627\u0645)");
-console.log("   POST /api/autocomplete/admin/maintenance (\u0639\u0627\u0645)");
-console.log("   POST /api/autocomplete/admin-cleanup (\u0639\u0627\u0645)");
+console.log("   POST /api/autocomplete (\u062D\u0641\u0638 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0641\u064A DB)");
+console.log("   GET /api/autocomplete (\u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 DB)");
+console.log("   GET /api/autocomplete/senderNames (\u0645\u0646 DB)");
+console.log("   GET /api/autocomplete/transferNumbers (\u0645\u0646 DB)");
+console.log("   GET /api/autocomplete/transferTypes (\u0645\u0646 DB)");
+console.log("   GET /api/autocomplete/transportDescriptions (\u0645\u0646 DB)");
+console.log("   GET /api/autocomplete/notes (\u0645\u0646 DB)");
+console.log("   GET /api/autocomplete/projectNames (\u0645\u0646 DB)");
+console.log("   GET /api/autocomplete-admin/stats (\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0645\u0646 DB)");
 var autocompleteRoutes_default = autocompleteRouter;
 
 // server/routes/modules/notificationRoutes.ts

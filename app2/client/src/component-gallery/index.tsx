@@ -40,8 +40,27 @@ export function ComponentGalleryPage() {
     inspector.openInspector(component);
   };
 
+  const currentComponentIndex = inspector.selectedComponent 
+    ? filteredComponents.findIndex(c => c.id === inspector.selectedComponent?.id)
+    : -1;
+
+  const handleNavigate = (direction: 'prev' | 'next') => {
+    if (currentComponentIndex < 0) return;
+    
+    let nextIndex: number;
+    if (direction === 'prev') {
+      nextIndex = currentComponentIndex - 1;
+    } else {
+      nextIndex = currentComponentIndex + 1;
+    }
+
+    if (nextIndex >= 0 && nextIndex < filteredComponents.length) {
+      inspector.openInspector(filteredComponents[nextIndex]);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-muted/40">
       <GalleryHeader
         settings={settings}
         filter={filter}
@@ -61,7 +80,7 @@ export function ComponentGalleryPage() {
         cardCount={cardComponents.length}
       />
 
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-4 py-8">
         <GalleryGrid
           components={filteredComponents}
           settings={settings}
@@ -77,6 +96,9 @@ export function ComponentGalleryPage() {
         onClose={inspector.closeInspector}
         onTabChange={inspector.setActiveTab}
         onStateChange={inspector.setCurrentState}
+        onNavigate={handleNavigate}
+        hasPrev={currentComponentIndex > 0}
+        hasNext={currentComponentIndex < filteredComponents.length - 1}
       />
     </div>
   );

@@ -322,7 +322,17 @@ export default function EnhancedWorkerCard({
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground font-medium">عدد الأيام</span>
-                  <span className="font-bold text-foreground arabic-numbers">{(localAttendance.workDays || 0).toFixed(1)}</span>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.1"
+                    min="0"
+                    max="2.0"
+                    value={localAttendance.workDays || ""}
+                    onChange={(e) => updateAttendance({ workDays: parseFloat(e.target.value) || 0 })}
+                    placeholder="0"
+                    className="w-24 text-center arabic-numbers text-sm h-7"
+                  />
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground font-medium">المدفوع</span>

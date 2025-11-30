@@ -164,9 +164,20 @@ function MetricCard({ metric }: { metric: MetricConfig }) {
     return String(value);
   };
 
+  const formattedValue = cleanValue(metric.value);
+  
+  // حساب حجم الخط بناءً على طول القيمة
+  const getTextSizeClass = (text: string) => {
+    const len = text.length;
+    if (len <= 3) return 'text-base';
+    if (len <= 5) return 'text-sm';
+    if (len <= 7) return 'text-xs';
+    return 'text-[10px]';
+  };
+
   return (
     <div className={cn(
-      'relative flex flex-col gap-2 px-3 py-3 rounded-lg border transition-all',
+      'relative flex flex-col gap-2 px-3 py-3 pr-7 rounded-lg border transition-all',
       colors.bg,
       colors.border,
       'hover:shadow-sm'
@@ -177,12 +188,12 @@ function MetricCard({ metric }: { metric: MetricConfig }) {
       </div>
       
       {/* العنوان */}
-      <span className="text-xs text-muted-foreground line-clamp-2 pr-5">{metric.label}</span>
+      <span className="text-xs text-muted-foreground line-clamp-2">{metric.label}</span>
       
       {/* المبلغ أو العدد في الأسفل */}
       <div className="flex items-center justify-center gap-1">
-        <span className={cn('text-sm font-bold arabic-numbers', colors.text)}>
-          {cleanValue(metric.value)}
+        <span className={cn('font-bold arabic-numbers whitespace-nowrap', getTextSizeClass(formattedValue), colors.text)}>
+          {formattedValue}
         </span>
         {metric.trend && (
           <span className={cn(
@@ -392,11 +403,11 @@ export function FilterStatsBar({
             </div>
           )}
 
-          {/* شريط البحث والفلاتر الرئيسي */}
-          <div className="flex flex-col lg:flex-row gap-3">
+          {/* شريط البحث والفلاتر الرئيسي - صف واحد */}
+          <div className="flex items-center gap-2 w-full">
             {/* البحث */}
             {showSearch && (
-              <div className="relative flex-1 min-w-[200px]">
+              <div className="relative flex-1 min-w-[150px]">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
@@ -422,7 +433,7 @@ export function FilterStatsBar({
             {filters.length > 0 && (
               <Popover open={isFilterPanelOpen} onOpenChange={setIsFilterPanelOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="h-10 gap-2">
+                  <Button variant="outline" className="h-10 gap-2 flex-shrink-0">
                     <Filter className="h-4 w-4" />
                     <span>الفلاتر</span>
                     {activeFilterCount > 0 && (
@@ -464,7 +475,7 @@ export function FilterStatsBar({
             )}
 
             {/* أزرار الإجراءات */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {showRefreshButton && onRefresh && (
                 <Button
                   variant="outline"

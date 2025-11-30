@@ -124,8 +124,10 @@ export default function EnhancedWorkerCard({
 
   // حساب الأجر الأساسي (بدون الوقت الإضافي)
   const calculateBaseWage = () => {
-    const workDays = localAttendance.workDays || 1.0;
-    return parseFloat(worker.dailyWage) * workDays;
+    if (!localAttendance.isPresent) return 0;
+    const workDays = localAttendance.workDays || 0;
+    const dailyWage = parseFloat(worker.dailyWage || "0");
+    return Math.max(0, dailyWage * workDays);
   };
 
   // حساب أجر الوقت الإضافي
@@ -142,11 +144,13 @@ export default function EnhancedWorkerCard({
     return Math.max(0, baseWage + overtimePay); // حماية ضد القيم السالبة
   };
 
-  // حساب المتبقي
+  // حساب المتبقي (المستحق - المدفوع)
   const calculateRemainingAmount = () => {
     const totalPay = calculateTotalPay();
     const paidAmount = parseFloat(localAttendance.paidAmount || "0");
-    return totalPay - paidAmount;
+    const remaining = totalPay - paidAmount;
+    console.log(`🔍 [${worker.name}] حساب المتبقي: ${totalPay} - ${paidAmount} = ${remaining}`);
+    return remaining;
   };
 
   // تحديث تلقائي للحسابات عند تغيير المدخلات
@@ -318,7 +322,7 @@ export default function EnhancedWorkerCard({
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground font-medium">عدد الأيام</span>
-                  <span className="font-bold text-foreground arabic-numbers">{(localAttendance.workDays || 1.0).toFixed(1)}</span>
+                  <span className="font-bold text-foreground arabic-numbers">{(localAttendance.workDays || 0).toFixed(1)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground font-medium">المدفوع</span>
@@ -327,8 +331,8 @@ export default function EnhancedWorkerCard({
                 <div className="flex justify-between items-center pt-1 border-t border-purple-200 dark:border-purple-700">
                   <span className="text-muted-foreground font-medium">المتبقي</span>
                   <span className={`font-bold arabic-numbers ${
-                    calculateRemainingAmount() > 0 ? 'text-red-600 dark:text-red-400' : calculateRemainingAmount() < 0 ? 'text-green-600 dark:text-green-400' : 'text-slate-700 dark:text-slate-300'
-                  }`}>{formatCurrency(Math.abs(calculateRemainingAmount()))}</span>
+                    calculateRemainingAmount() > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'
+                  }`}>{formatCurrency(calculateRemainingAmount() > 0 ? calculateRemainingAmount() : 0)}</span>
                 </div>
               </div>
             </div>

@@ -55,6 +55,7 @@ export interface MetricConfig {
     isPositive: boolean;
   };
   formatter?: (value: number) => string;
+  column?: 'left' | 'right';
 }
 
 export interface ActionButton {
@@ -86,6 +87,7 @@ export interface FilterStatsBarProps {
   collapsible?: boolean;
   defaultExpanded?: boolean;
   title?: string;
+  metricsLayout?: 'grid' | 'two-columns';
 }
 
 const colorVariants = {
@@ -316,6 +318,7 @@ export function FilterStatsBar({
   collapsible = false,
   defaultExpanded = true,
   title,
+  metricsLayout = 'grid',
 }: FilterStatsBarProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);

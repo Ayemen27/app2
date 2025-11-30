@@ -7394,13 +7394,19 @@ projectRouter.get("/:projectId/worker-attendance", async (req, res) => {
   const startTime = Date.now();
   try {
     const { projectId } = req.params;
-    console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}`);
+    const { date: date2 } = req.query;
+    console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}${date2 ? ` \u0644\u0644\u062A\u0627\u0631\u064A\u062E: ${date2}` : ""}`);
     if (!projectId) {
       return res.status(400).json({
         success: false,
         error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
         processingTime: Date.now() - startTime
       });
+    }
+    const conditions = [eq7(workerAttendance.projectId, projectId)];
+    if (date2 && date2 !== "") {
+      conditions.push(eq7(workerAttendance.date, date2));
+      console.log(`\u{1F50D} [API] \u062A\u0637\u0628\u064A\u0642 \u0641\u0644\u062A\u0631\u0629 \u0627\u0644\u062A\u0627\u0631\u064A\u062E: ${date2}`);
     }
     const attendance = await db.select({
       id: workerAttendance.id,
@@ -7414,7 +7420,7 @@ projectRouter.get("/:projectId/worker-attendance", async (req, res) => {
       isPresent: workerAttendance.isPresent,
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
-    }).from(workerAttendance).leftJoin(workers, eq7(workerAttendance.workerId, workers.id)).where(eq7(workerAttendance.projectId, projectId)).orderBy(workerAttendance.date);
+    }).from(workerAttendance).leftJoin(workers, eq7(workerAttendance.workerId, workers.id)).where(and6(...conditions)).orderBy(workerAttendance.date);
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0641\u064A ${duration}ms`);
     res.json({

@@ -578,15 +578,22 @@ export default function WorkerAttendance() {
   
   let totalEarned = 0;
   let totalPaid = 0;
+  let totalTransfers = 0;
   
   todayRecords.forEach(record => {
-    const earned = parseFloat(record.actualWage || '0');
+    // استخدام actualWage لأنه يحتوي على المستحق الفعلي
+    const earned = parseFloat(record.actualWage || record.dailyWage || '0') * parseFloat(record.workDays || '1');
     const paid = parseFloat(record.paidAmount || '0');
     totalEarned += earned;
     totalPaid += paid;
+    // الحوالات إذا كانت موجودة
+    if (record.transfers) {
+      totalTransfers += parseFloat(record.transfers);
+    }
   });
     
-  const totalRemaining = totalEarned - totalPaid;
+  // المتبقي = المستحق - المدفوع - الحوالات
+  const totalRemaining = totalEarned - totalPaid - totalTransfers;
 
   // resetFilters function for FilterStatsBar
   const resetAttendanceFilters = () => {
@@ -609,6 +616,7 @@ export default function WorkerAttendance() {
           onReset={resetAttendanceFilters}
           onRefresh={refresh}
           isRefreshing={isRefreshing}
+          metricsLayout="two-columns"
           metrics={[
             {
               key: 'total',
@@ -616,6 +624,7 @@ export default function WorkerAttendance() {
               value: workers.length,
               icon: Users,
               color: 'blue',
+              column: 'right',
             },
             {
               key: 'present',
@@ -623,13 +632,7 @@ export default function WorkerAttendance() {
               value: presentWorkers,
               icon: CheckCircle2,
               color: 'green',
-            },
-            {
-              key: 'days',
-              label: 'إجمالي الأيام',
-              value: totalWorkDays.toFixed(2),
-              icon: Clock,
-              color: 'orange',
+              column: 'right',
             },
             {
               key: 'earned',
@@ -637,6 +640,15 @@ export default function WorkerAttendance() {
               value: formatCurrency(totalEarned),
               icon: DollarSign,
               color: 'blue',
+              column: 'right',
+            },
+            {
+              key: 'days',
+              label: 'إجمالي الأيام',
+              value: totalWorkDays.toFixed(2),
+              icon: Clock,
+              color: 'orange',
+              column: 'left',
             },
             {
               key: 'paid',
@@ -644,6 +656,7 @@ export default function WorkerAttendance() {
               value: formatCurrency(totalPaid),
               icon: CheckCircle2,
               color: 'green',
+              column: 'left',
             },
             {
               key: 'remaining',
@@ -651,6 +664,7 @@ export default function WorkerAttendance() {
               value: formatCurrency(totalRemaining),
               icon: DollarSign,
               color: totalRemaining >= 0 ? 'purple' : 'red',
+              column: 'left',
             },
           ]}
           actions={[]}

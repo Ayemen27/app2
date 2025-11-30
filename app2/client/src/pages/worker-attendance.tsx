@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, Save, ChartGantt, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowRight, Save, ChartGantt, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,8 @@ import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
+import FilterStatsBar from "@/components/ui/filter-stats-bar";
+import { useFilterStats } from "@/hooks/use-filter-stats";
 import type { Worker, InsertWorkerAttendance } from "@shared/schema";
 
 interface AttendanceData {
@@ -43,6 +45,19 @@ export default function WorkerAttendance() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
   const [activeFilters, setActiveFilters] = useState({});
+  
+  const {
+    searchValue,
+    filterValues,
+    setSearchValue,
+    setFilterValue,
+    resetAll,
+    refresh,
+    isRefreshing,
+  } = useFilterStats({
+    initialFilters: {},
+    queryKeys: ["/api/projects", selectedProjectId, "worker-attendance"],
+  });
 
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);
@@ -549,8 +564,61 @@ export default function WorkerAttendance() {
     saveAttendanceMutation.mutate(attendanceRecords);
   };
 
+  // حساب إحصائيات الحضور
+  const presentWorkers = Object.values(attendanceData).filter(a => a.isPresent).length;
+  const totalAmount = Object.values(attendanceData)
+    .filter(a => a.isPresent && a.paidAmount)
+    .reduce((sum, a) => sum + parseFloat(a.paidAmount || '0'), 0);
+
   return (
     <div className="p-4 slide-in">
+
+      {/* شريط البحث والفلترة والإحصائيات الموحد */}
+      {selectedProjectId && (
+        <FilterStatsBar
+          title="تسجيل الحضور"
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          searchPlaceholder="ابحث عن عامل..."
+          filters={[]}
+          filterValues={filterValues}
+          onFilterChange={setFilterValue}
+          onReset={resetAll}
+          onRefresh={refresh}
+          isRefreshing={isRefreshing}
+          metrics={[
+            {
+              key: 'total',
+              label: 'إجمالي العمال',
+              value: workers.length,
+              icon: Users,
+              color: 'blue',
+            },
+            {
+              key: 'present',
+              label: 'الحاضرون اليوم',
+              value: presentWorkers,
+              icon: CheckCircle2,
+              color: 'green',
+            },
+            {
+              key: 'today',
+              label: 'التاريخ',
+              value: new Date(selectedDate).toLocaleDateString('ar-SA'),
+              icon: Clock,
+              color: 'orange',
+            },
+            {
+              key: 'totalPay',
+              label: 'إجمالي الأجور',
+              value: formatCurrency(totalAmount),
+              icon: DollarSign,
+              color: 'purple',
+            },
+          ]}
+          actions={[]}
+        />
+      )}
 
       <Card className="mb-4">
         <CardContent className="p-4">

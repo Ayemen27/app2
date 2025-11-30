@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Wrench, Truck, PenTool, Settings, Eye, MapPin, Calendar, DollarSign, Activity, MoreVertical, Edit, Trash2, Image, X, Heart, FileSpreadsheet, FileText, Printer, Download, BarChart3, History } from "lucide-react";
+import { Plus, Wrench, Truck, PenTool, Settings, Eye, MapPin, Calendar, DollarSign, Activity, MoreVertical, Edit, Trash2, Image, X, Heart, FileSpreadsheet, FileText, Printer, Download, BarChart3, History, CheckCircle2 } from "lucide-react";
 import { UnifiedSearchFilter, EQUIPMENT_STATUS_OPTIONS, type FilterConfig } from "@/components/ui/unified-search-filter";
 import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -19,9 +19,24 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { saveAs } from 'file-saver';
 import { useToast } from "@/hooks/use-toast";
 import { EXCEL_STYLES, COMPANY_INFO, addReportHeader } from "@/components/excel-export-utils";
+import FilterStatsBar from "@/components/ui/filter-stats-bar";
+import { useFilterStats } from "@/hooks/use-filter-stats";
 
 export function EquipmentManagement() {
-  const [searchTerm, setSearchTerm] = useState("");
+  const {
+    searchValue,
+    filterValues,
+    setSearchValue,
+    setFilterValue,
+    resetAll,
+    refresh,
+    isRefreshing,
+  } = useFilterStats({
+    initialFilters: { status: 'all', type: 'all', project: 'all' },
+    queryKeys: ['equipment'],
+  });
+
+  const [searchTerm, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
@@ -908,62 +923,68 @@ export function EquipmentManagement() {
   // إضافة تصحيح لمراقبة البيانات
   console.log('🔧 بيانات المعدات في Frontend:', { equipment, count: equipment?.length, isLoading });
 
+  const activeCount = Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'active').length : 0;
+  const maintenanceCount = Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'maintenance').length : 0;
+  const outOfServiceCount = Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'out_of_service').length : 0;
+
   return (
     <div className="p-6 max-w-7xl mx-auto" dir="rtl">
 
-
-      {/* Search and Filters - مكون موحد */}
-      <UnifiedSearchFilter
-        searchValue={searchTerm}
-        onSearchChange={setSearchTerm}
+      {/* شريط البحث والفلترة والإحصائيات الموحد */}
+      <FilterStatsBar
+        title="إدارة المعدات"
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
         searchPlaceholder="البحث بالاسم أو الكود..."
         filters={equipmentFilterConfigs}
-        filterValues={{ status: statusFilter, type: typeFilter, project: projectFilter }}
+        filterValues={{ status: filterValues.status, type: filterValues.type, project: filterValues.project }}
         onFilterChange={(key, value) => {
+          setFilterValue(key, value);
           if (key === 'status') setStatusFilter(value);
           if (key === 'type') setTypeFilter(value);
           if (key === 'project') setProjectFilter(value);
         }}
         onReset={() => {
+          resetAll();
           setSearchTerm('');
           setStatusFilter('all');
           setTypeFilter('all');
           setProjectFilter('all');
         }}
-        className="mb-4"
+        onRefresh={refresh}
+        isRefreshing={isRefreshing}
+        metrics={[
+          {
+            key: 'total',
+            label: 'إجمالي المعدات',
+            value: equipment.length,
+            icon: Wrench,
+            color: 'blue',
+          },
+          {
+            key: 'active',
+            label: 'نشطة',
+            value: activeCount,
+            icon: CheckCircle2,
+            color: 'green',
+          },
+          {
+            key: 'maintenance',
+            label: 'في الصيانة',
+            value: maintenanceCount,
+            icon: Settings,
+            color: 'orange',
+          },
+          {
+            key: 'outOfService',
+            label: 'خارج الخدمة',
+            value: outOfServiceCount,
+            icon: Truck,
+            color: 'red',
+          },
+        ]}
+        actions={[]}
       />
-
-      {/* Statistics */}
-      <StatsGrid className="mb-6">
-        <StatsCard
-          title="إجمالي المعدات"
-          value={equipment.length}
-          icon={Wrench}
-          className="border-r-4 border-r-blue-500"
-          data-testid="stats-total-equipment"
-        />
-        <StatsCard
-          title="نشطة"
-          value={Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'active').length : 0}
-          icon={Activity}
-          className="border-r-4 border-r-green-500 bg-gradient-to-r from-green-50 to-white dark:from-green-950 dark:to-gray-900"
-          data-testid="stats-active-equipment"
-        />
-        <StatsCard
-          title="في الصيانة"
-          value={Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'maintenance').length : 0}
-          icon={Settings}
-          className="border-r-4 border-r-yellow-500 bg-gradient-to-r from-yellow-50 to-white dark:from-yellow-950 dark:to-gray-900"
-          data-testid="stats-maintenance-equipment"
-        />
-        <StatsCard
-          title="خارج الخدمة"
-          value={Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'out_of_service').length : 0}
-          icon={Truck}
-          className="border-r-4 border-r-red-500 bg-gradient-to-r from-red-50 to-white dark:from-red-950 dark:to-gray-900"
-          data-testid="stats-out-of-service-equipment"
-        />
-      </StatsGrid>
 
       {/* Equipment Reports Section */}
       <Card className="mb-6">

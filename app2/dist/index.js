@@ -3032,7 +3032,15 @@ var vite_config_default = defineConfig({
     }
   },
   server: {
-    allowedHosts: true
+    allowedHosts: true,
+    hmr: {
+      host: void 0,
+      port: void 0,
+      protocol: "ws"
+    },
+    fs: {
+      allow: [".."]
+    }
   },
   optimizeDeps: {
     include: ["react", "react-dom"]

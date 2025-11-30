@@ -18,7 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UnifiedSearchFilter, { useUnifiedFilter, FilterConfig } from "@/components/ui/unified-search-filter";
-import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { cn } from "@/lib/utils";
@@ -237,10 +236,7 @@ export default function ProjectTransfers() {
     }).format(amount) + ' ر.ي';
   };
 
-  // Setup Floating Button
-  useEffect(() => {
-    setFloatingAction(() => {
-      setShowCreateModal(true);
+  return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">

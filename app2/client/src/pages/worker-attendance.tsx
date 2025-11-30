@@ -171,6 +171,11 @@ export default function WorkerAttendance() {
     enabled: !!editId,
   });
 
+  // تصفير بيانات الحضور عند تغيير التاريخ
+  useEffect(() => {
+    setAttendanceData({});
+  }, [selectedDate]);
+
   // Effect to populate form when editing
   useEffect(() => {
     if (attendanceToEdit && workerId) {
@@ -566,9 +571,24 @@ export default function WorkerAttendance() {
 
   // حساب إحصائيات الحضور
   const presentWorkers = Object.values(attendanceData).filter(a => a.isPresent).length;
-  const totalAmount = Object.values(attendanceData)
-    .filter(a => a.isPresent && a.paidAmount)
-    .reduce((sum, a) => sum + parseFloat(a.paidAmount || '0'), 0);
+  const totalWorkDays = Object.values(attendanceData)
+    .filter(a => a.isPresent)
+    .reduce((sum, a) => sum + parseFloat(a.workDays || '0'), 0);
+  
+  let totalEarned = 0;
+  let totalPaid = 0;
+  Object.entries(attendanceData).forEach(([workerId, data]) => {
+    if (data.isPresent) {
+      const worker = workers.find(w => w.id === workerId);
+      if (worker) {
+        const earned = parseFloat(worker.dailyWage || '0') * parseFloat(data.workDays || '0');
+        totalEarned += earned;
+        totalPaid += parseFloat(data.paidAmount || '0');
+      }
+    }
+  });
+    
+  const totalRemaining = totalEarned - totalPaid;
 
   // resetFilters function for FilterStatsBar
   const resetAttendanceFilters = () => {
@@ -607,18 +627,32 @@ export default function WorkerAttendance() {
               color: 'green',
             },
             {
-              key: 'today',
-              label: 'التاريخ',
-              value: new Date(selectedDate).toLocaleDateString('ar-SA'),
+              key: 'days',
+              label: 'إجمالي الأيام',
+              value: totalWorkDays.toFixed(2),
               icon: Clock,
               color: 'orange',
             },
             {
-              key: 'totalPay',
-              label: 'إجمالي الأجور',
-              value: formatCurrency(totalAmount),
+              key: 'earned',
+              label: 'المستحق',
+              value: formatCurrency(totalEarned),
               icon: DollarSign,
-              color: 'purple',
+              color: 'blue',
+            },
+            {
+              key: 'paid',
+              label: 'المدفوع',
+              value: formatCurrency(totalPaid),
+              icon: CheckCircle2,
+              color: 'green',
+            },
+            {
+              key: 'remaining',
+              label: 'المتبقي',
+              value: formatCurrency(totalRemaining),
+              icon: DollarSign,
+              color: totalRemaining >= 0 ? 'purple' : 'red',
             },
           ]}
           actions={[]}

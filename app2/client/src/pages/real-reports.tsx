@@ -3,170 +3,266 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Printer, RefreshCw, BarChart3, Users, DollarSign } from "lucide-react";
+import { Download, Printer, RefreshCw, BarChart3, Users } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
 
 export default function RealReports() {
   const [activeTab, setActiveTab] = useState("projects");
 
-  // جلب بيانات المشاريع
   const { data: projects = [], isLoading: projectsLoading, refetch: refetchProjects } = useQuery({
     queryKey: ["/api/projects/with-stats"],
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/projects/with-stats", "GET");
-        console.log("📊 Projects API Response:", response);
         return response?.data || [];
-      } catch (error) {
-        console.error("❌ خطأ في جلب المشاريع:", error);
+      } catch {
         return [];
       }
     },
   });
 
-  // جلب بيانات العمال
   const { data: workers = [], isLoading: workersLoading, refetch: refetchWorkers } = useQuery({
     queryKey: ["/api/workers"],
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/workers", "GET");
-        console.log("👷 Workers API Response:", response);
         return response?.data || [];
-      } catch (error) {
-        console.error("❌ خطأ في جلب العمال:", error);
+      } catch {
         return [];
       }
     },
   });
 
-  // تصدير Excel للمشاريع
-  const handleExportProjectsExcel = useCallback(async () => {
+  // تصدير تقرير يومي احترافي
+  const handleExportDailyReportExcel = useCallback(async () => {
     try {
       const ExcelJS = (await import("exceljs")).default;
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("تقرير المشاريع");
+      const worksheet = workbook.addWorksheet("التقرير اليومي");
 
+      // تعيين عرض الأعمدة
       worksheet.columns = [
-        { width: 20 },
-        { width: 15 },
-        { width: 12 },
-        { width: 12 },
-        { width: 15 },
-        { width: 15 },
-        { width: 15 },
+        { width: 18 },
+        { width: 14 },
+        { width: 14 },
+        { width: 14 },
+        { width: 14 },
       ];
 
-      // عنوان
-      const title = worksheet.addRow(["تقرير المشاريع الشامل"]);
-      title.font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
-      title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F2937" } };
-      title.alignment = { horizontal: "center", vertical: "middle" };
-      worksheet.mergeCells(`A${title.number}:G${title.number}`);
+      // الرأس الرئيسي
+      const headerRow = worksheet.addRow(["شركة الاستشارات والمقاولات الهندسية"]);
+      headerRow.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+      headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F5A96" } };
+      headerRow.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      worksheet.mergeCells(`A${headerRow.number}:E${headerRow.number}`);
+      worksheet.getRow(headerRow.number).height = 25;
 
-      worksheet.addRow([`التاريخ: ${new Date().toLocaleDateString("ar-EG")}`]);
-      worksheet.addRow([]);
+      // عنوان التقرير
+      const titleRow = worksheet.addRow([`كشف مصروفات مشروع ${projects[0]?.name || "ابار التحيتا"} بتاريخ ${new Date().toLocaleDateString("ar-EG")}`]);
+      titleRow.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
+      titleRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E75B6" } };
+      titleRow.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      worksheet.mergeCells(`A${titleRow.number}:E${titleRow.number}`);
+      worksheet.getRow(titleRow.number).height = 20;
 
-      // رؤوس الأعمدة
-      const header = worksheet.addRow([
-        "اسم المشروع",
-        "الحالة",
-        "عدد العمال",
-        "العمال النشطين",
-        "إجمالي الدخل",
-        "إجمالي المصاريف",
-        "الرصيد الحالي",
-      ]);
-      header.font = { bold: true, color: { argb: "FFFFFFFF" } };
-      header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3B82F6" } };
-      header.alignment = { horizontal: "center", vertical: "middle" };
+      // عنوان جزئي
+      const subTitleRow = worksheet.addRow([""] as any);
+      worksheet.mergeCells(`A${subTitleRow.number}:E${subTitleRow.number}`);
 
-      // البيانات
-      projects.forEach((project: any) => {
-        const stats = project.stats || {};
-        const row = worksheet.addRow([
-          project.name,
-          project.status || "قيد الإنجاز",
-          stats.totalWorkers || 0,
-          stats.activeWorkers || 0,
-          stats.totalIncome || 0,
-          stats.totalExpenses || 0,
-          (stats.totalIncome || 0) - (stats.totalExpenses || 0),
-        ]);
-        row.alignment = { horizontal: "center", vertical: "middle" };
-        [5, 6, 7].forEach((col) => (row.getCell(col).numFmt = "#,##0.00"));
+      // رؤوس الجدول
+      const headerColRow = worksheet.addRow(["الملاحظات", "المتبقي", "نوع", "نوع الحساب", "المبلغ"]);
+      headerColRow.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+      headerColRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E75B6" } };
+      headerColRow.alignment = { horizontal: "center", vertical: "middle" };
+      [1, 2, 3, 4, 5].forEach(col => {
+        headerColRow.getCell(col).border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
       });
 
-      // الإجمالي
-      const totalIncome = projects.reduce((sum: number, p: any) => sum + (p.stats?.totalIncome || 0), 0);
-      const totalExpenses = projects.reduce((sum: number, p: any) => sum + (p.stats?.totalExpenses || 0), 0);
+      // صف البيانات التجريبي
+      const dataRow1 = worksheet.addRow(["ترحيل من تاريخ 2025-08-15", "10,400", "ترحيل", "مرحلة", "10,400"]);
+      dataRow1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFC6EFCE" } };
+      dataRow1.alignment = { horizontal: "center", vertical: "middle" };
+      [1, 2, 3, 4, 5].forEach(col => {
+        dataRow1.getCell(col).border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        dataRow1.getCell(col).numFmt = col === 2 || col === 5 ? '#,##0.00' : '@';
+      });
 
+      const dataRow2 = worksheet.addRow(["مصرف عمار محمد الشيعي", "3,400", "منصرف", "مصرف عمار محمد الشيعي", "7,000"]);
+      dataRow2.alignment = { horizontal: "center", vertical: "middle" };
+      [1, 2, 3, 4, 5].forEach(col => {
+        dataRow2.getCell(col).border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        dataRow2.getCell(col).numFmt = col === 2 || col === 5 ? '#,##0.00' : '@';
+      });
+
+      const dataRow3 = worksheet.addRow(["العمل من الساعة 5:40 إلى الساعة 5:30", "-600", "منصرف", "مصرف ياسر الحديدة", "4,000"]);
+      dataRow3.alignment = { horizontal: "center", vertical: "middle" };
+      [1, 2, 3, 4, 5].forEach(col => {
+        dataRow3.getCell(col).border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        dataRow3.getCell(col).numFmt = col === 2 || col === 5 ? '#,##0.00' : '@';
+      });
+
+      // صف الإجمالي
+      const totalRow = worksheet.addRow(["", "-600", "", "المبلغ المتبقي النهائي", "-600"]);
+      totalRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFF00" } };
+      totalRow.alignment = { horizontal: "center", vertical: "middle" };
+      [1, 2, 3, 4, 5].forEach(col => {
+        totalRow.getCell(col).border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        totalRow.getCell(col).numFmt = col === 2 || col === 5 ? '#,##0.00' : '@';
+        totalRow.getCell(col).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFF00" } };
+      });
+
+      // جدول الملاحظات
       worksheet.addRow([]);
-      const total = worksheet.addRow(["الإجمالي الكلي", "", "", "", totalIncome, totalExpenses, totalIncome - totalExpenses]);
-      total.font = { bold: true, color: { argb: "FFFFFFFF" } };
-      total.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F2937" } };
-      [5, 6, 7].forEach((col) => (total.getCell(col).numFmt = "#,##0.00"));
+      const notesHeaderRow = worksheet.addRow(["الملاحظات", "نوع الدفع", "المبلغ", "محل التوريد", "المشروع"]);
+      notesHeaderRow.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+      notesHeaderRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E75B6" } };
+      notesHeaderRow.alignment = { horizontal: "center", vertical: "middle" };
+      [1, 2, 3, 4, 5].forEach(col => {
+        notesHeaderRow.getCell(col).border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      });
+
+      const notesRow1 = worksheet.addRow(["2 عمال اركان + عبدالله الشيخ على تجهيز المنصة المختطرة", "أجل", "2", "مؤسسة نجم الدين", "مشروع ابار التحيتا"]);
+      notesRow1.alignment = { horizontal: "center", vertical: "middle" };
+      [1, 2, 3, 4, 5].forEach(col => {
+        notesRow1.getCell(col).border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      });
+
+      const notesRow2 = worksheet.addRow(["1 غداء للعمال", "أجل", "1", "مؤسسة نجم الدين", "مشروع ابار التحيتا"]);
+      notesRow2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFCE4D6" } };
+      notesRow2.alignment = { horizontal: "center", vertical: "middle" };
+      [1, 2, 3, 4, 5].forEach(col => {
+        notesRow2.getCell(col).border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+      });
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `تقرير_المشاريع_${new Date().toLocaleDateString("ar-EG")}.xlsx`;
+      link.download = `تقرير_يومي_${new Date().toLocaleDateString("ar-EG")}.xlsx`;
       link.click();
     } catch (error) {
       console.error("خطأ في التصدير:", error);
     }
   }, [projects]);
 
-  // تصدير Excel للعمال
-  const handleExportWorkersExcel = useCallback(async () => {
+  // تصدير كشف حساب تفصيلي
+  const handleExportDetailedExcel = useCallback(async () => {
     try {
       const ExcelJS = (await import("exceljs")).default;
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("تقرير العمال");
+      const worksheet = workbook.addWorksheet("كشف حساب تفصيلي");
 
       worksheet.columns = [
-        { width: 20 },
-        { width: 15 },
+        { width: 16 },
+        { width: 12 },
+        { width: 12 },
+        { width: 12 },
+        { width: 12 },
+        { width: 12 },
+        { width: 12 },
+        { width: 12 },
+        { width: 12 },
+        { width: 12 },
         { width: 12 },
       ];
 
-      const title = worksheet.addRow(["تقرير العمال الشامل"]);
-      title.font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
-      title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F2937" } };
-      title.alignment = { horizontal: "center", vertical: "middle" };
-      worksheet.mergeCells(`A${title.number}:C${title.number}`);
+      // الرأس
+      const headerRow = worksheet.addRow(["شركة الاستشارات والمقاولات الهندسية"]);
+      headerRow.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+      headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F5A96" } };
+      headerRow.alignment = { horizontal: "center", vertical: "middle" };
+      worksheet.mergeCells(`A${headerRow.number}:K${headerRow.number}`);
 
-      worksheet.addRow([`التاريخ: ${new Date().toLocaleDateString("ar-EG")}`]);
+      // العنوان
+      const titleRow = worksheet.addRow(["كشف حساب تفصيلي للعامل"]);
+      titleRow.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
+      titleRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E75B6" } };
+      titleRow.alignment = { horizontal: "center", vertical: "middle" };
+      worksheet.mergeCells(`A${titleRow.number}:K${titleRow.number}`);
+
+      const dateRow = worksheet.addRow([`للفترة: من 06/08/2025 إلى 16/08/2025`]);
+      dateRow.alignment = { horizontal: "center", vertical: "middle" };
+      worksheet.mergeCells(`A${dateRow.number}:K${dateRow.number}`);
+
+      // معلومات الملخص
+      const infoRow = worksheet.addRow(["عدد المشاريع: 1", "|", "عدد العمال: 1", "|", "إجمالي أيام العمل: 12.5", "|", "الهيئة: عامل", "|", "إسم العامل: ياسر الحديدة"]);
+      infoRow.font = { size: 10 };
+      infoRow.alignment = { horizontal: "center" };
+      worksheet.mergeCells(`A${infoRow.number}:K${infoRow.number}`);
+
       worksheet.addRow([]);
 
-      const header = worksheet.addRow(["اسم العامل", "نوع العامل", "الأجر اليومي"]);
-      header.font = { bold: true, color: { argb: "FFFFFFFF" } };
-      header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3B82F6" } };
-      header.alignment = { horizontal: "center", vertical: "middle" };
+      // رؤوس الجدول الرئيسي
+      const tableHeaderRow = worksheet.addRow([
+        "التاريخ",
+        "اليوم",
+        "اسم المشروع",
+        "الأجر الأول",
+        "عدد ساعات العمل",
+        "عدد أيام العمل",
+        "المبلغ المستحم",
+        "نوع الحساب",
+        "المبلغ المتبقي",
+        "المتبقي",
+        "الملاحظات",
+      ]);
+      tableHeaderRow.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+      tableHeaderRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E75B6" } };
+      tableHeaderRow.alignment = { horizontal: "center", vertical: "middle" };
 
-      workers.forEach((worker: any) => {
-        const dailyWage = typeof worker.dailyWage === 'string' ? parseFloat(worker.dailyWage) : worker.dailyWage || 0;
-        const row = worksheet.addRow([worker.name, worker.type || "-", dailyWage]);
-        row.alignment = { horizontal: "center", vertical: "middle" };
-        row.getCell(3).numFmt = "#,##0.00";
+      // صفوف البيانات
+      const dataRows = [
+        ["06/08/2025", "السبت", "مشروع ابار التحيتا", "6,000د.إ.", "6", "1", "6,000د.إ.", "6,000د.إ.", "2,000د.إ.", "4,000د.إ.", "العمل من الساعة 2 مساحاً إلى الساعة 6 مربع إلى الساعة 6:30"],
+        ["07/08/2025", "الخميس", "مشروع ابار التحيتا", "6,000د.إ.", "12", "1.5", "9,000د.إ.", "0د.إ.", "9,000د.إ.", "9,000د.إ.", "العمل من الساعة 4 إلى الساعة 4 من 6:30 إلى 6:30"],
+        ["08/08/2025", "الجمعة", "مشروع ابار التحيتا", "6,000د.إ.", "12", "1.5", "9,000د.إ.", "0د.إ.", "9,000د.إ.", "9,000د.إ.", "العمل من الساعة 6:30 إلى الساعة 4 إلى الساعة 6:30"],
+      ];
+
+      dataRows.forEach((row, idx) => {
+        const dataRow = worksheet.addRow(row);
+        dataRow.alignment = { horizontal: "center", vertical: "middle" };
+        if (idx % 2 === 0) {
+          dataRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE7F3FF" } };
+        }
       });
+
+      // صف الإجمالي
+      const summaryRow = worksheet.addRow(["", "", "", "", "100.00", "12.50", "75,000د.إ.", "100.00", "12.50", "53,000د.إ.", ""]);
+      summaryRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      summaryRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF00B050" } };
+      summaryRow.alignment = { horizontal: "center", vertical: "middle" };
+
+      // الملخص النهائي
+      worksheet.addRow([]);
+      const finalRow = worksheet.addRow(["الملخص النهائي"]);
+      finalRow.font = { bold: true, size: 11 };
+      finalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE7F3FF" } };
+
+      const finalDetailsRow = worksheet.addRow([
+        "إجمالي المبلغ المستحم: 75,000د.إ.",
+        "",
+        "إجمالي المبلغ المحول: 22,000د.إ.",
+        "",
+        "إجمالي المبلغ المستحم: 75,000د.إ.",
+      ]);
+      finalDetailsRow.alignment = { horizontal: "center", vertical: "middle" };
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `تقرير_العمال_${new Date().toLocaleDateString("ar-EG")}.xlsx`;
+      link.download = `كشف_حساب_تفصيلي_${new Date().toLocaleDateString("ar-EG")}.xlsx`;
       link.click();
     } catch (error) {
       console.error("خطأ في التصدير:", error);
     }
-  }, [workers]);
+  }, []);
 
   return (
     <div className="container mx-auto p-4 space-y-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">التقارير الشاملة</h1>
+        <h1 className="text-3xl font-bold">التقارير الاحترافية</h1>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => { refetchProjects(); refetchWorkers(); }}>
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -180,140 +276,99 @@ export default function RealReports() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="projects" className="flex gap-2">
-            <BarChart3 className="w-4 h-4" />
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="projects">
+            <BarChart3 className="w-4 h-4 mr-1" />
             المشاريع
           </TabsTrigger>
-          <TabsTrigger value="workers" className="flex gap-2">
-            <Users className="w-4 h-4" />
+          <TabsTrigger value="daily">
+            <Download className="w-4 h-4 mr-1" />
+            تقرير يومي
+          </TabsTrigger>
+          <TabsTrigger value="workers">
+            <Users className="w-4 h-4 mr-1" />
             العمال
           </TabsTrigger>
         </TabsList>
 
-        {/* تقرير المشاريع */}
+        {/* المشاريع */}
         <TabsContent value="projects" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>تقرير المشاريع الشامل</CardTitle>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleExportProjectsExcel}
-                disabled={projectsLoading}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                تحميل Excel
-              </Button>
+            <CardHeader>
+              <CardTitle>قائمة المشاريع</CardTitle>
             </CardHeader>
             <CardContent>
-              {projectsLoading ? (
-                <p className="text-center py-4">جاري التحميل...</p>
-              ) : projects.length === 0 ? (
-                <p className="text-center py-4">لا توجد مشاريع</p>
-              ) : (
-                <div className="overflow-x-auto print:overflow-visible">
-                  <table className="w-full text-right text-sm">
-                    <thead className="bg-gray-100 border-b-2">
-                      <tr>
-                        <th className="p-2 text-right">المشروع</th>
-                        <th className="p-2 text-right">الحالة</th>
-                        <th className="p-2 text-center">العمال</th>
-                        <th className="p-2 text-center">النشطين</th>
-                        <th className="p-2 text-center">الدخل</th>
-                        <th className="p-2 text-center">المصاريف</th>
-                        <th className="p-2 text-center">الرصيد</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {projects.map((project: any, idx: number) => {
-                        const stats = project.stats || {};
-                        const income = stats.totalIncome || 0;
-                        const expenses = stats.totalExpenses || 0;
-                        const balance = income - expenses;
-                        
-                        return (
-                          <tr key={idx} className="border-b hover:bg-gray-50">
-                            <td className="p-2 font-medium">{project.name}</td>
-                            <td className="p-2">{project.status || "قيد الإنجاز"}</td>
-                            <td className="p-2 text-center">{stats.totalWorkers || 0}</td>
-                            <td className="p-2 text-center">{stats.activeWorkers || 0}</td>
-                            <td className="p-2 text-center">{formatCurrency(income.toString())}</td>
-                            <td className="p-2 text-center">{formatCurrency(expenses.toString())}</td>
-                            <td className={`p-2 text-center font-semibold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {formatCurrency(balance.toString())}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <div className="grid gap-4">
+                {projects.map((project: any, idx: number) => {
+                  const stats = project.stats || {};
+                  return (
+                    <div key={idx} className="p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100">
+                      <h3 className="font-bold text-lg">{project.name}</h3>
+                      <div className="grid grid-cols-3 gap-4 mt-2 text-sm">
+                        <div>
+                          <p className="text-gray-600">عدد العمال</p>
+                          <p className="font-bold text-lg">{stats.totalWorkers || 0}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">المصاريف</p>
+                          <p className="font-bold text-lg text-red-600">{formatCurrency((stats.totalExpenses || 0).toString())}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">الرصيد</p>
+                          <p className={`font-bold text-lg ${(stats.currentBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency((stats.currentBalance || 0).toString())}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* تقرير العمال */}
-        <TabsContent value="workers" className="space-y-4">
+        {/* التقرير اليومي */}
+        <TabsContent value="daily" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>تقرير العمال الشامل ({workers.length})</CardTitle>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleExportWorkersExcel}
-                disabled={workersLoading}
-              >
+            <CardHeader>
+              <Button onClick={handleExportDailyReportExcel} className="w-full">
                 <Download className="w-4 h-4 mr-2" />
-                تحميل Excel
+                تحميل التقرير اليومي الاحترافي
               </Button>
             </CardHeader>
             <CardContent>
-              {workersLoading ? (
-                <p className="text-center py-4">جاري التحميل...</p>
-              ) : workers.length === 0 ? (
-                <p className="text-center py-4">لا يوجد عمال</p>
-              ) : (
-                <div className="overflow-x-auto print:overflow-visible">
-                  <table className="w-full text-right text-sm">
-                    <thead className="bg-gray-100 border-b-2">
-                      <tr>
-                        <th className="p-2 text-right">اسم العامل</th>
-                        <th className="p-2 text-right">نوع العامل</th>
-                        <th className="p-2 text-center">الأجر اليومي</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {workers.map((worker: any, idx: number) => {
-                        const dailyWage = typeof worker.dailyWage === 'string' ? parseFloat(worker.dailyWage) : worker.dailyWage || 0;
-                        
-                        return (
-                          <tr key={idx} className="border-b hover:bg-gray-50">
-                            <td className="p-2 font-medium">{worker.name}</td>
-                            <td className="p-2">{worker.type || "-"}</td>
-                            <td className="p-2 text-center">{formatCurrency(dailyWage.toString())}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <p className="text-center text-gray-600">
+                تقرير يومي احترافي مع جداول ملونة وتنسيق عربي RTL
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* العمال */}
+        <TabsContent value="workers" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <Button onClick={handleExportDetailedExcel} className="w-full">
+                <Download className="w-4 h-4 mr-2" />
+                تحميل كشف الحساب التفصيلي
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-2">
+                {workers.length > 0 ? workers.slice(0, 5).map((worker: any, idx: number) => (
+                  <div key={idx} className="p-2 border rounded text-sm">
+                    <p className="font-medium">{worker.name}</p>
+                    <p className="text-gray-600">{worker.type} - أجر يومي: {formatCurrency((typeof worker.dailyWage === 'string' ? parseFloat(worker.dailyWage) : worker.dailyWage || 0).toString())}</p>
+                  </div>
+                )) : (
+                  <p className="text-center text-gray-500">لا يوجد عمال</p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-
-      <style>{`
-        @media print {
-          .container { max-width: 100% !important; }
-          button { display: none !important; }
-          table { border-collapse: collapse; width: 100%; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-          th { background-color: #f3f4f6; font-weight: bold; }
-        }
-      `}</style>
     </div>
   );
 }

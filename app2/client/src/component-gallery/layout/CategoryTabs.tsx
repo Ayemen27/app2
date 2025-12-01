@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, CreditCard, LayoutGrid } from 'lucide-react';
+import { Search, CreditCard, LayoutGrid, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { GallerySettings } from '../shared/types';
@@ -7,10 +7,11 @@ import { cn } from '../shared/utils';
 
 interface CategoryTabsProps {
   settings: GallerySettings;
-  activeCategory: 'all' | 'search' | 'card';
-  onCategoryChange: (category: 'all' | 'search' | 'card') => void;
+  activeCategory: 'all' | 'search' | 'card' | 'report';
+  onCategoryChange: (category: 'all' | 'search' | 'card' | 'report') => void;
   searchCount: number;
   cardCount: number;
+  reportCount?: number;
 }
 
 export function CategoryTabs({
@@ -19,6 +20,7 @@ export function CategoryTabs({
   onCategoryChange,
   searchCount,
   cardCount,
+  reportCount = 0,
 }: CategoryTabsProps) {
   const isArabic = settings.language === 'ar';
 
@@ -27,7 +29,7 @@ export function CategoryTabs({
       id: 'all' as const,
       label: isArabic ? 'الكل' : 'All',
       icon: LayoutGrid,
-      count: searchCount + cardCount,
+      count: searchCount + cardCount + reportCount,
     },
     {
       id: 'search' as const,
@@ -40,6 +42,12 @@ export function CategoryTabs({
       label: isArabic ? 'البطاقات' : 'Cards',
       icon: CreditCard,
       count: cardCount,
+    },
+    {
+      id: 'report' as const,
+      label: isArabic ? 'قوالب التقارير' : 'Reports',
+      icon: FileText,
+      count: reportCount,
     },
   ];
 

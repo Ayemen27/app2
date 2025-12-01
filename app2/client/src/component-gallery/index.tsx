@@ -5,14 +5,14 @@ import { CompactGalleryGrid } from './layout/CompactGalleryGrid';
 import { useGallerySettings } from './hooks';
 import { useLocation } from 'wouter';
 import { GalleryComponent } from './shared/types';
-import { allComponents, searchComponents, cardComponents } from './data/catalog';
+import { allComponents, searchComponents, cardComponents, reportTemplateComponents } from './data/catalog';
 
 export function ComponentGalleryPage() {
   const { settings, toggleViewMode, toggleTheme, toggleShowCode, toggleLanguage, setColumns } = useGallerySettings();
   const [, setLocation] = useLocation();
   
   const [filter, setFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'search' | 'card'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'search' | 'card' | 'report'>('all');
   const [selectedComponent, setSelectedComponent] = useState<GalleryComponent | null>(null);
 
   const filteredComponents = useMemo(() => {
@@ -22,8 +22,10 @@ export function ComponentGalleryPage() {
       components = allComponents;
     } else if (categoryFilter === 'search') {
       components = searchComponents;
-    } else {
+    } else if (categoryFilter === 'card') {
       components = cardComponents;
+    } else if (categoryFilter === 'report') {
+      components = reportTemplateComponents;
     }
 
     if (filter) {
@@ -96,6 +98,7 @@ export function ComponentGalleryPage() {
         onCategoryChange={setCategoryFilter}
         searchCount={searchComponents.length}
         cardCount={cardComponents.length}
+        reportCount={reportTemplateComponents.length}
       />
 
       <main className="container mx-auto px-2 md:px-4 py-4 md:py-6">

@@ -29,6 +29,14 @@ import {
   CardDesign6, cardDesign6Code,
 } from '../modules/cards';
 
+import {
+  ReportTemplate1, reportTemplate1Code,
+  ReportTemplate2, reportTemplate2Code,
+  ReportTemplate3, reportTemplate3Code,
+  ReportTemplate4, reportTemplate4Code,
+  ReportTemplate5, reportTemplate5Code,
+} from '../modules/report-templates';
+
 export const searchComponents: GalleryComponent[] = [
   {
     id: 'search-1',
@@ -242,4 +250,82 @@ export const cardComponents: GalleryComponent[] = [
   },
 ];
 
-export const allComponents: GalleryComponent[] = [...searchComponents, ...cardComponents];
+export const reportTemplateComponents: GalleryComponent[] = [
+  {
+    id: 'report-1',
+    name: 'Simple Daily Report',
+    nameAr: 'تقرير يومي بسيط',
+    description: 'Clean and minimal daily report template with list format',
+    descriptionAr: 'قالب تقرير يومي بسيط وأنظف مع تنسيق القائمة',
+    category: 'utility',
+    tags: ['daily', 'simple', 'list', 'printable', 'report'],
+    states: ['default', 'loading'],
+    preview: React.createElement(ReportTemplate1),
+    code: { ...reportTemplate1Code, react: '<ReportTemplate1 />' },
+    props: [
+      { name: 'data', type: 'ReportData', required: false, description: 'Report data', descriptionAr: 'بيانات التقرير' },
+    ],
+  },
+  {
+    id: 'report-2',
+    name: 'Monthly Stats Report',
+    nameAr: 'تقرير الإحصائيات الشهري',
+    description: 'Modern report with grid statistics cards and trends',
+    descriptionAr: 'تقرير عصري مع بطاقات الإحصائيات والاتجاهات',
+    category: 'utility',
+    tags: ['monthly', 'stats', 'analytics', 'trends', 'report'],
+    states: ['default', 'loading'],
+    preview: React.createElement(ReportTemplate2),
+    code: { ...reportTemplate2Code, react: '<ReportTemplate2 />' },
+    props: [
+      { name: 'data', type: 'StatsReportData', required: false, description: 'Statistics data', descriptionAr: 'بيانات الإحصائيات' },
+    ],
+  },
+  {
+    id: 'report-3',
+    name: 'Financial Report',
+    nameAr: 'التقرير المالي',
+    description: 'Professional financial report with income, expenses and balance',
+    descriptionAr: 'تقرير مالي احترافي يتضمن الدخل والنفقات والرصيد',
+    category: 'utility',
+    tags: ['financial', 'income', 'expenses', 'balance', 'report'],
+    states: ['default', 'loading'],
+    preview: React.createElement(ReportTemplate3),
+    code: { ...reportTemplate3Code, react: '<ReportTemplate3 />' },
+    props: [
+      { name: 'data', type: 'FinancialReportData', required: false, description: 'Financial data', descriptionAr: 'البيانات المالية' },
+    ],
+  },
+  {
+    id: 'report-4',
+    name: 'Daily Summary Report',
+    nameAr: 'ملخص يومي',
+    description: 'Timeline-based report with completed tasks, in-progress and notes',
+    descriptionAr: 'تقرير قائم على الجدول الزمني مع المهام المكتملة والقيد والملاحظات',
+    category: 'utility',
+    tags: ['daily', 'summary', 'tasks', 'timeline', 'report'],
+    states: ['default', 'loading'],
+    preview: React.createElement(ReportTemplate4),
+    code: { ...reportTemplate4Code, react: '<ReportTemplate4 />' },
+    props: [
+      { name: 'data', type: 'SummaryReportData', required: false, description: 'Summary data', descriptionAr: 'بيانات الملخص' },
+    ],
+  },
+  {
+    id: 'report-5',
+    name: 'Project Status Report',
+    nameAr: 'تقرير حالة المشروع',
+    description: 'Executive summary report with project details and progress bar',
+    descriptionAr: 'تقرير ملخص تنفيذي مع تفاصيل المشروع وشريط التقدم',
+    category: 'utility',
+    tags: ['project', 'status', 'progress', 'executive', 'report'],
+    states: ['default', 'loading'],
+    preview: React.createElement(ReportTemplate5),
+    code: { ...reportTemplate5Code, react: '<ReportTemplate5 />' },
+    props: [
+      { name: 'data', type: 'ProjectStatusData', required: false, description: 'Project status data', descriptionAr: 'بيانات حالة المشروع' },
+    ],
+  },
+];
+
+export const allComponents: GalleryComponent[] = [...searchComponents, ...cardComponents, ...reportTemplateComponents];

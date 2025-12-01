@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { GalleryHeader, GalleryFooter, InspectorPanel, CategoryTabs, GalleryGrid } from './layout';
+import React, { useState, useMemo, Suspense } from 'react';
+import { GalleryHeader, GalleryFooter, CategoryTabs } from './layout';
+import { SmartInspectorPanel } from './layout/SmartInspectorPanel';
+import { CompactGalleryGrid } from './layout/CompactGalleryGrid';
 import { useGallerySettings, useInspector } from './hooks';
 import { GalleryComponent, InspectorState, ComponentState } from './shared/types';
 import { allComponents, searchComponents, cardComponents } from './data/catalog';
@@ -80,8 +82,8 @@ export function ComponentGalleryPage() {
         cardCount={cardComponents.length}
       />
 
-      <main className="container mx-auto px-4 py-8">
-        <GalleryGrid
+      <main className="container mx-auto px-2 md:px-4 py-4 md:py-6">
+        <CompactGalleryGrid
           components={filteredComponents}
           settings={settings}
           onInspect={handleInspect}
@@ -90,7 +92,7 @@ export function ComponentGalleryPage() {
 
       <GalleryFooter settings={settings} />
 
-      <InspectorPanel
+      <SmartInspectorPanel
         state={inspector}
         settings={settings}
         onClose={inspector.closeInspector}

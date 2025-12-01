@@ -11,26 +11,30 @@ export default function RealReports() {
   const [activeTab, setActiveTab] = useState("projects");
 
   // جلب بيانات المشاريع
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+  const { data: projects = [], isLoading: projectsLoading, refetch: refetchProjects } = useQuery({
     queryKey: ["/api/projects/with-stats"],
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/projects/with-stats", "GET");
+        console.log("📊 Projects API Response:", response);
         return response?.data || [];
-      } catch {
+      } catch (error) {
+        console.error("❌ خطأ في جلب المشاريع:", error);
         return [];
       }
     },
   });
 
   // جلب بيانات العمال
-  const { data: workers = [], isLoading: workersLoading } = useQuery({
+  const { data: workers = [], isLoading: workersLoading, refetch: refetchWorkers } = useQuery({
     queryKey: ["/api/workers"],
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/workers", "GET");
-        return Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
-      } catch {
+        console.log("👷 Workers API Response:", response);
+        return response?.data || [];
+      } catch (error) {
+        console.error("❌ خطأ في جلب العمال:", error);
         return [];
       }
     },
@@ -79,22 +83,23 @@ export default function RealReports() {
 
       // البيانات
       projects.forEach((project: any) => {
+        const stats = project.stats || {};
         const row = worksheet.addRow([
           project.name,
           project.status || "قيد الإنجاز",
-          project.totalWorkers || 0,
-          project.activeWorkers || 0,
-          project.totalIncome || 0,
-          project.totalExpenses || 0,
-          (project.totalIncome || 0) - (project.totalExpenses || 0),
+          stats.totalWorkers || 0,
+          stats.activeWorkers || 0,
+          stats.totalIncome || 0,
+          stats.totalExpenses || 0,
+          (stats.totalIncome || 0) - (stats.totalExpenses || 0),
         ]);
         row.alignment = { horizontal: "center", vertical: "middle" };
         [5, 6, 7].forEach((col) => (row.getCell(col).numFmt = "#,##0.00"));
       });
 
       // الإجمالي
-      const totalIncome = projects.reduce((sum: number, p: any) => sum + (p.totalIncome || 0), 0);
-      const totalExpenses = projects.reduce((sum: number, p: any) => sum + (p.totalExpenses || 0), 0);
+      const totalIncome = projects.reduce((sum: number, p: any) => sum + (p.stats?.totalIncome || 0), 0);
+      const totalExpenses = projects.reduce((sum: number, p: any) => sum + (p.stats?.totalExpenses || 0), 0);
 
       worksheet.addRow([]);
       const total = worksheet.addRow(["الإجمالي الكلي", "", "", "", totalIncome, totalExpenses, totalIncome - totalExpenses]);
@@ -124,25 +129,25 @@ export default function RealReports() {
         { width: 20 },
         { width: 15 },
         { width: 12 },
-        { width: 15 },
       ];
 
       const title = worksheet.addRow(["تقرير العمال الشامل"]);
       title.font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
       title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F2937" } };
       title.alignment = { horizontal: "center", vertical: "middle" };
-      worksheet.mergeCells(`A${title.number}:D${title.number}`);
+      worksheet.mergeCells(`A${title.number}:C${title.number}`);
 
       worksheet.addRow([`التاريخ: ${new Date().toLocaleDateString("ar-EG")}`]);
       worksheet.addRow([]);
 
-      const header = worksheet.addRow(["اسم العامل", "نوع العامل", "الأجر اليومي", "عدد أيام العمل"]);
+      const header = worksheet.addRow(["اسم العامل", "نوع العامل", "الأجر اليومي"]);
       header.font = { bold: true, color: { argb: "FFFFFFFF" } };
       header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3B82F6" } };
       header.alignment = { horizontal: "center", vertical: "middle" };
 
       workers.forEach((worker: any) => {
-        const row = worksheet.addRow([worker.name, worker.type || "-", worker.dailyWage || 0, 0]);
+        const dailyWage = typeof worker.dailyWage === 'string' ? parseFloat(worker.dailyWage) : worker.dailyWage || 0;
+        const row = worksheet.addRow([worker.name, worker.type || "-", dailyWage]);
         row.alignment = { horizontal: "center", vertical: "middle" };
         row.getCell(3).numFmt = "#,##0.00";
       });
@@ -163,7 +168,7 @@ export default function RealReports() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">التقارير الشاملة</h1>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+          <Button variant="outline" size="sm" onClick={() => { refetchProjects(); refetchWorkers(); }}>
             <RefreshCw className="w-4 h-4 mr-2" />
             تحديث
           </Button>
@@ -204,34 +209,43 @@ export default function RealReports() {
             <CardContent>
               {projectsLoading ? (
                 <p className="text-center py-4">جاري التحميل...</p>
+              ) : projects.length === 0 ? (
+                <p className="text-center py-4">لا توجد مشاريع</p>
               ) : (
                 <div className="overflow-x-auto print:overflow-visible">
-                  <table className="w-full text-right">
+                  <table className="w-full text-right text-sm">
                     <thead className="bg-gray-100 border-b-2">
                       <tr>
-                        <th className="p-3">المشروع</th>
-                        <th className="p-3">الحالة</th>
-                        <th className="p-3">العمال</th>
-                        <th className="p-3">النشطين</th>
-                        <th className="p-3">الدخل</th>
-                        <th className="p-3">المصاريف</th>
-                        <th className="p-3">الرصيد</th>
+                        <th className="p-2 text-right">المشروع</th>
+                        <th className="p-2 text-right">الحالة</th>
+                        <th className="p-2 text-center">العمال</th>
+                        <th className="p-2 text-center">النشطين</th>
+                        <th className="p-2 text-center">الدخل</th>
+                        <th className="p-2 text-center">المصاريف</th>
+                        <th className="p-2 text-center">الرصيد</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {projects.map((project: any, idx: number) => (
-                        <tr key={idx} className="border-b hover:bg-gray-50">
-                          <td className="p-3 font-medium">{project.name}</td>
-                          <td className="p-3">{project.status || "قيد الإنجاز"}</td>
-                          <td className="p-3">{project.totalWorkers || 0}</td>
-                          <td className="p-3">{project.activeWorkers || 0}</td>
-                          <td className="p-3">{formatCurrency((project.totalIncome || 0).toString())}</td>
-                          <td className="p-3">{formatCurrency((project.totalExpenses || 0).toString())}</td>
-                          <td className="p-3 font-semibold text-green-600">
-                            {formatCurrency(((project.totalIncome || 0) - (project.totalExpenses || 0)).toString())}
-                          </td>
-                        </tr>
-                      ))}
+                      {projects.map((project: any, idx: number) => {
+                        const stats = project.stats || {};
+                        const income = stats.totalIncome || 0;
+                        const expenses = stats.totalExpenses || 0;
+                        const balance = income - expenses;
+                        
+                        return (
+                          <tr key={idx} className="border-b hover:bg-gray-50">
+                            <td className="p-2 font-medium">{project.name}</td>
+                            <td className="p-2">{project.status || "قيد الإنجاز"}</td>
+                            <td className="p-2 text-center">{stats.totalWorkers || 0}</td>
+                            <td className="p-2 text-center">{stats.activeWorkers || 0}</td>
+                            <td className="p-2 text-center">{formatCurrency(income.toString())}</td>
+                            <td className="p-2 text-center">{formatCurrency(expenses.toString())}</td>
+                            <td className={`p-2 text-center font-semibold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency(balance.toString())}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -244,7 +258,7 @@ export default function RealReports() {
         <TabsContent value="workers" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>تقرير العمال الشامل</CardTitle>
+              <CardTitle>تقرير العمال الشامل ({workers.length})</CardTitle>
               <Button
                 variant="default"
                 size="sm"
@@ -258,24 +272,30 @@ export default function RealReports() {
             <CardContent>
               {workersLoading ? (
                 <p className="text-center py-4">جاري التحميل...</p>
+              ) : workers.length === 0 ? (
+                <p className="text-center py-4">لا يوجد عمال</p>
               ) : (
                 <div className="overflow-x-auto print:overflow-visible">
-                  <table className="w-full text-right">
+                  <table className="w-full text-right text-sm">
                     <thead className="bg-gray-100 border-b-2">
                       <tr>
-                        <th className="p-3">اسم العامل</th>
-                        <th className="p-3">نوع العامل</th>
-                        <th className="p-3">الأجر اليومي</th>
+                        <th className="p-2 text-right">اسم العامل</th>
+                        <th className="p-2 text-right">نوع العامل</th>
+                        <th className="p-2 text-center">الأجر اليومي</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {workers.map((worker: any, idx: number) => (
-                        <tr key={idx} className="border-b hover:bg-gray-50">
-                          <td className="p-3 font-medium">{worker.name}</td>
-                          <td className="p-3">{worker.type || "-"}</td>
-                          <td className="p-3">{formatCurrency((worker.dailyWage || 0).toString())}</td>
-                        </tr>
-                      ))}
+                      {workers.map((worker: any, idx: number) => {
+                        const dailyWage = typeof worker.dailyWage === 'string' ? parseFloat(worker.dailyWage) : worker.dailyWage || 0;
+                        
+                        return (
+                          <tr key={idx} className="border-b hover:bg-gray-50">
+                            <td className="p-2 font-medium">{worker.name}</td>
+                            <td className="p-2">{worker.type || "-"}</td>
+                            <td className="p-2 text-center">{formatCurrency(dailyWage.toString())}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -289,8 +309,9 @@ export default function RealReports() {
         @media print {
           .container { max-width: 100% !important; }
           button { display: none !important; }
-          table { border-collapse: collapse; }
-          th, td { border: 1px solid #ddd; padding: 8px; }
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+          th { background-color: #f3f4f6; font-weight: bold; }
         }
       `}</style>
     </div>

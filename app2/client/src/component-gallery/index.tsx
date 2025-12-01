@@ -110,3 +110,5 @@ export function ComponentGalleryPage() {
     </div>
   );
 }
+
+export default ComponentGalleryPage;

@@ -31,6 +31,7 @@ import { SecurityPoliciesPage } from "@/pages/SecurityPoliciesPage";
 import Reports from "@/pages/reports";
 import DailyExpenses from "@/pages/daily-expenses";
 import ComponentGalleryPage from "@/component-gallery";
+import RealReports from "@/pages/real-reports";
 
 import { LayoutShell } from "@/components/layout/layout-shell";
 import { FloatingButtonProvider } from "@/components/layout/floating-button-context";
@@ -96,6 +97,7 @@ function Router() {
       </Route>
       <Route path="/daily-expenses" component={DailyExpenses} />
       <Route path="/reports" component={Reports} />
+      <Route path="/real-reports" component={RealReports} />
       <Route path="/component-gallery" component={ComponentGalleryPage} />
       <Route component={NotFound} />
     </Switch>

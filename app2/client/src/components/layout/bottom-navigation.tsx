@@ -5,7 +5,7 @@ import {
   MoreHorizontal, Calculator, FileSpreadsheet, UserCheck, DollarSign, Package,
   ClipboardCheck, TrendingUp, Settings, PlusCircle, ArrowLeftRight, Target,
   BookOpen, Calendar, Wrench, User, MapPin, Globe, X, Bell, Brain, Shield,
-  Database, Palette
+  Database, Palette, ReceiptText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -57,6 +57,7 @@ const allPagesData = [
   {
     category: "التقارير",
     pages: [
+      { path: "/real-reports", icon: ReceiptText, label: "التقارير الشاملة", description: "تقارير شاملة مع إمكانية التصدير والطباعة", requireAdmin: false },
       { path: "/reports", icon: FileSpreadsheet, label: "بيان العمال", description: "كشوفات وبيانات العمال والأجور", requireAdmin: false },
     ]
   },

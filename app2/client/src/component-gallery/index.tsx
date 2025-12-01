@@ -1,17 +1,19 @@
 import React, { useState, useMemo, Suspense } from 'react';
 import { GalleryHeader, GalleryFooter, CategoryTabs } from './layout';
-import { SmartInspectorPanel } from './layout/SmartInspectorPanel';
+import { ComponentDetailPage } from './layout/ComponentDetailPage';
 import { CompactGalleryGrid } from './layout/CompactGalleryGrid';
-import { useGallerySettings, useInspector } from './hooks';
-import { GalleryComponent, InspectorState, ComponentState } from './shared/types';
+import { useGallerySettings } from './hooks';
+import { useLocation } from 'wouter';
+import { GalleryComponent } from './shared/types';
 import { allComponents, searchComponents, cardComponents } from './data/catalog';
 
 export function ComponentGalleryPage() {
   const { settings, toggleViewMode, toggleTheme, toggleShowCode, toggleLanguage, setColumns } = useGallerySettings();
-  const inspector = useInspector();
+  const [, setLocation] = useLocation();
   
   const [filter, setFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'search' | 'card'>('all');
+  const [selectedComponent, setSelectedComponent] = useState<GalleryComponent | null>(null);
 
   const filteredComponents = useMemo(() => {
     let components: GalleryComponent[] = [];
@@ -39,11 +41,11 @@ export function ComponentGalleryPage() {
   }, [categoryFilter, filter]);
 
   const handleInspect = (component: GalleryComponent) => {
-    inspector.openInspector(component);
+    setSelectedComponent(component);
   };
 
-  const currentComponentIndex = inspector.selectedComponent 
-    ? filteredComponents.findIndex(c => c.id === inspector.selectedComponent?.id)
+  const currentComponentIndex = selectedComponent 
+    ? filteredComponents.findIndex(c => c.id === selectedComponent?.id)
     : -1;
 
   const handleNavigate = (direction: 'prev' | 'next') => {
@@ -57,10 +59,24 @@ export function ComponentGalleryPage() {
     }
 
     if (nextIndex >= 0 && nextIndex < filteredComponents.length) {
-      inspector.openInspector(filteredComponents[nextIndex]);
+      setSelectedComponent(filteredComponents[nextIndex]);
     }
   };
 
+  // Show detail page if component is selected
+  if (selectedComponent) {
+    return (
+      <ComponentDetailPage
+        component={selectedComponent}
+        settings={settings}
+        onNavigate={handleNavigate}
+        hasPrev={currentComponentIndex > 0}
+        hasNext={currentComponentIndex < filteredComponents.length - 1}
+      />
+    );
+  }
+
+  // Show gallery page
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-muted/40">
       <GalleryHeader
@@ -91,19 +107,6 @@ export function ComponentGalleryPage() {
       </main>
 
       <GalleryFooter settings={settings} />
-
-      <SmartInspectorPanel
-        state={inspector}
-        settings={settings}
-        onClose={inspector.closeInspector}
-        onTabChange={inspector.setActiveTab}
-        onStateChange={inspector.setCurrentState}
-        onNavigate={handleNavigate}
-        hasPrev={currentComponentIndex > 0}
-        hasNext={currentComponentIndex < filteredComponents.length - 1}
-      />
     </div>
   );
 }
-
-export default ComponentGalleryPage;

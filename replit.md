@@ -2,6 +2,13 @@
 
 ## Recent Changes
 
+### December 01, 2025 - Bottom Navigation Gallery Link ✅ COMPLETED
+- **إضافة رابط المعرض إلى قائمة المزيد**:
+  - ✅ تم إضافة فئة جديدة "مكتبات ومراجع"
+  - ✅ رابط سريع لـ `/component-gallery` من الشريط السفلي
+  - ✅ أيقونة Palette ووصف واضح
+  - ✅ متاح لجميع المستخدمين (غير مشروط بدور الإدارة)
+
 ### December 01, 2025 - Report Printer Templates Section ✅ COMPLETED
 - **قسم قوالب التقارير الجديد**:
   - ✅ 5 قوالب تقارير احترافية مختلفة

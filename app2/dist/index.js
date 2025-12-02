@@ -2384,7 +2384,7 @@ __export(NotificationService_exports, {
   NotificationStatus: () => NotificationStatus,
   NotificationTypes: () => NotificationTypes
 });
-import { eq as eq11, and as and9, desc as desc7, or as or3, inArray, sql as sql8 } from "drizzle-orm";
+import { eq as eq11, and as and10, desc as desc7, or as or3, inArray, sql as sql8 } from "drizzle-orm";
 var NotificationPriority, NotificationTypes, NotificationStatus, NotificationService;
 var init_NotificationService = __esm({
   "server/services/NotificationService.ts"() {
@@ -2670,11 +2670,11 @@ var init_NotificationService = __esm({
             )
           );
         }
-        const notificationList = await db.select().from(notifications).where(and9(...conditions)).orderBy(desc7(notifications.createdAt)).limit(filters.limit || 50).offset(filters.offset || 0);
+        const notificationList = await db.select().from(notifications).where(and10(...conditions)).orderBy(desc7(notifications.createdAt)).limit(filters.limit || 50).offset(filters.offset || 0);
         console.log(`\u{1F50D} \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 ${notificationList.length} \u0625\u0634\u0639\u0627\u0631 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId}`);
         const notificationIds = notificationList.map((n) => n.id);
         const readStates = notificationIds.length > 0 ? await db.select().from(notificationReadStates).where(
-          and9(
+          and10(
             eq11(notificationReadStates.userId, userId),
             // مهم: حالة القراءة مخصصة للمستخدم
             inArray(notificationReadStates.notificationId, notificationIds)
@@ -2725,7 +2725,7 @@ var init_NotificationService = __esm({
         try {
           console.log(`\u{1F50D} \u0628\u062F\u0621 \u0641\u062D\u0635 \u062D\u0627\u0644\u0629 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 ${notificationId} \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 ${userId}`);
           const readState = await db.select().from(notificationReadStates).where(
-            and9(
+            and10(
               eq11(notificationReadStates.userId, userId),
               eq11(notificationReadStates.notificationId, notificationId)
             )
@@ -2812,7 +2812,7 @@ var init_NotificationService = __esm({
         if (projectId) {
           conditions.push(eq11(notifications.projectId, projectId));
         }
-        const userNotifications = conditions.length > 0 ? await db.select({ id: notifications.id }).from(notifications).where(and9(...conditions)) : await db.select({ id: notifications.id }).from(notifications);
+        const userNotifications = conditions.length > 0 ? await db.select({ id: notifications.id }).from(notifications).where(and10(...conditions)) : await db.select({ id: notifications.id }).from(notifications);
         console.log(`\u{1F3AF} \u0639\u062F\u062F \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u064F\u0641\u0644\u062A\u0631\u0629: ${userNotifications.length}`);
         let markedCount = 0;
         for (const notification of userNotifications) {
@@ -2862,7 +2862,7 @@ var init_NotificationService = __esm({
             conditions.push(userCondition);
           }
         }
-        const userNotifications = await db.select().from(notifications).where(and9(...conditions));
+        const userNotifications = await db.select().from(notifications).where(and10(...conditions));
         const readStates = await db.select().from(notificationReadStates).where(eq11(notificationReadStates.userId, userId));
         const readNotificationIds = readStates.filter((rs) => rs.isRead).map((rs) => rs.notificationId);
         const unread = userNotifications.filter((n) => !readNotificationIds.includes(n.id));
@@ -2900,7 +2900,7 @@ var init_NotificationService = __esm({
         }
         let query = db.select().from(notifications);
         if (conditions.length > 0) {
-          query = query.where(and9(...conditions));
+          query = query.where(and10(...conditions));
         }
         const allNotifications = await query.orderBy(desc7(notifications.createdAt)).limit(limit).offset(offset);
         const notificationsWithStats = await Promise.all(
@@ -2923,7 +2923,7 @@ var init_NotificationService = __esm({
         );
         const countQuery = db.select({ count: sql8`count(*)` }).from(notifications);
         if (conditions.length > 0) {
-          countQuery.where(and9(...conditions));
+          countQuery.where(and10(...conditions));
         }
         const countResult = await countQuery;
         const total = Number(countResult[0]?.count || 0);
@@ -6809,7 +6809,7 @@ healthRouter.get("/status", (req, res) => {
 });
 healthRouter.get("/schema-check", requireAuth2, requireRole3("admin"), async (req, res) => {
   try {
-    const sql11 = (query) => query.join("");
+    const sql9 = (query) => query.join("");
     const dbTablesResult = await db.execute(`
       SELECT table_name 
       FROM information_schema.tables 
@@ -11195,9 +11195,9 @@ var financialRoutes_default = financialRouter;
 import express9 from "express";
 init_db();
 init_schema();
-import { eq as eq10, desc as desc6 } from "drizzle-orm";
+import { eq as eq10, desc as desc6, and as and9 } from "drizzle-orm";
 var autocompleteRouter = express9.Router();
-autocompleteRouter.post("/", async (req, res) => {
+autocompleteRouter.post("/", requireAuth, async (req, res) => {
   const startTime = Date.now();
   try {
     const { category, value, usageCount = 1 } = req.body;
@@ -11207,8 +11207,17 @@ autocompleteRouter.post("/", async (req, res) => {
         message: "category \u0648 value \u0645\u0637\u0644\u0648\u0628\u0627\u0646"
       });
     }
+    if (value.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: "\u0627\u0644\u0642\u064A\u0645\u0629 \u0637\u0648\u064A\u0644\u0629 \u062C\u062F\u0627\u064B (\u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649 500 \u062D\u0631\u0641)"
+      });
+    }
     console.log("\u{1F4DD} [API] \u062D\u0641\u0638 \u0625\u0643\u0645\u0627\u0644 \u062A\u0644\u0642\u0627\u0626\u064A:", { category, value });
-    const existing = await db.select().from(autocompleteData).where(eq10(autocompleteData.value, value)).limit(1);
+    const existing = await db.select().from(autocompleteData).where(and9(
+      eq10(autocompleteData.value, value),
+      eq10(autocompleteData.category, category)
+    )).limit(1);
     let saved;
     if (existing.length > 0) {
       saved = await db.update(autocompleteData).set({
@@ -11252,7 +11261,7 @@ autocompleteRouter.get("/", requireAuth, async (req, res) => {
       if (!grouped[item.category]) {
         grouped[item.category] = [];
       }
-      grouped[item.category].push(item.value);
+      grouped[item.category].push(item);
     });
     const duration = Date.now() - startTime;
     res.json({
@@ -11284,7 +11293,7 @@ autocompleteRouter.get("/senderNames", requireAuth, async (req, res) => {
     const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "senderNames")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: data.map((d) => d.value),
+      data,
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0631\u0633\u0644\u064A\u0646 \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -11300,7 +11309,7 @@ autocompleteRouter.get("/transferNumbers", requireAuth, async (req, res) => {
     const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "transferNumbers")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: data.map((d) => d.value),
+      data,
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -11311,12 +11320,12 @@ autocompleteRouter.get("/transferNumbers", requireAuth, async (req, res) => {
     });
   }
 });
-autocompleteRouter.get("/transferTypes", async (req, res) => {
+autocompleteRouter.get("/transferTypes", requireAuth, async (req, res) => {
   try {
     const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "transferTypes")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: data.map((d) => d.value),
+      data,
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -11332,7 +11341,7 @@ autocompleteRouter.get("/transportDescriptions", requireAuth, async (req, res) =
     const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "transportDescriptions")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: data.map((d) => d.value),
+      data,
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0648\u0635\u0627\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -11348,7 +11357,7 @@ autocompleteRouter.get("/notes", requireAuth, async (req, res) => {
     const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "notes")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: data.map((d) => d.value),
+      data,
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u0627\u062D\u0638\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -11359,12 +11368,12 @@ autocompleteRouter.get("/notes", requireAuth, async (req, res) => {
     });
   }
 });
-autocompleteRouter.get("/projectNames", async (req, res) => {
+autocompleteRouter.get("/projectNames", requireAuth, async (req, res) => {
   try {
     const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "projectNames")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: data.map((d) => d.value),
+      data,
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -11475,7 +11484,7 @@ autocompleteRouter.get("/operatorNames", requireAuth, async (req, res) => {
     const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "operatorNames")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: data.map((d) => d.value),
+      data,
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0634\u063A\u0644\u064A\u0646 \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -11491,7 +11500,7 @@ autocompleteRouter.get("/equipmentTypes", requireAuth, async (req, res) => {
     const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "equipmentTypes")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: data.map((d) => d.value),
+      data,
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0622\u0644\u064A\u0627\u062A \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -11507,7 +11516,7 @@ autocompleteRouter.get("/materialTypes", requireAuth, async (req, res) => {
     const data = await db.select().from(autocompleteData).where(eq10(autocompleteData.category, "materialTypes")).orderBy(desc6(autocompleteData.usageCount));
     res.json({
       success: true,
-      data: data.map((d) => d.value),
+      data,
       message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D"
     });
   } catch (error) {
@@ -12174,1062 +12183,19 @@ var performanceHeaders = (req, res, next) => {
   next();
 };
 
-// server/auto-schema-push.ts
-init_db();
-init_schema();
-import { spawn } from "child_process";
-import { existsSync as existsSync2, writeFileSync as writeFileSync2, readFileSync as readFileSync2, unlinkSync as unlinkSync2 } from "fs";
-import { join as join2, dirname } from "path";
-import { fileURLToPath } from "url";
-import { sql as sql10 } from "drizzle-orm";
-import { getTableName as drizzleGetTableName, getTableColumns } from "drizzle-orm";
-
-// server/backup-manager.ts
-init_db();
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, unlinkSync, statSync } from "fs";
-import { join } from "path";
-import { sql as sql9 } from "drizzle-orm";
-var BackupManager = class {
-  config;
-  constructor(config = {}) {
-    this.config = {
-      backupDir: join(process.cwd(), "backups", "schema-push"),
-      maxBackups: 10,
-      compressionEnabled: false,
-      retentionDays: 30,
-      ...config
-    };
-    this.initializeBackupDir();
-  }
-  /**
-   * تهيئة مجلد النسخ الاحتياطية
-   */
-  initializeBackupDir() {
-    if (!existsSync(this.config.backupDir)) {
-      mkdirSync(this.config.backupDir, { recursive: true });
-      console.log(`\u2705 [Backup] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u062C\u0644\u062F \u0627\u0644\u0646\u0633\u062E \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629: ${this.config.backupDir}`);
-    }
-  }
-  /**
-   * الحصول على قائمة الجداول الخطرة
-   */
-  identifyDangerousTables(missingTables, extraTables, missingColumns) {
-    const dangerous = /* @__PURE__ */ new Set();
-    missingTables.forEach((t) => dangerous.add(t));
-    extraTables.forEach((t) => dangerous.add(t));
-    missingColumns.forEach((c) => dangerous.add(c.table));
-    return Array.from(dangerous);
-  }
-  /**
-   * إنشاء نسخة احتياطية
-   */
-  async createBackup(reason, missingTables, extraTables, missingColumns, severity = "high") {
-    console.log("\u{1F4BE} [Backup] \u0628\u062F\u0621 \u0625\u0646\u0634\u0627\u0621 \u0646\u0633\u062E\u0629 \u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629...");
-    try {
-      const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
-      const dateTime = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, -5);
-      const backupFile = join(this.config.backupDir, `backup_${dateTime}.sql`);
-      const manifestFile = join(this.config.backupDir, `backup_${dateTime}_manifest.json`);
-      const dangerousTables = this.identifyDangerousTables(missingTables, extraTables, missingColumns);
-      if (dangerousTables.length === 0) {
-        return {
-          success: false,
-          backupFile: "",
-          manifestFile: "",
-          message: "\u0644\u0627 \u062A\u0648\u062C\u062F \u062C\u062F\u0627\u0648\u0644 \u062A\u062D\u062A\u0627\u062C \u0646\u0633\u062E \u0627\u062D\u062A\u064A\u0627\u0637\u064A",
-          manifest: {}
-        };
-      }
-      console.log(`\u{1F4CA} [Backup] \u0627\u0644\u062C\u062F\u0627\u0648\u0644 \u0627\u0644\u0645\u062E\u0637\u0631\u0629: ${dangerousTables.join(", ")}`);
-      const backupData = await this.dumpTables(dangerousTables);
-      const totalRows = backupData.tables.reduce((sum, t) => sum + t.rowCount, 0);
-      const backupContent = JSON.stringify(backupData, null, 2);
-      const totalSize = Buffer.byteLength(backupContent, "utf-8");
-      writeFileSync(backupFile, backupContent, "utf-8");
-      console.log(`\u2705 [Backup] \u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0641\u064A: ${backupFile} (${(totalSize / 1024).toFixed(2)} KB)`);
-      const manifest = {
-        timestamp: timestamp2,
-        reason,
-        affectedTables: dangerousTables,
-        totalRows,
-        totalSize,
-        backupFile: backupFile.replace(process.cwd(), "."),
-        severity,
-        schemaChanges: {
-          missingTables,
-          extraTables,
-          missingColumns
-        }
-      };
-      writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), "utf-8");
-      console.log(`\u2705 [Backup] \u062A\u0645 \u062D\u0641\u0638 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0641\u0647\u0631\u0633 \u0641\u064A: ${manifestFile}`);
-      await this.cleanupOldBackups();
-      return {
-        success: true,
-        backupFile,
-        manifestFile,
-        message: `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0646\u0633\u062E\u0629 \u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629 \u0628\u0646\u062C\u0627\u062D - ${dangerousTables.length} \u062C\u062F\u0648\u0644`,
-        manifest
-      };
-    } catch (error) {
-      console.error("\u274C [Backup] \u0641\u0634\u0644 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0646\u0633\u062E\u0629 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629:", error);
-      return {
-        success: false,
-        backupFile: "",
-        manifestFile: "",
-        message: `\u062E\u0637\u0623: ${error instanceof Error ? error.message : "\u062E\u0637\u0623 \u063A\u064A\u0631 \u0645\u062A\u0648\u0642\u0639"}`,
-        manifest: {}
-      };
-    }
-  }
-  /**
-   * استخراج البيانات من الجداول
-   */
-  async dumpTables(tableNames) {
-    const tables = [];
-    for (const tableName of tableNames) {
-      try {
-        const columnsResult = await db.execute(sql9`
-          SELECT column_name, data_type, is_nullable, column_default
-          FROM information_schema.columns
-          WHERE table_schema = 'public'
-          AND table_name = ${tableName}
-          ORDER BY ordinal_position
-        `);
-        const dataResult = await db.execute(sql9.raw(`SELECT * FROM "${tableName}"`));
-        const schema = columnsResult.rows.map((row) => ({
-          name: row.column_name,
-          type: row.data_type,
-          nullable: row.is_nullable === "YES",
-          default: row.column_default
-        }));
-        tables.push({
-          name: tableName,
-          schema,
-          data: dataResult.rows,
-          rowCount: dataResult.rows.length
-        });
-        console.log(`   \u2705 ${tableName}: ${dataResult.rows.length} \u0635\u0641`);
-      } catch (error) {
-        console.warn(`   \u26A0\uFE0F \u062A\u0639\u0630\u0631 \u062D\u0641\u0638 \u062C\u062F\u0648\u0644 ${tableName}:`, error instanceof Error ? error.message : "\u062E\u0637\u0623 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641");
-        tables.push({
-          name: tableName,
-          schema: [],
-          data: [],
-          rowCount: 0
-        });
-      }
-    }
-    return {
-      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      tables
-    };
-  }
-  /**
-   * حذف النسخ الاحتياطية القديمة
-   */
-  async cleanupOldBackups() {
-    try {
-      const files = readdirSync(this.config.backupDir).filter((f) => f.startsWith("backup_") && f.endsWith(".sql")).map((f) => ({
-        name: f,
-        path: join(this.config.backupDir, f),
-        time: statSync(join(this.config.backupDir, f)).mtime.getTime()
-      })).sort((a, b) => b.time - a.time);
-      if (files.length > this.config.maxBackups) {
-        const toDelete = files.slice(this.config.maxBackups);
-        for (const file of toDelete) {
-          unlinkSync(file.path);
-          const manifestPath = file.path.replace(".sql", "_manifest.json");
-          if (existsSync(manifestPath)) {
-            unlinkSync(manifestPath);
-          }
-          console.log(`\u{1F5D1}\uFE0F [Backup] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0646\u0633\u062E\u0629 \u0627\u0644\u0642\u062F\u064A\u0645\u0629: ${file.name}`);
-        }
-      }
-    } catch (error) {
-      console.warn("\u26A0\uFE0F [Backup] \u062E\u0637\u0623 \u0641\u064A \u062A\u0646\u0638\u064A\u0641 \u0627\u0644\u0646\u0633\u062E \u0627\u0644\u0642\u062F\u064A\u0645\u0629:", error);
-    }
-  }
-  /**
-   * استعادة من نسخة احتياطية
-   */
-  async restoreFromBackup(backupFile) {
-    try {
-      console.log(`\u{1F504} [Backup] \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0645\u0646 \u0627\u0644\u0646\u0633\u062E\u0629: ${backupFile}`);
-      if (!existsSync(backupFile)) {
-        console.error("\u274C [Backup] \u0645\u0644\u0641 \u0627\u0644\u0646\u0633\u062E\u0629 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F");
-        return false;
-      }
-      const content = readFileSync(backupFile, "utf-8");
-      const backupData = JSON.parse(content);
-      console.log(`\u{1F4CA} [Backup] \u0628\u062F\u0621 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 ${backupData.tables.length} \u062C\u062F\u0627\u0648\u0644...`);
-      for (const table of backupData.tables) {
-        if (table.data.length === 0) {
-          console.log(`   \u23ED\uFE0F ${table.name}: \u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A`);
-          continue;
-        }
-        console.log(`   \u2705 ${table.name}: ${table.data.length} \u0635\u0641`);
-      }
-      console.log("\u2705 [Backup] \u0627\u0643\u062A\u0645\u0644\u062A \u0627\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0628\u0646\u062C\u0627\u062D");
-      return true;
-    } catch (error) {
-      console.error("\u274C [Backup] \u0641\u0634\u0644 \u0627\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629:", error);
-      return false;
-    }
-  }
-  /**
-   * الحصول على قائمة النسخ الاحتياطية
-   */
-  listBackups() {
-    try {
-      const manifests = readdirSync(this.config.backupDir).filter((f) => f.endsWith("_manifest.json")).map((f) => {
-        const content = readFileSync(join(this.config.backupDir, f), "utf-8");
-        return JSON.parse(content);
-      }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      return manifests;
-    } catch (error) {
-      console.error("\u274C [Backup] \u062E\u0637\u0623 \u0641\u064A \u0642\u0631\u0627\u0621\u0629 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0646\u0633\u062E:", error);
-      return [];
-    }
-  }
-  /**
-   * الحصول على آخر نسخة احتياطية
-   */
-  getLatestBackup() {
-    const backups = this.listBackups();
-    return backups.length > 0 ? backups[0] : null;
-  }
-};
-var backup_manager_default = BackupManager;
-
-// server/auto-schema-push.ts
-var __filename = fileURLToPath(import.meta.url);
-var __dirname = dirname(__filename);
-var LOCK_FILE = join2(__dirname, "../.schema-push.lock");
-var MAX_AGE_HOURS = 24;
-var AUTO_FIX_ENABLED = true;
-var isProduction2 = process.env.NODE_ENV === "production";
-var BACKUP_MANAGER = new backup_manager_default({
-  backupDir: join2(__dirname, "../backups/schema-push"),
-  maxBackups: 10,
-  retentionDays: 30
-});
-function isDrizzleTable(obj) {
-  if (!obj || typeof obj !== "object") return false;
-  try {
-    const name = drizzleGetTableName(obj);
-    if (name) return true;
-    const hasTableSymbol = Object.getOwnPropertySymbols(obj).some(
-      (sym) => sym.toString().includes("drizzle") || sym.toString().includes("Table")
-    );
-    if (hasTableSymbol) return true;
-    const hasTableProperties = "_" in obj && typeof obj._ === "object" && obj._.name;
-    return hasTableProperties;
-  } catch {
-    return false;
-  }
-}
-function getTableName(tableObj) {
-  try {
-    const name = drizzleGetTableName(tableObj);
-    if (name) return name;
-    if (tableObj._ && tableObj._.name) {
-      return tableObj._.name;
-    }
-    return void 0;
-  } catch {
-    return void 0;
-  }
-}
-function getExpectedTablesFromSchema() {
-  const tables = [];
-  const seen = /* @__PURE__ */ new Set();
-  if (!isProduction2) {
-    console.log("\u{1F50D} [Schema Detection] \u0628\u062F\u0621 \u0627\u0644\u0643\u0634\u0641 \u0627\u0644\u062F\u064A\u0646\u0627\u0645\u064A\u0643\u064A \u0639\u0646 \u0627\u0644\u062C\u062F\u0627\u0648\u0644...");
-  }
-  for (const [key, value] of Object.entries(schema_exports)) {
-    if (key.endsWith("Relations") || key.endsWith("Enum") || key.startsWith("_") || key.endsWith("Schema") || key.startsWith("insert") || key.startsWith("update") || key.startsWith("Insert") || key.startsWith("Update")) {
-      continue;
-    }
-    if (isDrizzleTable(value)) {
-      const tableName = getTableName(value);
-      if (tableName && !tableName.startsWith("_") && !seen.has(tableName)) {
-        seen.add(tableName);
-        tables.push(tableName);
-      }
-    }
-  }
-  if (!isProduction2) {
-    console.log(`\u{1F4CA} [Schema Detection] \u062A\u0645 \u0627\u0643\u062A\u0634\u0627\u0641 ${tables.length} \u062C\u062F\u0648\u0644 \u062F\u064A\u0646\u0627\u0645\u064A\u0643\u064A\u0627\u064B`);
-  }
-  if (tables.length === 0 && !isProduction2) {
-    console.log("\u26A0\uFE0F [Schema Detection] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0643\u062A\u0634\u0627\u0641 \u0623\u064A \u062C\u062F\u0627\u0648\u0644");
-  }
-  return tables;
-}
-function getExpectedColumnsFromTable(tableName) {
-  const columns = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const [key, value] of Object.entries(schema_exports)) {
-    if (!isDrizzleTable(value)) continue;
-    const tableObj = value;
-    const tblName = getTableName(tableObj);
-    if (tblName === tableName) {
-      try {
-        const tableColumns = getTableColumns(tableObj);
-        if (tableColumns && typeof tableColumns === "object") {
-          for (const colKey of Object.keys(tableColumns)) {
-            const col = tableColumns[colKey];
-            if (col && col.name && !seen.has(col.name)) {
-              seen.add(col.name);
-              columns.push(col.name);
-            }
-          }
-        }
-      } catch {
-        for (const colKey of Object.keys(tableObj)) {
-          if (colKey === "_" || colKey === "name" || colKey.startsWith("$")) continue;
-          const col = tableObj[colKey];
-          if (col && typeof col === "object" && "name" in col) {
-            const isColumn = "dataType" in col || "columnType" in col || "default" in col || "notNull" in col || "primary" in col;
-            if (isColumn && !seen.has(col.name)) {
-              seen.add(col.name);
-              columns.push(col.name);
-            }
-          }
-        }
-      }
-      break;
-    }
-  }
-  return columns;
-}
-async function shouldRunPush() {
-  if (!existsSync2(LOCK_FILE)) {
-    console.log("\u{1F4DD} [Schema Push] \u0644\u0627 \u064A\u0648\u062C\u062F \u0645\u0644\u0641 \u0642\u0641\u0644\u060C \u0633\u064A\u062A\u0645 \u0627\u0644\u062A\u0634\u063A\u064A\u0644");
-    return true;
-  }
-  try {
-    const lockData = JSON.parse(readFileSync2(LOCK_FILE, "utf8"));
-    const lastRun = new Date(lockData.timestamp);
-    const hoursSinceLastRun = (Date.now() - lastRun.getTime()) / (1e3 * 60 * 60);
-    if (hoursSinceLastRun > MAX_AGE_HOURS) {
-      console.log(`\u23F0 [Schema Push] \u0645\u0631 ${hoursSinceLastRun.toFixed(1)} \u0633\u0627\u0639\u0629\u060C \u0633\u064A\u062A\u0645 \u0627\u0644\u062A\u0634\u063A\u064A\u0644`);
-      return true;
-    }
-    console.log(`\u23ED\uFE0F [Schema Push] \u062A\u0645 \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0645\u0624\u062E\u0631\u0627\u064B (\u0645\u0646\u0630 ${hoursSinceLastRun.toFixed(1)} \u0633\u0627\u0639\u0629)`);
-    return false;
-  } catch (error) {
-    console.log("\u26A0\uFE0F [Schema Push] \u0645\u0644\u0641 \u0627\u0644\u0642\u0641\u0644 \u062A\u0627\u0644\u0641\u060C \u0633\u064A\u062A\u0645 \u0627\u0644\u062A\u0634\u063A\u064A\u0644");
-    return true;
-  }
-}
-function createLockFile(success = true, checkResult) {
-  try {
-    const lockData = {
-      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      success,
-      version: "3.0",
-      lastCheck: checkResult
-    };
-    writeFileSync2(LOCK_FILE, JSON.stringify(lockData, null, 2));
-    console.log("\u2705 [Schema Push] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0644\u0641 \u0627\u0644\u0642\u0641\u0644");
-  } catch (error) {
-    console.error("\u274C [Schema Push] \u0641\u0634\u0644 \u0625\u0646\u0634\u0627\u0621 \u0645\u0644\u0641 \u0627\u0644\u0642\u0641\u0644:", error);
-  }
-}
-function determineIssueSeverity(issueType, entity) {
-  if (issueType === "missing_table") {
-    return "high";
-  }
-  if (issueType === "missing_column") {
-    if (["id", "user_id", "created_at", "project_id"].includes(entity)) {
-      return "critical";
-    }
-    return "high";
-  }
-  if (issueType === "extra_table") {
-    return "medium";
-  }
-  if (issueType === "extra_column") {
-    return "low";
-  }
-  return "info";
-}
-function generateSuggestion(issueType, entity, tableName) {
-  switch (issueType) {
-    case "missing_table":
-      return `\u0642\u0645 \u0628\u062A\u0634\u063A\u064A\u0644 'npx drizzle-kit push' \u0644\u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062C\u062F\u0648\u0644 "${entity}" \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A\u060C \u0623\u0648 \u062A\u0623\u0643\u062F \u0645\u0646 \u062A\u0639\u0631\u064A\u0641 \u0627\u0644\u062C\u062F\u0648\u0644 \u0628\u0634\u0643\u0644 \u0635\u062D\u064A\u062D \u0641\u064A \u0645\u0644\u0641 schema.ts`;
-    case "extra_table":
-      return `\u0627\u0644\u062C\u062F\u0648\u0644 "${entity}" \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0644\u0643\u0646 \u063A\u064A\u0631 \u0645\u0639\u0631\u0641 \u0641\u064A \u0627\u0644\u0645\u062E\u0637\u0637. \u0625\u0645\u0627 \u0623\u0636\u0641\u0647 \u0644\u0645\u0644\u0641 schema.ts \u0625\u0630\u0627 \u0643\u0627\u0646 \u0645\u0637\u0644\u0648\u0628\u0627\u064B\u060C \u0623\u0648 \u0627\u062D\u0630\u0641\u0647 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0625\u0630\u0627 \u0644\u0645 \u064A\u0639\u062F \u0645\u0633\u062A\u062E\u062F\u0645\u0627\u064B`;
-    case "missing_column":
-      return `\u0627\u0644\u0639\u0645\u0648\u062F "${entity}" \u0645\u0641\u0642\u0648\u062F \u0641\u064A \u062C\u062F\u0648\u0644 "${tableName}". \u0642\u0645 \u0628\u062A\u0634\u063A\u064A\u0644 'npx drizzle-kit push' \u0644\u0625\u0636\u0627\u0641\u062A\u0647\u060C \u0623\u0648 \u0631\u0627\u062C\u0639 \u062A\u0639\u0631\u064A\u0641 \u0627\u0644\u062C\u062F\u0648\u0644 \u0641\u064A schema.ts`;
-    case "extra_column":
-      return `\u0627\u0644\u0639\u0645\u0648\u062F "${entity}" \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u062C\u062F\u0648\u0644 "${tableName}" \u0648\u0644\u0643\u0646 \u063A\u064A\u0631 \u0645\u0639\u0631\u0641 \u0641\u064A \u0627\u0644\u0645\u062E\u0637\u0637. \u0623\u0636\u0641\u0647 \u0644\u0644\u0645\u062E\u0637\u0637 \u0623\u0648 \u0627\u062D\u0630\u0641\u0647 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A`;
-    default:
-      return "\u0631\u0627\u062C\u0639 \u0627\u0644\u062A\u0639\u0631\u064A\u0641\u0627\u062A \u0648\u062A\u0623\u0643\u062F \u0645\u0646 \u0627\u0644\u062A\u0648\u0627\u0641\u0642";
-  }
-}
-async function checkSchemaConsistency() {
-  console.log("\u{1F50D} [Schema Check] \u0628\u062F\u0621 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u062A\u0648\u0627\u0641\u0642 \u0627\u0644\u0645\u062E\u0637\u0637...");
-  const issues = [];
-  try {
-    const dbTablesResult = await db.execute(sql10`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      AND table_type = 'BASE TABLE'
-    `);
-    const dbTables = dbTablesResult.rows.map((row) => row.table_name);
-    const expectedTables = getExpectedTablesFromSchema();
-    const missingTables = expectedTables.filter((table) => !dbTables.includes(table));
-    const extraTables = dbTables.filter(
-      (table) => !expectedTables.includes(table) && !table.startsWith("drizzle") && !table.startsWith("pg_") && table !== "__drizzle_migrations"
-    );
-    for (const table of missingTables) {
-      issues.push({
-        type: "missing_table",
-        severity: determineIssueSeverity("missing_table", table),
-        entity: table,
-        description: `\u0627\u0644\u062C\u062F\u0648\u0644 "${table}" \u0645\u0639\u0631\u0641 \u0641\u064A \u0627\u0644\u0645\u062E\u0637\u0637 \u0648\u0644\u0643\u0646 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A`,
-        suggestion: generateSuggestion("missing_table", table),
-        autoFixable: true
-      });
-    }
-    for (const table of extraTables) {
-      issues.push({
-        type: "extra_table",
-        severity: determineIssueSeverity("extra_table", table),
-        entity: table,
-        description: `\u0627\u0644\u062C\u062F\u0648\u0644 "${table}" \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0644\u0643\u0646 \u063A\u064A\u0631 \u0645\u0639\u0631\u0641 \u0641\u064A \u0627\u0644\u0645\u062E\u0637\u0637`,
-        suggestion: generateSuggestion("extra_table", table),
-        autoFixable: false
-      });
-    }
-    const missingColumns = [];
-    const extraColumns = [];
-    const missingDefaults = [];
-    for (const tableName of expectedTables) {
-      if (!dbTables.includes(tableName)) continue;
-      const columnsResult = await db.execute(sql10`
-        SELECT column_name, data_type, is_nullable, column_default
-        FROM information_schema.columns 
-        WHERE table_schema = 'public' 
-        AND table_name = ${tableName}
-      `);
-      const dbColumns = columnsResult.rows.map((row) => row.column_name);
-      const expectedColumns = getExpectedColumnsFromTable(tableName);
-      for (const dbCol of columnsResult.rows) {
-        const isNullable = dbCol.is_nullable === "YES";
-        const hasDefault = dbCol.column_default !== null;
-        if (!isNullable && !hasDefault && expectedColumns.includes(dbCol.column_name)) {
-          missingDefaults.push({
-            table: tableName,
-            column: dbCol.column_name,
-            isNullable: false
-          });
-          issues.push({
-            type: "missing_column",
-            severity: "high",
-            entity: `${tableName}.${dbCol.column_name}`,
-            description: `\u0627\u0644\u0639\u0645\u0648\u062F "${dbCol.column_name}" \u0641\u064A \u062C\u062F\u0648\u0644 "${tableName}" \u0644\u0627 \u064A\u0645\u0644\u0643 \u0642\u064A\u0645\u0629 \u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629 (DEFAULT) \u0648\u0647\u0648 NOT NULL\u060C \u0645\u0645\u0627 \u0633\u064A\u0633\u0628\u0628 \u0623\u062E\u0637\u0627\u0621 \u0639\u0646\u062F \u0627\u0644\u0625\u062F\u0631\u0627\u062C`,
-            suggestion: `\u0623\u0636\u0641 DEFAULT value \u0644\u0644\u0639\u0645\u0648\u062F \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A: ALTER TABLE "${tableName}" ALTER COLUMN "${dbCol.column_name}" SET DEFAULT [value];`,
-            autoFixable: true
-          });
-        }
-      }
-      for (const col of expectedColumns) {
-        if (!dbColumns.includes(col)) {
-          missingColumns.push({ table: tableName, column: col });
-          issues.push({
-            type: "missing_column",
-            severity: determineIssueSeverity("missing_column", col),
-            entity: `${tableName}.${col}`,
-            description: `\u0627\u0644\u0639\u0645\u0648\u062F "${col}" \u0645\u0639\u0631\u0641 \u0641\u064A \u062C\u062F\u0648\u0644 "${tableName}" \u0641\u064A \u0627\u0644\u0645\u062E\u0637\u0637 \u0648\u0644\u0643\u0646 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A`,
-            suggestion: generateSuggestion("missing_column", col, tableName),
-            autoFixable: true
-          });
-        }
-      }
-      for (const col of dbColumns) {
-        if (!expectedColumns.includes(col) && col !== "id") {
-          extraColumns.push({ table: tableName, column: col });
-          issues.push({
-            type: "extra_column",
-            severity: determineIssueSeverity("extra_column", col),
-            entity: `${tableName}.${col}`,
-            description: `\u0627\u0644\u0639\u0645\u0648\u062F "${col}" \u0645\u0648\u062C\u0648\u062F \u0641\u064A \u062C\u062F\u0648\u0644 "${tableName}" \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0644\u0643\u0646 \u063A\u064A\u0631 \u0645\u0639\u0631\u0641 \u0641\u064A \u0627\u0644\u0645\u062E\u0637\u0637`,
-            suggestion: generateSuggestion("extra_column", col, tableName),
-            autoFixable: false
-          });
-        }
-      }
-    }
-    const fixableIssues = missingTables.length + missingColumns.length;
-    const criticalIssues = issues.filter((i) => i.severity === "critical").length;
-    const isConsistent = missingTables.length === 0 && missingColumns.length === 0;
-    if (!isProduction2) {
-      console.log(`\u{1F4CA} [Schema Check] \u0627\u0644\u062C\u062F\u0627\u0648\u0644 \u0627\u0644\u0645\u0641\u0642\u0648\u062F\u0629: ${missingTables.length}`);
-      console.log(`\u{1F4CA} [Schema Check] \u0627\u0644\u062C\u062F\u0627\u0648\u0644 \u0627\u0644\u0632\u0627\u0626\u062F\u0629: ${extraTables.length}`);
-      console.log(`\u{1F4CA} [Schema Check] \u0627\u0644\u0623\u0639\u0645\u062F\u0629 \u0627\u0644\u0645\u0641\u0642\u0648\u062F\u0629: ${missingColumns.length}`);
-      console.log(`\u{1F4CA} [Schema Check] \u0627\u0644\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u0625\u0635\u0644\u0627\u062D: ${fixableIssues}`);
-      console.log(`\u{1F4CA} [Schema Check] \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u0634\u0627\u0643\u0644: ${issues.length}`);
-      if (missingTables.length > 0) {
-        console.log(`   \u0627\u0644\u062C\u062F\u0627\u0648\u0644 \u0627\u0644\u0645\u0641\u0642\u0648\u062F\u0629: ${missingTables.join(", ")}`);
-      }
-      if (missingColumns.length > 0) {
-        console.log(`   \u0627\u0644\u0623\u0639\u0645\u062F\u0629 \u0627\u0644\u0645\u0641\u0642\u0648\u062F\u0629:`);
-        missingColumns.forEach((c) => console.log(`     - ${c.table}.${c.column}`));
-      }
-    }
-    return {
-      isConsistent,
-      missingTables,
-      extraTables,
-      missingColumns,
-      extraColumns,
-      fixableIssues,
-      criticalIssues,
-      issues
-    };
-  } catch (error) {
-    console.error("\u274C [Schema Check] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642:", error);
-    return {
-      isConsistent: false,
-      missingTables: [],
-      extraTables: [],
-      missingColumns: [],
-      extraColumns: [],
-      fixableIssues: 0,
-      criticalIssues: 1,
-      issues: [{
-        type: "missing_table",
-        severity: "critical",
-        entity: "database_connection",
-        description: "\u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0623\u0648 \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0627\u0633\u062A\u0639\u0644\u0627\u0645",
-        suggestion: "\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u062A\u0635\u0627\u0644 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629",
-        autoFixable: false
-      }]
-    };
-  }
-}
-function getPostgresType(columnDef) {
-  if (!columnDef) return "text";
-  const dataType = columnDef.dataType || columnDef.columnType || "";
-  const typeName = String(dataType).toLowerCase();
-  if (typeName.includes("serial")) return "serial";
-  if (typeName.includes("integer") || typeName.includes("int4")) return "integer";
-  if (typeName.includes("bigint") || typeName.includes("int8")) return "bigint";
-  if (typeName.includes("smallint") || typeName.includes("int2")) return "smallint";
-  if (typeName.includes("boolean") || typeName.includes("bool")) return "boolean";
-  if (typeName.includes("timestamp")) return "timestamp";
-  if (typeName.includes("date")) return "date";
-  if (typeName.includes("time")) return "time";
-  if (typeName.includes("numeric") || typeName.includes("decimal")) return "numeric";
-  if (typeName.includes("real") || typeName.includes("float4")) return "real";
-  if (typeName.includes("double") || typeName.includes("float8")) return "double precision";
-  if (typeName.includes("json")) return "jsonb";
-  if (typeName.includes("uuid")) return "uuid";
-  if (typeName.includes("varchar")) {
-    const length = columnDef.length || 255;
-    return `varchar(${length})`;
-  }
-  if (typeName.includes("char")) {
-    const length = columnDef.length || 1;
-    return `char(${length})`;
-  }
-  return "text";
-}
-function getDefaultValue(columnDef) {
-  if (!columnDef) return null;
-  if (columnDef.hasDefault && columnDef.default !== void 0) {
-    const def = columnDef.default;
-    if (def === null) return "NULL";
-    if (typeof def === "string") return `'${def}'`;
-    if (typeof def === "number") return String(def);
-    if (typeof def === "boolean") return def ? "true" : "false";
-    if (def && typeof def === "object" && "sql" in def) {
-      return String(def.sql || "NULL");
-    }
-  }
-  return null;
-}
-async function createMissingTable(tableName) {
-  try {
-    console.log(`\u{1F4DD} [SQL Fix] \u0625\u0646\u0634\u0627\u0621 \u062C\u062F\u0648\u0644 ${tableName}...`);
-    for (const [key, value] of Object.entries(schema_exports)) {
-      if (!isDrizzleTable(value)) continue;
-      const tableObj = value;
-      const tblName = getTableName(tableObj);
-      if (tblName === tableName) {
-        const columns = [];
-        const tableColumns = tableObj[Table.Symbol.Columns];
-        if (tableColumns) {
-          for (const colKey of Object.keys(tableColumns)) {
-            const col = tableColumns[colKey];
-            if (!col || !col.name) continue;
-            const pgType = getPostgresType(col);
-            const notNull = col.notNull ? " NOT NULL" : "";
-            const defaultVal = getDefaultValue(col);
-            const defaultClause = defaultVal ? ` DEFAULT ${defaultVal}` : "";
-            const primaryKey = col.primary ? " PRIMARY KEY" : "";
-            if (pgType === "serial") {
-              columns.push(`"${col.name}" serial${primaryKey}`);
-            } else {
-              columns.push(`"${col.name}" ${pgType}${notNull}${defaultClause}${primaryKey}`);
-            }
-          }
-        }
-        if (columns.length > 0) {
-          const createSQL = `CREATE TABLE IF NOT EXISTS "${tableName}" (
-  ${columns.join(",\n  ")}
-)`;
-          console.log(`   SQL: ${createSQL.substring(0, 100)}...`);
-          await db.execute(sql10.raw(createSQL));
-          console.log(`\u2705 [SQL Fix] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u062C\u062F\u0648\u0644 ${tableName}`);
-          return true;
-        }
-        break;
-      }
-    }
-    console.log(`\u26A0\uFE0F [SQL Fix] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062A\u0639\u0631\u064A\u0641 \u0627\u0644\u062C\u062F\u0648\u0644 ${tableName}`);
-    return false;
-  } catch (error) {
-    console.error(`\u274C [SQL Fix] \u0641\u0634\u0644 \u0625\u0646\u0634\u0627\u0621 \u062C\u062F\u0648\u0644 ${tableName}:`, error);
-    return false;
-  }
-}
-async function addMissingColumn(tableName, columnName) {
-  try {
-    console.log(`\u{1F4DD} [SQL Fix] \u0625\u0636\u0627\u0641\u0629 \u0639\u0645\u0648\u062F ${columnName} \u0625\u0644\u0649 ${tableName}...`);
-    for (const [key, value] of Object.entries(schema_exports)) {
-      if (!isDrizzleTable(value)) continue;
-      const tableObj = value;
-      const tblName = getTableName(tableObj);
-      if (tblName === tableName) {
-        const tableColumns = tableObj[Table.Symbol.Columns];
-        if (tableColumns) {
-          for (const colKey of Object.keys(tableColumns)) {
-            const col = tableColumns[colKey];
-            if (col && col.name === columnName) {
-              const pgType = getPostgresType(col);
-              const defaultVal = getDefaultValue(col);
-              let alterSQL;
-              if (pgType === "serial") {
-                alterSQL = `ALTER TABLE "${tableName}" ADD COLUMN IF NOT EXISTS "${columnName}" integer`;
-              } else {
-                const defaultClause = defaultVal ? ` DEFAULT ${defaultVal}` : "";
-                alterSQL = `ALTER TABLE "${tableName}" ADD COLUMN IF NOT EXISTS "${columnName}" ${pgType}${defaultClause}`;
-              }
-              console.log(`   SQL: ${alterSQL}`);
-              await db.execute(sql10.raw(alterSQL));
-              console.log(`\u2705 [SQL Fix] \u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0639\u0645\u0648\u062F ${columnName} \u0625\u0644\u0649 ${tableName}`);
-              if (col.notNull) {
-                console.log(`   \u2139\uFE0F \u0627\u0644\u0639\u0645\u0648\u062F ${columnName} \u064A\u062D\u062A\u0627\u062C NOT NULL - \u064A\u0645\u0643\u0646 \u062A\u0637\u0628\u064A\u0642\u0647 \u064A\u062F\u0648\u064A\u0627\u064B \u0644\u0627\u062D\u0642\u0627\u064B`);
-              }
-              return true;
-            }
-          }
-        }
-        break;
-      }
-    }
-    console.log(`\u26A0\uFE0F [SQL Fix] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062A\u0639\u0631\u064A\u0641 \u0627\u0644\u0639\u0645\u0648\u062F ${columnName} \u0641\u064A ${tableName}`);
-    return false;
-  } catch (error) {
-    console.error(`\u274C [SQL Fix] \u0641\u0634\u0644 \u0625\u0636\u0627\u0641\u0629 \u0639\u0645\u0648\u062F ${columnName} \u0625\u0644\u0649 ${tableName}:`, error);
-    return false;
-  }
-}
-async function attemptAutoFix(checkResult) {
-  if (!AUTO_FIX_ENABLED) {
-    console.log("\u26A0\uFE0F [Auto Fix] \u0627\u0644\u0625\u0635\u0644\u0627\u062D \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0645\u0639\u0637\u0644");
-    return { success: false, newCheckResult: checkResult };
-  }
-  if (checkResult.isConsistent) {
-    console.log("\u2705 [Auto Fix] \u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0634\u0627\u0643\u0644 \u062A\u062D\u062A\u0627\u062C \u0625\u0635\u0644\u0627\u062D");
-    return { success: true, newCheckResult: checkResult };
-  }
-  console.log("\u{1F527} [Auto Fix] \u0628\u062F\u0621 \u0627\u0644\u0625\u0635\u0644\u0627\u062D \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0627\u0633\u062A\u062E\u062F\u0627\u0645 SQL \u0645\u0628\u0627\u0634\u0631...");
-  console.log(`   \u0627\u0644\u062C\u062F\u0627\u0648\u0644 \u0627\u0644\u0645\u0641\u0642\u0648\u062F\u0629: ${checkResult.missingTables.length}`);
-  console.log(`   \u0627\u0644\u0623\u0639\u0645\u062F\u0629 \u0627\u0644\u0645\u0641\u0642\u0648\u062F\u0629: ${checkResult.missingColumns.length}`);
-  let fixedCount = 0;
-  let failedCount = 0;
-  for (const tableName of checkResult.missingTables) {
-    const success = await createMissingTable(tableName);
-    if (success) {
-      fixedCount++;
-    } else {
-      failedCount++;
-    }
-  }
-  for (const { table, column } of checkResult.missingColumns) {
-    const success = await addMissingColumn(table, column);
-    if (success) {
-      fixedCount++;
-    } else {
-      failedCount++;
-    }
-  }
-  console.log(`\u{1F4CA} [Auto Fix] \u0627\u0644\u0646\u062A\u064A\u062C\u0629: ${fixedCount} \u0625\u0635\u0644\u0627\u062D \u0646\u0627\u062C\u062D\u060C ${failedCount} \u0641\u0634\u0644`);
-  console.log("\u{1F50D} [Auto Fix] \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0645\u062E\u0637\u0637...");
-  const newCheckResult = await checkSchemaConsistency();
-  if (newCheckResult.isConsistent) {
-    console.log("\u2705 [Auto Fix] \u062A\u0645 \u0625\u0635\u0644\u0627\u062D \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0643\u0644 \u0628\u0646\u062C\u0627\u062D!");
-    return { success: true, newCheckResult };
-  } else {
-    const remainingIssues = newCheckResult.fixableIssues;
-    console.log(`\u26A0\uFE0F [Auto Fix] \u0628\u0642\u064A ${remainingIssues} \u0645\u0634\u0643\u0644\u0629`);
-    if (remainingIssues > 0 && failedCount > 0) {
-      console.log("\u{1F504} [Auto Fix] \u0645\u062D\u0627\u0648\u0644\u0629 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 drizzle-kit push \u0643\u062E\u0637\u0629 \u0628\u062F\u064A\u0644\u0629...");
-      const pushResult = await runDrizzlePush();
-      if (pushResult.success) {
-        console.log("\u2705 [Auto Fix] \u062A\u0645 \u062A\u0646\u0641\u064A\u0630 drizzle push \u0628\u0646\u062C\u0627\u062D");
-        const finalCheckResult = await checkSchemaConsistency();
-        return { success: finalCheckResult.isConsistent, newCheckResult: finalCheckResult };
-      }
-    }
-    return { success: false, newCheckResult };
-  }
-}
-function createIssuesSummary(issues) {
-  const bySeverity = {
-    critical: issues.filter((i) => i.severity === "critical"),
-    high: issues.filter((i) => i.severity === "high"),
-    medium: issues.filter((i) => i.severity === "medium"),
-    low: issues.filter((i) => i.severity === "low")
-  };
-  let summary = "";
-  if (bySeverity.critical.length > 0) {
-    summary += `\u{1F6A8} \u0645\u0634\u0627\u0643\u0644 \u062D\u0631\u062C\u0629 (${bySeverity.critical.length}):
-`;
-    bySeverity.critical.slice(0, 3).forEach((i) => {
-      summary += `  \u2022 ${i.description}
-    \u{1F4A1} ${i.suggestion}
-`;
-    });
-  }
-  if (bySeverity.high.length > 0) {
-    summary += `\u26A0\uFE0F \u0645\u0634\u0627\u0643\u0644 \u0639\u0627\u0644\u064A\u0629 \u0627\u0644\u062E\u0637\u0648\u0631\u0629 (${bySeverity.high.length}):
-`;
-    bySeverity.high.slice(0, 3).forEach((i) => {
-      summary += `  \u2022 ${i.description}
-`;
-    });
-  }
-  if (bySeverity.medium.length > 0) {
-    summary += `\u{1F4CB} \u0645\u0634\u0627\u0643\u0644 \u0645\u062A\u0648\u0633\u0637\u0629 (${bySeverity.medium.length}):
-`;
-    if (bySeverity.medium.length <= 5) {
-      bySeverity.medium.forEach((i) => {
-        summary += `  \u2022 ${i.entity}
-`;
-      });
-    } else {
-      summary += `  \u2022 ${bySeverity.medium.slice(0, 5).map((i) => i.entity).join(", ")} \u0648${bySeverity.medium.length - 5} \u0623\u062E\u0631\u0649
-`;
-    }
-  }
-  if (bySeverity.low.length > 0) {
-    summary += `\u2139\uFE0F \u0645\u0634\u0627\u0643\u0644 \u0645\u0646\u062E\u0641\u0636\u0629 \u0627\u0644\u062E\u0637\u0648\u0631\u0629: ${bySeverity.low.length}
-`;
-  }
-  return summary;
-}
-async function sendAdminNotification(title, message, details) {
-  try {
-    const { NotificationService: NotificationService2 } = await Promise.resolve().then(() => (init_NotificationService(), NotificationService_exports));
-    const notificationService = new NotificationService2();
-    const priority = details.severity === "critical" ? 5 : details.severity === "high" ? 4 : details.severity === "warning" ? 3 : 2;
-    const result = await notificationService.createNotification({
-      type: "system",
-      title,
-      body: message,
-      priority,
-      recipients: ["admin"],
-      payload: {
-        ...details,
-        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-        action: "review_schema",
-        route: "/admin/schema-management"
-      },
-      channelPreference: {
-        push: true,
-        email: priority >= 4,
-        sms: priority >= 5
-      }
-    });
-    console.log(`\u{1F4E7} [Notification] \u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0625\u0634\u0639\u0627\u0631 \u0644\u0644\u0645\u0633\u0624\u0648\u0644 (${result.id})`);
-  } catch (error) {
-    console.error("\u274C [Notification] \u0641\u0634\u0644 \u0641\u064A \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0625\u0634\u0639\u0627\u0631:", {
-      errorMessage: error?.message || "\u062E\u0637\u0623 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641",
-      errorName: error?.name,
-      errorCode: error?.code,
-      stack: error?.stack ? error.stack.split("\n").slice(0, 3).join("\n") : "\u0644\u0627 \u062A\u0648\u062C\u062F stack trace"
-    });
-  }
-}
-async function sendSchemaReport(checkResult) {
-  if (checkResult.issues.length === 0) {
-    console.log("\u2705 [Schema Report] \u0627\u0644\u0645\u062E\u0637\u0637 \u0645\u062A\u0648\u0627\u0641\u0642\u060C \u0644\u0627 \u062D\u0627\u062C\u0629 \u0644\u0625\u0631\u0633\u0627\u0644 \u062A\u0642\u0631\u064A\u0631");
-    return;
-  }
-  const hasExtraTables = checkResult.extraTables.length > 0;
-  const hasMissingItems = checkResult.missingTables.length > 0 || checkResult.missingColumns.length > 0;
-  const highestSeverity = checkResult.issues.reduce((max, issue) => {
-    const severityOrder = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
-    return severityOrder[issue.severity] > severityOrder[max] ? issue.severity : max;
-  }, "info");
-  const summary = createIssuesSummary(checkResult.issues);
-  let title = "";
-  if (highestSeverity === "critical") {
-    title = "\u{1F6A8} \u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u0645\u062E\u0637\u0637: \u0645\u0634\u0627\u0643\u0644 \u062D\u0631\u062C\u0629 \u062A\u062D\u062A\u0627\u062C \u062A\u062F\u062E\u0644 \u0641\u0648\u0631\u064A";
-  } else if (highestSeverity === "high") {
-    title = "\u26A0\uFE0F \u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u0645\u062E\u0637\u0637: \u0645\u0634\u0627\u0643\u0644 \u062A\u062D\u062A\u0627\u062C \u0645\u0631\u0627\u062C\u0639\u0629";
-  } else if (hasExtraTables) {
-    title = "\u{1F4CB} \u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u0645\u062E\u0637\u0637: \u062C\u062F\u0627\u0648\u0644 \u063A\u064A\u0631 \u0645\u0639\u0631\u0641\u0629 \u0641\u064A \u0627\u0644\u0645\u062E\u0637\u0637";
-  } else {
-    title = "\u2139\uFE0F \u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u0645\u062E\u0637\u0637: \u0645\u0644\u0627\u062D\u0638\u0627\u062A \u0644\u0644\u0645\u0631\u0627\u062C\u0639\u0629";
-  }
-  const message = `\u062A\u0645 \u0627\u0643\u062A\u0634\u0627\u0641 ${checkResult.issues.length} \u0645\u0634\u0643\u0644\u0629 \u0641\u064A \u062A\u0648\u0627\u0641\u0642 \u0627\u0644\u0645\u062E\u0637\u0637:
-
-${summary}`;
-  await sendAdminNotification(title, message, {
-    severity: highestSeverity,
-    totalIssues: checkResult.issues.length,
-    criticalCount: checkResult.criticalIssues,
-    fixableCount: checkResult.fixableIssues,
-    extraTablesCount: checkResult.extraTables.length,
-    missingTablesCount: checkResult.missingTables.length,
-    missingColumnsCount: checkResult.missingColumns.length,
-    issues: checkResult.issues,
-    extraTables: checkResult.extraTables,
-    suggestedActions: hasMissingItems ? ["\u062A\u0634\u063A\u064A\u0644 npx drizzle-kit push \u0644\u0625\u0635\u0644\u0627\u062D \u0627\u0644\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u0625\u0635\u0644\u0627\u062D"] : ["\u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u062C\u062F\u0627\u0648\u0644 \u0627\u0644\u0632\u0627\u0626\u062F\u0629 \u0648\u062A\u062D\u062F\u064A\u062F \u0645\u0627 \u064A\u062C\u0628 \u0641\u0639\u0644\u0647 \u0628\u0647\u0627"],
-    autoFixAttempted: hasMissingItems,
-    requiresManualReview: hasExtraTables || !hasMissingItems
-  });
-  console.log(`\u{1F4CA} [Schema Report] \u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u062A\u0642\u0631\u064A\u0631 \u0628\u0640 ${checkResult.issues.length} \u0645\u0634\u0643\u0644\u0629`);
-}
-var AUTO_ANSWERS = [
-  "y\n",
-  "yes\n",
-  "Y\n",
-  "Yes\n",
-  "1\n",
-  "\n"
-];
-function runDrizzlePush() {
-  return new Promise((resolve) => {
-    const pushProcess = spawn("npx", ["drizzle-kit", "push", "--force"], {
-      cwd: join2(__dirname, ".."),
-      stdio: ["pipe", "pipe", "pipe"],
-      shell: true,
-      env: {
-        ...process.env,
-        FORCE_COLOR: "0",
-        NODE_NO_WARNINGS: "1"
-      }
-    });
-    let answerIndex = 0;
-    let output = "";
-    let hasResponded = false;
-    let hasErrors = false;
-    pushProcess.stdout.on("data", (data) => {
-      const text2 = data.toString();
-      output += text2;
-      const lines = text2.split("\n").filter((line) => line.trim());
-      lines.forEach((line) => {
-        if (line.trim()) {
-          console.log(`   ${line}`);
-        }
-      });
-      const lowerText = text2.toLowerCase();
-      const needsAnswer = lowerText.includes("continue?") || lowerText.includes("proceed?") || lowerText.includes("confirm") || lowerText.includes("(y/n)") || lowerText.includes("yes/no") || lowerText.includes("apply") || lowerText.includes("push") || lowerText.includes("changes detected") || lowerText.includes("schema changes") || lowerText.includes("drop") || lowerText.includes("delete") || lowerText.includes("remove") || lowerText.includes("?");
-      if (needsAnswer && !hasResponded) {
-        const answer = AUTO_ANSWERS[answerIndex % AUTO_ANSWERS.length];
-        console.log(`
-\u2705 [Schema Push] \u0625\u062C\u0627\u0628\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u0629: ${answer.trim()}`);
-        pushProcess.stdin.write(answer);
-        hasResponded = true;
-        answerIndex++;
-        setTimeout(() => {
-          hasResponded = false;
-        }, 500);
-      }
-    });
-    pushProcess.stderr.on("data", (data) => {
-      const error = data.toString();
-      const lowerError = error.toLowerCase();
-      if (lowerError.includes("deprecat") || lowerError.includes("warning") || lowerError.includes("experimental")) {
-        return;
-      }
-      hasErrors = true;
-      output += `[ERROR] ${error}`;
-      console.error("\u26A0\uFE0F [Schema Push]", error);
-    });
-    pushProcess.on("close", (code) => {
-      resolve({
-        success: code === 0 && !hasErrors,
-        output
-      });
-    });
-    pushProcess.on("error", (error) => {
-      resolve({
-        success: false,
-        output: `Process error: ${error.message}`
-      });
-    });
-    setTimeout(() => {
-      if (!hasResponded) {
-        console.log("\u{1F916} [Schema Push] \u0625\u0631\u0633\u0627\u0644 \u0625\u062C\u0627\u0628\u0629 \u0627\u0633\u062A\u0628\u0627\u0642\u064A\u0629...");
-        pushProcess.stdin.write("y\n");
-      }
-    }, 1e3);
-    setTimeout(() => {
-      if (pushProcess.exitCode === null) {
-        console.log("\u23F1\uFE0F [Schema Push] \u0627\u0646\u062A\u0647\u062A \u0627\u0644\u0645\u0647\u0644\u0629 (90 \u062B\u0627\u0646\u064A\u0629)");
-        pushProcess.kill("SIGTERM");
-        setTimeout(() => {
-          if (pushProcess.exitCode === null) {
-            console.log("\u{1F528} [Schema Push] \u0625\u0646\u0647\u0627\u0621 \u0642\u0648\u064A...");
-            pushProcess.kill("SIGKILL");
-          }
-        }, 5e3);
-        resolve({
-          success: false,
-          output: "Timeout exceeded"
-        });
-      }
-    }, 9e4);
-  });
-}
-async function autoSchemaPush() {
-  if (!isProduction2) {
-    console.log("\u{1F680} [Schema Push] \u0628\u062F\u0621 \u0627\u0644\u0646\u0638\u0627\u0645 \u0627\u0644\u0630\u0643\u064A \u0644\u0644\u062A\u062D\u0642\u0642 \u0648\u0627\u0644\u062A\u0637\u0628\u064A\u0642...");
-    console.log("\u2550".repeat(60));
-  }
-  let consistencyCheck = await checkSchemaConsistency();
-  let skipLockCheck = false;
-  if (!isProduction2 || consistencyCheck.criticalIssues > 0) {
-    await sendSchemaReport(consistencyCheck);
-  }
-  if (!consistencyCheck.isConsistent || consistencyCheck.extraTables.length > 0) {
-    if (!isProduction2) {
-      console.log("\u26A0\uFE0F [Schema Check] \u062A\u0645 \u0627\u0643\u062A\u0634\u0627\u0641 \u0627\u062E\u062A\u0644\u0627\u0641\u0627\u062A \u0641\u064A \u0627\u0644\u0645\u062E\u0637\u0637!");
-    }
-    if (consistencyCheck.criticalIssues > 0) {
-      console.log("\u{1F6A8} [Schema Check] \u0645\u0634\u0627\u0643\u0644 \u062D\u0631\u062C\u0629! \u0633\u064A\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0641\u062D\u0635 \u0627\u0644\u0642\u0641\u0644");
-      skipLockCheck = true;
-    }
-    if (AUTO_FIX_ENABLED && consistencyCheck.fixableIssues > 0) {
-      const fixResult = await attemptAutoFix(consistencyCheck);
-      consistencyCheck = fixResult.newCheckResult;
-      if (fixResult.success) {
-        console.log("\u2705 [Auto Fix] \u062A\u0645 \u0627\u0644\u0625\u0635\u0644\u0627\u062D \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0628\u0646\u062C\u0627\u062D");
-        await sendAdminNotification(
-          "\u2705 \u062A\u0645 \u0627\u0644\u0625\u0635\u0644\u0627\u062D \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0644\u0644\u0645\u062E\u0637\u0637",
-          "\u062A\u0645 \u0625\u0635\u0644\u0627\u062D \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u0625\u0635\u0644\u0627\u062D \u062A\u0644\u0642\u0627\u0626\u064A\u0627\u064B",
-          { severity: "info", autoFixed: true }
-        );
-        createLockFile(true, consistencyCheck);
-        console.log("\u2550".repeat(60) + "\n");
-        return;
-      } else {
-        console.log("\u26A0\uFE0F [Auto Fix] \u0628\u0642\u064A\u062A \u0645\u0634\u0627\u0643\u0644\u060C \u0633\u064A\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0641\u062D\u0635 \u0627\u0644\u0642\u0641\u0644");
-        skipLockCheck = true;
-      }
-    }
-  }
-  if (!consistencyCheck.isConsistent && consistencyCheck.fixableIssues > 0) {
-    console.log("\u{1F504} [Schema Push] \u062A\u0648\u062C\u062F \u0645\u0634\u0627\u0643\u0644 \u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u0625\u0635\u0644\u0627\u062D\u060C \u0633\u064A\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u0642\u0641\u0644");
-    skipLockCheck = true;
-  }
-  const should = skipLockCheck || await shouldRunPush();
-  if (!should) {
-    console.log("\u23ED\uFE0F [Schema Push] \u062A\u0645 \u062A\u062E\u0637\u064A \u0627\u0644\u062A\u0637\u0628\u064A\u0642 (\u062A\u0645 \u0627\u0644\u062A\u0634\u063A\u064A\u0644 \u0645\u0624\u062E\u0631\u0627\u064B)");
-    return;
-  }
-  console.log("\u{1F4CD} [Schema Push] \u0627\u0644\u0645\u062C\u0644\u062F:", join2(__dirname, ".."));
-  console.log("\u2550".repeat(60));
-  if (consistencyCheck.fixableIssues > 0) {
-    console.log("\u{1F4BE} [Backup] \u0628\u062F\u0621 \u0625\u0646\u0634\u0627\u0621 \u0646\u0633\u062E\u0629 \u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629 \u0642\u0628\u0644 \u0627\u0644\u062A\u0637\u0628\u064A\u0642...");
-    const backupResult = await BACKUP_MANAGER.createBackup(
-      `\u062A\u0637\u0628\u064A\u0642 \u0645\u062E\u0637\u0637 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A - ${consistencyCheck.fixableIssues} \u0645\u0634\u0643\u0644\u0629 \u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u0625\u0635\u0644\u0627\u062D`,
-      consistencyCheck.missingTables,
-      consistencyCheck.extraTables,
-      consistencyCheck.missingColumns,
-      consistencyCheck.criticalIssues > 0 ? "critical" : "high"
-    );
-    if (backupResult.success) {
-      console.log(`\u2705 [Backup] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0646\u0633\u062E\u0629 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629: ${backupResult.backupFile}`);
-      await sendAdminNotification(
-        "\u{1F4BE} \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0646\u0633\u062E\u0629 \u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A",
-        `\u062A\u0645 \u062D\u0641\u0638 \u0646\u0633\u062E\u0629 \u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629 \u0642\u0628\u0644 \u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u062A\u063A\u064A\u064A\u0631\u0627\u062A:
-
-\u0627\u0644\u0645\u0633\u0627\u0631: ${backupResult.backupFile}
-\u0627\u0644\u062A\u0627\u0631\u064A\u062E: ${backupResult.manifest.timestamp}
-\u0627\u0644\u062C\u062F\u0627\u0648\u0644 \u0627\u0644\u0645\u062D\u0645\u064A\u0629: ${backupResult.manifest.affectedTables.join(", ")}
-\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0635\u0641\u0648\u0641: ${backupResult.manifest.totalRows}
-\u062D\u062C\u0645 \u0627\u0644\u0645\u0644\u0641: ${(backupResult.manifest.totalSize / 1024).toFixed(2)} KB`,
-        {
-          severity: "info",
-          backupFile: backupResult.backupFile,
-          backupManifest: backupResult.manifest,
-          timestamp: backupResult.manifest.timestamp
-        }
-      );
-    } else {
-      console.error(`\u274C [Backup] \u0641\u0634\u0644 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0646\u0633\u062E\u0629 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629: ${backupResult.message}`);
-    }
-  }
-  const result = await runDrizzlePush();
-  console.log("\n" + "\u2550".repeat(60));
-  if (result.success) {
-    console.log("\u2705 [Schema Push] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0645\u062E\u0637\u0637 \u0628\u0646\u062C\u0627\u062D!");
-    console.log("\u{1F4CA} [Schema Push] \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0645\u062D\u062F\u062B\u0629 \u0648\u0645\u062A\u0632\u0627\u0645\u0646\u0629");
-    console.log("\u{1F50D} [Schema Push] \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0645\u062E\u0637\u0637 \u0628\u0639\u062F \u0627\u0644\u062A\u0637\u0628\u064A\u0642...");
-    const freshCheck = await checkSchemaConsistency();
-    await sendAdminNotification(
-      "\u2705 \u0646\u062C\u0627\u062D: \u062A\u0637\u0628\u064A\u0642 \u0645\u062E\u0637\u0637 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A",
-      "\u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u062C\u0645\u064A\u0639 \u0627\u0644\u062A\u063A\u064A\u064A\u0631\u0627\u062A \u0628\u0646\u062C\u0627\u062D \u0639\u0644\u0649 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A",
-      {
-        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-        status: "success",
-        schemaStatus: freshCheck.isConsistent ? "\u0645\u062A\u0648\u0627\u0641\u0642" : "\u064A\u062D\u062A\u0627\u062C \u0645\u0631\u0627\u062C\u0639\u0629"
-      }
-    );
-    createLockFile(true, freshCheck);
-  } else {
-    console.log("\u26A0\uFE0F [Schema Push] \u0627\u0646\u062A\u0647\u0649 \u0645\u0639 \u0645\u0634\u0627\u0643\u0644");
-    console.log("\u{1F4A1} [Schema Push] \u0642\u062F \u064A\u0643\u0648\u0646 \u0627\u0644\u0645\u062E\u0637\u0637 \u0645\u062D\u062F\u062B \u0628\u0627\u0644\u0641\u0639\u0644 \u0623\u0648 \u062A\u0648\u062C\u062F \u0645\u0634\u0627\u0643\u0644 \u062A\u062D\u062A\u0627\u062C \u0645\u0631\u0627\u062C\u0639\u0629");
-    await sendAdminNotification(
-      "\u274C \u062E\u0637\u0623: \u0641\u0634\u0644 \u062A\u0637\u0628\u064A\u0642 \u0645\u062E\u0637\u0637 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A",
-      "\u0641\u0634\u0644 \u0627\u0644\u062A\u0637\u0628\u064A\u0642\u060C \u064A\u0631\u062C\u0649 \u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0633\u062C\u0644\u0627\u062A",
-      {
-        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-        status: "failed",
-        output: result.output.substring(0, 500),
-        requiresManualIntervention: true
-      }
-    );
-    createLockFile(false, consistencyCheck);
-  }
-  console.log("\u2550".repeat(60) + "\n");
-}
-
 // server/index.ts
 import http from "http";
 import { Server } from "socket.io";
 var app = express11();
 var getCSPDirectives = () => {
-  const isProduction3 = process.env.NODE_ENV === "production";
+  const isProduction2 = process.env.NODE_ENV === "production";
   const scriptSources = ["'self'", "'unsafe-inline'", "'unsafe-eval'"];
-  if (isProduction3 && process.env.CUSTOM_DOMAIN) {
+  if (isProduction2 && process.env.CUSTOM_DOMAIN) {
     scriptSources.push(`https://${process.env.CUSTOM_DOMAIN}`);
   }
   scriptSources.push("https://static.cloudflareinsights.com", "https://replit.com", "https://cdn.jsdelivr.net");
   const connectSources = ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "ws:", "wss:", "https:", "http:"];
-  if (isProduction3 && process.env.CUSTOM_DOMAIN) {
+  if (isProduction2 && process.env.CUSTOM_DOMAIN) {
     connectSources.push(`https://${process.env.CUSTOM_DOMAIN}`, `wss://${process.env.CUSTOM_DOMAIN}`);
   }
   return {
@@ -13256,7 +12222,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 var getAllowedOrigins = () => {
-  const isProduction3 = process.env.NODE_ENV === "production";
+  const isProduction2 = process.env.NODE_ENV === "production";
   const origins = [];
   if (process.env.REPLIT_DOMAINS) {
     origins.push(`https://${process.env.REPLIT_DOMAINS}`);
@@ -13267,11 +12233,11 @@ var getAllowedOrigins = () => {
   if (process.env.CUSTOM_DOMAIN) {
     origins.push(`https://${process.env.CUSTOM_DOMAIN}`);
   }
-  if (!isProduction3) {
+  if (!isProduction2) {
     const PORT2 = process.env.PORT || "5000";
     origins.push(`http://localhost:${PORT2}`, `http://127.0.0.1:${PORT2}`, `http://0.0.0.0:${PORT2}`);
   }
-  if (isProduction3 && origins.length === 0) {
+  if (isProduction2 && origins.length === 0) {
     console.warn("\u26A0\uFE0F [CORS] \u0644\u0645 \u064A\u062A\u0645 \u062A\u0643\u0648\u064A\u0646 \u0646\u0637\u0627\u0642\u0627\u062A \u0644\u0644\u0625\u0646\u062A\u0627\u062C - \u064A\u064F\u0631\u062C\u0649 \u062A\u0639\u064A\u064A\u0646 REPLIT_DOMAINS \u0623\u0648 CUSTOM_DOMAIN");
     return [];
   }
@@ -13339,13 +12305,7 @@ console.log("\u{1F527} \u0628\u064A\u0626\u0629 \u0627\u0644\u062A\u0634\u063A\u
     const serverInstance = server.listen(PORT, "0.0.0.0", async () => {
       log(`serving on port ${PORT}`);
       console.log("\u2705 Socket.IO server \u0645\u062A\u0634\u063A\u0644");
-      setTimeout(async () => {
-        try {
-          await autoSchemaPush();
-        } catch (error) {
-          console.error("\u26A0\uFE0F [Schema Push] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A:", error);
-        }
-      }, 2e3);
+      console.log("\u2139\uFE0F [Schema Push] \u0645\u0639\u0637\u0644 \u0645\u0624\u0642\u062A\u0627\u064B - \u064A\u0645\u0643\u0646 \u062A\u0634\u063A\u064A\u0644\u0647 \u064A\u062F\u0648\u064A\u0627\u064B \u0639\u0646\u062F \u0627\u0644\u062D\u0627\u062C\u0629");
     });
     process.on("SIGTERM", () => {
       console.log("SIGTERM signal received: closing HTTP server");

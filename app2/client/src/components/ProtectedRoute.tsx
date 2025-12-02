@@ -1,11 +1,12 @@
 /**
  * مكون حماية الصفحات - يحمي الصفحات من الوصول غير المصرح به
+ * ✅ نسخة مبسطة ومحسنة لحل مشكلة الشاشة البيضاء
  */
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
 import { useAuth } from "./AuthProvider";
-import { ProfessionalLoader } from "./ui/professional-loader";
 import { Redirect } from "wouter";
+import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -13,127 +14,35 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const [authCheckComplete, setAuthCheckComplete] = useState(false);
-
-  // فحص إضافي للتأكد من وجود بيانات محفوظة
-  const hasStoredAuth = typeof window !== 'undefined' &&
-    localStorage.getItem('user') &&
-    localStorage.getItem('accessToken');
 
   console.log('🛡️ [ProtectedRoute] فحص الحماية:', {
     isLoading,
     isAuthenticated,
-    hasStoredAuth,
+    hasUser: !!user,
     userEmail: user?.email || 'غير موجود',
-    authCheckComplete,
     timestamp: new Date().toISOString()
   });
 
-  // ✅ إصلاح: تحديث authCheckComplete بناءً على حالة المصادقة الفعلية
-  useEffect(() => {
-    if (!isLoading) {
-      // إذا انتهى التحميل، ضع علامة على أن الفحص انتهى
-      setAuthCheckComplete(true);
-      console.log('✅ [ProtectedRoute] تم إكمال فحص المصادقة، isLoading=false');
-    }
-  }, [isLoading]);
-
-  // إظهار شاشة التحميل أثناء التحقق من المصادقة
+  // ✅ الحالة 1: جاري التحميل - إظهار شاشة التحميل
   if (isLoading) {
+    console.log('⏳ [ProtectedRoute] جاري التحميل...');
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <ProfessionalLoader />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Redirect to="/login" />;
-  }
-
-  // إذا كان مصادق عليه، اسمح بالدخول مع حماية من الأخطاء
-  if (isAuthenticated && user) {
-    console.log('✅ [ProtectedRoute] مصادق عليه، إظهار المحتوى للمستخدم:', user.email);
-    try {
-      return <>{children}</>;
-    } catch (error) {
-      console.error('❌ [ProtectedRoute] خطأ في تحميل المحتوى:', error);
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="text-6xl mb-4">⚠️</div>
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-              خطأ في تحميل الصفحة
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              حدث خطأ أثناء تحميل المحتوى. يرجى إعادة تحميل الصفحة.
-            </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              إعادة تحميل
-            </button>
-          </div>
-        </div>
-      );
-    }
-  }
-
-  // إذا كانت هناك بيانات محفوظة ولكن لم يتم تحميل المستخدم، محاولة أخيرة
-  if (hasStoredAuth && !user && authCheckComplete) {
-    console.log('⚠️ [ProtectedRoute] بيانات محفوظة موجودة لكن المستخدم غير محمل، إعادة المحاولة...');
-
-    try {
-      const savedUser = localStorage.getItem('user');
-      if (savedUser) {
-        const parsedUser = JSON.parse(savedUser);
-        if (parsedUser && parsedUser.email) {
-          console.log('✅ [ProtectedRoute] تم استرجاع بيانات المستخدم من localStorage');
-          return <>{children}</>;
-        }
-      }
-    } catch (error) {
-      console.error('❌ [ProtectedRoute] خطأ في استرجاع بيانات المستخدم من localStorage:', error);
-    }
-  }
-
-  // فقط إعادة التوجيه إذا لم يكن هناك أي بيانات مصادقة نهائياً
-  if (!isAuthenticated && !hasStoredAuth && authCheckComplete) {
-    console.log('🚫 [ProtectedRoute] لا توجد بيانات مصادقة، إعادة توجيه إلى /login');
-    return <Redirect to="/login" />;
-  }
-
-  // في حالة وجود بيانات محفوظة لكن المصادقة فاشلة، تنظيف البيانات وإعادة التوجيه
-  if (hasStoredAuth && !isAuthenticated && authCheckComplete) {
-    console.log('🧹 [ProtectedRoute] تنظيف البيانات الفاسدة وإعادة التوجيه');
-    localStorage.removeItem('user');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    
-    // إظهار رسالة واضحة جداً عند انتهاء الجلسة
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-red-50">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg border-4 border-red-500 max-w-md">
-          <div className="text-6xl mb-4">🔐</div>
-          <h1 className="text-2xl font-bold text-red-600 mb-4">انتهت جلستك</h1>
-          <p className="text-gray-700 text-lg mb-6">
-            لقد انتهت صلاحية جلسة تسجيل دخولك
-          </p>
-          <p className="text-gray-600 mb-4">
-            يرجى تسجيل الدخول مرة أخرى للمتابعة
-          </p>
-          <Redirect to="/login" />
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600 text-lg">جاري التحقق من الجلسة...</p>
         </div>
       </div>
     );
   }
 
-  // حالة افتراضية - إظهار شاشة التحميل
-  console.log('⏳ [ProtectedRoute] حالة افتراضية، إظهار شاشة التحميل');
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <ProfessionalLoader />
-    </div>
-  );
+  // ✅ الحالة 2: غير مسجل دخول - توجيه فوري لصفحة الدخول
+  if (!isAuthenticated || !user) {
+    console.log('🚫 [ProtectedRoute] غير مصادق، توجيه إلى /login');
+    return <Redirect to="/login" />;
+  }
+
+  // ✅ الحالة 3: مسجل دخول - إظهار المحتوى
+  console.log('✅ [ProtectedRoute] مصادق عليه، إظهار المحتوى للمستخدم:', user.email);
+  return <>{children}</>;
 }

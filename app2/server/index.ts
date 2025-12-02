@@ -206,14 +206,16 @@ console.log('🔧 بيئة التشغيل:', NODE_ENV);
       log(`serving on port ${PORT}`);
       console.log('✅ Socket.IO server متشغل');
 
-      // تطبيق المخطط التلقائي بعد بدء الخادم
-      setTimeout(async () => {
-        try {
-          await autoSchemaPush();
-        } catch (error) {
-          console.error('⚠️ [Schema Push] خطأ في التطبيق التلقائي:', error);
-        }
-      }, 2000); // انتظار ثانيتين لضمان استقرار الخادم
+      // ✅ تم تعطيل auto-schema-push مؤقتاً لحل مشكلة التجميد
+      // يمكن تشغيله يدوياً عند الحاجة
+      console.log('ℹ️ [Schema Push] معطل مؤقتاً - يمكن تشغيله يدوياً عند الحاجة');
+      // setTimeout(async () => {
+      //   try {
+      //     await autoSchemaPush();
+      //   } catch (error) {
+      //     console.error('⚠️ [Schema Push] خطأ في التطبيق التلقائي:', error);
+      //   }
+      // }, 2000);
     });
 
     // Handle graceful shutdown

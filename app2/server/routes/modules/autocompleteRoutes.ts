@@ -8,15 +8,16 @@ import { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/auth.js';
 import { db } from '../../db.js';
 import { autocompleteData } from '../../../shared/schema.js';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 
 export const autocompleteRouter = express.Router();
 
 /**
  * 📝 POST /api/autocomplete - حفظ قيمة إكمال تلقائي
  * يحفظ البيانات في قاعدة البيانات فعلاً
+ * ✅ محمي بالمصادقة لمنع الكتابة غير المصرح بها
  */
-autocompleteRouter.post('/', async (req: Request, res: Response) => {
+autocompleteRouter.post('/', requireAuth, async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { category, value, usageCount = 1 } = req.body;
@@ -27,14 +28,25 @@ autocompleteRouter.post('/', async (req: Request, res: Response) => {
         message: 'category و value مطلوبان'
       });
     }
+
+    // ✅ التحقق من طول القيمة
+    if (value.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: 'القيمة طويلة جداً (الحد الأقصى 500 حرف)'
+      });
+    }
     
     console.log('📝 [API] حفظ إكمال تلقائي:', { category, value });
     
-    // البحث عن القيمة الموجودة
+    // ✅ البحث عن القيمة الموجودة في نفس الفئة (category + value)
     const existing = await db
       .select()
       .from(autocompleteData)
-      .where(eq(autocompleteData.value, value))
+      .where(and(
+        eq(autocompleteData.value, value),
+        eq(autocompleteData.category, category)
+      ))
       .limit(1);
     
     let saved;
@@ -85,6 +97,7 @@ autocompleteRouter.post('/', async (req: Request, res: Response) => {
 
 /**
  * 📊 GET /api/autocomplete - جلب جميع بيانات الإكمال التلقائي
+ * ✅ إرجاع كائنات كاملة للتوافق مع Frontend
  */
 autocompleteRouter.get('/', requireAuth, async (req: Request, res: Response) => {
   const startTime = Date.now();
@@ -97,13 +110,13 @@ autocompleteRouter.get('/', requireAuth, async (req: Request, res: Response) => 
       .orderBy(desc(autocompleteData.usageCount))
       .limit(1000);
     
-    // تجميع البيانات حسب الفئة
-    const grouped: any = {};
+    // ✅ تجميع البيانات حسب الفئة مع إرجاع كائنات كاملة
+    const grouped: Record<string, typeof data> = {};
     data.forEach(item => {
       if (!grouped[item.category]) {
         grouped[item.category] = [];
       }
-      grouped[item.category].push(item.value);
+      grouped[item.category].push(item);
     });
     
     const duration = Date.now() - startTime;
@@ -144,6 +157,7 @@ autocompleteRouter.head('/transferTypes', (req: Request, res: Response) => {
 
 /**
  * GET /api/autocomplete/senderNames - أسماء المرسلين
+ * ✅ إرجاع كائنات كاملة للتوافق مع Frontend
  */
 autocompleteRouter.get('/senderNames', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -155,7 +169,7 @@ autocompleteRouter.get('/senderNames', requireAuth, async (req: Request, res: Re
     
     res.json({
       success: true,
-      data: data.map(d => d.value),
+      data: data,
       message: 'تم جلب أسماء المرسلين بنجاح'
     });
   } catch (error: any) {
@@ -169,6 +183,7 @@ autocompleteRouter.get('/senderNames', requireAuth, async (req: Request, res: Re
 
 /**
  * GET /api/autocomplete/transferNumbers - أرقام التحويلات
+ * ✅ إرجاع كائنات كاملة للتوافق مع Frontend
  */
 autocompleteRouter.get('/transferNumbers', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -180,7 +195,7 @@ autocompleteRouter.get('/transferNumbers', requireAuth, async (req: Request, res
     
     res.json({
       success: true,
-      data: data.map(d => d.value),
+      data: data,
       message: 'تم جلب أرقام التحويلات بنجاح'
     });
   } catch (error: any) {
@@ -194,8 +209,9 @@ autocompleteRouter.get('/transferNumbers', requireAuth, async (req: Request, res
 
 /**
  * GET /api/autocomplete/transferTypes - أنواع التحويلات
+ * ✅ إرجاع كائنات كاملة للتوافق مع Frontend + إضافة حماية
  */
-autocompleteRouter.get('/transferTypes', async (req: Request, res: Response) => {
+autocompleteRouter.get('/transferTypes', requireAuth, async (req: Request, res: Response) => {
   try {
     const data = await db
       .select()
@@ -205,7 +221,7 @@ autocompleteRouter.get('/transferTypes', async (req: Request, res: Response) => 
     
     res.json({
       success: true,
-      data: data.map(d => d.value),
+      data: data,
       message: 'تم جلب أنواع التحويلات بنجاح'
     });
   } catch (error: any) {
@@ -219,6 +235,7 @@ autocompleteRouter.get('/transferTypes', async (req: Request, res: Response) => 
 
 /**
  * GET /api/autocomplete/transportDescriptions - أوصاف المواصلات
+ * ✅ إرجاع كائنات كاملة للتوافق مع Frontend
  */
 autocompleteRouter.get('/transportDescriptions', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -230,7 +247,7 @@ autocompleteRouter.get('/transportDescriptions', requireAuth, async (req: Reques
     
     res.json({
       success: true,
-      data: data.map(d => d.value),
+      data: data,
       message: 'تم جلب أوصاف المواصلات بنجاح'
     });
   } catch (error: any) {
@@ -244,6 +261,7 @@ autocompleteRouter.get('/transportDescriptions', requireAuth, async (req: Reques
 
 /**
  * GET /api/autocomplete/notes - الملاحظات
+ * ✅ إرجاع كائنات كاملة للتوافق مع Frontend
  */
 autocompleteRouter.get('/notes', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -255,7 +273,7 @@ autocompleteRouter.get('/notes', requireAuth, async (req: Request, res: Response
     
     res.json({
       success: true,
-      data: data.map(d => d.value),
+      data: data,
       message: 'تم جلب الملاحظات بنجاح'
     });
   } catch (error: any) {
@@ -269,8 +287,9 @@ autocompleteRouter.get('/notes', requireAuth, async (req: Request, res: Response
 
 /**
  * GET /api/autocomplete/projectNames - أسماء المشاريع
+ * ✅ إرجاع كائنات كاملة للتوافق مع Frontend + إضافة حماية
  */
-autocompleteRouter.get('/projectNames', async (req: Request, res: Response) => {
+autocompleteRouter.get('/projectNames', requireAuth, async (req: Request, res: Response) => {
   try {
     const data = await db
       .select()
@@ -280,7 +299,7 @@ autocompleteRouter.get('/projectNames', async (req: Request, res: Response) => {
     
     res.json({
       success: true,
-      data: data.map(d => d.value),
+      data: data,
       message: 'تم جلب أسماء المشاريع بنجاح'
     });
   } catch (error: any) {
@@ -417,6 +436,7 @@ console.log('   GET /api/autocomplete-admin/stats (إحصائيات من DB)');
 
 /**
  * GET /api/autocomplete/operatorNames - أسماء المشغلين
+ * ✅ إرجاع كائنات كاملة للتوافق مع Frontend
  */
 autocompleteRouter.get('/operatorNames', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -428,7 +448,7 @@ autocompleteRouter.get('/operatorNames', requireAuth, async (req: Request, res: 
     
     res.json({
       success: true,
-      data: data.map(d => d.value),
+      data: data,
       message: 'تم جلب أسماء المشغلين بنجاح'
     });
   } catch (error: any) {
@@ -442,6 +462,7 @@ autocompleteRouter.get('/operatorNames', requireAuth, async (req: Request, res: 
 
 /**
  * GET /api/autocomplete/equipmentTypes - أنواع الآليات
+ * ✅ إرجاع كائنات كاملة للتوافق مع Frontend
  */
 autocompleteRouter.get('/equipmentTypes', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -453,7 +474,7 @@ autocompleteRouter.get('/equipmentTypes', requireAuth, async (req: Request, res:
     
     res.json({
       success: true,
-      data: data.map(d => d.value),
+      data: data,
       message: 'تم جلب أنواع الآليات بنجاح'
     });
   } catch (error: any) {
@@ -467,6 +488,7 @@ autocompleteRouter.get('/equipmentTypes', requireAuth, async (req: Request, res:
 
 /**
  * GET /api/autocomplete/materialTypes - أنواع المواد
+ * ✅ إرجاع كائنات كاملة للتوافق مع Frontend
  */
 autocompleteRouter.get('/materialTypes', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -478,7 +500,7 @@ autocompleteRouter.get('/materialTypes', requireAuth, async (req: Request, res: 
     
     res.json({
       success: true,
-      data: data.map(d => d.value),
+      data: data,
       message: 'تم جلب أنواع المواد بنجاح'
     });
   } catch (error: any) {

@@ -110,13 +110,27 @@ export async function apiRequest(
 
           if (refreshResponse.ok) {
             const refreshData = await refreshResponse.json();
-            const newAccessToken = refreshData.data?.accessToken || refreshData.accessToken;
-            if (newAccessToken) {
-              localStorage.setItem("accessToken", newAccessToken);
-              console.log('✅ [apiRequest] تم تجديد الـ token بنجاح، إعادة المحاولة...');
+            
+            // التحقق من نجاح الاستجابة
+            if (refreshData.success === false) {
+              console.log('❌ [apiRequest] فشل تجديد الـ token: الاستجابة غير ناجحة');
+            } else {
+              const newAccessToken = refreshData.data?.accessToken || refreshData.accessToken;
+              const newRefreshToken = refreshData.data?.refreshToken || refreshData.refreshToken;
+              
+              if (newAccessToken) {
+                localStorage.setItem("accessToken", newAccessToken);
+                
+                // حفظ refreshToken الجديد إذا تم إرجاعه
+                if (newRefreshToken) {
+                  localStorage.setItem("refreshToken", newRefreshToken);
+                }
+                
+                console.log('✅ [apiRequest] تم تجديد الـ token بنجاح، إعادة المحاولة...');
 
-              // إعادة المحاولة مع الـ token الجديد
-              return apiRequest(endpoint, method, data, retryCount + 1);
+                // إعادة المحاولة مع الـ token الجديد
+                return apiRequest(endpoint, method, data, retryCount + 1);
+              }
             }
           }
         } catch (refreshError) {

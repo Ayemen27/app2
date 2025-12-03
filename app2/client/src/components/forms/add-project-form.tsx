@@ -22,17 +22,25 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
   const queryClient = useQueryClient();
 
   // جلب قائمة المستخدمين (للاستخدام في اختيار المهندس)
-  const { data: usersData = [] } = useQuery<{id: string; name: string; email: string; role: string}[]>({
+  const { data: usersData = [], isLoading: usersLoading, isError: usersError } = useQuery<{id: string; name: string; email: string; role: string}[]>({
     queryKey: ["/api/users/list"],
     queryFn: async () => {
-      try {
-        const response = await apiRequest("/api/users/list", "GET");
-        return response.data;
-      } catch (error) {
-        console.error("Failed to fetch users:", error);
+      const response = await apiRequest("/api/users/list", "GET");
+      
+      // التحقق من نجاح الاستجابة
+      if (response.success === false) {
+        throw new Error(response.message || "فشل في جلب قائمة المهندسين");
+      }
+      
+      // التأكد من وجود البيانات
+      if (!response.data || !Array.isArray(response.data)) {
+        console.warn("استجابة غير متوقعة من /api/users/list:", response);
         return [];
       }
+      
+      return response.data;
     },
+    retry: false,
   });
 
 
@@ -135,12 +143,18 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
           <Select
             value={engineerId || "none"}
             onValueChange={(value) => setEngineerId(value === "none" ? null : value)}
+            disabled={usersLoading}
           >
             <SelectTrigger id="project-engineer">
-              <SelectValue placeholder="اختر مهندسًا..." />
+              <SelectValue placeholder={usersLoading ? "جاري التحميل..." : usersError ? "فشل في جلب المهندسين" : "اختر مهندسًا..."} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">بدون مهندس</SelectItem>
+              {usersError && (
+                <SelectItem value="error" disabled className="text-destructive">
+                  فشل في تحميل قائمة المهندسين
+                </SelectItem>
+              )}
               {usersData.map((user) => (
                 <SelectItem key={user.id} value={user.id}>
                   {user.name || user.email}

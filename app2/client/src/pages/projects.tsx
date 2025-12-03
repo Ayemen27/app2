@@ -1059,23 +1059,24 @@ export default function ProjectsPage() {
                     icon: Edit,
                     label: "تعديل",
                     onClick: () => openEditDialog(project),
+                    color: "blue",
                   },
                   {
                     icon: Power,
                     label: project.status === 'active' ? "إيقاف" : "تفعيل",
-                    variant: "ghost",
                     onClick: () => handleToggleProjectStatus(project),
                     disabled: togglingProjectId === project.id,
+                    color: project.status === 'active' ? "yellow" : "green",
                   },
                   {
                     icon: Trash2,
                     label: "حذف",
-                    variant: "ghost",
                     onClick: () => {
                       if (confirm(`هل أنت متأكد من حذف المشروع "${project.name}"؟`)) {
                         handleDeleteProject(project.id);
                       }
                     },
+                    color: "red",
                   },
                 ]}
                 footer={

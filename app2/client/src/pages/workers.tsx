@@ -190,19 +190,20 @@ const WorkerCardWrapper = ({
           icon: Edit2,
           label: "تعديل",
           onClick: onEdit,
+          color: "blue",
         },
         {
           icon: Power,
           label: worker.isActive ? "إيقاف" : "تفعيل",
-          variant: worker.isActive ? "ghost" : "ghost",
           onClick: onToggleStatus,
           disabled: isToggling,
+          color: worker.isActive ? "yellow" : "green",
         },
         {
           icon: Trash2,
           label: "حذف",
-          variant: "ghost",
           onClick: onDelete,
+          color: "red",
         },
       ]}
       footer={

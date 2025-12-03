@@ -21,6 +21,7 @@ export interface UnifiedCardAction {
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost";
   disabled?: boolean;
   hidden?: boolean;
+  color?: "default" | "blue" | "green" | "yellow" | "red" | "orange";
 }
 
 export interface UnifiedCardBadge {
@@ -60,6 +61,15 @@ const badgeVariantClasses = {
   outline: "border-border",
   success: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   warning: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+};
+
+const actionColorClasses = {
+  default: "text-gray-600 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800",
+  blue: "text-blue-600 hover:text-blue-800 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-200 dark:hover:bg-blue-900/30",
+  green: "text-green-600 hover:text-green-800 hover:bg-green-100 dark:text-green-400 dark:hover:text-green-200 dark:hover:bg-green-900/30",
+  yellow: "text-yellow-600 hover:text-yellow-800 hover:bg-yellow-100 dark:text-yellow-400 dark:hover:text-yellow-200 dark:hover:bg-yellow-900/30",
+  red: "text-red-600 hover:text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-200 dark:hover:bg-red-900/30",
+  orange: "text-orange-600 hover:text-orange-800 hover:bg-orange-100 dark:text-orange-400 dark:hover:text-orange-200 dark:hover:bg-orange-900/30",
 };
 
 function UnifiedCardSkeleton({ compact }: { compact?: boolean }) {
@@ -170,20 +180,58 @@ export function UnifiedCard({
           </div>
         </div>
 
+      </div>
+
+      <div className={cn(
+        "flex items-start gap-2",
+        compact ? "mt-2" : "mt-3"
+      )}>
+        <div className={cn(
+          "grid gap-x-4 grid-cols-2 flex-1",
+          compact ? "gap-y-1.5" : "gap-y-2"
+        )}>
+          {visibleFields.map((field, idx) => {
+            const FieldIcon = field.icon;
+            return (
+              <div 
+                key={idx} 
+                className={cn(
+                  "flex items-start gap-1.5 min-w-0",
+                  compact ? "py-0.5" : "py-1"
+                )}
+              >
+                {FieldIcon && (
+                  <FieldIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide leading-tight">
+                    {field.label}
+                  </p>
+                  <p className={cn(
+                    "text-sm font-semibold truncate leading-tight mt-0.5",
+                    field.emphasis && "font-bold text-base",
+                    fieldColorClasses[field.color || "default"]
+                  )}>
+                    {field.value || "-"}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
         {visibleActions.length > 0 && (
-          <div className="shrink-0 flex flex-col gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+          <div className="shrink-0 flex flex-col gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
             {visibleActions.map((action, idx) => {
               const ActionIcon = action.icon;
               return (
                 <Button
                   key={idx}
                   size="icon"
-                  variant={action.variant || "ghost"}
+                  variant="ghost"
                   className={cn(
                     "h-7 w-7 rounded-md",
-                    action.variant === "destructive" 
-                      ? "hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
-                      : "hover:bg-primary/10 hover:text-primary"
+                    actionColorClasses[action.color || "default"]
                   )}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -198,40 +246,6 @@ export function UnifiedCard({
             })}
           </div>
         )}
-      </div>
-
-      <div className={cn(
-        "grid gap-x-4 grid-cols-2",
-        compact ? "gap-y-1.5 mt-2" : "gap-y-2 mt-3"
-      )}>
-        {visibleFields.map((field, idx) => {
-          const FieldIcon = field.icon;
-          return (
-            <div 
-              key={idx} 
-              className={cn(
-                "flex items-start gap-1.5 min-w-0",
-                compact ? "py-0.5" : "py-1"
-              )}
-            >
-              {FieldIcon && (
-                <FieldIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide leading-tight">
-                  {field.label}
-                </p>
-                <p className={cn(
-                  "text-sm font-semibold truncate leading-tight mt-0.5",
-                  field.emphasis && "font-bold text-base",
-                  fieldColorClasses[field.color || "default"]
-                )}>
-                  {field.value || "-"}
-                </p>
-              </div>
-            </div>
-          );
-        })}
       </div>
 
       {footer && (

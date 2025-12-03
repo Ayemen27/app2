@@ -7,7 +7,8 @@
 export { 
   COMPANY_INFO, 
   ALFATIHI_COLORS, 
-  EXCEL_STYLES 
+  EXCEL_STYLES,
+  addReportHeader
 } from '@/utils/professional-export';
 
 export function formatCurrency(amount: number): string {

@@ -30,6 +30,22 @@ export const ALFATIHI_COLORS = {
 };
 
 export const EXCEL_STYLES = {
+  fonts: {
+    header: { bold: true, size: 11, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
+    data: { size: 10 },
+    bold: { bold: true, size: 10 }
+  },
+  colors: {
+    headerBg: 'FF' + ALFATIHI_COLORS.headerBlue,
+    altRow: 'FF' + ALFATIHI_COLORS.lightBlue,
+    green: 'FF' + ALFATIHI_COLORS.greenTotal,
+    yellow: 'FF' + ALFATIHI_COLORS.yellowTotal,
+    orange: 'FF' + ALFATIHI_COLORS.orangeLight
+  },
+  borders: {
+    thin: { style: 'thin' as const },
+    medium: { style: 'medium' as const }
+  },
   headerMain: {
     font: { bold: true, size: 14, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
     fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF' + ALFATIHI_COLORS.headerDarkBlue } },
@@ -256,6 +272,58 @@ function addReportFooter(
   const now = new Date();
   footerRow.getCell(1).value = `تم إنشاء هذا التقرير آلياً بواسطة نظام إدارة مشاريع البناء - التاريخ والوقت: ${now.toLocaleDateString('ar-EG')} - ${now.toLocaleTimeString('ar-EG')}`;
   applyStyle(footerRow.getCell(1), EXCEL_STYLES.footer);
+}
+
+export function addReportHeader(
+  worksheet: any,
+  title: string,
+  subtitle: string,
+  infoLines?: string[]
+): number {
+  let currentRow = 1;
+  
+  const columnCount = worksheet.columns?.length || 8;
+
+  worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
+  const companyRow = worksheet.getRow(currentRow);
+  companyRow.getCell(1).value = COMPANY_INFO.name;
+  applyStyle(companyRow.getCell(1), EXCEL_STYLES.headerMain);
+  companyRow.height = 30;
+  currentRow++;
+
+  worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
+  const titleRow = worksheet.getRow(currentRow);
+  titleRow.getCell(1).value = title;
+  applyStyle(titleRow.getCell(1), EXCEL_STYLES.headerSecondary);
+  titleRow.height = 25;
+  currentRow++;
+
+  if (subtitle) {
+    worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
+    const subtitleRow = worksheet.getRow(currentRow);
+    subtitleRow.getCell(1).value = subtitle;
+    applyStyle(subtitleRow.getCell(1), {
+      font: { size: 10 },
+      alignment: { horizontal: 'center', vertical: 'middle' }
+    });
+    subtitleRow.height = 20;
+    currentRow++;
+  }
+
+  if (infoLines && infoLines.length > 0) {
+    worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
+    const infoRow = worksheet.getRow(currentRow);
+    infoRow.getCell(1).value = infoLines.join(' | ');
+    applyStyle(infoRow.getCell(1), {
+      font: { size: 9 },
+      alignment: { horizontal: 'center', vertical: 'middle' }
+    });
+    infoRow.height = 18;
+    currentRow++;
+  }
+
+  currentRow++;
+  return currentRow;
 }
 
 export async function exportDailyExpensesReport(

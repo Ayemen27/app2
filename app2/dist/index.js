@@ -6723,6 +6723,42 @@ privateRouter.get("/notifications", async (req, res) => {
     message: "\u0645\u0633\u0627\u0631 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A - \u064A\u062A\u0645 \u0627\u0644\u062A\u0639\u0627\u0645\u0644 \u0645\u0639\u0647 \u0641\u064A \u0627\u0644\u0640 controller \u0627\u0644\u0623\u0635\u0644\u064A"
   });
 });
+privateRouter.get("/users/list", async (req, res) => {
+  try {
+    const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { users: users2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const allUsers = await db2.select({
+      id: users2.id,
+      email: users2.email,
+      firstName: users2.firstName,
+      lastName: users2.lastName,
+      role: users2.role,
+      isActive: users2.isActive
+    }).from(users2);
+    const usersWithName = allUsers.filter((user) => user.isActive).map((user) => {
+      const fullName = user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName || user.lastName || user.email.split("@")[0];
+      return {
+        id: user.id,
+        name: fullName,
+        email: user.email,
+        role: user.role
+      };
+    });
+    console.log(`\u2705 [users/list] \u062A\u0645 \u062C\u0644\u0628 ${usersWithName.length} \u0645\u0633\u062A\u062E\u062F\u0645`);
+    res.json({
+      success: true,
+      data: usersWithName,
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${usersWithName.length} \u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0646\u062C\u0627\u062D`
+    });
+  } catch (error) {
+    console.error("\u274C [users/list] \u062E\u0637\u0623:", error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646"
+    });
+  }
+});
 privateRouter.get("/auth/me", async (req, res) => {
   res.json({
     success: true,

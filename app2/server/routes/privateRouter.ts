@@ -185,6 +185,58 @@ privateRouter.get('/notifications', async (req: Request, res: Response) => {
 });
 
 /**
+ * ===== مسار قائمة المستخدمين =====
+ */
+
+// جلب قائمة المستخدمين (للاستخدام في اختيار المهندس/المشرف)
+privateRouter.get('/users/list', async (req: Request, res: Response) => {
+  try {
+    const { db } = await import('../db.js');
+    const { users } = await import('@shared/schema');
+    
+    const allUsers = await db.select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      role: users.role,
+      isActive: users.isActive
+    }).from(users);
+    
+    // تحويل البيانات لتضمين اسم كامل
+    const usersWithName = allUsers
+      .filter(user => user.isActive) // فقط المستخدمين النشطين
+      .map(user => {
+        const fullName = user.firstName && user.lastName 
+          ? `${user.firstName} ${user.lastName}`
+          : user.firstName || user.lastName || user.email.split('@')[0];
+        
+        return {
+          id: user.id,
+          name: fullName,
+          email: user.email,
+          role: user.role
+        };
+      });
+    
+    console.log(`✅ [users/list] تم جلب ${usersWithName.length} مستخدم`);
+    
+    res.json({
+      success: true,
+      data: usersWithName,
+      message: `تم جلب ${usersWithName.length} مستخدم بنجاح`
+    });
+  } catch (error: any) {
+    console.error('❌ [users/list] خطأ:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب قائمة المستخدمين'
+    });
+  }
+});
+
+/**
  * ===== مسارات المصادقة المحمية =====
  */
 

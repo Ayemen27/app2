@@ -755,7 +755,7 @@ export default function ProjectsPage() {
           {Array.isArray(projects) ? projects.map((project) => {
             const balance = safeParseNumber(project.stats?.currentBalance, 0);
             const statusBadgeVariant = project.status === 'active' ? 'success' : 
-                                       project.status === 'completed' ? 'default' : 'warning';
+                                       project.status === 'completed' ? 'default' : 'destructive';
             
             return (
               <UnifiedCard
@@ -763,8 +763,8 @@ export default function ProjectsPage() {
                 title={project.name}
                 subtitle={formatDate(project.createdAt)}
                 titleIcon={Building2}
-                headerColor={project.status === 'active' ? '#3b82f6' : 
-                            project.status === 'completed' ? '#10b981' : '#f59e0b'}
+                headerColor={project.status === 'active' ? '#22c55e' : 
+                            project.status === 'completed' ? '#3b82f6' : '#ef4444'}
                 badges={[
                   {
                     label: getStatusText(project.status),

@@ -124,7 +124,7 @@ export function UnifiedCard({
     >
       {headerColor && (
         <div 
-          className="absolute top-0 left-0 right-0 h-1" 
+          className="absolute top-0 left-0 right-0 h-1.5 shadow-sm" 
           style={{ backgroundColor: headerColor }}
         />
       )}
@@ -139,13 +139,13 @@ export function UnifiedCard({
             )}
             <div className="min-w-0 flex-1">
               <h3 className={cn(
-                "font-semibold text-foreground truncate",
-                compact ? "text-sm" : "text-base"
+                "font-bold text-foreground truncate",
+                compact ? "text-base" : "text-lg"
               )}>
                 {title}
               </h3>
               {subtitle && (
-                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                <p className="text-sm text-muted-foreground truncate mt-0.5">
                   {subtitle}
                 </p>
               )}
@@ -218,12 +218,12 @@ export function UnifiedCard({
                 <FieldIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide leading-tight">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide leading-tight">
                   {field.label}
                 </p>
                 <p className={cn(
-                  "text-xs font-medium truncate leading-tight mt-0.5",
-                  field.emphasis && "font-semibold",
+                  "text-sm font-semibold truncate leading-tight mt-0.5",
+                  field.emphasis && "font-bold text-base",
                   fieldColorClasses[field.color || "default"]
                 )}>
                   {field.value || "-"}

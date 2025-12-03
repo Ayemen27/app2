@@ -43,6 +43,7 @@ import { insertProjectSchema } from "@shared/schema";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
+import { useAuth } from "@/components/AuthProvider";
 
 interface ProjectStats {
   totalWorkers: number;
@@ -103,6 +104,8 @@ const cleanNumber = (value: any): number => {
 export default function ProjectsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -624,31 +627,38 @@ export default function ProjectsPage() {
     }
   ], [overallStats, currentBalance]);
 
-  const filtersConfig: FilterConfig[] = useMemo(() => [
-    {
-      key: 'status',
-      label: 'حالة المشروع',
-      type: 'select',
-      defaultValue: 'all',
-      options: [
-        { value: 'all', label: 'جميع الحالات' },
-        { value: 'active', label: 'نشط' },
-        { value: 'paused', label: 'متوقف' },
-        { value: 'completed', label: 'مكتمل' },
-      ],
-    },
-    {
-      key: 'engineerId',
-      label: 'المهندس المسؤول',
-      type: 'select',
-      defaultValue: 'all',
-      options: [
-        { value: 'all', label: 'جميع المهندسين' },
-        { value: 'none', label: 'بدون مهندس' },
-        ...usersData.map(user => ({ value: user.id, label: user.name })),
-      ],
-    },
-  ], [usersData]);
+  const filtersConfig: FilterConfig[] = useMemo(() => {
+    const baseFilters: FilterConfig[] = [
+      {
+        key: 'status',
+        label: 'حالة المشروع',
+        type: 'select',
+        defaultValue: 'all',
+        options: [
+          { value: 'all', label: 'جميع الحالات' },
+          { value: 'active', label: 'نشط' },
+          { value: 'paused', label: 'متوقف' },
+          { value: 'completed', label: 'مكتمل' },
+        ],
+      },
+    ];
+    
+    if (isAdmin) {
+      baseFilters.push({
+        key: 'engineerId',
+        label: 'المهندس المسؤول',
+        type: 'select',
+        defaultValue: 'all',
+        options: [
+          { value: 'all', label: 'جميع المهندسين' },
+          { value: 'none', label: 'بدون مهندس' },
+          ...usersData.map(u => ({ value: u.id, label: u.name })),
+        ],
+      });
+    }
+    
+    return baseFilters;
+  }, [usersData, isAdmin]);
 
 
   // معالجة حالة التحميل
@@ -738,34 +748,36 @@ export default function ProjectsPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={createForm.control}
-                  name="engineerId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>المهندس / المشرف</FormLabel>
-                      <Select 
-                        onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
-                        value={field.value || "none"}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="اختر المهندس المسؤول" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="none">بدون مهندس</SelectItem>
-                          {usersData.map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.name} ({user.role})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {isAdmin && (
+                  <FormField
+                    control={createForm.control}
+                    name="engineerId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>المهندس / المشرف</FormLabel>
+                        <Select 
+                          onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
+                          value={field.value || "none"}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="اختر المهندس المسؤول" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">بدون مهندس</SelectItem>
+                            {usersData.map((u) => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.name} ({u.role})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
                 <FormField
                   control={createForm.control}
                   name="status"
@@ -828,34 +840,36 @@ export default function ProjectsPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={editForm.control}
-                name="engineerId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>المهندس / المشرف</FormLabel>
-                    <Select 
-                      onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
-                      value={field.value || "none"}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="اختر المهندس المسؤول" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">بدون مهندس</SelectItem>
-                        {usersData.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.name} ({user.role})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {isAdmin && (
+                <FormField
+                  control={editForm.control}
+                  name="engineerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>المهندس / المشرف</FormLabel>
+                      <Select 
+                        onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
+                        value={field.value || "none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="اختر المهندس المسؤول" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">بدون مهندس</SelectItem>
+                          {usersData.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name} ({u.role})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={editForm.control}
                 name="status"

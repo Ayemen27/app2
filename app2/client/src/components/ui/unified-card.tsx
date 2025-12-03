@@ -221,7 +221,7 @@ export function UnifiedCard({
         </div>
 
         {visibleActions.length > 0 && (
-          <div className="shrink-0 flex flex-col gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+          <div className="shrink-0 flex flex-col gap-1">
             {visibleActions.map((action, idx) => {
               const ActionIcon = action.icon;
               return (
@@ -240,7 +240,7 @@ export function UnifiedCard({
                   disabled={action.disabled}
                   title={action.label}
                 >
-                  <ActionIcon className="h-3.5 w-3.5" />
+                  <ActionIcon className="h-4 w-4" />
                 </Button>
               );
             })}

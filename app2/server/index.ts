@@ -11,8 +11,10 @@ import { permissionsRouter } from './routes/permissions';
 import { initializeRouteOrganizer } from './routes/routerOrganizer.js';
 import sshRoutes from './routes/modules/sshRoutes';
 import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middleware/compression";
-import { generalRateLimit, trackSuspiciousActivity, securityHeaders } from "./middleware/auth";
+import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth } from "./middleware/auth";
 import { autoSchemaPush } from './auto-schema-push';
+import { db } from './db.js';
+import { users } from '@shared/schema';
 import http from 'http';
 import { Server } from 'socket.io';
 import compression from "compression"; // Import compression
@@ -167,6 +169,42 @@ app.use(sshRoutes);
 
 // Initialize route organizer
 initializeRouteOrganizer(app);
+
+// ✅ تسجيل مسار قائمة المستخدمين (للاستخدام في اختيار المهندس)
+app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
+  try {
+    console.log('📊 [API] جلب قائمة المستخدمين');
+    const usersList = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      role: users.role,
+    }).from(users).orderBy(users.firstName);
+    
+    const usersWithName = usersList.map(user => ({
+      id: user.id,
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+      email: user.email,
+      role: user.role,
+    }));
+    
+    console.log(`✅ [API] تم جلب ${usersWithName.length} مستخدم`);
+    res.json({ 
+      success: true, 
+      data: usersWithName,
+      message: `تم جلب ${usersWithName.length} مستخدم بنجاح`
+    });
+  } catch (error: any) {
+    console.error('❌ [API] خطأ في جلب المستخدمين:', error);
+    res.status(500).json({ 
+      success: false, 
+      data: [], 
+      error: error.message,
+      message: "فشل في جلب قائمة المستخدمين"
+    });
+  }
+});
 
 // ✅ **Error Handler Middleware**
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

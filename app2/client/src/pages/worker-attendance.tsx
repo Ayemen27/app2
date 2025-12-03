@@ -1014,7 +1014,7 @@ export default function WorkerAttendance() {
                         </div>
                         <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded col-span-2">
                           <p className="text-muted-foreground font-medium">المتبقي</p>
-                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(record.remainingAmount || '0')}</p>
+                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(parseFloat(record.actualWage || '0') - parseFloat(record.paidAmount || '0'))}</p>
                         </div>
                         {record.workDescription && (
                           <div className="bg-gray-50 dark:bg-gray-950/20 p-2 rounded col-span-2">
@@ -1086,7 +1086,7 @@ export default function WorkerAttendance() {
                         </div>
                         <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded col-span-2">
                           <p className="text-muted-foreground font-medium">المتبقي</p>
-                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(record.remainingAmount || '0')}</p>
+                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(parseFloat(record.actualWage || '0') - parseFloat(record.paidAmount || '0'))}</p>
                         </div>
                         {record.workDescription && (
                           <div className="bg-gray-50 dark:bg-gray-950/20 p-2 rounded col-span-2">

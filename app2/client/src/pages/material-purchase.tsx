@@ -18,28 +18,25 @@ import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
-import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
-import FilterStatsBar from "@/components/ui/filter-stats-bar";
-import { useFilterStats } from "@/hooks/use-filter-stats";
+import { UnifiedSearchFilter, FilterConfig } from "@/components/ui/unified-search-filter";
+import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import type { Material, InsertMaterialPurchase, InsertMaterial, Supplier, InsertSupplier } from "@shared/schema";
 
 export default function MaterialPurchase() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
-  const [activeFilters, setActiveFilters] = useState({});
-  const {
-    searchValue,
-    filterValues,
-    setSearchValue,
-    setFilterValue,
-    resetAll,
-    refresh,
-    isRefreshing,
-  } = useFilterStats({
-    initialFilters: { paymentType: 'all' },
-    queryKeys: ["/api/projects", selectedProjectId, "material-purchases"],
-  });
+  const [searchValue, setSearchValue] = useState("");
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({ paymentType: 'all' });
+  
+  const setFilterValue = (key: string, value: any) => {
+    setFilterValues(prev => ({ ...prev, [key]: value }));
+  };
+  
+  const resetFilters = () => {
+    setSearchValue("");
+    setFilterValues({ paymentType: 'all' });
+  };
   
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);
@@ -687,11 +684,6 @@ export default function MaterialPurchase() {
     credit: allMaterialPurchases.filter((p: any) => p.purchaseType?.includes('آجل') || p.purchaseType?.includes('جل')).length,
   };
 
-  // resetFilters function for FilterStatsBar
-  const resetFilters = () => {
-    resetAll();
-  };
-
   // Auto-refresh when page loads or purchase date changes
   useEffect(() => {
     if (selectedProjectId) {
@@ -718,66 +710,75 @@ export default function MaterialPurchase() {
 
 
 
+  const filterConfigs: FilterConfig[] = [
+    {
+      key: 'paymentType',
+      label: 'نوع الدفع',
+      placeholder: 'اختر نوع الدفع',
+      options: [
+        { value: 'all', label: 'جميع الأنواع' },
+        { value: 'نقد', label: 'نقد' },
+        { value: 'آجل', label: 'آجل' },
+        { value: 'توريد', label: 'توريد' }
+      ],
+    },
+  ];
+
   return (
     <div className="p-4 slide-in">
-      {/* شريط البحث والفلترة والإحصائيات الموحد */}
+      {/* الإحصائيات الموحدة */}
       {selectedProjectId && (
-        <FilterStatsBar
-          title="شراء المواد"
-          searchValue={searchValue}
-          onSearchChange={setSearchValue}
-          searchPlaceholder="ابحث عن مادة أو مورد..."
-          filters={[
-            {
-              key: 'paymentType',
-              label: 'نوع الدفع',
-              placeholder: 'اختر نوع الدفع',
-              options: [
-                { value: 'all', label: 'جميع الأنواع' },
-                { value: 'نقد', label: 'نقد' },
-                { value: 'آجل', label: 'آجل' },
-                { value: 'توريد', label: 'توريد' }
-              ],
-              defaultValue: 'all',
-            },
-          ]}
-          filterValues={filterValues}
-          onFilterChange={setFilterValue}
-          onReset={resetFilters}
-          onRefresh={refresh}
-          isRefreshing={isRefreshing}
-          metrics={[
-            {
-              key: 'total',
-              label: 'إجمالي المشتريات',
-              value: stats.total,
-              icon: Package,
-              color: 'blue',
-            },
-            {
-              key: 'today',
-              label: 'مشتريات اليوم',
-              value: stats.today,
-              icon: ShoppingCart,
-              color: 'green',
-            },
-            {
-              key: 'cash',
-              label: 'مشتريات نقد',
-              value: stats.cash,
-              icon: DollarSign,
-              color: 'orange',
-            },
-            {
-              key: 'credit',
-              label: 'مشتريات آجلة',
-              value: stats.credit,
-              icon: CreditCard,
-              color: 'red',
-            },
-          ]}
-          actions={[]}
-        />
+        <div className="mb-4">
+          <UnifiedStats
+            stats={[
+              {
+                title: "إجمالي المشتريات",
+                value: stats.total,
+                icon: Package,
+                color: "blue"
+              },
+              {
+                title: "مشتريات اليوم",
+                value: stats.today,
+                icon: ShoppingCart,
+                color: "green"
+              },
+              {
+                title: "مشتريات نقد",
+                value: stats.cash,
+                icon: DollarSign,
+                color: "orange"
+              },
+              {
+                title: "مشتريات آجلة",
+                value: stats.credit,
+                icon: CreditCard,
+                color: "red"
+              }
+            ]}
+            columns={2}
+            hideHeader={true}
+          />
+        </div>
+      )}
+
+      {/* شريط البحث والفلترة الموحد */}
+      {selectedProjectId && (
+        <div className="mb-4">
+          <UnifiedSearchFilter
+            showSearch={true}
+            searchPlaceholder="ابحث عن مادة أو مورد..."
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+            filters={filterConfigs}
+            filterValues={filterValues}
+            onFilterChange={setFilterValue}
+            onReset={resetFilters}
+            showResetButton={true}
+            compact={true}
+            showActiveFilters={true}
+          />
+        </div>
       )}
 
       {/* مؤشر التحميل لبيانات التعديل */}

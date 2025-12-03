@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, Save, ChartGantt, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Save, ChartGantt, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2, User, Calendar, Edit2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import FilterStatsBar from "@/components/ui/filter-stats-bar";
 import { useFilterStats } from "@/hooks/use-filter-stats";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import type { Worker, InsertWorkerAttendance } from "@shared/schema";
 
 interface AttendanceData {
@@ -29,7 +30,6 @@ interface AttendanceData {
     workDays?: number;
     paidAmount?: string;
     paymentType?: string;
-    // إضافة الحقول الجديدة
     hoursWorked?: number;
     overtime?: number;
     overtimeRate?: number;
@@ -37,6 +37,8 @@ interface AttendanceData {
     totalPay?: number;
     remainingAmount?: number;
     notes?: string;
+    recordId?: string;
+    recordType?: "work" | "advance";
   };
 }
 
@@ -952,92 +954,98 @@ export default function WorkerAttendance() {
 
       {/* Today's Attendance List */}
       {selectedProjectId && (
-        <Card className="mt-6">
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold text-foreground">
-              {todayAttendance.length > 0 
-                ? `حضور اليوم المسجل (${selectedDate})` 
-                : `جميع سجلات الحضور للمشروع`}
-            </h3>
-            {todayAttendance.length > 0 ? (
-              <div className="space-y-3">
-                {todayAttendance.map((record: any) => {
-                  const worker = workers.find(w => w.id === record.workerId);
-                  const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
-                  const workDays = parseFloat(record.workDays || '0');
-                  const calculatedActualWage = currentDailyWage * workDays;
-                  const paidAmount = parseFloat(record.paidAmount || '0');
-                  const remainingAmount = calculatedActualWage - paidAmount;
-                  return (
-                    <div key={record.id} className="border rounded-lg p-3 bg-card">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-foreground">{worker?.name || record.workerId}</span>
-                            <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded">حاضر</span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditAttendance(record)}
-                          >
-                            تعديل
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => deleteAttendanceMutation.mutate(record.id)}
-                            disabled={deleteAttendanceMutation.isPending}
-                          >
-                            حذف
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">التاريخ</p>
-                          <p className="font-bold text-foreground">{record.date || record.attendanceDate}</p>
-                        </div>
-                        <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">الوقت</p>
-                          <p className="font-bold text-foreground">{record.startTime || 'غير محدد'} - {record.endTime || 'غير محدد'}</p>
-                        </div>
-                        <div className="bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">الراتب اليومي</p>
-                          <p className="font-bold text-foreground arabic-numbers">{formatCurrency(currentDailyWage)}</p>
-                        </div>
-                        <div className="bg-purple-50 dark:bg-purple-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">عدد الأيام</p>
-                          <p className="font-bold text-foreground arabic-numbers">{workDays}</p>
-                        </div>
-                        <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">المستحق</p>
-                          <p className="font-bold text-blue-600 dark:text-blue-400 arabic-numbers">{formatCurrency(calculatedActualWage)}</p>
-                        </div>
-                        <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">المدفوع</p>
-                          <p className="font-bold text-green-600 dark:text-green-400 arabic-numbers">{formatCurrency(paidAmount)}</p>
-                        </div>
-                        <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded col-span-2">
-                          <p className="text-muted-foreground font-medium">المتبقي</p>
-                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(remainingAmount)}</p>
-                        </div>
-                        {record.workDescription && (
-                          <div className="bg-gray-50 dark:bg-gray-950/20 p-2 rounded col-span-2">
-                            <p className="text-muted-foreground font-medium">الوصف</p>
-                            <p className="font-bold text-foreground">{record.workDescription}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : allProjectAttendance.length > 0 ? (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground mb-4">لا توجد سجلات لتاريخ اليوم ({selectedDate}). تم عرض جميع السجلات:</p>
+        <div className="mt-6">
+          <h3 className="text-lg font-semibold text-foreground mb-4">
+            {todayAttendance.length > 0 
+              ? `حضور اليوم المسجل (${selectedDate})` 
+              : `جميع سجلات الحضور للمشروع`}
+          </h3>
+          {todayAttendance.length > 0 ? (
+            <UnifiedCardGrid columns={2}>
+              {todayAttendance.map((record: any) => {
+                const worker = workers.find(w => w.id === record.workerId);
+                const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
+                const workDays = parseFloat(record.workDays || '0');
+                const calculatedActualWage = currentDailyWage * workDays;
+                const paidAmount = parseFloat(record.paidAmount || '0');
+                const remainingAmount = calculatedActualWage - paidAmount;
+                return (
+                  <UnifiedCard
+                    key={record.id}
+                    title={worker?.name || record.workerId}
+                    subtitle={record.date || record.attendanceDate}
+                    titleIcon={User}
+                    headerColor="#22c55e"
+                    badges={[
+                      { label: 'حاضر', variant: 'success' }
+                    ]}
+                    fields={[
+                      {
+                        label: "الوقت",
+                        value: `${record.startTime || 'غير محدد'} - ${record.endTime || 'غير محدد'}`,
+                        icon: Clock,
+                        color: "info",
+                      },
+                      {
+                        label: "عدد الأيام",
+                        value: workDays.toString(),
+                        icon: Calendar,
+                        color: "warning",
+                      },
+                      {
+                        label: "الراتب اليومي",
+                        value: formatCurrency(currentDailyWage),
+                        icon: DollarSign,
+                        color: "default",
+                      },
+                      {
+                        label: "المستحق",
+                        value: formatCurrency(calculatedActualWage),
+                        icon: DollarSign,
+                        color: "info",
+                        emphasis: true,
+                      },
+                      {
+                        label: "المدفوع",
+                        value: formatCurrency(paidAmount),
+                        icon: CheckCircle2,
+                        color: "success",
+                      },
+                      {
+                        label: "المتبقي",
+                        value: formatCurrency(remainingAmount),
+                        icon: DollarSign,
+                        color: remainingAmount > 0 ? "danger" : "success",
+                        emphasis: true,
+                      },
+                    ]}
+                    actions={[
+                      {
+                        icon: Edit2,
+                        label: "تعديل",
+                        onClick: () => handleEditAttendance(record),
+                        color: "blue",
+                      },
+                      {
+                        icon: Trash2,
+                        label: "حذف",
+                        onClick: () => deleteAttendanceMutation.mutate(record.id),
+                        color: "red",
+                        disabled: deleteAttendanceMutation.isPending,
+                      },
+                    ]}
+                    footer={record.workDescription ? (
+                      <p className="text-sm text-muted-foreground">{record.workDescription}</p>
+                    ) : undefined}
+                    compact
+                  />
+                );
+              })}
+            </UnifiedCardGrid>
+          ) : allProjectAttendance.length > 0 ? (
+            <div>
+              <p className="text-sm text-muted-foreground mb-4">لا توجد سجلات لتاريخ اليوم ({selectedDate}). تم عرض جميع السجلات:</p>
+              <UnifiedCardGrid columns={2}>
                 {allProjectAttendance.map((record: any) => {
                   const worker = workers.find(w => w.id === record.workerId);
                   const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
@@ -1046,77 +1054,83 @@ export default function WorkerAttendance() {
                   const paidAmount = parseFloat(record.paidAmount || '0');
                   const remainingAmount = calculatedActualWage - paidAmount;
                   return (
-                    <div key={record.id} className="border rounded-lg p-3 bg-card">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-foreground">{worker?.name || record.workerId}</span>
-                            <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded">حاضر</span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditAttendance(record)}
-                          >
-                            تعديل
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => deleteAttendanceMutation.mutate(record.id)}
-                            disabled={deleteAttendanceMutation.isPending}
-                          >
-                            حذف
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">التاريخ</p>
-                          <p className="font-bold text-foreground">{record.date || record.attendanceDate}</p>
-                        </div>
-                        <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">الوقت</p>
-                          <p className="font-bold text-foreground">{record.startTime || 'غير محدد'} - {record.endTime || 'غير محدد'}</p>
-                        </div>
-                        <div className="bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">الراتب اليومي</p>
-                          <p className="font-bold text-foreground arabic-numbers">{formatCurrency(currentDailyWage)}</p>
-                        </div>
-                        <div className="bg-purple-50 dark:bg-purple-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">عدد الأيام</p>
-                          <p className="font-bold text-foreground arabic-numbers">{workDays}</p>
-                        </div>
-                        <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">المستحق</p>
-                          <p className="font-bold text-blue-600 dark:text-blue-400 arabic-numbers">{formatCurrency(calculatedActualWage)}</p>
-                        </div>
-                        <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded">
-                          <p className="text-muted-foreground font-medium">المدفوع</p>
-                          <p className="font-bold text-green-600 dark:text-green-400 arabic-numbers">{formatCurrency(paidAmount)}</p>
-                        </div>
-                        <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded col-span-2">
-                          <p className="text-muted-foreground font-medium">المتبقي</p>
-                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(remainingAmount)}</p>
-                        </div>
-                        {record.workDescription && (
-                          <div className="bg-gray-50 dark:bg-gray-950/20 p-2 rounded col-span-2">
-                            <p className="text-muted-foreground font-medium">الوصف</p>
-                            <p className="font-bold text-foreground">{record.workDescription}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <UnifiedCard
+                      key={record.id}
+                      title={worker?.name || record.workerId}
+                      subtitle={record.date || record.attendanceDate}
+                      titleIcon={User}
+                      headerColor="#22c55e"
+                      badges={[
+                        { label: 'حاضر', variant: 'success' }
+                      ]}
+                      fields={[
+                        {
+                          label: "الوقت",
+                          value: `${record.startTime || 'غير محدد'} - ${record.endTime || 'غير محدد'}`,
+                          icon: Clock,
+                          color: "info",
+                        },
+                        {
+                          label: "عدد الأيام",
+                          value: workDays.toString(),
+                          icon: Calendar,
+                          color: "warning",
+                        },
+                        {
+                          label: "الراتب اليومي",
+                          value: formatCurrency(currentDailyWage),
+                          icon: DollarSign,
+                          color: "default",
+                        },
+                        {
+                          label: "المستحق",
+                          value: formatCurrency(calculatedActualWage),
+                          icon: DollarSign,
+                          color: "info",
+                          emphasis: true,
+                        },
+                        {
+                          label: "المدفوع",
+                          value: formatCurrency(paidAmount),
+                          icon: CheckCircle2,
+                          color: "success",
+                        },
+                        {
+                          label: "المتبقي",
+                          value: formatCurrency(remainingAmount),
+                          icon: DollarSign,
+                          color: remainingAmount > 0 ? "danger" : "success",
+                          emphasis: true,
+                        },
+                      ]}
+                      actions={[
+                        {
+                          icon: Edit2,
+                          label: "تعديل",
+                          onClick: () => handleEditAttendance(record),
+                          color: "blue",
+                        },
+                        {
+                          icon: Trash2,
+                          label: "حذف",
+                          onClick: () => deleteAttendanceMutation.mutate(record.id),
+                          color: "red",
+                          disabled: deleteAttendanceMutation.isPending,
+                        },
+                      ]}
+                      footer={record.workDescription ? (
+                        <p className="text-sm text-muted-foreground">{record.workDescription}</p>
+                      ) : undefined}
+                      compact
+                    />
                   );
                 })}
-              </div>
-            ) : (
-              <p className="text-center py-8 text-muted-foreground">لا توجد سجلات حضور للمشروع</p>
-            )}
-          </CardContent>
-        </Card>
+              </UnifiedCardGrid>
+            </div>
+          ) : (
+            <p className="text-center py-8 text-muted-foreground">لا توجد سجلات حضور للمشروع</p>
+          )}
+        </div>
       )}
     </div>
   );

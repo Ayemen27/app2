@@ -43,18 +43,25 @@ function StatCard({ item }: { item: StatItem }) {
       )}
       onClick={item.onClick}
     >
-      <div className="absolute top-2 left-2 p-1 rounded-md bg-white/50 dark:bg-black/20">
-        <Icon className={cn('h-3.5 w-3.5', colors.icon)} />
+      {/* Header: Title + Icon in same row */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="text-[11px] text-muted-foreground line-clamp-1 flex-1">
+          {item.label}
+        </span>
+        <div className={cn('p-1.5 rounded-md', colors.bg)}>
+          <Icon className={cn('h-3.5 w-3.5', colors.icon)} />
+        </div>
       </div>
 
       {item.showDot && (
         <div className={cn(
-          'absolute top-2 right-2 h-2.5 w-2.5 rounded-full',
+          'absolute top-2 right-10 h-2.5 w-2.5 rounded-full',
           item.dotColor || 'bg-green-500'
         )} />
       )}
 
-      <div className="flex flex-col items-center justify-center text-center min-h-[60px] pt-2">
+      {/* Value section */}
+      <div className="flex flex-col items-center justify-center text-center">
         <span className={cn(
           'font-bold arabic-numbers leading-tight',
           getValueSizeClass(formattedValue),
@@ -67,12 +74,8 @@ function StatCard({ item }: { item: StatItem }) {
           <span className="text-[10px] text-muted-foreground mt-0.5">{item.unit}</span>
         )}
 
-        <span className="text-[11px] text-muted-foreground mt-1 line-clamp-1">
-          {item.label}
-        </span>
-
         {item.subLabel && (
-          <span className="text-[10px] text-muted-foreground/70 line-clamp-1">
+          <span className="text-[10px] text-muted-foreground/70 line-clamp-1 mt-1">
             {item.subLabel}
           </span>
         )}

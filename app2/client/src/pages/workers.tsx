@@ -171,7 +171,7 @@ const WorkerCardWrapper = ({
           label: "الهاتف",
           value: worker.phone || 'غير محدد',
           icon: Phone,
-          color: worker.phone ? "info" : "muted",
+          color: worker.phone ? "success" : "muted",
         },
         {
           label: "المشاريع",
@@ -183,6 +183,7 @@ const WorkerCardWrapper = ({
           label: "أيام العمل",
           value: statsLoading ? '...' : `${stats?.totalWorkDays ?? 0} يوم`,
           icon: Calendar,
+          color: "warning",
         },
       ]}
       actions={[

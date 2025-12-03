@@ -1034,16 +1034,19 @@ export default function ProjectsPage() {
                     value: cleanInteger(project.stats?.totalWorkers),
                     icon: Users,
                     emphasis: true,
+                    color: "info",
                   },
                   {
                     label: "المشتريات",
                     value: cleanInteger(project.stats?.materialPurchases),
                     icon: Package,
+                    color: "warning",
                   },
                   {
                     label: "الأيام النشطة",
                     value: cleanInteger(project.stats?.completedDays),
                     icon: Clock,
+                    color: "success",
                   },
                   {
                     label: "المهندس",

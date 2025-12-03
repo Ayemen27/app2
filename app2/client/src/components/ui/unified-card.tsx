@@ -54,6 +54,15 @@ const fieldColorClasses = {
   muted: "text-muted-foreground",
 };
 
+const fieldIconColorClasses = {
+  default: "text-primary",
+  success: "text-green-600 dark:text-green-400",
+  warning: "text-amber-600 dark:text-amber-400",
+  danger: "text-red-600 dark:text-red-400",
+  info: "text-blue-600 dark:text-blue-400",
+  muted: "text-gray-400 dark:text-gray-500",
+};
+
 const badgeVariantClasses = {
   default: "bg-primary/10 text-primary border-primary/20",
   secondary: "bg-secondary text-secondary-foreground",
@@ -201,7 +210,7 @@ export function UnifiedCard({
                 )}
               >
                 {FieldIcon && (
-                  <FieldIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                  <FieldIcon className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", fieldIconColorClasses[field.color || "default"])} />
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide leading-tight">

@@ -965,23 +965,24 @@ export async function exportPeriodicReportToExcel(
 
   worksheet.columns = [
     { width: 15 },
-    { width: 18 },
-    { width: 18 },
-    { width: 18 },
-    { width: 18 },
-    { width: 18 }
+    { width: 16 },
+    { width: 16 },
+    { width: 16 },
+    { width: 16 },
+    { width: 16 },
+    { width: 16 }
   ];
 
   let currentRow = await addAlFatihiHeader(
     worksheet,
     options.reportTitle || 'تقرير الفترة الزمنية',
     options.dateRange ? `للفترة: من ${options.dateRange.from} إلى ${options.dateRange.to}` : '',
-    6
+    7
   );
 
   if (options.projectName) {
     const projectRow = worksheet.getRow(currentRow);
-    worksheet.mergeCells(currentRow, 1, currentRow, 6);
+    worksheet.mergeCells(currentRow, 1, currentRow, 7);
     projectRow.getCell(1).value = `المشروع: ${options.projectName}`;
     applyStyle(projectRow.getCell(1), {
       font: { size: 11, bold: true },
@@ -994,7 +995,7 @@ export async function exportPeriodicReportToExcel(
   currentRow++;
 
   const summaryHeaderRow = worksheet.getRow(currentRow);
-  worksheet.mergeCells(currentRow, 1, currentRow, 6);
+  worksheet.mergeCells(currentRow, 1, currentRow, 7);
   summaryHeaderRow.getCell(1).value = 'ملخص الفترة';
   applyStyle(summaryHeaderRow.getCell(1), EXCEL_STYLES.headerSecondary);
   summaryHeaderRow.height = 25;
@@ -1006,6 +1007,7 @@ export async function exportPeriodicReportToExcel(
     ['إجمالي الأجور', formatCurrency(data.summary?.totalPaidWages || 0)],
     ['إجمالي المواد', formatCurrency(data.summary?.totalMaterials || 0)],
     ['إجمالي النقل', formatCurrency(data.summary?.totalTransport || 0)],
+    ['نثريات العهدة', formatCurrency(data.summary?.totalMiscExpenses || 0)],
     ['إجمالي المصروفات', formatCurrency(data.summary?.totalExpenses || 0)],
     ['تحويلات العهدة', formatCurrency(data.summary?.totalFundTransfers || 0)],
     ['الرصيد النهائي', formatCurrency(data.summary?.balance || 0)]
@@ -1014,15 +1016,15 @@ export async function exportPeriodicReportToExcel(
   kpiData.forEach((item, idx) => {
     const row = worksheet.getRow(currentRow);
     worksheet.mergeCells(currentRow, 1, currentRow, 3);
-    worksheet.mergeCells(currentRow, 4, currentRow, 6);
+    worksheet.mergeCells(currentRow, 4, currentRow, 7);
     row.getCell(1).value = item[0];
     row.getCell(4).value = item[1];
     
     if (idx >= kpiData.length - 2) {
-      applyRowStyle(row, EXCEL_STYLES.greenRow, 1, 6);
+      applyRowStyle(row, EXCEL_STYLES.greenRow, 1, 7);
     } else {
       const style = idx % 2 === 0 ? EXCEL_STYLES.tableCell : EXCEL_STYLES.tableCellAlt;
-      applyRowStyle(row, style, 1, 6);
+      applyRowStyle(row, style, 1, 7);
     }
     row.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
     row.getCell(4).alignment = { horizontal: 'left', vertical: 'middle' };
@@ -1033,14 +1035,14 @@ export async function exportPeriodicReportToExcel(
   currentRow += 2;
 
   if (data.chartData?.length > 0) {
-    worksheet.mergeCells(currentRow, 1, currentRow, 6);
+    worksheet.mergeCells(currentRow, 1, currentRow, 7);
     const detailsHeader = worksheet.getRow(currentRow);
     detailsHeader.getCell(1).value = 'تفاصيل المصروفات اليومية';
     applyStyle(detailsHeader.getCell(1), EXCEL_STYLES.headerSecondary);
     detailsHeader.height = 25;
     currentRow++;
 
-    const headers = ['التاريخ', 'الأجور', 'المواد', 'النقل', 'الدخل', 'الإجمالي'];
+    const headers = ['التاريخ', 'الأجور', 'المواد', 'النقل', 'النثريات', 'الدخل', 'الإجمالي'];
     const headerRow = worksheet.getRow(currentRow);
     headers.forEach((header, idx) => {
       headerRow.getCell(idx + 1).value = header;
@@ -1055,13 +1057,14 @@ export async function exportPeriodicReportToExcel(
       row.getCell(2).value = day.wages || 0;
       row.getCell(3).value = day.materials || 0;
       row.getCell(4).value = day.transport || 0;
-      row.getCell(5).value = day.income || 0;
-      row.getCell(6).value = day.total || 0;
+      row.getCell(5).value = day.misc || 0;
+      row.getCell(6).value = day.income || 0;
+      row.getCell(7).value = day.total || 0;
 
       const style = idx % 2 === 0 ? EXCEL_STYLES.tableCell : EXCEL_STYLES.tableCellAlt;
-      applyRowStyle(row, style, 1, 6);
+      applyRowStyle(row, style, 1, 7);
       
-      for (let i = 2; i <= 6; i++) {
+      for (let i = 2; i <= 7; i++) {
         row.getCell(i).numFmt = '#,##0.00';
       }
       row.height = 20;
@@ -1069,7 +1072,7 @@ export async function exportPeriodicReportToExcel(
     });
   }
 
-  addReportFooter(worksheet, currentRow, 6);
+  addReportFooter(worksheet, currentRow, 7);
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { 

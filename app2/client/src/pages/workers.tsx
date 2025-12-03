@@ -97,7 +97,7 @@ const FinancialStatsFooter = ({
         <div className="flex items-center justify-center gap-1 text-yellow-600 dark:text-yellow-400 mb-1">
           <ArrowDownCircle className="h-3 w-3" />
         </div>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400">السحوبات</p>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400">السحبيات</p>
         <p className="text-xs font-bold text-yellow-600 dark:text-yellow-400">
           {isLoading ? '...' : formatCurrency(totalWithdrawals)}
         </p>

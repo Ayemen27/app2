@@ -15,11 +15,11 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-var __copyProps = (to, from, except, desc8) => {
+var __copyProps = (to, from, except, desc9) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc8 = __getOwnPropDesc(from, key)) || desc8.enumerable });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc9 = __getOwnPropDesc(from, key)) || desc9.enumerable });
   }
   return to;
 };
@@ -2569,9 +2569,9 @@ var init_NotificationService = __esm({
           try {
             const defaultUser = await db.query.users.findFirst({
               columns: { id: true },
-              where: (users2, { eq: eq12, or: or4 }) => or4(
-                eq12(users2.role, "admin"),
-                eq12(users2.email, "admin")
+              where: (users2, { eq: eq13, or: or4 }) => or4(
+                eq13(users2.role, "admin"),
+                eq13(users2.email, "admin")
               )
             });
             return defaultUser ? [defaultUser.id] : [];
@@ -2590,9 +2590,9 @@ var init_NotificationService = __esm({
             return true;
           }
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq12, or: or4 }) => or4(
-              eq12(users2.id, userId),
-              eq12(users2.email, userId)
+            where: (users2, { eq: eq13, or: or4 }) => or4(
+              eq13(users2.id, userId),
+              eq13(users2.email, userId)
             )
           });
           if (!user) {
@@ -2614,9 +2614,9 @@ var init_NotificationService = __esm({
       async getAllowedNotificationTypes(userId) {
         try {
           const user = await db.query.users.findFirst({
-            where: (users2, { eq: eq12, or: or4 }) => or4(
-              eq12(users2.id, userId),
-              eq12(users2.email, userId)
+            where: (users2, { eq: eq13, or: or4 }) => or4(
+              eq13(users2.id, userId),
+              eq13(users2.email, userId)
             )
           });
           if (!user) {
@@ -2972,7 +2972,7 @@ var init_NotificationService = __esm({
 });
 
 // server/index.ts
-import express11 from "express";
+import express12 from "express";
 import cors from "cors";
 import helmet from "helmet";
 
@@ -6809,7 +6809,7 @@ healthRouter.get("/status", (req, res) => {
 });
 healthRouter.get("/schema-check", requireAuth2, requireRole3("admin"), async (req, res) => {
   try {
-    const sql9 = (query) => query.join("");
+    const sql10 = (query) => query.join("");
     const dbTablesResult = await db.execute(`
       SELECT table_name 
       FROM information_schema.tables 
@@ -11750,6 +11750,693 @@ notificationRouter.get("/test/stats", requireRole("admin"), async (req, res) => 
 console.log("\u2705 [NotificationRoutes] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0633\u0627\u0631\u0627\u062A \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0645\u0639 \u0627\u0644\u0645\u0646\u0637\u0642 \u0627\u0644\u0643\u0627\u0645\u0644");
 var notificationRoutes_default = notificationRouter;
 
+// server/routes/modules/reportRoutes.ts
+init_db();
+init_schema();
+import express11 from "express";
+import { eq as eq12, and as and11, sql as sql9, gte as gte7, lte as lte4, desc as desc8, asc } from "drizzle-orm";
+var reportRouter = express11.Router();
+reportRouter.use(requireAuth);
+reportRouter.get("/reports/daily", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, date: date2 } = req.query;
+    if (!projectId || !date2) {
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0648\u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0645\u0637\u0644\u0648\u0628\u0627\u0646",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const dateStr = date2;
+    const attendanceData = await db.select({
+      workerId: workerAttendance.workerId,
+      workerName: workers.name,
+      workerType: workers.type,
+      workDays: workerAttendance.workDays,
+      dailyWage: workerAttendance.dailyWage,
+      actualWage: workerAttendance.actualWage,
+      paidAmount: workerAttendance.paidAmount,
+      remainingAmount: workerAttendance.remainingAmount,
+      workDescription: workerAttendance.workDescription
+    }).from(workerAttendance).leftJoin(workers, eq12(workerAttendance.workerId, workers.id)).where(
+      and11(
+        eq12(workerAttendance.projectId, projectId),
+        eq12(workerAttendance.attendanceDate, dateStr)
+      )
+    );
+    const materialsData = await db.select({
+      id: materialPurchases.id,
+      materialName: materialPurchases.materialName,
+      materialCategory: materialPurchases.materialCategory,
+      quantity: materialPurchases.quantity,
+      unit: materialPurchases.unit,
+      unitPrice: materialPurchases.unitPrice,
+      totalAmount: materialPurchases.totalAmount,
+      paidAmount: materialPurchases.paidAmount,
+      remainingAmount: materialPurchases.remainingAmount,
+      supplierName: materialPurchases.supplierName,
+      purchaseType: materialPurchases.purchaseType
+    }).from(materialPurchases).where(
+      and11(
+        eq12(materialPurchases.projectId, projectId),
+        eq12(materialPurchases.purchaseDate, dateStr)
+      )
+    );
+    const transportData = await db.select({
+      id: transportationExpenses.id,
+      amount: transportationExpenses.amount,
+      description: transportationExpenses.description,
+      workerName: workers.name
+    }).from(transportationExpenses).leftJoin(workers, eq12(transportationExpenses.workerId, workers.id)).where(
+      and11(
+        eq12(transportationExpenses.projectId, projectId),
+        eq12(transportationExpenses.date, dateStr)
+      )
+    );
+    const miscExpensesData = await db.select({
+      id: workerMiscExpenses.id,
+      amount: workerMiscExpenses.amount,
+      description: workerMiscExpenses.description,
+      notes: workerMiscExpenses.notes
+    }).from(workerMiscExpenses).where(
+      and11(
+        eq12(workerMiscExpenses.projectId, projectId),
+        eq12(workerMiscExpenses.date, dateStr)
+      )
+    );
+    const transfersData = await db.select({
+      id: workerTransfers.id,
+      workerName: workers.name,
+      amount: workerTransfers.amount,
+      recipientName: workerTransfers.recipientName,
+      transferMethod: workerTransfers.transferMethod
+    }).from(workerTransfers).leftJoin(workers, eq12(workerTransfers.workerId, workers.id)).where(
+      and11(
+        eq12(workerTransfers.projectId, projectId),
+        eq12(workerTransfers.transferDate, dateStr)
+      )
+    );
+    const fundTransfersData = await db.select({
+      id: fundTransfers.id,
+      amount: fundTransfers.amount,
+      senderName: fundTransfers.senderName,
+      transferType: fundTransfers.transferType,
+      transferNumber: fundTransfers.transferNumber
+    }).from(fundTransfers).where(
+      and11(
+        eq12(fundTransfers.projectId, projectId),
+        sql9`DATE(${fundTransfers.transferDate}) = ${dateStr}`
+      )
+    );
+    const totalWorkerWages = attendanceData.reduce((sum, a) => sum + parseFloat(a.actualWage || "0"), 0);
+    const totalPaidWages = attendanceData.reduce((sum, a) => sum + parseFloat(a.paidAmount || "0"), 0);
+    const totalWorkDays = attendanceData.reduce((sum, a) => sum + parseFloat(a.workDays || "0"), 0);
+    const totalMaterials = materialsData.reduce((sum, m) => sum + parseFloat(m.totalAmount || "0"), 0);
+    const totalTransport = transportData.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+    const totalMiscExpenses = miscExpensesData.reduce((sum, e) => sum + parseFloat(e.amount || "0"), 0);
+    const totalTransfers = transfersData.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+    const totalFundTransfers = fundTransfersData.reduce((sum, f) => sum + parseFloat(f.amount || "0"), 0);
+    const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalTransfers;
+    const balance = totalFundTransfers - totalExpenses;
+    const projectInfo = await db.select().from(projects).where(eq12(projects.id, projectId)).limit(1);
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: {
+        project: projectInfo[0] || null,
+        date: dateStr,
+        summary: {
+          totalWorkers: attendanceData.length,
+          totalWorkDays,
+          totalWorkerWages,
+          totalPaidWages,
+          totalMaterials,
+          totalTransport,
+          totalMiscExpenses,
+          totalTransfers,
+          totalFundTransfers,
+          totalExpenses,
+          balance
+        },
+        kpis: {
+          averageWagePerDay: totalWorkDays > 0 ? totalWorkerWages / totalWorkDays : 0,
+          materialsPercentage: totalExpenses > 0 ? totalMaterials / totalExpenses * 100 : 0,
+          wagesPercentage: totalExpenses > 0 ? totalPaidWages / totalExpenses * 100 : 0,
+          transportPercentage: totalExpenses > 0 ? totalTransport / totalExpenses * 100 : 0
+        },
+        details: {
+          attendance: attendanceData,
+          materials: materialsData,
+          transport: transportData,
+          miscExpenses: miscExpensesData,
+          workerTransfers: transfersData,
+          fundTransfers: fundTransfersData
+        }
+      },
+      processingTime: duration
+    });
+  } catch (error) {
+    console.error("\u274C [Reports] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u064A\u0648\u0645\u064A:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u064A\u0648\u0645\u064A",
+      message: error.message,
+      processingTime: Date.now() - startTime
+    });
+  }
+});
+reportRouter.get("/reports/periodic", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, dateFrom, dateTo, groupBy = "day" } = req.query;
+    if (!projectId || !dateFrom || !dateTo) {
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0648\u0641\u062A\u0631\u0629 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0645\u0637\u0644\u0648\u0628\u0629",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const dateFromStr = dateFrom;
+    const dateToStr = dateTo;
+    const attendanceSummary = await db.select({
+      date: workerAttendance.attendanceDate,
+      totalWorkDays: sql9`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
+      totalWages: sql9`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`,
+      totalPaid: sql9`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
+      workerCount: sql9`COUNT(DISTINCT ${workerAttendance.workerId})`
+    }).from(workerAttendance).where(
+      and11(
+        eq12(workerAttendance.projectId, projectId),
+        gte7(workerAttendance.attendanceDate, dateFromStr),
+        lte4(workerAttendance.attendanceDate, dateToStr)
+      )
+    ).groupBy(workerAttendance.attendanceDate).orderBy(asc(workerAttendance.attendanceDate));
+    const materialsSummary = await db.select({
+      date: materialPurchases.purchaseDate,
+      totalAmount: sql9`COALESCE(SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL)), 0)`,
+      totalPaid: sql9`COALESCE(SUM(CAST(${materialPurchases.paidAmount} AS DECIMAL)), 0)`,
+      purchaseCount: sql9`COUNT(*)`
+    }).from(materialPurchases).where(
+      and11(
+        eq12(materialPurchases.projectId, projectId),
+        gte7(materialPurchases.purchaseDate, dateFromStr),
+        lte4(materialPurchases.purchaseDate, dateToStr)
+      )
+    ).groupBy(materialPurchases.purchaseDate).orderBy(asc(materialPurchases.purchaseDate));
+    const transportSummary = await db.select({
+      date: transportationExpenses.date,
+      totalAmount: sql9`COALESCE(SUM(CAST(${transportationExpenses.amount} AS DECIMAL)), 0)`,
+      tripCount: sql9`COUNT(*)`
+    }).from(transportationExpenses).where(
+      and11(
+        eq12(transportationExpenses.projectId, projectId),
+        gte7(transportationExpenses.date, dateFromStr),
+        lte4(transportationExpenses.date, dateToStr)
+      )
+    ).groupBy(transportationExpenses.date).orderBy(asc(transportationExpenses.date));
+    const fundTransfersSummary = await db.select({
+      date: sql9`DATE(${fundTransfers.transferDate})`,
+      totalAmount: sql9`COALESCE(SUM(CAST(${fundTransfers.amount} AS DECIMAL)), 0)`,
+      transferCount: sql9`COUNT(*)`
+    }).from(fundTransfers).where(
+      and11(
+        eq12(fundTransfers.projectId, projectId),
+        gte7(sql9`DATE(${fundTransfers.transferDate})`, dateFromStr),
+        lte4(sql9`DATE(${fundTransfers.transferDate})`, dateToStr)
+      )
+    ).groupBy(sql9`DATE(${fundTransfers.transferDate})`).orderBy(asc(sql9`DATE(${fundTransfers.transferDate})`));
+    const totalWorkDays = attendanceSummary.reduce((sum, a) => sum + Number(a.totalWorkDays), 0);
+    const totalWages = attendanceSummary.reduce((sum, a) => sum + Number(a.totalWages), 0);
+    const totalPaidWages = attendanceSummary.reduce((sum, a) => sum + Number(a.totalPaid), 0);
+    const totalMaterials = materialsSummary.reduce((sum, m) => sum + Number(m.totalAmount), 0);
+    const totalTransport = transportSummary.reduce((sum, t) => sum + Number(t.totalAmount), 0);
+    const totalFundTransfers = fundTransfersSummary.reduce((sum, f) => sum + Number(f.totalAmount), 0);
+    const uniqueWorkers = Math.max(...attendanceSummary.map((a) => Number(a.workerCount)), 0);
+    const activeDays = attendanceSummary.length;
+    const totalExpenses = totalPaidWages + totalMaterials + totalTransport;
+    const balance = totalFundTransfers - totalExpenses;
+    const totalStats = {
+      totalWorkDays,
+      totalWages,
+      totalPaidWages,
+      totalMaterials,
+      totalTransport,
+      totalFundTransfers,
+      uniqueWorkers,
+      activeDays,
+      totalExpenses,
+      balance
+    };
+    const projectInfo = await db.select().from(projects).where(eq12(projects.id, projectId)).limit(1);
+    const chartData = attendanceSummary.map((day) => {
+      const materialDay = materialsSummary.find((m) => m.date === day.date);
+      const transportDay = transportSummary.find((t) => t.date === day.date);
+      const fundDay = fundTransfersSummary.find((f) => f.date === day.date);
+      return {
+        date: day.date,
+        wages: Number(day.totalPaid),
+        materials: materialDay ? Number(materialDay.totalAmount) : 0,
+        transport: transportDay ? Number(transportDay.totalAmount) : 0,
+        income: fundDay ? Number(fundDay.totalAmount) : 0,
+        total: Number(day.totalPaid) + (materialDay ? Number(materialDay.totalAmount) : 0) + (transportDay ? Number(transportDay.totalAmount) : 0)
+      };
+    });
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: {
+        project: projectInfo[0] || null,
+        period: { from: dateFromStr, to: dateToStr },
+        summary: totalStats,
+        chartData,
+        dailyBreakdown: {
+          attendance: attendanceSummary,
+          materials: materialsSummary,
+          transport: transportSummary,
+          fundTransfers: fundTransfersSummary
+        }
+      },
+      processingTime: duration
+    });
+  } catch (error) {
+    console.error("\u274C [Reports] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u062F\u0648\u0631\u064A:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u062F\u0648\u0631\u064A",
+      message: error.message,
+      processingTime: Date.now() - startTime
+    });
+  }
+});
+reportRouter.get("/reports/project-summary/:projectId", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.params;
+    const { dateFrom, dateTo } = req.query;
+    const projectInfo = await db.select().from(projects).where(eq12(projects.id, projectId)).limit(1);
+    if (!projectInfo.length) {
+      return res.status(404).json({
+        success: false,
+        error: "\u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+        processingTime: Date.now() - startTime
+      });
+    }
+    let dateConditions = [eq12(workerAttendance.projectId, projectId)];
+    if (dateFrom && dateTo) {
+      dateConditions.push(gte7(workerAttendance.attendanceDate, dateFrom));
+      dateConditions.push(lte4(workerAttendance.attendanceDate, dateTo));
+    }
+    const attendanceStats = await db.select({
+      totalWorkDays: sql9`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
+      totalWages: sql9`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`,
+      totalPaid: sql9`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
+      totalRemaining: sql9`COALESCE(SUM(CAST(${workerAttendance.remainingAmount} AS DECIMAL)), 0)`,
+      uniqueWorkers: sql9`COUNT(DISTINCT ${workerAttendance.workerId})`,
+      activeDays: sql9`COUNT(DISTINCT ${workerAttendance.attendanceDate})`
+    }).from(workerAttendance).where(and11(...dateConditions));
+    let materialConditions = [eq12(materialPurchases.projectId, projectId)];
+    if (dateFrom && dateTo) {
+      materialConditions.push(gte7(materialPurchases.purchaseDate, dateFrom));
+      materialConditions.push(lte4(materialPurchases.purchaseDate, dateTo));
+    }
+    const materialsStats = await db.select({
+      totalAmount: sql9`COALESCE(SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL)), 0)`,
+      totalPaid: sql9`COALESCE(SUM(CAST(${materialPurchases.paidAmount} AS DECIMAL)), 0)`,
+      totalRemaining: sql9`COALESCE(SUM(CAST(${materialPurchases.remainingAmount} AS DECIMAL)), 0)`,
+      purchaseCount: sql9`COUNT(*)`
+    }).from(materialPurchases).where(and11(...materialConditions));
+    let transportConditions = [eq12(transportationExpenses.projectId, projectId)];
+    if (dateFrom && dateTo) {
+      transportConditions.push(gte7(transportationExpenses.date, dateFrom));
+      transportConditions.push(lte4(transportationExpenses.date, dateTo));
+    }
+    const transportStats = await db.select({
+      totalAmount: sql9`COALESCE(SUM(CAST(${transportationExpenses.amount} AS DECIMAL)), 0)`,
+      tripCount: sql9`COUNT(*)`
+    }).from(transportationExpenses).where(and11(...transportConditions));
+    const fundTransfersStats = await db.select({
+      totalAmount: sql9`COALESCE(SUM(CAST(${fundTransfers.amount} AS DECIMAL)), 0)`,
+      transferCount: sql9`COUNT(*)`
+    }).from(fundTransfers).where(eq12(fundTransfers.projectId, projectId));
+    const workerTransfersStats = await db.select({
+      totalAmount: sql9`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+      transferCount: sql9`COUNT(*)`
+    }).from(workerTransfers).where(eq12(workerTransfers.projectId, projectId));
+    const totalIncome = Number(fundTransfersStats[0]?.totalAmount || 0);
+    const totalWagesPaid = Number(attendanceStats[0]?.totalPaid || 0);
+    const totalMaterials = Number(materialsStats[0]?.totalAmount || 0);
+    const totalTransport = Number(transportStats[0]?.totalAmount || 0);
+    const totalWorkerTransfers = Number(workerTransfersStats[0]?.totalAmount || 0);
+    const totalExpenses = totalWagesPaid + totalMaterials + totalTransport + totalWorkerTransfers;
+    const currentBalance = totalIncome - totalExpenses;
+    const expenseBreakdown = [
+      { name: "\u0623\u062C\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644", value: totalWagesPaid, color: "#3B82F6" },
+      { name: "\u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F", value: totalMaterials, color: "#10B981" },
+      { name: "\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644", value: totalTransport, color: "#F59E0B" },
+      { name: "\u062D\u0648\u0627\u0644\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644", value: totalWorkerTransfers, color: "#EF4444" }
+    ].filter((item) => item.value > 0);
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: {
+        project: projectInfo[0],
+        period: dateFrom && dateTo ? { from: dateFrom, to: dateTo } : "all",
+        financial: {
+          totalIncome,
+          totalExpenses,
+          currentBalance,
+          profitMargin: totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome * 100).toFixed(2) : 0
+        },
+        categories: {
+          wages: {
+            total: Number(attendanceStats[0]?.totalWages || 0),
+            paid: totalWagesPaid,
+            remaining: Number(attendanceStats[0]?.totalRemaining || 0)
+          },
+          materials: {
+            total: totalMaterials,
+            paid: Number(materialsStats[0]?.totalPaid || 0),
+            remaining: Number(materialsStats[0]?.totalRemaining || 0),
+            purchaseCount: Number(materialsStats[0]?.purchaseCount || 0)
+          },
+          transport: {
+            total: totalTransport,
+            tripCount: Number(transportStats[0]?.tripCount || 0)
+          },
+          workerTransfers: {
+            total: totalWorkerTransfers,
+            count: Number(workerTransfersStats[0]?.transferCount || 0)
+          },
+          fundTransfers: {
+            total: totalIncome,
+            count: Number(fundTransfersStats[0]?.transferCount || 0)
+          }
+        },
+        workforce: {
+          uniqueWorkers: Number(attendanceStats[0]?.uniqueWorkers || 0),
+          totalWorkDays: Number(attendanceStats[0]?.totalWorkDays || 0),
+          activeDays: Number(attendanceStats[0]?.activeDays || 0),
+          avgWorkersPerDay: Number(attendanceStats[0]?.activeDays || 0) > 0 ? (Number(attendanceStats[0]?.totalWorkDays || 0) / Number(attendanceStats[0]?.activeDays || 0)).toFixed(2) : 0
+        },
+        charts: {
+          expenseBreakdown
+        }
+      },
+      processingTime: duration
+    });
+  } catch (error) {
+    console.error("\u274C [Reports] \u062E\u0637\u0623 \u0641\u064A \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0634\u0631\u0648\u0639",
+      message: error.message,
+      processingTime: Date.now() - startTime
+    });
+  }
+});
+reportRouter.get("/reports/projects-comparison", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectIds, dateFrom, dateTo } = req.query;
+    if (!projectIds) {
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641\u0627\u062A \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0645\u0637\u0644\u0648\u0628\u0629",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const projectIdArray = projectIds.split(",");
+    const comparisonData = await Promise.all(
+      projectIdArray.map(async (projectId) => {
+        const projectInfo = await db.select().from(projects).where(eq12(projects.id, projectId)).limit(1);
+        if (!projectInfo.length) return null;
+        let dateConditions = [eq12(workerAttendance.projectId, projectId)];
+        if (dateFrom && dateTo) {
+          dateConditions.push(gte7(workerAttendance.attendanceDate, dateFrom));
+          dateConditions.push(lte4(workerAttendance.attendanceDate, dateTo));
+        }
+        const attendanceStats = await db.select({
+          totalWorkDays: sql9`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
+          totalPaid: sql9`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
+          workerCount: sql9`COUNT(DISTINCT ${workerAttendance.workerId})`
+        }).from(workerAttendance).where(and11(...dateConditions));
+        let materialConditions = [eq12(materialPurchases.projectId, projectId)];
+        if (dateFrom && dateTo) {
+          materialConditions.push(gte7(materialPurchases.purchaseDate, dateFrom));
+          materialConditions.push(lte4(materialPurchases.purchaseDate, dateTo));
+        }
+        const materialsStats = await db.select({
+          total: sql9`COALESCE(SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL)), 0)`
+        }).from(materialPurchases).where(and11(...materialConditions));
+        let transportConditions = [eq12(transportationExpenses.projectId, projectId)];
+        if (dateFrom && dateTo) {
+          transportConditions.push(gte7(transportationExpenses.date, dateFrom));
+          transportConditions.push(lte4(transportationExpenses.date, dateTo));
+        }
+        const transportStats = await db.select({
+          total: sql9`COALESCE(SUM(CAST(${transportationExpenses.amount} AS DECIMAL)), 0)`
+        }).from(transportationExpenses).where(and11(...transportConditions));
+        const fundStats = await db.select({
+          total: sql9`COALESCE(SUM(CAST(${fundTransfers.amount} AS DECIMAL)), 0)`
+        }).from(fundTransfers).where(eq12(fundTransfers.projectId, projectId));
+        const totalIncome = Number(fundStats[0]?.total || 0);
+        const totalWages = Number(attendanceStats[0]?.totalPaid || 0);
+        const totalMaterials = Number(materialsStats[0]?.total || 0);
+        const totalTransport = Number(transportStats[0]?.total || 0);
+        const totalExpenses = totalWages + totalMaterials + totalTransport;
+        return {
+          project: projectInfo[0],
+          metrics: {
+            income: totalIncome,
+            expenses: totalExpenses,
+            balance: totalIncome - totalExpenses,
+            wages: totalWages,
+            materials: totalMaterials,
+            transport: totalTransport,
+            workers: Number(attendanceStats[0]?.workerCount || 0),
+            workDays: Number(attendanceStats[0]?.totalWorkDays || 0)
+          }
+        };
+      })
+    );
+    const validData = comparisonData.filter((d) => d !== null);
+    const chartData = validData.map((item) => ({
+      name: item.project.name,
+      income: item.metrics.income,
+      expenses: item.metrics.expenses,
+      balance: item.metrics.balance
+    }));
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: {
+        period: dateFrom && dateTo ? { from: dateFrom, to: dateTo } : "all",
+        projects: validData,
+        chartData,
+        totals: {
+          totalIncome: validData.reduce((sum, p) => sum + p.metrics.income, 0),
+          totalExpenses: validData.reduce((sum, p) => sum + p.metrics.expenses, 0),
+          totalBalance: validData.reduce((sum, p) => sum + p.metrics.balance, 0)
+        }
+      },
+      processingTime: duration
+    });
+  } catch (error) {
+    console.error("\u274C [Reports] \u062E\u0637\u0623 \u0641\u064A \u0645\u0642\u0627\u0631\u0646\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0645\u0642\u0627\u0631\u0646\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639",
+      message: error.message,
+      processingTime: Date.now() - startTime
+    });
+  }
+});
+reportRouter.get("/reports/worker-statement/:workerId", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { workerId } = req.params;
+    const { projectId, dateFrom, dateTo } = req.query;
+    const workerInfo = await db.select().from(workers).where(eq12(workers.id, workerId)).limit(1);
+    if (!workerInfo.length) {
+      return res.status(404).json({
+        success: false,
+        error: "\u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+        processingTime: Date.now() - startTime
+      });
+    }
+    let conditions = [eq12(workerAttendance.workerId, workerId)];
+    if (projectId) {
+      conditions.push(eq12(workerAttendance.projectId, projectId));
+    }
+    if (dateFrom) {
+      conditions.push(gte7(workerAttendance.attendanceDate, dateFrom));
+    }
+    if (dateTo) {
+      conditions.push(lte4(workerAttendance.attendanceDate, dateTo));
+    }
+    const attendanceRecords = await db.select({
+      id: workerAttendance.id,
+      date: workerAttendance.attendanceDate,
+      projectId: workerAttendance.projectId,
+      projectName: projects.name,
+      workDays: workerAttendance.workDays,
+      dailyWage: workerAttendance.dailyWage,
+      actualWage: workerAttendance.actualWage,
+      paidAmount: workerAttendance.paidAmount,
+      remainingAmount: workerAttendance.remainingAmount,
+      workDescription: workerAttendance.workDescription
+    }).from(workerAttendance).leftJoin(projects, eq12(workerAttendance.projectId, projects.id)).where(and11(...conditions)).orderBy(desc8(workerAttendance.attendanceDate));
+    let transferConditions = [eq12(workerTransfers.workerId, workerId)];
+    if (projectId) {
+      transferConditions.push(eq12(workerTransfers.projectId, projectId));
+    }
+    if (dateFrom) {
+      transferConditions.push(gte7(workerTransfers.transferDate, dateFrom));
+    }
+    if (dateTo) {
+      transferConditions.push(lte4(workerTransfers.transferDate, dateTo));
+    }
+    const transfers = await db.select({
+      id: workerTransfers.id,
+      date: workerTransfers.transferDate,
+      projectName: projects.name,
+      amount: workerTransfers.amount,
+      recipientName: workerTransfers.recipientName,
+      transferMethod: workerTransfers.transferMethod,
+      notes: workerTransfers.notes
+    }).from(workerTransfers).leftJoin(projects, eq12(workerTransfers.projectId, projects.id)).where(and11(...transferConditions)).orderBy(desc8(workerTransfers.transferDate));
+    const totalWorkDays = attendanceRecords.reduce((sum, r) => sum + parseFloat(r.workDays || "0"), 0);
+    const totalEarned = attendanceRecords.reduce((sum, r) => sum + parseFloat(r.actualWage || "0"), 0);
+    const totalPaid = attendanceRecords.reduce((sum, r) => sum + parseFloat(r.paidAmount || "0"), 0);
+    const totalTransfers = transfers.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+    const remainingBalance = totalEarned - totalPaid - totalTransfers;
+    const chartData = attendanceRecords.map((r) => ({
+      date: r.date,
+      earned: parseFloat(r.actualWage || "0"),
+      paid: parseFloat(r.paidAmount || "0"),
+      workDays: parseFloat(r.workDays || "0")
+    })).reverse();
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: {
+        worker: workerInfo[0],
+        period: {
+          from: dateFrom || "all",
+          to: dateTo || "all"
+        },
+        summary: {
+          totalWorkDays,
+          totalEarned,
+          totalPaid,
+          totalTransfers,
+          remainingBalance
+        },
+        attendance: attendanceRecords,
+        transfers,
+        chartData
+      },
+      processingTime: duration
+    });
+  } catch (error) {
+    console.error("\u274C [Reports] \u062E\u0637\u0623 \u0641\u064A \u0628\u064A\u0627\u0646 \u0627\u0644\u0639\u0627\u0645\u0644:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0628\u064A\u0627\u0646 \u0627\u0644\u0639\u0627\u0645\u0644",
+      message: error.message,
+      processingTime: Date.now() - startTime
+    });
+  }
+});
+reportRouter.get("/reports/dashboard-kpis", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.query;
+    const today = /* @__PURE__ */ new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split("T")[0];
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split("T")[0];
+    const todayStr = today.toISOString().split("T")[0];
+    let projectCondition = projectId ? eq12(workerAttendance.projectId, projectId) : sql9`1=1`;
+    const todayStats = await db.select({
+      workerCount: sql9`COUNT(DISTINCT ${workerAttendance.workerId})`,
+      totalWorkDays: sql9`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
+      totalPaid: sql9`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(
+      and11(
+        projectCondition,
+        eq12(workerAttendance.attendanceDate, todayStr)
+      )
+    );
+    const monthStats = await db.select({
+      workerCount: sql9`COUNT(DISTINCT ${workerAttendance.workerId})`,
+      totalWorkDays: sql9`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
+      totalWages: sql9`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`,
+      totalPaid: sql9`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
+      activeDays: sql9`COUNT(DISTINCT ${workerAttendance.attendanceDate})`
+    }).from(workerAttendance).where(
+      and11(
+        projectCondition,
+        gte7(workerAttendance.attendanceDate, startOfMonth),
+        lte4(workerAttendance.attendanceDate, endOfMonth)
+      )
+    );
+    let materialProjectCondition = projectId ? eq12(materialPurchases.projectId, projectId) : sql9`1=1`;
+    const monthMaterials = await db.select({
+      total: sql9`COALESCE(SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL)), 0)`
+    }).from(materialPurchases).where(
+      and11(
+        materialProjectCondition,
+        gte7(materialPurchases.purchaseDate, startOfMonth),
+        lte4(materialPurchases.purchaseDate, endOfMonth)
+      )
+    );
+    const activeProjects = await db.select({
+      count: sql9`COUNT(*)`
+    }).from(projects).where(eq12(projects.status, "active"));
+    const activeWorkers = await db.select({
+      count: sql9`COUNT(*)`
+    }).from(workers).where(eq12(workers.isActive, true));
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: {
+        today: {
+          workers: Number(todayStats[0]?.workerCount || 0),
+          workDays: Number(todayStats[0]?.totalWorkDays || 0),
+          expenses: Number(todayStats[0]?.totalPaid || 0)
+        },
+        month: {
+          workers: Number(monthStats[0]?.workerCount || 0),
+          workDays: Number(monthStats[0]?.totalWorkDays || 0),
+          wages: Number(monthStats[0]?.totalWages || 0),
+          paid: Number(monthStats[0]?.totalPaid || 0),
+          materials: Number(monthMaterials[0]?.total || 0),
+          activeDays: Number(monthStats[0]?.activeDays || 0)
+        },
+        overall: {
+          activeProjects: Number(activeProjects[0]?.count || 0),
+          activeWorkers: Number(activeWorkers[0]?.count || 0)
+        },
+        period: {
+          today: todayStr,
+          monthStart: startOfMonth,
+          monthEnd: endOfMonth
+        }
+      },
+      processingTime: duration
+    });
+  } catch (error) {
+    console.error("\u274C [Reports] \u062E\u0637\u0623 \u0641\u064A \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A KPIs:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A KPIs",
+      message: error.message,
+      processingTime: Date.now() - startTime
+    });
+  }
+});
+
 // server/routes/modules/index.ts
 function registerOrganizedRoutes(app2) {
   console.log("\u{1F3D7}\uFE0F [OrganizedRoutes] \u0628\u062F\u0621 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0646\u0638\u0645\u0629...");
@@ -11759,6 +12446,7 @@ function registerOrganizedRoutes(app2) {
   app2.use("/api/projects", projectRoutes_default);
   app2.use("/api", workerRoutes_default);
   app2.use("/api", financialRoutes_default);
+  app2.use("/api", reportRouter);
   app2.use("/api/notifications", notificationRoutes_default);
   console.log("\u2705 [OrganizedRoutes] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0646\u0638\u0645\u0629 \u0628\u0646\u062C\u0627\u062D");
   const routeSummary = {
@@ -12186,7 +12874,7 @@ var performanceHeaders = (req, res, next) => {
 // server/index.ts
 import http from "http";
 import { Server } from "socket.io";
-var app = express11();
+var app = express12();
 var getCSPDirectives = () => {
   const isProduction2 = process.env.NODE_ENV === "production";
   const scriptSources = ["'self'", "'unsafe-inline'", "'unsafe-eval'"];
@@ -12250,7 +12938,7 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 }));
 app.set("trust proxy", 1);
-app.use(express11.json({ limit: "1mb" }));
+app.use(express12.json({ limit: "1mb" }));
 app.use(compressionMiddleware);
 app.use(performanceHeaders);
 app.use(generalRateLimit);

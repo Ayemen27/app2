@@ -61,7 +61,6 @@ import {
   GitCompare
 } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import ProjectSelector from "@/components/project-selector";
 import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { 
@@ -352,9 +351,6 @@ export default function ProfessionalReports() {
                   <Printer className="h-4 w-4" />
                   <span className="hidden sm:inline">طباعة</span>
                 </Button>
-                <div className="w-48">
-                  <ProjectSelector onProjectChange={() => {}} />
-                </div>
               </div>
             </div>
           </div>

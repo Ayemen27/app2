@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import ProjectSelector from "@/components/project-selector";
 import EnhancedWorkerCard from "@/components/enhanced-worker-card";
 import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -741,21 +740,6 @@ export default function WorkerAttendance() {
           actions={[]}
         />
       )}
-
-      <Card className="mb-4">
-        <CardContent className="p-4">
-          <h2 className="text-lg font-bold text-foreground flex items-center">
-            <ChartGantt className="ml-2 h-5 w-5 text-primary" />
-            اختر المشروع
-          </h2>
-          <ProjectSelector
-            selectedProjectId={selectedProjectId}
-            onProjectChange={(projectId, projectName) => selectProject(projectId, projectName)}
-            showHeader={false}
-            variant="compact"
-          />
-        </CardContent>
-      </Card>
 
       {/* Date Selection */}
       <Card className="mb-4">

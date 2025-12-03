@@ -35,7 +35,6 @@ import {
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input-database';
-import ProjectSelector from '@/components/project-selector';
 import { UnifiedSearchFilter } from '@/components/ui/unified-search-filter';
 import '@/styles/unified-print-styles.css';
 

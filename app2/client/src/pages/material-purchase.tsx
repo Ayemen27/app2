@@ -14,7 +14,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import ProjectSelector from "@/components/project-selector";
 import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { apiRequest } from "@/lib/queryClient";
@@ -792,21 +791,6 @@ export default function MaterialPurchase() {
           </CardContent>
         </Card>
       )}
-
-      <Card className="mb-4">
-        <CardContent className="p-4">
-          <h2 className="text-lg font-bold text-foreground flex items-center">
-            <ChartGantt className="ml-2 h-5 w-5 text-primary" />
-            {editingPurchaseId ? "تعديل مشترية المواد" : "اختر المشروع"}
-          </h2>
-          <ProjectSelector
-            selectedProjectId={selectedProjectId}
-            onProjectChange={(projectId, projectName) => selectProject(projectId, projectName)}
-            showHeader={false}
-            variant="compact"
-          />
-        </CardContent>
-      </Card>
 
       {/* Purchase Form */}
       <Collapsible open={!isFormCollapsed} onOpenChange={(open) => setIsFormCollapsed(!open)}>

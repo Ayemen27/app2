@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import { DollarSign, TrendingDown, TrendingUp, Calendar, Package, UserCheck, Plus } from "lucide-react";
 import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import ProjectSelector from "@/components/project-selector";
 import { QuickActionsGrid } from "@/components/ui/quick-actions-grid";
 
 import { formatDate } from "@/lib/utils";
@@ -275,11 +274,6 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 fade-in space-y-4">
-      <ProjectSelector
-        selectedProjectId={selectedProjectId}
-        onProjectChange={(projectId, projectName) => selectProject(projectId, projectName)}
-      />
-
       {selectedProject && (
         <div className="mb-4">
           <UnifiedStats

@@ -22,7 +22,6 @@ import {
   Truck
 } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import ProjectSelector from "@/components/project-selector";
 import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import "@/styles/excel-print-styles.css";
@@ -357,10 +356,7 @@ export default function Reports() {
               </div>
             </div>
             <h2 className="text-xl font-bold text-gray-900">اختر مشروعاً</h2>
-            <p className="text-sm text-gray-600">يرجى اختيار مشروع من القائمة لعرض التقارير المالية والإحصائيات</p>
-            <div className="pt-4">
-              <ProjectSelector onProjectChange={() => {}} />
-            </div>
+            <p className="text-sm text-gray-600">يرجى اختيار مشروع من أيقونة المجلد في الشريط العلوي لعرض التقارير</p>
           </CardContent>
         </Card>
       </div>
@@ -382,9 +378,6 @@ export default function Reports() {
                   <h1 className="text-lg md:text-2xl font-bold text-gray-900">{selectedProject?.name}</h1>
                   <p className="text-xs md:text-sm text-gray-500">التقارير والإحصائيات</p>
                 </div>
-              </div>
-              <div className="w-full md:w-auto">
-                <ProjectSelector onProjectChange={() => {}} />
               </div>
             </div>
           </div>

@@ -1,19 +1,24 @@
-import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield } from "lucide-react";
+import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useAuth } from "@/components/AuthProvider";
+import { useQuery } from "@tanstack/react-query";
+import { useSelectedProject } from "@/hooks/use-selected-project";
+import { apiRequest } from "@/lib/queryClient";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import type { Project } from "@shared/schema";
 
-// مطابقة الصفحات مع العناوين والأيقونات
 const pageInfo: Record<string, { title: string; icon: any }> = {
   '/': { title: 'لوحة التحكم', icon: Home },
   '/projects': { title: 'إدارة المشاريع', icon: Building2 },
@@ -38,10 +43,52 @@ export default function Header() {
   const { user, logout, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { selectedProjectId, selectedProjectName, selectProject, clearProject } = useSelectedProject();
   
-  // الحصول على معلومات الصفحة الحالية
+  const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+    queryFn: async () => {
+      try {
+        const data = await apiRequest('/api/projects', 'GET');
+        let projectsList = [];
+        if (data && typeof data === 'object') {
+          if (data.success !== undefined && data.data !== undefined) {
+            projectsList = Array.isArray(data.data) ? data.data : [];
+          } else if (Array.isArray(data)) {
+            projectsList = data;
+          } else if (data.id) {
+            projectsList = [data];
+          }
+        }
+        return projectsList as Project[];
+      } catch (error) {
+        console.error('خطأ في جلب المشاريع:', error);
+        return [] as Project[];
+      }
+    },
+    staleTime: 300000,
+    retry: 2,
+    refetchOnWindowFocus: false,
+  });
+
   const currentPage = pageInfo[location] || { title: 'إدارة المشاريع الإنشائية', icon: HardHat };
   const PageIcon = currentPage.icon;
+
+  const handleProjectSelect = (projectId: string, projectName: string) => {
+    selectProject(projectId, projectName);
+    toast({
+      title: "تم تحديد المشروع",
+      description: `المشروع: ${projectName}`,
+    });
+  };
+
+  const handleClearProject = () => {
+    clearProject();
+    toast({
+      title: "تم إلغاء تحديد المشروع",
+      description: "يرجى اختيار مشروع جديد",
+    });
+  };
 
   return (
     <header className="bg-primary text-primary-foreground shadow-lg h-14 md:h-16 flex-shrink-0 border-b-2 border-primary-foreground/10">
@@ -52,6 +99,90 @@ export default function Header() {
             <h1 className="text-base md:text-lg font-bold truncate">{currentPage.title}</h1>
           </div>
           <div className="flex items-center space-x-reverse space-x-1 md:space-x-2">
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="p-2 rounded-full hover:bg-primary/80 relative"
+                  title={selectedProjectName || "اختيار المشروع"}
+                >
+                  <FolderOpen className="h-4 w-4 md:h-5 md:w-5" />
+                  {selectedProjectId && (
+                    <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full w-2.5 h-2.5 border-2 border-primary" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
+                <DropdownMenuLabel className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    اختيار المشروع
+                  </span>
+                  {selectedProjectId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleClearProject();
+                      }}
+                      title="إلغاء تحديد المشروع"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                
+                {selectedProjectName && (
+                  <>
+                    <div className="px-2 py-1.5 bg-primary/10 rounded mx-1 mb-1">
+                      <p className="text-xs text-muted-foreground">المشروع الحالي:</p>
+                      <p className="text-sm font-medium text-primary truncate">{selectedProjectName}</p>
+                    </div>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                
+                {projectsLoading ? (
+                  <div className="px-3 py-4 text-center text-muted-foreground text-sm">
+                    جاري التحميل...
+                  </div>
+                ) : projects.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-muted-foreground text-sm">
+                    لا توجد مشاريع
+                  </div>
+                ) : (
+                  projects.map((project) => (
+                    <DropdownMenuItem
+                      key={project.id}
+                      className="cursor-pointer flex items-center justify-between gap-2 py-2"
+                      onClick={() => handleProjectSelect(project.id, project.name)}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <Building2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                        <span className="truncate">{project.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Badge 
+                          variant={project.status === 'active' ? 'default' : 'secondary'}
+                          className="text-[10px] px-1.5 py-0"
+                        >
+                          {project.status === 'active' ? 'نشط' : 'مكتمل'}
+                        </Badge>
+                        {selectedProjectId === project.id && (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button 
               variant="ghost" 
               size="sm" 
@@ -63,7 +194,6 @@ export default function Header() {
             </Button>
             <NotificationCenter />
             
-            {/* قائمة المستخدم المنسدلة */}
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

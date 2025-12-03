@@ -19,7 +19,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import ProjectSelector from "@/components/project-selector";
 import ExpenseSummary from "@/components/expense-summary";
 import WorkerMiscExpenses from "./worker-misc-expenses";
 import { getCurrentDate, formatCurrency, formatDate, cleanNumber } from "@/lib/utils";
@@ -1229,11 +1228,6 @@ function DailyExpensesContent() {
 
   return (
     <div className="p-4 slide-in">
-
-      <ProjectSelector
-        selectedProjectId={selectedProjectId}
-        onProjectChange={(projectId, projectName) => selectProject(projectId, projectName)}
-      />
 
       {/* Data Overview Indicator */}
       {selectedProjectId && (

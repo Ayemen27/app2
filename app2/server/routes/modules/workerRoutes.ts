@@ -1783,8 +1783,22 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     .from(workerTransfers)
     .where(eq(workerTransfers.workerId, workerId));
     
-    const totalTransfers = Number(totalTransfersResult[0]?.totalTransfers) || 0;
+    const totalTransfersOnly = Number(totalTransfersResult[0]?.totalTransfers) || 0;
     const transfersCount = Number(totalTransfersResult[0]?.transfersCount) || 0;
+    
+    // حساب إجمالي الأجور المدفوعة من جدول workerAttendance (paidAmount)
+    const totalPaidWagesResult = await db.select({
+      totalPaidWages: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.paidAmount}, '0') AS DECIMAL)), 0)`
+    })
+    .from(workerAttendance)
+    .where(eq(workerAttendance.workerId, workerId));
+    
+    const totalPaidWages = Number(totalPaidWagesResult[0]?.totalPaidWages) || 0;
+    console.log(`💰 [API] إجمالي الأجور المدفوعة (paidAmount) للعامل ${workerId}: ${totalPaidWages}`);
+    
+    // إجمالي السحبيات = التحويلات + الأجور المدفوعة
+    const totalTransfers = totalTransfersOnly + totalPaidWages;
+    console.log(`💰 [API] إجمالي السحبيات (تحويلات ${totalTransfersOnly} + أجور ${totalPaidWages}): ${totalTransfers}`);
     
     // حساب عدد المشاريع التي عمل بها العامل
     const projectsWorkedResult = await db.select({

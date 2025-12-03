@@ -12935,6 +12935,8 @@ var performanceHeaders = (req, res, next) => {
 };
 
 // server/index.ts
+init_db();
+init_schema();
 import http from "http";
 import { Server } from "socket.io";
 var app = express12();
@@ -13034,6 +13036,38 @@ app.use("/api/auth", auth_default2);
 app.use("/api/permissions", permissionsRouter);
 app.use(sshRoutes_default);
 initializeRouteOrganizer(app);
+app.get("/api/users/list", requireAuth, async (req, res) => {
+  try {
+    console.log("\u{1F4CA} [API] \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646");
+    const usersList = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      role: users.role
+    }).from(users).orderBy(users.firstName);
+    const usersWithName = usersList.map((user) => ({
+      id: user.id,
+      name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
+      email: user.email,
+      role: user.role
+    }));
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${usersWithName.length} \u0645\u0633\u062A\u062E\u062F\u0645`);
+    res.json({
+      success: true,
+      data: usersWithName,
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${usersWithName.length} \u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0646\u062C\u0627\u062D`
+    });
+  } catch (error) {
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646:", error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646"
+    });
+  }
+});
 app.use((err, _req, res, _next) => {
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";

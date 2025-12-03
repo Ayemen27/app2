@@ -9534,8 +9534,15 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
       totalTransfers: sql6`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
       transfersCount: sql6`COUNT(*)`
     }).from(workerTransfers).where(eq8(workerTransfers.workerId, workerId));
-    const totalTransfers = Number(totalTransfersResult[0]?.totalTransfers) || 0;
+    const totalTransfersOnly = Number(totalTransfersResult[0]?.totalTransfers) || 0;
     const transfersCount = Number(totalTransfersResult[0]?.transfersCount) || 0;
+    const totalPaidWagesResult = await db.select({
+      totalPaidWages: sql6`COALESCE(SUM(CAST(COALESCE(${workerAttendance.paidAmount}, '0') AS DECIMAL)), 0)`
+    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));
+    const totalPaidWages = Number(totalPaidWagesResult[0]?.totalPaidWages) || 0;
+    console.log(`\u{1F4B0} [API] \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0623\u062C\u0648\u0631 \u0627\u0644\u0645\u062F\u0641\u0648\u0639\u0629 (paidAmount) \u0644\u0644\u0639\u0627\u0645\u0644 ${workerId}: ${totalPaidWages}`);
+    const totalTransfers = totalTransfersOnly + totalPaidWages;
+    console.log(`\u{1F4B0} [API] \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0633\u062D\u0628\u064A\u0627\u062A (\u062A\u062D\u0648\u064A\u0644\u0627\u062A ${totalTransfersOnly} + \u0623\u062C\u0648\u0631 ${totalPaidWages}): ${totalTransfers}`);
     const projectsWorkedResult = await db.select({
       projectsCount: sql6`COUNT(DISTINCT ${workerAttendance.projectId})`
     }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));

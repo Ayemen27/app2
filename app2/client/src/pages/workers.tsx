@@ -148,7 +148,7 @@ const WorkerCardWrapper = ({
       title={worker.name}
       subtitle={worker.hireDate ? new Date(worker.hireDate).toLocaleDateString('en-GB') : undefined}
       titleIcon={User}
-      headerColor={worker.isActive ? '#22c55e' : '#9ca3af'}
+      headerColor={worker.isActive ? '#22c55e' : '#ef4444'}
       badges={[
         {
           label: worker.type,

@@ -11968,15 +11968,27 @@ reportRouter.get("/reports/periodic", async (req, res) => {
         lte4(sql9`DATE(${fundTransfers.transferDate})`, dateToStr)
       )
     ).groupBy(sql9`DATE(${fundTransfers.transferDate})`).orderBy(asc(sql9`DATE(${fundTransfers.transferDate})`));
+    const miscExpensesSummary = await db.select({
+      date: workerMiscExpenses.date,
+      totalAmount: sql9`COALESCE(SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL)), 0)`,
+      expenseCount: sql9`COUNT(*)`
+    }).from(workerMiscExpenses).where(
+      and11(
+        eq12(workerMiscExpenses.projectId, projectId),
+        gte7(workerMiscExpenses.date, dateFromStr),
+        lte4(workerMiscExpenses.date, dateToStr)
+      )
+    ).groupBy(workerMiscExpenses.date).orderBy(asc(workerMiscExpenses.date));
     const totalWorkDays = attendanceSummary.reduce((sum, a) => sum + Number(a.totalWorkDays), 0);
     const totalWages = attendanceSummary.reduce((sum, a) => sum + Number(a.totalWages), 0);
     const totalPaidWages = attendanceSummary.reduce((sum, a) => sum + Number(a.totalPaid), 0);
     const totalMaterials = materialsSummary.reduce((sum, m) => sum + Number(m.totalAmount), 0);
     const totalTransport = transportSummary.reduce((sum, t) => sum + Number(t.totalAmount), 0);
     const totalFundTransfers = fundTransfersSummary.reduce((sum, f) => sum + Number(f.totalAmount), 0);
+    const totalMiscExpenses = miscExpensesSummary.reduce((sum, e) => sum + Number(e.totalAmount), 0);
     const uniqueWorkers = Math.max(...attendanceSummary.map((a) => Number(a.workerCount)), 0);
     const activeDays = attendanceSummary.length;
-    const totalExpenses = totalPaidWages + totalMaterials + totalTransport;
+    const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses;
     const balance = totalFundTransfers - totalExpenses;
     const totalStats = {
       totalWorkDays,
@@ -11984,6 +11996,7 @@ reportRouter.get("/reports/periodic", async (req, res) => {
       totalPaidWages,
       totalMaterials,
       totalTransport,
+      totalMiscExpenses,
       totalFundTransfers,
       uniqueWorkers,
       activeDays,
@@ -11995,13 +12008,18 @@ reportRouter.get("/reports/periodic", async (req, res) => {
       const materialDay = materialsSummary.find((m) => m.date === day.date);
       const transportDay = transportSummary.find((t) => t.date === day.date);
       const fundDay = fundTransfersSummary.find((f) => f.date === day.date);
+      const miscDay = miscExpensesSummary.find((e) => e.date === day.date);
+      const miscAmount = miscDay ? Number(miscDay.totalAmount) : 0;
+      const materialAmount = materialDay ? Number(materialDay.totalAmount) : 0;
+      const transportAmount = transportDay ? Number(transportDay.totalAmount) : 0;
       return {
         date: day.date,
         wages: Number(day.totalPaid),
-        materials: materialDay ? Number(materialDay.totalAmount) : 0,
-        transport: transportDay ? Number(transportDay.totalAmount) : 0,
+        materials: materialAmount,
+        transport: transportAmount,
+        misc: miscAmount,
         income: fundDay ? Number(fundDay.totalAmount) : 0,
-        total: Number(day.totalPaid) + (materialDay ? Number(materialDay.totalAmount) : 0) + (transportDay ? Number(transportDay.totalAmount) : 0)
+        total: Number(day.totalPaid) + materialAmount + transportAmount + miscAmount
       };
     });
     const duration = Date.now() - startTime;
@@ -12016,7 +12034,8 @@ reportRouter.get("/reports/periodic", async (req, res) => {
           attendance: attendanceSummary,
           materials: materialsSummary,
           transport: transportSummary,
-          fundTransfers: fundTransfersSummary
+          fundTransfers: fundTransfersSummary,
+          miscExpenses: miscExpensesSummary
         }
       },
       processingTime: duration

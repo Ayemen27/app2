@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -738,7 +739,7 @@ export default function ProjectsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Projects Grid */}
+      {/* Projects Grid - Using UnifiedCard */}
       {projects.length === 0 ? (
         <Card className="p-12 text-center">
           <Building2 className="h-16 w-16 mx-auto text-muted-foreground" />
@@ -750,114 +751,84 @@ export default function ProjectsPage() {
           </Button>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-          {Array.isArray(projects) ? projects.map((project) => (
-            <Card key={project.id} className="relative overflow-hidden hover:shadow-md transition-shadow border-l-4 border-l-blue-500">
-              <CardHeader className="pb-1 pt-2 px-2">
-                <div className="flex items-start justify-between gap-1.5">
-                  <div className="space-y-0.5 flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      <Building2 className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-                      <CardTitle className="text-xs line-clamp-1 font-semibold">{project.name}</CardTitle>
-                    </div>
-                    <CardDescription className="flex items-center gap-0.5 text-xs">
-                      <Calendar className="h-2 w-2 flex-shrink-0" />
-                      {formatDate(project.createdAt)}
-                    </CardDescription>
-                  </div>
-                  <Badge className={`${getStatusColor(project.status)} flex-shrink-0 text-xs px-1 py-0`}>
-                    {getStatusText(project.status)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-1 px-2 pb-1.5">
-                <div className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 dark:from-blue-900/30 dark:to-blue-800/30 p-1.5 rounded-sm border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center justify-between gap-1">
-                    <div className="flex items-center gap-1">
-                      <BarChart3 className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
-                      <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">الرصيد</span>
-                    </div>
-                    <p className="text-sm font-bold text-blue-800 dark:text-blue-200 arabic-numbers">
-                      {formatCurrency(safeParseNumber(project.stats.currentBalance, 0))}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-1">
-                  <div className="bg-green-50 dark:bg-green-900/20 p-1 rounded-sm border border-green-200 dark:border-green-800">
-                    <div className="flex items-center gap-0.5 mb-0.5">
-                      <TrendingUp className="h-2 w-2 text-green-600" />
-                      <span className="text-xs font-medium text-green-700 dark:text-green-400">دخل</span>
-                    </div>
-                    <p className="text-xs font-bold text-green-800 dark:text-green-300 arabic-numbers">
-                      {formatCurrency(safeParseNumber(project.stats.totalIncome, 0))}
-                    </p>
-                  </div>
-                  <div className="bg-red-50 dark:bg-red-900/20 p-1 rounded-sm border border-red-200 dark:border-red-800">
-                    <div className="flex items-center gap-0.5 mb-0.5">
-                      <DollarSign className="h-2 w-2 text-red-600" />
-                      <span className="text-xs font-medium text-red-700 dark:text-red-400">مصاريف</span>
-                    </div>
-                    <p className="text-xs font-bold text-red-800 dark:text-red-300 arabic-numbers">
-                      {formatCurrency(safeParseNumber(project.stats.totalExpenses, 0))}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-1 text-center">
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1 rounded-sm">
-                    <Users className="h-2.5 w-2.5 text-blue-600 mx-auto mb-0.5" />
-                    <p className="text-xs text-muted-foreground mb-0">عمال</p>
-                    <p className="text-xs font-bold arabic-numbers">{cleanInteger(project.stats.totalWorkers)}</p>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-1 rounded-sm">
-                    <Package className="h-2.5 w-2.5 text-amber-600 mx-auto mb-0.5" />
-                    <p className="text-xs text-muted-foreground mb-0">مشتريات</p>
-                    <p className="text-xs font-bold arabic-numbers">{cleanInteger(project.stats.materialPurchases)}</p>
-                  </div>
-                </div>
-                <div className="flex gap-1 pt-0.5">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => {
-                      setEditingProject(project);
-                      editForm.reset({
-                        name: project.name,
-                        status: project.status,
-                      });
-                      setIsEditDialogOpen(true);
-                    }} 
-                    className="flex-1 gap-0.5 h-7 text-xs"
-                  >
-                    <Edit className="h-2.5 w-2.5" />
-                    تعديل
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="gap-0.5 text-red-600 hover:text-red-700 h-7 text-xs">
-                        <Trash2 className="h-2.5 w-2.5" />
-                        حذف
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          هل أنت متأكد من حذف المشروع "{project.name}"؟
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteProjectMutation.mutate(project.id)}>
-                          حذف
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </CardContent>
-            </Card>
-          )) : null}
-        </div>
+        <UnifiedCardGrid columns={4}>
+          {Array.isArray(projects) ? projects.map((project) => {
+            const balance = safeParseNumber(project.stats?.currentBalance, 0);
+            const statusBadgeVariant = project.status === 'active' ? 'success' : 
+                                       project.status === 'completed' ? 'default' : 'warning';
+            
+            return (
+              <UnifiedCard
+                key={project.id}
+                title={project.name}
+                subtitle={formatDate(project.createdAt)}
+                titleIcon={Building2}
+                headerColor={project.status === 'active' ? '#3b82f6' : 
+                            project.status === 'completed' ? '#10b981' : '#f59e0b'}
+                badges={[
+                  {
+                    label: getStatusText(project.status),
+                    variant: statusBadgeVariant,
+                  }
+                ]}
+                fields={[
+                  {
+                    label: "الرصيد",
+                    value: formatCurrency(balance),
+                    icon: BarChart3,
+                    emphasis: true,
+                    color: balance >= 0 ? "info" : "danger",
+                  },
+                  {
+                    label: "الدخل",
+                    value: formatCurrency(safeParseNumber(project.stats?.totalIncome, 0)),
+                    icon: TrendingUp,
+                    color: "success",
+                  },
+                  {
+                    label: "المصروفات",
+                    value: formatCurrency(safeParseNumber(project.stats?.totalExpenses, 0)),
+                    icon: DollarSign,
+                    color: "danger",
+                  },
+                  {
+                    label: "العمال",
+                    value: cleanInteger(project.stats?.totalWorkers),
+                    icon: Users,
+                  },
+                  {
+                    label: "المشتريات",
+                    value: cleanInteger(project.stats?.materialPurchases),
+                    icon: Package,
+                  },
+                  {
+                    label: "الأيام النشطة",
+                    value: cleanInteger(project.stats?.completedDays),
+                    icon: Clock,
+                  },
+                ]}
+                actions={[
+                  {
+                    icon: Edit,
+                    label: "تعديل",
+                    onClick: () => openEditDialog(project),
+                  },
+                  {
+                    icon: Trash2,
+                    label: "حذف",
+                    variant: "ghost",
+                    onClick: () => {
+                      if (confirm(`هل أنت متأكد من حذف المشروع "${project.name}"؟`)) {
+                        handleDeleteProject(project.id);
+                      }
+                    },
+                  },
+                ]}
+                compact
+              />
+            );
+          }) : null}
+        </UnifiedCardGrid>
       )}
       </div>
     </>

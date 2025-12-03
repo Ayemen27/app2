@@ -14,8 +14,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { FilterStatsBar, type FilterConfig, type MetricConfig } from "@/components/ui/filter-stats-bar";
-import { useFilterStats } from "@/hooks/use-filter-stats";
 import { 
   Edit, 
   Trash2, 
@@ -97,12 +95,6 @@ const cleanNumber = (value: any): number => {
 };
 
 
-const PROJECT_STATUS_OPTIONS = [
-  { value: 'all', label: 'جميع الحالات' },
-  { value: 'active', label: 'نشط' },
-  { value: 'paused', label: 'متوقف' },
-  { value: 'completed', label: 'مكتمل' },
-];
 
 export default function ProjectsPage() {
   const { toast } = useToast();
@@ -115,18 +107,6 @@ export default function ProjectsPage() {
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const { setFloatingAction } = useFloatingButton();
 
-  const {
-    searchValue,
-    filterValues,
-    setSearchValue,
-    setFilterValue,
-    resetAll,
-    refresh,
-    isRefreshing,
-  } = useFilterStats({
-    initialFilters: { status: 'all' },
-    queryKeys: ['/api/projects/with-stats'],
-  });
 
 
   // تعيين إجراء الزر العائم لإضافة مشروع جديد
@@ -499,10 +479,6 @@ export default function ProjectsPage() {
   // استخدام دالة formatCurrency من utils.ts لضمان التوحيد
   const formatCurrencyLocal = formatCurrency;
 
-  // resetFilters function for FilterStatsBar
-  const resetFilters = () => {
-    resetAll();
-  };
 
   // معالجة حالة التحميل
   if (isLoading) {
@@ -541,68 +517,6 @@ export default function ProjectsPage() {
   return (
     <>
       <div className="space-y-2 p-2">
-
-      {/* شريط البحث والفلترة والإحصائيات الموحد */}
-      <FilterStatsBar
-        title="إدارة المشاريع"
-        searchValue={searchValue}
-        onSearchChange={setSearchValue}
-        searchPlaceholder="بحث في المشاريع..."
-        filters={[
-          {
-            key: 'status',
-            label: 'حالة المشروع',
-            placeholder: 'اختر الحالة',
-            options: PROJECT_STATUS_OPTIONS,
-            defaultValue: 'all',
-          },
-        ]}
-        filterValues={filterValues}
-        onFilterChange={setFilterValue}
-        onReset={resetFilters}
-        onRefresh={refresh}
-        isRefreshing={isRefreshing}
-        metrics={[
-          {
-            key: 'totalProjects',
-            label: 'إجمالي المشاريع',
-            value: overallStats.totalProjects,
-            icon: Building2,
-            color: 'blue',
-          },
-          {
-            key: 'activeProjects',
-            label: 'المشاريع النشطة',
-            value: overallStats.activeProjects,
-            icon: TrendingUp,
-            color: 'green',
-          },
-          {
-            key: 'currentBalance',
-            label: 'الرصيد الإجمالي',
-            value: formatCurrencyLocal(currentBalance),
-            icon: DollarSign,
-            color: currentBalance >= 0 ? 'green' : 'red',
-          },
-          {
-            key: 'totalWorkers',
-            label: 'إجمالي العمال',
-            value: overallStats.totalWorkers,
-            icon: Users,
-            color: 'purple',
-          },
-        ]}
-        actions={[
-          {
-            key: 'add',
-            label: 'إضافة مشروع',
-            icon: Plus,
-            onClick: () => setIsCreateDialogOpen(true),
-          },
-        ]}
-      />
-
-      <div className="mt-4" />
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent>

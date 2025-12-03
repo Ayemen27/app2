@@ -114,6 +114,7 @@ export default function ProjectsPage() {
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     status: "all",
+    engineerId: "all",
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -123,7 +124,7 @@ export default function ProjectsPage() {
 
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
-    setFilterValues({ status: "all" });
+    setFilterValues({ status: "all", engineerId: "all" });
     toast({
       title: "تم إعادة التعيين",
       description: "تم مسح جميع الفلاتر",
@@ -210,13 +211,31 @@ export default function ProjectsPage() {
     }
   }, [refetchProjects, toast]);
 
+  // جلب قائمة المستخدمين (للاستخدام في اختيار المهندس)
+  const { data: usersData = [] } = useQuery<{id: string; name: string; email: string; role: string}[]>({
+    queryKey: ["/api/users/list"],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest("/api/users/list", "GET");
+        if (response?.success && Array.isArray(response.data)) {
+          return response.data;
+        }
+        return [];
+      } catch (error) {
+        console.error('❌ [Projects] خطأ في جلب المستخدمين:', error);
+        return [];
+      }
+    },
+    staleTime: 60000,
+  });
+
   // Create project form
   const createForm = useForm<InsertProject>({
     resolver: zodResolver(insertProjectSchema),
     defaultValues: {
       name: "",
       status: "active",
-      supervisor: "",
+      engineerId: null,
     },
   });
 
@@ -226,7 +245,7 @@ export default function ProjectsPage() {
     defaultValues: {
       name: "",
       status: "active",
-      supervisor: "",
+      engineerId: null,
     },
   });
 
@@ -389,7 +408,7 @@ export default function ProjectsPage() {
     editForm.reset({
       name: project.name,
       status: project.status,
-      supervisor: (project as any).supervisor || "",
+      engineerId: project.engineerId || null,
     });
     setIsEditDialogOpen(true);
   };
@@ -533,6 +552,13 @@ export default function ProjectsPage() {
       if (filterValues.status && filterValues.status !== "all" && project.status !== filterValues.status) {
         return false;
       }
+      if (filterValues.engineerId && filterValues.engineerId !== "all") {
+        if (filterValues.engineerId === "none") {
+          if (project.engineerId) return false;
+        } else {
+          if (project.engineerId !== filterValues.engineerId) return false;
+        }
+      }
       return true;
     });
   }, [projects, searchValue, filterValues]);
@@ -611,7 +637,18 @@ export default function ProjectsPage() {
         { value: 'completed', label: 'مكتمل' },
       ],
     },
-  ], []);
+    {
+      key: 'engineerId',
+      label: 'المهندس المسؤول',
+      type: 'select',
+      defaultValue: 'all',
+      options: [
+        { value: 'all', label: 'جميع المهندسين' },
+        { value: 'none', label: 'بدون مهندس' },
+        ...usersData.map(user => ({ value: user.id, label: user.name })),
+      ],
+    },
+  ], [usersData]);
 
 
   // معالجة حالة التحميل
@@ -703,18 +740,28 @@ export default function ProjectsPage() {
                 />
                 <FormField
                   control={createForm.control}
-                  name="supervisor"
+                  name="engineerId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>المهندس / المشرف</FormLabel>
-                      <FormControl>
-                        <AutocompleteInput 
-                          value={field.value || ""}
-                          onChange={field.onChange}
-                          category="supervisorNames"
-                          placeholder="اسم المهندس أو المشرف"
-                        />
-                      </FormControl>
+                      <Select 
+                        onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
+                        value={field.value || "none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="اختر المهندس المسؤول" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">بدون مهندس</SelectItem>
+                          {usersData.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.name} ({user.role})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -783,18 +830,28 @@ export default function ProjectsPage() {
               />
               <FormField
                 control={editForm.control}
-                name="supervisor"
+                name="engineerId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>المهندس / المشرف</FormLabel>
-                    <FormControl>
-                      <AutocompleteInput 
-                        value={field.value || ""}
-                        onChange={field.onChange}
-                        category="supervisorNames"
-                        placeholder="اسم المهندس أو المشرف"
-                      />
-                    </FormControl>
+                    <Select 
+                      onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
+                      value={field.value || "none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="اختر المهندس المسؤول" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">بدون مهندس</SelectItem>
+                        {usersData.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name} ({user.role})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

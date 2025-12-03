@@ -68,7 +68,9 @@ import {
   exportDailyReportToExcel, 
   exportPeriodicReportToExcel, 
   exportWorkerStatementToExcel, 
-  exportComparisonReportToExcel 
+  exportComparisonReportToExcel,
+  exportWorkerSettlementReport,
+  exportDetailedWorkerStatement
 } from "@/utils/professional-export";
 import { useToast } from "@/hooks/use-toast";
 

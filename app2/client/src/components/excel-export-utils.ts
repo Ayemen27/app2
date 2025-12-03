@@ -1,148 +1,79 @@
-// Dynamic import for ExcelJS to improve bundle optimization
+/**
+ * أدوات تصدير Excel - شركة الفتيني للمقاولات والاستشارات الهندسية
+ * Excel Export Utilities - Al-Fatihi Contracting & Engineering Consultancy
+ * هذا الملف يستخدم الأنماط المشتركة من professional-export.ts
+ */
 
-// Company Information
-export const COMPANY_INFO = {
-  name: 'شركة الإدارة الهندسية',
-  address: 'المملكة العربية السعودية',
-  phone: '+966 XX XXXX XXX',
-  email: 'info@company.com',
-  logo: null
-};
+export { 
+  COMPANY_INFO, 
+  ALFATIHI_COLORS, 
+  EXCEL_STYLES 
+} from '@/utils/professional-export';
 
-// Excel Styles
-export const EXCEL_STYLES = {
-  header: {
-    font: { bold: true, size: 14, color: { argb: 'FFFFFF' } },
-    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F46E5' } },
-    alignment: { horizontal: 'center', vertical: 'middle' },
-    border: {
-      top: { style: 'thin' },
-      left: { style: 'thin' },
-      bottom: { style: 'thin' },
-      right: { style: 'thin' }
-    }
-  },
-  subHeader: {
-    font: { bold: true, size: 12 },
-    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F3F4F6' } },
-    alignment: { horizontal: 'center', vertical: 'middle' },
-    border: {
-      top: { style: 'thin' },
-      left: { style: 'thin' },
-      bottom: { style: 'thin' },
-      right: { style: 'thin' }
-    }
-  },
-  cell: {
-    font: { size: 10 },
-    alignment: { horizontal: 'center', vertical: 'middle' },
-    border: {
-      top: { style: 'thin' },
-      left: { style: 'thin' },
-      bottom: { style: 'thin' },
-      right: { style: 'thin' }
-    }
-  },
-  currency: {
-    font: { size: 10 },
-    alignment: { horizontal: 'right', vertical: 'middle' },
-    numFmt: '#,##0.00" ريال"',
-    border: {
-      top: { style: 'thin' },
-      left: { style: 'thin' },
-      bottom: { style: 'thin' },
-      right: { style: 'thin' }
-    }
-  }
-};
-
-// Add Report Header
-export function addReportHeader(
-  worksheet: any, // ExcelJS.Worksheet
-  title: string,
-  dateRange?: string
-): void {
-  // Merge cells for company header
-  worksheet.mergeCells('A1:F1');
-  const companyCell = worksheet.getCell('A1');
-  companyCell.value = COMPANY_INFO.name;
-  companyCell.font = { bold: true, size: 16 };
-  companyCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-  // Title
-  worksheet.mergeCells('A2:F2');
-  const titleCell = worksheet.getCell('A2');
-  titleCell.value = title;
-  titleCell.font = { bold: true, size: 14 };
-  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-  // Date range if provided
-  if (dateRange) {
-    worksheet.mergeCells('A3:F3');
-    const dateCell = worksheet.getCell('A3');
-    dateCell.value = dateRange;
-    dateCell.font = { size: 12 };
-    dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  }
-
-  // Add empty row
-  worksheet.addRow([]);
-}
-
-// Format Currency
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'SAR',
-    minimumFractionDigits: 2
-  }).format(amount || 0);
+  return new Intl.NumberFormat('ar-SA', {
+    style: 'decimal',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount || 0) + ' ر.ي.';
 }
 
-// Export to Excel generic function (now uses dynamic import)
+export function applyStyle(cell: any, style: any): void {
+  if (style.font) cell.font = style.font;
+  if (style.fill) cell.fill = style.fill;
+  if (style.alignment) cell.alignment = style.alignment;
+  if (style.border) cell.border = style.border;
+  if (style.numFmt) cell.numFmt = style.numFmt;
+}
+
+export function applyRowStyle(row: any, style: any, startCol: number, endCol: number): void {
+  for (let i = startCol; i <= endCol; i++) {
+    applyStyle(row.getCell(i), style);
+  }
+}
+
 export async function exportToExcel(
   data: any[],
   fileName: string,
   sheetName: string,
   columns: Array<{ key: string; header: string; width?: number }>
 ): Promise<void> {
-  // Dynamic import for ExcelJS
+  const { COMPANY_INFO, EXCEL_STYLES } = await import('@/utils/professional-export');
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet(sheetName);
+  workbook.creator = COMPANY_INFO.name;
+  workbook.created = new Date();
+  
+  const worksheet = workbook.addWorksheet(sheetName, {
+    views: [{ rightToLeft: true }]
+  });
 
-  // Set column headers and widths
   worksheet.columns = columns.map(col => ({
     key: col.key,
     header: col.header,
     width: col.width || 15
   }));
 
-  // Style header row
   const headerRow = worksheet.getRow(1);
   headerRow.eachCell((cell: any) => {
-    Object.assign(cell, EXCEL_STYLES.header);
+    applyStyle(cell, EXCEL_STYLES.tableHeader);
   });
+  headerRow.height = 25;
 
-  // Add data
-  data.forEach(item => {
-    worksheet.addRow(item);
-  });
-
-  // Style data rows
-  for (let i = 2; i <= worksheet.rowCount; i++) {
-    const row = worksheet.getRow(i);
+  data.forEach((item, idx) => {
+    const row = worksheet.addRow(item);
+    const style = idx % 2 === 0 ? EXCEL_STYLES.tableCell : EXCEL_STYLES.tableCellAlt;
     row.eachCell((cell: any) => {
-      Object.assign(cell, EXCEL_STYLES.cell);
+      applyStyle(cell, style);
     });
-  }
+    row.height = 22;
+  });
 
-  // Generate buffer and download
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { 
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
   });
   
-  // Create download link
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;

@@ -988,6 +988,14 @@ export default function ProjectsPage() {
                     value: cleanInteger(project.stats?.completedDays),
                     icon: Clock,
                   },
+                  {
+                    label: "المهندس",
+                    value: project.engineerId 
+                      ? usersData.find(u => u.id === project.engineerId)?.name || "غير معروف"
+                      : "بدون مهندس",
+                    icon: UserCog,
+                    color: project.engineerId ? "info" : "muted",
+                  },
                 ]}
                 actions={[
                   {

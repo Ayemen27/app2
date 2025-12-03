@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { 
   Edit, 
   Trash2, 
@@ -31,14 +33,15 @@ import {
   X,
   ImageIcon,
   Eye,
-  Calendar
+  Calendar,
+  Activity,
+  Wallet
 } from "lucide-react";
 import type { Project, InsertProject } from "@shared/schema";
 import { insertProjectSchema } from "@shared/schema";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
-import { useEffect } from "react";
 
 interface ProjectStats {
   totalWorkers: number;
@@ -106,6 +109,20 @@ export default function ProjectsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const { setFloatingAction } = useFloatingButton();
+
+  const [searchValue, setSearchValue] = useState("");
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({
+    status: "all",
+  });
+
+  const handleFilterChange = useCallback((key: string, value: any) => {
+    setFilterValues(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setSearchValue("");
+    setFilterValues({ status: "all" });
+  }, []);
 
 
 
@@ -479,6 +496,96 @@ export default function ProjectsPage() {
   // استخدام دالة formatCurrency من utils.ts لضمان التوحيد
   const formatCurrencyLocal = formatCurrency;
 
+  const filteredProjects = useMemo(() => {
+    return projects.filter(project => {
+      if (searchValue && !project.name.toLowerCase().includes(searchValue.toLowerCase())) {
+        return false;
+      }
+      if (filterValues.status && filterValues.status !== "all" && project.status !== filterValues.status) {
+        return false;
+      }
+      return true;
+    });
+  }, [projects, searchValue, filterValues]);
+
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'totalProjects',
+          label: 'جميع المشاريع',
+          value: overallStats.totalProjects,
+          icon: Building2,
+          color: 'blue',
+        },
+        {
+          key: 'activeProjects',
+          label: 'مشاريع نشطة',
+          value: overallStats.activeProjects,
+          icon: Activity,
+          color: 'blue',
+          showDot: true,
+          dotColor: 'bg-green-500',
+        },
+        {
+          key: 'currentBalance',
+          label: 'الرصيد الحالي',
+          value: formatCurrency(currentBalance),
+          icon: Wallet,
+          color: currentBalance >= 0 ? 'blue' : 'red',
+          unit: 'ر.ي',
+        },
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'totalIncome',
+          label: 'إجمالي الدخل',
+          value: formatCurrency(overallStats.totalIncome),
+          icon: TrendingUp,
+          color: 'green',
+          unit: 'ر.ي',
+        },
+        {
+          key: 'totalWorkers',
+          label: 'إجمالي العمال',
+          subLabel: 'في جميع المشاريع',
+          value: overallStats.totalWorkers,
+          icon: Users,
+          color: 'amber',
+        },
+        {
+          key: 'materialPurchases',
+          label: 'عمليات الشراء',
+          subLabel: 'مواد ومعدات',
+          value: overallStats.materialPurchases,
+          icon: Package,
+          color: 'gray',
+        },
+      ]
+    }
+  ], [overallStats, currentBalance]);
+
+  const filtersConfig: FilterConfig[] = useMemo(() => [
+    {
+      key: 'status',
+      label: 'حالة المشروع',
+      type: 'select',
+      defaultValue: 'all',
+      options: [
+        { value: 'all', label: 'جميع الحالات' },
+        { value: 'active', label: 'نشط' },
+        { value: 'paused', label: 'متوقف' },
+        { value: 'completed', label: 'مكتمل' },
+      ],
+    },
+  ], []);
+
 
   // معالجة حالة التحميل
   if (isLoading) {
@@ -517,6 +624,27 @@ export default function ProjectsPage() {
   return (
     <>
       <div className="space-y-2 p-2">
+        <UnifiedFilterDashboard
+          statsRows={statsRowsConfig}
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          searchPlaceholder="البحث في المشاريع..."
+          filters={filtersConfig}
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          onReset={handleResetFilters}
+          onRefresh={() => refetchProjects()}
+          isRefreshing={isLoading}
+          resultsSummary={(searchValue || filterValues.status !== 'all') ? {
+            totalCount: projects.length,
+            filteredCount: filteredProjects.length,
+            totalLabel: 'النتائج',
+            filteredLabel: 'من',
+            totalValue: filteredProjects.reduce((acc, p) => acc + (p.stats?.currentBalance || 0), 0),
+            totalValueLabel: 'الإجمالي',
+            unit: 'ر.ي',
+          } : undefined}
+        />
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent>
@@ -654,19 +782,25 @@ export default function ProjectsPage() {
       </Dialog>
 
       {/* Projects Grid - Using UnifiedCard */}
-      {projects.length === 0 ? (
+      {filteredProjects.length === 0 ? (
         <Card className="p-12 text-center">
           <Building2 className="h-16 w-16 mx-auto text-muted-foreground" />
-          <h3 className="text-xl font-semibold">لا توجد مشاريع</h3>
-          <p className="text-muted-foreground">ابدأ بإنشاء مشروعك الأول</p>
-          <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            إنشاء مشروع جديد
-          </Button>
+          <h3 className="text-xl font-semibold">
+            {projects.length === 0 ? "لا توجد مشاريع" : "لا توجد نتائج"}
+          </h3>
+          <p className="text-muted-foreground">
+            {projects.length === 0 ? "ابدأ بإنشاء مشروعك الأول" : "جرب تغيير معايير البحث أو الفلاتر"}
+          </p>
+          {projects.length === 0 && (
+            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              إنشاء مشروع جديد
+            </Button>
+          )}
         </Card>
       ) : (
         <UnifiedCardGrid columns={4}>
-          {Array.isArray(projects) ? projects.map((project) => {
+          {filteredProjects.map((project) => {
             const balance = safeParseNumber(project.stats?.currentBalance, 0);
             const statusBadgeVariant = project.status === 'active' ? 'success' : 
                                        project.status === 'completed' ? 'default' : 'destructive';
@@ -741,7 +875,7 @@ export default function ProjectsPage() {
                 compact
               />
             );
-          }) : null}
+          })}
         </UnifiedCardGrid>
       )}
       </div>

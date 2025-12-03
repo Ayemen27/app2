@@ -31,7 +31,7 @@ export function UnifiedFilterDashboard({
     if (filter.type === 'date') return value instanceof Date;
     if (filter.type === 'date-range') return value?.from || value?.to;
     return value && value !== 'all' && value !== filter.defaultValue;
-  }) || (searchValue && searchValue.length > 0);
+  }) || Boolean(searchValue && searchValue.length > 0);
 
   return (
     <div className={cn('space-y-2', className)}>

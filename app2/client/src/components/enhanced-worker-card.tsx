@@ -55,6 +55,10 @@ export default function EnhancedWorkerCard({
     queryFn: async () => {
       try {
         const response = await apiRequest(`/api/workers/${worker.id}/stats`, "GET");
+        // استخراج البيانات من الهيكل المتداخل
+        if (response && response.data) {
+          return response.data;
+        }
         return response || { totalWorkDays: 0, totalProjects: 0, totalEarnings: 0 };
       } catch (error) {
         console.error("Error fetching worker stats:", error);

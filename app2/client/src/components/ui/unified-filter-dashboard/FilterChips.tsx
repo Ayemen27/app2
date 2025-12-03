@@ -221,62 +221,6 @@ export function FilterChips({
         </div>
       )}
 
-      {showAllFiltersButton && (
-        <div className="flex justify-start">
-          <Popover open={isFilterPanelOpen} onOpenChange={setIsFilterPanelOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-gray-500 hover:text-primary gap-1 h-7 text-xs px-2"
-              >
-                عرض جميع الفلاتر
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-4" align="start">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-sm flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    خيارات الفلترة
-                  </h4>
-                  {activeFilters.length > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      {activeFilters.length} نشط
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  {filters.map((filter) => (
-                    <div key={filter.key} className="space-y-1.5">
-                      <Label className="text-sm text-muted-foreground">
-                        {filter.label}
-                      </Label>
-                      {renderFilterInput(filter)}
-                    </div>
-                  ))}
-                </div>
-
-                {activeFilters.length > 0 && onReset && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      onReset();
-                      setIsFilterPanelOpen(false);
-                    }}
-                    className="w-full gap-2 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/50"
-                  >
-                    <X className="h-4 w-4" />
-                    مسح جميع الفلاتر
-                  </Button>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-      )}
     </div>
   );
 }

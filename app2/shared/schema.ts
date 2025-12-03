@@ -87,6 +87,7 @@ export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   status: text("status").notNull().default("active"), // active, completed, paused
+  engineerId: varchar("engineer_id"), // معرف المهندس/المشرف من جدول المستخدمين
   imageUrl: text("image_url"), // صورة المشروع (اختيارية)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

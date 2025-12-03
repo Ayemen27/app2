@@ -7,7 +7,7 @@ import { db } from "./db";
 import { 
   projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
   fundTransfers, transportationExpenses, dailyExpenseSummaries, tools, toolMovements,
-  workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers,
+  workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers, users,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
   insertMaterialSchema, insertSupplierSchema, insertMaterialPurchaseSchema,
   insertWorkerAttendanceSchema, insertFundTransferSchema, insertTransportationExpenseSchema,
@@ -48,6 +48,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // 👷 جلب قائمة المستخدمين (للاستخدام في اختيار المهندس)
+  // ========================================
+  
+  app.get("/api/users/list", requireAuth, async (req, res) => {
+    try {
+      console.log('📊 [API] جلب قائمة المستخدمين');
+      const usersList = await db.select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+      }).from(users).orderBy(users.name);
+      console.log(`✅ [API] تم جلب ${usersList.length} مستخدم`);
+      res.json({ 
+        success: true, 
+        data: usersList,
+        message: `تم جلب ${usersList.length} مستخدم بنجاح`
+      });
+    } catch (error: any) {
+      console.error('❌ [API] خطأ في جلب المستخدمين:', error);
+      res.status(500).json({ 
+        success: false, 
+        data: [], 
+        error: error.message,
+        message: "فشل في جلب قائمة المستخدمين"
+      });
+    }
+  });
+
+  // ========================================
   // 🔒 **Basic API routes - NOW SECURED WITH AUTHENTICATION**
   // ⚠️ كانت هذه endpoints بدون حماية - تم إصلاح الثغرة الأمنية الخطيرة!
   app.get("/api/projects", requireAuth, async (req, res) => {

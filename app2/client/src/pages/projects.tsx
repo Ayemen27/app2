@@ -35,7 +35,8 @@ import {
   Eye,
   Calendar,
   Activity,
-  Wallet
+  Wallet,
+  UserCog
 } from "lucide-react";
 import type { Project, InsertProject } from "@shared/schema";
 import { insertProjectSchema } from "@shared/schema";
@@ -114,6 +115,7 @@ export default function ProjectsPage() {
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     status: "all",
   });
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
@@ -122,7 +124,11 @@ export default function ProjectsPage() {
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
     setFilterValues({ status: "all" });
-  }, []);
+    toast({
+      title: "تم إعادة التعيين",
+      description: "تم مسح جميع الفلاتر",
+    });
+  }, [toast]);
 
 
 
@@ -184,12 +190,33 @@ export default function ProjectsPage() {
   // ✅ معالجة البيانات بعد الحصول عليها مع تنظيف إضافي
   const projects = Array.isArray(projectsData) ? projectsData.filter(project => project && typeof project === 'object') : [];
 
+  // دالة التحديث مع إشعار
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refetchProjects();
+      toast({
+        title: "تم التحديث",
+        description: "تم تحديث البيانات بنجاح",
+      });
+    } catch (error) {
+      toast({
+        title: "خطأ",
+        description: "فشل تحديث البيانات",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchProjects, toast]);
+
   // Create project form
   const createForm = useForm<InsertProject>({
     resolver: zodResolver(insertProjectSchema),
     defaultValues: {
       name: "",
       status: "active",
+      supervisor: "",
     },
   });
 
@@ -199,6 +226,7 @@ export default function ProjectsPage() {
     defaultValues: {
       name: "",
       status: "active",
+      supervisor: "",
     },
   });
 
@@ -361,6 +389,7 @@ export default function ProjectsPage() {
     editForm.reset({
       name: project.name,
       status: project.status,
+      supervisor: (project as any).supervisor || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -535,7 +564,6 @@ export default function ProjectsPage() {
           value: formatCurrency(currentBalance),
           icon: Wallet,
           color: currentBalance >= 0 ? 'blue' : 'red',
-          unit: 'ر.ي',
         },
       ]
     },
@@ -549,7 +577,6 @@ export default function ProjectsPage() {
           value: formatCurrency(overallStats.totalIncome),
           icon: TrendingUp,
           color: 'green',
-          unit: 'ر.ي',
         },
         {
           key: 'totalWorkers',
@@ -633,8 +660,8 @@ export default function ProjectsPage() {
           filterValues={filterValues}
           onFilterChange={handleFilterChange}
           onReset={handleResetFilters}
-          onRefresh={() => refetchProjects()}
-          isRefreshing={isLoading}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
           resultsSummary={(searchValue || filterValues.status !== 'all') ? {
             totalCount: projects.length,
             filteredCount: filteredProjects.length,
@@ -668,6 +695,24 @@ export default function ProjectsPage() {
                           onChange={field.onChange}
                           category="projectNames"
                           placeholder="اسم المشروع"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="supervisor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>المهندس / المشرف</FormLabel>
+                      <FormControl>
+                        <AutocompleteInput 
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          category="supervisorNames"
+                          placeholder="اسم المهندس أو المشرف"
                         />
                       </FormControl>
                       <FormMessage />
@@ -730,6 +775,24 @@ export default function ProjectsPage() {
                         onChange={field.onChange}
                         category="projectNames"
                         placeholder="اسم المشروع"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="supervisor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>المهندس / المشرف</FormLabel>
+                    <FormControl>
+                      <AutocompleteInput 
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        category="supervisorNames"
+                        placeholder="اسم المهندس أو المشرف"
                       />
                     </FormControl>
                     <FormMessage />
@@ -821,7 +884,7 @@ export default function ProjectsPage() {
                 ]}
                 fields={[
                   {
-                    label: "الرصيد",
+                    label: "المتبقي",
                     value: formatCurrency(balance),
                     icon: BarChart3,
                     emphasis: true,

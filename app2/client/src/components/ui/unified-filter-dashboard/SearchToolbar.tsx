@@ -1,10 +1,14 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, X, Settings, RefreshCw, RotateCcw, List, LayoutGrid } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Search, X, Filter, RefreshCw, RotateCcw, List, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ActionButton } from './types';
+import type { ActionButton, FilterConfig } from './types';
 
 interface SearchToolbarProps {
   searchValue?: string;
@@ -20,6 +24,9 @@ interface SearchToolbarProps {
   onViewModeChange?: (mode: 'list' | 'grid') => void;
   showViewToggle?: boolean;
   className?: string;
+  filters?: FilterConfig[];
+  filterValues?: Record<string, any>;
+  onFilterChange?: (key: string, value: any) => void;
 }
 
 export function SearchToolbar({
@@ -36,19 +43,50 @@ export function SearchToolbar({
   onViewModeChange,
   showViewToggle = false,
   className,
+  filters = [],
+  filterValues = {},
+  onFilterChange,
 }: SearchToolbarProps) {
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  
   const handleClearSearch = useCallback(() => {
     onSearchChange?.('');
   }, [onSearchChange]);
 
-  const defaultActions: ActionButton[] = [
-    {
-      key: 'settings',
-      icon: Settings,
-      tooltip: 'إعدادات',
-      onClick: () => {},
-    }
-  ];
+  const getActiveFiltersCount = () => {
+    return filters.filter(filter => {
+      const value = filterValues[filter.key];
+      if (filter.type === 'date') return value instanceof Date;
+      if (filter.type === 'date-range') return value?.from || value?.to;
+      return value && value !== 'all' && value !== filter.defaultValue;
+    }).length;
+  };
+
+  const activeFiltersCount = getActiveFiltersCount();
+  const showFilters = filters.length > 0 && onFilterChange;
+
+  const renderFilterInput = (filter: FilterConfig) => {
+    const value = filterValues[filter.key];
+    return (
+      <Select
+        value={value || filter.defaultValue || 'all'}
+        onValueChange={(v) => onFilterChange?.(filter.key, v)}
+      >
+        <SelectTrigger className="h-9">
+          <SelectValue placeholder={filter.placeholder || filter.label} />
+        </SelectTrigger>
+        <SelectContent>
+          {filter.options?.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  };
+
+  const defaultActions: ActionButton[] = [];
 
   if (showViewToggle && onViewModeChange) {
     defaultActions.push({
@@ -77,7 +115,7 @@ export function SearchToolbar({
     });
   }
 
-  if (onReset) {
+  if (onReset && hasActiveFilters) {
     defaultActions.push({
       key: 'reset',
       icon: RotateCcw,
@@ -89,42 +127,13 @@ export function SearchToolbar({
   const allActions = [...defaultActions, ...actions];
 
   return (
-    <div className={cn(
-      'flex items-center gap-2 p-2 bg-gradient-to-l from-gray-50/80 to-white dark:from-gray-900/80 dark:to-gray-800 border border-gray-200/80 dark:border-gray-700/80 rounded-xl',
-      className
-    )}>
-      <TooltipProvider delayDuration={300}>
-        <div className="flex items-center gap-1">
-          {allActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <Tooltip key={action.key}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={action.variant || 'ghost'}
-                    size="icon"
-                    className={cn(
-                      'h-8 w-8 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
-                      action.loading && 'animate-spin',
-                      action.variant === 'default' && 'bg-primary/10 text-primary'
-                    )}
-                    onClick={action.onClick}
-                    disabled={action.disabled || action.loading}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                {action.tooltip && (
-                  <TooltipContent side="bottom" className="text-xs">
-                    <p>{action.tooltip}</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            );
-          })}
-        </div>
-      </TooltipProvider>
-
+    <div 
+      className={cn(
+        'flex items-center gap-2 p-2 bg-gradient-to-l from-gray-50/80 to-white dark:from-gray-900/80 dark:to-gray-800 border border-gray-200/80 dark:border-gray-700/80 rounded-xl',
+        className
+      )}
+      dir="rtl"
+    >
       {showSearch && (
         <div className="relative flex-1">
           <Input
@@ -132,22 +141,127 @@ export function SearchToolbar({
             placeholder={searchPlaceholder}
             value={searchValue}
             onChange={(e) => onSearchChange?.(e.target.value)}
-            className="h-9 pr-3 pl-8 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+            className="h-9 pe-3 ps-10 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 rounded-lg text-sm text-right"
             dir="rtl"
           />
           {searchValue ? (
             <Button
               variant="ghost"
               size="sm"
-              className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 hover:bg-red-100 dark:hover:bg-red-900/30"
+              className="absolute left-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0 hover:bg-red-100 dark:hover:bg-red-900/30 z-10"
               onClick={handleClearSearch}
+              type="button"
             >
-              <X className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
+              <X className="h-4 w-4 text-gray-400 hover:text-red-500" />
             </Button>
           ) : (
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
           )}
         </div>
+      )}
+
+      {showFilters && (
+        <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'h-8 w-8 rounded-lg relative',
+                activeFiltersCount > 0 
+                  ? 'text-primary bg-primary/10' 
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              )}
+            >
+              <Filter className="h-4 w-4" />
+              {activeFiltersCount > 0 && (
+                <Badge 
+                  className="absolute -top-1 -left-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-primary text-white"
+                >
+                  {activeFiltersCount}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-4" align="start" dir="rtl">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-sm flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  خيارات الفلترة
+                </h4>
+                {activeFiltersCount > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {activeFiltersCount} نشط
+                  </Badge>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                {filters.map((filter) => (
+                  <div key={filter.key} className="space-y-1.5">
+                    <Label className="text-sm text-muted-foreground">
+                      {filter.label}
+                    </Label>
+                    {renderFilterInput(filter)}
+                  </div>
+                ))}
+              </div>
+
+              {activeFiltersCount > 0 && onReset && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    onReset();
+                    setIsFilterOpen(false);
+                  }}
+                  className="w-full gap-2 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/50"
+                >
+                  <X className="h-4 w-4" />
+                  مسح جميع الفلاتر
+                </Button>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
+
+      {allActions.length > 0 && (
+        <TooltipProvider delayDuration={300}>
+          <div className="flex items-center gap-1 ps-2 border-r border-gray-200 dark:border-gray-700 pe-2">
+            {allActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <Tooltip key={action.key}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={action.variant || 'ghost'}
+                      size="icon"
+                      className={cn(
+                        'h-8 w-8 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all duration-200',
+                        action.loading && 'bg-primary/10 text-primary',
+                        action.variant === 'default' && 'bg-primary/10 text-primary'
+                      )}
+                      onClick={action.onClick}
+                      disabled={action.disabled || action.loading}
+                    >
+                      <Icon className={cn(
+                        'h-4 w-4 transition-transform duration-200',
+                        action.loading && 'animate-spin'
+                      )} />
+                    </Button>
+                  </TooltipTrigger>
+                  {action.tooltip && (
+                    <TooltipContent side="bottom" className="text-xs">
+                      <p>{action.loading ? 'جاري التحديث...' : action.tooltip}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              );
+            })}
+          </div>
+        </TooltipProvider>
       )}
     </div>
   );

@@ -52,6 +52,9 @@ export function UnifiedFilterDashboard({
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
         showViewToggle={!!onViewModeChange}
+        filters={filters}
+        filterValues={filterValues}
+        onFilterChange={onFilterChange}
       />
 
       {filters.length > 0 && onFilterChange && (
@@ -60,8 +63,7 @@ export function UnifiedFilterDashboard({
           filterValues={filterValues}
           onFilterChange={onFilterChange}
           onReset={onReset}
-          showAllFiltersButton={showAllFiltersButton}
-          onShowAllFilters={onShowAllFilters}
+          showAllFiltersButton={false}
         />
       )}
 

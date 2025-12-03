@@ -86,8 +86,8 @@ const FinancialStatsFooter = ({
       <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
         <div className="flex items-center justify-center gap-1 text-green-600 dark:text-green-400 mb-1">
           <Wallet className="h-3 w-3" />
+          <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
         </div>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
         <p className="text-xs font-bold text-green-600 dark:text-green-400">
           {isLoading ? '...' : formatCurrency(totalBalance)}
         </p>
@@ -96,8 +96,8 @@ const FinancialStatsFooter = ({
       <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2 text-center">
         <div className="flex items-center justify-center gap-1 text-yellow-600 dark:text-yellow-400 mb-1">
           <ArrowDownCircle className="h-3 w-3" />
+          <p className="text-[10px] text-gray-500 dark:text-gray-400">السحبيات</p>
         </div>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400">السحبيات</p>
         <p className="text-xs font-bold text-yellow-600 dark:text-yellow-400">
           {isLoading ? '...' : formatCurrency(totalWithdrawals)}
         </p>
@@ -106,8 +106,8 @@ const FinancialStatsFooter = ({
       <div className={`${remaining >= 0 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-red-50 dark:bg-red-900/20'} rounded-lg p-2 text-center`}>
         <div className={`flex items-center justify-center gap-1 ${remaining >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'} mb-1`}>
           <TrendingDown className="h-3 w-3" />
+          <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
         </div>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
         <p className={`text-xs font-bold ${remaining >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
           {isLoading ? '...' : formatCurrency(remaining)}
         </p>

@@ -119,8 +119,8 @@ const ProjectFinancialStatsFooter = ({
       <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
         <div className="flex items-center justify-center gap-1 text-green-600 dark:text-green-400 mb-1">
           <ArrowUpCircle className="h-3 w-3" />
+          <p className="text-[10px] text-gray-500 dark:text-gray-400">الدخل</p>
         </div>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400">الدخل</p>
         <p className="text-xs font-bold text-green-600 dark:text-green-400">
           {formatCurrencyFn(income)}
         </p>
@@ -129,8 +129,8 @@ const ProjectFinancialStatsFooter = ({
       <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2 text-center">
         <div className="flex items-center justify-center gap-1 text-red-600 dark:text-red-400 mb-1">
           <ArrowDownCircle className="h-3 w-3" />
+          <p className="text-[10px] text-gray-500 dark:text-gray-400">المصروفات</p>
         </div>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400">المصروفات</p>
         <p className="text-xs font-bold text-red-600 dark:text-red-400">
           {formatCurrencyFn(expenses)}
         </p>
@@ -139,8 +139,8 @@ const ProjectFinancialStatsFooter = ({
       <div className={`${balance >= 0 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-orange-50 dark:bg-orange-900/20'} rounded-lg p-2 text-center`}>
         <div className={`flex items-center justify-center gap-1 ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'} mb-1`}>
           <Wallet className="h-3 w-3" />
+          <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
         </div>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
         <p className={`text-xs font-bold ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
           {formatCurrencyFn(balance)}
         </p>

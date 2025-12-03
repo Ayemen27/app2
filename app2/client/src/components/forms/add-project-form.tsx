@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
 import type { InsertProject } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 
 interface AddProjectFormProps {
   onSuccess?: () => void;
@@ -18,6 +19,21 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
   const [status, setStatus] = useState("active");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // جلب قائمة المستخدمين (للاستخدام في اختيار المهندس)
+  const { data: usersData = [] } = useQuery<{id: string; name: string; email: string; role: string}[]>({
+    queryKey: ["/api/users/list"],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest("/api/users/list", "GET");
+        return response.data;
+      } catch (error) {
+        console.error("Failed to fetch users:", error);
+        return [];
+      }
+    },
+  });
+
 
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
@@ -108,6 +124,25 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
             </SelectContent>
           </Select>
         </div>
+
+        {/* هذه القائمة لم تعد تستخدم في هذا النموذج، ولكن يمكن استخدامها مستقبلاً */}
+        {/* <div className="space-y-2">
+          <Label htmlFor="project-engineer" className="text-sm font-medium text-foreground">
+            المهندس المسؤول
+          </Label>
+          <Select>
+            <SelectTrigger>
+              <SelectValue placeholder="اختر مهندسًا..." />
+            </SelectTrigger>
+            <SelectContent>
+              {usersData.map((user) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {user.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div> */}
       </CompactFieldGroup>
 
       <Button

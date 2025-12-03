@@ -647,8 +647,11 @@ export default function WorkerAttendance() {
   let totalTransfers = 0;
   
   todayRecords.forEach(record => {
-    // استخدام actualWage لأنه يحتوي على المستحق الفعلي
-    const earned = parseFloat(record.actualWage || record.dailyWage || '0') * parseFloat(record.workDays || '1');
+    // استخدام الأجر اليومي الحالي للعامل بدلاً من الأجر المحفوظ
+    const worker = workers.find(w => w.id === record.workerId);
+    const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
+    const workDays = parseFloat(record.workDays || '0');
+    const earned = currentDailyWage * workDays;
     const paid = parseFloat(record.paidAmount || '0');
     totalEarned += earned;
     totalPaid += paid;
@@ -960,6 +963,11 @@ export default function WorkerAttendance() {
               <div className="space-y-3">
                 {todayAttendance.map((record: any) => {
                   const worker = workers.find(w => w.id === record.workerId);
+                  const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
+                  const workDays = parseFloat(record.workDays || '0');
+                  const calculatedActualWage = currentDailyWage * workDays;
+                  const paidAmount = parseFloat(record.paidAmount || '0');
+                  const remainingAmount = calculatedActualWage - paidAmount;
                   return (
                     <div key={record.id} className="border rounded-lg p-3 bg-card">
                       <div className="flex justify-between items-start mb-3">
@@ -998,23 +1006,23 @@ export default function WorkerAttendance() {
                         </div>
                         <div className="bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
                           <p className="text-muted-foreground font-medium">الراتب اليومي</p>
-                          <p className="font-bold text-foreground arabic-numbers">{formatCurrency(record.dailyWage || '0')}</p>
+                          <p className="font-bold text-foreground arabic-numbers">{formatCurrency(currentDailyWage)}</p>
                         </div>
                         <div className="bg-purple-50 dark:bg-purple-950/20 p-2 rounded">
                           <p className="text-muted-foreground font-medium">عدد الأيام</p>
-                          <p className="font-bold text-foreground arabic-numbers">{record.workDays || '0'}</p>
+                          <p className="font-bold text-foreground arabic-numbers">{workDays}</p>
                         </div>
                         <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
                           <p className="text-muted-foreground font-medium">المستحق</p>
-                          <p className="font-bold text-blue-600 dark:text-blue-400 arabic-numbers">{formatCurrency(record.actualWage || '0')}</p>
+                          <p className="font-bold text-blue-600 dark:text-blue-400 arabic-numbers">{formatCurrency(calculatedActualWage)}</p>
                         </div>
                         <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded">
                           <p className="text-muted-foreground font-medium">المدفوع</p>
-                          <p className="font-bold text-green-600 dark:text-green-400 arabic-numbers">{formatCurrency(record.paidAmount || '0')}</p>
+                          <p className="font-bold text-green-600 dark:text-green-400 arabic-numbers">{formatCurrency(paidAmount)}</p>
                         </div>
                         <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded col-span-2">
                           <p className="text-muted-foreground font-medium">المتبقي</p>
-                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(parseFloat(record.actualWage || '0') - parseFloat(record.paidAmount || '0'))}</p>
+                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(remainingAmount)}</p>
                         </div>
                         {record.workDescription && (
                           <div className="bg-gray-50 dark:bg-gray-950/20 p-2 rounded col-span-2">
@@ -1032,6 +1040,11 @@ export default function WorkerAttendance() {
                 <p className="text-sm text-muted-foreground mb-4">لا توجد سجلات لتاريخ اليوم ({selectedDate}). تم عرض جميع السجلات:</p>
                 {allProjectAttendance.map((record: any) => {
                   const worker = workers.find(w => w.id === record.workerId);
+                  const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
+                  const workDays = parseFloat(record.workDays || '0');
+                  const calculatedActualWage = currentDailyWage * workDays;
+                  const paidAmount = parseFloat(record.paidAmount || '0');
+                  const remainingAmount = calculatedActualWage - paidAmount;
                   return (
                     <div key={record.id} className="border rounded-lg p-3 bg-card">
                       <div className="flex justify-between items-start mb-3">
@@ -1070,23 +1083,23 @@ export default function WorkerAttendance() {
                         </div>
                         <div className="bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
                           <p className="text-muted-foreground font-medium">الراتب اليومي</p>
-                          <p className="font-bold text-foreground arabic-numbers">{formatCurrency(record.dailyWage || '0')}</p>
+                          <p className="font-bold text-foreground arabic-numbers">{formatCurrency(currentDailyWage)}</p>
                         </div>
                         <div className="bg-purple-50 dark:bg-purple-950/20 p-2 rounded">
                           <p className="text-muted-foreground font-medium">عدد الأيام</p>
-                          <p className="font-bold text-foreground arabic-numbers">{record.workDays || '0'}</p>
+                          <p className="font-bold text-foreground arabic-numbers">{workDays}</p>
                         </div>
                         <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
                           <p className="text-muted-foreground font-medium">المستحق</p>
-                          <p className="font-bold text-blue-600 dark:text-blue-400 arabic-numbers">{formatCurrency(record.actualWage || '0')}</p>
+                          <p className="font-bold text-blue-600 dark:text-blue-400 arabic-numbers">{formatCurrency(calculatedActualWage)}</p>
                         </div>
                         <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded">
                           <p className="text-muted-foreground font-medium">المدفوع</p>
-                          <p className="font-bold text-green-600 dark:text-green-400 arabic-numbers">{formatCurrency(record.paidAmount || '0')}</p>
+                          <p className="font-bold text-green-600 dark:text-green-400 arabic-numbers">{formatCurrency(paidAmount)}</p>
                         </div>
                         <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded col-span-2">
                           <p className="text-muted-foreground font-medium">المتبقي</p>
-                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(parseFloat(record.actualWage || '0') - parseFloat(record.paidAmount || '0'))}</p>
+                          <p className="font-bold text-red-600 dark:text-red-400 arabic-numbers">{formatCurrency(remainingAmount)}</p>
                         </div>
                         {record.workDescription && (
                           <div className="bg-gray-50 dark:bg-gray-950/20 p-2 rounded col-span-2">

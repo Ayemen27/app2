@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useFloatingButton } from '@/components/layout/floating-button-context';
 import { 
   ArrowLeft, 
   Send, 
@@ -86,6 +87,7 @@ export default function WorkerAccountsPage() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { setFloatingAction } = useFloatingButton();
 
   // دالة مساعدة لحفظ قيم الإكمال التلقائي
   const saveAutocompleteValue = async (field: string, value: string) => {
@@ -161,6 +163,31 @@ export default function WorkerAccountsPage() {
     queryKey: ['/api/worker-transfers'],
     select: (data) => Array.isArray(data) ? data : []
   });
+
+  // تفعيل الزر العائم لإضافة حولة جديدة
+  useEffect(() => {
+    const handleAddNew = () => {
+      setEditingTransfer(null);
+      setFormData({
+        workerId: '',
+        projectId: '',
+        amount: 0,
+        recipientName: '',
+        recipientPhone: '',
+        transferMethod: 'hawaleh',
+        transferNumber: '',
+        transferDate: new Date().toISOString().split('T')[0],
+        notes: ''
+      });
+      setShowTransferDialog(true);
+    };
+
+    setFloatingAction(handleAddNew, 'إضافة حولة جديدة');
+
+    return () => {
+      setFloatingAction(null);
+    };
+  }, [setFloatingAction]);
 
   // Create transfer mutation
   const createTransferMutation = useMutation({

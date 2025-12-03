@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, Save, Plus, Camera, Package, ChartGantt, Edit, Trash2, Users, CreditCard, DollarSign, TrendingUp, ShoppingCart } from "lucide-react";
+import { ArrowRight, Save, Plus, Camera, Package, ChartGantt, Edit, Trash2, Users, CreditCard, DollarSign, TrendingUp, ShoppingCart, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Combobox } from "@/components/ui/combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import ProjectSelector from "@/components/project-selector";
@@ -21,6 +22,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import FilterStatsBar from "@/components/ui/filter-stats-bar";
 import { useFilterStats } from "@/hooks/use-filter-stats";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import type { Material, InsertMaterialPurchase, InsertMaterial, Supplier, InsertSupplier } from "@shared/schema";
 
 export default function MaterialPurchase() {
@@ -58,6 +60,9 @@ export default function MaterialPurchase() {
   const [notes, setNotes] = useState<string>("");
   const [invoicePhoto, setInvoicePhoto] = useState<string>("");
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
+  
+  // حالة طي النموذج
+  const [isFormCollapsed, setIsFormCollapsed] = useState(false);
   
   // حالات نموذج إضافة المورد
   const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
@@ -804,12 +809,25 @@ export default function MaterialPurchase() {
       </Card>
 
       {/* Purchase Form */}
-      <Card className="mb-4">
-        <CardContent className="p-4">
-          <div className="space-y-1">
-            {/* Material Name */}
-            <div>
-              <Label className="block text-sm font-medium text-foreground">اسم المادة</Label>
+      <Collapsible open={!isFormCollapsed} onOpenChange={(open) => setIsFormCollapsed(!open)}>
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center justify-between cursor-pointer hover:bg-muted/50 rounded-lg p-2 -m-2 mb-2 transition-colors">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Package className="h-5 w-5 text-primary" />
+                  {editingPurchaseId ? "تعديل مشترية" : "إضافة مشترية جديدة"}
+                </h3>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  {isFormCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                </Button>
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-1 pt-2">
+                {/* Material Name */}
+                <div>
+                  <Label className="block text-sm font-medium text-foreground">اسم المادة</Label>
               <AutocompleteInput
                 value={materialName}
                 onChange={setMaterialName}
@@ -1119,47 +1137,49 @@ export default function MaterialPurchase() {
                 placeholder="أي ملاحظات إضافية..."
               />
             </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Action Buttons */}
-      <div className="space-y-3">
-        <Button
-          onClick={() => handleSave(false)}
-          disabled={addMaterialPurchaseMutation.isPending || updateMaterialPurchaseMutation.isPending}
-          className="w-full bg-success hover:bg-success/90 text-success-foreground"
-        >
-          <Save className="ml-2 h-4 w-4" />
-          {(addMaterialPurchaseMutation.isPending || updateMaterialPurchaseMutation.isPending) 
-            ? "جاري الحفظ..." 
-            : editingPurchaseId 
-              ? "تحديث الشراء" 
-              : "حفظ الشراء"}
-        </Button>
-        
-        {!editingPurchaseId && (
-          <Button
-            onClick={() => handleSave(true)}
-            disabled={addMaterialPurchaseMutation.isPending}
-            variant="outline"
-            className="w-full"
-          >
-            <Plus className="ml-2 h-4 w-4" />
-            حفظ وإضافة آخر
-          </Button>
-        )}
+            {/* Action Buttons */}
+            <div className="space-y-3 pt-4">
+              <Button
+                onClick={() => handleSave(false)}
+                disabled={addMaterialPurchaseMutation.isPending || updateMaterialPurchaseMutation.isPending}
+                className="w-full bg-success hover:bg-success/90 text-success-foreground"
+              >
+                <Save className="ml-2 h-4 w-4" />
+                {(addMaterialPurchaseMutation.isPending || updateMaterialPurchaseMutation.isPending) 
+                  ? "جاري الحفظ..." 
+                  : editingPurchaseId 
+                    ? "تحديث الشراء" 
+                    : "حفظ الشراء"}
+              </Button>
+              
+              {!editingPurchaseId && (
+                <Button
+                  onClick={() => handleSave(true)}
+                  disabled={addMaterialPurchaseMutation.isPending}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Plus className="ml-2 h-4 w-4" />
+                  حفظ وإضافة آخر
+                </Button>
+              )}
 
-        {editingPurchaseId && (
-          <Button
-            onClick={resetForm}
-            variant="outline"
-            className="w-full"
-          >
-            إلغاء التحرير
-          </Button>
-        )}
-      </div>
+              {editingPurchaseId && (
+                <Button
+                  onClick={resetForm}
+                  variant="outline"
+                  className="w-full"
+                >
+                  إلغاء التحرير
+                </Button>
+              )}
+            </div>
+              </div>
+            </CollapsibleContent>
+          </CardContent>
+        </Card>
+      </Collapsible>
 
       {/* Material Purchases List for Today */}
       {materialPurchasesLoading && (
@@ -1187,7 +1207,7 @@ export default function MaterialPurchase() {
       {selectedProjectId && materialPurchases && materialPurchases.length > 0 && (
         <Card className="mt-6">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground">
                 المشتريات في {new Date(purchaseDate).toLocaleDateString('en-GB')} ({materialPurchases.length})
               </h3>
@@ -1195,100 +1215,48 @@ export default function MaterialPurchase() {
                 غيّر تاريخ الشراء أعلاه لعرض مشتريات تواريخ أخرى
               </p>
             </div>
-            <div className="space-y-2.5">
+            <UnifiedCardGrid columns={1}>
               {materialPurchases.map((purchase: any) => (
-                <div key={purchase.id} className="border rounded-lg p-3 bg-card hover:shadow-sm transition-shadow">
-                  {/* رأس البطاقة: اسم المادة مع الأيقونات والأزرار */}
-                  <div className="flex items-start justify-between mb-2.5">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Package className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                      <span className="font-semibold text-foreground line-clamp-1">
-                        {purchase.materialName || purchase.material?.name || "غير محدد"}
-                      </span>
+                <UnifiedCard
+                  key={purchase.id}
+                  title={purchase.materialName || purchase.material?.name || "غير محدد"}
+                  titleIcon={Package}
+                  badges={[
+                    { label: purchase.purchaseType || "نقد", variant: purchase.purchaseType === "آجل" ? "warning" : "default" }
+                  ]}
+                  fields={[
+                    { label: "الفئة", value: purchase.materialCategory || "غير محدد", icon: ChartGantt },
+                    { label: "الوحدة", value: purchase.materialUnit || "غير محدد", icon: Package },
+                    { label: "الكمية", value: <span className="arabic-numbers">{purchase.quantity}</span>, icon: ShoppingCart },
+                    { label: "المورد", value: purchase.supplierName || "بدون مورد", icon: Users },
+                    { label: "السعر", value: <span className="arabic-numbers">{formatCurrency(purchase.unitPrice)}</span>, icon: DollarSign },
+                    { label: "الإجمالي", value: <span className="arabic-numbers">{formatCurrency(purchase.totalAmount)}</span>, icon: DollarSign, color: "info", emphasis: true },
+                  ]}
+                  actions={[
+                    {
+                      icon: Edit,
+                      label: "تعديل",
+                      onClick: () => handleEdit(purchase),
+                      color: "blue",
+                      disabled: editingPurchaseId === purchase.id
+                    },
+                    {
+                      icon: Trash2,
+                      label: "حذف",
+                      onClick: () => deleteMaterialPurchaseMutation.mutate(purchase.id),
+                      color: "red",
+                      disabled: deleteMaterialPurchaseMutation.isPending
+                    }
+                  ]}
+                  footer={
+                    <div className="text-xs text-muted-foreground arabic-numbers">
+                      التاريخ: {new Date(purchase.purchaseDate).toLocaleDateString('en-GB')}
                     </div>
-                    <div className="flex gap-1.5 flex-shrink-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => handleEdit(purchase)}
-                        disabled={editingPurchaseId === purchase.id}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => deleteMaterialPurchaseMutation.mutate(purchase.id)}
-                        disabled={deleteMaterialPurchaseMutation.isPending}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* الصف الأول: الفئة والوحدة والكمية */}
-                  <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                    <div className="flex items-center gap-1">
-                      <div className="flex items-center gap-0.5 text-muted-foreground">
-                        <ChartGantt className="h-3 w-3" />
-                        <span className="font-medium">الفئة:</span>
-                      </div>
-                      <span className="text-foreground">{purchase.materialCategory || "غير محدد"}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="flex items-center gap-0.5 text-muted-foreground">
-                        <Package className="h-3 w-3" />
-                        <span className="font-medium">الوحدة:</span>
-                      </div>
-                      <span className="text-foreground">{purchase.materialUnit || "غير محدد"}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="flex items-center gap-0.5 text-muted-foreground">
-                        <DollarSign className="h-3 w-3" />
-                        <span className="font-medium">الكمية:</span>
-                      </div>
-                      <span className="text-foreground font-medium arabic-numbers">{purchase.quantity}</span>
-                    </div>
-                  </div>
-
-                  {/* الصف الثاني: المورد ونوع الدفع */}
-                  <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-                    <div className="flex items-center gap-1">
-                      <div className="flex items-center gap-0.5 text-muted-foreground">
-                        <Users className="h-3 w-3" />
-                        <span className="font-medium">المورد:</span>
-                      </div>
-                      <span className="text-foreground">{purchase.supplierName || "بدون مورد"}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="flex items-center gap-0.5 text-muted-foreground">
-                        <CreditCard className="h-3 w-3" />
-                        <span className="font-medium">الدفع:</span>
-                      </div>
-                      <span className="text-foreground">{purchase.purchaseType || "نقد"}</span>
-                    </div>
-                  </div>
-
-                  {/* الصف الثالث: السعر والإجمالي والتاريخ */}
-                  <div className="grid grid-cols-3 gap-2 text-xs pt-1.5 border-t border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center gap-1">
-                      <span className="text-muted-foreground font-medium">السعر:</span>
-                      <span className="text-foreground font-semibold arabic-numbers">{formatCurrency(purchase.unitPrice)}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-muted-foreground font-medium">الإجمالي:</span>
-                      <span className="text-blue-600 dark:text-blue-400 font-bold arabic-numbers">{formatCurrency(purchase.totalAmount)}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-muted-foreground font-medium">التاريخ:</span>
-                      <span className="text-foreground arabic-numbers">{new Date(purchase.purchaseDate).toLocaleDateString('en-GB')}</span>
-                    </div>
-                  </div>
-                </div>
+                  }
+                  compact
+                />
               ))}
-            </div>
+            </UnifiedCardGrid>
           </CardContent>
         </Card>
       )}

@@ -57,15 +57,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('📊 [API] جلب قائمة المستخدمين');
       const usersList = await db.select({
         id: users.id,
-        name: users.name,
+        firstName: users.firstName,
+        lastName: users.lastName,
         email: users.email,
         role: users.role,
-      }).from(users).orderBy(users.name);
-      console.log(`✅ [API] تم جلب ${usersList.length} مستخدم`);
+      }).from(users).orderBy(users.firstName);
+      
+      // تحويل البيانات لإضافة حقل name مجمع
+      const usersWithName = usersList.map(user => ({
+        id: user.id,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        email: user.email,
+        role: user.role,
+      }));
+      
+      console.log(`✅ [API] تم جلب ${usersWithName.length} مستخدم`);
       res.json({ 
         success: true, 
-        data: usersList,
-        message: `تم جلب ${usersList.length} مستخدم بنجاح`
+        data: usersWithName,
+        message: `تم جلب ${usersWithName.length} مستخدم بنجاح`
       });
     } catch (error: any) {
       console.error('❌ [API] خطأ في جلب المستخدمين:', error);

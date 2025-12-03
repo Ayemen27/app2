@@ -70,7 +70,10 @@ export function SearchToolbar({
     return (
       <Select
         value={value || filter.defaultValue || 'all'}
-        onValueChange={(v) => onFilterChange?.(filter.key, v)}
+        onValueChange={(v) => {
+          onFilterChange?.(filter.key, v);
+          setIsFilterOpen(false);
+        }}
       >
         <SelectTrigger className="h-9">
           <SelectValue placeholder={filter.placeholder || filter.label} />

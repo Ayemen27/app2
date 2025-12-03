@@ -1,4 +1,4 @@
-import{r as i,a as F}from"./ui-C1IvPYJH.js";import{r as H}from"./vendor-Dazix4UH.js";function M(e,t){if(e instanceof RegExp)return{keys:!1,pattern:e};var n,r,s,a,c=[],h="",l=e.split("/");for(l[0]||l.shift();s=l.shift();)n=s[0],n==="*"?(c.push(n),h+=s[1]==="?"?"(?:/(.*))?":"/(.*)"):n===":"?(r=s.indexOf("?",1),a=s.indexOf(".",1),c.push(s.substring(1,~r?r:~a?a:s.length)),h+=~r&&!~a?"(?:/([^/]+?))?":"/([^/]+?)",~a&&(h+=(~r?"?":"")+"\\"+s.substring(a))):h+="/"+s;return{keys:c,pattern:new RegExp("^"+h+(t?"(?=$|/)":"/?$"),"i")}}var x={exports:{}},g={};/**
+import{r as i,a as F}from"./ui-9Vy1OtWg.js";import{r as H}from"./vendor-Dazix4UH.js";function M(e,t){if(e instanceof RegExp)return{keys:!1,pattern:e};var n,r,s,a,c=[],h="",l=e.split("/");for(l[0]||l.shift();s=l.shift();)n=s[0],n==="*"?(c.push(n),h+=s[1]==="?"?"(?:/(.*))?":"/(.*)"):n===":"?(r=s.indexOf("?",1),a=s.indexOf(".",1),c.push(s.substring(1,~r?r:~a?a:s.length)),h+=~r&&!~a?"(?:/([^/]+?))?":"/([^/]+?)",~a&&(h+=(~r?"?":"")+"\\"+s.substring(a))):h+="/"+s;return{keys:c,pattern:new RegExp("^"+h+(t?"(?=$|/)":"/?$"),"i")}}var x={exports:{}},g={};/**
  * @license React
  * use-sync-external-store-shim.production.js
  *

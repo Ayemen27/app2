@@ -140,7 +140,7 @@ const ProjectFinancialStatsFooter = ({
         <div className={`flex items-center justify-center gap-1 ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'} mb-1`}>
           <Wallet className="h-3 w-3" />
         </div>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400">الرصيد</p>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
         <p className={`text-xs font-bold ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
           {formatCurrencyFn(balance)}
         </p>

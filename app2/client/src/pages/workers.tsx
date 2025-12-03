@@ -87,7 +87,7 @@ const FinancialStatsFooter = ({
         <div className="flex items-center justify-center gap-1 text-green-600 dark:text-green-400 mb-1">
           <Wallet className="h-3 w-3" />
         </div>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400">الرصيد</p>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
         <p className="text-xs font-bold text-green-600 dark:text-green-400">
           {isLoading ? '...' : formatCurrency(totalBalance)}
         </p>

@@ -13,6 +13,7 @@ import workerRouter from './workerRoutes.js';
 import financialRouter from './financialRoutes.js';
 import autocompleteRouter, { registerAutocompleteAdminRoutes } from './autocompleteRoutes.js';
 import notificationRouter from './notificationRoutes.js';
+import { reportRouter } from './reportRoutes.js';
 // authRouter moved to main routes/auth.ts to avoid duplication
 
 /**
@@ -45,6 +46,9 @@ export function registerOrganizedRoutes(app: Express) {
   
   // المسارات المالية
   app.use('/api', financialRouter); // يحتوي على عدة prefixes
+  
+  // مسارات التقارير الاحترافية
+  app.use('/api', reportRouter);
   
   // مسارات الإشعارات
   app.use('/api/notifications', notificationRouter);

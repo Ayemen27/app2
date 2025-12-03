@@ -32,6 +32,7 @@ import Reports from "@/pages/reports";
 import DailyExpenses from "@/pages/daily-expenses";
 import ComponentGalleryPage from "@/component-gallery";
 import RealReports from "@/pages/real-reports";
+import ProfessionalReports from "@/pages/professional-reports";
 
 import { LayoutShell } from "@/components/layout/layout-shell";
 import { FloatingButtonProvider } from "@/components/layout/floating-button-context";
@@ -98,6 +99,7 @@ function Router() {
       <Route path="/daily-expenses" component={DailyExpenses} />
       <Route path="/reports" component={Reports} />
       <Route path="/real-reports" component={RealReports} />
+      <Route path="/professional-reports" component={ProfessionalReports} />
       <Route path="/component-gallery" component={ComponentGalleryPage} />
       <Route component={NotFound} />
     </Switch>

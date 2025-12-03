@@ -44,6 +44,7 @@ import { formatDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { useAuth } from "@/components/AuthProvider";
+import { ProjectsPageSkeleton } from "@/components/ui/project-skeleton";
 
 interface ProjectStats {
   totalWorkers: number;
@@ -661,16 +662,9 @@ export default function ProjectsPage() {
   }, [usersData, isAdmin]);
 
 
-  // معالجة حالة التحميل
+  // معالجة حالة التحميل - عرض هيكل تحميل جمالي
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-1">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">جاري تحميل المشاريع...</p>
-        </div>
-      </div>
-    );
+    return <ProjectsPageSkeleton />;
   }
 
   // معالجة الأخطاء

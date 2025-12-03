@@ -24,6 +24,7 @@ import {
   DollarSign, 
   Package, 
   TrendingUp,
+  TrendingDown,
   Clock,
   MapPin,
   BarChart3,
@@ -36,7 +37,9 @@ import {
   Calendar,
   Activity,
   Wallet,
-  UserCog
+  UserCog,
+  ArrowUpCircle,
+  ArrowDownCircle
 } from "lucide-react";
 import type { Project, InsertProject } from "@shared/schema";
 import { insertProjectSchema } from "@shared/schema";
@@ -100,7 +103,51 @@ const cleanNumber = (value: any): number => {
   return isNaN(num) || !isFinite(num) ? 0 : num;
 };
 
-
+const ProjectFinancialStatsFooter = ({ 
+  income,
+  expenses,
+  balance,
+  formatCurrencyFn
+}: { 
+  income: number;
+  expenses: number;
+  balance: number;
+  formatCurrencyFn: (amount: number) => string;
+}) => {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
+        <div className="flex items-center justify-center gap-1 text-green-600 dark:text-green-400 mb-1">
+          <ArrowUpCircle className="h-3 w-3" />
+        </div>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400">الدخل</p>
+        <p className="text-xs font-bold text-green-600 dark:text-green-400">
+          {formatCurrencyFn(income)}
+        </p>
+      </div>
+      
+      <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2 text-center">
+        <div className="flex items-center justify-center gap-1 text-red-600 dark:text-red-400 mb-1">
+          <ArrowDownCircle className="h-3 w-3" />
+        </div>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400">المصروفات</p>
+        <p className="text-xs font-bold text-red-600 dark:text-red-400">
+          {formatCurrencyFn(expenses)}
+        </p>
+      </div>
+      
+      <div className={`${balance >= 0 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-orange-50 dark:bg-orange-900/20'} rounded-lg p-2 text-center`}>
+        <div className={`flex items-center justify-center gap-1 ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'} mb-1`}>
+          <Wallet className="h-3 w-3" />
+        </div>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400">الرصيد</p>
+        <p className={`text-xs font-bold ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
+          {formatCurrencyFn(balance)}
+        </p>
+      </div>
+    </div>
+  );
+};
 
 export default function ProjectsPage() {
   const { toast } = useToast();
@@ -949,28 +996,10 @@ export default function ProjectsPage() {
                 ]}
                 fields={[
                   {
-                    label: "المتبقي",
-                    value: formatCurrency(balance),
-                    icon: BarChart3,
-                    emphasis: true,
-                    color: balance >= 0 ? "info" : "danger",
-                  },
-                  {
-                    label: "الدخل",
-                    value: formatCurrency(safeParseNumber(project.stats?.totalIncome, 0)),
-                    icon: TrendingUp,
-                    color: "success",
-                  },
-                  {
-                    label: "المصروفات",
-                    value: formatCurrency(safeParseNumber(project.stats?.totalExpenses, 0)),
-                    icon: DollarSign,
-                    color: "danger",
-                  },
-                  {
                     label: "العمال",
                     value: cleanInteger(project.stats?.totalWorkers),
                     icon: Users,
+                    emphasis: true,
                   },
                   {
                     label: "المشتريات",
@@ -1008,6 +1037,14 @@ export default function ProjectsPage() {
                     },
                   },
                 ]}
+                footer={
+                  <ProjectFinancialStatsFooter 
+                    income={safeParseNumber(project.stats?.totalIncome, 0)}
+                    expenses={safeParseNumber(project.stats?.totalExpenses, 0)}
+                    balance={balance}
+                    formatCurrencyFn={formatCurrency}
+                  />
+                }
                 compact
               />
             );

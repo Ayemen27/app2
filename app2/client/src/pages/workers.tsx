@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Edit2, Trash2, Users, Clock, DollarSign, Calendar, User, Activity, Briefcase, Phone, Building, Power, CheckCircle, XCircle, Wallet, ArrowDownCircle, TrendingDown } from 'lucide-react';
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { apiRequest } from '@/lib/queryClient';
 import AddWorkerForm from '@/components/forms/add-worker-form';
 import { useFloatingButton } from '@/components/layout/floating-button-context';
@@ -29,6 +30,15 @@ interface WorkerType {
   usageCount: number;
   lastUsed: string;
   createdAt: string;
+}
+
+interface WorkerStats {
+  totalWorkDays: number;
+  totalTransfers: number;
+  totalEarnings: number;
+  projectsWorked: number;
+  lastAttendanceDate: string | null;
+  monthlyAttendanceRate: number;
 }
 
 const WorkerDialog = ({ worker, onClose, isOpen }: {
@@ -58,7 +68,55 @@ const WorkerDialog = ({ worker, onClose, isOpen }: {
   );
 };
 
-const WorkerCard = ({ 
+const FinancialStatsFooter = ({ 
+  stats,
+  formatCurrency,
+  isLoading
+}: { 
+  stats: WorkerStats | undefined;
+  formatCurrency: (amount: number) => string;
+  isLoading: boolean;
+}) => {
+  const totalBalance = stats?.totalEarnings ?? 0;
+  const totalWithdrawals = stats?.totalTransfers ?? 0;
+  const remaining = totalBalance - totalWithdrawals;
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
+        <div className="flex items-center justify-center gap-1 text-green-600 dark:text-green-400 mb-1">
+          <Wallet className="h-3 w-3" />
+        </div>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400">الرصيد</p>
+        <p className="text-xs font-bold text-green-600 dark:text-green-400">
+          {isLoading ? '...' : formatCurrency(totalBalance)}
+        </p>
+      </div>
+      
+      <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2 text-center">
+        <div className="flex items-center justify-center gap-1 text-yellow-600 dark:text-yellow-400 mb-1">
+          <ArrowDownCircle className="h-3 w-3" />
+        </div>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400">السحوبات</p>
+        <p className="text-xs font-bold text-yellow-600 dark:text-yellow-400">
+          {isLoading ? '...' : formatCurrency(totalWithdrawals)}
+        </p>
+      </div>
+      
+      <div className={`${remaining >= 0 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-red-50 dark:bg-red-900/20'} rounded-lg p-2 text-center`}>
+        <div className={`flex items-center justify-center gap-1 ${remaining >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'} mb-1`}>
+          <TrendingDown className="h-3 w-3" />
+        </div>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
+        <p className={`text-xs font-bold ${remaining >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
+          {isLoading ? '...' : formatCurrency(remaining)}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const WorkerCardWrapper = ({ 
   worker, 
   onEdit, 
   onDelete, 
@@ -73,141 +131,89 @@ const WorkerCard = ({
   formatCurrency: (amount: number) => string;
   isToggling: boolean;
 }) => {
+  const { data: statsData, isLoading: statsLoading } = useQuery<{ success: boolean; data: WorkerStats }>({
+    queryKey: ['/api/workers', worker.id, 'stats'],
+    queryFn: async () => {
+      return apiRequest(`/api/workers/${worker.id}/stats`, 'GET');
+    },
+    staleTime: 300000,
+    retry: 1,
+  });
+
+  const stats = statsData?.data;
+  const projectsCount = stats?.projectsWorked ?? 0;
+
   return (
-    <Card className={`overflow-hidden border-2 transition-all duration-200 hover:shadow-lg ${
-      worker.isActive 
-        ? 'border-green-200 dark:border-green-800' 
-        : 'border-gray-200 dark:border-gray-700'
-    }`}>
-      <div className={`p-3 ${
-        worker.isActive 
-          ? 'bg-gradient-to-r from-green-500 to-green-600' 
-          : 'bg-gradient-to-r from-gray-400 to-gray-500'
-      }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Badge className="bg-white/20 text-white border-0 text-xs px-2 py-0.5">
-              {worker.type}
-            </Badge>
-            <div className="flex gap-1">
-              <button
-                onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                className="w-6 h-6 rounded bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
-                title="تعديل"
-              >
-                <Edit2 className="h-3 w-3" />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onToggleStatus(); }}
-                disabled={isToggling}
-                className={`w-6 h-6 rounded flex items-center justify-center text-white transition-colors ${
-                  worker.isActive 
-                    ? 'bg-orange-500/80 hover:bg-orange-600' 
-                    : 'bg-green-600/80 hover:bg-green-700'
-                } ${isToggling ? 'opacity-50 cursor-not-allowed' : ''}`}
-                title={worker.isActive ? "إيقاف" : "تفعيل"}
-              >
-                <Power className="h-3 w-3" />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="w-6 h-6 rounded bg-red-500/80 hover:bg-red-600 flex items-center justify-center text-white transition-colors"
-                title="حذف"
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
-            </div>
-          </div>
-          <h3 className="text-white font-bold text-sm truncate max-w-[140px]">
-            {worker.name}
-          </h3>
-        </div>
-      </div>
-
-      <CardContent className="p-3 space-y-3">
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-              <Phone className="h-3 w-3 text-blue-500" />
-              <span className="font-medium">الهاتف</span>
-            </div>
-            <p className="text-gray-900 dark:text-gray-100 font-semibold text-xs ltr text-left" dir="ltr">
-              {worker.phone || 'غير محدد'}
-            </p>
-            
-            <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 mt-2">
-              <Calendar className="h-3 w-3 text-orange-500" />
-              <span className="font-medium">تاريخ التوظيف</span>
-            </div>
-            <p className="text-gray-900 dark:text-gray-100 font-semibold text-xs">
-              {worker.hireDate ? new Date(worker.hireDate).toLocaleDateString('en-GB') : 'غير محدد'}
-            </p>
-            
-            <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 mt-2">
-              <Activity className="h-3 w-3" style={{ color: worker.isActive ? '#22c55e' : '#ef4444' }} />
-              <span className="font-medium">الحالة</span>
-            </div>
-            <div className="flex items-center gap-1">
-              {worker.isActive ? (
-                <>
-                  <CheckCircle className="h-3 w-3 text-green-500" />
-                  <span className="text-green-600 dark:text-green-400 font-semibold text-xs">نشط</span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-3 w-3 text-red-500" />
-                  <span className="text-red-600 dark:text-red-400 font-semibold text-xs">غير نشط</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-              <DollarSign className="h-3 w-3 text-green-500" />
-              <span className="font-medium">الأجر اليومي</span>
-            </div>
-            <p className="text-green-600 dark:text-green-400 font-bold text-sm">
-              {formatCurrency(parseFloat(worker.dailyWage))}
-            </p>
-            
-            <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 mt-2">
-              <Building className="h-3 w-3 text-purple-500" />
-              <span className="font-medium">المشاريع</span>
-            </div>
-            <p className="text-gray-900 dark:text-gray-100 font-semibold text-xs line-clamp-2">
-              -
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
-            <div className="flex items-center justify-center gap-1 text-green-600 dark:text-green-400 mb-1">
-              <Wallet className="h-3 w-3" />
-            </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">الرصيد</p>
-            <p className="text-xs font-bold text-green-600 dark:text-green-400">0 ريال</p>
-          </div>
-          
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2 text-center">
-            <div className="flex items-center justify-center gap-1 text-yellow-600 dark:text-yellow-400 mb-1">
-              <ArrowDownCircle className="h-3 w-3" />
-            </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">السحوبات</p>
-            <p className="text-xs font-bold text-yellow-600 dark:text-yellow-400">0 ريال</p>
-          </div>
-          
-          <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2 text-center">
-            <div className="flex items-center justify-center gap-1 text-red-600 dark:text-red-400 mb-1">
-              <TrendingDown className="h-3 w-3" />
-            </div>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
-            <p className="text-xs font-bold text-red-600 dark:text-red-400">0 ريال</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <UnifiedCard
+      title={worker.name}
+      subtitle={worker.hireDate ? new Date(worker.hireDate).toLocaleDateString('en-GB') : undefined}
+      titleIcon={User}
+      headerColor={worker.isActive ? '#22c55e' : '#9ca3af'}
+      badges={[
+        {
+          label: worker.type,
+          variant: 'secondary',
+        },
+        {
+          label: worker.isActive ? 'نشط' : 'غير نشط',
+          variant: worker.isActive ? 'success' : 'destructive',
+        }
+      ]}
+      fields={[
+        {
+          label: "الأجر اليومي",
+          value: formatCurrency(parseFloat(worker.dailyWage)),
+          icon: DollarSign,
+          emphasis: true,
+          color: "success",
+        },
+        {
+          label: "الهاتف",
+          value: worker.phone || 'غير محدد',
+          icon: Phone,
+          color: worker.phone ? "info" : "muted",
+        },
+        {
+          label: "المشاريع",
+          value: statsLoading ? '...' : projectsCount > 0 ? `${projectsCount} مشروع` : 'لا يوجد',
+          icon: Building,
+          color: projectsCount > 0 ? "info" : "muted",
+        },
+        {
+          label: "أيام العمل",
+          value: statsLoading ? '...' : `${stats?.totalWorkDays ?? 0} يوم`,
+          icon: Calendar,
+        },
+      ]}
+      actions={[
+        {
+          icon: Edit2,
+          label: "تعديل",
+          onClick: onEdit,
+        },
+        {
+          icon: Power,
+          label: worker.isActive ? "إيقاف" : "تفعيل",
+          variant: worker.isActive ? "ghost" : "ghost",
+          onClick: onToggleStatus,
+          disabled: isToggling,
+        },
+        {
+          icon: Trash2,
+          label: "حذف",
+          variant: "ghost",
+          onClick: onDelete,
+        },
+      ]}
+      footer={
+        <FinancialStatsFooter 
+          stats={stats} 
+          formatCurrency={formatCurrency} 
+          isLoading={statsLoading}
+        />
+      }
+      compact
+    />
   );
 };
 
@@ -510,7 +516,7 @@ export default function WorkersPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {[...Array(8)].map((_, i) => (
             <Card key={i} className="animate-pulse">
-              <div className="h-12 bg-gray-300 dark:bg-gray-700 rounded-t-lg" />
+              <div className="h-1.5 bg-gray-300 dark:bg-gray-700 rounded-t-lg" />
               <CardContent className="p-4">
                 <div className="space-y-3">
                   <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-3/4" />
@@ -568,9 +574,9 @@ export default function WorkersPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <UnifiedCardGrid columns={4}>
           {filteredWorkers.map((worker) => (
-            <WorkerCard
+            <WorkerCardWrapper
               key={worker.id}
               worker={worker}
               onEdit={() => handleEditWorker(worker)}
@@ -580,7 +586,7 @@ export default function WorkersPage() {
               isToggling={togglingWorkerId === worker.id}
             />
           ))}
-        </div>
+        </UnifiedCardGrid>
       )}
 
       <WorkerDialog

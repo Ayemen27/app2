@@ -17,6 +17,7 @@ interface AddProjectFormProps {
 export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
   const [name, setName] = useState("");
   const [status, setStatus] = useState("active");
+  const [engineerId, setEngineerId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -61,6 +62,7 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
       });
       setName("");
       setStatus("active");
+      setEngineerId(null);
       onSuccess?.();
     },
     onError: async (error: any, variables) => {
@@ -89,6 +91,7 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
     addProjectMutation.mutate({
       name: name.trim(),
       status,
+      engineerId: engineerId,
     });
   };
 
@@ -125,24 +128,27 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
           </Select>
         </div>
 
-        {/* هذه القائمة لم تعد تستخدم في هذا النموذج، ولكن يمكن استخدامها مستقبلاً */}
-        {/* <div className="space-y-2">
+        <div className="space-y-2">
           <Label htmlFor="project-engineer" className="text-sm font-medium text-foreground">
             المهندس المسؤول
           </Label>
-          <Select>
-            <SelectTrigger>
+          <Select
+            value={engineerId || "none"}
+            onValueChange={(value) => setEngineerId(value === "none" ? null : value)}
+          >
+            <SelectTrigger id="project-engineer">
               <SelectValue placeholder="اختر مهندسًا..." />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="none">بدون مهندس</SelectItem>
               {usersData.map((user) => (
                 <SelectItem key={user.id} value={user.id}>
-                  {user.name}
+                  {user.name || user.email}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div> */}
+        </div>
       </CompactFieldGroup>
 
       <Button

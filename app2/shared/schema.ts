@@ -98,6 +98,8 @@ export const workers = pgTable("workers", {
   name: text("name").notNull(),
   type: text("type").notNull(), // معلم (master), عامل (worker)
   dailyWage: decimal("daily_wage", { precision: 10, scale: 2 }).notNull(),
+  phone: text("phone"), // رقم الهاتف
+  hireDate: text("hire_date"), // تاريخ التوظيف (YYYY-MM-DD)
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -1,13 +1,13 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit2, Trash2, Building, Phone, MapPin, User, CreditCard, Calendar, TrendingUp, AlertCircle } from "lucide-react";
-import { StatsCard } from "@/components/ui/stats-card";
-import { UnifiedSearchFilter, STATUS_FILTER_OPTIONS, type FilterConfig } from "@/components/ui/unified-search-filter";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { type Supplier } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import AddSupplierForm from "@/components/forms/add-supplier-form";
@@ -16,18 +16,60 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 export default function SuppliersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [searchValue, setSearchValue] = useState("");
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({
+    status: "all",
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
 
-  // Fetch data
-  const { data: suppliers = [], isLoading } = useQuery({
+  const handleFilterChange = useCallback((key: string, value: any) => {
+    setFilterValues(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setSearchValue("");
+    setFilterValues({ status: "all" });
+    toast({
+      title: "تم إعادة التعيين",
+      description: "تم مسح جميع الفلاتر",
+    });
+  }, [toast]);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount) + ' ر.ي';
+  };
+
+  const { data: suppliers = [], isLoading, refetch: refetchSuppliers } = useQuery({
     queryKey: ["/api/suppliers"],
   });
 
-  // Delete mutation
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refetchSuppliers();
+      toast({
+        title: "تم التحديث",
+        description: "تم تحديث البيانات بنجاح",
+      });
+    } catch (error) {
+      toast({
+        title: "خطأ",
+        description: "فشل تحديث البيانات",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchSuppliers, toast]);
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await apiRequest(`/api/suppliers/${id}`, "DELETE");
@@ -63,62 +105,99 @@ export default function SuppliersPage() {
     setIsDialogOpen(true);
   };
 
-  // تعيين إجراء الزر العائم
   useEffect(() => {
     setFloatingAction(handleAddSupplier, "إضافة مورد جديد");
     return () => setFloatingAction(null);
   }, [setFloatingAction]);
 
-  // تكوين الفلاتر
-  const filterConfigs: FilterConfig[] = useMemo(() => [
-    {
-      key: 'status',
-      label: 'الحالة',
-      placeholder: 'اختر الحالة',
-      options: STATUS_FILTER_OPTIONS,
-      defaultValue: 'all',
-    },
-  ], []);
+  const filteredSuppliers = useMemo(() => {
+    return (suppliers as Supplier[]).filter((supplier: Supplier) => {
+      const matchesSearch = supplier.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+        (supplier.contactPerson && supplier.contactPerson.toLowerCase().includes(searchValue.toLowerCase())) ||
+        (supplier.phone && supplier.phone.includes(searchValue));
+      const matchesStatus = filterValues.status === 'all' || 
+        (filterValues.status === 'active' && supplier.isActive) ||
+        (filterValues.status === 'inactive' && !supplier.isActive);
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [suppliers, searchValue, filterValues]);
 
-  // Filter suppliers
-  const filteredSuppliers = (suppliers as Supplier[]).filter((supplier: Supplier) => {
-    const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (supplier.contactPerson && supplier.contactPerson.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (supplier.phone && supplier.phone.includes(searchTerm));
-    const matchesStatus = statusFilter === 'all' || 
-      (statusFilter === 'active' && supplier.isActive) ||
-      (statusFilter === 'inactive' && !supplier.isActive);
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  // Calculate statistics
-  const stats = {
+  const stats = useMemo(() => ({
     total: (suppliers as Supplier[]).length,
     active: (suppliers as Supplier[]).filter((s: Supplier) => s.isActive).length,
     inactive: (suppliers as Supplier[]).filter((s: Supplier) => !s.isActive).length,
     totalDebt: (suppliers as Supplier[]).reduce((sum: number, s: Supplier) => sum + (parseFloat(s.totalDebt?.toString() || '0') || 0), 0),
-  };
+  }), [suppliers]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'decimal',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount) + ' ر.ي';
-  };
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 2,
+      gap: 'sm',
+      items: [
+        {
+          key: 'total',
+          label: 'إجمالي الموردين',
+          value: stats.total,
+          icon: Building,
+          color: 'blue',
+        },
+        {
+          key: 'active',
+          label: 'الموردين النشطين',
+          value: stats.active,
+          icon: TrendingUp,
+          color: 'green',
+          showDot: true,
+          dotColor: 'bg-green-500',
+        },
+      ]
+    },
+    {
+      columns: 2,
+      gap: 'sm',
+      items: [
+        {
+          key: 'inactive',
+          label: 'غير النشطين',
+          value: stats.inactive,
+          icon: AlertCircle,
+          color: 'orange',
+        },
+        {
+          key: 'totalDebt',
+          label: 'إجمالي المديونية',
+          value: formatCurrency(stats.totalDebt),
+          icon: CreditCard,
+          color: stats.totalDebt > 0 ? 'red' : 'green',
+        },
+      ]
+    }
+  ], [stats]);
+
+  const filtersConfig: FilterConfig[] = useMemo(() => [
+    {
+      key: 'status',
+      label: 'الحالة',
+      type: 'select',
+      defaultValue: 'all',
+      options: [
+        { value: 'all', label: 'جميع الحالات' },
+        { value: 'active', label: 'نشط' },
+        { value: 'inactive', label: 'غير نشط' },
+      ],
+    },
+  ], []);
 
   if (isLoading) {
     return (
       <div className="container mx-auto p-4 space-y-1">
-        {/* Loading Header */}
         <div className="animate-pulse space-y-1">
           <div className="h-8 bg-muted rounded w-48"></div>
           <div className="h-4 bg-muted rounded w-64"></div>
         </div>
         
-        {/* Loading Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="p-4">
@@ -134,28 +213,14 @@ export default function SuppliersPage() {
           ))}
         </div>
         
-        {/* Loading Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-4">
           {[...Array(8)].map((_, i) => (
             <Card key={i} className="animate-pulse">
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-2">
-                    <div className="h-5 bg-muted rounded w-24"></div>
-                    <div className="h-3 bg-muted rounded w-20"></div>
-                  </div>
-                  <div className="h-5 w-12 bg-muted rounded"></div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2">
-                  <div className="h-3 bg-muted rounded w-28"></div>
-                  <div className="h-3 bg-muted rounded w-32"></div>
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div className="h-5 bg-muted rounded w-24"></div>
                   <div className="h-3 bg-muted rounded w-20"></div>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <div className="h-7 bg-muted rounded w-16"></div>
-                  <div className="h-7 bg-muted rounded w-16"></div>
+                  <div className="h-3 bg-muted rounded w-28"></div>
                 </div>
               </CardContent>
             </Card>
@@ -166,220 +231,149 @@ export default function SuppliersPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-1">
+    <div className="container mx-auto p-4 space-y-2">
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-lg sm:text-xl">
-                {selectedSupplier ? "تعديل بيانات المورد" : "إضافة مورد جديد"}
-              </DialogTitle>
-              <DialogDescription>
-                {selectedSupplier ? "قم بتعديل بيانات المورد المحدد" : "أدخل بيانات المورد الجديد"}
-              </DialogDescription>
-            </DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl">
+              {selectedSupplier ? "تعديل بيانات المورد" : "إضافة مورد جديد"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedSupplier ? "قم بتعديل بيانات المورد المحدد" : "أدخل بيانات المورد الجديد"}
+            </DialogDescription>
+          </DialogHeader>
 
-            <AddSupplierForm
-              supplier={selectedSupplier as any}
-              onSuccess={() => {
-                resetForm();
-                queryClient.refetchQueries({ queryKey: ["/api/suppliers"] });
-              }}
-              onCancel={resetForm}
-              submitLabel={selectedSupplier ? "تحديث المورد" : "إضافة المورد"}
-            />
-          </DialogContent>
-        </Dialog>
+          <AddSupplierForm
+            supplier={selectedSupplier as any}
+            onSuccess={() => {
+              resetForm();
+              queryClient.refetchQueries({ queryKey: ["/api/suppliers"] });
+            }}
+            onCancel={resetForm}
+            submitLabel={selectedSupplier ? "تحديث المورد" : "إضافة المورد"}
+          />
+        </DialogContent>
+      </Dialog>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatsCard
-          title="إجمالي الموردين"
-          value={stats.total}
-          icon={Building}
-          color="blue"
-        />
-        <StatsCard
-          title="الموردين النشطين"
-          value={stats.active}
-          icon={TrendingUp}
-          color="green"
-        />
-        <StatsCard
-          title="غير النشطين"
-          value={stats.inactive}
-          icon={AlertCircle}
-          color="orange"
-        />
-        <StatsCard
-          title="إجمالي المديونية"
-          value={stats.totalDebt}
-          icon={CreditCard}
-          color="red"
-          formatter={formatCurrency}
-        />
-      </div>
-
-      {/* Search & Filters - مكون موحد */}
-      <UnifiedSearchFilter
-        searchValue={searchTerm}
-        onSearchChange={setSearchTerm}
+      <UnifiedFilterDashboard
+        statsRows={statsRowsConfig}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
         searchPlaceholder="البحث في الموردين (الاسم، الشخص المسؤول، رقم الهاتف)..."
-        filters={filterConfigs}
-        filterValues={{ status: statusFilter }}
-        onFilterChange={(key, value) => {
-          if (key === 'status') setStatusFilter(value as 'all' | 'active' | 'inactive');
-        }}
-        onReset={() => {
-          setSearchTerm('');
-          setStatusFilter('all');
-        }}
+        filters={filtersConfig}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
+        onReset={handleResetFilters}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+        resultsSummary={(searchValue || filterValues.status !== 'all') ? {
+          totalCount: (suppliers as Supplier[]).length,
+          filteredCount: filteredSuppliers.length,
+          totalLabel: 'النتائج',
+          filteredLabel: 'من',
+          totalValue: filteredSuppliers.reduce((sum, s) => sum + (parseFloat(s.totalDebt?.toString() || '0') || 0), 0),
+          totalValueLabel: 'إجمالي المديونية',
+          unit: 'ر.ي',
+        } : undefined}
       />
 
-      {/* Suppliers Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {filteredSuppliers.map((supplier: Supplier) => (
-          <Card key={supplier.id} className="border border-border/40 bg-card/50 hover:shadow-md transition-all duration-200 hover:border-primary/30">
-            <CardContent className="p-3">
-              <div className="space-y-3">
-                {/* Header with Status */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        supplier.isActive ? "bg-green-100 dark:bg-green-900/30" : "bg-gray-100 dark:bg-gray-800"
-                      }`}>
-                        <Building className={`h-4 w-4 ${
-                          supplier.isActive ? "text-green-600 dark:text-green-400" : "text-gray-500"
-                        }`} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-medium text-sm truncate">{supplier.name}</h3>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          {supplier.contactPerson && (
-                            <>
-                              <User className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{supplier.contactPerson}</span>
-                            </>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <Badge 
-                    variant={supplier.isActive ? "default" : "secondary"}
-                    className="text-xs px-1.5 py-0.5 h-auto"
-                  >
-                    {supplier.isActive ? "نشط" : "معطل"}
-                  </Badge>
-                </div>
-
-                {/* Compact Info Grid */}
-                <div className="bg-muted/30 p-2 rounded-lg space-y-2">
-                  {/* Phone & Payment Terms Row */}
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    {supplier.phone && (
-                      <div className="flex items-center gap-1 min-w-0">
-                        <Phone className="h-3 w-3 flex-shrink-0 text-blue-500" />
-                        <span className="truncate font-mono">{supplier.phone}</span>
-                      </div>
-                    )}
-                    {supplier.paymentTerms && (
-                      <div className="flex items-center gap-1 min-w-0">
-                        <CreditCard className="h-3 w-3 flex-shrink-0 text-purple-500" />
-                        <span className="truncate">{supplier.paymentTerms}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Address */}
-                  {supplier.address && (
-                    <div className="flex items-start gap-1 text-xs">
-                      <MapPin className="h-3 w-3 flex-shrink-0 text-green-500 mt-0.5" />
-                      <span className="line-clamp-2 leading-relaxed text-muted-foreground">{supplier.address}</span>
-                    </div>
-                  )}
-
-                  {/* Financial Info */}
-                  <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                    <div className="flex items-center gap-1">
-                      {parseFloat(supplier.totalDebt?.toString() || '0') > 0 ? (
-                        <>
-                          <AlertCircle className="h-3 w-3 text-red-500" />
-                          <span className="text-xs font-medium text-red-600">
-                            مديونية: {formatCurrency(parseFloat(supplier.totalDebt?.toString() || '0'))}
-                          </span>
-                        </>
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                          <span className="text-xs text-green-600 font-medium">رصيد سليم</span>
-                        </div>
-                      )}
-                    </div>
-                    {supplier.createdAt && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        <span>{new Date(supplier.createdAt).toLocaleDateString('en-GB')}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Notes Preview */}
-                {supplier.notes && (
-                  <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs">
-                    <p className="line-clamp-2 text-amber-800 dark:text-amber-200">{supplier.notes}</p>
-                  </div>
-                )}
-                
-                {/* Compact Action Buttons */}
-                <div className="flex gap-1.5 pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(supplier)}
-                    className="flex-1 gap-1 text-xs h-7 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700"
-                  >
-                    <Edit2 className="h-3 w-3" />
-                    تعديل
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(supplier)}
-                    className="flex-1 gap-1 text-xs h-7 hover:bg-red-50 hover:border-red-200 hover:text-red-700"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    حذف
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Empty State */}
-      {filteredSuppliers.length === 0 && (
+      {filteredSuppliers.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Building className="h-16 w-16 mx-auto text-muted-foreground" />
-            <h3 className="text-lg font-medium">
-              {searchTerm ? "لا توجد نتائج" : "لا توجد موردين"}
+            <h3 className="text-lg font-medium mt-4">
+              {searchValue ? "لا توجد نتائج" : "لا توجد موردين"}
             </h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              {searchTerm 
+            <p className="text-muted-foreground max-w-md mx-auto mt-2">
+              {searchValue 
                 ? "لم يتم العثور على موردين يطابقون كلمات البحث المدخلة. جرب كلمات أخرى." 
                 : "ابدأ ببناء قاعدة بيانات الموردين الخاصة بك عن طريق إضافة أول مورد."}
             </p>
-            {!searchTerm && (
-              <Button onClick={() => { resetForm(); setIsDialogOpen(true); }} className="gap-2">
+            {!searchValue && (
+              <Button onClick={() => { resetForm(); setIsDialogOpen(true); }} className="gap-2 mt-4">
                 <Plus className="h-4 w-4" />
                 إضافة مورد جديد
               </Button>
             )}
           </CardContent>
         </Card>
+      ) : (
+        <UnifiedCardGrid columns={4}>
+          {filteredSuppliers.map((supplier: Supplier) => {
+            const debt = parseFloat(supplier.totalDebt?.toString() || '0') || 0;
+            
+            return (
+              <UnifiedCard
+                key={supplier.id}
+                title={supplier.name}
+                subtitle={supplier.contactPerson || undefined}
+                titleIcon={Building}
+                headerColor={supplier.isActive ? '#22c55e' : '#6b7280'}
+                badges={[
+                  {
+                    label: supplier.isActive ? "نشط" : "معطل",
+                    variant: supplier.isActive ? "success" : "secondary",
+                  },
+                  ...(debt > 0 ? [{
+                    label: "مديون",
+                    variant: "destructive" as const,
+                  }] : [{
+                    label: "رصيد سليم",
+                    variant: "success" as const,
+                  }]),
+                ]}
+                fields={[
+                  {
+                    label: "المديونية",
+                    value: debt > 0 ? formatCurrency(debt) : "لا يوجد",
+                    icon: CreditCard,
+                    emphasis: debt > 0,
+                    color: debt > 0 ? "danger" : "success",
+                  },
+                  {
+                    label: "رقم الهاتف",
+                    value: supplier.phone || "غير محدد",
+                    icon: Phone,
+                  },
+                  {
+                    label: "شروط الدفع",
+                    value: supplier.paymentTerms || "غير محدد",
+                    icon: CreditCard,
+                  },
+                  {
+                    label: "تاريخ الإضافة",
+                    value: supplier.createdAt ? new Date(supplier.createdAt).toLocaleDateString('en-GB') : "غير محدد",
+                    icon: Calendar,
+                  },
+                  ...(supplier.address ? [{
+                    label: "العنوان",
+                    value: supplier.address,
+                    icon: MapPin,
+                  }] : []),
+                ]}
+                actions={[
+                  {
+                    icon: Edit2,
+                    label: "تعديل",
+                    onClick: () => handleEdit(supplier),
+                  },
+                  {
+                    icon: Trash2,
+                    label: "حذف",
+                    variant: "ghost" as const,
+                    onClick: () => handleDelete(supplier),
+                  },
+                ]}
+                footer={supplier.notes ? (
+                  <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs">
+                    <p className="line-clamp-2 text-amber-800 dark:text-amber-200">{supplier.notes}</p>
+                  </div>
+                ) : undefined}
+                compact
+              />
+            );
+          })}
+        </UnifiedCardGrid>
       )}
     </div>
   );

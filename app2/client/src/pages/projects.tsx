@@ -39,7 +39,8 @@ import {
   Wallet,
   UserCog,
   ArrowUpCircle,
-  ArrowDownCircle
+  ArrowDownCircle,
+  Power
 } from "lucide-react";
 import type { Project, InsertProject } from "@shared/schema";
 import { insertProjectSchema } from "@shared/schema";
@@ -168,6 +169,7 @@ export default function ProjectsPage() {
     engineerId: "all",
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [togglingProjectId, setTogglingProjectId] = useState<string | null>(null);
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
@@ -426,6 +428,38 @@ export default function ProjectsPage() {
       });
     },
   });
+
+  // Toggle project status mutation
+  const toggleStatusMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { status: string } }) =>
+      apiRequest(`/api/projects/${id}`, "PATCH", data),
+    onSuccess: () => {
+      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
+      setTogglingProjectId(null);
+      toast({
+        title: "تم بنجاح",
+        description: "تم تحديث حالة المشروع بنجاح",
+      });
+    },
+    onError: (error: any) => {
+      setTogglingProjectId(null);
+      toast({
+        title: "خطأ",
+        description: error.message || "حدث خطأ في تحديث حالة المشروع",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleToggleProjectStatus = (project: Project) => {
+    setTogglingProjectId(project.id);
+    const newStatus = project.status === 'active' ? 'paused' : 'active';
+    toggleStatusMutation.mutate({ 
+      id: project.id, 
+      data: { status: newStatus } 
+    });
+  };
 
   const handleCreateProject = (data: InsertProject) => {
     createProjectMutation.mutate(data);
@@ -1025,6 +1059,13 @@ export default function ProjectsPage() {
                     icon: Edit,
                     label: "تعديل",
                     onClick: () => openEditDialog(project),
+                  },
+                  {
+                    icon: Power,
+                    label: project.status === 'active' ? "إيقاف" : "تفعيل",
+                    variant: "ghost",
+                    onClick: () => handleToggleProjectStatus(project),
+                    disabled: togglingProjectId === project.id,
                   },
                   {
                     icon: Trash2,

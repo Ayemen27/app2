@@ -110,8 +110,9 @@ export async function apiRequest(
 
           if (refreshResponse.ok) {
             const refreshData = await refreshResponse.json();
-            if (refreshData.accessToken) {
-              localStorage.setItem("accessToken", refreshData.accessToken);
+            const newAccessToken = refreshData.data?.accessToken || refreshData.accessToken;
+            if (newAccessToken) {
+              localStorage.setItem("accessToken", newAccessToken);
               console.log('✅ [apiRequest] تم تجديد الـ token بنجاح، إعادة المحاولة...');
 
               // إعادة المحاولة مع الـ token الجديد

@@ -46,14 +46,14 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
 
     const dateStr = date as string;
 
-    // جلب بيانات الحضور والأجور
+    // جلب بيانات الحضور والأجور - مع استخدام الأجر الحالي للعامل
     const attendanceData = await db
       .select({
         workerId: workerAttendance.workerId,
         workerName: workers.name,
         workerType: workers.type,
         workDays: workerAttendance.workDays,
-        dailyWage: workerAttendance.dailyWage,
+        dailyWage: workers.dailyWage,
         actualWage: workerAttendance.actualWage,
         paidAmount: workerAttendance.paidAmount,
         remainingAmount: workerAttendance.remainingAmount,
@@ -159,8 +159,12 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
         )
       );
 
-    // حساب الإجماليات
-    const totalWorkerWages = attendanceData.reduce((sum, a) => sum + parseFloat(a.actualWage || '0'), 0);
+    // حساب الإجماليات - باستخدام الأجر الحالي للعامل × عدد أيام العمل
+    const totalWorkerWages = attendanceData.reduce((sum, a) => {
+      const currentDailyWage = parseFloat(a.dailyWage || '0');
+      const workDays = parseFloat(a.workDays || '0');
+      return sum + (currentDailyWage * workDays);
+    }, 0);
     const totalPaidWages = attendanceData.reduce((sum, a) => sum + parseFloat(a.paidAmount || '0'), 0);
     const totalWorkDays = attendanceData.reduce((sum, a) => sum + parseFloat(a.workDays || '0'), 0);
     const totalMaterials = materialsData.reduce((sum, m) => sum + parseFloat(m.totalAmount || '0'), 0);
@@ -244,16 +248,17 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const dateFromStr = dateFrom as string;
     const dateToStr = dateTo as string;
 
-    // جلب بيانات الحضور المجمعة
+    // جلب بيانات الحضور المجمعة - باستخدام الأجر الحالي للعامل
     const attendanceSummary = await db
       .select({
         date: workerAttendance.attendanceDate,
         totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-        totalWages: sql<number>`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`,
+        totalWages: sql<number>`COALESCE(SUM(CAST(${workers.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
         totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
         workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.workerId})`
       })
       .from(workerAttendance)
+      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
       .where(
         and(
           eq(workerAttendance.projectId, projectId as string),
@@ -420,17 +425,18 @@ reportRouter.get('/reports/project-summary/:projectId', async (req: Request, res
       dateConditions.push(lte(workerAttendance.attendanceDate, dateTo as string));
     }
 
-    // إجمالي الحضور والأجور
+    // إجمالي الحضور والأجور - باستخدام الأجر الحالي للعامل
     const attendanceStats = await db
       .select({
         totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-        totalWages: sql<number>`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`,
+        totalWages: sql<number>`COALESCE(SUM(CAST(${workers.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
         totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
-        totalRemaining: sql<number>`COALESCE(SUM(CAST(${workerAttendance.remainingAmount} AS DECIMAL)), 0)`,
+        totalRemaining: sql<number>`COALESCE(SUM(CAST(${workers.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL) - CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
         uniqueWorkers: sql<number>`COUNT(DISTINCT ${workerAttendance.workerId})`,
         activeDays: sql<number>`COUNT(DISTINCT ${workerAttendance.attendanceDate})`
       })
       .from(workerAttendance)
+      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
       .where(and(...dateConditions));
 
     // إجمالي المشتريات
@@ -784,20 +790,24 @@ reportRouter.get('/reports/worker-statement/:workerId', async (req: Request, res
       .where(and(...transferConditions))
       .orderBy(desc(workerTransfers.transferDate));
 
-    // حساب الإجماليات
+    // حساب الإجماليات - باستخدام الأجر الحالي للعامل
+    const currentDailyWage = parseFloat(workerInfo[0].dailyWage || '0');
     const totalWorkDays = attendanceRecords.reduce((sum, r) => sum + parseFloat(r.workDays || '0'), 0);
-    const totalEarned = attendanceRecords.reduce((sum, r) => sum + parseFloat(r.actualWage || '0'), 0);
+    const totalEarned = currentDailyWage * totalWorkDays;
     const totalPaid = attendanceRecords.reduce((sum, r) => sum + parseFloat(r.paidAmount || '0'), 0);
     const totalTransfers = transfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
     const remainingBalance = totalEarned - totalPaid - totalTransfers;
 
-    // بيانات الرسم البياني
-    const chartData = attendanceRecords.map(r => ({
-      date: r.date,
-      earned: parseFloat(r.actualWage || '0'),
-      paid: parseFloat(r.paidAmount || '0'),
-      workDays: parseFloat(r.workDays || '0')
-    })).reverse();
+    // بيانات الرسم البياني - باستخدام الأجر الحالي
+    const chartData = attendanceRecords.map(r => {
+      const workDays = parseFloat(r.workDays || '0');
+      return {
+        date: r.date,
+        earned: currentDailyWage * workDays,
+        paid: parseFloat(r.paidAmount || '0'),
+        workDays: workDays
+      };
+    }).reverse();
 
     const duration = Date.now() - startTime;
 
@@ -866,16 +876,17 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
         )
       );
 
-    // إحصائيات الشهر
+    // إحصائيات الشهر - باستخدام الأجر الحالي للعامل
     const monthStats = await db
       .select({
         workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.workerId})`,
         totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-        totalWages: sql<number>`COALESCE(SUM(CAST(${workerAttendance.actualWage} AS DECIMAL)), 0)`,
+        totalWages: sql<number>`COALESCE(SUM(CAST(${workers.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
         totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
         activeDays: sql<number>`COUNT(DISTINCT ${workerAttendance.attendanceDate})`
       })
       .from(workerAttendance)
+      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
       .where(
         and(
           projectCondition,

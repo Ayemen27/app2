@@ -1795,15 +1795,11 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     
     const projectsWorked = Number(projectsWorkedResult[0]?.projectsCount) || 0;
     
-    // حساب إجمالي الأرباح (من جدول الحضور)
-    const totalEarningsResult = await db.select({
-      totalEarnings: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.actualWage}, '0') AS DECIMAL)), 0)`
-    })
-    .from(workerAttendance)
-    .where(eq(workerAttendance.workerId, workerId));
-    
-    const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;
-    console.log(`💰 [API] إجمالي الأرباح: ${totalEarnings}`);
+    // حساب إجمالي الأرباح باستخدام الأجر اليومي الحالي للعامل × عدد أيام العمل
+    // بدلاً من استخدام actualWage المحفوظ في السجل
+    const currentDailyWage = parseFloat(worker[0].dailyWage || '0');
+    const totalEarnings = currentDailyWage * totalWorkDays;
+    console.log(`💰 [API] إجمالي الأرباح (الأجر الحالي × الأيام): ${currentDailyWage} × ${totalWorkDays} = ${totalEarnings}`);
     
     // تجميع الإحصائيات
     const stats = {

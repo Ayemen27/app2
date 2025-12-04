@@ -1402,73 +1402,73 @@ function DailyExpensesContent() {
       />
 
 
-      {/* بطاقات ملخص المصروفات - عرض بطاقات متعددة لكل مشروع عند اختيار جميع المشاريع */}
-      {isAllProjects && dailyExpensesData?.groupedByProject && dailyExpensesData.groupedByProject.length > 0 ? (
+      {/* بطاقات ملخص المصروفات - عرض بطاقة لكل (مشروع + تاريخ) عند اختيار جميع المشاريع */}
+      {isAllProjects && dailyExpensesData?.groupedByProjectDate && dailyExpensesData.groupedByProjectDate.length > 0 ? (
         <div className="space-y-4">
-          {dailyExpensesData.groupedByProject.map((projectData: any) => (
+          {dailyExpensesData.groupedByProjectDate.map((cardData: any, index: number) => (
             <UnifiedCard
-              key={projectData.projectId}
-              title={projectData.projectName}
-              subtitle={selectedDate ? `مصروفات يوم ${formatDate(selectedDate)}` : 'جميع المصروفات'}
+              key={`${cardData.projectId}-${cardData.date}-${index}`}
+              title={cardData.projectName}
+              subtitle={`مصروفات يوم ${formatDate(cardData.date)}`}
               titleIcon={Building}
               headerColor="#3b82f6"
               badges={[
-                { label: selectedDate ? formatDate(selectedDate) : 'جميع التواريخ', variant: "default" },
+                { label: formatDate(cardData.date), variant: "default" },
                 { 
-                  label: projectData.remainingBalance >= 0 ? "رصيد موجب" : "عجز", 
-                  variant: projectData.remainingBalance >= 0 ? "success" : "destructive" 
+                  label: cardData.remainingBalance >= 0 ? "رصيد موجب" : "عجز", 
+                  variant: cardData.remainingBalance >= 0 ? "success" : "destructive" 
                 }
               ]}
               fields={[
                 { 
                   label: "الوارد", 
-                  value: formatCurrency(projectData.totalIncome), 
+                  value: formatCurrency(cardData.totalIncome || 0), 
                   icon: TrendingUp, 
                   color: "success",
                   emphasis: true
                 },
                 { 
                   label: "المصروفات", 
-                  value: formatCurrency(projectData.totalExpenses), 
+                  value: formatCurrency(cardData.totalExpenses || 0), 
                   icon: TrendingDown, 
                   color: "danger",
                   emphasis: true
                 },
                 { 
                   label: "أجور العمال", 
-                  value: formatCurrency(projectData.workerAttendance?.reduce((sum: number, w: any) => sum + parseFloat(w.paidAmount || '0'), 0) || 0), 
+                  value: formatCurrency(cardData.totalWorkerWages || 0), 
                   icon: Users, 
                   color: "info"
                 },
                 { 
                   label: "المواصلات", 
-                  value: formatCurrency(projectData.transportationExpenses?.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0) || 0), 
+                  value: formatCurrency(cardData.totalTransportation || 0), 
                   icon: Truck, 
                   color: "warning"
                 },
                 { 
                   label: "المواد", 
-                  value: formatCurrency(projectData.materialPurchases?.filter((m: any) => m.purchaseType === 'نقد').reduce((sum: number, m: any) => sum + parseFloat(m.totalAmount || '0'), 0) || 0), 
+                  value: formatCurrency(cardData.totalMaterialCosts || 0), 
                   icon: Package, 
                   color: "info"
                 },
                 { 
                   label: "النثريات", 
-                  value: formatCurrency(projectData.miscExpenses?.reduce((sum: number, m: any) => sum + parseFloat(m.amount || '0'), 0) || 0), 
+                  value: formatCurrency(cardData.totalMiscExpenses || 0), 
                   icon: Receipt, 
                   color: "muted"
                 },
                 { 
                   label: "حوالات العمال", 
-                  value: formatCurrency(projectData.workerTransfers?.reduce((sum: number, w: any) => sum + parseFloat(w.amount || '0'), 0) || 0), 
+                  value: formatCurrency(cardData.totalWorkerTransfers || 0), 
                   icon: Send, 
                   color: "warning"
                 },
                 { 
                   label: "المتبقي", 
-                  value: formatCurrency(projectData.remainingBalance), 
+                  value: formatCurrency(cardData.remainingBalance || 0), 
                   icon: Calculator, 
-                  color: projectData.remainingBalance >= 0 ? "success" : "danger",
+                  color: (cardData.remainingBalance || 0) >= 0 ? "success" : "danger",
                   emphasis: true
                 },
               ]}

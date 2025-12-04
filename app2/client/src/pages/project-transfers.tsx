@@ -484,7 +484,7 @@ export default function ProjectTransfers() {
                                   <SelectTrigger className="h-10 md:h-11 border-2 text-xs md:text-sm">
                                     <SelectValue placeholder="اختر المشروع المرسل" />
                                   </SelectTrigger>
-                                  <SelectContent>
+                                  <SelectContent className="z-[100]">
                                     {projects.map(p => (
                                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                     ))}
@@ -506,7 +506,7 @@ export default function ProjectTransfers() {
                                   <SelectTrigger className="h-10 md:h-11 border-2 text-xs md:text-sm">
                                     <SelectValue placeholder="اختر المشروع المستقبل" />
                                   </SelectTrigger>
-                                  <SelectContent>
+                                  <SelectContent className="z-[100]">
                                     {projects.map(p => (
                                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                     ))}

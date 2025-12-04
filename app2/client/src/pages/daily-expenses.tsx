@@ -1233,14 +1233,14 @@ function DailyExpensesContent() {
         },
         {
           key: 'fundTransfers',
-          label: 'إجمالي العهد',
+          label: 'العهد',
           value: formatCurrency(totals.totalFundTransfers),
           icon: Banknote,
           color: 'green',
         },
         {
           key: 'materials',
-          label: 'إجمالي المواد',
+          label: 'المواد',
           value: formatCurrency(totals.totalMaterialCosts),
           icon: Package,
           color: 'purple',
@@ -1253,14 +1253,14 @@ function DailyExpensesContent() {
       items: [
         {
           key: 'transportation',
-          label: 'إجمالي المواصلات',
+          label: 'المواصلات',
           value: formatCurrency(totals.totalTransportation),
           icon: Truck,
           color: 'orange',
         },
         {
           key: 'miscExpenses',
-          label: 'إجمالي النثريات',
+          label: 'النثريات',
           value: formatCurrency(totals.totalMiscExpenses),
           icon: Receipt,
           color: 'amber',
@@ -1288,14 +1288,14 @@ function DailyExpensesContent() {
         },
         {
           key: 'totalExpenses',
-          label: 'إجمالي المنصرف',
+          label: 'المنصرف',
           value: formatCurrency(totals.totalExpenses),
           icon: TrendingDown,
           color: 'red',
         },
         {
           key: 'remainingBalance',
-          label: 'إجمالي المتبقي',
+          label: 'المتبقي',
           value: formatCurrency(totals.remainingBalance),
           icon: Calculator,
           color: totals.remainingBalance >= 0 ? 'emerald' : 'rose',

@@ -62,10 +62,17 @@ export default function ProjectTransfers() {
     ''
   );
 
-  // Fetch Projects
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
+  // Fetch Projects with Stats (للحصول على الرصيد الحالي)
+  const { data: projectsWithStats = [] } = useQuery<any[]>({
+    queryKey: ["/api/projects/with-stats"],
+    queryFn: async () => {
+      const response = await apiRequest('/api/projects/with-stats', 'GET');
+      return response.data || response || [];
+    },
   });
+
+  // استخدام المشاريع مع الإحصائيات
+  const projects = projectsWithStats;
 
   // Fetch All Transfers
   const { data: allTransfers = [], isLoading: transfersLoading, refetch } = useQuery<ProjectFundTransfer[]>({
@@ -224,6 +231,30 @@ export default function ProjectTransfers() {
       });
       return;
     }
+
+    // التحقق من الرصيد الموجب للمشروع المرسل
+    const fromProject = projectsWithStats.find((p: any) => p.id === data.fromProjectId);
+    const projectBalance = parseFloat(fromProject?.currentBalance?.toString() || '0');
+    const transferAmount = parseFloat(data.amount?.toString() || '0');
+
+    if (projectBalance <= 0) {
+      toast({
+        title: "لا يمكن الترحيل",
+        description: `المشروع المرسل "${fromProject?.name}" ليس لديه رصيد موجب (الرصيد الحالي: ${projectBalance.toLocaleString('ar-SA')} ريال)`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (transferAmount > projectBalance) {
+      toast({
+        title: "لا يمكن الترحيل",
+        description: `مبلغ الترحيل (${transferAmount.toLocaleString('ar-SA')} ريال) أكبر من رصيد المشروع المرسل (${projectBalance.toLocaleString('ar-SA')} ريال)`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     createTransferMutation.mutate(data);
   };
 

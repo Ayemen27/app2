@@ -270,15 +270,26 @@ function DailyExpensesContent() {
   // معالجة آمنة لترحيل المشاريع
   const safeProjectTransfers = Array.isArray(projectTransfers) ? projectTransfers : [];
 
-  // جلب البيانات الموحدة للمصروفات اليومية
+  // جلب البيانات الموحدة للمصروفات اليومية أو جميع المصروفات
   const { data: dailyExpensesData, isLoading: dailyExpensesLoading, error: dailyExpensesError } = useQuery({
-    queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate],
+    queryKey: ["/api/projects", selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],
     queryFn: async () => {
-      if (!selectedProjectId || !selectedDate) {
+      if (!selectedProjectId) {
         return null;
       }
 
       try {
+        // إذا لم يتم تحديد تاريخ، جلب جميع المصروفات
+        if (!selectedDate) {
+          console.log(`📊 جلب جميع المصروفات: مشروع ${selectedProjectId}`);
+          const response = await apiRequest(`/api/projects/${selectedProjectId}/all-expenses`, "GET");
+          console.log('📊 استجابة جميع المصروفات:', response);
+          if (response && response.success && response.data) {
+            return response.data;
+          }
+          return null;
+        }
+
         console.log(`📊 جلب المصروفات اليومية: مشروع ${selectedProjectId}, تاريخ ${selectedDate}`);
         const response = await apiRequest(`/api/projects/${selectedProjectId}/daily-expenses/${selectedDate}`, "GET");
 
@@ -290,11 +301,11 @@ function DailyExpensesContent() {
 
         return null;
       } catch (error) {
-        console.error("خطأ في جلب المصروفات اليومية:", error);
+        console.error("خطأ في جلب المصروفات:", error);
         throw error;
       }
     },
-    enabled: !!selectedProjectId && !!selectedDate,
+    enabled: !!selectedProjectId,
     retry: 2,
     staleTime: 30000,
   });
@@ -1314,21 +1325,42 @@ function DailyExpensesContent() {
       type: 'date',
       placeholder: 'اختر التاريخ',
     },
+    {
+      key: 'showAll',
+      label: 'عرض جميع الأيام',
+      type: 'select',
+      options: [
+        { value: 'today', label: 'اليوم المحدد' },
+        { value: 'all', label: 'جميع الأيام' },
+      ],
+      defaultValue: 'today',
+    },
   ], []);
 
   // دوال معالجة الفلاتر
   const [searchValue, setSearchValue] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showAllDays, setShowAllDays] = useState<'today' | 'all'>('today');
 
   const handleFilterChange = (key: string, value: any) => {
     if (key === 'date' && value instanceof Date) {
       setSelectedDate(value.toISOString().split('T')[0]);
+      setShowAllDays('today');
+    }
+    if (key === 'showAll') {
+      setShowAllDays(value);
+      if (value === 'all') {
+        setSelectedDate(null);
+      } else if (!selectedDate) {
+        setSelectedDate(new Date().toISOString().split('T')[0]);
+      }
     }
   };
 
   const handleResetFilters = () => {
     setSelectedDate(new Date().toISOString().split('T')[0]);
     setSearchValue("");
+    setShowAllDays('today');
   };
 
   const handleRefresh = async () => {
@@ -1367,7 +1399,10 @@ function DailyExpensesContent() {
           searchPlaceholder="ابحث في المصروفات..."
           showSearch={true}
           filters={filtersConfig}
-          filterValues={{ date: selectedDate ? new Date(selectedDate) : undefined }}
+          filterValues={{ 
+            date: selectedDate ? new Date(selectedDate) : undefined,
+            showAll: showAllDays 
+          }}
           onFilterChange={handleFilterChange}
           onReset={handleResetFilters}
           onRefresh={handleRefresh}

@@ -1579,6 +1579,117 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
 });
 
 /**
+ * 📊 جلب جميع المصاريف للمشروع (بدون تحديد تاريخ)
+ * GET /api/projects/:projectId/all-expenses
+ */
+projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.params;
+
+    console.log(`📊 [API] طلب جلب جميع المصروفات: projectId=${projectId}`);
+
+    if (!projectId) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'معرف المشروع مطلوب',
+        processingTime: duration
+      });
+    }
+
+    // جلب جميع البيانات بدون فلترة بالتاريخ
+    const [
+      fundTransfersResult,
+      workerAttendanceResult,
+      materialPurchasesResult,
+      transportationResult,
+      workerTransfersResult,
+      miscExpensesResult,
+      projectInfo
+    ] = await Promise.all([
+      db.select().from(fundTransfers)
+        .where(eq(fundTransfers.projectId, projectId))
+        .orderBy(desc(fundTransfers.transferDate)),
+      db.select({
+        id: workerAttendance.id,
+        workerId: workerAttendance.workerId,
+        projectId: workerAttendance.projectId,
+        date: workerAttendance.date,
+        paidAmount: workerAttendance.paidAmount,
+        actualWage: workerAttendance.actualWage,
+        workDays: workerAttendance.workDays,
+        workerName: workers.name
+      })
+      .from(workerAttendance)
+      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+      .where(eq(workerAttendance.projectId, projectId))
+      .orderBy(desc(workerAttendance.date)),
+      db.select().from(materialPurchases)
+        .where(eq(materialPurchases.projectId, projectId))
+        .orderBy(desc(materialPurchases.purchaseDate)),
+      db.select().from(transportationExpenses)
+        .where(eq(transportationExpenses.projectId, projectId))
+        .orderBy(desc(transportationExpenses.date)),
+      db.select().from(workerTransfers)
+        .where(eq(workerTransfers.projectId, projectId))
+        .orderBy(desc(workerTransfers.transferDate)),
+      db.select().from(workerMiscExpenses)
+        .where(eq(workerMiscExpenses.projectId, projectId))
+        .orderBy(desc(workerMiscExpenses.date)),
+      db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
+    ]);
+
+    // حساب المجاميع
+    const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
+    const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
+    const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
+    const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
+
+    const totalIncome = totalFundTransfers;
+    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
+    const remainingBalance = totalIncome - totalExpenses;
+
+    const responseData = {
+      projectName: projectInfo[0]?.name || 'مشروع غير معروف',
+      projectId,
+      totalIncome,
+      totalExpenses,
+      remainingBalance: parseFloat(remainingBalance.toFixed(2)),
+      fundTransfers: fundTransfersResult,
+      workerAttendance: workerAttendanceResult,
+      materialPurchases: materialPurchasesResult,
+      transportationExpenses: transportationResult,
+      workerTransfers: workerTransfersResult,
+      miscExpenses: miscExpensesResult
+    };
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب جميع المصروفات بنجاح في ${duration}ms`);
+
+    res.json({
+      success: true,
+      data: responseData,
+      message: `تم جلب جميع المصروفات للمشروع بنجاح`,
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب جميع المصروفات:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'فشل في جلب جميع المصروفات',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
  * 💰 جلب الرصيد المتبقي من اليوم السابق
  * GET /api/projects/:projectId/previous-balance/:date
  */

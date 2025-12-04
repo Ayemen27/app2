@@ -350,13 +350,68 @@ export const queryClient = new QueryClient({
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: false, // تقليل إعادة التحميل
-      staleTime: 1000 * 60 * 15, // 15 دقيقة للتخزين المؤقت
-      retry: 1, // محاولة واحدة إضافية عند الفشل
-      refetchOnReconnect: false, // منع إعادة التحميل عند الاتصال
+      refetchOnWindowFocus: true,
+      staleTime: 1000 * 10,
+      gcTime: 1000 * 60 * 5,
+      retry: 1,
+      refetchOnReconnect: true,
+      refetchOnMount: true,
     },
     mutations: {
-      retry: 1, // تقليل المحاولات
+      retry: 1,
     },
   },
 });
+
+export function invalidateAllProjectData(projectId?: string) {
+  console.log('🔄 [QueryClient] تحديث فوري لجميع بيانات المشروع:', projectId);
+  
+  const keysToInvalidate = [
+    ["/api/projects"],
+    ["/api/projects/with-stats"],
+    ["/api/workers"],
+    ["/api/worker-attendance"],
+    ["/api/material-purchases"],
+    ["/api/fund-transfers"],
+    ["/api/transportation-expenses"],
+    ["/api/worker-transfers"],
+    ["/api/worker-misc-expenses"],
+    ["/api/suppliers"],
+    ["/api/daily-expense-summaries"],
+    ["/api/materials"],
+  ];
+
+  keysToInvalidate.forEach(key => {
+    queryClient.invalidateQueries({ queryKey: key, refetchType: 'active' });
+  });
+
+  if (projectId) {
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        return query.queryKey.includes(projectId);
+      },
+      refetchType: 'active'
+    });
+  }
+}
+
+export function invalidateDateRelatedData(projectId: string, date: string) {
+  console.log('🔄 [QueryClient] تحديث فوري لبيانات التاريخ:', { projectId, date });
+  
+  queryClient.invalidateQueries({ 
+    queryKey: ["/api/projects", projectId, "daily-expenses", date],
+    refetchType: 'active'
+  });
+  queryClient.invalidateQueries({ 
+    queryKey: ["/api/projects", projectId, "previous-balance", date],
+    refetchType: 'active'
+  });
+  queryClient.invalidateQueries({ 
+    queryKey: ["/api/projects", projectId, "daily-summary", date],
+    refetchType: 'active'
+  });
+  queryClient.invalidateQueries({ 
+    queryKey: ["/api/daily-project-transfers", projectId, date],
+    refetchType: 'active'
+  });
+}

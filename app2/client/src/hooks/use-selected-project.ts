@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useTransition } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { invalidateAllProjectData } from "@/lib/queryClient";
 
 const SELECTED_PROJECT_KEY = "construction-app-selected-project";
 const SELECTED_PROJECT_NAME_KEY = "construction-app-selected-project-name";
@@ -75,32 +76,14 @@ export function useSelectedProject() {
 
   const isLoading = !isInitialized || isProjectsLoading;
 
-  const invalidateProjectRelatedQueries = useCallback(() => {
-    if (!queryClient) return;
+  const invalidateProjectRelatedQueries = useCallback((projectId?: string) => {
+    console.log("🔄 [SelectedProject] تحديث فوري لجميع البيانات...", projectId);
     
-    console.log("🔄 [SelectedProject] إعادة تحميل البيانات المرتبطة بالمشروع...");
-    
-    queryClient.invalidateQueries({ queryKey: ["/api/workers"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/worker-attendance"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/material-purchases"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/fund-transfers"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/transportation-expenses"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/worker-transfers"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/worker-misc-expenses"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/daily-expense-summaries"] });
-    
-    queryClient.invalidateQueries({ 
-      predicate: (query) => {
-        const key = query.queryKey[0];
-        return typeof key === 'string' && key.includes('/stats');
-      }
-    });
-  }, [queryClient]);
+    invalidateAllProjectData(projectId);
+  }, []);
 
   const selectProject = useCallback((projectId: string, projectName?: string) => {
-    console.log("📁 [SelectedProject] تحديد المشروع:", { projectId, projectName });
+    console.log("📁 [SelectedProject] تحديد المشروع الفوري:", { projectId, projectName });
     
     setSelectedProjectId(projectId);
     
@@ -127,7 +110,7 @@ export function useSelectedProject() {
       console.error("❌ [SelectedProject] خطأ في حفظ المشروع:", error);
     }
 
-    invalidateProjectRelatedQueries();
+    invalidateProjectRelatedQueries(projectId);
   }, [invalidateProjectRelatedQueries]);
 
   const selectAllProjects = useCallback(() => {

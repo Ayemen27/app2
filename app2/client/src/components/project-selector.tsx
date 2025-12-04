@@ -22,7 +22,7 @@ export default function ProjectSelector({
   variant = "default",
   className = ""
 }: ProjectSelectorProps) {
-  const { data: projects = [], isLoading, error } = useQuery<Project[]>({
+  const { data: projects = [], isLoading, error, refetch } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
     queryFn: async () => {
       try {
@@ -30,20 +30,16 @@ export default function ProjectSelector({
         const data = await apiRequest('/api/projects', 'GET');
         console.log('📊 [ProjectSelector] استجابة المشاريع:', data);
         
-        // معالجة هيكل الاستجابة المتعددة
         let projects = [];
         if (data && typeof data === 'object') {
-          // إذا كانت في شكل {success, data, count}
           if (data.success !== undefined && data.data !== undefined) {
             projects = Array.isArray(data.data) ? data.data : [];
             console.log('✅ [ProjectSelector] استخراج البيانات من data.data');
           }
-          // إذا كانت مصفوفة مباشرة
           else if (Array.isArray(data)) {
             projects = data;
             console.log('✅ [ProjectSelector] استخدام المصفوفة مباشرة');
           }
-          // إذا كان كائن واحد
           else if (data.id) {
             projects = [data];
             console.log('✅ [ProjectSelector] تحويل كائن واحد لمصفوفة');
@@ -53,7 +49,6 @@ export default function ProjectSelector({
           }
         }
         
-        // التأكد من أن المشاريع مصفوفة صحيحة
         if (!Array.isArray(projects)) {
           console.warn('⚠️ [ProjectSelector] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
           projects = [];
@@ -63,13 +58,15 @@ export default function ProjectSelector({
         return projects as Project[];
       } catch (error) {
         console.error('❌ [ProjectSelector] خطأ في جلب المشاريع:', error);
-        // إرجاع مصفوفة فارغة لتجنب كسر المكون
         return [] as Project[];
       }
     },
-    staleTime: 300000, // 5 دقائق
-    retry: 2, // محاولتين إضافيتين
-    refetchOnWindowFocus: false, // تقليل الطلبات غير الضرورية
+    staleTime: 5000,
+    gcTime: 60000,
+    retry: 2,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 
   const selectedProject = Array.isArray(projects) ? projects.find(p => p.id === selectedProjectId) : undefined;

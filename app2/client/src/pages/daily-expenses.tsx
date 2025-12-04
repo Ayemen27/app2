@@ -7,7 +7,7 @@
  * الحالة: نشط - الصفحة الأساسية لإدارة المصاريف
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw, Wallet, Banknote, Package, Truck, Receipt, Building2, Send, TrendingDown, Calculator } from "lucide-react";
@@ -50,7 +50,7 @@ import type {
 function DailyExpensesContent() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject, isAllProjects } = useSelectedProject();
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(() => getCurrentDate());
   const [carriedForward, setCarriedForward] = useState<string>("0");
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
   const [activeFilters, setActiveFilters] = useState({});
@@ -78,13 +78,6 @@ function DailyExpensesContent() {
     if (!value || value.trim().length < 2) return;
 
     try {
-      // التحقق من أن endpoint autocomplete موجود قبل المحاولة
-      const response = await fetch('/api/autocomplete', { method: 'HEAD' });
-      if (!response.ok) {
-        console.warn(`Autocomplete endpoint not available for ${field}`);
-        return;
-      }
-
       await apiRequest('/api/autocomplete', 'POST', {
         category: field,
         value: value.trim(),
@@ -93,7 +86,6 @@ function DailyExpensesContent() {
       console.log(`✅ تم حفظ قيمة الإكمال التلقائي: ${field} = ${value.trim()}`);
     } catch (error) {
       console.warn(`Failed to save autocomplete value for ${field}:`, error);
-      // تجاهل الخطأ دون مقاطعة التطبيق
     }
   };
 
@@ -140,7 +132,6 @@ function DailyExpensesContent() {
         const response = await apiRequest("/api/workers", "GET");
         console.log('📊 [DailyExpenses] استجابة العمال:', response);
 
-        // معالجة هيكل الاستجابة المتعددة
         let workers = [];
         if (response && typeof response === 'object') {
           if (response.success !== undefined && response.data !== undefined) {
@@ -166,9 +157,10 @@ function DailyExpensesContent() {
         return [] as Worker[];
       }
     },
-    staleTime: 300000, // 5 دقائق
-    gcTime: 600000, // 10 دقائق
+    staleTime: 30000,
+    gcTime: 120000,
     retry: 2,
+    refetchOnWindowFocus: true,
   });
 
   // جلب قائمة المشاريع لعرض أسماء المشاريع في ترحيل الأموال مع معالجة محسنة
@@ -180,7 +172,6 @@ function DailyExpensesContent() {
         const response = await apiRequest("/api/projects", "GET");
         console.log('📊 [DailyExpenses] استجابة المشاريع:', response);
 
-        // معالجة هيكل الاستجابة المتعددة
         let projects = [];
         if (response && typeof response === 'object') {
           if (response.success !== undefined && response.data !== undefined) {
@@ -206,8 +197,10 @@ function DailyExpensesContent() {
         return [] as Project[];
       }
     },
-    staleTime: 300000, // 5 دقائق
+    staleTime: 30000,
+    gcTime: 120000,
     retry: 2,
+    refetchOnWindowFocus: true,
   });
 
   // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData
@@ -236,14 +229,13 @@ function DailyExpensesContent() {
   // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData
 
   // جلب عمليات ترحيل الأموال بين المشاريع مع أسماء المشاريع - استعلام منفصل للصفحة اليومية
-  const { data: projectTransfers = [] } = useQuery<(ProjectFundTransfer & { fromProjectName?: string; toProjectName?: string })[]>({
+  const { data: projectTransfers = [], refetch: refetchProjectTransfers } = useQuery<(ProjectFundTransfer & { fromProjectName?: string; toProjectName?: string })[]>({
     queryKey: ["/api/daily-project-transfers", selectedProjectId, selectedDate],
     queryFn: async () => {
       try {
         const response = await apiRequest(`/api/daily-project-transfers?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
         console.log('📊 [ProjectTransfers] استجابة API للصفحة اليومية:', response);
 
-        // معالجة الهيكل المتداخل للاستجابة
         let transferData = [];
         if (response && response.data && Array.isArray(response.data)) {
           transferData = response.data;
@@ -255,7 +247,6 @@ function DailyExpensesContent() {
 
         console.log(`✅ [ProjectTransfers] تم جلب ${transferData.length} ترحيل لليوم ${selectedDate} في الصفحة اليومية`);
         
-        // البيانات تأتي مع أسماء المشاريع من الخادم مباشرة
         return transferData;
       } catch (error) {
         console.error("Error fetching daily project transfers:", error);
@@ -263,19 +254,20 @@ function DailyExpensesContent() {
       }
     },
     enabled: !!selectedProjectId && !!selectedDate && showProjectTransfers,
-    staleTime: 60000, // البيانات صالحة لدقيقة واحدة
-    gcTime: 300000, // الاحتفاظ بالذاكرة لـ 5 دقائق
+    staleTime: 5000,
+    gcTime: 60000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   // معالجة آمنة لترحيل المشاريع
   const safeProjectTransfers = Array.isArray(projectTransfers) ? projectTransfers : [];
 
   // جلب البيانات الموحدة للمصروفات اليومية أو جميع المصروفات
-  const { data: dailyExpensesData, isLoading: dailyExpensesLoading, error: dailyExpensesError } = useQuery({
+  const { data: dailyExpensesData, isLoading: dailyExpensesLoading, error: dailyExpensesError, refetch: refetchDailyExpenses } = useQuery({
     queryKey: ["/api/projects", isAllProjects ? "all-projects" : selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],
     queryFn: async () => {
       try {
-        // إذا كان "جميع المشاريع" محدد، استخدم endpoint جميع المشاريع
         if (isAllProjects) {
           console.log(`📊 جلب جميع المصروفات من جميع المشاريع`, { date: selectedDate });
           const url = selectedDate 
@@ -289,12 +281,10 @@ function DailyExpensesContent() {
           return null;
         }
 
-        // مشروع محدد
         if (!selectedProjectId) {
           return null;
         }
 
-        // إذا لم يتم تحديد تاريخ، جلب جميع المصروفات للمشروع
         if (!selectedDate) {
           console.log(`📊 جلب جميع المصروفات: مشروع ${selectedProjectId}`);
           const response = await apiRequest(`/api/projects/${selectedProjectId}/all-expenses`, "GET");
@@ -322,7 +312,10 @@ function DailyExpensesContent() {
     },
     enabled: isAllProjects || !!selectedProjectId,
     retry: 2,
-    staleTime: 30000,
+    staleTime: 5000,
+    gcTime: 60000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   // استخراج البيانات من الاستجابة الموحدة
@@ -368,6 +361,72 @@ function DailyExpensesContent() {
     }
   }, [previousBalance]);
 
+  // دالة مساعدة لتحديث جميع البيانات فوراً
+  const refreshAllData = useCallback(() => {
+    const currentProjectId = selectedProjectId;
+    const currentDate = selectedDate || getCurrentDate();
+    
+    console.log('🔄 [DailyExpenses] تحديث فوري لجميع البيانات...', { currentProjectId, currentDate, isAllProjects });
+    
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/fund-transfers"],
+      refetchType: 'active'
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/transportation-expenses"],
+      refetchType: 'active'
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/worker-attendance"],
+      refetchType: 'active'
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/material-purchases"],
+      refetchType: 'active'
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/worker-transfers"],
+      refetchType: 'active'
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/worker-misc-expenses"],
+      refetchType: 'active'
+    });
+    
+    if (isAllProjects) {
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", "all-projects", "daily-expenses", currentDate],
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", "all-projects", "all-expenses"],
+        refetchType: 'active'
+      });
+    } else if (currentProjectId && currentProjectId !== 'all') {
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", currentProjectId, "daily-expenses", currentDate],
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", currentProjectId, "previous-balance", currentDate],
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", currentProjectId, "all-expenses"],
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/daily-project-transfers", currentProjectId, currentDate],
+        refetchType: 'active'
+      });
+    }
+    
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/projects"],
+      refetchType: 'active'
+    });
+  }, [queryClient, selectedProjectId, selectedDate, isAllProjects]);
+
   // تهيئة قيم الإكمال التلقائي الافتراضية لنوع التحويل
   useEffect(() => {
     const initializeDefaultTransferTypes = async () => {
@@ -389,30 +448,19 @@ function DailyExpensesContent() {
 
   const addFundTransferMutation = useMutation({
     mutationFn: async (data: InsertFundTransfer) => {
-      // حفظ جميع قيم الإكمال التلقائي قبل العملية الأساسية
       await saveAllFundTransferAutocompleteValues();
-
-      // تنفيذ العملية الأساسية
       return apiRequest("/api/fund-transfers", "POST", data);
     },
     onSuccess: async (newTransfer) => {
-      // ✅ إصلاح: تحديث فوري للبيانات الأساسية
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", selectedProjectId, "previous-balance"] 
-      });
+      refreshAllData();
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
 
       toast({
         title: "تم إضافة العهدة",
         description: "تم إضافة تحويل العهدة بنجاح",
       });
 
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-
-      // تنظيف النموذج
       setFundAmount("");
       setSenderName("");
       setTransferNumber("");
@@ -448,45 +496,30 @@ function DailyExpensesContent() {
 
   const addTransportationMutation = useMutation({
     mutationFn: async (data: InsertTransportationExpense) => {
-      // حفظ قيم الإكمال التلقائي قبل العملية الأساسية
       await Promise.all([
         saveAutocompleteValue('transportDescriptions', transportDescription),
         saveAutocompleteValue('notes', transportNotes)
       ]);
-
-      // تنفيذ العملية الأساسية
       return apiRequest("/api/transportation-expenses", "POST", data);
     },
     onSuccess: async (newExpense) => {
-      // ✅ إصلاح: تحديث فوري للبيانات الأساسية
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", selectedProjectId, "previous-balance"] 
-      });
+      refreshAllData();
+      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
 
       toast({
         title: "تم إضافة المواصلات",
         description: "تم إضافة مصروف المواصلات بنجاح",
       });
 
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-
-      // تنظيف النموذج
       setTransportDescription("");
       setTransportAmount("");
       setTransportNotes("");
     },
     onError: async (error) => {
-      // حفظ قيم الإكمال التلقائي حتى في حالة الخطأ
       await Promise.all([
         saveAutocompleteValue('transportDescriptions', transportDescription),
         saveAutocompleteValue('notes', transportNotes)
       ]);
-
-      // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
 
       toast({
@@ -500,14 +533,10 @@ function DailyExpensesContent() {
   const saveDailySummaryMutation = useMutation({
     mutationFn: (data: InsertDailyExpenseSummary) => apiRequest("/api/daily-expense-summaries", "POST", data),
     onSuccess: () => {
+      refreshAllData();
       toast({
         title: "تم الحفظ",
         description: "تم حفظ ملخص المصروفات اليومية بنجاح",
-      });
-
-      // تحديث ملخص اليوم
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", selectedProjectId, "daily-summary", selectedDate] 
       });
     },
     onError: () => {
@@ -519,22 +548,10 @@ function DailyExpensesContent() {
     },
   });
 
-  // Delete mutations
   const deleteFundTransferMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/fund-transfers/${id}`, "DELETE"),
-    onMutate: () => {
-      // حفظ القيم الحالية لتجنب Race Condition
-      return {
-        projectId: selectedProjectId,
-        date: selectedDate
-      };
-    },
-    onSuccess: (_, id, context) => {
-      // استخدام القيم المحفوظة من onMutate
-      const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
-      
-      // تحديث فوري للقائمة باستخدام setQueryData
-      queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
+    onSuccess: (_, id) => {
+      queryClient.setQueryData(["/api/projects", selectedProjectId, "daily-expenses", selectedDate], (oldData: any) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
@@ -542,13 +559,7 @@ function DailyExpensesContent() {
         };
       });
       
-      // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", projectId, "previous-balance"] 
-      });
+      refreshAllData();
       
       toast({ 
         title: "تم الحذف", 
@@ -557,20 +568,12 @@ function DailyExpensesContent() {
     },
     onError: (error: any) => {
       console.error("خطأ في حذف الحولة:", error);
-
       let errorMessage = "حدث خطأ أثناء حذف الحولة";
-
-      // معالجة محسنة للأخطاء
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
-      } else if (error?.response?.data?.error) {
-        errorMessage = error.response.data.error;
       } else if (error?.message) {
         errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
       }
-
       toast({ 
         title: "فشل في حذف الحولة", 
         description: errorMessage, 
@@ -581,19 +584,8 @@ function DailyExpensesContent() {
 
   const deleteTransportationMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/transportation-expenses/${id}`, "DELETE"),
-    onMutate: () => {
-      // حفظ القيم الحالية لتجنب Race Condition
-      return {
-        projectId: selectedProjectId,
-        date: selectedDate
-      };
-    },
-    onSuccess: (_, id, context) => {
-      // استخدام القيم المحفوظة من onMutate
-      const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
-      
-      // تحديث فوري للقائمة باستخدام setQueryData
-      queryClient.setQueryData(["/api/projects", projectId, "daily-expenses", date], (oldData: any) => {
+    onSuccess: (_, id) => {
+      queryClient.setQueryData(["/api/projects", selectedProjectId, "daily-expenses", selectedDate], (oldData: any) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
@@ -601,13 +593,7 @@ function DailyExpensesContent() {
         };
       });
       
-      // إبطال الكاش للتأكد من التحديث الكامل
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", projectId, "daily-expenses", date] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", projectId, "previous-balance"] 
-      });
+      refreshAllData();
       
       toast({ 
         title: "تم الحذف", 

@@ -1691,6 +1691,122 @@ function DailyExpensesContent() {
               )}
               </div>
             </div>
+
+              {/* Transportation Input Section */}
+              <div className="border-t pt-3 mt-3">
+                <h4 className="font-medium text-foreground flex items-center mb-2">
+                  <Car className="text-secondary ml-2 h-5 w-5" />
+                  إضافة مواصلات جديدة
+                </h4>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <AutocompleteInput
+                      value={transportDescription}
+                      onChange={setTransportDescription}
+                      category="transportDescriptions"
+                      placeholder="الوصف"
+                    />
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      value={transportAmount}
+                      onChange={(e) => setTransportAmount(e.target.value)}
+                      placeholder="المبلغ"
+                      className="text-center arabic-numbers"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <AutocompleteInput
+                      value={transportNotes}
+                      onChange={setTransportNotes}
+                      category="notes"
+                      placeholder="ملاحظات"
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={handleAddTransportation} 
+                      size="sm" 
+                      className="bg-secondary"
+                      disabled={addTransportationMutation.isPending || updateTransportationMutation.isPending}
+                      data-testid="button-add-transportation"
+                    >
+                      {addTransportationMutation.isPending || updateTransportationMutation.isPending ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
+                      ) : (
+                        editingTransportationId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />
+                      )}
+                    </Button>
+                    {editingTransportationId && (
+                      <Button onClick={resetTransportationForm} size="sm" variant="outline">
+                        إلغاء
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Add Buttons Section */}
+              <div className="border-t pt-3 mt-3">
+                <h4 className="font-medium text-foreground mb-3">روابط الإضافة السريعة</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setLocation("/material-purchase")}
+                    className="border-2 border-dashed border-green-300 text-green-600 hover:bg-green-50"
+                  >
+                    <Package className="ml-2 h-4 w-4" />
+                    إضافة شراء مواد
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setLocation("/worker-accounts")}
+                    className="border-2 border-dashed border-yellow-300 text-yellow-600 hover:bg-yellow-50"
+                  >
+                    <DollarSign className="ml-2 h-4 w-4" />
+                    إرسال حولة عامل
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setLocation("/project-transfers")}
+                    className="border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 col-span-2"
+                  >
+                    <ArrowLeftRight className="ml-2 h-4 w-4" />
+                    إدارة ترحيل الأموال
+                  </Button>
+                </div>
+              </div>
+
+              {/* Worker Miscellaneous Expenses */}
+              {selectedProjectId && (
+                <div className="border-t pt-3 mt-3">
+                  <WorkerMiscExpenses 
+                    projectId={selectedProjectId} 
+                    selectedDate={selectedDate} 
+                  />
+                </div>
+              )}
+
+              {/* Total Summary */}
+              <div className="border-t pt-3 mt-3">
+                <ExpenseSummary
+                  totalIncome={totals.totalIncome}
+                  totalExpenses={totals.totalExpenses}
+                  remainingBalance={totals.remainingBalance}
+                />
+              </div>
+
+              {/* Save Button */}
+              <div className="mt-4">
+                <Button
+                  onClick={handleSaveSummary}
+                  disabled={saveDailySummaryMutation.isPending}
+                  className="w-full bg-success hover:bg-success/90 text-success-foreground"
+                >
+                  <Save className="ml-2 h-4 w-4" />
+                  {saveDailySummaryMutation.isPending ? "جاري الحفظ..." : "حفظ المصروفات"}
+                </Button>
+              </div>
+
           </CardContent>
         </CollapsibleContent>
       </Card>
@@ -1760,60 +1876,15 @@ function DailyExpensesContent() {
         </CardContent>
       </Card>
 
-      {/* Transportation */}
+      {/* Transportation - عرض المواصلات المضافة */}
       <Card className="mb-3">
         <CardContent className="p-4">
           <h4 className="font-medium text-foreground flex items-center">
             <Car className="text-secondary ml-2 h-5 w-5" />
             أجور المواصلات
           </h4>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <AutocompleteInput
-                value={transportDescription}
-                onChange={setTransportDescription}
-                category="transportDescriptions"
-                placeholder="الوصف"
-              />
-              <Input
-                type="number"
-                inputMode="decimal"
-                value={transportAmount}
-                onChange={(e) => setTransportAmount(e.target.value)}
-                placeholder="المبلغ"
-                className="text-center arabic-numbers"
-              />
-            </div>
-            <div className="flex gap-2">
-              <AutocompleteInput
-                value={transportNotes}
-                onChange={setTransportNotes}
-                category="notes"
-                placeholder="ملاحظات"
-                className="flex-1"
-              />
-              <Button 
-                onClick={handleAddTransportation} 
-                size="sm" 
-                className="bg-secondary"
-                disabled={addTransportationMutation.isPending || updateTransportationMutation.isPending}
-                data-testid="button-add-transportation"
-              >
-                {addTransportationMutation.isPending || updateTransportationMutation.isPending ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
-                ) : (
-                  editingTransportationId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />
-                )}
-              </Button>
-              {editingTransportationId && (
-                <Button onClick={resetTransportationForm} size="sm" variant="outline">
-                  إلغاء
-                </Button>
-              )}
-            </div>
-
-            {/* Show existing transportation expenses */}
-            {safeTransportation.length === 0 ? (
+          {/* Show existing transportation expenses */}
+          {safeTransportation.length === 0 ? (
               <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 mt-3">
                 <Car className="mx-auto h-8 w-8 text-gray-400" />
                 <p className="text-sm text-gray-600">لا توجد مصاريف نقل للتاريخ {selectedDate}</p>
@@ -1862,7 +1933,6 @@ function DailyExpensesContent() {
                 </div>
               </div>
             )}
-          </div>
         </CardContent>
       </Card>
 
@@ -1965,14 +2035,6 @@ function DailyExpensesContent() {
               </div>
             </div>
           )}
-          <Button
-            variant="outline"
-            onClick={() => setLocation("/material-purchase")}
-            className="w-full border-2 border-dashed"
-          >
-            <Plus className="ml-2 h-4 w-4" />
-            إضافة شراء مواد
-          </Button>
         </CardContent>
       </Card>
 
@@ -2056,24 +2118,8 @@ function DailyExpensesContent() {
               </div>
             </div>
           )}
-          <Button
-            variant="outline"
-            onClick={() => setLocation("/worker-accounts")}
-            className="w-full border-2 border-dashed"
-          >
-            <Plus className="ml-2 h-4 w-4" />
-            إرسال حولة جديدة
-          </Button>
         </CardContent>
       </Card>
-
-      {/* Worker Miscellaneous Expenses */}
-      {selectedProjectId && (
-        <WorkerMiscExpenses 
-          projectId={selectedProjectId} 
-          selectedDate={selectedDate} 
-        />
-      )}
 
       {/* Project Fund Transfers Section */}
       <Card className="bg-background border-border/50">
@@ -2144,37 +2190,8 @@ function DailyExpensesContent() {
             </div>
           )}
 
-          <div className="mt-4 pt-3 border-t">
-            <Button
-              variant="outline"
-              onClick={() => setLocation("/project-transfers")}
-              className="w-full border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50"
-            >
-              <ArrowLeftRight className="ml-2 h-4 w-4" />
-              إدارة عمليات ترحيل الأموال
-            </Button>
-          </div>
         </CardContent>
       </Card>
-
-      {/* Total Summary */}
-      <ExpenseSummary
-        totalIncome={totals.totalIncome}
-        totalExpenses={totals.totalExpenses}
-        remainingBalance={totals.remainingBalance}
-      />
-
-      {/* Save Button */}
-      <div className="mt-4">
-        <Button
-          onClick={handleSaveSummary}
-          disabled={saveDailySummaryMutation.isPending}
-          className="w-full bg-success hover:bg-success/90 text-success-foreground"
-        >
-          <Save className="ml-2 h-4 w-4" />
-          {saveDailySummaryMutation.isPending ? "جاري الحفظ..." : "حفظ المصروفات"}
-        </Button>
-      </div>
     </div>
   );
 }

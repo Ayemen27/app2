@@ -50,9 +50,7 @@ import type {
 function DailyExpensesContent() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
-  const [selectedDate, setSelectedDate] = useState(() => {
-    return new Date().toISOString().split('T')[0];
-  });
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [carriedForward, setCarriedForward] = useState<string>("0");
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
   const [activeFilters, setActiveFilters] = useState({});
@@ -961,7 +959,7 @@ function DailyExpensesContent() {
       projectId: selectedProjectId,
       amount: transportAmount,
       description: transportDescription,
-      date: selectedDate,
+      date: selectedDate || new Date().toISOString().split('T')[0],
       notes: transportNotes,
     };
 
@@ -1168,7 +1166,7 @@ function DailyExpensesContent() {
 
     saveDailySummaryMutation.mutate({
       projectId: selectedProjectId,
-      date: selectedDate,
+      date: selectedDate || new Date().toISOString().split('T')[0],
       carriedForwardAmount: carriedForward,
       totalFundTransfers: totals.totalFundTransfers.toString(),
       totalWorkerWages: totals.totalWorkerWages.toString(),
@@ -1377,86 +1375,16 @@ function DailyExpensesContent() {
         />
       )}
 
-      {/* Data Overview Indicator */}
-      {selectedProjectId && (
-        <Card className={`mb-3 border-l-4 ${
-          sectionsWithData === 0 
-            ? 'border-l-amber-400 bg-amber-50/30' 
-            : sectionsWithData === totalDataSections 
-              ? 'border-l-green-500 bg-green-50/30' 
-              : 'border-l-blue-500 bg-blue-50/30'
-        }`}>
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className={`h-3 w-3 rounded-full ${
-                  sectionsWithData === 0 
-                    ? 'bg-amber-400' 
-                    : sectionsWithData === totalDataSections 
-                      ? 'bg-green-500' 
-                      : 'bg-blue-500'
-                }`}></div>
-                <span className="text-sm font-medium">
-                  بيانات يوم {formatDate(selectedDate)}
-                </span>
-              </div>
-              <div className="flex items-center gap-3 text-xs">
-                <div className="flex items-center gap-1">
-                  <span className="font-bold text-lg arabic-numbers">{sectionsWithData}</span>
-                  <span className="text-muted-foreground">/{totalDataSections}</span>
-                </div>
-                {sectionsWithData === 0 && (
-                  <span className="text-amber-700 bg-amber-100 px-3 py-1 rounded-full text-xs font-medium">
-                    لا توجد بيانات
-                  </span>
-                )}
-                {sectionsWithData > 0 && sectionsWithData < totalDataSections && (
-                  <span className="text-blue-700 bg-blue-100 px-3 py-1 rounded-full text-xs font-medium">
-                    بيانات جزئية
-                  </span>
-                )}
-                {sectionsWithData === totalDataSections && (
-                  <span className="text-green-700 bg-green-100 px-3 py-1 rounded-full text-xs font-medium">
-                    بيانات كاملة ✓
-                  </span>
-                )}
-              </div>
-            </div>
-            {sectionsWithData > 0 && (
-              <div className="mt-2 flex gap-1 flex-wrap">
-                {dataIndicators.fundTransfers && (
-                  <span className="bg-primary/10 text-primary text-xs px-2 py-1 rounded">عهدة</span>
-                )}
-                {dataIndicators.attendance && (
-                  <span className="bg-success/10 text-success text-xs px-2 py-1 rounded">حضور</span>
-                )}
-                {dataIndicators.transportation && (
-                  <span className="bg-secondary/10 text-secondary text-xs px-2 py-1 rounded">نقل</span>
-                )}
-                {dataIndicators.materials && (
-                  <span className="bg-green-500/10 text-green-600 text-xs px-2 py-1 rounded">مواد</span>
-                )}
-                {dataIndicators.workerTransfers && (
-                  <span className="bg-orange-500/10 text-orange-600 text-xs px-2 py-1 rounded">حوالات</span>
-                )}
-                {dataIndicators.miscExpenses && (
-                  <span className="bg-purple-500/10 text-purple-600 text-xs px-2 py-1 rounded">متنوعة</span>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* بطاقة ملخص المصروفات اليومية الموحدة */}
       {selectedProjectId && (
         <UnifiedCard
           title={projects?.find(p => p.id === selectedProjectId)?.name || "المشروع"}
-          subtitle={`مصروفات يوم ${formatDate(selectedDate)}`}
+          subtitle={selectedDate ? `مصروفات يوم ${formatDate(selectedDate)}` : 'جميع المصروفات'}
           titleIcon={Building}
           headerColor="#3b82f6"
           badges={[
-            { label: formatDate(selectedDate), variant: "default" },
+            { label: selectedDate ? formatDate(selectedDate) : 'جميع التواريخ', variant: "default" },
             { 
               label: totals.remainingBalance >= 0 ? "رصيد موجب" : "عجز", 
               variant: totals.remainingBalance >= 0 ? "success" : "destructive" 
@@ -1546,8 +1474,8 @@ function DailyExpensesContent() {
                   <Label className="block text-sm font-medium text-foreground">التاريخ</Label>
                   <Input
                     type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
+                    value={selectedDate || ''}
+                    onChange={(e) => setSelectedDate(e.target.value || null)}
                   />
                 </div>
                 <div>
@@ -2076,7 +2004,7 @@ function DailyExpensesContent() {
                 <div className="border-t pt-3 mt-3">
                   <WorkerMiscExpenses 
                     projectId={selectedProjectId} 
-                    selectedDate={selectedDate} 
+                    selectedDate={selectedDate || new Date().toISOString().split('T')[0]} 
                   />
                 </div>
               )}

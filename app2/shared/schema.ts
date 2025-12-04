@@ -107,7 +107,7 @@ export const workers = pgTable("workers", {
 // Fund transfers (تحويلات العهدة)
 export const fundTransfers = pgTable("fund_transfers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   senderName: text("sender_name"), // اسم المرسل
   transferNumber: text("transfer_number").unique(), // رقم الحولة - فريد
@@ -120,8 +120,8 @@ export const fundTransfers = pgTable("fund_transfers", {
 // Worker attendance
 export const workerAttendance = pgTable("worker_attendance", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id),
-  workerId: varchar("worker_id").notNull().references(() => workers.id),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
   attendanceDate: text("attendance_date").notNull(), // YYYY-MM-DD format
   date: text("date"), // عمود إضافي للتاريخ - nullable
   startTime: text("start_time"), // HH:MM format
@@ -173,8 +173,8 @@ export const materials = pgTable("materials", {
 // Material purchases - محسن للمحاسبة الصحيحة
 export const materialPurchases = pgTable("material_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id),
-  supplierId: varchar("supplier_id").references(() => suppliers.id), // ربط بالمورد
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  supplierId: varchar("supplier_id").references(() => suppliers.id, { onDelete: "set null" }), // ربط بالمورد
   materialName: text("material_name").notNull(), // اسم المادة بدلاً من materialId
   materialCategory: text("material_category"), // فئة المادة (حديد، أسمنت، إلخ)
   materialUnit: text("material_unit"), // وحدة المادة الأساسية
@@ -199,9 +199,9 @@ export const materialPurchases = pgTable("material_purchases", {
 // Supplier payments (مدفوعات الموردين)
 export const supplierPayments = pgTable("supplier_payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  supplierId: varchar("supplier_id").notNull().references(() => suppliers.id),
-  projectId: varchar("project_id").notNull().references(() => projects.id),
-  purchaseId: varchar("purchase_id").references(() => materialPurchases.id), // ربط بفاتورة محددة
+  supplierId: varchar("supplier_id").notNull().references(() => suppliers.id, { onDelete: "cascade" }),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  purchaseId: varchar("purchase_id").references(() => materialPurchases.id, { onDelete: "set null" }), // ربط بفاتورة محددة
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   paymentMethod: text("payment_method").notNull().default("نقد"), // نقد، حوالة، شيك
   paymentDate: text("payment_date").notNull(), // YYYY-MM-DD format
@@ -213,8 +213,8 @@ export const supplierPayments = pgTable("supplier_payments", {
 // Transportation expenses (أجور المواصلات)
 export const transportationExpenses = pgTable("transportation_expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id),
-  workerId: varchar("worker_id").references(() => workers.id), // optional, for worker-specific transport
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  workerId: varchar("worker_id").references(() => workers.id, { onDelete: "set null" }), // optional, for worker-specific transport
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description").notNull(),
   date: text("date").notNull(), // YYYY-MM-DD format
@@ -225,8 +225,8 @@ export const transportationExpenses = pgTable("transportation_expenses", {
 // Worker balance transfers (حوالات الحساب للأهالي)
 export const workerTransfers = pgTable("worker_transfers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  workerId: varchar("worker_id").notNull().references(() => workers.id),
-  projectId: varchar("project_id").notNull().references(() => projects.id),
+  workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   transferNumber: text("transfer_number"), // رقم الحوالة
   senderName: text("sender_name"), // اسم المرسل
@@ -241,8 +241,8 @@ export const workerTransfers = pgTable("worker_transfers", {
 // Worker account balances (أرصدة حسابات العمال)
 export const workerBalances = pgTable("worker_balances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  workerId: varchar("worker_id").notNull().references(() => workers.id),
-  projectId: varchar("project_id").notNull().references(() => projects.id),
+  workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   totalEarned: decimal("total_earned", { precision: 10, scale: 2 }).default('0').notNull(), // إجمالي المكتسب
   totalPaid: decimal("total_paid", { precision: 10, scale: 2 }).default('0').notNull(), // إجمالي المدفوع
   totalTransferred: decimal("total_transferred", { precision: 10, scale: 2 }).default('0').notNull(), // إجمالي المحول للأهل
@@ -254,7 +254,7 @@ export const workerBalances = pgTable("worker_balances", {
 // Daily expense summaries (ملخص المصروفات اليومية)
 export const dailyExpenseSummaries = pgTable("daily_expense_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   date: text("date").notNull(), // YYYY-MM-DD format
   carriedForwardAmount: decimal("carried_forward_amount", { precision: 10, scale: 2 }).default('0').notNull(),
   totalFundTransfers: decimal("total_fund_transfers", { precision: 10, scale: 2 }).default('0').notNull(),
@@ -357,8 +357,8 @@ export const printSettings = pgTable('print_settings', {
 // Project fund transfers table (ترحيل الأموال بين المشاريع)
 export const projectFundTransfers = pgTable("project_fund_transfers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  fromProjectId: varchar("from_project_id").notNull().references(() => projects.id),
-  toProjectId: varchar("to_project_id").notNull().references(() => projects.id),
+  fromProjectId: varchar("from_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  toProjectId: varchar("to_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description"), // وصف الترحيل
   transferReason: text("transfer_reason"), // سبب الترحيل

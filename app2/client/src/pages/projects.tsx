@@ -170,6 +170,17 @@ export default function ProjectsPage() {
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [togglingProjectId, setTogglingProjectId] = useState<string | null>(null);
+  
+  // حالة نافذة تأكيد الحذف
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<ProjectWithStats | null>(null);
+  const [deletionStats, setDeletionStats] = useState<{
+    stats: Record<string, number>;
+    totalLinkedRecords: number;
+    canDelete: boolean;
+    deleteBlockReason: string;
+  } | null>(null);
+  const [isLoadingDeletionStats, setIsLoadingDeletionStats] = useState(false);
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
@@ -413,12 +424,15 @@ export default function ProjectsPage() {
 
   // Delete project mutation
   const deleteProjectMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiRequest(`/api/projects/${id}`, "DELETE"),
+    mutationFn: ({ id, confirmDeletion }: { id: string; confirmDeletion?: boolean }) =>
+      apiRequest(`/api/projects/${id}`, "DELETE", { confirmDeletion }),
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: ["/api/projects"] });
       queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
       toast({ title: "تم حذف المشروع بنجاح" });
+      setDeleteDialogOpen(false);
+      setProjectToDelete(null);
+      setDeletionStats(null);
     },
     onError: (error: any) => {
       toast({
@@ -428,6 +442,38 @@ export default function ProjectsPage() {
       });
     },
   });
+
+  // جلب إحصائيات الحذف للمشروع
+  const fetchDeletionStats = async (projectId: string) => {
+    setIsLoadingDeletionStats(true);
+    try {
+      const response = await apiRequest(`/api/projects/${projectId}/deletion-stats`, "GET");
+      if (response.success && response.data) {
+        setDeletionStats({
+          stats: response.data.stats,
+          totalLinkedRecords: response.data.totalLinkedRecords,
+          canDelete: response.data.canDelete,
+          deleteBlockReason: response.data.deleteBlockReason || '',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "خطأ في جلب بيانات المشروع",
+        description: error.message,
+        variant: "destructive",
+      });
+      setDeleteDialogOpen(false);
+    } finally {
+      setIsLoadingDeletionStats(false);
+    }
+  };
+
+  // فتح نافذة تأكيد الحذف
+  const openDeleteDialog = (project: ProjectWithStats) => {
+    setProjectToDelete(project);
+    setDeleteDialogOpen(true);
+    fetchDeletionStats(project.id);
+  };
 
   // Toggle project status mutation
   const toggleStatusMutation = useMutation({
@@ -484,8 +530,8 @@ export default function ProjectsPage() {
     updateProjectMutation.mutate({ id: editingProject.id, data });
   };
 
-  const handleDeleteProject = (id: string) => {
-    deleteProjectMutation.mutate(id);
+  const handleDeleteProject = (id: string, confirmDeletion: boolean = false) => {
+    deleteProjectMutation.mutate({ id, confirmDeletion });
   };
 
   const openEditDialog = (project: Project) => {
@@ -1074,11 +1120,7 @@ export default function ProjectsPage() {
                   {
                     icon: Trash2,
                     label: "حذف",
-                    onClick: () => {
-                      if (confirm(`هل أنت متأكد من حذف المشروع "${project.name}"؟`)) {
-                        handleDeleteProject(project.id);
-                      }
-                    },
+                    onClick: () => openDeleteDialog(project),
                     color: "red",
                   },
                 ]}
@@ -1097,6 +1139,99 @@ export default function ProjectsPage() {
         </UnifiedCardGrid>
       )}
       </div>
+
+      {/* نافذة تأكيد حذف المشروع */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-right">
+              تأكيد حذف المشروع
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-right space-y-3">
+              {isLoadingDeletionStats ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : deletionStats ? (
+                <>
+                  <p className="font-medium text-base">
+                    هل أنت متأكد من حذف المشروع "{projectToDelete?.name}"؟
+                  </p>
+                  
+                  {!deletionStats.canDelete ? (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-red-700 dark:text-red-300">
+                      {deletionStats.deleteBlockReason}
+                    </div>
+                  ) : deletionStats.totalLinkedRecords > 0 ? (
+                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3 space-y-2">
+                      <p className="text-orange-700 dark:text-orange-300 font-medium">
+                        سيتم حذف {deletionStats.totalLinkedRecords} سجل مرتبط:
+                      </p>
+                      <div className="grid grid-cols-2 gap-1 text-sm text-orange-600 dark:text-orange-400">
+                        {deletionStats.stats.fundTransfers > 0 && (
+                          <div>تحويلات عهدة: {deletionStats.stats.fundTransfers}</div>
+                        )}
+                        {deletionStats.stats.workerAttendance > 0 && (
+                          <div>حضور عمال: {deletionStats.stats.workerAttendance}</div>
+                        )}
+                        {deletionStats.stats.materialPurchases > 0 && (
+                          <div>مشتريات مواد: {deletionStats.stats.materialPurchases}</div>
+                        )}
+                        {deletionStats.stats.transportationExpenses > 0 && (
+                          <div>مصاريف نقل: {deletionStats.stats.transportationExpenses}</div>
+                        )}
+                        {deletionStats.stats.workerTransfers > 0 && (
+                          <div>حوالات عمال: {deletionStats.stats.workerTransfers}</div>
+                        )}
+                        {deletionStats.stats.workerMiscExpenses > 0 && (
+                          <div>نثريات: {deletionStats.stats.workerMiscExpenses}</div>
+                        )}
+                        {deletionStats.stats.dailySummaries > 0 && (
+                          <div>ملخصات يومية: {deletionStats.stats.dailySummaries}</div>
+                        )}
+                        {(deletionStats.stats.projectTransfersFrom > 0 || deletionStats.stats.projectTransfersTo > 0) && (
+                          <div>تحويلات بين مشاريع: {(deletionStats.stats.projectTransfersFrom || 0) + (deletionStats.stats.projectTransfersTo || 0)}</div>
+                        )}
+                        {deletionStats.stats.workerBalances > 0 && (
+                          <div>أرصدة عمال: {deletionStats.stats.workerBalances}</div>
+                        )}
+                        {deletionStats.stats.supplierPayments > 0 && (
+                          <div>مدفوعات موردين: {deletionStats.stats.supplierPayments}</div>
+                        )}
+                      </div>
+                      <p className="text-red-600 dark:text-red-400 font-bold text-sm pt-1">
+                        هذا الإجراء لا يمكن التراجع عنه!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-green-700 dark:text-green-300">
+                      لا توجد بيانات مرتبطة بهذا المشروع. يمكنك حذفه بأمان.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p>جاري تحميل البيانات...</p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            {deletionStats?.canDelete && (
+              <AlertDialogAction
+                onClick={() => {
+                  if (projectToDelete) {
+                    handleDeleteProject(projectToDelete.id, true);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={deleteProjectMutation.isPending}
+              >
+                {deleteProjectMutation.isPending ? "جاري الحذف..." : "تأكيد الحذف"}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

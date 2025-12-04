@@ -10,7 +10,7 @@ import { db } from '../../db';
 import { 
   projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
   fundTransfers, transportationExpenses, dailyExpenseSummaries, tools, toolMovements,
-  workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers,
+  workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers, supplierPayments,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
   insertMaterialSchema, insertSupplierSchema, insertMaterialPurchaseSchema,
   insertWorkerAttendanceSchema, insertFundTransferSchema, insertTransportationExpenseSchema,
@@ -846,14 +846,166 @@ projectRouter.patch('/:id', async (req: Request, res: Response) => {
 });
 
 /**
+ * 📊 جلب إحصائيات البيانات المرتبطة بالمشروع قبل الحذف
+ * GET /api/projects/:id/deletion-stats
+ * يتطلب أن يكون المستخدم مسؤول (admin) أو مالك المشروع
+ */
+projectRouter.get('/:id/deletion-stats', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const projectId = req.params.id;
+    const user = req.user as any;
+
+    console.log('📊 [API] طلب إحصائيات الحذف للمشروع:', projectId);
+    console.log('👤 [API] المستخدم:', user?.email, 'الصلاحية:', user?.role);
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: 'معرف المشروع مطلوب',
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    // التحقق من وجود المشروع
+    const existingProject = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+
+    if (existingProject.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'المشروع غير موجود',
+        message: `لم يتم العثور على مشروع بالمعرف: ${projectId}`,
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    const project = existingProject[0];
+
+    // التحقق من الصلاحيات - يجب أن يكون مسؤول أو مالك المشروع
+    const isAdmin = user?.role === 'admin';
+    const isOwner = project.engineerId === user?.id;
+
+    // رفض الوصول للمستخدمين غير المصرح لهم
+    if (!isAdmin && !isOwner) {
+      const duration = Date.now() - startTime;
+      console.warn('🚫 [API] رفض الوصول - المستخدم ليس مسؤول أو مالك:', { userId: user?.id, projectOwner: project.engineerId });
+      return res.status(403).json({
+        success: false,
+        error: 'غير مصرح',
+        message: 'لا يمكنك عرض إحصائيات حذف مشروع لم تقم بإنشائه',
+        processingTime: duration
+      });
+    }
+
+    // جلب إحصائيات البيانات المرتبطة
+    const [
+      fundTransfersCount,
+      workerAttendanceCount,
+      materialPurchasesCount,
+      transportationExpensesCount,
+      workerTransfersCount,
+      workerMiscExpensesCount,
+      dailySummariesCount,
+      projectTransfersFromCount,
+      projectTransfersToCount,
+      workerBalancesCount,
+      supplierPaymentsCount
+    ] = await Promise.all([
+      db.select({ count: sql<number>`count(*)` }).from(fundTransfers).where(eq(fundTransfers.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(workerAttendance).where(eq(workerAttendance.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(materialPurchases).where(eq(materialPurchases.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(transportationExpenses).where(eq(transportationExpenses.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(workerTransfers).where(eq(workerTransfers.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(workerMiscExpenses).where(eq(workerMiscExpenses.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(dailyExpenseSummaries).where(eq(dailyExpenseSummaries.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(projectFundTransfers).where(eq(projectFundTransfers.fromProjectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(projectFundTransfers).where(eq(projectFundTransfers.toProjectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(workerBalances).where(eq(workerBalances.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(supplierPayments).where(eq(supplierPayments.projectId, projectId))
+    ]);
+
+    const stats = {
+      fundTransfers: Number(fundTransfersCount[0]?.count || 0),
+      workerAttendance: Number(workerAttendanceCount[0]?.count || 0),
+      materialPurchases: Number(materialPurchasesCount[0]?.count || 0),
+      transportationExpenses: Number(transportationExpensesCount[0]?.count || 0),
+      workerTransfers: Number(workerTransfersCount[0]?.count || 0),
+      workerMiscExpenses: Number(workerMiscExpensesCount[0]?.count || 0),
+      dailySummaries: Number(dailySummariesCount[0]?.count || 0),
+      projectTransfersFrom: Number(projectTransfersFromCount[0]?.count || 0),
+      projectTransfersTo: Number(projectTransfersToCount[0]?.count || 0),
+      workerBalances: Number(workerBalancesCount[0]?.count || 0),
+      supplierPayments: Number(supplierPaymentsCount[0]?.count || 0)
+    };
+
+    const totalLinkedRecords = Object.values(stats).reduce((sum, count) => sum + count, 0);
+    const hasLinkedData = totalLinkedRecords > 0;
+
+    // تحديد إمكانية الحذف بناءً على الصلاحيات
+    let canDelete = false;
+    let deleteBlockReason = '';
+
+    if (isAdmin) {
+      canDelete = true; // المسؤول يمكنه حذف أي مشروع
+    } else if (isOwner && !hasLinkedData) {
+      canDelete = true; // المالك يمكنه حذف مشروعه فقط إذا لم تكن هناك بيانات مرتبطة
+    } else if (!isOwner) {
+      deleteBlockReason = 'لا يمكنك حذف مشروع لم تقم بإنشائه';
+    } else if (hasLinkedData) {
+      deleteBlockReason = 'لا يمكنك حذف مشروع يحتوي على بيانات مرتبطة - تواصل مع المسؤول';
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب إحصائيات الحذف في ${duration}ms:`, { totalLinkedRecords, canDelete });
+
+    res.json({
+      success: true,
+      data: {
+        project: {
+          id: project.id,
+          name: project.name,
+          status: project.status,
+          engineerId: project.engineerId
+        },
+        stats,
+        totalLinkedRecords,
+        hasLinkedData,
+        canDelete,
+        deleteBlockReason,
+        userRole: user?.role || 'user',
+        isOwner
+      },
+      message: canDelete 
+        ? `يمكن حذف المشروع "${project.name}" - سيتم حذف ${totalLinkedRecords} سجل مرتبط`
+        : deleteBlockReason,
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب إحصائيات الحذف:', error);
+    res.status(500).json({
+      success: false,
+      error: 'فشل في جلب إحصائيات الحذف',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
  * 🗑️ حذف مشروع
  * DELETE /api/projects/:id
+ * يتطلب صلاحية مسؤول (admin) أو مالك المشروع (بدون بيانات مرتبطة)
  */
 projectRouter.delete('/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const projectId = req.params.id;
-    console.log('❌ [API] طلب حذف المشروع من المستخدم:', req.user?.email);
+    const user = req.user as any;
+    const { confirmDeletion } = req.body || {};
+
+    console.log('❌ [API] طلب حذف المشروع من المستخدم:', user?.email, 'الصلاحية:', user?.role);
     console.log('📋 [API] ID المشروع المراد حذفه:', projectId);
 
     if (!projectId) {
@@ -866,7 +1018,7 @@ projectRouter.delete('/:id', async (req: Request, res: Response) => {
       });
     }
 
-    // التحقق من وجود المشروع أولاً وجلب بياناته للـ logging
+    // التحقق من وجود المشروع أولاً وجلب بياناته
     const existingProject = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
 
     if (existingProject.length === 0) {
@@ -881,13 +1033,84 @@ projectRouter.delete('/:id', async (req: Request, res: Response) => {
     }
 
     const projectToDelete = existingProject[0];
+    
+    // التحقق من الصلاحيات
+    const isAdmin = user?.role === 'admin';
+    const isOwner = projectToDelete.engineerId === user?.id;
+
+    // التحقق أولاً: هل المستخدم مالك أو مسؤول؟
+    if (!isAdmin && !isOwner) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] محاولة حذف مشروع من غير مالكه:', { userId: user?.id, projectOwner: projectToDelete.engineerId });
+      return res.status(403).json({
+        success: false,
+        error: 'غير مصرح',
+        message: 'لا يمكنك حذف مشروع لم تقم بإنشائه',
+        processingTime: duration
+      });
+    }
+
+    // جلب عدد البيانات المرتبطة من جميع الجداول (نفس الجداول في deletion-stats)
+    const [
+      ftCount, waCount, mpCount, teCount, wtCount, wmCount,
+      dsCount, ptFromCount, ptToCount, wbCount, spCount
+    ] = await Promise.all([
+      db.select({ count: sql<number>`count(*)` }).from(fundTransfers).where(eq(fundTransfers.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(workerAttendance).where(eq(workerAttendance.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(materialPurchases).where(eq(materialPurchases.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(transportationExpenses).where(eq(transportationExpenses.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(workerTransfers).where(eq(workerTransfers.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(workerMiscExpenses).where(eq(workerMiscExpenses.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(dailyExpenseSummaries).where(eq(dailyExpenseSummaries.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(projectFundTransfers).where(eq(projectFundTransfers.fromProjectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(projectFundTransfers).where(eq(projectFundTransfers.toProjectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(workerBalances).where(eq(workerBalances.projectId, projectId)),
+      db.select({ count: sql<number>`count(*)` }).from(supplierPayments).where(eq(supplierPayments.projectId, projectId))
+    ]);
+
+    const totalLinked = Number(ftCount[0]?.count || 0) + Number(waCount[0]?.count || 0) + 
+                       Number(mpCount[0]?.count || 0) + Number(teCount[0]?.count || 0) +
+                       Number(wtCount[0]?.count || 0) + Number(wmCount[0]?.count || 0) +
+                       Number(dsCount[0]?.count || 0) + Number(ptFromCount[0]?.count || 0) +
+                       Number(ptToCount[0]?.count || 0) + Number(wbCount[0]?.count || 0) +
+                       Number(spCount[0]?.count || 0);
+
+    const hasLinkedData = totalLinked > 0;
+
+    // للمستخدم العادي: رفض الحذف إذا كانت هناك بيانات مرتبطة
+    if (!isAdmin && hasLinkedData) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] محاولة حذف مشروع يحتوي على بيانات من مستخدم عادي:', { totalLinked });
+      return res.status(403).json({
+        success: false,
+        error: 'غير مصرح',
+        message: `لا يمكنك حذف مشروع يحتوي على ${totalLinked} سجل مرتبط - تواصل مع المسؤول`,
+        processingTime: duration
+      });
+    }
+
+    // للمسؤول: التحقق من تأكيد الحذف إذا كانت هناك بيانات مرتبطة
+    if (isAdmin && hasLinkedData && !confirmDeletion) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'تأكيد الحذف مطلوب',
+        message: `يرجى تأكيد حذف المشروع مع ${totalLinked} سجل مرتبط`,
+        requireConfirmation: true,
+        totalLinkedRecords: totalLinked,
+        processingTime: duration
+      });
+    }
+
     console.log('🗑️ [API] سيتم حذف المشروع:', {
       id: projectToDelete.id,
       name: projectToDelete.name,
-      status: projectToDelete.status
+      status: projectToDelete.status,
+      deletedBy: user?.email,
+      isAdmin
     });
 
-    // حذف المشروع من قاعدة البيانات
+    // حذف المشروع من قاعدة البيانات (CASCADE سيحذف البيانات المرتبطة تلقائياً)
     console.log('🗑️ [API] حذف المشروع من قاعدة البيانات...');
     const deletedProject = await db
       .delete(projects)
@@ -898,13 +1121,14 @@ projectRouter.delete('/:id', async (req: Request, res: Response) => {
     console.log(`✅ [API] تم حذف المشروع بنجاح في ${duration}ms:`, {
       id: deletedProject[0].id,
       name: deletedProject[0].name,
-      status: deletedProject[0].status
+      status: deletedProject[0].status,
+      deletedBy: user?.email
     });
 
     res.json({
       success: true,
       data: deletedProject[0],
-      message: `تم حذف المشروع "${deletedProject[0].name}" بنجاح`,
+      message: `تم حذف المشروع "${deletedProject[0].name}" وجميع البيانات المرتبطة بنجاح`,
       processingTime: duration
     });
 

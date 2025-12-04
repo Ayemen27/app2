@@ -1427,14 +1427,14 @@ function DailyExpensesContent() {
           ]}
           fields={[
             { 
-              label: "الوارد (العهد)", 
+              label: "الوارد", 
               value: formatCurrency(totals.totalFundTransfers), 
               icon: TrendingUp, 
               color: "success",
               emphasis: true
             },
             { 
-              label: "إجمالي المصروفات", 
+              label: "المصروفات", 
               value: formatCurrency(totals.totalExpenses), 
               icon: TrendingDown, 
               color: "danger",

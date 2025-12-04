@@ -85,11 +85,12 @@ function getAdaptiveFontSize(value: React.ReactNode): string {
   const textValue = String(value || '');
   const len = textValue.length;
   
-  if (len <= 3) return 'text-base font-bold';
-  if (len <= 6) return 'text-sm font-bold';
-  if (len <= 10) return 'text-xs font-bold';
-  if (len <= 15) return 'text-[11px] font-semibold';
-  return 'text-[10px] font-semibold';
+  if (len <= 4) return 'text-sm font-bold';
+  if (len <= 7) return 'text-xs font-bold';
+  if (len <= 12) return 'text-[11px] font-semibold';
+  if (len <= 18) return 'text-[10px] font-semibold';
+  if (len <= 25) return 'text-[9px] font-medium';
+  return 'text-[8px] font-medium';
 }
 
 function UnifiedCardSkeleton({ compact }: { compact?: boolean }) {
@@ -223,14 +224,14 @@ export function UnifiedCard({
                 {FieldIcon && (
                   <FieldIcon className={cn("h-3 w-3 shrink-0", fieldIconColorClasses[field.color || "default"])} />
                 )}
-                <div className="min-w-0 flex-1 flex items-baseline gap-1">
+                <div className="min-w-0 flex-1 flex items-baseline gap-1 flex-wrap">
                   <span className="text-xs text-muted-foreground whitespace-nowrap font-medium">
                     {field.label}:
                   </span>
                   <span className={cn(
-                    "truncate arabic-numbers",
+                    "arabic-numbers break-words leading-tight",
                     field.emphasis 
-                      ? "text-base font-extrabold" 
+                      ? "text-sm font-bold" 
                       : getAdaptiveFontSize(field.value),
                     fieldColorClasses[field.color || "default"]
                   )}>

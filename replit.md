@@ -2,6 +2,23 @@
 
 ## Recent Changes
 
+### December 04, 2025 - Safe Project Deletion System ✅ COMPLETED
+- **نظام حذف المشاريع الآمن مع التحقق من الصلاحيات**:
+  - ✅ endpoint جديد `/api/projects/:id/deletion-stats` لعرض إحصائيات البيانات المرتبطة
+  - ✅ فحص 11 جدول مرتبط قبل السماح بالحذف
+  - ✅ التحقق من الصلاحيات: المسؤول فقط يمكنه حذف مشاريع بها بيانات
+  - ✅ المستخدم العادي يمكنه حذف مشروعه فقط إذا لم تكن هناك بيانات مرتبطة
+  - ✅ نافذة تأكيد تفاعلية تعرض عدد ونوع البيانات المرتبطة
+  - ✅ حماية من حذف البيانات العشوائي
+- **الجداول المفحوصة**:
+  - fundTransfers، workerAttendance، materialPurchases، transportationExpenses
+  - workerTransfers، workerMiscExpenses، dailyExpenseSummaries
+  - projectFundTransfers (from/to)، workerBalances، supplierPayments
+- **تحسينات الأمان**:
+  - ✅ رفض الوصول للمستخدمين غير المالكين
+  - ✅ تأكيد إضافي من المسؤول عند وجود بيانات مرتبطة
+  - ✅ رسائل خطأ واضحة باللغة العربية
+
 ### December 01, 2025 - Real Reports System ✅ COMPLETED
 - **نظام التقارير الحقيقي الشامل**:
   - ✅ صفحة تقارير جديدة تجلب البيانات من API

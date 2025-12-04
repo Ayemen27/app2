@@ -13,7 +13,9 @@ import { useLocation } from "wouter";
 import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw, Wallet, Banknote, Package, Truck, Receipt, Building2, Send, TrendingDown, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { DollarSign } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { UnifiedCard, UnifiedCardField } from "@/components/ui/unified-card";
+import { DollarSign, Calendar, Building, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -54,6 +56,7 @@ function DailyExpensesContent() {
   const [carriedForward, setCarriedForward] = useState<string>("0");
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
   const [activeFilters, setActiveFilters] = useState({});
+  const [isAddFormOpen, setIsAddFormOpen] = useState<boolean>(false);
 
   // Fund transfer form
   const [fundAmount, setFundAmount] = useState<string>("");
@@ -1441,33 +1444,123 @@ function DailyExpensesContent() {
         </Card>
       )}
 
-      {/* Date and Balance Info */}
-      <Card className="mb-4">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="block text-sm font-medium text-foreground">التاريخ</Label>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label className="block text-sm font-medium text-foreground">المبلغ المتبقي السابق</Label>
-              <Input
-                type="number"
-                inputMode="decimal"
-                value={carriedForward}
-                onChange={(e) => setCarriedForward(e.target.value)}
-                placeholder="0"
-                className="text-center arabic-numbers"
-              />
-            </div>
-          </div>
+      {/* بطاقة ملخص المصروفات اليومية الموحدة */}
+      {selectedProjectId && (
+        <UnifiedCard
+          title={projects?.find(p => p.id === selectedProjectId)?.name || "المشروع"}
+          subtitle={`مصروفات يوم ${formatDate(selectedDate)}`}
+          titleIcon={Building}
+          headerColor="#3b82f6"
+          badges={[
+            { label: formatDate(selectedDate), variant: "default" },
+            { 
+              label: totals.remainingBalance >= 0 ? "رصيد موجب" : "عجز", 
+              variant: totals.remainingBalance >= 0 ? "success" : "destructive" 
+            }
+          ]}
+          fields={[
+            { 
+              label: "الوارد (العهد)", 
+              value: formatCurrency(totals.totalFundTransfers), 
+              icon: TrendingUp, 
+              color: "success",
+              emphasis: true
+            },
+            { 
+              label: "إجمالي المصروفات", 
+              value: formatCurrency(totals.totalExpenses), 
+              icon: TrendingDown, 
+              color: "danger",
+              emphasis: true
+            },
+            { 
+              label: "أجور العمال", 
+              value: formatCurrency(totals.totalWorkerWages), 
+              icon: Users, 
+              color: "info"
+            },
+            { 
+              label: "المواصلات", 
+              value: formatCurrency(totals.totalTransportation), 
+              icon: Truck, 
+              color: "warning"
+            },
+            { 
+              label: "المواد", 
+              value: formatCurrency(totals.totalMaterialCosts), 
+              icon: Package, 
+              color: "info"
+            },
+            { 
+              label: "النثريات", 
+              value: formatCurrency(totals.totalMiscExpenses), 
+              icon: Receipt, 
+              color: "muted"
+            },
+            { 
+              label: "حوالات العمال", 
+              value: formatCurrency(totals.totalWorkerTransfers), 
+              icon: Send, 
+              color: "warning"
+            },
+            { 
+              label: "المتبقي", 
+              value: formatCurrency(totals.remainingBalance), 
+              icon: Calculator, 
+              color: totals.remainingBalance >= 0 ? "success" : "danger",
+              emphasis: true
+            },
+          ]}
+        />
+      )}
 
-          {/* Fund Transfer Section */}
-          <div className="border-t pt-3">
+      {/* نموذج الإضافة القابل للطي */}
+      <Collapsible open={isAddFormOpen} onOpenChange={setIsAddFormOpen}>
+        <Card className="mb-4">
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center gap-2">
+                <Plus className="h-5 w-5 text-primary" />
+                <span className="font-medium text-foreground">إضافة مصروفات جديدة</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {isAddFormOpen ? "اضغط للإخفاء" : "اضغط للعرض"}
+                </span>
+                {isAddFormOpen ? (
+                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="p-4 pt-0">
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <Label className="block text-sm font-medium text-foreground">التاريخ</Label>
+                  <Input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label className="block text-sm font-medium text-foreground">المبلغ المتبقي السابق</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={carriedForward}
+                    onChange={(e) => setCarriedForward(e.target.value)}
+                    placeholder="0"
+                    className="text-center arabic-numbers"
+                  />
+                </div>
+              </div>
+
+              {/* Fund Transfer Section */}
+              <div className="border-t pt-3">
             <h4 className="font-medium text-foreground">تحويل عهدة جديدة</h4>
             {dailyExpensesError && (
               <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -1596,10 +1689,12 @@ function DailyExpensesContent() {
 
                 </div>
               )}
+              </div>
             </div>
-          </div>
-        </CardContent>
+          </CardContent>
+        </CollapsibleContent>
       </Card>
+    </Collapsible>
 
       {/* Worker Wages */}
       <Card className="mb-3">

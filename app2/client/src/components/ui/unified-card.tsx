@@ -81,6 +81,17 @@ const actionColorClasses = {
   orange: "text-orange-600 hover:text-orange-800 hover:bg-orange-100 dark:text-orange-400 dark:hover:text-orange-200 dark:hover:bg-orange-900/30",
 };
 
+function getAdaptiveFontSize(value: React.ReactNode): string {
+  const textValue = String(value || '');
+  const len = textValue.length;
+  
+  if (len <= 3) return 'text-base font-bold';
+  if (len <= 6) return 'text-sm font-bold';
+  if (len <= 10) return 'text-xs font-bold';
+  if (len <= 15) return 'text-[11px] font-semibold';
+  return 'text-[10px] font-semibold';
+}
+
 function UnifiedCardSkeleton({ compact }: { compact?: boolean }) {
   return (
     <div className={cn(
@@ -158,8 +169,8 @@ export function UnifiedCard({
             )}
             <div className="min-w-0 flex-1">
               <h3 className={cn(
-                "font-bold text-foreground truncate",
-                compact ? "text-base" : "text-lg"
+                "font-extrabold text-foreground truncate",
+                compact ? "text-lg" : "text-xl"
               )}>
                 {title}
               </h3>
@@ -213,12 +224,14 @@ export function UnifiedCard({
                   <FieldIcon className={cn("h-3 w-3 shrink-0", fieldIconColorClasses[field.color || "default"])} />
                 )}
                 <div className="min-w-0 flex-1 flex items-baseline gap-1">
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap font-medium">
                     {field.label}:
                   </span>
                   <span className={cn(
-                    "text-xs font-semibold truncate",
-                    field.emphasis && "font-bold text-sm",
+                    "truncate arabic-numbers",
+                    field.emphasis 
+                      ? "text-base font-extrabold" 
+                      : getAdaptiveFontSize(field.value),
                     fieldColorClasses[field.color || "default"]
                   )}>
                     {field.value || "-"}

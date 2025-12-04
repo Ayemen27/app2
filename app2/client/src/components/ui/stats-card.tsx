@@ -246,38 +246,29 @@ export function StatsCard({
   
   // الاستايل الافتراضي المحسن - يتكيف مع المحتوى
   return (
-    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] min-h-[76px]`}>
-      <CardContent className="p-2.5 sm:p-3 flex flex-col justify-center h-full">
-        <div className="flex flex-col items-center text-center gap-1.5">
+    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-md transition-all duration-200 hover:scale-[1.01] min-h-[68px]`}>
+      <CardContent className="p-2 sm:p-2.5 flex flex-col justify-center h-full">
+        <div className="flex flex-col items-center text-center gap-0.5">
           {/* Title and Icon in one row */}
-          <div className="flex items-center justify-center gap-2 w-full min-w-0">
+          <div className="flex items-center justify-center gap-1.5 w-full min-w-0">
             <LabelWithTooltip>
               <p 
-                className="text-xs sm:text-sm font-semibold text-muted-foreground leading-snug break-words flex-1 min-w-0"
-                style={{ 
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  wordBreak: 'break-word',
-                  textWrap: 'balance'
-                }}
+                className="text-sm sm:text-base font-bold text-muted-foreground leading-tight break-words flex-1 min-w-0"
                 title={displayLabel}
               >
                 {displayLabel}
               </p>
             </LabelWithTooltip>
-            <div className={`h-5 w-5 sm:h-6 sm:w-6 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
-              <Icon className={`h-2.5 w-2.5 sm:h-3 sm:w-3 ${colors.iconColor}`} />
+            <div className={`h-5 w-5 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
+              <Icon className={`h-2.5 w-2.5 ${colors.iconColor}`} />
             </div>
           </div>
           
-          {/* Value centered - متكيف مع حجم المحتوى */}
+          {/* Value centered - خط كبير وواضح */}
           <p 
-            className={`font-bold ${colors.text} leading-tight break-words w-full`}
+            className={`font-extrabold ${colors.text} leading-none w-full`}
             style={{ 
-              fontSize: 'clamp(1rem, 3.5vw, 1.25rem)',
-              wordBreak: 'break-word'
+              fontSize: 'clamp(1.1rem, 4vw, 1.4rem)'
             }}
           >
             {displayValue}

@@ -1267,7 +1267,7 @@ function DailyExpensesContent() {
         },
         {
           key: 'projectTransfers',
-          label: 'ترحيل المشاريع',
+          label: 'الترحيل',
           subLabel: `وارد: ${formatCurrency(totals.incomingProjectTransfers)} | صادر: ${formatCurrency(totals.outgoingProjectTransfers)}`,
           value: formatCurrency(totals.incomingProjectTransfers - totals.outgoingProjectTransfers),
           icon: Building2,

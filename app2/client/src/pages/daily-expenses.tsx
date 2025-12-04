@@ -254,10 +254,11 @@ function DailyExpensesContent() {
       }
     },
     enabled: !!selectedProjectId && !!selectedDate && showProjectTransfers,
-    staleTime: 5000,
-    gcTime: 60000,
-    refetchOnMount: true,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+    placeholderData: undefined,
   });
 
   // معالجة آمنة لترحيل المشاريع
@@ -312,10 +313,11 @@ function DailyExpensesContent() {
     },
     enabled: isAllProjects || !!selectedProjectId,
     retry: 2,
-    staleTime: 5000,
-    gcTime: 60000,
-    refetchOnMount: true,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+    placeholderData: undefined,
   });
 
   // استخراج البيانات من الاستجابة الموحدة
@@ -351,6 +353,10 @@ function DailyExpensesContent() {
       }
     },
     enabled: !!selectedProjectId && !!selectedDate,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
+    placeholderData: undefined,
   });
 
   // تحديث المبلغ المرحل تلقائياً عند جلب الرصيد السابق
@@ -360,6 +366,33 @@ function DailyExpensesContent() {
       setCarriedForward(previousBalance);
     }
   }, [previousBalance]);
+
+  // ⚡ تحديث فوري عند تغيير التاريخ أو المشروع - حل مشكلة التأخير
+  useEffect(() => {
+    console.log('⚡ [DailyExpenses] تغيير التاريخ/المشروع - تحديث فوري', { selectedProjectId, selectedDate, isAllProjects });
+    
+    // إلغاء الاستعلامات السابقة وإعادة الجلب فوراً
+    queryClient.cancelQueries({ queryKey: ["/api/projects"] });
+    
+    // مسح البيانات المخزنة مؤقتاً للتاريخ/المشروع السابق
+    queryClient.removeQueries({ 
+      predicate: (query) => {
+        const key = query.queryKey;
+        return (
+          (Array.isArray(key) && key[0] === "/api/projects" && 
+           (key.includes("daily-expenses") || key.includes("previous-balance") || key.includes("all-expenses")))
+        );
+      }
+    });
+    
+    // إعادة جلب البيانات فوراً
+    if (selectedProjectId || isAllProjects) {
+      refetchDailyExpenses();
+      if (selectedProjectId && selectedDate && showProjectTransfers) {
+        refetchProjectTransfers();
+      }
+    }
+  }, [selectedProjectId, selectedDate, isAllProjects]);
 
   // دالة مساعدة لتحديث جميع البيانات فوراً
   const refreshAllData = useCallback(() => {

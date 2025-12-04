@@ -41,6 +41,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
 import EmailVerificationGuard from "@/components/EmailVerificationGuard";
+import { SelectedProjectProvider } from "@/contexts/SelectedProjectContext";
 
 function Router() {
   // Enable real-time WebSocket updates
@@ -122,9 +123,11 @@ function App() {
                     <Route path="*" component={() => (
                       <ProtectedRoute>
                         <EmailVerificationGuard>
-                          <LayoutShell>
-                            <Router />
-                          </LayoutShell>
+                          <SelectedProjectProvider>
+                            <LayoutShell>
+                              <Router />
+                            </LayoutShell>
+                          </SelectedProjectProvider>
                         </EmailVerificationGuard>
                       </ProtectedRoute>
                     )} />

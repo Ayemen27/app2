@@ -1402,10 +1402,82 @@ function DailyExpensesContent() {
       />
 
 
-      {/* بطاقة ملخص المصروفات اليومية الموحدة */}
-      {(isAllProjects || selectedProjectId) && (
+      {/* بطاقات ملخص المصروفات - عرض بطاقات متعددة لكل مشروع عند اختيار جميع المشاريع */}
+      {isAllProjects && dailyExpensesData?.groupedByProject && dailyExpensesData.groupedByProject.length > 0 ? (
+        <div className="space-y-4">
+          {dailyExpensesData.groupedByProject.map((projectData: any) => (
+            <UnifiedCard
+              key={projectData.projectId}
+              title={projectData.projectName}
+              subtitle={selectedDate ? `مصروفات يوم ${formatDate(selectedDate)}` : 'جميع المصروفات'}
+              titleIcon={Building}
+              headerColor="#3b82f6"
+              badges={[
+                { label: selectedDate ? formatDate(selectedDate) : 'جميع التواريخ', variant: "default" },
+                { 
+                  label: projectData.remainingBalance >= 0 ? "رصيد موجب" : "عجز", 
+                  variant: projectData.remainingBalance >= 0 ? "success" : "destructive" 
+                }
+              ]}
+              fields={[
+                { 
+                  label: "الوارد", 
+                  value: formatCurrency(projectData.totalIncome), 
+                  icon: TrendingUp, 
+                  color: "success",
+                  emphasis: true
+                },
+                { 
+                  label: "المصروفات", 
+                  value: formatCurrency(projectData.totalExpenses), 
+                  icon: TrendingDown, 
+                  color: "danger",
+                  emphasis: true
+                },
+                { 
+                  label: "أجور العمال", 
+                  value: formatCurrency(projectData.workerAttendance?.reduce((sum: number, w: any) => sum + parseFloat(w.paidAmount || '0'), 0) || 0), 
+                  icon: Users, 
+                  color: "info"
+                },
+                { 
+                  label: "المواصلات", 
+                  value: formatCurrency(projectData.transportationExpenses?.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0) || 0), 
+                  icon: Truck, 
+                  color: "warning"
+                },
+                { 
+                  label: "المواد", 
+                  value: formatCurrency(projectData.materialPurchases?.filter((m: any) => m.purchaseType === 'نقد').reduce((sum: number, m: any) => sum + parseFloat(m.totalAmount || '0'), 0) || 0), 
+                  icon: Package, 
+                  color: "info"
+                },
+                { 
+                  label: "النثريات", 
+                  value: formatCurrency(projectData.miscExpenses?.reduce((sum: number, m: any) => sum + parseFloat(m.amount || '0'), 0) || 0), 
+                  icon: Receipt, 
+                  color: "muted"
+                },
+                { 
+                  label: "حوالات العمال", 
+                  value: formatCurrency(projectData.workerTransfers?.reduce((sum: number, w: any) => sum + parseFloat(w.amount || '0'), 0) || 0), 
+                  icon: Send, 
+                  color: "warning"
+                },
+                { 
+                  label: "المتبقي", 
+                  value: formatCurrency(projectData.remainingBalance), 
+                  icon: Calculator, 
+                  color: projectData.remainingBalance >= 0 ? "success" : "danger",
+                  emphasis: true
+                },
+              ]}
+            />
+          ))}
+        </div>
+      ) : selectedProjectId && (
         <UnifiedCard
-          title={isAllProjects ? "جميع المشاريع" : (projects?.find(p => p.id === selectedProjectId)?.name || "المشروع")}
+          title={projects?.find(p => p.id === selectedProjectId)?.name || "المشروع"}
           subtitle={selectedDate ? `مصروفات يوم ${formatDate(selectedDate)}` : 'جميع المصروفات'}
           titleIcon={Building}
           headerColor="#3b82f6"

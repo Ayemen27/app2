@@ -8,7 +8,60 @@ interface StatsStripProps {
   className?: string;
 }
 
+function formatCurrencyValue(value: number): string {
+  if (isNaN(value) || !isFinite(value)) return '0';
+  if (Math.abs(value) > 100000000000) return '0';
+  return value.toLocaleString('en-US');
+}
+
+function SplitStatCard({ item }: { item: StatItem }) {
+  const splitValue = (item as any).splitValue;
+  if (!splitValue) return null;
+
+  return (
+    <div
+      className={cn(
+        'relative flex flex-col rounded-xl border transition-all overflow-hidden',
+        'bg-gradient-to-b from-slate-50 to-white dark:from-slate-900/50 dark:to-slate-900/30',
+        'border-slate-200 dark:border-slate-700',
+        'hover:shadow-sm'
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-center gap-1.5 py-1.5 px-2 bg-slate-100/80 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+        <item.icon className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
+        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+          {item.label}
+        </span>
+      </div>
+      
+      {/* Split Content - وارد وصادر */}
+      <div className="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-700 rtl:divide-x-reverse">
+        {/* وارد */}
+        <div className="flex flex-col items-center justify-center p-2 bg-teal-50/50 dark:bg-teal-900/20">
+          <span className="text-[10px] font-medium text-teal-600 dark:text-teal-400 mb-0.5">وارد</span>
+          <span className="text-sm font-extrabold text-teal-700 dark:text-teal-300 arabic-numbers">
+            {formatCurrencyValue(splitValue.incoming)}
+          </span>
+        </div>
+        
+        {/* صادر */}
+        <div className="flex flex-col items-center justify-center p-2 bg-rose-50/50 dark:bg-rose-900/20">
+          <span className="text-[10px] font-medium text-rose-600 dark:text-rose-400 mb-0.5">صادر</span>
+          <span className="text-sm font-extrabold text-rose-700 dark:text-rose-300 arabic-numbers">
+            {formatCurrencyValue(splitValue.outgoing)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatCard({ item }: { item: StatItem }) {
+  if ((item as any).isSplitCard) {
+    return <SplitStatCard item={item} />;
+  }
+
   const colors = colorVariants[item.color] || colorVariants.blue;
   const Icon = item.icon;
 
@@ -35,7 +88,7 @@ function StatCard({ item }: { item: StatItem }) {
   return (
     <div
       className={cn(
-        'relative flex flex-col p-3 rounded-xl border transition-all',
+        'relative flex flex-col p-2 rounded-xl border transition-all',
         colors.bg,
         colors.border,
         'hover:shadow-sm',
@@ -44,12 +97,12 @@ function StatCard({ item }: { item: StatItem }) {
       onClick={item.onClick}
     >
       {/* Header: Title + Icon in same row */}
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="text-[11px] text-muted-foreground line-clamp-1 flex-1">
+      <div className="flex items-center justify-between gap-1.5 mb-1">
+        <span className="text-sm font-bold text-muted-foreground flex-1">
           {item.label}
         </span>
-        <div className={cn('p-1.5 rounded-md', colors.bg)}>
-          <Icon className={cn('h-3.5 w-3.5', colors.icon)} />
+        <div className={cn('p-1 rounded-md', colors.bg)}>
+          <Icon className={cn('h-4 w-4', colors.icon)} />
         </div>
       </div>
 
@@ -63,10 +116,12 @@ function StatCard({ item }: { item: StatItem }) {
       {/* Value section */}
       <div className="flex flex-col items-center justify-center text-center">
         <span className={cn(
-          'font-bold arabic-numbers leading-tight',
+          'font-extrabold arabic-numbers leading-tight',
           getValueSizeClass(formattedValue),
           colors.text
-        )}>
+        )}
+        style={{ fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}
+        >
           {formattedValue}
         </span>
 

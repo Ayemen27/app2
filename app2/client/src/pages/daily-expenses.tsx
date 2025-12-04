@@ -1268,10 +1268,14 @@ function DailyExpensesContent() {
         {
           key: 'projectTransfers',
           label: 'الترحيل',
-          subLabel: `وارد: ${formatCurrency(totals.incomingProjectTransfers)} | صادر: ${formatCurrency(totals.outgoingProjectTransfers)}`,
+          splitValue: {
+            incoming: totals.incomingProjectTransfers,
+            outgoing: totals.outgoingProjectTransfers
+          },
           value: formatCurrency(totals.incomingProjectTransfers - totals.outgoingProjectTransfers),
           icon: Building2,
-          color: totals.incomingProjectTransfers >= totals.outgoingProjectTransfers ? 'teal' : 'red',
+          color: 'teal',
+          isSplitCard: true,
         },
       ]
     },

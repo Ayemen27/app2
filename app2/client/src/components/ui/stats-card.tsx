@@ -89,6 +89,13 @@ const colorVariants = {
     bg: "bg-gray-50 dark:bg-gray-900/20",
     iconBg: "bg-gray-100 dark:bg-gray-900/30",
     iconColor: "text-gray-600 dark:text-gray-400"
+  },
+  rose: {
+    border: "border-l-rose-500",
+    text: "text-rose-600",
+    bg: "bg-rose-50 dark:bg-rose-900/20",
+    iconBg: "bg-rose-100 dark:bg-rose-900/30",
+    iconColor: "text-rose-600 dark:text-rose-400"
   }
 };
 

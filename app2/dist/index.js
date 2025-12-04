@@ -248,7 +248,7 @@ var init_schema = __esm({
       name: text("name").notNull(),
       type: text("type").notNull(),
       // معلم (master), عامل (worker)
-      dailyWage: decimal("daily_wage", { precision: 10, scale: 2 }).notNull(),
+      dailyWage: decimal("daily_wage", { precision: 15, scale: 2 }).notNull(),
       phone: text("phone"),
       // رقم الهاتف
       hireDate: text("hire_date"),
@@ -259,7 +259,7 @@ var init_schema = __esm({
     fundTransfers = pgTable("fund_transfers", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+      amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
       senderName: text("sender_name"),
       // اسم المرسل
       transferNumber: text("transfer_number").unique(),
@@ -288,19 +288,19 @@ var init_schema = __esm({
       // أعمدة قديمة موجودة في قاعدة البيانات
       hoursWorked: decimal("hours_worked", { precision: 5, scale: 2 }).default("8.00"),
       overtime: decimal("overtime", { precision: 5, scale: 2 }).default("0.00"),
-      overtimeRate: decimal("overtime_rate", { precision: 10, scale: 2 }).default("0.00"),
+      overtimeRate: decimal("overtime_rate", { precision: 15, scale: 2 }).default("0.00"),
       // أعمدة جديدة
       workDays: decimal("work_days", { precision: 3, scale: 2 }).default("0.00"),
       // عدد أيام العمل (مثل 0.5، 1.0، 1.5) - افتراضي 0
-      dailyWage: decimal("daily_wage", { precision: 10, scale: 2 }).notNull(),
+      dailyWage: decimal("daily_wage", { precision: 15, scale: 2 }).notNull(),
       // الأجر اليومي الكامل
-      actualWage: decimal("actual_wage", { precision: 10, scale: 2 }),
+      actualWage: decimal("actual_wage", { precision: 15, scale: 2 }),
       // الأجر الفعلي = dailyWage * workDays - nullable في قاعدة البيانات
-      totalPay: decimal("total_pay", { precision: 10, scale: 2 }).notNull(),
+      totalPay: decimal("total_pay", { precision: 15, scale: 2 }).notNull(),
       // إجمالي الدفع المطلوب = actualWage
-      paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default("0"),
+      paidAmount: decimal("paid_amount", { precision: 15, scale: 2 }).default("0"),
       // المبلغ المدفوع فعلياً (الصرف) - nullable في قاعدة البيانات
-      remainingAmount: decimal("remaining_amount", { precision: 10, scale: 2 }).default("0"),
+      remainingAmount: decimal("remaining_amount", { precision: 15, scale: 2 }).default("0"),
       // المتبقي في حساب العامل - nullable في قاعدة البيانات
       paymentType: text("payment_type").default("partial"),
       // "full" | "partial" | "credit" - nullable في قاعدة البيانات
@@ -349,13 +349,13 @@ var init_schema = __esm({
       quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
       unit: text("unit").notNull(),
       // وحدة القياس - موجودة في قاعدة البيانات
-      unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
-      totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+      unitPrice: decimal("unit_price", { precision: 15, scale: 2 }).notNull(),
+      totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
       purchaseType: text("purchase_type").notNull().default("\u0646\u0642\u062F"),
       // نقد، أجل
-      paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default("0").notNull(),
+      paidAmount: decimal("paid_amount", { precision: 15, scale: 2 }).default("0").notNull(),
       // المبلغ المدفوع
-      remainingAmount: decimal("remaining_amount", { precision: 10, scale: 2 }).default("0").notNull(),
+      remainingAmount: decimal("remaining_amount", { precision: 15, scale: 2 }).default("0").notNull(),
       // المتبقي
       supplierName: text("supplier_name"),
       // اسم المورد (للتوافق العكسي)
@@ -379,7 +379,7 @@ var init_schema = __esm({
       projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
       purchaseId: varchar("purchase_id").references(() => materialPurchases.id, { onDelete: "set null" }),
       // ربط بفاتورة محددة
-      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+      amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
       paymentMethod: text("payment_method").notNull().default("\u0646\u0642\u062F"),
       // نقد، حوالة، شيك
       paymentDate: text("payment_date").notNull(),
@@ -394,7 +394,7 @@ var init_schema = __esm({
       projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
       workerId: varchar("worker_id").references(() => workers.id, { onDelete: "set null" }),
       // optional, for worker-specific transport
-      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+      amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
       description: text("description").notNull(),
       date: text("date").notNull(),
       // YYYY-MM-DD format
@@ -405,7 +405,7 @@ var init_schema = __esm({
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
       projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+      amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
       transferNumber: text("transfer_number"),
       // رقم الحوالة
       senderName: text("sender_name"),
@@ -425,13 +425,13 @@ var init_schema = __esm({
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
       projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-      totalEarned: decimal("total_earned", { precision: 10, scale: 2 }).default("0").notNull(),
+      totalEarned: decimal("total_earned", { precision: 15, scale: 2 }).default("0").notNull(),
       // إجمالي المكتسب
-      totalPaid: decimal("total_paid", { precision: 10, scale: 2 }).default("0").notNull(),
+      totalPaid: decimal("total_paid", { precision: 15, scale: 2 }).default("0").notNull(),
       // إجمالي المدفوع
-      totalTransferred: decimal("total_transferred", { precision: 10, scale: 2 }).default("0").notNull(),
+      totalTransferred: decimal("total_transferred", { precision: 15, scale: 2 }).default("0").notNull(),
       // إجمالي المحول للأهل
-      currentBalance: decimal("current_balance", { precision: 10, scale: 2 }).default("0").notNull(),
+      currentBalance: decimal("current_balance", { precision: 15, scale: 2 }).default("0").notNull(),
       // الرصيد الحالي
       lastUpdated: timestamp("last_updated").defaultNow().notNull(),
       createdAt: timestamp("created_at").defaultNow().notNull()
@@ -441,16 +441,16 @@ var init_schema = __esm({
       projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
       date: text("date").notNull(),
       // YYYY-MM-DD format
-      carriedForwardAmount: decimal("carried_forward_amount", { precision: 10, scale: 2 }).default("0").notNull(),
-      totalFundTransfers: decimal("total_fund_transfers", { precision: 10, scale: 2 }).default("0").notNull(),
-      totalWorkerWages: decimal("total_worker_wages", { precision: 10, scale: 2 }).default("0").notNull(),
-      totalMaterialCosts: decimal("total_material_costs", { precision: 10, scale: 2 }).default("0").notNull(),
-      totalTransportationCosts: decimal("total_transportation_costs", { precision: 10, scale: 2 }).default("0").notNull(),
-      totalWorkerTransfers: decimal("total_worker_transfers", { precision: 10, scale: 2 }).default("0").notNull(),
-      totalWorkerMiscExpenses: decimal("total_worker_misc_expenses", { precision: 10, scale: 2 }).default("0").notNull(),
-      totalIncome: decimal("total_income", { precision: 10, scale: 2 }).notNull(),
-      totalExpenses: decimal("total_expenses", { precision: 10, scale: 2 }).notNull(),
-      remainingBalance: decimal("remaining_balance", { precision: 10, scale: 2 }).notNull(),
+      carriedForwardAmount: decimal("carried_forward_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+      totalFundTransfers: decimal("total_fund_transfers", { precision: 15, scale: 2 }).default("0").notNull(),
+      totalWorkerWages: decimal("total_worker_wages", { precision: 15, scale: 2 }).default("0").notNull(),
+      totalMaterialCosts: decimal("total_material_costs", { precision: 15, scale: 2 }).default("0").notNull(),
+      totalTransportationCosts: decimal("total_transportation_costs", { precision: 15, scale: 2 }).default("0").notNull(),
+      totalWorkerTransfers: decimal("total_worker_transfers", { precision: 15, scale: 2 }).default("0").notNull(),
+      totalWorkerMiscExpenses: decimal("total_worker_misc_expenses", { precision: 15, scale: 2 }).default("0").notNull(),
+      totalIncome: decimal("total_income", { precision: 15, scale: 2 }).notNull(),
+      totalExpenses: decimal("total_expenses", { precision: 15, scale: 2 }).notNull(),
+      remainingBalance: decimal("remaining_balance", { precision: 15, scale: 2 }).notNull(),
       notes: text("notes"),
       createdAt: timestamp("created_at").defaultNow().notNull(),
       updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -480,7 +480,7 @@ var init_schema = __esm({
     workerMiscExpenses = pgTable("worker_misc_expenses", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+      amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
       description: text("description").notNull(),
       // وصف النثريات
       date: text("date").notNull(),
@@ -537,7 +537,7 @@ var init_schema = __esm({
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       fromProjectId: varchar("from_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
       toProjectId: varchar("to_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+      amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
       description: text("description"),
       // وصف الترحيل
       transferReason: text("transfer_reason"),
@@ -847,7 +847,7 @@ var init_schema = __esm({
       specifications: jsonb("specifications"),
       // مواصفات تقنية
       // تتبع الاستخدام
-      totalUsageHours: decimal("total_usage_hours", { precision: 10, scale: 2 }).default("0"),
+      totalUsageHours: decimal("total_usage_hours", { precision: 15, scale: 2 }).default("0"),
       usageCount: integer("usage_count").default(0),
       // تقييم الذكاء الاصطناعي
       aiRating: decimal("ai_rating", { precision: 3, scale: 2 }),
@@ -959,7 +959,7 @@ var init_schema = __esm({
       analysisMonth: text("analysis_month"),
       // YYYY-MM
       // إحصائيات الاستخدام
-      usageHours: decimal("usage_hours", { precision: 10, scale: 2 }).default("0"),
+      usageHours: decimal("usage_hours", { precision: 15, scale: 2 }).default("0"),
       transferCount: integer("transfer_count").default(0),
       maintenanceCount: integer("maintenance_count").default(0),
       // إحصائيات التكلفة
@@ -971,7 +971,7 @@ var init_schema = __esm({
       efficiencyScore: decimal("efficiency_score", { precision: 5, scale: 2 }),
       // نقاط الكفاءة
       // تنبؤات الذكاء الاصطناعي
-      predictedUsage: decimal("predicted_usage", { precision: 10, scale: 2 }),
+      predictedUsage: decimal("predicted_usage", { precision: 15, scale: 2 }),
       createdAt: timestamp("created_at").defaultNow().notNull()
     });
     toolPurchaseItems = pgTable("tool_purchase_items", {
@@ -1021,7 +1021,7 @@ var init_schema = __esm({
       intervalMonths: integer("interval_months"),
       // الفترة بالشهور
       // إعدادات الجدولة بالاستخدام
-      usageHoursInterval: decimal("usage_hours_interval", { precision: 10, scale: 2 }),
+      usageHoursInterval: decimal("usage_hours_interval", { precision: 15, scale: 2 }),
       // فترة بساعات العمل
       usageCountInterval: integer("usage_count_interval"),
       // فترة بعدد الاستخدامات
@@ -1505,9 +1505,9 @@ var init_schema = __esm({
       // open, in_progress, completed, cancelled
       progress: integer("progress").notNull().default(0),
       // نسبة الإنجاز (0-100)
-      estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
+      estimatedCost: decimal("estimated_cost", { precision: 15, scale: 2 }),
       // التكلفة المقدرة
-      actualCost: decimal("actual_cost", { precision: 10, scale: 2 }),
+      actualCost: decimal("actual_cost", { precision: 15, scale: 2 }),
       // التكلفة الفعلية
       dueDate: date("due_date"),
       // تاريخ الاستحقاق

@@ -8089,6 +8089,86 @@ projectRouter.get("/:projectId/daily-expenses/:date", async (req, res) => {
     });
   }
 });
+projectRouter.get("/:projectId/all-expenses", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { projectId } = req.params;
+    console.log(`\u{1F4CA} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A: projectId=${projectId}`);
+    if (!projectId) {
+      const duration2 = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
+        processingTime: duration2
+      });
+    }
+    const [
+      fundTransfersResult,
+      workerAttendanceResult,
+      materialPurchasesResult,
+      transportationResult,
+      workerTransfersResult,
+      miscExpensesResult,
+      projectInfo
+    ] = await Promise.all([
+      db.select().from(fundTransfers).where(eq7(fundTransfers.projectId, projectId)).orderBy(desc4(fundTransfers.transferDate)),
+      db.select({
+        id: workerAttendance.id,
+        workerId: workerAttendance.workerId,
+        projectId: workerAttendance.projectId,
+        date: workerAttendance.date,
+        paidAmount: workerAttendance.paidAmount,
+        actualWage: workerAttendance.actualWage,
+        workDays: workerAttendance.workDays,
+        workerName: workers.name
+      }).from(workerAttendance).leftJoin(workers, eq7(workerAttendance.workerId, workers.id)).where(eq7(workerAttendance.projectId, projectId)).orderBy(desc4(workerAttendance.date)),
+      db.select().from(materialPurchases).where(eq7(materialPurchases.projectId, projectId)).orderBy(desc4(materialPurchases.purchaseDate)),
+      db.select().from(transportationExpenses).where(eq7(transportationExpenses.projectId, projectId)).orderBy(desc4(transportationExpenses.date)),
+      db.select().from(workerTransfers).where(eq7(workerTransfers.projectId, projectId)).orderBy(desc4(workerTransfers.transferDate)),
+      db.select().from(workerMiscExpenses).where(eq7(workerMiscExpenses.projectId, projectId)).orderBy(desc4(workerMiscExpenses.date)),
+      db.select().from(projects).where(eq7(projects.id, projectId)).limit(1)
+    ]);
+    const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
+    const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
+    const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
+    const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
+    const totalIncome = totalFundTransfers;
+    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
+    const remainingBalance = totalIncome - totalExpenses;
+    const responseData = {
+      projectName: projectInfo[0]?.name || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641",
+      projectId,
+      totalIncome,
+      totalExpenses,
+      remainingBalance: parseFloat(remainingBalance.toFixed(2)),
+      fundTransfers: fundTransfersResult,
+      workerAttendance: workerAttendanceResult,
+      materialPurchases: materialPurchasesResult,
+      transportationExpenses: transportationResult,
+      workerTransfers: workerTransfersResult,
+      miscExpenses: miscExpensesResult
+    };
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
+    res.json({
+      success: true,
+      data: responseData,
+      message: `\u062A\u0645 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0644\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 projectRouter.get("/:projectId/previous-balance/:date", async (req, res) => {
   const startTime = Date.now();
   try {

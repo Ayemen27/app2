@@ -49,7 +49,7 @@ import type {
 
 function DailyExpensesContent() {
   const [, setLocation] = useLocation();
-  const { selectedProjectId, selectProject } = useSelectedProject();
+  const { selectedProjectId, selectProject, isAllProjects } = useSelectedProject();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [carriedForward, setCarriedForward] = useState<string>("0");
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
@@ -272,14 +272,29 @@ function DailyExpensesContent() {
 
   // جلب البيانات الموحدة للمصروفات اليومية أو جميع المصروفات
   const { data: dailyExpensesData, isLoading: dailyExpensesLoading, error: dailyExpensesError } = useQuery({
-    queryKey: ["/api/projects", selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],
+    queryKey: ["/api/projects", isAllProjects ? "all-projects" : selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],
     queryFn: async () => {
-      if (!selectedProjectId) {
-        return null;
-      }
-
       try {
-        // إذا لم يتم تحديد تاريخ، جلب جميع المصروفات
+        // إذا كان "جميع المشاريع" محدد، استخدم endpoint جميع المشاريع
+        if (isAllProjects) {
+          console.log(`📊 جلب جميع المصروفات من جميع المشاريع`, { date: selectedDate });
+          const url = selectedDate 
+            ? `/api/projects/all-projects-expenses?date=${selectedDate}`
+            : `/api/projects/all-projects-expenses`;
+          const response = await apiRequest(url, "GET");
+          console.log('📊 استجابة جميع المشاريع:', response);
+          if (response && response.success && response.data) {
+            return response.data;
+          }
+          return null;
+        }
+
+        // مشروع محدد
+        if (!selectedProjectId) {
+          return null;
+        }
+
+        // إذا لم يتم تحديد تاريخ، جلب جميع المصروفات للمشروع
         if (!selectedDate) {
           console.log(`📊 جلب جميع المصروفات: مشروع ${selectedProjectId}`);
           const response = await apiRequest(`/api/projects/${selectedProjectId}/all-expenses`, "GET");
@@ -305,7 +320,7 @@ function DailyExpensesContent() {
         throw error;
       }
     },
-    enabled: !!selectedProjectId,
+    enabled: isAllProjects || !!selectedProjectId,
     retry: 2,
     staleTime: 30000,
   });
@@ -1325,42 +1340,21 @@ function DailyExpensesContent() {
       type: 'date',
       placeholder: 'اختر التاريخ',
     },
-    {
-      key: 'showAll',
-      label: 'عرض جميع الأيام',
-      type: 'select',
-      options: [
-        { value: 'today', label: 'اليوم المحدد' },
-        { value: 'all', label: 'جميع الأيام' },
-      ],
-      defaultValue: 'today',
-    },
   ], []);
 
   // دوال معالجة الفلاتر
   const [searchValue, setSearchValue] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showAllDays, setShowAllDays] = useState<'today' | 'all'>('today');
 
   const handleFilterChange = (key: string, value: any) => {
     if (key === 'date' && value instanceof Date) {
       setSelectedDate(value.toISOString().split('T')[0]);
-      setShowAllDays('today');
-    }
-    if (key === 'showAll') {
-      setShowAllDays(value);
-      if (value === 'all') {
-        setSelectedDate(null);
-      } else if (!selectedDate) {
-        setSelectedDate(new Date().toISOString().split('T')[0]);
-      }
     }
   };
 
   const handleResetFilters = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(null);
     setSearchValue("");
-    setShowAllDays('today');
   };
 
   const handleRefresh = async () => {
@@ -1391,30 +1385,27 @@ function DailyExpensesContent() {
     <div className="p-4 slide-in space-y-4">
 
       {/* لوحة الإحصائيات والفلترة الموحدة */}
-      {selectedProjectId && (
-        <UnifiedFilterDashboard
-          statsRows={statsRowsConfig}
-          searchValue={searchValue}
-          onSearchChange={setSearchValue}
-          searchPlaceholder="ابحث في المصروفات..."
-          showSearch={true}
-          filters={filtersConfig}
-          filterValues={{ 
-            date: selectedDate ? new Date(selectedDate) : undefined,
-            showAll: showAllDays 
-          }}
-          onFilterChange={handleFilterChange}
-          onReset={handleResetFilters}
-          onRefresh={handleRefresh}
-          isRefreshing={isRefreshing}
-        />
-      )}
+      <UnifiedFilterDashboard
+        statsRows={statsRowsConfig}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        searchPlaceholder="ابحث في المصروفات..."
+        showSearch={true}
+        filters={filtersConfig}
+        filterValues={{ 
+          date: selectedDate ? new Date(selectedDate) : undefined
+        }}
+        onFilterChange={handleFilterChange}
+        onReset={handleResetFilters}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+      />
 
 
       {/* بطاقة ملخص المصروفات اليومية الموحدة */}
-      {selectedProjectId && (
+      {(isAllProjects || selectedProjectId) && (
         <UnifiedCard
-          title={projects?.find(p => p.id === selectedProjectId)?.name || "المشروع"}
+          title={isAllProjects ? "جميع المشاريع" : (projects?.find(p => p.id === selectedProjectId)?.name || "المشروع")}
           subtitle={selectedDate ? `مصروفات يوم ${formatDate(selectedDate)}` : 'جميع المصروفات'}
           titleIcon={Building}
           headerColor="#3b82f6"
@@ -1601,11 +1592,14 @@ function DailyExpensesContent() {
                 <div className="text-center text-muted-foreground">جاري التحميل...</div>
               ) : Array.isArray(todayFundTransfers) && todayFundTransfers.length > 0 ? (
                 <div className="space-y-2">
-                  {safeFundTransfers.map((transfer, index) => (
+                  {safeFundTransfers.map((transfer: any, index) => (
                     <div key={transfer.id || index} className="flex justify-between items-center p-2 bg-muted rounded">
                       <div className="text-sm flex-1">
                         <div>{transfer.senderName || 'غير محدد'}</div>
                         <div className="text-xs text-muted-foreground">{transfer.transferType}</div>
+                        {isAllProjects && transfer.projectName && (
+                          <div className="text-xs font-medium text-blue-600 mt-1">📁 {transfer.projectName}</div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="font-medium arabic-numbers">{formatCurrency(transfer.amount)}</span>
@@ -1714,9 +1708,14 @@ function DailyExpensesContent() {
                 {/* Transportation Display - يظهر فقط عند وجود بيانات */}
                 {safeTransportation.length > 0 && (
                   <div className="mt-3 space-y-2">
-                    {safeTransportation.map((expense, index) => (
+                    {safeTransportation.map((expense: any, index) => (
                       <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
-                        <span className="text-sm flex-1">{expense.description}</span>
+                        <div className="text-sm flex-1">
+                          <div>{expense.description}</div>
+                          {isAllProjects && expense.projectName && (
+                            <div className="text-xs font-medium text-blue-600 mt-1">📁 {expense.projectName}</div>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
                           <span className="font-medium arabic-numbers">{formatCurrency(expense.amount)}</span>
                           <div className="flex gap-1">
@@ -1765,11 +1764,16 @@ function DailyExpensesContent() {
                     أجور العمال
                   </h4>
                   <div className="space-y-2 mt-2">
-                    {safeAttendance.map((attendance, index) => {
+                    {safeAttendance.map((attendance: any, index) => {
                       const worker = workers.find(w => w.id === attendance.workerId);
                       return (
                         <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
-                          <span className="text-sm">{worker?.name || `عامل ${index + 1}`}</span>
+                          <div className="text-sm flex-1">
+                            <div>{attendance.workerName || worker?.name || `عامل ${index + 1}`}</div>
+                            {isAllProjects && attendance.projectName && (
+                              <div className="text-xs font-medium text-blue-600 mt-1">📁 {attendance.projectName}</div>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2">
                             <span className="font-medium arabic-numbers">{formatCurrency(attendance.paidAmount)}</span>
                             <div className="flex gap-1">

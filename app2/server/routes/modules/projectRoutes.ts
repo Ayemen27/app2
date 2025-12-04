@@ -257,6 +257,169 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
 });
 
 /**
+ * 📊 جلب جميع المصروفات من جميع المشاريع
+ * GET /api/projects/all-projects-expenses
+ */
+projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { date } = req.query;
+    
+    console.log(`📊 [API] طلب جلب جميع المصروفات من جميع المشاريع`, { date });
+
+    // جلب جميع البيانات من جميع المشاريع
+    const [
+      fundTransfersResult,
+      workerAttendanceResult,
+      materialPurchasesResult,
+      transportationResult,
+      workerTransfersResult,
+      miscExpensesResult,
+      projectsList
+    ] = await Promise.all([
+      date 
+        ? db.select().from(fundTransfers).where(sql`DATE(${fundTransfers.transferDate}) = ${date}`).orderBy(desc(fundTransfers.transferDate))
+        : db.select().from(fundTransfers).orderBy(desc(fundTransfers.transferDate)),
+      
+      date
+        ? db.select({
+            id: workerAttendance.id,
+            workerId: workerAttendance.workerId,
+            projectId: workerAttendance.projectId,
+            date: workerAttendance.date,
+            paidAmount: workerAttendance.paidAmount,
+            actualWage: workerAttendance.actualWage,
+            workDays: workerAttendance.workDays,
+            workerName: workers.name
+          })
+          .from(workerAttendance)
+          .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+          .where(eq(workerAttendance.date, date as string))
+          .orderBy(desc(workerAttendance.date))
+        : db.select({
+            id: workerAttendance.id,
+            workerId: workerAttendance.workerId,
+            projectId: workerAttendance.projectId,
+            date: workerAttendance.date,
+            paidAmount: workerAttendance.paidAmount,
+            actualWage: workerAttendance.actualWage,
+            workDays: workerAttendance.workDays,
+            workerName: workers.name
+          })
+          .from(workerAttendance)
+          .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+          .orderBy(desc(workerAttendance.date)),
+      
+      date
+        ? db.select().from(materialPurchases).where(eq(materialPurchases.purchaseDate, date as string)).orderBy(desc(materialPurchases.purchaseDate))
+        : db.select().from(materialPurchases).orderBy(desc(materialPurchases.purchaseDate)),
+      
+      date
+        ? db.select().from(transportationExpenses).where(eq(transportationExpenses.date, date as string)).orderBy(desc(transportationExpenses.date))
+        : db.select().from(transportationExpenses).orderBy(desc(transportationExpenses.date)),
+      
+      date
+        ? db.select().from(workerTransfers).where(sql`DATE(${workerTransfers.transferDate}) = ${date}`).orderBy(desc(workerTransfers.transferDate))
+        : db.select().from(workerTransfers).orderBy(desc(workerTransfers.transferDate)),
+      
+      date
+        ? db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.date, date as string)).orderBy(desc(workerMiscExpenses.date))
+        : db.select().from(workerMiscExpenses).orderBy(desc(workerMiscExpenses.date)),
+      
+      db.select().from(projects)
+    ]);
+
+    // إنشاء خريطة أسماء المشاريع
+    const projectsMap = new Map(projectsList.map(p => [p.id, p.name]));
+
+    // إضافة اسم المشروع لكل سجل
+    const enrichedFundTransfers = fundTransfersResult.map(t => ({
+      ...t,
+      projectName: projectsMap.get(t.projectId) || 'مشروع غير معروف'
+    }));
+
+    const enrichedAttendance = workerAttendanceResult.map(a => ({
+      ...a,
+      projectName: projectsMap.get(a.projectId) || 'مشروع غير معروف'
+    }));
+
+    const enrichedMaterials = materialPurchasesResult.map(m => ({
+      ...m,
+      projectName: projectsMap.get(m.projectId) || 'مشروع غير معروف'
+    }));
+
+    const enrichedTransportation = transportationResult.map(t => ({
+      ...t,
+      projectName: projectsMap.get(t.projectId) || 'مشروع غير معروف'
+    }));
+
+    const enrichedWorkerTransfers = workerTransfersResult.map(w => ({
+      ...w,
+      projectName: projectsMap.get(w.projectId) || 'مشروع غير معروف'
+    }));
+
+    const enrichedMiscExpenses = miscExpensesResult.map(m => ({
+      ...m,
+      projectName: projectsMap.get(m.projectId) || 'مشروع غير معروف'
+    }));
+
+    // حساب المجاميع
+    const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
+    const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
+    const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
+    const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
+
+    const totalIncome = totalFundTransfers;
+    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
+    const remainingBalance = totalIncome - totalExpenses;
+
+    const responseData = {
+      projectName: 'جميع المشاريع',
+      totalIncome,
+      totalExpenses,
+      remainingBalance: parseFloat(remainingBalance.toFixed(2)),
+      fundTransfers: enrichedFundTransfers,
+      workerAttendance: enrichedAttendance,
+      materialPurchases: enrichedMaterials,
+      transportationExpenses: enrichedTransportation,
+      workerTransfers: enrichedWorkerTransfers,
+      miscExpenses: enrichedMiscExpenses,
+      counts: {
+        fundTransfers: fundTransfersResult.length,
+        workerAttendance: workerAttendanceResult.length,
+        materialPurchases: materialPurchasesResult.length,
+        transportationExpenses: transportationResult.length,
+        workerTransfers: workerTransfersResult.length,
+        miscExpenses: miscExpensesResult.length
+      }
+    };
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب جميع المصروفات من جميع المشاريع بنجاح في ${duration}ms`);
+
+    res.json({
+      success: true,
+      data: responseData,
+      message: `تم جلب جميع المصروفات من جميع المشاريع بنجاح`,
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب جميع المصروفات من جميع المشاريع:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'فشل في جلب جميع المصروفات',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
  * 📝 إضافة مشروع جديد
  * POST /api/projects
  */

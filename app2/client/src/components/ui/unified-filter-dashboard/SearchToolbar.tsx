@@ -4,11 +4,101 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Search, X, Filter, RefreshCw, RotateCcw, List, LayoutGrid } from 'lucide-react';
+import { Search, X, Filter, RefreshCw, RotateCcw, List, LayoutGrid, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
 import type { ActionButton, FilterConfig } from './types';
+
+function DatePickerFilter({
+  value,
+  onChange,
+  placeholder = 'اختر التاريخ',
+}: {
+  value?: Date;
+  onChange: (date: Date | undefined) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            'w-full justify-between text-right h-9 font-normal',
+            !value && 'text-muted-foreground'
+          )}
+        >
+          {value ? format(value, 'yyyy/MM/dd', { locale: ar }) : placeholder}
+          <Calendar className="h-4 w-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <CalendarComponent
+          mode="single"
+          selected={value}
+          onSelect={(date) => {
+            onChange(date);
+            setOpen(false);
+          }}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function DateRangeFilter({
+  value,
+  onChange,
+}: {
+  value?: { from?: Date; to?: Date };
+  onChange: (range: { from?: Date; to?: Date }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            'w-full justify-between text-right h-9 font-normal',
+            !value?.from && 'text-muted-foreground'
+          )}
+        >
+          {value?.from ? (
+            value.to ? (
+              `${format(value.from, 'MM/dd', { locale: ar })} - ${format(value.to, 'MM/dd', { locale: ar })}`
+            ) : (
+              format(value.from, 'yyyy/MM/dd', { locale: ar })
+            )
+          ) : (
+            'اختر نطاق التاريخ'
+          )}
+          <Calendar className="h-4 w-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <CalendarComponent
+          mode="range"
+          selected={value?.from ? { from: value.from, to: value.to } : undefined}
+          onSelect={(range: any) => {
+            onChange(range || { from: undefined, to: undefined });
+            if (range?.to) setOpen(false);
+          }}
+          numberOfMonths={2}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 interface SearchToolbarProps {
   searchValue?: string;
@@ -67,26 +157,53 @@ export function SearchToolbar({
 
   const renderFilterInput = (filter: FilterConfig) => {
     const value = filterValues[filter.key];
-    return (
-      <Select
-        value={value || filter.defaultValue || 'all'}
-        onValueChange={(v) => {
-          onFilterChange?.(filter.key, v);
-          setIsFilterOpen(false);
-        }}
-      >
-        <SelectTrigger className="h-9">
-          <SelectValue placeholder={filter.placeholder || filter.label} />
-        </SelectTrigger>
-        <SelectContent>
-          {filter.options?.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
+    
+    switch (filter.type) {
+      case 'date':
+        return (
+          <DatePickerFilter
+            value={value}
+            onChange={(date) => {
+              onFilterChange?.(filter.key, date);
+              setIsFilterOpen(false);
+            }}
+            placeholder={filter.placeholder}
+          />
+        );
+      
+      case 'date-range':
+        return (
+          <DateRangeFilter
+            value={value}
+            onChange={(range) => {
+              onFilterChange?.(filter.key, range);
+              if (range?.to) setIsFilterOpen(false);
+            }}
+          />
+        );
+      
+      default:
+        return (
+          <Select
+            value={value || filter.defaultValue || 'all'}
+            onValueChange={(v) => {
+              onFilterChange?.(filter.key, v);
+              setIsFilterOpen(false);
+            }}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder={filter.placeholder || filter.label} />
+            </SelectTrigger>
+            <SelectContent>
+              {filter.options?.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+    }
   };
 
   const defaultActions: ActionButton[] = [];

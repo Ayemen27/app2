@@ -1351,7 +1351,24 @@ function DailyExpensesContent() {
   const sectionsWithData = Object.values(dataIndicators).filter(Boolean).length;
 
   return (
-    <div className="p-4 slide-in">
+    <div className="p-4 slide-in space-y-4">
+
+      {/* لوحة الإحصائيات والفلترة الموحدة */}
+      {selectedProjectId && (
+        <UnifiedFilterDashboard
+          statsRows={statsRowsConfig}
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          searchPlaceholder="ابحث في المصروفات..."
+          showSearch={true}
+          filters={filtersConfig}
+          filterValues={{ date: selectedDate ? new Date(selectedDate) : undefined }}
+          onFilterChange={handleFilterChange}
+          onReset={handleResetFilters}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+        />
+      )}
 
       {/* Data Overview Indicator */}
       {selectedProjectId && (

@@ -257,7 +257,7 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
 });
 
 /**
- * 📊 جلب جميع المصروفات من جميع المشاريع
+ * 📊 جلب جميع المصروفات من جميع المشاريع - مجمعة حسب المشروع
  * GET /api/projects/all-projects-expenses
  */
 projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) => {
@@ -265,7 +265,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
   try {
     const { date } = req.query;
     
-    console.log(`📊 [API] طلب جلب جميع المصروفات من جميع المشاريع`, { date });
+    console.log(`📊 [API] طلب جلب جميع المصروفات من جميع المشاريع (مجمعة حسب المشروع)`, { date });
 
     // جلب جميع البيانات من جميع المشاريع
     const [
@@ -332,60 +332,139 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     // إنشاء خريطة أسماء المشاريع
     const projectsMap = new Map(projectsList.map(p => [p.id, p.name]));
 
-    // إضافة اسم المشروع لكل سجل
-    const enrichedFundTransfers = fundTransfersResult.map(t => ({
-      ...t,
-      projectName: projectsMap.get(t.projectId) || 'مشروع غير معروف'
-    }));
+    // تجميع البيانات حسب المشروع
+    const projectGroups = new Map<string, {
+      projectId: string;
+      projectName: string;
+      fundTransfers: any[];
+      workerAttendance: any[];
+      materialPurchases: any[];
+      transportationExpenses: any[];
+      workerTransfers: any[];
+      miscExpenses: any[];
+    }>();
 
-    const enrichedAttendance = workerAttendanceResult.map(a => ({
-      ...a,
-      projectName: projectsMap.get(a.projectId) || 'مشروع غير معروف'
-    }));
+    // تهيئة المجموعات لكل مشروع موجود في البيانات
+    const initProjectGroup = (projectId: string) => {
+      if (!projectGroups.has(projectId)) {
+        projectGroups.set(projectId, {
+          projectId,
+          projectName: projectsMap.get(projectId) || 'مشروع غير معروف',
+          fundTransfers: [],
+          workerAttendance: [],
+          materialPurchases: [],
+          transportationExpenses: [],
+          workerTransfers: [],
+          miscExpenses: []
+        });
+      }
+      return projectGroups.get(projectId)!;
+    };
 
-    const enrichedMaterials = materialPurchasesResult.map(m => ({
-      ...m,
-      projectName: projectsMap.get(m.projectId) || 'مشروع غير معروف'
-    }));
+    // تجميع تحويلات العهد
+    fundTransfersResult.forEach(t => {
+      const group = initProjectGroup(t.projectId);
+      group.fundTransfers.push({ ...t, projectName: group.projectName });
+    });
 
-    const enrichedTransportation = transportationResult.map(t => ({
-      ...t,
-      projectName: projectsMap.get(t.projectId) || 'مشروع غير معروف'
-    }));
+    // تجميع حضور العمال
+    workerAttendanceResult.forEach(a => {
+      const group = initProjectGroup(a.projectId);
+      group.workerAttendance.push({ ...a, projectName: group.projectName });
+    });
 
-    const enrichedWorkerTransfers = workerTransfersResult.map(w => ({
-      ...w,
-      projectName: projectsMap.get(w.projectId) || 'مشروع غير معروف'
-    }));
+    // تجميع مشتريات المواد
+    materialPurchasesResult.forEach(m => {
+      const group = initProjectGroup(m.projectId);
+      group.materialPurchases.push({ ...m, projectName: group.projectName });
+    });
 
-    const enrichedMiscExpenses = miscExpensesResult.map(m => ({
-      ...m,
-      projectName: projectsMap.get(m.projectId) || 'مشروع غير معروف'
-    }));
+    // تجميع مصاريف النقل
+    transportationResult.forEach(t => {
+      const group = initProjectGroup(t.projectId);
+      group.transportationExpenses.push({ ...t, projectName: group.projectName });
+    });
 
-    // حساب المجاميع
-    const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
-    const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
-    const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
-    const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
+    // تجميع تحويلات العمال
+    workerTransfersResult.forEach(w => {
+      const group = initProjectGroup(w.projectId);
+      group.workerTransfers.push({ ...w, projectName: group.projectName });
+    });
 
-    const totalIncome = totalFundTransfers;
-    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
-    const remainingBalance = totalIncome - totalExpenses;
+    // تجميع المصاريف المتنوعة
+    miscExpensesResult.forEach(m => {
+      const group = initProjectGroup(m.projectId);
+      group.miscExpenses.push({ ...m, projectName: group.projectName });
+    });
+
+    // تحويل المجموعات إلى مصفوفة مع حساب الإجماليات لكل مشروع
+    const groupedByProject = Array.from(projectGroups.values()).map(group => {
+      const totalFundTransfers = group.fundTransfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+      const totalWorkerWages = group.workerAttendance.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
+      const totalMaterialCosts = group.materialPurchases.reduce((sum, m) => sum + parseFloat(m.totalAmount || '0'), 0);
+      const totalTransportation = group.transportationExpenses.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+      const totalWorkerTransfers = group.workerTransfers.reduce((sum, w) => sum + parseFloat(w.amount || '0'), 0);
+      const totalMiscExpenses = group.miscExpenses.reduce((sum, m) => sum + parseFloat(m.amount || '0'), 0);
+
+      const totalIncome = totalFundTransfers;
+      const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
+      const remainingBalance = totalIncome - totalExpenses;
+
+      return {
+        ...group,
+        totalIncome,
+        totalExpenses,
+        remainingBalance: parseFloat(remainingBalance.toFixed(2)),
+        counts: {
+          fundTransfers: group.fundTransfers.length,
+          workerAttendance: group.workerAttendance.length,
+          materialPurchases: group.materialPurchases.length,
+          transportationExpenses: group.transportationExpenses.length,
+          workerTransfers: group.workerTransfers.length,
+          miscExpenses: group.miscExpenses.length
+        }
+      };
+    });
+
+    // حساب الإجماليات العامة
+    const overallTotalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+    const overallTotalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
+    const overallTotalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount || '0'), 0);
+    const overallTotalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+    const overallTotalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount || '0'), 0);
+    const overallTotalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount || '0'), 0);
+
+    const overallTotalIncome = overallTotalFundTransfers;
+    const overallTotalExpenses = overallTotalWorkerWages + overallTotalMaterialCosts + overallTotalTransportation + overallTotalWorkerTransfers + overallTotalMiscExpenses;
+    const overallRemainingBalance = overallTotalIncome - overallTotalExpenses;
+
+    // إنشاء مصفوفات مسطحة لجميع البيانات (للتوافق مع الكود القديم)
+    const allFundTransfers = fundTransfersResult.map(t => ({ ...t, projectName: projectsMap.get(t.projectId) || 'مشروع غير معروف' }));
+    const allWorkerAttendance = workerAttendanceResult.map(a => ({ ...a, projectName: projectsMap.get(a.projectId) || 'مشروع غير معروف' }));
+    const allMaterialPurchases = materialPurchasesResult.map(m => ({ ...m, projectName: projectsMap.get(m.projectId) || 'مشروع غير معروف' }));
+    const allTransportation = transportationResult.map(t => ({ ...t, projectName: projectsMap.get(t.projectId) || 'مشروع غير معروف' }));
+    const allWorkerTransfers = workerTransfersResult.map(w => ({ ...w, projectName: projectsMap.get(w.projectId) || 'مشروع غير معروف' }));
+    const allMiscExpenses = miscExpensesResult.map(m => ({ ...m, projectName: projectsMap.get(m.projectId) || 'مشروع غير معروف' }));
 
     const responseData = {
+      // البيانات المجمعة حسب المشروع (الجديدة)
+      groupedByProject,
+      projectsCount: groupedByProject.length,
+      
+      // الإجماليات العامة
       projectName: 'جميع المشاريع',
-      totalIncome,
-      totalExpenses,
-      remainingBalance: parseFloat(remainingBalance.toFixed(2)),
-      fundTransfers: enrichedFundTransfers,
-      workerAttendance: enrichedAttendance,
-      materialPurchases: enrichedMaterials,
-      transportationExpenses: enrichedTransportation,
-      workerTransfers: enrichedWorkerTransfers,
-      miscExpenses: enrichedMiscExpenses,
+      totalIncome: overallTotalIncome,
+      totalExpenses: overallTotalExpenses,
+      remainingBalance: parseFloat(overallRemainingBalance.toFixed(2)),
+      
+      // البيانات المسطحة (للتوافق مع الكود القديم)
+      fundTransfers: allFundTransfers,
+      workerAttendance: allWorkerAttendance,
+      materialPurchases: allMaterialPurchases,
+      transportationExpenses: allTransportation,
+      workerTransfers: allWorkerTransfers,
+      miscExpenses: allMiscExpenses,
+      
       counts: {
         fundTransfers: fundTransfersResult.length,
         workerAttendance: workerAttendanceResult.length,
@@ -397,12 +476,12 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     };
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [API] تم جلب جميع المصروفات من جميع المشاريع بنجاح في ${duration}ms`);
+    console.log(`✅ [API] تم جلب جميع المصروفات من جميع المشاريع بنجاح (${groupedByProject.length} مشروع) في ${duration}ms`);
 
     res.json({
       success: true,
       data: responseData,
-      message: `تم جلب جميع المصروفات من جميع المشاريع بنجاح`,
+      message: `تم جلب جميع المصروفات من ${groupedByProject.length} مشروع بنجاح`,
       processingTime: duration
     });
 

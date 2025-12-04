@@ -1,10 +1,10 @@
-import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X } from "lucide-react";
+import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useAuth } from "@/components/AuthProvider";
 import { useQuery } from "@tanstack/react-query";
-import { useSelectedProject } from "@/hooks/use-selected-project";
+import { useSelectedProject, ALL_PROJECTS_ID, ALL_PROJECTS_NAME } from "@/hooks/use-selected-project";
 import { apiRequest } from "@/lib/queryClient";
 import {
   DropdownMenu,
@@ -139,9 +139,11 @@ export default function Header() {
                 
                 {selectedProjectName && (
                   <>
-                    <div className="px-2 py-1.5 bg-primary/10 rounded mx-1 mb-1">
+                    <div className={`px-2 py-1.5 rounded mx-1 mb-1 ${selectedProjectId === ALL_PROJECTS_ID ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-primary/10'}`}>
                       <p className="text-xs text-muted-foreground">المشروع الحالي:</p>
-                      <p className="text-sm font-medium text-primary truncate">{selectedProjectName}</p>
+                      <p className={`text-sm font-medium truncate ${selectedProjectId === ALL_PROJECTS_ID ? 'text-blue-700 dark:text-blue-300' : 'text-primary'}`}>
+                        {selectedProjectId === ALL_PROJECTS_ID ? ALL_PROJECTS_NAME : selectedProjectName}
+                      </p>
                     </div>
                     <DropdownMenuSeparator />
                   </>
@@ -151,34 +153,60 @@ export default function Header() {
                   <div className="px-3 py-4 text-center text-muted-foreground text-sm">
                     جاري التحميل...
                   </div>
-                ) : projects.length === 0 ? (
-                  <div className="px-3 py-4 text-center text-muted-foreground text-sm">
-                    لا توجد مشاريع
-                  </div>
                 ) : (
-                  projects.map((project) => (
+                  <>
                     <DropdownMenuItem
-                      key={project.id}
-                      className="cursor-pointer flex items-center justify-between gap-2 py-2"
-                      onClick={() => handleProjectSelect(project.id, project.name)}
+                      key={ALL_PROJECTS_ID}
+                      className="cursor-pointer flex items-center justify-between gap-2 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 mb-1"
+                      onClick={() => handleProjectSelect(ALL_PROJECTS_ID, ALL_PROJECTS_NAME)}
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <Building2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                        <span className="truncate">{project.name}</span>
+                        <Layers className="h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+                        <span className="truncate font-medium text-blue-700 dark:text-blue-300">{ALL_PROJECTS_NAME}</span>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <Badge 
-                          variant={project.status === 'active' ? 'default' : 'secondary'}
-                          className="text-[10px] px-1.5 py-0"
+                          variant="default"
+                          className="text-[10px] px-1.5 py-0 bg-blue-500"
                         >
-                          {project.status === 'active' ? 'نشط' : 'مكتمل'}
+                          الكل
                         </Badge>
-                        {selectedProjectId === project.id && (
+                        {selectedProjectId === ALL_PROJECTS_ID && (
                           <CheckCircle2 className="h-4 w-4 text-green-500" />
                         )}
                       </div>
                     </DropdownMenuItem>
-                  ))
+                    
+                    {projects.length === 0 ? (
+                      <div className="px-3 py-4 text-center text-muted-foreground text-sm">
+                        لا توجد مشاريع
+                      </div>
+                    ) : (
+                      projects.map((project) => (
+                        <DropdownMenuItem
+                          key={project.id}
+                          className="cursor-pointer flex items-center justify-between gap-2 py-2"
+                          onClick={() => handleProjectSelect(project.id, project.name)}
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Building2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                            <span className="truncate">{project.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <Badge 
+                              variant={project.status === 'active' ? 'default' : 'secondary'}
+                              className="text-[10px] px-1.5 py-0"
+                            >
+                              {project.status === 'active' ? 'نشط' : 'مكتمل'}
+                            </Badge>
+                            {selectedProjectId === project.id && (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            )}
+                          </div>
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                  </>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>

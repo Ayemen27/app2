@@ -1705,12 +1705,19 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
 /**
  * 📊 جلب إحصائيات العامل
  * GET /api/workers/:id/stats
+ * Query params:
+ *   - projectId: فلترة بمشروع محدد (اختياري)
+ *   - 'all' أو عدم التحديد = جميع المشاريع
  */
 workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const workerId = req.params.id;
+    const projectId = req.query.projectId as string | undefined;
+    const isAllProjects = !projectId || projectId === 'all';
+    
     console.log('📊 [API] جلب إحصائيات العامل:', workerId);
+    console.log('📊 [API] فلترة بمشروع:', projectId || 'جميع المشاريع');
     
     if (!workerId) {
       const duration = Date.now() - startTime;
@@ -1735,15 +1742,24 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       });
     }
     
+    // بناء شرط الفلترة بالمشروع
+    const attendanceWhereCondition = isAllProjects 
+      ? eq(workerAttendance.workerId, workerId)
+      : and(eq(workerAttendance.workerId, workerId), eq(workerAttendance.projectId, projectId));
+    
+    const transfersWhereCondition = isAllProjects
+      ? eq(workerTransfers.workerId, workerId)
+      : and(eq(workerTransfers.workerId, workerId), eq(workerTransfers.projectId, projectId));
+    
     // حساب إجمالي عدد أيام العمل من جدول workerAttendance
     const totalWorkDaysResult = await db.select({
       totalDays: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL)), 0)`
     })
     .from(workerAttendance)
-    .where(eq(workerAttendance.workerId, workerId));
+    .where(attendanceWhereCondition);
     
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
-    console.log(`📊 [API] إجمالي أيام العمل للعامل ${workerId}: ${totalWorkDays}`);
+    console.log(`📊 [API] إجمالي أيام العمل للعامل ${workerId}${!isAllProjects ? ` في المشروع ${projectId}` : ''}: ${totalWorkDays}`);
     
     // جلب تاريخ آخر حضور للعامل
     const lastAttendanceResult = await db.select({
@@ -1751,7 +1767,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       projectId: workerAttendance.projectId
     })
     .from(workerAttendance)
-    .where(eq(workerAttendance.workerId, workerId))
+    .where(attendanceWhereCondition)
     .orderBy(sql`${workerAttendance.attendanceDate} DESC`)
     .limit(1);
     
@@ -1763,14 +1779,15 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     const thirtyDaysAgoString = thirtyDaysAgo.toISOString().split('T')[0]; // YYYY-MM-DD format
     
     // حساب معدل الحضور الشهري
+    const monthlyAttendanceCondition = isAllProjects
+      ? and(eq(workerAttendance.workerId, workerId), sql`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`)
+      : and(eq(workerAttendance.workerId, workerId), eq(workerAttendance.projectId, projectId), sql`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`);
+    
     const monthlyAttendanceResult = await db.select({
       monthlyDays: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL)), 0)`
     })
     .from(workerAttendance)
-    .where(and(
-      eq(workerAttendance.workerId, workerId),
-      sql`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
-    ));
+    .where(monthlyAttendanceCondition);
     
     const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
     console.log(`📊 [API] أيام العمل في آخر 30 يوم: ${monthlyAttendanceRate}`);
@@ -1781,7 +1798,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       transfersCount: sql`COUNT(*)`
     })
     .from(workerTransfers)
-    .where(eq(workerTransfers.workerId, workerId));
+    .where(transfersWhereCondition);
     
     const totalTransfersOnly = Number(totalTransfersResult[0]?.totalTransfers) || 0;
     const transfersCount = Number(totalTransfersResult[0]?.transfersCount) || 0;
@@ -1791,7 +1808,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       totalPaidWages: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.paidAmount}, '0') AS DECIMAL)), 0)`
     })
     .from(workerAttendance)
-    .where(eq(workerAttendance.workerId, workerId));
+    .where(attendanceWhereCondition);
     
     const totalPaidWages = Number(totalPaidWagesResult[0]?.totalPaidWages) || 0;
     console.log(`💰 [API] إجمالي الأجور المدفوعة (paidAmount) للعامل ${workerId}: ${totalPaidWages}`);
@@ -1805,9 +1822,9 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       projectsCount: sql`COUNT(DISTINCT ${workerAttendance.projectId})`
     })
     .from(workerAttendance)
-    .where(eq(workerAttendance.workerId, workerId));
+    .where(attendanceWhereCondition);
     
-    const projectsWorked = Number(projectsWorkedResult[0]?.projectsCount) || 0;
+    const projectsWorked = isAllProjects ? (Number(projectsWorkedResult[0]?.projectsCount) || 0) : (totalWorkDays > 0 ? 1 : 0);
     
     // حساب إجمالي الأرباح باستخدام الأجر اليومي الحالي للعامل × عدد أيام العمل
     // بدلاً من استخدام actualWage المحفوظ في السجل
@@ -1824,6 +1841,8 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       transfersCount: transfersCount,
       projectsWorked: projectsWorked,
       totalEarnings: totalEarnings,
+      projectId: isAllProjects ? null : projectId,
+      isFilteredByProject: !isAllProjects,
       workerInfo: {
         id: worker[0].id,
         name: worker[0].name,
@@ -1839,13 +1858,14 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       lastAttendanceDate,
       monthlyAttendanceRate,
       totalTransfers,
-      projectsWorked
+      projectsWorked,
+      filteredByProject: !isAllProjects ? projectId : 'جميع المشاريع'
     });
     
     res.json({
       success: true,
       data: stats,
-      message: `تم جلب إحصائيات العامل "${worker[0].name}" بنجاح`,
+      message: `تم جلب إحصائيات العامل "${worker[0].name}"${!isAllProjects ? ` للمشروع المحدد` : ''} بنجاح`,
       processingTime: duration
     });
     

@@ -12,6 +12,7 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { apiRequest } from '@/lib/queryClient';
 import AddWorkerForm from '@/components/forms/add-worker-form';
 import { useFloatingButton } from '@/components/layout/floating-button-context';
+import { useSelectedProject, ALL_PROJECTS_ID } from '@/hooks/use-selected-project';
 
 interface Worker {
   id: string;
@@ -122,7 +123,8 @@ const WorkerCardWrapper = ({
   onDelete, 
   onToggleStatus,
   formatCurrency,
-  isToggling
+  isToggling,
+  selectedProjectId
 }: { 
   worker: Worker; 
   onEdit: () => void; 
@@ -130,11 +132,17 @@ const WorkerCardWrapper = ({
   onToggleStatus: () => void;
   formatCurrency: (amount: number) => string;
   isToggling: boolean;
+  selectedProjectId: string | null;
 }) => {
+  const projectIdForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
+  
   const { data: statsData, isLoading: statsLoading } = useQuery<{ success: boolean; data: WorkerStats }>({
-    queryKey: ['/api/workers', worker.id, 'stats'],
+    queryKey: ['/api/workers', worker.id, 'stats', selectedProjectId],
     queryFn: async () => {
-      return apiRequest(`/api/workers/${worker.id}/stats`, 'GET');
+      const url = projectIdForApi 
+        ? `/api/workers/${worker.id}/stats?projectId=${projectIdForApi}`
+        : `/api/workers/${worker.id}/stats`;
+      return apiRequest(url, 'GET');
     },
     staleTime: 300000,
     retry: 1,
@@ -233,6 +241,7 @@ export default function WorkersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
+  const { selectedProjectId } = useSelectedProject();
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
@@ -586,6 +595,7 @@ export default function WorkersPage() {
               onToggleStatus={() => handleToggleStatus(worker)}
               formatCurrency={formatCurrency}
               isToggling={togglingWorkerId === worker.id}
+              selectedProjectId={selectedProjectId}
             />
           ))}
         </UnifiedCardGrid>

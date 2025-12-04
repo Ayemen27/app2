@@ -572,15 +572,20 @@ financialRouter.delete('/project-fund-transfers/:id', async (req: Request, res: 
  * Worker Transfers & Expenses
  */
 
-// جلب تحويلات العمال
+// جلب تحويلات العمال مع دعم فلترة اختيارية بالمشروع
 financialRouter.get('/worker-transfers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    console.log('👷‍♂️ [API] جلب جميع تحويلات العمال من قاعدة البيانات');
+    const projectId = req.query.projectId as string | undefined;
+    console.log('👷‍♂️ [API] جلب تحويلات العمال:', projectId ? `للمشروع ${projectId}` : 'جميع المشاريع');
 
-    const transfers = await db.select()
-      .from(workerTransfers)
-      .orderBy(desc(workerTransfers.transferDate));
+    let query = db.select().from(workerTransfers);
+    
+    if (projectId && projectId !== 'all') {
+      query = query.where(eq(workerTransfers.projectId, projectId)) as any;
+    }
+    
+    const transfers = await query.orderBy(desc(workerTransfers.transferDate));
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل عامل في ${duration}ms`);

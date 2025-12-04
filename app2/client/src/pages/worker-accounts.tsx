@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useFloatingButton } from '@/components/layout/floating-button-context';
+import { useSelectedProject, ALL_PROJECTS_ID } from '@/hooks/use-selected-project';
 import { 
   ArrowLeft, 
   Send, 
@@ -81,12 +82,14 @@ export default function WorkerAccountsPage() {
   const [, setLocation] = useLocation();
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [editingTransfer, setEditingTransfer] = useState<WorkerTransfer | null>(null);
-  const [selectedProject, setSelectedProject] = useState<string>('');
   const [activeFilters, setActiveFilters] = useState({});
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
+  const { selectedProjectId, getProjectIdForApi, isAllProjects } = useSelectedProject();
+  
+  const selectedProject = getProjectIdForApi() || '';
 
   // دالة مساعدة لحفظ قيم الإكمال التلقائي
   const saveAutocompleteValue = async (field: string, value: string) => {
@@ -159,8 +162,14 @@ export default function WorkerAccountsPage() {
   });
 
   const { data: transfers = [] } = useQuery<WorkerTransfer[]>({
-    queryKey: ['/api/worker-transfers'],
-    select: (data) => Array.isArray(data) ? data : []
+    queryKey: ['/api/worker-transfers', selectedProjectId],
+    queryFn: async () => {
+      const url = selectedProject 
+        ? `/api/worker-transfers?projectId=${selectedProject}` 
+        : '/api/worker-transfers';
+      const response = await apiRequest(url, 'GET');
+      return Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
+    }
   });
 
   // تفعيل الزر العائم لإضافة حولة جديدة
@@ -398,28 +407,7 @@ export default function WorkerAccountsPage() {
     <div className="min-h-screen bg-background p-4 space-y-1">
       {/* Header - تم إزالة العنوان المكرر لأنه موجود في شريط التطبيق */}
 
-      {/* Project Filter */}
-      <Card className="mb-4">
-        <CardContent className="p-4">
-          <h2 className="text-lg font-bold text-foreground flex items-center">
-            <ChartGantt className="ml-2 h-5 w-5 text-primary" />
-            اختر المشروع
-          </h2>
-          <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger>
-              <SelectValue placeholder="جميع المشاريع" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">جميع المشاريع</SelectItem>
-              {projects.map((project: Project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      {/* ملاحظة: يتم اختيار المشروع من الشريط العلوي */}
 
       {/* Transfers List */}
       <div className="space-y-1">

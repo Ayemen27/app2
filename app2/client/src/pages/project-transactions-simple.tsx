@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/utils';
 import { StatsGrid } from '@/components/ui/stats-grid';
+import { useSelectedProject, ALL_PROJECTS_ID } from '@/hooks/use-selected-project';
 
 interface Project {
   id: string;
@@ -26,7 +27,8 @@ interface Transaction {
 }
 
 export default function ProjectTransactionsSimple() {
-  const [selectedProject, setSelectedProject] = useState<string>('');
+  const { selectedProjectId, getProjectIdForApi, isAllProjects } = useSelectedProject();
+  const selectedProject = getProjectIdForApi() || '';
   const [filterType, setFilterType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
@@ -595,23 +597,8 @@ export default function ProjectTransactionsSimple() {
         {/* اختيار المشروع والفلاتر - مضغوط */}
         <Card className="shadow-sm">
           <CardContent className="p-3 sm:p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {/* اختيار المشروع */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">المشروع</label>
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="اختر مشروعاً" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map(project => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* ملاحظة: يتم اختيار المشروع من الشريط العلوي */}
 
               {/* نوع العملية */}
               <div>
@@ -647,7 +634,19 @@ export default function ProjectTransactionsSimple() {
           </CardContent>
         </Card>
 
-        {selectedProject && (
+        {/* رسالة عند اختيار جميع المشاريع */}
+        {isAllProjects && (
+          <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+            <CardContent className="p-4 text-center">
+              <div className="text-blue-800 dark:text-blue-200">
+                <h3 className="font-semibold mb-2">📊 جميع المشاريع</h3>
+                <p className="text-sm">يرجى اختيار مشروع محدد من الشريط العلوي لعرض سجل العمليات المالية.</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {selectedProject && !isAllProjects && (
           <>
             {/* عرض الأخطاء إن وجدت */}
             {(fundTransfersError || attendanceError || materialsError || workerTransfersError || incomingTransfersError || outgoingTransfersError) && (

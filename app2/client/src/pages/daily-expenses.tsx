@@ -50,7 +50,7 @@ import type {
 function DailyExpensesContent() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject, isAllProjects } = useSelectedProject();
-  const [selectedDate, setSelectedDate] = useState<string | null>(() => getCurrentDate());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [carriedForward, setCarriedForward] = useState<string>("0");
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
   const [activeFilters, setActiveFilters] = useState({});

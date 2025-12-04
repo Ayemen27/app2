@@ -192,12 +192,12 @@ export function UnifiedCard({
       </div>
 
       <div className={cn(
-        "flex items-start gap-2",
+        "flex items-start",
         compact ? "mt-2" : "mt-3"
       )}>
         <div className={cn(
-          "grid gap-x-4 grid-cols-2 flex-1",
-          compact ? "gap-y-1.5" : "gap-y-2"
+          "grid gap-x-2 grid-cols-2 flex-1",
+          compact ? "gap-y-1" : "gap-y-1.5"
         )}>
           {visibleFields.map((field, idx) => {
             const FieldIcon = field.icon;
@@ -205,24 +205,24 @@ export function UnifiedCard({
               <div 
                 key={idx} 
                 className={cn(
-                  "flex items-start gap-1.5 min-w-0",
-                  compact ? "py-0.5" : "py-1"
+                  "flex items-center gap-1 min-w-0",
+                  compact ? "py-0" : "py-0.5"
                 )}
               >
                 {FieldIcon && (
-                  <FieldIcon className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", fieldIconColorClasses[field.color || "default"])} />
+                  <FieldIcon className={cn("h-3 w-3 shrink-0", fieldIconColorClasses[field.color || "default"])} />
                 )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide leading-tight">
-                    {field.label}
-                  </p>
-                  <p className={cn(
-                    "text-sm font-semibold truncate leading-tight mt-0.5",
-                    field.emphasis && "font-bold text-base",
+                <div className="min-w-0 flex-1 flex items-baseline gap-1">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {field.label}:
+                  </span>
+                  <span className={cn(
+                    "text-xs font-semibold truncate",
+                    field.emphasis && "font-bold text-sm",
                     fieldColorClasses[field.color || "default"]
                   )}>
                     {field.value || "-"}
-                  </p>
+                  </span>
                 </div>
               </div>
             );
@@ -230,7 +230,7 @@ export function UnifiedCard({
         </div>
 
         {visibleActions.length > 0 && (
-          <div className="shrink-0 flex flex-col gap-1">
+          <div className="shrink-0 flex flex-col gap-0.5 mr-[-8px] mt-[-4px]">
             {visibleActions.map((action, idx) => {
               const ActionIcon = action.icon;
               return (
@@ -239,7 +239,7 @@ export function UnifiedCard({
                   size="icon"
                   variant="ghost"
                   className={cn(
-                    "h-7 w-7 rounded-md",
+                    "h-6 w-6 rounded-md",
                     actionColorClasses[action.color || "default"]
                   )}
                   onClick={(e) => {
@@ -249,7 +249,7 @@ export function UnifiedCard({
                   disabled={action.disabled}
                   title={action.label}
                 >
-                  <ActionIcon className="h-4 w-4" />
+                  <ActionIcon className="h-3.5 w-3.5" />
                 </Button>
               );
             })}

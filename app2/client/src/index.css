@@ -133,7 +133,7 @@
 
 .layout-content {
   min-height: 100%;
-  padding: 1rem;
+  padding: 0.5rem;
   padding-bottom: 1.5rem;
 }
 
@@ -209,7 +209,7 @@
 /* تحسينات الهواتف */
 @media (max-width: 768px) {
   .layout-content {
-    padding: 0.75rem;
+    padding: 0.25rem;
     padding-bottom: 1rem;
   }
 

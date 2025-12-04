@@ -9489,7 +9489,10 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
   const startTime = Date.now();
   try {
     const workerId = req.params.id;
+    const projectId = req.query.projectId;
+    const isAllProjects = !projectId || projectId === "all";
     console.log("\u{1F4CA} [API] \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0644:", workerId);
+    console.log("\u{1F4CA} [API] \u0641\u0644\u062A\u0631\u0629 \u0628\u0645\u0634\u0631\u0648\u0639:", projectId || "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639");
     if (!workerId) {
       const duration2 = Date.now() - startTime;
       return res.status(400).json({
@@ -9509,44 +9512,44 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
         processingTime: duration2
       });
     }
+    const attendanceWhereCondition = isAllProjects ? eq8(workerAttendance.workerId, workerId) : and7(eq8(workerAttendance.workerId, workerId), eq8(workerAttendance.projectId, projectId));
+    const transfersWhereCondition = isAllProjects ? eq8(workerTransfers.workerId, workerId) : and7(eq8(workerTransfers.workerId, workerId), eq8(workerTransfers.projectId, projectId));
     const totalWorkDaysResult = await db.select({
       totalDays: sql6`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));
+    }).from(workerAttendance).where(attendanceWhereCondition);
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
-    console.log(`\u{1F4CA} [API] \u0625\u062C\u0645\u0627\u0644\u064A \u0623\u064A\u0627\u0645 \u0627\u0644\u0639\u0645\u0644 \u0644\u0644\u0639\u0627\u0645\u0644 ${workerId}: ${totalWorkDays}`);
+    console.log(`\u{1F4CA} [API] \u0625\u062C\u0645\u0627\u0644\u064A \u0623\u064A\u0627\u0645 \u0627\u0644\u0639\u0645\u0644 \u0644\u0644\u0639\u0627\u0645\u0644 ${workerId}${!isAllProjects ? ` \u0641\u064A \u0627\u0644\u0645\u0634\u0631\u0648\u0639 ${projectId}` : ""}: ${totalWorkDays}`);
     const lastAttendanceResult = await db.select({
       lastAttendanceDate: workerAttendance.attendanceDate,
       projectId: workerAttendance.projectId
-    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId)).orderBy(sql6`${workerAttendance.attendanceDate} DESC`).limit(1);
+    }).from(workerAttendance).where(attendanceWhereCondition).orderBy(sql6`${workerAttendance.attendanceDate} DESC`).limit(1);
     const lastAttendanceDate = lastAttendanceResult[0]?.lastAttendanceDate || null;
     const thirtyDaysAgo = /* @__PURE__ */ new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoString = thirtyDaysAgo.toISOString().split("T")[0];
+    const monthlyAttendanceCondition = isAllProjects ? and7(eq8(workerAttendance.workerId, workerId), sql6`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`) : and7(eq8(workerAttendance.workerId, workerId), eq8(workerAttendance.projectId, projectId), sql6`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`);
     const monthlyAttendanceResult = await db.select({
       monthlyDays: sql6`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(and7(
-      eq8(workerAttendance.workerId, workerId),
-      sql6`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`
-    ));
+    }).from(workerAttendance).where(monthlyAttendanceCondition);
     const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
     console.log(`\u{1F4CA} [API] \u0623\u064A\u0627\u0645 \u0627\u0644\u0639\u0645\u0644 \u0641\u064A \u0622\u062E\u0631 30 \u064A\u0648\u0645: ${monthlyAttendanceRate}`);
     const totalTransfersResult = await db.select({
       totalTransfers: sql6`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
       transfersCount: sql6`COUNT(*)`
-    }).from(workerTransfers).where(eq8(workerTransfers.workerId, workerId));
+    }).from(workerTransfers).where(transfersWhereCondition);
     const totalTransfersOnly = Number(totalTransfersResult[0]?.totalTransfers) || 0;
     const transfersCount = Number(totalTransfersResult[0]?.transfersCount) || 0;
     const totalPaidWagesResult = await db.select({
       totalPaidWages: sql6`COALESCE(SUM(CAST(COALESCE(${workerAttendance.paidAmount}, '0') AS DECIMAL)), 0)`
-    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));
+    }).from(workerAttendance).where(attendanceWhereCondition);
     const totalPaidWages = Number(totalPaidWagesResult[0]?.totalPaidWages) || 0;
     console.log(`\u{1F4B0} [API] \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0623\u062C\u0648\u0631 \u0627\u0644\u0645\u062F\u0641\u0648\u0639\u0629 (paidAmount) \u0644\u0644\u0639\u0627\u0645\u0644 ${workerId}: ${totalPaidWages}`);
     const totalTransfers = totalTransfersOnly + totalPaidWages;
     console.log(`\u{1F4B0} [API] \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0633\u062D\u0628\u064A\u0627\u062A (\u062A\u062D\u0648\u064A\u0644\u0627\u062A ${totalTransfersOnly} + \u0623\u062C\u0648\u0631 ${totalPaidWages}): ${totalTransfers}`);
     const projectsWorkedResult = await db.select({
       projectsCount: sql6`COUNT(DISTINCT ${workerAttendance.projectId})`
-    }).from(workerAttendance).where(eq8(workerAttendance.workerId, workerId));
-    const projectsWorked = Number(projectsWorkedResult[0]?.projectsCount) || 0;
+    }).from(workerAttendance).where(attendanceWhereCondition);
+    const projectsWorked = isAllProjects ? Number(projectsWorkedResult[0]?.projectsCount) || 0 : totalWorkDays > 0 ? 1 : 0;
     const currentDailyWage = parseFloat(worker[0].dailyWage || "0");
     const totalEarnings = currentDailyWage * totalWorkDays;
     console.log(`\u{1F4B0} [API] \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0623\u0631\u0628\u0627\u062D (\u0627\u0644\u0623\u062C\u0631 \u0627\u0644\u062D\u0627\u0644\u064A \xD7 \u0627\u0644\u0623\u064A\u0627\u0645): ${currentDailyWage} \xD7 ${totalWorkDays} = ${totalEarnings}`);
@@ -9558,6 +9561,8 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
       transfersCount,
       projectsWorked,
       totalEarnings,
+      projectId: isAllProjects ? null : projectId,
+      isFilteredByProject: !isAllProjects,
       workerInfo: {
         id: worker[0].id,
         name: worker[0].name,
@@ -9572,12 +9577,13 @@ workerRouter.get("/workers/:id/stats", async (req, res) => {
       lastAttendanceDate,
       monthlyAttendanceRate,
       totalTransfers,
-      projectsWorked
+      projectsWorked,
+      filteredByProject: !isAllProjects ? projectId : "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
     });
     res.json({
       success: true,
       data: stats,
-      message: `\u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0644 "${worker[0].name}" \u0628\u0646\u062C\u0627\u062D`,
+      message: `\u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0639\u0627\u0645\u0644 "${worker[0].name}"${!isAllProjects ? ` \u0644\u0644\u0645\u0634\u0631\u0648\u0639 \u0627\u0644\u0645\u062D\u062F\u062F` : ""} \u0628\u0646\u062C\u0627\u062D`,
       processingTime: duration
     });
   } catch (error) {
@@ -10016,8 +10022,13 @@ financialRouter.delete("/project-fund-transfers/:id", async (req, res) => {
 financialRouter.get("/worker-transfers", async (req, res) => {
   const startTime = Date.now();
   try {
-    console.log("\u{1F477}\u200D\u2642\uFE0F [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A");
-    const transfers = await db.select().from(workerTransfers).orderBy(desc5(workerTransfers.transferDate));
+    const projectId = req.query.projectId;
+    console.log("\u{1F477}\u200D\u2642\uFE0F [API] \u062C\u0644\u0628 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644:", projectId ? `\u0644\u0644\u0645\u0634\u0631\u0648\u0639 ${projectId}` : "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639");
+    let query = db.select().from(workerTransfers);
+    if (projectId && projectId !== "all") {
+      query = query.where(eq9(workerTransfers.projectId, projectId));
+    }
+    const transfers = await query.orderBy(desc5(workerTransfers.transferDate));
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0627\u0645\u0644 \u0641\u064A ${duration}ms`);
     res.json({

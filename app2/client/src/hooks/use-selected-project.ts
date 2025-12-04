@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const SELECTED_PROJECT_KEY = "construction-app-selected-project";
 const SELECTED_PROJECT_NAME_KEY = "construction-app-selected-project-name";
@@ -7,11 +7,17 @@ const SELECTED_PROJECT_NAME_KEY = "construction-app-selected-project-name";
 export const ALL_PROJECTS_ID = "all";
 export const ALL_PROJECTS_NAME = "جميع المشاريع";
 
+interface Project {
+  id: string;
+  name: string;
+  status?: string;
+  budget?: number;
+}
+
 export function useSelectedProject() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(ALL_PROJECTS_ID);
   const [selectedProjectName, setSelectedProjectName] = useState<string>(ALL_PROJECTS_NAME);
-  const [isLoading, setIsLoading] = useState(true);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   let queryClient: ReturnType<typeof useQueryClient> | null = null;
   
@@ -19,6 +25,29 @@ export function useSelectedProject() {
     queryClient = useQueryClient();
   } catch (e) {
   }
+
+  const { data: projectsData, isLoading: isProjectsLoading, error: projectsError } = useQuery<Project[]>({
+    queryKey: ["/api/projects", "selected-project-hook"],
+    queryFn: async () => {
+      const response = await fetch("/api/projects", {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("فشل في جلب المشاريع");
+      }
+      const data = await response.json();
+      return Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+  });
+
+  const projects = useMemo(() => {
+    if (Array.isArray(projectsData)) {
+      return projectsData;
+    }
+    return [];
+  }, [projectsData]);
 
   useEffect(() => {
     try {
@@ -40,9 +69,11 @@ export function useSelectedProject() {
       setSelectedProjectId(ALL_PROJECTS_ID);
       setSelectedProjectName(ALL_PROJECTS_NAME);
     } finally {
-      setIsLoading(false);
+      setIsInitialized(true);
     }
   }, []);
+
+  const isLoading = !isInitialized || isProjectsLoading;
 
   const invalidateProjectRelatedQueries = useCallback(() => {
     if (!queryClient) return;
@@ -137,5 +168,7 @@ export function useSelectedProject() {
     hasStoredProject,
     getProjectIdForApi,
     projects,
+    projectsError,
+    isProjectsLoading,
   };
 }

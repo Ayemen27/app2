@@ -207,7 +207,7 @@ export default function WorkerAccountsPage() {
       return apiRequest('/api/worker-transfers', 'POST', data);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers'] });
+      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers', selectedProjectId] });
       queryClient.refetchQueries({ queryKey: ['/api/autocomplete'] });
       setShowTransferDialog(false);
       resetForm();
@@ -249,7 +249,7 @@ export default function WorkerAccountsPage() {
       return apiRequest(`/api/worker-transfers/${data.id}`, 'PATCH', data.updates);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers'] });
+      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers', selectedProjectId] });
       queryClient.refetchQueries({ queryKey: ['/api/autocomplete'] });
       setShowTransferDialog(false);
       setEditingTransfer(null);
@@ -289,7 +289,7 @@ export default function WorkerAccountsPage() {
       return apiRequest(`/api/worker-transfers/${id}`, 'DELETE');
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers'] });
+      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers', selectedProjectId] });
       toast({
         title: "تم بنجاح",
         description: "تم حذف الحولة بنجاح"

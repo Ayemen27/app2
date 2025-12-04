@@ -7093,7 +7093,7 @@ projectRouter.get("/all-projects-expenses", async (req, res) => {
   const startTime = Date.now();
   try {
     const { date: date2 } = req.query;
-    console.log(`\u{1F4CA} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0646 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639`, { date: date2 });
+    console.log(`\u{1F4CA} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0646 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 (\u0645\u062C\u0645\u0639\u0629 \u062D\u0633\u0628 \u0627\u0644\u0645\u0634\u0631\u0648\u0639)`, { date: date2 });
     const [
       fundTransfersResult,
       workerAttendanceResult,
@@ -7130,50 +7130,127 @@ projectRouter.get("/all-projects-expenses", async (req, res) => {
       db.select().from(projects)
     ]);
     const projectsMap = new Map(projectsList.map((p) => [p.id, p.name]));
-    const enrichedFundTransfers = fundTransfersResult.map((t) => ({
-      ...t,
-      projectName: projectsMap.get(t.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
-    }));
-    const enrichedAttendance = workerAttendanceResult.map((a) => ({
-      ...a,
-      projectName: projectsMap.get(a.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
-    }));
-    const enrichedMaterials = materialPurchasesResult.map((m) => ({
-      ...m,
-      projectName: projectsMap.get(m.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
-    }));
-    const enrichedTransportation = transportationResult.map((t) => ({
-      ...t,
-      projectName: projectsMap.get(t.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
-    }));
-    const enrichedWorkerTransfers = workerTransfersResult.map((w) => ({
-      ...w,
-      projectName: projectsMap.get(w.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
-    }));
-    const enrichedMiscExpenses = miscExpensesResult.map((m) => ({
-      ...m,
-      projectName: projectsMap.get(m.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
-    }));
-    const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
-    const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
-    const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
-    const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
-    const totalIncome = totalFundTransfers;
-    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
-    const remainingBalance = totalIncome - totalExpenses;
+    const extractDate = (record) => {
+      const dateField = record.transferDate || record.purchaseDate || record.date;
+      if (!dateField) return "unknown";
+      if (typeof dateField === "string") return dateField.split("T")[0];
+      if (dateField instanceof Date) return dateField.toISOString().split("T")[0];
+      return String(dateField).split("T")[0];
+    };
+    const projectDateGroups = /* @__PURE__ */ new Map();
+    const initProjectDateGroup = (projectId, dateStr) => {
+      const key = `${projectId}__${dateStr}`;
+      if (!projectDateGroups.has(key)) {
+        projectDateGroups.set(key, {
+          projectId,
+          projectName: projectsMap.get(projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641",
+          date: dateStr,
+          fundTransfers: [],
+          workerAttendance: [],
+          materialPurchases: [],
+          transportationExpenses: [],
+          workerTransfers: [],
+          miscExpenses: []
+        });
+      }
+      return projectDateGroups.get(key);
+    };
+    fundTransfersResult.forEach((t) => {
+      const dateStr = extractDate(t);
+      const group = initProjectDateGroup(t.projectId, dateStr);
+      group.fundTransfers.push({ ...t, projectName: group.projectName });
+    });
+    workerAttendanceResult.forEach((a) => {
+      const dateStr = extractDate(a);
+      const group = initProjectDateGroup(a.projectId, dateStr);
+      group.workerAttendance.push({ ...a, projectName: group.projectName });
+    });
+    materialPurchasesResult.forEach((m) => {
+      const dateStr = extractDate(m);
+      const group = initProjectDateGroup(m.projectId, dateStr);
+      group.materialPurchases.push({ ...m, projectName: group.projectName });
+    });
+    transportationResult.forEach((t) => {
+      const dateStr = extractDate(t);
+      const group = initProjectDateGroup(t.projectId, dateStr);
+      group.transportationExpenses.push({ ...t, projectName: group.projectName });
+    });
+    workerTransfersResult.forEach((w) => {
+      const dateStr = extractDate(w);
+      const group = initProjectDateGroup(w.projectId, dateStr);
+      group.workerTransfers.push({ ...w, projectName: group.projectName });
+    });
+    miscExpensesResult.forEach((m) => {
+      const dateStr = extractDate(m);
+      const group = initProjectDateGroup(m.projectId, dateStr);
+      group.miscExpenses.push({ ...m, projectName: group.projectName });
+    });
+    const groupedByProjectDate = Array.from(projectDateGroups.values()).map((group) => {
+      const totalFundTransfers = group.fundTransfers.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+      const totalWorkerWages = group.workerAttendance.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
+      const totalMaterialCosts = group.materialPurchases.reduce((sum, m) => sum + parseFloat(m.totalAmount || "0"), 0);
+      const totalTransportation = group.transportationExpenses.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+      const totalWorkerTransfers = group.workerTransfers.reduce((sum, w) => sum + parseFloat(w.amount || "0"), 0);
+      const totalMiscExpenses = group.miscExpenses.reduce((sum, m) => sum + parseFloat(m.amount || "0"), 0);
+      const totalIncome = totalFundTransfers;
+      const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
+      const remainingBalance = totalIncome - totalExpenses;
+      return {
+        ...group,
+        totalIncome,
+        totalExpenses,
+        totalFundTransfers,
+        totalWorkerWages,
+        totalMaterialCosts,
+        totalTransportation,
+        totalWorkerTransfers,
+        totalMiscExpenses,
+        remainingBalance: parseFloat(remainingBalance.toFixed(2)),
+        counts: {
+          fundTransfers: group.fundTransfers.length,
+          workerAttendance: group.workerAttendance.length,
+          materialPurchases: group.materialPurchases.length,
+          transportationExpenses: group.transportationExpenses.length,
+          workerTransfers: group.workerTransfers.length,
+          miscExpenses: group.miscExpenses.length
+        }
+      };
+    }).sort((a, b) => {
+      const dateCompare = b.date.localeCompare(a.date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.projectName.localeCompare(b.projectName);
+    });
+    const overallTotalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+    const overallTotalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
+    const overallTotalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount || "0"), 0);
+    const overallTotalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+    const overallTotalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount || "0"), 0);
+    const overallTotalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount || "0"), 0);
+    const overallTotalIncome = overallTotalFundTransfers;
+    const overallTotalExpenses = overallTotalWorkerWages + overallTotalMaterialCosts + overallTotalTransportation + overallTotalWorkerTransfers + overallTotalMiscExpenses;
+    const overallRemainingBalance = overallTotalIncome - overallTotalExpenses;
+    const allFundTransfers = fundTransfersResult.map((t) => ({ ...t, projectName: projectsMap.get(t.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641" }));
+    const allWorkerAttendance = workerAttendanceResult.map((a) => ({ ...a, projectName: projectsMap.get(a.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641" }));
+    const allMaterialPurchases = materialPurchasesResult.map((m) => ({ ...m, projectName: projectsMap.get(m.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641" }));
+    const allTransportation = transportationResult.map((t) => ({ ...t, projectName: projectsMap.get(t.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641" }));
+    const allWorkerTransfers = workerTransfersResult.map((w) => ({ ...w, projectName: projectsMap.get(w.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641" }));
+    const allMiscExpenses = miscExpensesResult.map((m) => ({ ...m, projectName: projectsMap.get(m.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641" }));
     const responseData = {
+      // البيانات المجمعة حسب (المشروع + التاريخ) - الجديدة
+      groupedByProjectDate,
+      cardsCount: groupedByProjectDate.length,
+      // الإجماليات العامة
       projectName: "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639",
-      totalIncome,
-      totalExpenses,
-      remainingBalance: parseFloat(remainingBalance.toFixed(2)),
-      fundTransfers: enrichedFundTransfers,
-      workerAttendance: enrichedAttendance,
-      materialPurchases: enrichedMaterials,
-      transportationExpenses: enrichedTransportation,
-      workerTransfers: enrichedWorkerTransfers,
-      miscExpenses: enrichedMiscExpenses,
+      totalIncome: overallTotalIncome,
+      totalExpenses: overallTotalExpenses,
+      remainingBalance: parseFloat(overallRemainingBalance.toFixed(2)),
+      // البيانات المسطحة (للتوافق مع الكود القديم)
+      fundTransfers: allFundTransfers,
+      workerAttendance: allWorkerAttendance,
+      materialPurchases: allMaterialPurchases,
+      transportationExpenses: allTransportation,
+      workerTransfers: allWorkerTransfers,
+      miscExpenses: allMiscExpenses,
       counts: {
         fundTransfers: fundTransfersResult.length,
         workerAttendance: workerAttendanceResult.length,
@@ -7184,11 +7261,11 @@ projectRouter.get("/all-projects-expenses", async (req, res) => {
       }
     };
     const duration = Date.now() - startTime;
-    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0646 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0646 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0628\u0646\u062C\u0627\u062D (${groupedByProjectDate.length} \u0628\u0637\u0627\u0642\u0629) \u0641\u064A ${duration}ms`);
     res.json({
       success: true,
       data: responseData,
-      message: `\u062A\u0645 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0646 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0628\u0646\u062C\u0627\u062D`,
+      message: `\u062A\u0645 \u062C\u0644\u0628 ${groupedByProjectDate.length} \u0628\u0637\u0627\u0642\u0629 \u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0628\u0646\u062C\u0627\u062D`,
       processingTime: duration
     });
   } catch (error) {

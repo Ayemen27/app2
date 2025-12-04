@@ -258,7 +258,7 @@ var init_schema = __esm({
     });
     fundTransfers = pgTable("fund_transfers", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      projectId: varchar("project_id").notNull().references(() => projects.id),
+      projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
       amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
       senderName: text("sender_name"),
       // اسم المرسل
@@ -272,8 +272,8 @@ var init_schema = __esm({
     });
     workerAttendance = pgTable("worker_attendance", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      projectId: varchar("project_id").notNull().references(() => projects.id),
-      workerId: varchar("worker_id").notNull().references(() => workers.id),
+      projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+      workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
       attendanceDate: text("attendance_date").notNull(),
       // YYYY-MM-DD format
       date: text("date"),
@@ -337,8 +337,8 @@ var init_schema = __esm({
     });
     materialPurchases = pgTable("material_purchases", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      projectId: varchar("project_id").notNull().references(() => projects.id),
-      supplierId: varchar("supplier_id").references(() => suppliers.id),
+      projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+      supplierId: varchar("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
       // ربط بالمورد
       materialName: text("material_name").notNull(),
       // اسم المادة بدلاً من materialId
@@ -375,9 +375,9 @@ var init_schema = __esm({
     });
     supplierPayments = pgTable("supplier_payments", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      supplierId: varchar("supplier_id").notNull().references(() => suppliers.id),
-      projectId: varchar("project_id").notNull().references(() => projects.id),
-      purchaseId: varchar("purchase_id").references(() => materialPurchases.id),
+      supplierId: varchar("supplier_id").notNull().references(() => suppliers.id, { onDelete: "cascade" }),
+      projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+      purchaseId: varchar("purchase_id").references(() => materialPurchases.id, { onDelete: "set null" }),
       // ربط بفاتورة محددة
       amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
       paymentMethod: text("payment_method").notNull().default("\u0646\u0642\u062F"),
@@ -391,8 +391,8 @@ var init_schema = __esm({
     });
     transportationExpenses = pgTable("transportation_expenses", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      projectId: varchar("project_id").notNull().references(() => projects.id),
-      workerId: varchar("worker_id").references(() => workers.id),
+      projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+      workerId: varchar("worker_id").references(() => workers.id, { onDelete: "set null" }),
       // optional, for worker-specific transport
       amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
       description: text("description").notNull(),
@@ -403,8 +403,8 @@ var init_schema = __esm({
     });
     workerTransfers = pgTable("worker_transfers", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      workerId: varchar("worker_id").notNull().references(() => workers.id),
-      projectId: varchar("project_id").notNull().references(() => projects.id),
+      workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+      projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
       amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
       transferNumber: text("transfer_number"),
       // رقم الحوالة
@@ -423,8 +423,8 @@ var init_schema = __esm({
     });
     workerBalances = pgTable("worker_balances", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      workerId: varchar("worker_id").notNull().references(() => workers.id),
-      projectId: varchar("project_id").notNull().references(() => projects.id),
+      workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+      projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
       totalEarned: decimal("total_earned", { precision: 10, scale: 2 }).default("0").notNull(),
       // إجمالي المكتسب
       totalPaid: decimal("total_paid", { precision: 10, scale: 2 }).default("0").notNull(),
@@ -438,7 +438,7 @@ var init_schema = __esm({
     });
     dailyExpenseSummaries = pgTable("daily_expense_summaries", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      projectId: varchar("project_id").notNull().references(() => projects.id),
+      projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
       date: text("date").notNull(),
       // YYYY-MM-DD format
       carriedForwardAmount: decimal("carried_forward_amount", { precision: 10, scale: 2 }).default("0").notNull(),
@@ -535,8 +535,8 @@ var init_schema = __esm({
     });
     projectFundTransfers = pgTable("project_fund_transfers", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      fromProjectId: varchar("from_project_id").notNull().references(() => projects.id),
-      toProjectId: varchar("to_project_id").notNull().references(() => projects.id),
+      fromProjectId: varchar("from_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+      toProjectId: varchar("to_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
       amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
       description: text("description"),
       // وصف الترحيل
@@ -7524,11 +7524,133 @@ projectRouter.patch("/:id", async (req, res) => {
     });
   }
 });
+projectRouter.get("/:id/deletion-stats", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const projectId = req.params.id;
+    const user = req.user;
+    console.log("\u{1F4CA} [API] \u0637\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u062D\u0630\u0641 \u0644\u0644\u0645\u0634\u0631\u0648\u0639:", projectId);
+    console.log("\u{1F464} [API] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", user?.email, "\u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629:", user?.role);
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0637\u0644\u0648\u0628",
+        processingTime: Date.now() - startTime
+      });
+    }
+    const existingProject = await db.select().from(projects).where(eq7(projects.id, projectId)).limit(1);
+    if (existingProject.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "\u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+        message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0634\u0631\u0648\u0639 \u0628\u0627\u0644\u0645\u0639\u0631\u0641: ${projectId}`,
+        processingTime: Date.now() - startTime
+      });
+    }
+    const project = existingProject[0];
+    const isAdmin = user?.role === "admin";
+    const isOwner = project.engineerId === user?.id;
+    if (!isAdmin && !isOwner) {
+      const duration2 = Date.now() - startTime;
+      console.warn("\u{1F6AB} [API] \u0631\u0641\u0636 \u0627\u0644\u0648\u0635\u0648\u0644 - \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0644\u064A\u0633 \u0645\u0633\u0624\u0648\u0644 \u0623\u0648 \u0645\u0627\u0644\u0643:", { userId: user?.id, projectOwner: project.engineerId });
+      return res.status(403).json({
+        success: false,
+        error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D",
+        message: "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u0639\u0631\u0636 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u062D\u0630\u0641 \u0645\u0634\u0631\u0648\u0639 \u0644\u0645 \u062A\u0642\u0645 \u0628\u0625\u0646\u0634\u0627\u0626\u0647",
+        processingTime: duration2
+      });
+    }
+    const [
+      fundTransfersCount,
+      workerAttendanceCount,
+      materialPurchasesCount,
+      transportationExpensesCount,
+      workerTransfersCount,
+      workerMiscExpensesCount,
+      dailySummariesCount,
+      projectTransfersFromCount,
+      projectTransfersToCount,
+      workerBalancesCount,
+      supplierPaymentsCount
+    ] = await Promise.all([
+      db.select({ count: sql5`count(*)` }).from(fundTransfers).where(eq7(fundTransfers.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(workerAttendance).where(eq7(workerAttendance.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(materialPurchases).where(eq7(materialPurchases.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(transportationExpenses).where(eq7(transportationExpenses.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(workerTransfers).where(eq7(workerTransfers.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(workerMiscExpenses).where(eq7(workerMiscExpenses.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(dailyExpenseSummaries).where(eq7(dailyExpenseSummaries.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(projectFundTransfers).where(eq7(projectFundTransfers.fromProjectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(projectFundTransfers).where(eq7(projectFundTransfers.toProjectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(workerBalances).where(eq7(workerBalances.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(supplierPayments).where(eq7(supplierPayments.projectId, projectId))
+    ]);
+    const stats = {
+      fundTransfers: Number(fundTransfersCount[0]?.count || 0),
+      workerAttendance: Number(workerAttendanceCount[0]?.count || 0),
+      materialPurchases: Number(materialPurchasesCount[0]?.count || 0),
+      transportationExpenses: Number(transportationExpensesCount[0]?.count || 0),
+      workerTransfers: Number(workerTransfersCount[0]?.count || 0),
+      workerMiscExpenses: Number(workerMiscExpensesCount[0]?.count || 0),
+      dailySummaries: Number(dailySummariesCount[0]?.count || 0),
+      projectTransfersFrom: Number(projectTransfersFromCount[0]?.count || 0),
+      projectTransfersTo: Number(projectTransfersToCount[0]?.count || 0),
+      workerBalances: Number(workerBalancesCount[0]?.count || 0),
+      supplierPayments: Number(supplierPaymentsCount[0]?.count || 0)
+    };
+    const totalLinkedRecords = Object.values(stats).reduce((sum, count) => sum + count, 0);
+    const hasLinkedData = totalLinkedRecords > 0;
+    let canDelete = false;
+    let deleteBlockReason = "";
+    if (isAdmin) {
+      canDelete = true;
+    } else if (isOwner && !hasLinkedData) {
+      canDelete = true;
+    } else if (!isOwner) {
+      deleteBlockReason = "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u062D\u0630\u0641 \u0645\u0634\u0631\u0648\u0639 \u0644\u0645 \u062A\u0642\u0645 \u0628\u0625\u0646\u0634\u0627\u0626\u0647";
+    } else if (hasLinkedData) {
+      deleteBlockReason = "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u062D\u0630\u0641 \u0645\u0634\u0631\u0648\u0639 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0631\u062A\u0628\u0637\u0629 - \u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u0645\u0633\u0624\u0648\u0644";
+    }
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u062D\u0630\u0641 \u0641\u064A ${duration}ms:`, { totalLinkedRecords, canDelete });
+    res.json({
+      success: true,
+      data: {
+        project: {
+          id: project.id,
+          name: project.name,
+          status: project.status,
+          engineerId: project.engineerId
+        },
+        stats,
+        totalLinkedRecords,
+        hasLinkedData,
+        canDelete,
+        deleteBlockReason,
+        userRole: user?.role || "user",
+        isOwner
+      },
+      message: canDelete ? `\u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 "${project.name}" - \u0633\u064A\u062A\u0645 \u062D\u0630\u0641 ${totalLinkedRecords} \u0633\u062C\u0644 \u0645\u0631\u062A\u0628\u0637` : deleteBlockReason,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u062D\u0630\u0641:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u062D\u0630\u0641",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 projectRouter.delete("/:id", async (req, res) => {
   const startTime = Date.now();
   try {
     const projectId = req.params.id;
-    console.log("\u274C [API] \u0637\u0644\u0628 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
+    const user = req.user;
+    const { confirmDeletion } = req.body || {};
+    console.log("\u274C [API] \u0637\u0644\u0628 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", user?.email, "\u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629:", user?.role);
     console.log("\u{1F4CB} [API] ID \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0627\u0644\u0645\u0631\u0627\u062F \u062D\u0630\u0641\u0647:", projectId);
     if (!projectId) {
       const duration2 = Date.now() - startTime;
@@ -7551,10 +7673,72 @@ projectRouter.delete("/:id", async (req, res) => {
       });
     }
     const projectToDelete = existingProject[0];
+    const isAdmin = user?.role === "admin";
+    const isOwner = projectToDelete.engineerId === user?.id;
+    if (!isAdmin && !isOwner) {
+      const duration2 = Date.now() - startTime;
+      console.error("\u274C [API] \u0645\u062D\u0627\u0648\u0644\u0629 \u062D\u0630\u0641 \u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u063A\u064A\u0631 \u0645\u0627\u0644\u0643\u0647:", { userId: user?.id, projectOwner: projectToDelete.engineerId });
+      return res.status(403).json({
+        success: false,
+        error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D",
+        message: "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u062D\u0630\u0641 \u0645\u0634\u0631\u0648\u0639 \u0644\u0645 \u062A\u0642\u0645 \u0628\u0625\u0646\u0634\u0627\u0626\u0647",
+        processingTime: duration2
+      });
+    }
+    const [
+      ftCount,
+      waCount,
+      mpCount,
+      teCount,
+      wtCount,
+      wmCount,
+      dsCount,
+      ptFromCount,
+      ptToCount,
+      wbCount,
+      spCount
+    ] = await Promise.all([
+      db.select({ count: sql5`count(*)` }).from(fundTransfers).where(eq7(fundTransfers.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(workerAttendance).where(eq7(workerAttendance.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(materialPurchases).where(eq7(materialPurchases.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(transportationExpenses).where(eq7(transportationExpenses.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(workerTransfers).where(eq7(workerTransfers.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(workerMiscExpenses).where(eq7(workerMiscExpenses.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(dailyExpenseSummaries).where(eq7(dailyExpenseSummaries.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(projectFundTransfers).where(eq7(projectFundTransfers.fromProjectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(projectFundTransfers).where(eq7(projectFundTransfers.toProjectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(workerBalances).where(eq7(workerBalances.projectId, projectId)),
+      db.select({ count: sql5`count(*)` }).from(supplierPayments).where(eq7(supplierPayments.projectId, projectId))
+    ]);
+    const totalLinked = Number(ftCount[0]?.count || 0) + Number(waCount[0]?.count || 0) + Number(mpCount[0]?.count || 0) + Number(teCount[0]?.count || 0) + Number(wtCount[0]?.count || 0) + Number(wmCount[0]?.count || 0) + Number(dsCount[0]?.count || 0) + Number(ptFromCount[0]?.count || 0) + Number(ptToCount[0]?.count || 0) + Number(wbCount[0]?.count || 0) + Number(spCount[0]?.count || 0);
+    const hasLinkedData = totalLinked > 0;
+    if (!isAdmin && hasLinkedData) {
+      const duration2 = Date.now() - startTime;
+      console.error("\u274C [API] \u0645\u062D\u0627\u0648\u0644\u0629 \u062D\u0630\u0641 \u0645\u0634\u0631\u0648\u0639 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0646 \u0645\u0633\u062A\u062E\u062F\u0645 \u0639\u0627\u062F\u064A:", { totalLinked });
+      return res.status(403).json({
+        success: false,
+        error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D",
+        message: `\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u062D\u0630\u0641 \u0645\u0634\u0631\u0648\u0639 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${totalLinked} \u0633\u062C\u0644 \u0645\u0631\u062A\u0628\u0637 - \u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u0645\u0633\u0624\u0648\u0644`,
+        processingTime: duration2
+      });
+    }
+    if (isAdmin && hasLinkedData && !confirmDeletion) {
+      const duration2 = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: "\u062A\u0623\u0643\u064A\u062F \u0627\u0644\u062D\u0630\u0641 \u0645\u0637\u0644\u0648\u0628",
+        message: `\u064A\u0631\u062C\u0649 \u062A\u0623\u0643\u064A\u062F \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0639 ${totalLinked} \u0633\u062C\u0644 \u0645\u0631\u062A\u0628\u0637`,
+        requireConfirmation: true,
+        totalLinkedRecords: totalLinked,
+        processingTime: duration2
+      });
+    }
     console.log("\u{1F5D1}\uFE0F [API] \u0633\u064A\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", {
       id: projectToDelete.id,
       name: projectToDelete.name,
-      status: projectToDelete.status
+      status: projectToDelete.status,
+      deletedBy: user?.email,
+      isAdmin
     });
     console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
     const deletedProject = await db.delete(projects).where(eq7(projects.id, projectId)).returning();
@@ -7562,12 +7746,13 @@ projectRouter.delete("/:id", async (req, res) => {
     console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
       id: deletedProject[0].id,
       name: deletedProject[0].name,
-      status: deletedProject[0].status
+      status: deletedProject[0].status,
+      deletedBy: user?.email
     });
     res.json({
       success: true,
       data: deletedProject[0],
-      message: `\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 "${deletedProject[0].name}" \u0628\u0646\u062C\u0627\u062D`,
+      message: `\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 "${deletedProject[0].name}" \u0648\u062C\u0645\u064A\u0639 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0646\u062C\u0627\u062D`,
       processingTime: duration
     });
   } catch (error) {

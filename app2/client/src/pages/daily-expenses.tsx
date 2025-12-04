@@ -881,10 +881,10 @@ function DailyExpensesContent() {
 
   const handleAddFundTransfer = () => {
     // التحقق من البيانات المطلوبة
-    if (!selectedProjectId) {
+    if (!selectedProjectId || isAllProjects) {
       toast({
-        title: "خطأ",
-        description: "يرجى اختيار المشروع أولاً",
+        title: "يرجى تحديد مشروع",
+        description: "لا يمكن إضافة تحويل عهدة على جميع المشاريع. يرجى اختيار مشروع محدد من الشريط العلوي أولاً",
         variant: "destructive",
       });
       return;
@@ -972,7 +972,16 @@ function DailyExpensesContent() {
   };
 
   const handleAddTransportation = () => {
-    if (!selectedProjectId || !transportDescription || !transportAmount) {
+    if (!selectedProjectId || isAllProjects) {
+      toast({
+        title: "يرجى تحديد مشروع",
+        description: "لا يمكن إضافة مصروف مواصلات على جميع المشاريع. يرجى اختيار مشروع محدد من الشريط العلوي أولاً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!transportDescription || !transportAmount) {
       toast({
         title: "خطأ",
         description: "يرجى ملء جميع البيانات المطلوبة",

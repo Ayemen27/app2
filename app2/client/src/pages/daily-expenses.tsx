@@ -1285,7 +1285,7 @@ function DailyExpensesContent() {
       items: [
         {
           key: 'workerTransfers',
-          label: 'حوالات العمال',
+          label: 'الحوالات',
           value: formatCurrency(totals.totalWorkerTransfers),
           icon: Send,
           color: 'indigo',

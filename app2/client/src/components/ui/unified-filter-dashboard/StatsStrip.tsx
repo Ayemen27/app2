@@ -76,13 +76,13 @@ function StatCard({ item }: { item: StatItem }) {
 
   const formattedValue = cleanValue(item.value);
 
-  const getValueSizeClass = (text: string) => {
+  const getValueFontSize = (text: string) => {
     const len = text.length;
-    if (len <= 3) return 'text-xl';
-    if (len <= 5) return 'text-lg';
-    if (len <= 8) return 'text-base';
-    if (len <= 12) return 'text-sm';
-    return 'text-xs';
+    if (len <= 4) return '1.25rem';
+    if (len <= 7) return '1.1rem';
+    if (len <= 10) return '0.95rem';
+    if (len <= 13) return '0.85rem';
+    return '0.75rem';
   };
 
   return (
@@ -97,12 +97,12 @@ function StatCard({ item }: { item: StatItem }) {
       onClick={item.onClick}
     >
       {/* Header: Title + Icon in same row */}
-      <div className="flex items-center justify-between gap-1.5 mb-1">
-        <span className="text-sm font-bold text-muted-foreground flex-1">
+      <div className="flex items-center justify-between gap-1 mb-1">
+        <span className="text-xs font-bold text-muted-foreground truncate flex-1">
           {item.label}
         </span>
-        <div className={cn('p-1 rounded-md', colors.bg)}>
-          <Icon className={cn('h-4 w-4', colors.icon)} />
+        <div className={cn('p-1 rounded-md flex-shrink-0', colors.bg)}>
+          <Icon className={cn('h-3.5 w-3.5', colors.icon)} />
         </div>
       </div>
 
@@ -115,12 +115,9 @@ function StatCard({ item }: { item: StatItem }) {
 
       {/* Value section */}
       <div className="flex flex-col items-center justify-center text-center">
-        <span className={cn(
-          'font-extrabold arabic-numbers leading-tight',
-          getValueSizeClass(formattedValue),
-          colors.text
-        )}
-        style={{ fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}
+        <span 
+          className={cn('font-bold arabic-numbers leading-none whitespace-nowrap', colors.text)}
+          style={{ fontSize: getValueFontSize(formattedValue) }}
         >
           {formattedValue}
         </span>
@@ -130,7 +127,7 @@ function StatCard({ item }: { item: StatItem }) {
         )}
 
         {item.subLabel && (
-          <span className="text-[10px] text-muted-foreground/70 line-clamp-1 mt-1">
+          <span className="text-[10px] text-muted-foreground/70 truncate w-full mt-1">
             {item.subLabel}
           </span>
         )}

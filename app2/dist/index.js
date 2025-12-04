@@ -7089,6 +7089,119 @@ projectRouter.get("/with-stats", async (req, res) => {
     });
   }
 });
+projectRouter.get("/all-projects-expenses", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { date: date2 } = req.query;
+    console.log(`\u{1F4CA} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0646 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639`, { date: date2 });
+    const [
+      fundTransfersResult,
+      workerAttendanceResult,
+      materialPurchasesResult,
+      transportationResult,
+      workerTransfersResult,
+      miscExpensesResult,
+      projectsList
+    ] = await Promise.all([
+      date2 ? db.select().from(fundTransfers).where(sql5`DATE(${fundTransfers.transferDate}) = ${date2}`).orderBy(desc4(fundTransfers.transferDate)) : db.select().from(fundTransfers).orderBy(desc4(fundTransfers.transferDate)),
+      date2 ? db.select({
+        id: workerAttendance.id,
+        workerId: workerAttendance.workerId,
+        projectId: workerAttendance.projectId,
+        date: workerAttendance.date,
+        paidAmount: workerAttendance.paidAmount,
+        actualWage: workerAttendance.actualWage,
+        workDays: workerAttendance.workDays,
+        workerName: workers.name
+      }).from(workerAttendance).leftJoin(workers, eq7(workerAttendance.workerId, workers.id)).where(eq7(workerAttendance.date, date2)).orderBy(desc4(workerAttendance.date)) : db.select({
+        id: workerAttendance.id,
+        workerId: workerAttendance.workerId,
+        projectId: workerAttendance.projectId,
+        date: workerAttendance.date,
+        paidAmount: workerAttendance.paidAmount,
+        actualWage: workerAttendance.actualWage,
+        workDays: workerAttendance.workDays,
+        workerName: workers.name
+      }).from(workerAttendance).leftJoin(workers, eq7(workerAttendance.workerId, workers.id)).orderBy(desc4(workerAttendance.date)),
+      date2 ? db.select().from(materialPurchases).where(eq7(materialPurchases.purchaseDate, date2)).orderBy(desc4(materialPurchases.purchaseDate)) : db.select().from(materialPurchases).orderBy(desc4(materialPurchases.purchaseDate)),
+      date2 ? db.select().from(transportationExpenses).where(eq7(transportationExpenses.date, date2)).orderBy(desc4(transportationExpenses.date)) : db.select().from(transportationExpenses).orderBy(desc4(transportationExpenses.date)),
+      date2 ? db.select().from(workerTransfers).where(sql5`DATE(${workerTransfers.transferDate}) = ${date2}`).orderBy(desc4(workerTransfers.transferDate)) : db.select().from(workerTransfers).orderBy(desc4(workerTransfers.transferDate)),
+      date2 ? db.select().from(workerMiscExpenses).where(eq7(workerMiscExpenses.date, date2)).orderBy(desc4(workerMiscExpenses.date)) : db.select().from(workerMiscExpenses).orderBy(desc4(workerMiscExpenses.date)),
+      db.select().from(projects)
+    ]);
+    const projectsMap = new Map(projectsList.map((p) => [p.id, p.name]));
+    const enrichedFundTransfers = fundTransfersResult.map((t) => ({
+      ...t,
+      projectName: projectsMap.get(t.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
+    }));
+    const enrichedAttendance = workerAttendanceResult.map((a) => ({
+      ...a,
+      projectName: projectsMap.get(a.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
+    }));
+    const enrichedMaterials = materialPurchasesResult.map((m) => ({
+      ...m,
+      projectName: projectsMap.get(m.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
+    }));
+    const enrichedTransportation = transportationResult.map((t) => ({
+      ...t,
+      projectName: projectsMap.get(t.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
+    }));
+    const enrichedWorkerTransfers = workerTransfersResult.map((w) => ({
+      ...w,
+      projectName: projectsMap.get(w.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
+    }));
+    const enrichedMiscExpenses = miscExpensesResult.map((m) => ({
+      ...m,
+      projectName: projectsMap.get(m.projectId) || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"
+    }));
+    const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
+    const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
+    const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
+    const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
+    const totalIncome = totalFundTransfers;
+    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
+    const remainingBalance = totalIncome - totalExpenses;
+    const responseData = {
+      projectName: "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639",
+      totalIncome,
+      totalExpenses,
+      remainingBalance: parseFloat(remainingBalance.toFixed(2)),
+      fundTransfers: enrichedFundTransfers,
+      workerAttendance: enrichedAttendance,
+      materialPurchases: enrichedMaterials,
+      transportationExpenses: enrichedTransportation,
+      workerTransfers: enrichedWorkerTransfers,
+      miscExpenses: enrichedMiscExpenses,
+      counts: {
+        fundTransfers: fundTransfersResult.length,
+        workerAttendance: workerAttendanceResult.length,
+        materialPurchases: materialPurchasesResult.length,
+        transportationExpenses: transportationResult.length,
+        workerTransfers: workerTransfersResult.length,
+        miscExpenses: miscExpensesResult.length
+      }
+    };
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0646 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
+    res.json({
+      success: true,
+      data: responseData,
+      message: `\u062A\u0645 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0646 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0628\u0646\u062C\u0627\u062D`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0646 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 projectRouter.post("/", async (req, res) => {
   const startTime = Date.now();
   try {

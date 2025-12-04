@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface StatsCardProps {
   title?: string;
@@ -148,7 +149,7 @@ export function StatsCard({
     // 4. فحص الأنماط المشبوهة الإضافية
     const suspiciousPatterns = [
       /^(\d{2,3})\1{3,}$/, // تكرار مجموعات أرقام
-      /^0+[1-9]0*\1+$/, // أصفار مع تكرار
+      /^0+[1-9]0+$/, // أصفار مع رقم في المنتصف
       /^(123|234|345|456|567|678|789|012|098|987|876|765|654|543|432|321){3,}$/ // تسلسلات متكررة
     ];
     
@@ -191,6 +192,24 @@ export function StatsCard({
   
   const displayValue = cleanValue();
   
+  const needsTooltip = displayLabel.length > 15;
+
+  const LabelWithTooltip = ({ children }: { children: React.ReactNode }) => {
+    if (!needsTooltip) return <>{children}</>;
+    return (
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {children}
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[200px] text-center">
+            <p className="text-xs">{displayLabel}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   // إذا كانت هناك خصائص مخصصة (gradient, iconBg, iconColor) استخدمها
   if (gradient || iconBg || iconColor) {
     return (
@@ -199,28 +218,68 @@ export function StatsCard({
           <Icon className={cn("h-4 w-4 md:h-5 md:w-5", iconColor)} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-slate-600 dark:text-slate-400 line-clamp-1">{displayLabel}</p>
-          <p className="text-sm md:text-base font-bold text-slate-900 dark:text-white leading-tight">{displayValue}</p>
+          <LabelWithTooltip>
+            <p 
+              className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-snug break-words"
+              style={{ 
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                wordBreak: 'break-word'
+              }}
+              title={displayLabel}
+            >
+              {displayLabel}
+            </p>
+          </LabelWithTooltip>
+          <p 
+            className="text-sm md:text-base font-bold text-slate-900 dark:text-white leading-tight break-words"
+            style={{ fontSize: 'clamp(0.85rem, 2.5vw, 1rem)' }}
+          >
+            {displayValue}
+          </p>
         </div>
       </div>
     );
   }
   
-  // الاستايل الافتراضي القديم
+  // الاستايل الافتراضي المحسن - يتكيف مع المحتوى
   return (
-    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-105 min-h-20`}>
-      <CardContent className="p-2 py-2 flex flex-col justify-center h-full">
-        <div className="space-y-1.5 flex flex-col items-center text-center">
+    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] min-h-[72px]`}>
+      <CardContent className="p-2 sm:p-3 flex flex-col justify-center h-full">
+        <div className="flex flex-col items-center text-center gap-1">
           {/* Title and Icon in one row */}
-          <div className="flex items-center justify-center gap-1.5">
-            <p className="text-[11px] font-medium text-muted-foreground leading-none line-clamp-2 flex-1">{displayLabel}</p>
-            <div className={`h-4 w-4 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
-              <Icon className={`h-2 w-2 ${colors.iconColor}`} />
+          <div className="flex items-center justify-center gap-1.5 w-full min-w-0">
+            <LabelWithTooltip>
+              <p 
+                className="text-[10px] sm:text-[11px] font-medium text-muted-foreground leading-tight break-words flex-1 min-w-0"
+                style={{ 
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  wordBreak: 'break-word',
+                  textWrap: 'balance'
+                }}
+                title={displayLabel}
+              >
+                {displayLabel}
+              </p>
+            </LabelWithTooltip>
+            <div className={`h-4 w-4 sm:h-5 sm:w-5 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
+              <Icon className={`h-2 w-2 sm:h-2.5 sm:w-2.5 ${colors.iconColor}`} />
             </div>
           </div>
           
-          {/* Value centered */}
-          <p className={`text-base font-bold ${colors.text} leading-none break-words`}>
+          {/* Value centered - متكيف مع حجم المحتوى */}
+          <p 
+            className={`font-bold ${colors.text} leading-tight break-words w-full`}
+            style={{ 
+              fontSize: 'clamp(0.875rem, 3vw, 1.125rem)',
+              wordBreak: 'break-word'
+            }}
+          >
             {displayValue}
           </p>
         </div>

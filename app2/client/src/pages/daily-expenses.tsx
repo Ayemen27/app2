@@ -1692,7 +1692,7 @@ function DailyExpensesContent() {
               </div>
             </div>
 
-              {/* Transportation Input Section */}
+              {/* Transportation Input Section + Display */}
               <div className="border-t pt-3 mt-3">
                 <h4 className="font-medium text-foreground flex items-center mb-2">
                   <Car className="text-secondary ml-2 h-5 w-5" />
@@ -1743,37 +1743,328 @@ function DailyExpensesContent() {
                     )}
                   </div>
                 </div>
+                
+                {/* Transportation Display - يظهر فقط عند وجود بيانات */}
+                {safeTransportation.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {safeTransportation.map((expense, index) => (
+                      <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
+                        <span className="text-sm flex-1">{expense.description}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium arabic-numbers">{formatCurrency(expense.amount)}</span>
+                          <div className="flex gap-1">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => handleEditTransportation(expense)}
+                              data-testid="button-edit-transportation"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => deleteTransportationMutation.mutate(expense.id)}
+                              disabled={deleteTransportationMutation.isPending}
+                              data-testid="button-delete-transportation"
+                            >
+                              {deleteTransportationMutation.isPending ? (
+                                <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                              ) : (
+                                <Trash2 className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="text-left mt-2 pt-2 border-t">
+                      <span className="text-sm text-muted-foreground">إجمالي النقل: </span>
+                      <span className="font-bold text-secondary arabic-numbers">
+                        {formatCurrency(totals.totalTransportation)}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Quick Add Buttons Section */}
-              <div className="border-t pt-3 mt-3">
-                <h4 className="font-medium text-foreground mb-3">روابط الإضافة السريعة</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setLocation("/material-purchase")}
-                    className="border-2 border-dashed border-green-300 text-green-600 hover:bg-green-50"
-                  >
-                    <Package className="ml-2 h-4 w-4" />
-                    إضافة شراء مواد
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setLocation("/worker-accounts")}
-                    className="border-2 border-dashed border-yellow-300 text-yellow-600 hover:bg-yellow-50"
-                  >
-                    <DollarSign className="ml-2 h-4 w-4" />
-                    إرسال حولة عامل
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setLocation("/project-transfers")}
-                    className="border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 col-span-2"
-                  >
-                    <ArrowLeftRight className="ml-2 h-4 w-4" />
-                    إدارة ترحيل الأموال
-                  </Button>
+              {/* أجور العمال - يظهر فقط عند وجود بيانات */}
+              {safeAttendance.length > 0 && (
+                <div className="border-t pt-3 mt-3">
+                  <h4 className="font-medium text-foreground flex items-center">
+                    <Users className="text-primary ml-2 h-5 w-5" />
+                    أجور العمال
+                  </h4>
+                  <div className="space-y-2 mt-2">
+                    {safeAttendance.map((attendance, index) => {
+                      const worker = workers.find(w => w.id === attendance.workerId);
+                      return (
+                        <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
+                          <span className="text-sm">{worker?.name || `عامل ${index + 1}`}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium arabic-numbers">{formatCurrency(attendance.paidAmount)}</span>
+                            <div className="flex gap-1">
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                onClick={() => {
+                                  setLocation(`/worker-attendance?edit=${attendance.id}&worker=${attendance.workerId}&date=${selectedDate}`);
+                                }}
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => deleteWorkerAttendanceMutation.mutate(attendance.id)}
+                                disabled={deleteWorkerAttendanceMutation.isPending}
+                                data-testid="button-delete-worker-attendance"
+                              >
+                                {deleteWorkerAttendanceMutation.isPending ? (
+                                  <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="text-left mt-2 pt-2 border-t">
+                      <span className="text-sm text-muted-foreground">إجمالي أجور العمال: </span>
+                      <span className="font-bold text-primary arabic-numbers">
+                        {formatCurrency(totals.totalWorkerWages)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
+              )}
+
+              {/* شراء مواد - الزر + العرض */}
+              <div className="border-t pt-3 mt-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setLocation("/material-purchase")}
+                  className="w-full border-2 border-dashed border-green-300 text-green-600 hover:bg-green-50"
+                >
+                  <Package className="ml-2 h-4 w-4" />
+                  إضافة شراء مواد
+                </Button>
+                
+                {/* Materials Display - يظهر فقط عند وجود بيانات */}
+                {safeMaterialPurchases.length > 0 && (
+                  <div className="space-y-2 mt-3">
+                    {safeMaterialPurchases.map((purchase, index) => {
+                      const materialName = purchase.materialName || purchase.material?.name || 'مادة غير محددة';
+                      const materialUnit = purchase.materialUnit || purchase.unit || purchase.material?.unit || 'وحدة';
+                      const materialCategory = purchase.materialCategory || purchase.material?.category;
+                      
+                      return (
+                        <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
+                          <div className="text-sm flex-1">
+                            <div className="font-medium">{materialName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {purchase.quantity} {materialUnit} × {formatCurrency(purchase.unitPrice)}
+                            </div>
+                            {purchase.supplierName && (
+                              <div className="text-xs text-muted-foreground">المورد: {purchase.supplierName}</div>
+                            )}
+                            {purchase.purchaseType && (
+                              <div className={`text-xs font-medium ${purchase.purchaseType === 'آجل' ? 'text-orange-600' : 'text-green-600'}`}>
+                                {purchase.purchaseType === 'آجل' ? '⏰ آجل' : '💵 نقد'}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-medium arabic-numbers ${purchase.purchaseType === 'آجل' ? 'text-orange-600' : 'text-green-600'}`}>
+                              {formatCurrency(purchase.totalAmount)}
+                            </span>
+                            <div className="flex gap-1">
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                onClick={() => setLocation(`/material-purchase?edit=${purchase.id}`)}
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => deleteMaterialPurchaseMutation.mutate(purchase.id)}
+                                disabled={deleteMaterialPurchaseMutation.isPending}
+                              >
+                                {deleteMaterialPurchaseMutation.isPending ? (
+                                  <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="text-left mt-2 pt-2 border-t space-y-1">
+                      <div>
+                        <span className="text-sm text-muted-foreground">المشتريات النقدية: </span>
+                        <span className="font-bold text-success arabic-numbers">
+                          {formatCurrency(totals.totalMaterialCosts)}
+                        </span>
+                      </div>
+                      {(() => {
+                        const deferredAmount = Array.isArray(todayMaterialPurchases) ? 
+                          todayMaterialPurchases
+                            .filter(purchase => purchase.purchaseType === "آجل")
+                            .reduce((sum, purchase) => sum + parseFloat(purchase.totalAmount || "0"), 0) : 0;
+                        return deferredAmount > 0 ? (
+                          <div>
+                            <span className="text-sm text-muted-foreground">المشتريات الآجلة: </span>
+                            <span className="font-bold text-orange-600 arabic-numbers">
+                              {formatCurrency(deferredAmount)}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* إرسال حولة عامل - الزر + العرض */}
+              <div className="border-t pt-3 mt-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setLocation("/worker-accounts")}
+                  className="w-full border-2 border-dashed border-yellow-300 text-yellow-600 hover:bg-yellow-50"
+                >
+                  <DollarSign className="ml-2 h-4 w-4" />
+                  إرسال حولة عامل
+                </Button>
+                
+                {/* Worker Transfers Display - يظهر فقط عند وجود بيانات */}
+                {safeWorkerTransfers.length > 0 && (
+                  <div className="space-y-2 mt-3">
+                    {safeWorkerTransfers.map((transfer, index) => {
+                      const worker = workers.find(w => w.id === transfer.workerId);
+                      return (
+                        <div key={index} className="flex justify-between items-center p-3 bg-muted rounded border-r-4 border-warning">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-foreground">
+                                {worker?.name || 'عامل غير معروف'}
+                              </span>
+                              <span className="font-bold text-warning arabic-numbers">{formatCurrency(transfer.amount)}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              <span>المستلم: {transfer.recipientName}</span>
+                              {transfer.recipientPhone && (
+                                <span className="mr-3">الهاتف: {transfer.recipientPhone}</span>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              طريقة التحويل: {transfer.transferMethod === "hawaleh" ? "حولة" : transfer.transferMethod === "bank" ? "تحويل بنكي" : "نقداً"}
+                            </div>
+                          </div>
+                          <div className="flex gap-1 mr-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => setLocation(`/worker-accounts?edit=${transfer.id}&worker=${transfer.workerId}`)}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                const isConfirmed = window.confirm('هل أنت متأكد من حذف حوالة العامل؟');
+                                if (isConfirmed) {
+                                  deleteWorkerTransferMutation.mutate(transfer.id);
+                                }
+                              }}
+                              disabled={deleteWorkerTransferMutation.isPending}
+                            >
+                              {deleteWorkerTransferMutation.isPending ? (
+                                <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                              ) : (
+                                <Trash2 className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="text-left mt-2 pt-2 border-t">
+                      <span className="text-sm text-muted-foreground">إجمالي الحوالات: </span>
+                      <span className="font-bold text-warning arabic-numbers">
+                        {formatCurrency(totals.totalWorkerTransfers)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* إدارة ترحيل الأموال - الزر + العرض */}
+              <div className="border-t pt-3 mt-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setLocation("/project-transfers")}
+                  className="w-full border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50"
+                >
+                  <ArrowLeftRight className="ml-2 h-4 w-4" />
+                  إدارة ترحيل الأموال
+                </Button>
+                
+                {/* Project Fund Transfers Display - يظهر فقط عند وجود بيانات */}
+                {safeProjectTransfers.length > 0 && (
+                  <div className="space-y-3 mt-3">
+                    {safeProjectTransfers.map((transfer) => (
+                      <div 
+                        key={transfer.id} 
+                        className={`p-3 rounded border-r-4 ${
+                          transfer.toProjectId === selectedProjectId 
+                            ? 'bg-green-50 border-green-500' 
+                            : 'bg-red-50 border-red-500'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium">
+                                {transfer.toProjectId === selectedProjectId ? (
+                                  <span className="text-green-700">أموال واردة من: {transfer.fromProjectName}</span>
+                                ) : (
+                                  <span className="text-red-700">أموال صادرة إلى: {transfer.toProjectName}</span>
+                                )}
+                              </span>
+                              <span className={`font-bold arabic-numbers ${
+                                transfer.toProjectId === selectedProjectId ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {transfer.toProjectId === selectedProjectId ? '+' : '-'}{formatCurrency(transfer.amount)}
+                              </span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              <div>السبب: {transfer.transferReason || 'ترحيل أموال'}</div>
+                              {transfer.description && (
+                                <div className="mt-1">الوصف: {transfer.description}</div>
+                              )}
+                              <div className="mt-1">التاريخ: {formatDate(transfer.transferDate)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Worker Miscellaneous Expenses */}
@@ -1811,387 +2102,6 @@ function DailyExpensesContent() {
         </CollapsibleContent>
       </Card>
     </Collapsible>
-
-      {/* Worker Wages */}
-      <Card className="mb-3">
-        <CardContent className="p-4">
-          <h4 className="font-medium text-foreground flex items-center">
-            <Users className="text-primary ml-2 h-5 w-5" />
-            أجور العمال
-          </h4>
-          {safeAttendance.length === 0 ? (
-            <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-              <Users className="mx-auto h-8 w-8 text-gray-400" />
-              <p className="text-sm text-gray-600">لا يوجد حضور عمال للتاريخ {selectedDate}</p>
-              <p className="text-xs text-gray-500 mt-1">اذهب إلى صفحة حضور العمال لتسجيل الحضور</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {safeAttendance.map((attendance, index) => {
-                const worker = workers.find(w => w.id === attendance.workerId);
-                return (
-                  <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
-                    <span className="text-sm">{worker?.name || `عامل ${index + 1}`}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium arabic-numbers">{formatCurrency(attendance.paidAmount)}</span>
-                        <div className="flex gap-1">
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            onClick={() => {
-                              // توجيه إلى صفحة حضور العمال مع معرف العامل والتاريخ للتعديل
-                              setLocation(`/worker-attendance?edit=${attendance.id}&worker=${attendance.workerId}&date=${selectedDate}`);
-                            }}
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => deleteWorkerAttendanceMutation.mutate(attendance.id)}
-                            disabled={deleteWorkerAttendanceMutation.isPending}
-                            data-testid="button-delete-worker-attendance"
-                          >
-                            {deleteWorkerAttendanceMutation.isPending ? (
-                              <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
-                            ) : (
-                              <Trash2 className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                );
-              })}
-              <div className="text-left mt-2 pt-2 border-t">
-                <span className="text-sm text-muted-foreground">إجمالي أجور العمال: </span>
-                <span className="font-bold text-primary arabic-numbers">
-                  {formatCurrency(totals.totalWorkerWages)}
-                </span>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Transportation - عرض المواصلات المضافة */}
-      <Card className="mb-3">
-        <CardContent className="p-4">
-          <h4 className="font-medium text-foreground flex items-center">
-            <Car className="text-secondary ml-2 h-5 w-5" />
-            أجور المواصلات
-          </h4>
-          {/* Show existing transportation expenses */}
-          {safeTransportation.length === 0 ? (
-              <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 mt-3">
-                <Car className="mx-auto h-8 w-8 text-gray-400" />
-                <p className="text-sm text-gray-600">لا توجد مصاريف نقل للتاريخ {selectedDate}</p>
-                <p className="text-xs text-gray-500 mt-1">أضف مصاريف جديدة أو اختر تاريخ آخر</p>
-              </div>
-            ) : (
-              <div className="mt-3 space-y-2">
-                {safeTransportation.map((expense, index) => (
-                  <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
-                    <span className="text-sm flex-1">{expense.description}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium arabic-numbers">{formatCurrency(expense.amount)}</span>
-                      <div className="flex gap-1">
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                          onClick={() => handleEditTransportation(expense)}
-                          data-testid="button-edit-transportation"
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => deleteTransportationMutation.mutate(expense.id)}
-                          disabled={deleteTransportationMutation.isPending}
-                          data-testid="button-delete-transportation"
-                        >
-                          {deleteTransportationMutation.isPending ? (
-                            <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
-                          ) : (
-                            <Trash2 className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <div className="text-left mt-2 pt-2 border-t">
-                  <span className="text-sm text-muted-foreground">إجمالي النقل: </span>
-                  <span className="font-bold text-secondary arabic-numbers">
-                    {formatCurrency(totals.totalTransportation)}
-                  </span>
-                </div>
-              </div>
-            )}
-        </CardContent>
-      </Card>
-
-      {/* Materials */}
-      <Card className="mb-3">
-        <CardContent className="p-4">
-          <h4 className="font-medium text-foreground flex items-center">
-            <Package className="text-success ml-2 h-5 w-5" />
-            شراء مواد
-          </h4>
-          {!Array.isArray(todayMaterialPurchases) || todayMaterialPurchases.length === 0 ? (
-            <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-              <Package className="mx-auto h-8 w-8 text-gray-400" />
-              <p className="text-sm text-gray-600">لا توجد مشتريات مواد للتاريخ {selectedDate}</p>
-              <p className="text-xs text-gray-500 mt-1">اذهب إلى شراء المواد لإضافة مشتريات جديدة</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {safeMaterialPurchases.map((purchase, index) => {
-                // إستخدام البيانات المحفوظة مباشرة في الجدول أولاً
-                const materialName = purchase.materialName || purchase.material?.name || 'مادة غير محددة';
-                const materialUnit = purchase.materialUnit || purchase.unit || purchase.material?.unit || 'وحدة';
-                const materialCategory = purchase.materialCategory || purchase.material?.category;
-                
-                return (
-                <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
-                  <div className="text-sm flex-1">
-                    <div className="font-medium">{materialName}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {purchase.quantity} {materialUnit} × {formatCurrency(purchase.unitPrice)}
-                    </div>
-                    {purchase.supplierName && (
-                      <div className="text-xs text-muted-foreground">المورد: {purchase.supplierName}</div>
-                    )}
-                    {purchase.purchaseType && (
-                      <div className={`text-xs font-medium ${purchase.purchaseType === 'آجل' ? 'text-orange-600' : 'text-green-600'}`}>
-                        {purchase.purchaseType === 'آجل' ? '⏰ آجل' : '💵 نقد'}
-                      </div>
-                    )}
-                    {materialCategory && (
-                      <div className="text-xs text-muted-foreground">الفئة: {materialCategory}</div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`font-medium arabic-numbers ${purchase.purchaseType === 'آجل' ? 'text-orange-600' : 'text-green-600'}`}>
-                      {formatCurrency(purchase.totalAmount)}
-                    </span>
-                    <div className="flex gap-1">
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        onClick={() => {
-                          // توجيه إلى صفحة شراء المواد مع معرف الشراء للتعديل
-                          setLocation(`/material-purchase?edit=${purchase.id}`);
-                        }}
-                      >
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => deleteMaterialPurchaseMutation.mutate(purchase.id)}
-                        disabled={deleteMaterialPurchaseMutation.isPending}
-                        data-testid="button-delete-material-purchase"
-                      >
-                        {deleteMaterialPurchaseMutation.isPending ? (
-                          <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
-                        ) : (
-                          <Trash2 className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                );
-              })}
-              <div className="text-left mt-2 pt-2 border-t space-y-1">
-                <div>
-                  <span className="text-sm text-muted-foreground">المشتريات النقدية (تؤثر على الرصيد): </span>
-                  <span className="font-bold text-success arabic-numbers">
-                    {formatCurrency(totals.totalMaterialCosts)}
-                  </span>
-                </div>
-                {(() => {
-                  const deferredAmount = Array.isArray(todayMaterialPurchases) ? 
-                    todayMaterialPurchases
-                      .filter(purchase => purchase.purchaseType === "آجل")
-                      .reduce((sum, purchase) => sum + parseFloat(purchase.totalAmount || "0"), 0) : 0;
-                  return deferredAmount > 0 ? (
-                    <div>
-                      <span className="text-sm text-muted-foreground">المشتريات الآجلة (لا تؤثر على الرصيد): </span>
-                      <span className="font-bold text-orange-600 arabic-numbers">
-                        {formatCurrency(deferredAmount)}
-                      </span>
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Worker Transfers */}
-      <Card className="mb-4">
-        <CardContent className="p-4">
-          <h4 className="font-medium text-foreground flex items-center">
-            <DollarSign className="text-warning ml-2 h-5 w-5" />
-            حولة من حساب العمال
-          </h4>
-          {!Array.isArray(todayWorkerTransfers) || todayWorkerTransfers.length === 0 ? (
-            <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-              <ArrowLeftRight className="mx-auto h-8 w-8 text-gray-400" />
-              <p className="text-sm text-gray-600">لا توجد حوالات عمال للتاريخ {selectedDate}</p>
-              <p className="text-xs text-gray-500 mt-1">اذهب إلى صفحة العمال لإدارة الحوالات</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {safeWorkerTransfers.map((transfer, index) => {
-                const worker = workers.find(w => w.id === transfer.workerId);
-                return (
-                  <div key={index} className="flex justify-between items-center p-3 bg-muted rounded border-r-4 border-warning">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-foreground">
-                          {worker?.name || 'عامل غير معروف'}
-                        </span>
-                        <span className="font-bold text-warning arabic-numbers">{formatCurrency(transfer.amount)}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        <span>المستلم: {transfer.recipientName}</span>
-                        {transfer.recipientPhone && (
-                          <span className="mr-3">الهاتف: {transfer.recipientPhone}</span>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        طريقة التحويل: {transfer.transferMethod === "hawaleh" ? "حولة" : transfer.transferMethod === "bank" ? "تحويل بنكي" : "نقداً"}
-                      </div>
-                    </div>
-                    <div className="flex gap-1 mr-2">
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        onClick={() => {
-                          // توجيه إلى صفحة حسابات العمال مع معرف التحويل للتعديل
-                          setLocation(`/worker-accounts?edit=${transfer.id}&worker=${transfer.workerId}`);
-                        }}
-                      >
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => {
-                          // نقل التأكيد خارج mutationFn لإصلاح مشكلة onSuccess
-                          const isConfirmed = window.confirm('هل أنت متأكد من حذف حوالة العامل؟ هذا الإجراء لا يمكن التراجع عنه.');
-                          if (isConfirmed) {
-                            deleteWorkerTransferMutation.mutate(transfer.id);
-                          }
-                        }}
-                        disabled={deleteWorkerTransferMutation.isPending}
-                        data-testid="button-delete-worker-transfer"
-                      >
-                        {deleteWorkerTransferMutation.isPending ? (
-                          <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
-                        ) : (
-                          <Trash2 className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="text-left mt-2 pt-2 border-t">
-                <span className="text-sm text-muted-foreground">إجمالي الحوالات: </span>
-                <span className="font-bold text-warning arabic-numbers">
-                  {formatCurrency(totals.totalWorkerTransfers)}
-                </span>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Project Fund Transfers Section */}
-      <Card className="bg-background border-border/50">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ArrowLeftRight className="h-5 w-5 text-orange-600" />
-              <h3 className="text-lg font-semibold text-foreground">ترحيل الأموال بين المشاريع</h3>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowProjectTransfers(!showProjectTransfers)}
-              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-            >
-              {showProjectTransfers ? (
-                <>
-                  <ChevronUp className="h-4 w-4 ml-1" />
-                  إخفاء
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-4 w-4 ml-1" />
-                  إظهار
-                </>
-              )}
-            </Button>
-          </div>
-
-          {showProjectTransfers && (
-            <div className="space-y-3">
-              {safeProjectTransfers.map((transfer) => (
-                <div 
-                  key={transfer.id} 
-                  className={`p-3 rounded border-r-4 ${
-                    transfer.toProjectId === selectedProjectId 
-                      ? 'bg-green-50 border-green-500' 
-                      : 'bg-red-50 border-red-500'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">
-                          {transfer.toProjectId === selectedProjectId ? (
-                            <span className="text-green-700">أموال واردة من: {transfer.fromProjectName}</span>
-                          ) : (
-                            <span className="text-red-700">أموال صادرة إلى: {transfer.toProjectName}</span>
-                          )}
-                        </span>
-                        <span className={`font-bold arabic-numbers ${
-                          transfer.toProjectId === selectedProjectId ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {transfer.toProjectId === selectedProjectId ? '+' : '-'}{formatCurrency(transfer.amount)}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        <div>السبب: {transfer.transferReason || 'ترحيل أموال'}</div>
-                        {transfer.description && (
-                          <div className="mt-1">الوصف: {transfer.description}</div>
-                        )}
-                        <div className="mt-1">التاريخ: {formatDate(transfer.transferDate)}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-        </CardContent>
-      </Card>
     </div>
   );
 }

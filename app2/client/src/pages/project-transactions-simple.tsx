@@ -1,36 +1,15 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Search, 
-  Filter, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Building, 
-  Clock, 
-  ArrowRightLeft,
-  Users,
-  Wallet,
-  Package,
-  Truck,
-  Banknote,
-  ArrowLeftRight,
-  CreditCard,
-  Calculator,
-  PiggyBank,
-  RefreshCw
-} from 'lucide-react';
-import { format, isSameDay, parseISO } from 'date-fns';
+import { Search, Filter, TrendingUp, TrendingDown, DollarSign, Building, Clock, ArrowRightLeft } from 'lucide-react';
+import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/utils';
 import { StatsGrid } from '@/components/ui/stats-grid';
-import { UnifiedStats } from '@/components/ui/unified-stats';
-import { FilterStatsBar, FilterConfig, MetricConfig } from '@/components/ui/filter-stats-bar';
 import { useSelectedProject, ALL_PROJECTS_ID } from '@/hooks/use-selected-project';
 
 interface Project {
@@ -48,39 +27,10 @@ interface Transaction {
 }
 
 export default function ProjectTransactionsSimple() {
-  const queryClient = useQueryClient();
   const { selectedProjectId, getProjectIdForApi, isAllProjects } = useSelectedProject();
   const selectedProject = getProjectIdForApi() || '';
   const [filterType, setFilterType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await queryClient.invalidateQueries({ queryKey: ['/api/projects', selectedProject] });
-      await queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 500);
-    }
-  }, [queryClient, selectedProject]);
-
-  const handleReset = useCallback(() => {
-    setSearchTerm('');
-    setSelectedDate(undefined);
-    setFilterType('all');
-  }, []);
-
-  const matchesDate = useCallback((recordDate: string | undefined | null, targetDate: Date | undefined): boolean => {
-    if (!targetDate || !recordDate) return true;
-    try {
-      const recordDateObj = new Date(recordDate);
-      return isSameDay(recordDateObj, targetDate);
-    } catch {
-      return true;
-    }
-  }, []);
 
   // جلب المشاريع
   const { data: projects = [] } = useQuery<Project[]>({
@@ -641,181 +591,48 @@ export default function ProjectTransactionsSimple() {
 
   const selectedProjectName = Array.isArray(projects) ? projects.find(p => p.id === selectedProject)?.name || '' : '';
 
-  const detailedStats = useMemo(() => {
-    const fundTransfersArray = Array.isArray(fundTransfers) ? fundTransfers : [];
-    const incomingProjectTransfersArray = Array.isArray(incomingProjectTransfers) ? incomingProjectTransfers : [];
-    const outgoingProjectTransfersArray = Array.isArray(outgoingProjectTransfers) ? outgoingProjectTransfers : [];
-    const workerAttendanceArray = Array.isArray(workerAttendance) ? workerAttendance : [];
-    const materialPurchasesArray = Array.isArray(materialPurchases) ? materialPurchases : [];
-    const transportExpensesArray = Array.isArray(transportExpenses) ? transportExpenses : [];
-    const miscExpensesArray = Array.isArray(miscExpenses) ? miscExpenses : [];
-    const workerTransfersArray = Array.isArray(workerTransfers) ? workerTransfers : [];
-
-    const filteredFundTransfers = fundTransfersArray.filter((t: any) => matchesDate(t.transferDate, selectedDate));
-    const filteredIncoming = incomingProjectTransfersArray.filter((t: any) => matchesDate(t.transferDate, selectedDate));
-    const filteredOutgoing = outgoingProjectTransfersArray.filter((t: any) => matchesDate(t.transferDate, selectedDate));
-    const filteredAttendance = workerAttendanceArray.filter((a: any) => matchesDate(a.date || a.attendanceDate, selectedDate));
-    const filteredMaterials = materialPurchasesArray.filter((p: any) => matchesDate(p.purchaseDate || p.date, selectedDate));
-    const filteredTransport = transportExpensesArray.filter((e: any) => matchesDate(e.date, selectedDate));
-    const filteredMisc = miscExpensesArray.filter((e: any) => matchesDate(e.date, selectedDate));
-    const filteredWorkerTransfers = workerTransfersArray.filter((t: any) => matchesDate(t.date || t.transferDate, selectedDate));
-
-    const sumAmount = (arr: any[], fieldName: string = 'amount') => 
-      arr.reduce((sum, item) => sum + (parseFloat(item[fieldName]) || 0), 0);
-
-    const workerWages = filteredAttendance.reduce((sum: number, a: any) => {
-      const paidAmount = parseFloat(a.paidAmount) || 0;
-      return sum + paidAmount;
-    }, 0);
-
-    const totalFundTransfers = sumAmount(filteredFundTransfers, 'amount');
-    const totalMaterials = filteredMaterials.reduce((sum: number, p: any) => {
-      const amount = parseFloat(p.totalAmount) || parseFloat(p.amount) || parseFloat(p.cost) || 0;
-      return sum + amount;
-    }, 0);
-    const totalTransport = sumAmount(filteredTransport, 'amount');
-    const totalMisc = sumAmount(filteredMisc, 'amount');
-    
-    const totalProjectTransfersIn = sumAmount(filteredIncoming, 'amount');
-    const totalProjectTransfersOut = sumAmount(filteredOutgoing, 'amount');
-    const totalProjectTransfers = totalProjectTransfersIn + totalProjectTransfersOut;
-    
-    const totalWorkerTransfers = sumAmount(filteredWorkerTransfers, 'amount');
-    
-    const totalIncome = totalFundTransfers + totalProjectTransfersIn;
-    const totalExpenses = workerWages + totalMaterials + totalTransport + totalMisc + totalProjectTransfersOut + totalWorkerTransfers;
-    const balance = totalIncome - totalExpenses;
-
-    return {
-      workerWages,
-      totalFundTransfers,
-      totalMaterials,
-      totalTransport,
-      totalMisc,
-      totalProjectTransfers,
-      totalWorkerTransfers,
-      totalExpenses,
-      balance
-    };
-  }, [fundTransfers, incomingProjectTransfers, outgoingProjectTransfers, workerAttendance, materialPurchases, transportExpenses, miscExpenses, workerTransfers, selectedDate, matchesDate]);
-
-  const statsItems = useMemo(() => [
-    {
-      title: 'أجور العمال',
-      value: detailedStats.workerWages,
-      icon: Users,
-      color: 'blue' as const,
-      formatter: (v: number) => formatCurrency(v)
-    },
-    {
-      title: 'إجمالي المعهد',
-      value: detailedStats.totalFundTransfers,
-      icon: Wallet,
-      color: 'green' as const,
-      formatter: (v: number) => formatCurrency(v)
-    },
-    {
-      title: 'إجمالي المواد',
-      value: detailedStats.totalMaterials,
-      icon: Package,
-      color: 'orange' as const,
-      formatter: (v: number) => formatCurrency(v)
-    },
-    {
-      title: 'إجمالي المواصلات',
-      value: detailedStats.totalTransport,
-      icon: Truck,
-      color: 'purple' as const,
-      formatter: (v: number) => formatCurrency(v)
-    },
-    {
-      title: 'إجمالي النثريات',
-      value: detailedStats.totalMisc,
-      icon: Banknote,
-      color: 'teal' as const,
-      formatter: (v: number) => formatCurrency(v)
-    },
-    {
-      title: 'ترحيل بين المشاريع',
-      value: detailedStats.totalProjectTransfers,
-      icon: ArrowLeftRight,
-      color: 'indigo' as const,
-      formatter: (v: number) => formatCurrency(v)
-    },
-    {
-      title: 'حوالات العمال',
-      value: detailedStats.totalWorkerTransfers,
-      icon: CreditCard,
-      color: 'amber' as const,
-      formatter: (v: number) => formatCurrency(v)
-    },
-    {
-      title: 'إجمالي المنصرف',
-      value: detailedStats.totalExpenses,
-      icon: Calculator,
-      color: 'red' as const,
-      formatter: (v: number) => formatCurrency(v)
-    },
-    {
-      title: 'إجمالي المتبقي',
-      value: detailedStats.balance,
-      icon: PiggyBank,
-      color: detailedStats.balance >= 0 ? 'emerald' as const : 'red' as const,
-      formatter: (v: number) => formatCurrency(v)
-    }
-  ], [detailedStats]);
-
-  const filterConfigs: FilterConfig[] = useMemo(() => [
-    {
-      key: 'transactionType',
-      label: 'نوع العملية',
-      type: 'select',
-      placeholder: 'اختر النوع',
-      options: [
-        { value: 'all', label: 'جميع العمليات' },
-        { value: 'income', label: 'الدخل فقط' },
-        { value: 'transfer_from_project', label: 'التحويلات من المشاريع' },
-        { value: 'expense', label: 'المصاريف فقط' },
-        { value: 'deferred', label: 'المشتريات الآجلة' }
-      ],
-      defaultValue: 'all'
-    },
-    {
-      key: 'date',
-      label: 'التاريخ',
-      type: 'date',
-      placeholder: 'اختر التاريخ'
-    }
-  ], []);
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 sm:p-4" dir="rtl">
-      <div className="max-w-7xl mx-auto space-y-3">
-        {/* شريط البحث والفلترة الموحد */}
-        <FilterStatsBar
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          searchPlaceholder="ابحث في العمليات..."
-          showSearch={true}
-          filters={filterConfigs}
-          filterValues={{
-            transactionType: filterType,
-            date: selectedDate
-          }}
-          onFilterChange={(key, value) => {
-            if (key === 'transactionType') {
-              setFilterType(value);
-            } else if (key === 'date') {
-              setSelectedDate(value);
-            }
-          }}
-          onReset={handleReset}
-          onRefresh={handleRefresh}
-          isRefreshing={isRefreshing}
-          showResetButton={true}
-          showRefreshButton={true}
-          title="سجل العمليات المالية"
-        />
+      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-1">
+        {/* اختيار المشروع والفلاتر - مضغوط */}
+        <Card className="shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* ملاحظة: يتم اختيار المشروع من الشريط العلوي */}
+
+              {/* نوع العملية */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">نوع العملية</label>
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">جميع العمليات</SelectItem>
+                    <SelectItem value="income">الدخل فقط</SelectItem>
+                    <SelectItem value="transfer_from_project">التحويلات من المشاريع</SelectItem>
+                    <SelectItem value="expense">المصاريف فقط</SelectItem>
+                    <SelectItem value="deferred">المشتريات الآجلة</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* البحث */}
+              <div className="sm:col-span-2 lg:col-span-1">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">البحث</label>
+                <div className="relative">
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3 w-3" />
+                  <Input
+                    placeholder="ابحث في الوصف..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pr-8 h-9 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* رسالة عند اختيار جميع المشاريع */}
         {isAllProjects && (

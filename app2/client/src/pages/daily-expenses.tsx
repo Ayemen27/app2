@@ -7,13 +7,33 @@
  * الحالة: نشط - الصفحة الأساسية لإدارة المصاريف
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw } from "lucide-react";
+import { 
+  ArrowRight, 
+  Save, 
+  Users, 
+  Car, 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  ChevronDown, 
+  ChevronUp, 
+  ArrowLeftRight, 
+  RefreshCw,
+  Package, 
+  DollarSign,
+  Wallet,
+  Truck,
+  Banknote,
+  CreditCard,
+  Calculator,
+  PiggyBank
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Package, DollarSign } from "lucide-react";
+import { UnifiedStats } from "@/components/ui/unified-stats";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

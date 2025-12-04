@@ -10,10 +10,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw } from "lucide-react";
+import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw, Wallet, Banknote, Package, Truck, Receipt, Building2, Send, TrendingDown, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Package, DollarSign } from "lucide-react";
+import { DollarSign } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -26,6 +26,8 @@ import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import type { 
   WorkerAttendance, 
@@ -1212,6 +1214,128 @@ function DailyExpensesContent() {
     carriedForward,
     selectedProjectId
   ]);
+
+  // تكوين صفوف الإحصائيات الموحدة (3x3)
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'workerWages',
+          label: 'أجور العمال',
+          value: formatCurrency(totals.totalWorkerWages),
+          icon: Users,
+          color: 'blue',
+        },
+        {
+          key: 'fundTransfers',
+          label: 'إجمالي العهد',
+          value: formatCurrency(totals.totalFundTransfers),
+          icon: Banknote,
+          color: 'green',
+        },
+        {
+          key: 'materials',
+          label: 'إجمالي المواد',
+          value: formatCurrency(totals.totalMaterialCosts),
+          icon: Package,
+          color: 'purple',
+        },
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'transportation',
+          label: 'إجمالي المواصلات',
+          value: formatCurrency(totals.totalTransportation),
+          icon: Truck,
+          color: 'orange',
+        },
+        {
+          key: 'miscExpenses',
+          label: 'إجمالي النثريات',
+          value: formatCurrency(totals.totalMiscExpenses),
+          icon: Receipt,
+          color: 'amber',
+        },
+        {
+          key: 'projectTransfers',
+          label: 'ترحيل المشاريع',
+          subLabel: `وارد: ${formatCurrency(totals.incomingProjectTransfers)} | صادر: ${formatCurrency(totals.outgoingProjectTransfers)}`,
+          value: formatCurrency(totals.incomingProjectTransfers - totals.outgoingProjectTransfers),
+          icon: Building2,
+          color: totals.incomingProjectTransfers >= totals.outgoingProjectTransfers ? 'teal' : 'red',
+        },
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'workerTransfers',
+          label: 'حوالات العمال',
+          value: formatCurrency(totals.totalWorkerTransfers),
+          icon: Send,
+          color: 'indigo',
+        },
+        {
+          key: 'totalExpenses',
+          label: 'إجمالي المنصرف',
+          value: formatCurrency(totals.totalExpenses),
+          icon: TrendingDown,
+          color: 'red',
+        },
+        {
+          key: 'remainingBalance',
+          label: 'إجمالي المتبقي',
+          value: formatCurrency(totals.remainingBalance),
+          icon: Calculator,
+          color: totals.remainingBalance >= 0 ? 'emerald' : 'rose',
+        },
+      ]
+    }
+  ], [totals]);
+
+  // تكوين الفلاتر للوحة الإحصائيات
+  const filtersConfig: FilterConfig[] = useMemo(() => [
+    {
+      key: 'date',
+      label: 'التاريخ',
+      type: 'date',
+      placeholder: 'اختر التاريخ',
+    },
+  ], []);
+
+  // دوال معالجة الفلاتر
+  const [searchValue, setSearchValue] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleFilterChange = (key: string, value: any) => {
+    if (key === 'date' && value instanceof Date) {
+      setSelectedDate(value.toISOString().split('T')[0]);
+    }
+  };
+
+  const handleResetFilters = () => {
+    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSearchValue("");
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", selectedProjectId, "daily-expenses", selectedDate] 
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // حساب مؤشرات البيانات المتوفرة مع معالجة آمنة
   const dataIndicators = {

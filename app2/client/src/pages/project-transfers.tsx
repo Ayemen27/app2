@@ -20,6 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import UnifiedSearchFilter, { useUnifiedFilter, FilterConfig } from "@/components/ui/unified-search-filter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { UnifiedStats } from "@/components/ui/unified-stats";
+import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 
@@ -28,6 +29,7 @@ type TransferFormData = z.infer<typeof insertProjectFundTransferSchema>;
 export default function ProjectTransfers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { setFloatingAction } = useFloatingButton();
   const [editingTransfer, setEditingTransfer] = useState<ProjectFundTransfer | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -193,6 +195,25 @@ export default function ProjectTransfers() {
       description: "",
     },
   });
+
+  // تعيين إجراء الزر العائم لفتح نموذج الإضافة
+  useEffect(() => {
+    const handleAddTransfer = () => {
+      setEditingTransfer(null);
+      form.reset({
+        fromProjectId: "",
+        toProjectId: "",
+        amount: "",
+        transferReason: "",
+        transferDate: new Date().toISOString().split('T')[0],
+        description: "",
+      });
+      setShowCreateModal(true);
+    };
+
+    setFloatingAction(handleAddTransfer, "إضافة ترحيل");
+    return () => setFloatingAction(null);
+  }, [setFloatingAction, form]);
 
   const onSubmit = (data: TransferFormData) => {
     if (!data.fromProjectId || !data.toProjectId) {

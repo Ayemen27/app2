@@ -21,7 +21,7 @@ function SplitStatCard({ item }: { item: StatItem }) {
   return (
     <div
       className={cn(
-        'relative flex flex-col rounded-xl border transition-all overflow-hidden',
+        'relative flex flex-col rounded-xl border transition-all overflow-hidden h-[80px]',
         'bg-gradient-to-b from-slate-50 to-white dark:from-slate-900/50 dark:to-slate-900/30',
         'border-slate-200 dark:border-slate-700',
         'hover:shadow-sm'
@@ -88,7 +88,7 @@ function StatCard({ item }: { item: StatItem }) {
   return (
     <div
       className={cn(
-        'relative flex flex-col p-2 rounded-xl border transition-all',
+        'relative flex flex-col p-2 rounded-xl border transition-all h-[80px]',
         colors.bg,
         colors.border,
         'hover:shadow-sm',

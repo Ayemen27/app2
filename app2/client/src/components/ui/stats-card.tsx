@@ -251,9 +251,9 @@ export function StatsCard({
     );
   }
   
-  // الاستايل الافتراضي المحسن - يتكيف مع المحتوى
+  // الاستايل الافتراضي المحسن - ارتفاع ثابت موحد احترافي
   return (
-    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-md transition-all duration-200 hover:scale-[1.01] min-h-[68px]`}>
+    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-md transition-all duration-200 hover:scale-[1.01] h-[80px]`}>
       <CardContent className="p-2 sm:p-2.5 flex flex-col justify-center h-full">
         <div className="flex flex-col items-center text-center gap-0.5">
           {/* Title and Icon in one row */}

@@ -179,7 +179,7 @@ function MetricCard({ metric }: { metric: MetricConfig }) {
 
   return (
     <div className={cn(
-      'relative flex flex-col gap-2 px-3 py-3 pr-7 rounded-lg border transition-all',
+      'relative flex flex-col gap-2 px-3 py-3 pr-7 rounded-lg border transition-all h-[80px]',
       colors.bg,
       colors.border,
       'hover:shadow-sm'

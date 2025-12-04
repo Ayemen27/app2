@@ -97,7 +97,7 @@ export const workers = pgTable("workers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   type: text("type").notNull(), // معلم (master), عامل (worker)
-  dailyWage: decimal("daily_wage", { precision: 10, scale: 2 }).notNull(),
+  dailyWage: decimal("daily_wage", { precision: 15, scale: 2 }).notNull(),
   phone: text("phone"), // رقم الهاتف
   hireDate: text("hire_date"), // تاريخ التوظيف (YYYY-MM-DD)
   isActive: boolean("is_active").default(true).notNull(),
@@ -108,7 +108,7 @@ export const workers = pgTable("workers", {
 export const fundTransfers = pgTable("fund_transfers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   senderName: text("sender_name"), // اسم المرسل
   transferNumber: text("transfer_number").unique(), // رقم الحولة - فريد
   transferType: text("transfer_type").notNull(), // حولة، تسليم يدوي، صراف
@@ -131,14 +131,14 @@ export const workerAttendance = pgTable("worker_attendance", {
   // أعمدة قديمة موجودة في قاعدة البيانات
   hoursWorked: decimal("hours_worked", { precision: 5, scale: 2 }).default('8.00'),
   overtime: decimal("overtime", { precision: 5, scale: 2 }).default('0.00'),
-  overtimeRate: decimal("overtime_rate", { precision: 10, scale: 2 }).default('0.00'),
+  overtimeRate: decimal("overtime_rate", { precision: 15, scale: 2 }).default('0.00'),
   // أعمدة جديدة
   workDays: decimal("work_days", { precision: 3, scale: 2 }).default('0.00'), // عدد أيام العمل (مثل 0.5، 1.0، 1.5) - افتراضي 0
-  dailyWage: decimal("daily_wage", { precision: 10, scale: 2 }).notNull(), // الأجر اليومي الكامل
-  actualWage: decimal("actual_wage", { precision: 10, scale: 2 }), // الأجر الفعلي = dailyWage * workDays - nullable في قاعدة البيانات
-  totalPay: decimal("total_pay", { precision: 10, scale: 2 }).notNull(), // إجمالي الدفع المطلوب = actualWage
-  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0'), // المبلغ المدفوع فعلياً (الصرف) - nullable في قاعدة البيانات
-  remainingAmount: decimal("remaining_amount", { precision: 10, scale: 2 }).default('0'), // المتبقي في حساب العامل - nullable في قاعدة البيانات
+  dailyWage: decimal("daily_wage", { precision: 15, scale: 2 }).notNull(), // الأجر اليومي الكامل
+  actualWage: decimal("actual_wage", { precision: 15, scale: 2 }), // الأجر الفعلي = dailyWage * workDays - nullable في قاعدة البيانات
+  totalPay: decimal("total_pay", { precision: 15, scale: 2 }).notNull(), // إجمالي الدفع المطلوب = actualWage
+  paidAmount: decimal("paid_amount", { precision: 15, scale: 2 }).default('0'), // المبلغ المدفوع فعلياً (الصرف) - nullable في قاعدة البيانات
+  remainingAmount: decimal("remaining_amount", { precision: 15, scale: 2 }).default('0'), // المتبقي في حساب العامل - nullable في قاعدة البيانات
   paymentType: text("payment_type").default("partial"), // "full" | "partial" | "credit" - nullable في قاعدة البيانات
   notes: text("notes"), // ملاحظات
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -180,11 +180,11 @@ export const materialPurchases = pgTable("material_purchases", {
   materialUnit: text("material_unit"), // وحدة المادة الأساسية
   quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
   unit: text("unit").notNull(), // وحدة القياس - موجودة في قاعدة البيانات
-  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  unitPrice: decimal("unit_price", { precision: 15, scale: 2 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
   purchaseType: text("purchase_type").notNull().default("نقد"), // نقد، أجل
-  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0').notNull(), // المبلغ المدفوع
-  remainingAmount: decimal("remaining_amount", { precision: 10, scale: 2 }).default('0').notNull(), // المتبقي
+  paidAmount: decimal("paid_amount", { precision: 15, scale: 2 }).default('0').notNull(), // المبلغ المدفوع
+  remainingAmount: decimal("remaining_amount", { precision: 15, scale: 2 }).default('0').notNull(), // المتبقي
   supplierName: text("supplier_name"), // اسم المورد (للتوافق العكسي)
   receiptNumber: text("receipt_number"), // رقم الإيصال - موجود في قاعدة البيانات
   invoiceNumber: text("invoice_number"),
@@ -202,7 +202,7 @@ export const supplierPayments = pgTable("supplier_payments", {
   supplierId: varchar("supplier_id").notNull().references(() => suppliers.id, { onDelete: "cascade" }),
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   purchaseId: varchar("purchase_id").references(() => materialPurchases.id, { onDelete: "set null" }), // ربط بفاتورة محددة
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   paymentMethod: text("payment_method").notNull().default("نقد"), // نقد، حوالة، شيك
   paymentDate: text("payment_date").notNull(), // YYYY-MM-DD format
   referenceNumber: text("reference_number"), // رقم المرجع أو الشيك
@@ -215,7 +215,7 @@ export const transportationExpenses = pgTable("transportation_expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   workerId: varchar("worker_id").references(() => workers.id, { onDelete: "set null" }), // optional, for worker-specific transport
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   description: text("description").notNull(),
   date: text("date").notNull(), // YYYY-MM-DD format
   notes: text("notes"),
@@ -227,7 +227,7 @@ export const workerTransfers = pgTable("worker_transfers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   transferNumber: text("transfer_number"), // رقم الحوالة
   senderName: text("sender_name"), // اسم المرسل
   recipientName: text("recipient_name").notNull(), // اسم المستلم (الأهل)
@@ -243,10 +243,10 @@ export const workerBalances = pgTable("worker_balances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  totalEarned: decimal("total_earned", { precision: 10, scale: 2 }).default('0').notNull(), // إجمالي المكتسب
-  totalPaid: decimal("total_paid", { precision: 10, scale: 2 }).default('0').notNull(), // إجمالي المدفوع
-  totalTransferred: decimal("total_transferred", { precision: 10, scale: 2 }).default('0').notNull(), // إجمالي المحول للأهل
-  currentBalance: decimal("current_balance", { precision: 10, scale: 2 }).default('0').notNull(), // الرصيد الحالي
+  totalEarned: decimal("total_earned", { precision: 15, scale: 2 }).default('0').notNull(), // إجمالي المكتسب
+  totalPaid: decimal("total_paid", { precision: 15, scale: 2 }).default('0').notNull(), // إجمالي المدفوع
+  totalTransferred: decimal("total_transferred", { precision: 15, scale: 2 }).default('0').notNull(), // إجمالي المحول للأهل
+  currentBalance: decimal("current_balance", { precision: 15, scale: 2 }).default('0').notNull(), // الرصيد الحالي
   lastUpdated: timestamp("last_updated").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -256,16 +256,16 @@ export const dailyExpenseSummaries = pgTable("daily_expense_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   date: text("date").notNull(), // YYYY-MM-DD format
-  carriedForwardAmount: decimal("carried_forward_amount", { precision: 10, scale: 2 }).default('0').notNull(),
-  totalFundTransfers: decimal("total_fund_transfers", { precision: 10, scale: 2 }).default('0').notNull(),
-  totalWorkerWages: decimal("total_worker_wages", { precision: 10, scale: 2 }).default('0').notNull(),
-  totalMaterialCosts: decimal("total_material_costs", { precision: 10, scale: 2 }).default('0').notNull(),
-  totalTransportationCosts: decimal("total_transportation_costs", { precision: 10, scale: 2 }).default('0').notNull(),
-  totalWorkerTransfers: decimal("total_worker_transfers", { precision: 10, scale: 2 }).default('0').notNull(),
-  totalWorkerMiscExpenses: decimal("total_worker_misc_expenses", { precision: 10, scale: 2 }).default('0').notNull(),
-  totalIncome: decimal("total_income", { precision: 10, scale: 2 }).notNull(),
-  totalExpenses: decimal("total_expenses", { precision: 10, scale: 2 }).notNull(),
-  remainingBalance: decimal("remaining_balance", { precision: 10, scale: 2 }).notNull(),
+  carriedForwardAmount: decimal("carried_forward_amount", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalFundTransfers: decimal("total_fund_transfers", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalWorkerWages: decimal("total_worker_wages", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalMaterialCosts: decimal("total_material_costs", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalTransportationCosts: decimal("total_transportation_costs", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalWorkerTransfers: decimal("total_worker_transfers", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalWorkerMiscExpenses: decimal("total_worker_misc_expenses", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalIncome: decimal("total_income", { precision: 15, scale: 2 }).notNull(),
+  totalExpenses: decimal("total_expenses", { precision: 15, scale: 2 }).notNull(),
+  remainingBalance: decimal("remaining_balance", { precision: 15, scale: 2 }).notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -294,7 +294,7 @@ export const autocompleteData = pgTable("autocomplete_data", {
 export const workerMiscExpenses = pgTable("worker_misc_expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   description: text("description").notNull(), // وصف النثريات
   date: text("date").notNull(), // تاريخ النثريات
   notes: text("notes"), // ملاحظات إضافية
@@ -359,7 +359,7 @@ export const projectFundTransfers = pgTable("project_fund_transfers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   fromProjectId: varchar("from_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   toProjectId: varchar("to_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   description: text("description"), // وصف الترحيل
   transferReason: text("transfer_reason"), // سبب الترحيل
   transferDate: text("transfer_date").notNull(), // YYYY-MM-DD format
@@ -738,7 +738,7 @@ export const tools = pgTable("tools", {
   specifications: jsonb("specifications"), // مواصفات تقنية
 
   // تتبع الاستخدام
-  totalUsageHours: decimal("total_usage_hours", { precision: 10, scale: 2 }).default('0'),
+  totalUsageHours: decimal("total_usage_hours", { precision: 15, scale: 2 }).default('0'),
   usageCount: integer("usage_count").default(0),
 
   // تقييم الذكاء الاصطناعي
@@ -861,7 +861,7 @@ export const toolUsageAnalytics = pgTable("tool_usage_analytics", {
   analysisMonth: text("analysis_month"), // YYYY-MM
 
   // إحصائيات الاستخدام
-  usageHours: decimal("usage_hours", { precision: 10, scale: 2 }).default('0'),
+  usageHours: decimal("usage_hours", { precision: 15, scale: 2 }).default('0'),
   transferCount: integer("transfer_count").default(0),
   maintenanceCount: integer("maintenance_count").default(0),
 
@@ -874,7 +874,7 @@ export const toolUsageAnalytics = pgTable("tool_usage_analytics", {
   efficiencyScore: decimal("efficiency_score", { precision: 5, scale: 2 }), // نقاط الكفاءة
 
   // تنبؤات الذكاء الاصطناعي
-  predictedUsage: decimal("predicted_usage", { precision: 10, scale: 2 }),
+  predictedUsage: decimal("predicted_usage", { precision: 15, scale: 2 }),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -928,7 +928,7 @@ export const maintenanceSchedules = pgTable("maintenance_schedules", {
   intervalMonths: integer("interval_months"), // الفترة بالشهور
 
   // إعدادات الجدولة بالاستخدام
-  usageHoursInterval: decimal("usage_hours_interval", { precision: 10, scale: 2 }), // فترة بساعات العمل
+  usageHoursInterval: decimal("usage_hours_interval", { precision: 15, scale: 2 }), // فترة بساعات العمل
   usageCountInterval: integer("usage_count_interval"), // فترة بعدد الاستخدامات
 
   // حالة الجدولة
@@ -1441,8 +1441,8 @@ export const actions = pgTable("actions", {
   relatedObjectId: varchar("related_object_id"), // ID الكائن المرتبط
   status: text("status").notNull().default("open"), // open, in_progress, completed, cancelled
   progress: integer("progress").notNull().default(0), // نسبة الإنجاز (0-100)
-  estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }), // التكلفة المقدرة
-  actualCost: decimal("actual_cost", { precision: 10, scale: 2 }), // التكلفة الفعلية
+  estimatedCost: decimal("estimated_cost", { precision: 15, scale: 2 }), // التكلفة المقدرة
+  actualCost: decimal("actual_cost", { precision: 15, scale: 2 }), // التكلفة الفعلية
   dueDate: date("due_date"), // تاريخ الاستحقاق
   startedAt: timestamp("started_at"), // تاريخ البدء
   completedAt: timestamp("completed_at"), // تاريخ الإنجاز

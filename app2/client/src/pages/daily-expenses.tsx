@@ -1369,8 +1369,15 @@ function DailyExpensesContent() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleFilterChange = (key: string, value: any) => {
-    if (key === 'date' && value instanceof Date) {
-      setSelectedDate(value.toISOString().split('T')[0]);
+    if (key === 'date') {
+      if (value instanceof Date) {
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        setSelectedDate(`${year}-${month}-${day}`);
+      } else {
+        setSelectedDate(null);
+      }
     }
   };
 
@@ -1415,7 +1422,10 @@ function DailyExpensesContent() {
         showSearch={true}
         filters={filtersConfig}
         filterValues={{ 
-          date: selectedDate ? new Date(selectedDate) : undefined
+          date: selectedDate ? (() => {
+            const [year, month, day] = selectedDate.split('-').map(Number);
+            return new Date(year, month - 1, day, 12, 0, 0, 0);
+          })() : undefined
         }}
         onFilterChange={handleFilterChange}
         onReset={handleResetFilters}

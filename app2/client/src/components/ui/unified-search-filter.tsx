@@ -44,6 +44,11 @@ export interface UnifiedSearchFilterProps {
   showActiveFilters?: boolean;
 }
 
+function normalizeDate(date: Date | undefined): Date | undefined {
+  if (!date) return undefined;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0);
+}
+
 function DatePickerFilter({
   value,
   onChange,
@@ -74,9 +79,12 @@ function DatePickerFilter({
           mode="single"
           selected={value}
           onSelect={(date) => {
-            onChange(date);
+            const normalizedDate = normalizeDate(date);
+            onChange(normalizedDate);
             setOpen(false);
           }}
+          locale={ar}
+          dir="rtl"
           initialFocus
         />
       </PopoverContent>
@@ -120,10 +128,16 @@ function DateRangeFilter({
           mode="range"
           selected={value?.from ? { from: value.from, to: value.to } : undefined}
           onSelect={(range: any) => {
-            onChange(range || { from: undefined, to: undefined });
+            const normalizedRange = range ? {
+              from: normalizeDate(range.from),
+              to: normalizeDate(range.to)
+            } : { from: undefined, to: undefined };
+            onChange(normalizedRange);
             if (range?.to) setOpen(false);
           }}
           numberOfMonths={2}
+          locale={ar}
+          dir="rtl"
           initialFocus
         />
       </PopoverContent>

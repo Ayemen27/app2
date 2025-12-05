@@ -374,8 +374,8 @@ export default function Dashboard() {
                   <SelectContent>
                     {Array.isArray(workerTypes) && workerTypes.length > 0 ? (
                       workerTypes.map((workerType) => (
-                        <SelectItem key={workerType.id} value={workerType.name}>
-                          {workerType.name}
+                        <SelectItem key={workerType.id} value={workerType.value}>
+                          {workerType.value}
                         </SelectItem>
                       ))
                     ) : (

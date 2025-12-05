@@ -646,36 +646,29 @@ export default function MaterialPurchase() {
     }
   };
 
-  // Fetch Material Purchases for Edit Support (filtered by purchase date)
+  // Fetch Material Purchases - جلب جميع المشتريات
   const { data: allMaterialPurchases = [], isLoading: materialPurchasesLoading, refetch: refetchMaterialPurchases } = useQuery<any[]>({
     queryKey: ["/api/projects", selectedProjectId, "material-purchases"],
     queryFn: async () => {
-      if (!selectedProjectId) return [];
-      const response = await apiRequest(`/api/projects/${selectedProjectId}/material-purchases`, "GET");
+      // جلب جميع المشتريات أو مشتريات المشروع المحدد
+      const endpoint = !selectedProjectId || selectedProjectId === 'all' 
+        ? `/api/projects/all/material-purchases`
+        : `/api/projects/${selectedProjectId}/material-purchases`;
+      
+      const response = await apiRequest(endpoint, "GET");
       // Handle both array and object responses
       if (Array.isArray(response)) return response;
       if (response?.data && Array.isArray(response.data)) return response.data;
       return [];
     },
-    enabled: !!selectedProjectId,
+    enabled: true, // دائماً ممكّن
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     staleTime: 0, // Always fetch fresh data
   });
 
-  // Filter purchases by selected purchase date and search
-  const materialPurchases = allMaterialPurchases.filter((purchase: any) => {
-    if (!purchase.purchaseDate) return false;
-    const purchaseDateTime = new Date(purchase.purchaseDate);
-    const selectedDateTime = new Date(purchaseDate);
-    const matchesDate = purchaseDateTime.toDateString() === selectedDateTime.toDateString();
-    const matchesSearch = searchValue === '' || 
-      purchase.materialName?.toLowerCase().includes(searchValue.toLowerCase()) ||
-      purchase.supplierName?.toLowerCase().includes(searchValue.toLowerCase());
-    const matchesPaymentType = filterValues.paymentType === 'all' || 
-      purchase.purchaseType === filterValues.paymentType;
-    return matchesDate && matchesSearch && matchesPaymentType;
-  });
+  // Filter purchases - عرض جميع المشتريات افتراضياً
+  const materialPurchases = filteredPurchases;
 
   // Calculate stats
   const stats = useMemo(() => ({
@@ -689,17 +682,24 @@ export default function MaterialPurchase() {
       : 0,
   }), [allMaterialPurchases]);
 
-  // فلترة المشتريات حسب البحث ونوع الدفع فقط (بدون فلترة التاريخ الإجبارية)
+  // فلترة المشتريات حسب المشروع المحدد، البحث، ونوع الدفع
   const filteredPurchases = useMemo(() => {
     return allMaterialPurchases.filter((purchase: any) => {
+      // فلترة حسب المشروع المحدد
+      const matchesProject = !selectedProjectId || 
+        selectedProjectId === 'all' || 
+        purchase.projectId === selectedProjectId;
+      
       const matchesSearch = searchValue === '' || 
         purchase.materialName?.toLowerCase().includes(searchValue.toLowerCase()) ||
         purchase.supplierName?.toLowerCase().includes(searchValue.toLowerCase());
+      
       const matchesPaymentType = filterValues.paymentType === 'all' || 
         purchase.purchaseType === filterValues.paymentType;
-      return matchesSearch && matchesPaymentType;
+      
+      return matchesProject && matchesSearch && matchesPaymentType;
     });
-  }, [allMaterialPurchases, searchValue, filterValues.paymentType]);
+  }, [allMaterialPurchases, selectedProjectId, searchValue, filterValues.paymentType]);
 
   // دالة التحديث
   const handleRefresh = useCallback(async () => {
@@ -1224,7 +1224,7 @@ export default function MaterialPurchase() {
       )}
 
       {/* رسالة عدم وجود مشتريات */}
-      {selectedProjectId && !materialPurchasesLoading && filteredPurchases.length === 0 && (
+      {!materialPurchasesLoading && filteredPurchases.length === 0 && (
         <Card className="mt-4">
           <CardContent className="p-4">
             <div className="text-center text-muted-foreground">
@@ -1241,11 +1241,11 @@ export default function MaterialPurchase() {
       )}
 
       {/* عرض جميع البطاقات */}
-      {selectedProjectId && filteredPurchases.length > 0 && (
+      {filteredPurchases.length > 0 && (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-foreground">
-              المشتريات ({filteredPurchases.length})
+              جميع المشتريات ({filteredPurchases.length})
             </h3>
           </div>
           <UnifiedCardGrid columns={1}>

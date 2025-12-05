@@ -649,14 +649,17 @@ export default function MaterialPurchase() {
 
   // Fetch Material Purchases - جلب جميع المشتريات
   const { data: allMaterialPurchases = [], isLoading: materialPurchasesLoading, refetch: refetchMaterialPurchases } = useQuery<any[]>({
-    queryKey: ["/api/projects", selectedProjectId, "material-purchases"],
+    queryKey: ["/api/projects", selectedProjectId || 'all', "material-purchases"],
     queryFn: async () => {
-      // جلب جميع المشتريات أو مشتريات المشروع المحدد
-      const endpoint = !selectedProjectId || selectedProjectId === 'all' 
-        ? `/api/projects/all/material-purchases`
-        : `/api/projects/${selectedProjectId}/material-purchases`;
+      // جلب جميع المشتريات افتراضياً
+      const endpoint = selectedProjectId && selectedProjectId !== 'all'
+        ? `/api/projects/${selectedProjectId}/material-purchases`
+        : `/api/projects/all/material-purchases`;
 
+      console.log('🔍 جلب المشتريات من:', endpoint);
       const response = await apiRequest(endpoint, "GET");
+      console.log('📊 عدد المشتريات المستلمة:', Array.isArray(response) ? response.length : response?.data?.length || 0);
+      
       // Handle both array and object responses
       if (Array.isArray(response)) return response;
       if (response?.data && Array.isArray(response.data)) return response.data;
@@ -1293,11 +1296,6 @@ export default function MaterialPurchase() {
       {/* عرض جميع البطاقات باستخدام UnifiedCard */}
       {filteredPurchases.length > 0 && (
         <div className="mt-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-foreground">
-              جميع المشتريات ({filteredPurchases.length})
-            </h3>
-          </div>
           <UnifiedCardGrid columns={3}>
             {filteredPurchases.map((purchase) => {
               const material = materials.find(m => m.id === purchase.materialId);

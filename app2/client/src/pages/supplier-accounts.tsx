@@ -655,7 +655,10 @@ export default function SupplierAccountsPage() {
             {purchases.map((purchase) => {
               const projectName = projects.find(p => p.id === purchase.projectId)?.name || 'غير محدد';
               const materialName = purchase.materialName || 'غير محدد';
-              const supplierName = suppliers.find(s => s.id === purchase.supplierId)?.name || 'غير محدد';
+              // إصلاح: استخدام supplierName من purchase أو البحث في قائمة suppliers
+              const supplierName = purchase.supplierName || 
+                                   suppliers.find(s => s.id === purchase.supplierId)?.name || 
+                                   'غير محدد';
               const remaining = parseFloat(purchase.remainingAmount || "0");
               const invoiceDateStr = purchase.invoiceDate || purchase.purchaseDate;
               
@@ -663,7 +666,7 @@ export default function SupplierAccountsPage() {
                 <UnifiedCard
                   key={purchase.id}
                   title={materialName}
-                  subtitle={`${formatDate(invoiceDateStr)} - ${purchase.invoiceNumber || 'بدون رقم'}`}
+                  subtitle={projectName}
                   titleIcon={Package}
                   headerColor={remaining === 0 ? "#22c55e" : purchase.purchaseType === "نقد" ? "#3b82f6" : "#ef4444"}
                   badges={[
@@ -684,10 +687,16 @@ export default function SupplierAccountsPage() {
                       color: "info",
                     },
                     {
-                      label: "المشروع",
-                      value: projectName,
-                      icon: Building2,
+                      label: "رقم الفاتورة",
+                      value: purchase.invoiceNumber || 'بدون رقم',
+                      icon: Receipt,
                       color: "default",
+                    },
+                    {
+                      label: "التاريخ",
+                      value: formatDate(invoiceDateStr),
+                      icon: Calendar,
+                      color: "muted",
                     },
                     {
                       label: "الكمية",
@@ -714,12 +723,6 @@ export default function SupplierAccountsPage() {
                       icon: TrendingDown,
                       color: remaining > 0 ? "danger" : "success",
                       emphasis: true,
-                    },
-                    {
-                      label: "التاريخ",
-                      value: formatDate(invoiceDateStr),
-                      icon: Calendar,
-                      color: "muted",
                     },
                   ]}
                   footer={purchase.notes ? (

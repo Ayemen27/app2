@@ -4,7 +4,9 @@ import { ChevronDown } from "lucide-react";
 
 interface SelectContextType {
   value?: string;
+  selectedLabel?: string;
   onValueChange?: (value: string) => void;
+  setSelectedLabel?: (label: string) => void;
   open: boolean;
   setOpen: (open: boolean) => void;
 }
@@ -22,9 +24,10 @@ interface SelectProps {
 
 export function Select({ value, onValueChange, children }: SelectProps) {
   const [open, setOpen] = React.useState(false);
+  const [selectedLabel, setSelectedLabel] = React.useState<string | undefined>();
   
   return (
-    <SelectContext.Provider value={{ value, onValueChange, open, setOpen }}>
+    <SelectContext.Provider value={{ value, selectedLabel, onValueChange, setSelectedLabel, open, setOpen }}>
       <div className="relative">
         {children}
       </div>
@@ -55,9 +58,14 @@ export function SelectTrigger({ className, children, ...props }: SelectTriggerPr
   );
 }
 
-export function SelectValue({ placeholder }: { placeholder?: string }) {
-  const { value } = React.useContext(SelectContext);
-  return <span>{value || placeholder}</span>;
+interface SelectValueProps {
+  placeholder?: string;
+  label?: string;
+}
+
+export function SelectValue({ placeholder, label }: SelectValueProps) {
+  const { selectedLabel } = React.useContext(SelectContext);
+  return <span>{label || selectedLabel || placeholder}</span>;
 }
 
 interface SelectContentProps {
@@ -91,11 +99,19 @@ interface SelectItemProps {
 }
 
 export function SelectItem({ value, children, disabled }: SelectItemProps) {
-  const { value: selectedValue, onValueChange, setOpen } = React.useContext(SelectContext);
+  const { value: selectedValue, onValueChange, setSelectedLabel, setOpen } = React.useContext(SelectContext);
   const isSelected = selectedValue === value;
+  const labelRef = React.useRef<HTMLDivElement>(null);
+  
+  React.useEffect(() => {
+    if (isSelected && labelRef.current) {
+      setSelectedLabel?.(labelRef.current.textContent || value);
+    }
+  }, [isSelected, value, setSelectedLabel]);
   
   return (
     <div
+      ref={labelRef}
       className={cn(
         "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none",
         isSelected && "bg-accent text-accent-foreground",
@@ -105,6 +121,7 @@ export function SelectItem({ value, children, disabled }: SelectItemProps) {
       onClick={() => {
         if (!disabled) {
           onValueChange?.(value);
+          setSelectedLabel?.(labelRef.current?.textContent || value);
           setOpen(false);
         }
       }}

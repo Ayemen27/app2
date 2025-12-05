@@ -21,6 +21,10 @@ interface Worker {
   hireDate?: string | null;
   isActive: boolean;
   createdAt: string;
+  nationalId?: string | null;
+  notes?: string | null;
+  projectId?: string | null;
+  status?: 'active' | 'inactive' | 'terminated';
 }
 
 interface WorkerStats {
@@ -49,6 +53,10 @@ const mapRxDBWorkerToWorker = (rxdbWorker: RxDBWorker): Worker => ({
   hireDate: rxdbWorker.startDate,
   isActive: rxdbWorker.status === 'active',
   createdAt: new Date(rxdbWorker.createdAt).toISOString(),
+  nationalId: rxdbWorker.nationalId,
+  notes: rxdbWorker.notes,
+  projectId: rxdbWorker.projectId,
+  status: rxdbWorker.status,
 });
 
 const WorkerDialog = ({ worker, onClose, isOpen }: {

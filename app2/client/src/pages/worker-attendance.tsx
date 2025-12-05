@@ -1013,7 +1013,7 @@ export default function WorkerAttendance() {
                       worker={worker}
                       attendance={attendanceData[worker.id] || { isPresent: false }}
                       onAttendanceChange={(attendance) => handleAttendanceChange(worker.id, attendance)}
-                      selectedDate={selectedDate}
+                      selectedDate={selectedDate ?? undefined}
                     />
                   )) : null}
                 </div>
@@ -1124,13 +1124,6 @@ export default function WorkerAttendance() {
           ) : null}
         </div>
       )}
-    </div>
-  );
-}
-              
-          )}
-        </div>
-       )}
     </div>
   );
 }

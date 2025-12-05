@@ -10,7 +10,10 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2020',
     minify: 'esbuild',
+    cssMinify: 'esbuild',
+    cssCodeSplit: true,
     rollupOptions: {
+      maxParallelFileOps: 2,
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],

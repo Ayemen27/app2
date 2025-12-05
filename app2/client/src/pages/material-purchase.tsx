@@ -754,6 +754,31 @@ export default function MaterialPurchase() {
     setIsFormCollapsed(false);
   };
 
+  // Helper function to format date for display in UnifiedCard footer
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      // Adjusting to ensure correct locale date string, e.g., 'en-GB' for DD/MM/YYYY
+      return date.toLocaleDateString('en-GB', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+    } catch (error) {
+      console.error("Error formatting date:", dateString, error);
+      return dateString; // Fallback to original string if parsing fails
+    }
+  };
+
+  // Helper function to delete a purchase
+  const handleDelete = (id: string) => {
+    // Optionally show a confirmation dialog here
+    if (window.confirm("هل أنت متأكد أنك تريد حذف هذا السجل؟")) {
+      deleteMaterialPurchaseMutation.mutate(id);
+    }
+  };
+
   // تكوين صفوف الإحصائيات الموحدة - شبكة 3×2
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
@@ -1234,7 +1259,7 @@ export default function MaterialPurchase() {
             </div>
               </div>
             </CollapsibleContent>
-          </CardContent>
+          </Card>
         </Card>
       </Collapsible>
 
@@ -1264,7 +1289,7 @@ export default function MaterialPurchase() {
         </Card>
       )}
 
-      {/* عرض جميع البطاقات */}
+      {/* عرض جميع البطاقات باستخدام UnifiedCard */}
       {filteredPurchases.length > 0 && (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
@@ -1272,47 +1297,86 @@ export default function MaterialPurchase() {
               جميع المشتريات ({filteredPurchases.length})
             </h3>
           </div>
-          <UnifiedCardGrid columns={1}>
-            {filteredPurchases.map((purchase: any) => (
-              <UnifiedCard
-                key={purchase.id}
-                title={purchase.materialName || purchase.material?.name || "غير محدد"}
-                titleIcon={Package}
-                badges={[
-                  { label: purchase.purchaseType || "نقد", variant: purchase.purchaseType === "آجل" ? "warning" : "default" }
-                ]}
-                fields={[
-                  { label: "الفئة", value: purchase.materialCategory || "غير محدد", icon: ChartGantt },
-                  { label: "الوحدة", value: purchase.materialUnit || "غير محدد", icon: Package },
-                  { label: "الكمية", value: <span className="arabic-numbers">{purchase.quantity}</span>, icon: ShoppingCart },
-                  { label: "المورد", value: purchase.supplierName || "بدون مورد", icon: Users },
-                  { label: "السعر", value: <span className="arabic-numbers">{formatCurrency(purchase.unitPrice)}</span>, icon: DollarSign },
-                  { label: "الإجمالي", value: <span className="arabic-numbers">{formatCurrency(purchase.totalAmount)}</span>, icon: DollarSign, color: "info", emphasis: true },
-                ]}
-                actions={[
-                  {
-                    icon: Edit,
-                    label: "تعديل",
-                    onClick: () => handleEdit(purchase),
-                    color: "blue",
-                    disabled: editingPurchaseId === purchase.id
-                  },
-                  {
-                    icon: Trash2,
-                    label: "حذف",
-                    onClick: () => deleteMaterialPurchaseMutation.mutate(purchase.id),
-                    color: "red",
-                    disabled: deleteMaterialPurchaseMutation.isPending
-                  }
-                ]}
-                footer={
-                  <div className="text-xs text-muted-foreground arabic-numbers">
-                    التاريخ: {new Date(purchase.purchaseDate).toLocaleDateString('en-GB')}
-                  </div>
-                }
-                compact
-              />
-            ))}
+          <UnifiedCardGrid columns={3}>
+            {filteredPurchases.map((purchase) => {
+              const material = materials.find(m => m.id === purchase.materialId);
+              const supplier = suppliers.find(s => s.id === purchase.supplierId);
+              const project = { id: purchase.projectId, name: purchase.projectName }; // Assuming projectName is available or fetched
+
+              // تحديد لون الشريط حسب نوع الدفع
+              const headerColor = purchase.purchaseType === 'نقد' ? '#22c55e' : purchase.purchaseType === 'آجل' ? '#f97316' : '#6366f1'; // Green for cash, Orange for credit, Blue for supply
+
+              return (
+                <UnifiedCard
+                  key={purchase.id}
+                  title={material?.name || 'مادة محذوفة'}
+                  subtitle={formatDate(purchase.purchaseDate)}
+                  titleIcon={ShoppingCart}
+                  headerColor={headerColor}
+                  badges={[
+                    {
+                      label: purchase.purchaseType,
+                      variant: purchase.purchaseType === 'نقد' ? 'success' : purchase.purchaseType === 'آجل' ? 'warning' : 'default',
+                    }
+                  ]}
+                  fields={[
+                    {
+                      label: "المشروع",
+                      value: project?.name || 'غير محدد',
+                      icon: Building2,
+                      color: "info",
+                    },
+                    {
+                      label: "المورد",
+                      value: supplier?.name || 'غير محدد',
+                      icon: Users,
+                      color: "default",
+                    },
+                    {
+                      label: "الكمية",
+                      value: `${purchase.quantity} ${purchase.unit}`,
+                      icon: Package,
+                      color: "warning",
+                      emphasis: true,
+                    },
+                    {
+                      label: "سعر الوحدة",
+                      value: formatCurrency(purchase.unitPrice),
+                      icon: DollarSign,
+                      color: "default",
+                    },
+                    {
+                      label: "الإجمالي",
+                      value: formatCurrency(purchase.totalAmount),
+                      icon: DollarSign,
+                      color: purchase.purchaseType === 'نقد' ? 'success' : purchase.purchaseType === 'آجل' ? 'warning' : 'default',
+                      emphasis: true,
+                    },
+                    {
+                      label: "التاريخ",
+                      value: formatDate(purchase.purchaseDate),
+                      icon: Calendar,
+                      color: "muted",
+                    },
+                  ]}
+                  actions={[
+                    {
+                      icon: Edit,
+                      label: "تعديل",
+                      onClick: () => handleEdit(purchase),
+                      color: "blue",
+                    },
+                    {
+                      icon: Trash2,
+                      label: "حذف",
+                      onClick: () => handleDelete(purchase.id),
+                      color: "red",
+                    },
+                  ]}
+                  compact
+                />
+              );
+            })}
           </UnifiedCardGrid>
         </div>
       )}

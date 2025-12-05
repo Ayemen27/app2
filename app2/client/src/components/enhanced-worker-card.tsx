@@ -319,14 +319,14 @@ export default function EnhancedWorkerCard({
                   سحب
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant={showDetails ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setShowDetails(!showDetails)}
-                  className="px-2 py-1 h-8"
+                  className="px-2 py-1 h-8 flex items-center gap-1"
                   data-testid={`toggle-details-${worker.id}`}
                 >
                   {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  <span className="text-xs mr-1">تفاصيل</span>
+                  <span className="text-xs">{showDetails ? "إخفاء" : "تفاصيل"}</span>
                 </Button>
               </>
             )}
@@ -499,8 +499,12 @@ export default function EnhancedWorkerCard({
                     step="0.5"
                     min="0"
                     max="8"
-                    value={localAttendance.overtime || 0}
-                    onChange={(e) => updateAttendance({ overtime: parseFloat(e.target.value) || 0 })}
+                    value={localAttendance.overtime === undefined ? "" : localAttendance.overtime}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      updateAttendance({ overtime: value === "" ? 0 : parseFloat(value) || 0 });
+                    }}
+                    placeholder="0"
                     className="text-center english-numbers text-sm h-8"
                     style={{ direction: 'ltr', unicodeBidi: 'embed' }}
                     data-testid={`overtime-input-${worker.id}`}
@@ -513,8 +517,11 @@ export default function EnhancedWorkerCard({
                     type="number"
                     inputMode="decimal"
                     placeholder="0"
-                    value={localAttendance.overtimeRate || ""}
-                    onChange={(e) => updateAttendance({ overtimeRate: parseFloat(e.target.value) || 0 })}
+                    value={localAttendance.overtimeRate === undefined ? "" : localAttendance.overtimeRate}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      updateAttendance({ overtimeRate: value === "" ? 0 : parseFloat(value) || 0 });
+                    }}
                     className="text-center english-numbers text-sm h-8"
                     style={{ direction: 'ltr', unicodeBidi: 'embed' }}
                     data-testid={`overtime-rate-input-${worker.id}`}

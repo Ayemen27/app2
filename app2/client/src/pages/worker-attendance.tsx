@@ -46,7 +46,7 @@ export default function WorkerAttendance() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
   const [activeFilters, setActiveFilters] = useState({});
-  
+
   const {
     searchValue,
     filterValues,
@@ -203,29 +203,29 @@ export default function WorkerAttendance() {
       const date = selectedDate;
       const allKey = ["/api/projects", projectId, "worker-attendance"];
       const dateKey = ["/api/projects", projectId, "worker-attendance", date];
-      
+
       // إلغاء كلا الـ queries
       await queryClient.cancelQueries({ queryKey: allKey });
       await queryClient.cancelQueries({ queryKey: dateKey });
-      
+
       // حفظ البيانات السابقة لكلا الكاشين
       const previousAllData = queryClient.getQueryData(allKey);
       const previousDateData = queryClient.getQueryData(dateKey);
-      
+
       // تحديث كاش جميع السجلات
       if (Array.isArray(previousAllData)) {
         queryClient.setQueryData(allKey, 
           previousAllData.filter((record: any) => record.id !== id)
         );
       }
-      
+
       // تحديث كاش السجلات المحددة بالتاريخ
       if (Array.isArray(previousDateData)) {
         queryClient.setQueryData(dateKey, 
           previousDateData.filter((record: any) => record.id !== id)
         );
       }
-      
+
       // إرجاع المفاتيح مع البيانات للاستخدام في onError و onSettled
       return { previousAllData, previousDateData, allKey, dateKey };
     },
@@ -552,15 +552,15 @@ export default function WorkerAttendance() {
         }
         return false;
       });
-    
+
     if (invalidRecords.length > 0) {
       const hasWorkErrors = invalidRecords.some(([_, data]) => (data as any).recordType !== "advance");
       const hasAdvanceErrors = invalidRecords.some(([_, data]) => (data as any).recordType === "advance");
-      
+
       let errorMsg = "";
       if (hasWorkErrors) errorMsg += "يرجى إدخال عدد أيام عمل > 0 للعمل العادي. ";
       if (hasAdvanceErrors) errorMsg += "يرجى إدخال مبلغ مسحوب > 0 للسحب المقدم.";
-      
+
       toast({
         title: "خطأ في البيانات",
         description: errorMsg,
@@ -584,18 +584,18 @@ export default function WorkerAttendance() {
         const dailyWage = parseFloat(worker?.dailyWage || "0");
         // للسحب المقدم: workDays = 0 دائماً
         const workDays = (data as any).recordType === "advance" ? 0 : (data.workDays || 0);
-        
+
         // حساب الأجر الأساسي
         const baseWage = dailyWage * workDays;
-        
+
         // حساب الوقت الإضافي
-        const overtime = data.overtime || 0;
-        const overtimeRate = data.overtimeRate || 0;
+        const overtime = parseFloat(String(data.overtime || 0));
+        const overtimeRate = parseFloat(String(data.overtimeRate || 0));
         const overtimePay = overtime * overtimeRate;
-        
+
         // حساب إجمالي الدفع (المعادلة الموحدة)
         const totalPay = Math.max(0, baseWage + overtimePay);
-        
+
         // حساب المبلغ المدفوع والمتبقي
         const paidAmount = parseFloat(data.paidAmount || "0");
         const remainingAmount = data.paymentType === 'credit' ? totalPay : (totalPay - paidAmount);
@@ -606,12 +606,12 @@ export default function WorkerAttendance() {
           const start = new Date(`2000-01-01T${data.startTime}:00`);
           const end = new Date(`2000-01-01T${data.endTime}:00`);
           let diffMs = end.getTime() - start.getTime();
-          
+
           // التعامل مع الورديات الليلية
           if (diffMs < 0) {
             diffMs += 24 * 60 * 60 * 1000;
           }
-          
+
           return Math.max(0, diffMs / (1000 * 60 * 60));
         };
 
@@ -638,12 +638,12 @@ export default function WorkerAttendance() {
           notes: data.notes || "",
           recordType: data.recordType || "work",
         };
-        
+
         // إذا كان هناك recordId، أضفه للحفظ حتى نعرف أنه تعديل
         if ((data as any).recordId) {
           recordData.recordId = (data as any).recordId;
         }
-        
+
         return recordData;
       });
 
@@ -661,15 +661,15 @@ export default function WorkerAttendance() {
 
   // حساب إحصائيات الحضور من البيانات المجلوبة للتاريخ المختار
   const todayRecords = Array.isArray(todayAttendance) ? todayAttendance : [];
-  
+
   const presentWorkers = todayRecords.length;
   const totalWorkDays = todayRecords
     .reduce((sum, record) => sum + parseFloat(record.workDays || '0'), 0);
-  
+
   let totalEarned = 0;
   let totalPaid = 0;
   let totalTransfers = 0;
-  
+
   todayRecords.forEach(record => {
     // استخدام الأجر اليومي الحالي للعامل بدلاً من الأجر المحفوظ
     const worker = workers.find(w => w.id === record.workerId);
@@ -684,7 +684,7 @@ export default function WorkerAttendance() {
       totalTransfers += parseFloat(record.transfers);
     }
   });
-    
+
   // المتبقي = المستحق - المدفوع - الحوالات
   const totalRemaining = totalEarned - totalPaid - totalTransfers;
 

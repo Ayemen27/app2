@@ -811,7 +811,7 @@ export default function WorkerAttendance() {
   ], []);
 
   return (
-    <div className="p-4 slide-in space-y-4">
+    <div className="p-4 space-y-4">
 
       {/* لوحة الإحصائيات والفلترة الموحدة */}
       {selectedProjectId && (
@@ -852,7 +852,7 @@ export default function WorkerAttendance() {
         <Collapsible open={isFormOpen} onOpenChange={setIsFormOpen}>
           <Card className="mb-4">
             <CollapsibleTrigger asChild>
-              <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between p-4 cursor-pointer">
                 <div className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
                   <span className="font-medium text-foreground">نموذج تسجيل الحضور</span>

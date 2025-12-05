@@ -875,8 +875,7 @@ export default function WorkerAttendance() {
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-reverse space-x-2">
-                      <h3 className="text-lg font-semibold text-foreground">الإعدادات المشتركة</h3>
-                      <Button
+                                            <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setShowSharedSettings(!showSharedSettings)}

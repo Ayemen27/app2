@@ -735,13 +735,12 @@ export default function SupplierAccountsPage() {
                       color: remaining > 0 ? "danger" : "success",
                       emphasis: true,
                     },
-                    {
-                      label: "الملاحظات",
-                      value: purchase.notes || "لا توجد ملاحظات",
-                      icon: FileText,
-                      color: purchase.notes ? "default" : "muted",
-                    },
-                  ]}
+                    ]}
+                  footer={purchase.notes ? (
+                    <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs">
+                      <p className="line-clamp-2 text-amber-800 dark:text-amber-200">{purchase.notes}</p>
+                    </div>
+                  ) : undefined}
                   compact
                 />
               );

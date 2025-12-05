@@ -2,15 +2,19 @@ import * as React from "react";
 import { cn } from "../../lib/utils";
 import { X } from "lucide-react";
 
-interface DialogProps {
+interface DialogBaseProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  children: React.ReactNode;
 }
 
-interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement> {
-  children: React.ReactNode;
+type DialogProps = React.PropsWithChildren<DialogBaseProps>;
+
+interface DialogContentBaseProps extends React.HTMLAttributes<HTMLDivElement> {
+  className?: string;
+  dir?: string;
 }
+
+type DialogContentProps = React.PropsWithChildren<DialogContentBaseProps>;
 
 const DialogContext = React.createContext<{
   open: boolean;

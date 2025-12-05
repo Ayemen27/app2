@@ -4,6 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { getWorker, deleteWorker, updateWorker } from './repo';
 import { getWorkerAttendanceSummary } from '../attendance/repo';
 import type { Worker } from '../../db/schema';
+import { Card, CardHeader, CardContent, CardFooter, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { useToast } from '../../hooks/use-toast';
+import { ArrowRight, Edit2, Trash2, User, DollarSign, Phone, Calendar, Clock, Wallet, Building, RefreshCw, CreditCard, AlertTriangle } from 'lucide-react';
 
 interface AttendanceSummary {
   totalDays: number;
@@ -17,12 +23,15 @@ export function WorkerDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const [worker, setWorker] = useState<Worker | null>(null);
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
     phone: '',
@@ -68,6 +77,7 @@ export function WorkerDetailPage() {
     if (!worker) return;
     
     try {
+      setIsUpdating(true);
       await updateWorker({
         id: worker.id,
         name: editForm.name,
@@ -78,9 +88,20 @@ export function WorkerDetailPage() {
         notes: editForm.notes || undefined,
       });
       setShowEditForm(false);
+      toast({
+        title: t('workers.updateSuccess', 'تم التحديث بنجاح'),
+        description: t('workers.updateSuccessDesc', { name: editForm.name, defaultValue: `تم تحديث بيانات العامل "${editForm.name}"` }),
+      });
       loadWorker();
     } catch (error) {
       console.error('خطأ في تحديث بيانات العامل:', error);
+      toast({
+        title: t('workers.updateError', 'خطأ في التحديث'),
+        description: t('workers.updateErrorDesc', 'فشل في تحديث بيانات العامل'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -88,14 +109,38 @@ export function WorkerDetailPage() {
     if (!worker) return;
     
     try {
+      setIsDeleting(true);
       await deleteWorker(worker.id);
+      setShowDeleteConfirm(false);
+      toast({
+        title: t('workers.deleteSuccess', 'تم الحذف بنجاح'),
+        description: t('workers.deleteSuccessDesc', { name: worker.name, defaultValue: `تم حذف العامل "${worker.name}"` }),
+      });
       navigate('/workers');
     } catch (error) {
       console.error('خطأ في حذف العامل:', error);
+      toast({
+        title: t('workers.deleteError', 'خطأ في الحذف'),
+        description: t('workers.deleteErrorDesc', 'فشل في حذف العامل'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const getWorkerTypeBadge = (type: string) => {
+  const getWorkerTypeBadgeVariant = (type: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
+    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+      skilled: 'default',
+      unskilled: 'secondary',
+      supervisor: 'default',
+      driver: 'outline',
+      other: 'secondary',
+    };
+    return variants[type] || 'secondary';
+  };
+
+  const getWorkerTypeLabel = (type: string): string => {
     const labels: Record<string, string> = {
       skilled: 'ماهر',
       unskilled: 'عادي',
@@ -103,21 +148,25 @@ export function WorkerDetailPage() {
       driver: 'سائق',
       other: 'أخرى',
     };
-    return <span className="badge badge-info">{labels[type] || type}</span>;
+    return labels[type] || type;
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      active: 'badge badge-success',
-      inactive: 'badge badge-warning',
-      terminated: 'badge badge-error',
+  const getStatusBadgeVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
+    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+      active: 'default',
+      inactive: 'secondary',
+      terminated: 'destructive',
     };
+    return variants[status] || 'secondary';
+  };
+
+  const getStatusLabel = (status: string): string => {
     const labels: Record<string, string> = {
       active: 'نشط',
       inactive: 'غير نشط',
       terminated: 'منتهي',
     };
-    return <span className={styles[status] || 'badge'}>{labels[status] || status}</span>;
+    return labels[status] || status;
   };
 
   const formatDate = (timestamp: number) => {
@@ -134,304 +183,340 @@ export function WorkerDetailPage() {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner" />
-        <p>جاري تحميل بيانات العامل...</p>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4" dir="rtl">
+        <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+        <p className="text-muted-foreground">جاري تحميل بيانات العامل...</p>
       </div>
     );
   }
 
   if (!worker) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-icon">❌</div>
-        <p className="empty-state-text">العامل غير موجود</p>
-        <button className="btn btn-primary" onClick={() => navigate('/workers')}>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4" dir="rtl">
+        <AlertTriangle className="h-12 w-12 text-red-500" />
+        <p className="text-lg text-muted-foreground">العامل غير موجود</p>
+        <Button onClick={() => navigate('/workers')} variant="default">
+          <ArrowRight className="ml-2 h-4 w-4" />
           العودة لقائمة العمال
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="worker-detail-page">
-      <div className="page-header" style={{ marginBottom: '1.5rem' }}>
-        <button 
-          className="btn btn-secondary"
+    <div className="worker-detail-page space-y-4 p-4" dir="rtl">
+      <div className="flex justify-start mb-4">
+        <Button 
+          variant="outline"
           onClick={() => navigate('/workers')}
-          style={{ padding: '0.5rem 0.75rem' }}
+          size="sm"
         >
-          → رجوع
-        </button>
+          <ArrowRight className="ml-2 h-4 w-4" />
+          رجوع
+        </Button>
       </div>
 
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        <div className="card-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ 
-              width: 48, 
-              height: 48, 
-              borderRadius: '50%', 
-              background: '#e0f2fe',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.5rem'
-            }}>
-              👷
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+              <User className="h-6 w-6 text-blue-600" />
             </div>
-            <div>
-              <h2 className="card-title" style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>
-                {worker.name}
-              </h2>
-              {getWorkerTypeBadge(worker.workerType)}
+            <div className="flex flex-col gap-1">
+              <CardTitle className="text-xl">{worker.name}</CardTitle>
+              <Badge variant={getWorkerTypeBadgeVariant(worker.workerType)}>
+                {getWorkerTypeLabel(worker.workerType)}
+              </Badge>
             </div>
           </div>
-          {getStatusBadge(worker.status)}
-        </div>
+          <Badge variant={getStatusBadgeVariant(worker.status)} className="text-sm">
+            {getStatusLabel(worker.status)}
+          </Badge>
+        </CardHeader>
         
-        <div className="card-content">
-          <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6b7280' }}>الأجر اليومي:</span>
-              <span style={{ fontWeight: 600, color: '#16a34a' }}>{formatCurrency(worker.dailyWage)}</span>
-            </div>
-            
-            {worker.phone && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#6b7280' }}>رقم الهاتف:</span>
-                <span dir="ltr">{worker.phone}</span>
-              </div>
-            )}
-            
-            {worker.nationalId && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#6b7280' }}>رقم الهوية:</span>
-                <span dir="ltr">{worker.nationalId}</span>
-              </div>
-            )}
-            
-            {worker.startDate && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#6b7280' }}>تاريخ البدء:</span>
-                <span>{worker.startDate}</span>
-              </div>
-            )}
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6b7280' }}>تاريخ الإضافة:</span>
-              <span>{formatDate(worker.createdAt)}</span>
-            </div>
-            
-            {worker.notes && (
-              <div>
-                <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>ملاحظات:</span>
-                <p style={{ background: '#f3f4f6', padding: '0.75rem', borderRadius: '0.5rem' }}>
-                  {worker.notes}
-                </p>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.5rem', borderTop: '1px solid #e5e7eb' }}>
-              <span style={{ color: '#6b7280' }}>حالة المزامنة:</span>
-              <span className={worker.syncStatus === 'synced' ? 'badge badge-success' : 'badge badge-warning'}>
-                {worker.syncStatus === 'synced' ? 'متزامن' : worker.syncStatus === 'pending' ? 'ينتظر' : worker.syncStatus}
-              </span>
-            </div>
+        <CardContent className="space-y-3 pt-4">
+          <div className="flex items-center justify-between py-2 border-b border-gray-100">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <DollarSign className="h-4 w-4" />
+              الأجر اليومي:
+            </span>
+            <span className="font-semibold text-green-600">{formatCurrency(worker.dailyWage)}</span>
           </div>
-        </div>
-      </div>
+          
+          {worker.phone && (
+            <div className="flex items-center justify-between py-2 border-b border-gray-100">
+              <span className="flex items-center gap-2 text-muted-foreground">
+                <Phone className="h-4 w-4" />
+                رقم الهاتف:
+              </span>
+              <a 
+                href={`tel:${worker.phone}`}
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
+                dir="ltr"
+              >
+                <Phone className="h-4 w-4" />
+                {worker.phone}
+              </a>
+            </div>
+          )}
+          
+          {worker.nationalId && (
+            <div className="flex items-center justify-between py-2 border-b border-gray-100">
+              <span className="flex items-center gap-2 text-muted-foreground">
+                <CreditCard className="h-4 w-4" />
+                رقم الهوية:
+              </span>
+              <span dir="ltr">{worker.nationalId}</span>
+            </div>
+          )}
+          
+          {worker.startDate && (
+            <div className="flex items-center justify-between py-2 border-b border-gray-100">
+              <span className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                تاريخ البدء:
+              </span>
+              <span>{worker.startDate}</span>
+            </div>
+          )}
+          
+          <div className="flex items-center justify-between py-2 border-b border-gray-100">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              تاريخ الإضافة:
+            </span>
+            <span>{formatDate(worker.createdAt)}</span>
+          </div>
+          
+          {worker.notes && (
+            <div className="py-2">
+              <span className="flex items-center gap-2 text-muted-foreground mb-2">
+                ملاحظات:
+              </span>
+              <p className="bg-gray-50 p-3 rounded-lg text-sm">
+                {worker.notes}
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between py-2 pt-3 border-t border-gray-200">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <RefreshCw className="h-4 w-4" />
+              حالة المزامنة:
+            </span>
+            <Badge variant={worker.syncStatus === 'synced' ? 'default' : 'secondary'}>
+              {worker.syncStatus === 'synced' ? 'متزامن' : worker.syncStatus === 'pending' ? 'ينتظر' : worker.syncStatus}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
 
       {attendanceSummary && (
-        <div className="card" style={{ marginBottom: '1rem' }}>
-          <div className="card-header">
-            <h3 className="card-title">📊 إحصائيات الحضور</h3>
-          </div>
-          <div className="card-content">
-            <div className="stats-grid" style={{ marginBottom: '0.75rem' }}>
-              <div className="stat-card" style={{ background: '#dbeafe' }}>
-                <div className="stat-value" style={{ color: '#1e40af' }}>{attendanceSummary.totalDays}</div>
-                <div className="stat-label">أيام العمل</div>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Building className="h-5 w-5" />
+              إحصائيات الحضور
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="bg-blue-50 p-3 rounded-lg text-center">
+                <div className="text-xl font-bold text-blue-700">{attendanceSummary.totalDays}</div>
+                <div className="text-xs text-blue-600">أيام العمل</div>
               </div>
-              <div className="stat-card" style={{ background: '#dcfce7' }}>
-                <div className="stat-value" style={{ color: '#166534' }}>{attendanceSummary.totalEarned.toLocaleString()}</div>
-                <div className="stat-label">إجمالي المستحق</div>
+              <div className="bg-green-50 p-3 rounded-lg text-center">
+                <div className="text-xl font-bold text-green-700">{attendanceSummary.totalEarned.toLocaleString()}</div>
+                <div className="text-xs text-green-600">إجمالي المستحق</div>
               </div>
             </div>
-            <div className="stats-grid">
-              <div className="stat-card" style={{ background: '#fef3c7' }}>
-                <div className="stat-value" style={{ color: '#92400e' }}>{attendanceSummary.totalPaid.toLocaleString()}</div>
-                <div className="stat-label">المدفوع</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-amber-50 p-3 rounded-lg text-center">
+                <div className="text-xl font-bold text-amber-700">{attendanceSummary.totalPaid.toLocaleString()}</div>
+                <div className="text-xs text-amber-600">المدفوع</div>
               </div>
-              <div className="stat-card" style={{ background: attendanceSummary.balance > 0 ? '#fee2e2' : '#dcfce7' }}>
-                <div className="stat-value" style={{ color: attendanceSummary.balance > 0 ? '#991b1b' : '#166534' }}>
+              <div className={`p-3 rounded-lg text-center ${attendanceSummary.balance > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                <div className={`text-xl font-bold ${attendanceSummary.balance > 0 ? 'text-red-700' : 'text-green-700'}`}>
                   {attendanceSummary.balance.toLocaleString()}
                 </div>
-                <div className="stat-label">{attendanceSummary.balance > 0 ? 'المتبقي' : 'تمت التسوية'}</div>
+                <div className={`text-xs ${attendanceSummary.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {attendanceSummary.balance > 0 ? 'المتبقي' : 'تمت التسوية'}
+                </div>
               </div>
             </div>
             {attendanceSummary.lastAttendance && (
-              <div style={{ marginTop: '0.75rem', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>
+              <div className="mt-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+                <Clock className="h-4 w-4" />
                 آخر حضور: {attendanceSummary.lastAttendance}
               </div>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
-      <div style={{ display: 'flex', gap: '0.75rem' }}>
-        <button 
-          className="btn btn-primary" 
-          style={{ flex: 1 }}
+      <div className="flex gap-3 pt-2">
+        <Button 
+          variant="default" 
+          className="flex-1"
           onClick={() => setShowEditForm(true)}
         >
-          ✏️ تعديل
-        </button>
-        <button 
-          className="btn btn-danger"
-          style={{ flex: 1 }}
+          <Edit2 className="ml-2 h-4 w-4" />
+          تعديل
+        </Button>
+        <Button 
+          variant="destructive"
+          className="flex-1"
           onClick={() => setShowDeleteConfirm(true)}
         >
-          🗑️ حذف
-        </button>
+          <Trash2 className="ml-2 h-4 w-4" />
+          حذف
+        </Button>
       </div>
 
-      {showEditForm && (
-        <div className="modal-overlay" onClick={() => setShowEditForm(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">تعديل بيانات العامل</h3>
-              <button 
-                onClick={() => setShowEditForm(false)}
-                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
+      <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit2 className="h-5 w-5" />
+              تعديل بيانات العامل
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">الاسم *</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                value={editForm.name}
+                onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                required
+              />
             </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label className="input-label">الاسم *</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={editForm.name}
-                  onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label className="input-label">رقم الهاتف</label>
-                <input
-                  type="tel"
-                  className="input"
-                  value={editForm.phone}
-                  onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
-                  dir="ltr"
-                />
-              </div>
-              
-              <div className="form-group">
-                <label className="input-label">نوع العامل *</label>
-                <select
-                  className="input"
-                  value={editForm.workerType}
-                  onChange={e => setEditForm({ ...editForm, workerType: e.target.value as Worker['workerType'] })}
-                >
-                  <option value="skilled">ماهر</option>
-                  <option value="unskilled">عادي</option>
-                  <option value="supervisor">مشرف</option>
-                  <option value="driver">سائق</option>
-                  <option value="other">أخرى</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label className="input-label">الأجر اليومي (ريال) *</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={editForm.dailyWage}
-                  onChange={e => setEditForm({ ...editForm, dailyWage: parseFloat(e.target.value) || 0 })}
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              
-              <div className="form-group">
-                <label className="input-label">الحالة *</label>
-                <select
-                  className="input"
-                  value={editForm.status}
-                  onChange={e => setEditForm({ ...editForm, status: e.target.value as Worker['status'] })}
-                >
-                  <option value="active">نشط</option>
-                  <option value="inactive">غير نشط</option>
-                  <option value="terminated">منتهي</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label className="input-label">ملاحظات</label>
-                <textarea
-                  className="input"
-                  value={editForm.notes}
-                  onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
-                  rows={3}
-                  style={{ resize: 'vertical' }}
-                />
-              </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">رقم الهاتف</label>
+              <input
+                type="tel"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                value={editForm.phone}
+                onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                dir="ltr"
+              />
             </div>
-            <div className="modal-footer">
-              <button 
-                className="btn btn-secondary" 
-                onClick={() => setShowEditForm(false)}
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">نوع العامل *</label>
+              <select
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                value={editForm.workerType}
+                onChange={e => setEditForm({ ...editForm, workerType: e.target.value as Worker['workerType'] })}
               >
-                إلغاء
-              </button>
-              <button 
-                className="btn btn-primary"
-                onClick={handleUpdate}
-                disabled={!editForm.name || editForm.dailyWage <= 0}
+                <option value="skilled">ماهر</option>
+                <option value="unskilled">عادي</option>
+                <option value="supervisor">مشرف</option>
+                <option value="driver">سائق</option>
+                <option value="other">أخرى</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">الأجر اليومي (ريال) *</label>
+              <input
+                type="number"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                value={editForm.dailyWage}
+                onChange={e => setEditForm({ ...editForm, dailyWage: parseFloat(e.target.value) || 0 })}
+                min="0"
+                step="0.01"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">الحالة *</label>
+              <select
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                value={editForm.status}
+                onChange={e => setEditForm({ ...editForm, status: e.target.value as Worker['status'] })}
               >
-                حفظ التعديلات
-              </button>
+                <option value="active">نشط</option>
+                <option value="inactive">غير نشط</option>
+                <option value="terminated">منتهي</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">ملاحظات</label>
+              <textarea
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-y"
+                value={editForm.notes}
+                onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
+                rows={3}
+              />
             </div>
           </div>
-        </div>
-      )}
+          
+          <DialogFooter className="flex gap-2 flex-row-reverse sm:flex-row">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEditForm(false)}
+              disabled={isUpdating}
+            >
+              إلغاء
+            </Button>
+            <Button 
+              variant="default"
+              onClick={handleUpdate}
+              disabled={!editForm.name || editForm.dailyWage <= 0 || isUpdating}
+              loading={isUpdating}
+              loadingText="جاري الحفظ..."
+            >
+              حفظ التعديلات
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {showDeleteConfirm && (
-        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">تأكيد الحذف</h3>
-            </div>
-            <div className="modal-body">
-              <p style={{ marginBottom: '1rem' }}>
-                هل أنت متأكد من حذف العامل "{worker.name}"؟
-              </p>
-              <p style={{ color: '#dc2626', fontSize: '0.875rem' }}>
-                ⚠️ سيتم حذف العامل من القائمة ولكن يمكن استعادته لاحقاً
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button 
-                className="btn btn-secondary" 
-                onClick={() => setShowDeleteConfirm(false)}
-              >
-                إلغاء
-              </button>
-              <button 
-                className="btn btn-danger"
-                onClick={handleDelete}
-              >
-                نعم، احذف
-              </button>
-            </div>
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              تأكيد الحذف
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-3">
+            <p>
+              هل أنت متأكد من حذف العامل "{worker.name}"؟
+            </p>
+            <p className="text-red-600 text-sm flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              سيتم حذف العامل من القائمة ولكن يمكن استعادته لاحقاً
+            </p>
           </div>
-        </div>
-      )}
+          
+          <DialogFooter className="flex gap-2 flex-row-reverse sm:flex-row">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={isDeleting}
+            >
+              إلغاء
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              loading={isDeleting}
+              loadingText="جاري الحذف..."
+            >
+              <Trash2 className="ml-2 h-4 w-4" />
+              نعم، احذف
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

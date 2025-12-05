@@ -5,7 +5,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { registerAuthHelpers } from "../lib/queryClient";
+import { registerAuthHelpers, prefetchCoreData, clearAllCache } from "../lib/queryClient";
 
 interface User {
   id: string;
@@ -353,7 +353,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
       console.log('🔄 [AuthProvider.login] تحديث cache queries');
 
-      queryClient.refetchQueries();
+      // ⚡ تحميل البيانات الأساسية مسبقاً لتسريع الأداء
+      console.log('🚀 [AuthProvider.login] بدء تحميل البيانات الأساسية مسبقاً...');
+      prefetchCoreData().then(() => {
+        console.log('✅ [AuthProvider.login] تم تحميل البيانات الأساسية مسبقاً بنجاح');
+      }).catch((error) => {
+        console.warn('⚠️ [AuthProvider.login] فشل تحميل بعض البيانات مسبقاً:', error);
+      });
 
       console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');
 
@@ -420,7 +426,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.removeItem('user');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      queryClient.clear();
+      // ⚡ مسح جميع البيانات المخزنة
+      clearAllCache();
     }
   };
 

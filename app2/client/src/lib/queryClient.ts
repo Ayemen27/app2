@@ -345,23 +345,112 @@ export const getQueryFn: <T>(options: {
     return makeQueryRequest();
   };
 
+// ⚡ إعدادات التخزين المؤقت الذكي للأداء العالي
+const CACHE_TIMES = {
+  // البيانات المرجعية (نادراً ما تتغير): 10 دقائق
+  REFERENCE_DATA: 1000 * 60 * 10,
+  // البيانات النشطة (تتغير أكثر): 5 دقائق  
+  ACTIVE_DATA: 1000 * 60 * 5,
+  // وقت الاحتفاظ بالذاكرة: 30 دقيقة
+  GC_TIME: 1000 * 60 * 30,
+};
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: true,
-      staleTime: 1000 * 3,
-      gcTime: 1000 * 60 * 2,
+      // ⚡ تعطيل إعادة الجلب عند التركيز لتحسين الأداء
+      refetchOnWindowFocus: false,
+      // ⚡ البيانات تبقى صالحة لـ 5 دقائق (بدلاً من 3 ثوان)
+      staleTime: CACHE_TIMES.ACTIVE_DATA,
+      // ⚡ الاحتفاظ بالبيانات في الذاكرة لـ 30 دقيقة
+      gcTime: CACHE_TIMES.GC_TIME,
       retry: 1,
-      refetchOnReconnect: true,
-      refetchOnMount: 'always',
+      refetchOnReconnect: false,
+      // ⚡ لا تعيد الجلب عند التحميل إذا كانت البيانات محفوظة
+      refetchOnMount: false,
+      // ⚡ الاحتفاظ بالبيانات السابقة أثناء التحميل
+      placeholderData: (previousData: any) => previousData,
     },
     mutations: {
       retry: 1,
     },
   },
 });
+
+// ⚡ Query Keys للتخزين المؤقت الذكي
+export const QUERY_KEYS = {
+  // بيانات مرجعية (تخزين طويل)
+  PROJECTS: ["/api/projects"],
+  PROJECTS_WITH_STATS: ["/api/projects/with-stats"],
+  WORKERS: ["/api/workers"],
+  MATERIALS: ["/api/materials"],
+  SUPPLIERS: ["/api/suppliers"],
+  AUTOCOMPLETE: ["/api/autocomplete"],
+  
+  // بيانات ديناميكية (تخزين متوسط)
+  NOTIFICATIONS: ["/api/notifications"],
+  FUND_TRANSFERS: ["/api/fund-transfers"],
+  WORKER_ATTENDANCE: ["/api/worker-attendance"],
+  MATERIAL_PURCHASES: ["/api/material-purchases"],
+  TRANSPORTATION: ["/api/transportation-expenses"],
+  WORKER_TRANSFERS: ["/api/worker-transfers"],
+  WORKER_MISC: ["/api/worker-misc-expenses"],
+};
+
+// ⚡ دالة لتحميل البيانات مسبقاً عند تسجيل الدخول
+export async function prefetchCoreData() {
+  console.log('🚀 [Prefetch] بدء تحميل البيانات الأساسية مسبقاً...');
+  const startTime = Date.now();
+  
+  const prefetchPromises = [
+    // بيانات مرجعية بـ staleTime طويل (10 دقائق)
+    queryClient.prefetchQuery({
+      queryKey: QUERY_KEYS.PROJECTS,
+      staleTime: CACHE_TIMES.REFERENCE_DATA,
+    }),
+    queryClient.prefetchQuery({
+      queryKey: QUERY_KEYS.PROJECTS_WITH_STATS,
+      staleTime: CACHE_TIMES.REFERENCE_DATA,
+    }),
+    queryClient.prefetchQuery({
+      queryKey: QUERY_KEYS.WORKERS,
+      staleTime: CACHE_TIMES.REFERENCE_DATA,
+    }),
+    queryClient.prefetchQuery({
+      queryKey: QUERY_KEYS.MATERIALS,
+      staleTime: CACHE_TIMES.REFERENCE_DATA,
+    }),
+    queryClient.prefetchQuery({
+      queryKey: QUERY_KEYS.SUPPLIERS,
+      staleTime: CACHE_TIMES.REFERENCE_DATA,
+    }),
+    queryClient.prefetchQuery({
+      queryKey: QUERY_KEYS.AUTOCOMPLETE,
+      staleTime: CACHE_TIMES.REFERENCE_DATA,
+    }),
+    // الإشعارات
+    queryClient.prefetchQuery({
+      queryKey: QUERY_KEYS.NOTIFICATIONS,
+      staleTime: CACHE_TIMES.ACTIVE_DATA,
+    }),
+  ];
+  
+  try {
+    await Promise.all(prefetchPromises);
+    const duration = Date.now() - startTime;
+    console.log(`✅ [Prefetch] تم تحميل جميع البيانات الأساسية في ${duration}ms`);
+  } catch (error) {
+    console.warn('⚠️ [Prefetch] فشل تحميل بعض البيانات:', error);
+  }
+}
+
+// ⚡ دالة لمسح الكاش عند تسجيل الخروج
+export function clearAllCache() {
+  console.log('🧹 [Cache] مسح جميع البيانات المخزنة...');
+  queryClient.clear();
+}
 
 export async function invalidateAllProjectData(projectId?: string) {
   console.log('⚡ [QueryClient] تحديث فوري لجميع بيانات المشروع:', projectId);

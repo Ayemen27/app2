@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { Save, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2, User, Calendar, Edit2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -56,6 +57,7 @@ export default function WorkerAttendance() {
   const [selectedDate, setSelectedDate] = useState(dateParam || getCurrentDate());
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({});
   const [showSharedSettings, setShowSharedSettings] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   // إعدادات مشتركة لجميع العمال
   const [bulkSettings, setBulkSettings] = useState({
@@ -822,55 +824,77 @@ export default function WorkerAttendance() {
       )}
 
 
-      {/* الإعدادات المشتركة */}
+      {/* نموذج الإدخال القابل للطي */}
       {workers.length > 0 && (
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-reverse space-x-2">
-                <h3 className="text-lg font-semibold text-foreground">الإعدادات المشتركة</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowSharedSettings(!showSharedSettings)}
-                  className="px-2 py-1 h-8"
-                  data-testid="toggle-shared-settings"
-                >
-                  {showSharedSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </div>
-              {showSharedSettings && (
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => toggleAllWorkers(true)}
-                    className="text-xs"
-                  >
-                    تحديد الكل
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => toggleAllWorkers(false)}
-                    className="text-xs"
-                  >
-                    إلغاء الكل
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={applyBulkSettings}
-                    className="text-xs"
-                  >
-                    تطبيق على المحدد
-                  </Button>
+        <Collapsible open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <Card className="mb-4">
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  <span className="font-medium text-foreground">نموذج تسجيل الحضور</span>
                 </div>
-              )}
-            </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {isFormOpen ? "اضغط للإخفاء" : "اضغط للعرض"}
+                  </span>
+                  {isFormOpen ? (
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="p-4 pt-0">
+                {/* الإعدادات المشتركة */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-reverse space-x-2">
+                      <h3 className="text-lg font-semibold text-foreground">الإعدادات المشتركة</h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowSharedSettings(!showSharedSettings)}
+                        className="px-2 py-1 h-8"
+                        data-testid="toggle-shared-settings"
+                      >
+                        {showSharedSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    {showSharedSettings && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toggleAllWorkers(true)}
+                          className="text-xs"
+                        >
+                          تحديد الكل
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toggleAllWorkers(false)}
+                          className="text-xs"
+                        >
+                          إلغاء الكل
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={applyBulkSettings}
+                          className="text-xs"
+                        >
+                          تطبيق على المحدد
+                        </Button>
+                      </div>
+                    )}
+                  </div>
 
-            {showSharedSettings && (
-              <div className="space-y-1">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {showSharedSettings && (
+                    <div className="space-y-1">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground">وقت البدء</Label>
                 <Input
@@ -965,47 +989,48 @@ export default function WorkerAttendance() {
                 />
               </div>
                 </div>
+                  </div>
+                )}
               </div>
-            )}
-          </CardContent>
+
+              {/* Worker List */}
+              {workersLoading ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">جاري تحميل العمال...</p>
+                </div>
+              ) : workers.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">لا توجد عمال مسجلين</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {Array.isArray(workers) ? workers.map((worker) => (
+                    <EnhancedWorkerCard
+                      key={worker.id}
+                      worker={worker}
+                      attendance={attendanceData[worker.id] || { isPresent: false }}
+                      onAttendanceChange={(attendance) => handleAttendanceChange(worker.id, attendance)}
+                      selectedDate={selectedDate}
+                    />
+                  )) : null}
+                </div>
+              )}
+
+              {/* Save Button */}
+              <div className="mt-6">
+                <Button
+                  onClick={handleSaveAttendance}
+                  disabled={saveAttendanceMutation.isPending}
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  <Save className="ml-2 h-4 w-4" />
+                  {saveAttendanceMutation.isPending ? "جاري الحفظ..." : "حفظ الحضور"}
+                </Button>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
         </Card>
-      )}
-
-      {/* Worker List */}
-      {workersLoading ? (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">جاري تحميل العمال...</p>
-        </div>
-      ) : workers.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">لا توجد عمال مسجلين</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {Array.isArray(workers) ? workers.map((worker) => (
-            <EnhancedWorkerCard
-              key={worker.id}
-              worker={worker}
-              attendance={attendanceData[worker.id] || { isPresent: false }}
-              onAttendanceChange={(attendance) => handleAttendanceChange(worker.id, attendance)}
-              selectedDate={selectedDate}
-            />
-          )) : null}
-        </div>
-      )}
-
-      {/* Save Button */}
-      {workers.length > 0 && (
-        <div className="mt-6">
-          <Button
-            onClick={handleSaveAttendance}
-            disabled={saveAttendanceMutation.isPending}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            <Save className="ml-2 h-4 w-4" />
-            {saveAttendanceMutation.isPending ? "جاري الحفظ..." : "حفظ الحضور"}
-          </Button>
-        </div>
+      </Collapsible>
       )}
 
       {/* Today's Attendance List */}

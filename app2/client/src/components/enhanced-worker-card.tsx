@@ -393,7 +393,8 @@ export default function EnhancedWorkerCard({
                           updateAttendance({ workDays: value === "" ? 0 : parseFloat(value) || 0 });
                         }}
                         placeholder="0"
-                        className="w-24 text-center text-sm h-7 arabic-numbers"
+                        className="w-24 text-center text-sm h-7 english-numbers"
+                        style={{ direction: 'ltr', unicodeBidi: 'embed' }}
                         data-testid={`work-days-summary-${worker.id}`}
                       />
                     </div>
@@ -482,7 +483,8 @@ export default function EnhancedWorkerCard({
                       updateAttendance({ workDays: value === "" ? 0 : parseFloat(value) || 0 });
                     }}
                     placeholder="0"
-                    className="text-center font-mono arabic-numbers text-sm h-8"
+                    className="text-center font-mono english-numbers text-sm h-8"
+                    style={{ direction: 'ltr', unicodeBidi: 'embed' }}
                     data-testid={`work-days-input-${worker.id}`}
                   />
                 </div>
@@ -509,7 +511,8 @@ export default function EnhancedWorkerCard({
                     max="8"
                     value={localAttendance.overtime || 0}
                     onChange={(e) => updateAttendance({ overtime: parseFloat(e.target.value) || 0 })}
-                    className="text-center arabic-numbers text-sm h-8"
+                    className="text-center english-numbers text-sm h-8"
+                    style={{ direction: 'ltr', unicodeBidi: 'embed' }}
                     data-testid={`overtime-input-${worker.id}`}
                   />
                 </div>
@@ -522,7 +525,8 @@ export default function EnhancedWorkerCard({
                     placeholder="0"
                     value={localAttendance.overtimeRate || ""}
                     onChange={(e) => updateAttendance({ overtimeRate: parseFloat(e.target.value) || 0 })}
-                    className="text-center arabic-numbers text-sm h-8"
+                    className="text-center english-numbers text-sm h-8"
+                    style={{ direction: 'ltr', unicodeBidi: 'embed' }}
                     data-testid={`overtime-rate-input-${worker.id}`}
                   />
                 </div>
@@ -585,7 +589,8 @@ export default function EnhancedWorkerCard({
                         placeholder="0"
                         value={localAttendance.paidAmount || ""}
                         onChange={(e) => updateAttendance({ paidAmount: e.target.value })}
-                        className="text-center arabic-numbers text-sm h-8"
+                        className="text-center english-numbers text-sm h-8"
+                        style={{ direction: 'ltr', unicodeBidi: 'embed' }}
                         data-testid={`paid-amount-input-${worker.id}`}
                       />
                     </div>

@@ -888,7 +888,8 @@ export default function WorkerAttendance() {
                       }));
                     }}
                     placeholder="0"
-                    className="mt-1 arabic-numbers"
+                    className="mt-1 english-numbers"
+                    style={{ direction: 'ltr', unicodeBidi: 'embed' }}
                   />
                   {bulkSettings.workDays !== 0 && (
                     <button
@@ -929,7 +930,8 @@ export default function WorkerAttendance() {
                     placeholder="0"
                     value={bulkSettings.paidAmount}
                     onChange={(e) => setBulkSettings(prev => ({ ...prev, paidAmount: e.target.value }))}
-                    className="mt-1 arabic-numbers"
+                    className="mt-1 english-numbers"
+                    style={{ direction: 'ltr', unicodeBidi: 'embed' }}
                   />
                 </div>
               )}

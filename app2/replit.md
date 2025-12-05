@@ -50,6 +50,46 @@ A comprehensive construction project management system designed for the Middle E
 - **Data Prefetching**: Core data (projects, workers, materials, suppliers, notifications) preloaded on login
 - **Arabic Calendar**: Fully RTL-compatible with inverted navigation buttons
 
+### Unified Components Standards (December 2025)
+- **Unified Components Available**:
+  - `UnifiedCard` / `UnifiedCardGrid` - بطاقات موحدة للعرض
+  - `UnifiedSearchFilter` - مكون بحث وفلترة موحد
+  - `UnifiedStats` - إحصائيات موحدة
+  - `UnifiedFilterDashboard` - لوحة فلترة متكاملة
+  - `SelectedProjectContext` - سياق المشروع المحدد
+
+- **Pages Using Unified Components** ✅:
+  | الصفحة | المكونات | useSelectedProject |
+  |--------|----------|-------------------|
+  | dashboard | QuickActionsGrid, UnifiedStats | ✅ |
+  | worker-attendance | UnifiedFilterDashboard, UnifiedCard | ✅ |
+  | material-purchase | UnifiedSearchFilter, UnifiedCard | ✅ |
+  | project-transfers | UnifiedStats, UnifiedSearchFilter | ✅ |
+  | daily-expenses | UnifiedFilterDashboard, UnifiedCard, UnifiedSearchFilter | ✅ |
+  | projects | UnifiedFilterDashboard, UnifiedCard, UnifiedCardGrid | - |
+  | workers | UnifiedFilterDashboard, UnifiedCard, UnifiedCardGrid | ✅ |
+  | supplier-accounts | UnifiedFilterDashboard, UnifiedCard | ✅ |
+  | equipment-management | UnifiedFilterDashboard, UnifiedCard, UnifiedCardGrid | - |
+  | suppliers-professional | UnifiedFilterDashboard, UnifiedCard, UnifiedCardGrid | - |
+  | notifications | UnifiedSearchFilter | - |
+  | admin-notifications | UnifiedSearchFilter | - |
+  | worker-accounts | UnifiedSearchFilter | ✅ |
+
+- **Report Pages (Custom Design)**:
+  - `reports.tsx` - تصميم مخصص للتقارير اليومية
+  - `professional-reports.tsx` - تقارير احترافية + useSelectedProject ✅
+  - `real-reports.tsx` - تقارير واقعية + useSelectedProject ✅
+
+- **Admin Pages (Special Design)**:
+  - `autocomplete-admin.tsx` - إدارة الإكمال التلقائي
+  - `SecurityPoliciesPage.tsx` - إدارة السياسات الأمنية
+  - `SmartErrorsPage.tsx` - إدارة الأخطاء الذكية
+
+- **Routes Verification** ✅:
+  - All 21 routes matching between `bottom-navigation.tsx` and `App.tsx`
+  - Fixed routes in `quick-actions-grid.tsx`: `/equipment-management` → `/equipment`, `/reports` → `/daily-expenses`
+  - All cards display by default without requiring user interaction
+
 ### General Improvements
 - **API Robustness**: Enhanced error handling with `try-catch`, `Array.isArray()` checks, support for multiple API response structures, and optimized performance with `staleTime`, `retry`, and `refetchInterval`.
 - **Deployment Reliability**: Critical fixes for Vercel routing and CORS issues, ensuring production stability and correct API endpoint resolution.

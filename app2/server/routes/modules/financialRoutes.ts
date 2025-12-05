@@ -2115,14 +2115,51 @@ financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
 financialRouter.get('/suppliers/statistics', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const suppliersList = await db.select().from(suppliers).where(eq(suppliers.isActive, true));
-    const purchasesList = await db.select().from(materialPurchases);
+    const { supplierId, projectId, dateFrom, dateTo, purchaseType } = req.query;
     
-    let cashTotal = 0, creditTotal = 0;
+    // بناء شروط الفلترة
+    const conditions: any[] = [];
+    if (supplierId && supplierId !== 'all') {
+      conditions.push(eq(materialPurchases.supplierId, supplierId as string));
+    }
+    if (projectId && projectId !== 'all') {
+      conditions.push(eq(materialPurchases.projectId, projectId as string));
+    }
+    if (purchaseType && purchaseType !== 'all') {
+      conditions.push(eq(materialPurchases.purchaseType, purchaseType as string));
+    }
+    if (dateFrom) {
+      conditions.push(gte(materialPurchases.purchaseDate, dateFrom as string));
+    }
+    if (dateTo) {
+      conditions.push(lte(materialPurchases.purchaseDate, dateTo as string));
+    }
+
+    // جلب الموردين
+    const suppliersList = await db.select().from(suppliers).where(eq(suppliers.isActive, true));
+    
+    // جلب المشتريات مع الفلترة
+    let purchasesQuery = db.select().from(materialPurchases);
+    if (conditions.length > 0) {
+      purchasesQuery = purchasesQuery.where(and(...conditions)) as any;
+    }
+    const purchasesList = await purchasesQuery;
+    
+    // حساب الإحصائيات
+    let cashTotal = 0, creditTotal = 0, totalPaid = 0, totalDebt = 0;
+    
     purchasesList.forEach((p: any) => {
-      const amt = Number(p.amount || 0);
-      if (p.purchaseType === 'cash') cashTotal += amt;
-      else if (p.purchaseType === 'credit') creditTotal += amt;
+      const totalAmount = parseFloat(p.totalAmount || '0');
+      const paidAmount = parseFloat(p.paidAmount || '0');
+      const remainingAmount = parseFloat(p.remainingAmount || '0');
+      
+      if (p.purchaseType === 'نقد') {
+        cashTotal += totalAmount;
+      } else if (p.purchaseType === 'أجل') {
+        creditTotal += totalAmount;
+        totalDebt += remainingAmount;
+        totalPaid += paidAmount;
+      }
     });
     
     const duration = Date.now() - startTime;
@@ -2132,17 +2169,21 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
         totalSuppliers: suppliersList.length,
         totalCashPurchases: cashTotal.toFixed(2),
         totalCreditPurchases: creditTotal.toFixed(2),
-        totalDebt: creditTotal.toFixed(2),
-        totalPaid: "0",
-        remainingDebt: creditTotal.toFixed(2),
-        activeSuppliers: suppliersList.length
+        totalDebt: totalDebt.toFixed(2),
+        totalPaid: totalPaid.toFixed(2),
+        remainingDebt: totalDebt.toFixed(2),
+        activeSuppliers: suppliersList.filter(s => parseFloat(s.totalDebt || '0') > 0).length
       },
       processingTime: duration
     });
   } catch (error: any) {
-    return res.json({
-      success: true,
-      data: { totalSuppliers: 0, totalCashPurchases: "0", totalCreditPurchases: "0", totalDebt: "0", totalPaid: "0", remainingDebt: "0", activeSuppliers: 0 }
+    const duration = Date.now() - startTime;
+    console.error('❌ [Suppliers] خطأ في جلب إحصائيات الموردين:', error);
+    return res.status(500).json({
+      success: false,
+      data: { totalSuppliers: 0, totalCashPurchases: "0", totalCreditPurchases: "0", totalDebt: "0", totalPaid: "0", remainingDebt: "0", activeSuppliers: 0 },
+      error: error.message,
+      processingTime: duration
     });
   }
 });

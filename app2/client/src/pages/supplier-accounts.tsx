@@ -220,14 +220,19 @@ export default function SupplierAccountsPage() {
     return acc;
   }, { totalAmount: 0, paidAmount: 0, remainingAmount: 0 }) : { totalAmount: 0, paidAmount: 0, remainingAmount: 0 };
 
+  // استخدام supplierStats للإحصائيات المفلترة أو globalStats للعامة
+  const displayStats = (selectedSupplierId && selectedSupplierId !== 'all') || dateFrom || dateTo || paymentTypeFilter !== 'all' 
+    ? supplierStats 
+    : globalStats;
+
   const overallStats = {
-    totalSuppliers: globalStats?.totalSuppliers || suppliers.length,
-    totalCashPurchases: globalStats?.totalCashPurchases || "0",
-    totalCreditPurchases: globalStats?.totalCreditPurchases || "0",
-    totalDebt: globalStats?.totalDebt || "0",
-    totalPaid: globalStats?.totalPaid || "0",
-    remainingDebt: (selectedSupplierId && selectedSupplierId !== 'all') ? (supplierStats?.remainingDebt || "0") : (globalStats?.remainingDebt || "0"),
-    activeSuppliers: globalStats?.activeSuppliers || (Array.isArray(suppliers) ? suppliers.filter(s => parseFloat(s.totalDebt) > 0).length : 0),
+    totalSuppliers: displayStats?.totalSuppliers || suppliers.length,
+    totalCashPurchases: displayStats?.totalCashPurchases || "0",
+    totalCreditPurchases: displayStats?.totalCreditPurchases || "0",
+    totalDebt: displayStats?.totalDebt || "0",
+    totalPaid: displayStats?.totalPaid || "0",
+    remainingDebt: displayStats?.remainingDebt || "0",
+    activeSuppliers: displayStats?.activeSuppliers || (Array.isArray(suppliers) ? suppliers.filter(s => parseFloat(s.totalDebt || '0') > 0).length : 0),
     totalPurchases: Array.isArray(purchases) ? purchases.length : 0
   };
 

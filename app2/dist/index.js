@@ -8503,34 +8503,134 @@ projectRouter.get("/:projectId/all-expenses", async (req, res) => {
       db.select().from(workerMiscExpenses).where(eq7(workerMiscExpenses.projectId, projectId)).orderBy(desc4(workerMiscExpenses.date)),
       db.select().from(projects).where(eq7(projects.id, projectId)).limit(1)
     ]);
-    const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
-    const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
-    const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
-    const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
-    const totalIncome = totalFundTransfers;
-    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
-    const remainingBalance = totalIncome - totalExpenses;
+    const projectName = projectInfo[0]?.name || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641";
+    const extractDate = (record) => {
+      const dateField = record.transferDate || record.purchaseDate || record.date;
+      if (!dateField) return "unknown";
+      if (typeof dateField === "string") return dateField.split("T")[0];
+      if (dateField instanceof Date) return dateField.toISOString().split("T")[0];
+      return String(dateField).split("T")[0];
+    };
+    const dateGroups = /* @__PURE__ */ new Map();
+    const initDateGroup = (dateStr) => {
+      if (!dateGroups.has(dateStr)) {
+        dateGroups.set(dateStr, {
+          projectId,
+          projectName,
+          date: dateStr,
+          fundTransfers: [],
+          workerAttendance: [],
+          materialPurchases: [],
+          transportationExpenses: [],
+          workerTransfers: [],
+          miscExpenses: []
+        });
+      }
+      return dateGroups.get(dateStr);
+    };
+    fundTransfersResult.forEach((t) => {
+      const dateStr = extractDate(t);
+      const group = initDateGroup(dateStr);
+      group.fundTransfers.push({ ...t, projectName });
+    });
+    workerAttendanceResult.forEach((a) => {
+      const dateStr = extractDate(a);
+      const group = initDateGroup(dateStr);
+      group.workerAttendance.push({ ...a, projectName });
+    });
+    materialPurchasesResult.forEach((m) => {
+      const dateStr = extractDate(m);
+      const group = initDateGroup(dateStr);
+      group.materialPurchases.push({ ...m, projectName });
+    });
+    transportationResult.forEach((t) => {
+      const dateStr = extractDate(t);
+      const group = initDateGroup(dateStr);
+      group.transportationExpenses.push({ ...t, projectName });
+    });
+    workerTransfersResult.forEach((w) => {
+      const dateStr = extractDate(w);
+      const group = initDateGroup(dateStr);
+      group.workerTransfers.push({ ...w, projectName });
+    });
+    miscExpensesResult.forEach((m) => {
+      const dateStr = extractDate(m);
+      const group = initDateGroup(dateStr);
+      group.miscExpenses.push({ ...m, projectName });
+    });
+    const groupedByProjectDate = Array.from(dateGroups.values()).map((group) => {
+      const totalFundTransfers = group.fundTransfers.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+      const totalWorkerWages = group.workerAttendance.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
+      const totalMaterialCosts = group.materialPurchases.reduce((sum, m) => sum + parseFloat(m.totalAmount || "0"), 0);
+      const totalTransportation = group.transportationExpenses.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+      const totalWorkerTransfers = group.workerTransfers.reduce((sum, w) => sum + parseFloat(w.amount || "0"), 0);
+      const totalMiscExpenses = group.miscExpenses.reduce((sum, m) => sum + parseFloat(m.amount || "0"), 0);
+      const totalIncome = totalFundTransfers;
+      const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
+      const remainingBalance = totalIncome - totalExpenses;
+      return {
+        ...group,
+        totalIncome,
+        totalExpenses,
+        totalFundTransfers,
+        totalWorkerWages,
+        totalMaterialCosts,
+        totalTransportation,
+        totalWorkerTransfers,
+        totalMiscExpenses,
+        remainingBalance: parseFloat(remainingBalance.toFixed(2)),
+        counts: {
+          fundTransfers: group.fundTransfers.length,
+          workerAttendance: group.workerAttendance.length,
+          materialPurchases: group.materialPurchases.length,
+          transportationExpenses: group.transportationExpenses.length,
+          workerTransfers: group.workerTransfers.length,
+          miscExpenses: group.miscExpenses.length
+        }
+      };
+    }).sort((a, b) => b.date.localeCompare(a.date));
+    const overallTotalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+    const overallTotalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
+    const overallTotalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount || "0"), 0);
+    const overallTotalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+    const overallTotalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount || "0"), 0);
+    const overallTotalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount || "0"), 0);
+    const overallTotalIncome = overallTotalFundTransfers;
+    const overallTotalExpenses = overallTotalWorkerWages + overallTotalMaterialCosts + overallTotalTransportation + overallTotalWorkerTransfers + overallTotalMiscExpenses;
+    const overallRemainingBalance = overallTotalIncome - overallTotalExpenses;
     const responseData = {
-      projectName: projectInfo[0]?.name || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641",
+      // البيانات المجمعة حسب التاريخ (بطاقات متعددة)
+      groupedByProjectDate,
+      // الإجماليات العامة
+      projectName,
       projectId,
-      totalIncome,
-      totalExpenses,
-      remainingBalance: parseFloat(remainingBalance.toFixed(2)),
-      fundTransfers: fundTransfersResult,
-      workerAttendance: workerAttendanceResult,
-      materialPurchases: materialPurchasesResult,
-      transportationExpenses: transportationResult,
-      workerTransfers: workerTransfersResult,
-      miscExpenses: miscExpensesResult
+      totalIncome: overallTotalIncome,
+      totalExpenses: overallTotalExpenses,
+      remainingBalance: parseFloat(overallRemainingBalance.toFixed(2)),
+      // البيانات المسطحة (للتوافق مع الكود القديم)
+      fundTransfers: fundTransfersResult.map((t) => ({ ...t, projectName })),
+      workerAttendance: workerAttendanceResult.map((a) => ({ ...a, projectName })),
+      materialPurchases: materialPurchasesResult.map((m) => ({ ...m, projectName })),
+      transportationExpenses: transportationResult.map((t) => ({ ...t, projectName })),
+      workerTransfers: workerTransfersResult.map((w) => ({ ...w, projectName })),
+      miscExpenses: miscExpensesResult.map((m) => ({ ...m, projectName })),
+      // إحصائيات
+      totalCards: groupedByProjectDate.length,
+      totalRecords: {
+        fundTransfers: fundTransfersResult.length,
+        workerAttendance: workerAttendanceResult.length,
+        materialPurchases: materialPurchasesResult.length,
+        transportationExpenses: transportationResult.length,
+        workerTransfers: workerTransfersResult.length,
+        miscExpenses: miscExpensesResult.length
+      }
     };
     const duration = Date.now() - startTime;
-    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
+    console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0628\u0646\u062C\u0627\u062D (${groupedByProjectDate.length} \u0628\u0637\u0627\u0642\u0629) \u0641\u064A ${duration}ms`);
     res.json({
       success: true,
       data: responseData,
-      message: `\u062A\u0645 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0644\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D`,
+      message: `\u062A\u0645 \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0644\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D (${groupedByProjectDate.length} \u0628\u0637\u0627\u0642\u0629)`,
       processingTime: duration
     });
   } catch (error) {

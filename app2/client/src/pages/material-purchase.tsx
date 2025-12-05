@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ArrowRight, Save, Plus, Camera, Package, ChartGantt, Edit, Trash2, Users, CreditCard, DollarSign, TrendingUp, ShoppingCart, ChevronDown, ChevronUp } from "lucide-react";
@@ -18,8 +18,8 @@ import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
-import { UnifiedSearchFilter, FilterConfig } from "@/components/ui/unified-search-filter";
-import { StatsCard } from "@/components/ui/stats-card";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import type { Material, InsertMaterialPurchase, InsertMaterial, Supplier, InsertSupplier } from "@shared/schema";
 
@@ -28,15 +28,16 @@ export default function MaterialPurchase() {
   const { selectedProjectId, selectProject } = useSelectedProject();
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({ paymentType: 'all' });
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
-  const setFilterValue = (key: string, value: any) => {
+  const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
-  };
+  }, []);
   
-  const resetFilters = () => {
+  const handleResetFilters = useCallback(() => {
     setSearchValue("");
     setFilterValues({ paymentType: 'all' });
-  };
+  }, []);
   
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);
@@ -677,19 +678,45 @@ export default function MaterialPurchase() {
   });
 
   // Calculate stats
-  const stats = {
+  const stats = useMemo(() => ({
     total: allMaterialPurchases.length,
-    today: materialPurchases.length,
     cash: allMaterialPurchases.filter((p: any) => p.purchaseType === 'نقد').length,
     credit: allMaterialPurchases.filter((p: any) => p.purchaseType?.includes('آجل') || p.purchaseType?.includes('جل')).length,
-  };
+    supply: allMaterialPurchases.filter((p: any) => p.purchaseType === 'توريد').length,
+    totalValue: allMaterialPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0),
+    avgValue: allMaterialPurchases.length > 0 
+      ? allMaterialPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0) / allMaterialPurchases.length 
+      : 0,
+  }), [allMaterialPurchases]);
 
-  // Auto-refresh when page loads or purchase date changes
+  // فلترة المشتريات حسب البحث ونوع الدفع فقط (بدون فلترة التاريخ الإجبارية)
+  const filteredPurchases = useMemo(() => {
+    return allMaterialPurchases.filter((purchase: any) => {
+      const matchesSearch = searchValue === '' || 
+        purchase.materialName?.toLowerCase().includes(searchValue.toLowerCase()) ||
+        purchase.supplierName?.toLowerCase().includes(searchValue.toLowerCase());
+      const matchesPaymentType = filterValues.paymentType === 'all' || 
+        purchase.purchaseType === filterValues.paymentType;
+      return matchesSearch && matchesPaymentType;
+    });
+  }, [allMaterialPurchases, searchValue, filterValues.paymentType]);
+
+  // دالة التحديث
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refetchMaterialPurchases();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchMaterialPurchases]);
+
+  // Auto-refresh when page loads or project changes
   useEffect(() => {
     if (selectedProjectId) {
       refetchMaterialPurchases();
     }
-  }, [selectedProjectId, purchaseDate, refetchMaterialPurchases]);
+  }, [selectedProjectId, refetchMaterialPurchases]);
 
   // Edit Function
   const handleEdit = (purchase: any) => {
@@ -706,14 +733,73 @@ export default function MaterialPurchase() {
     setNotes(purchase.notes || "");
     setInvoicePhoto(purchase.invoicePhoto || "");
     setEditingPurchaseId(purchase.id);
+    setIsFormCollapsed(false);
   };
 
+  // تكوين صفوف الإحصائيات الموحدة - شبكة 3×2
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'total',
+          label: 'إجمالي المشتريات',
+          value: stats.total,
+          icon: Package,
+          color: 'blue',
+        },
+        {
+          key: 'cash',
+          label: 'مشتريات نقد',
+          value: stats.cash,
+          icon: DollarSign,
+          color: 'green',
+        },
+        {
+          key: 'credit',
+          label: 'مشتريات آجلة',
+          value: stats.credit,
+          icon: CreditCard,
+          color: 'orange',
+        },
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'supply',
+          label: 'توريدات',
+          value: stats.supply,
+          icon: ShoppingCart,
+          color: 'purple',
+        },
+        {
+          key: 'totalValue',
+          label: 'إجمالي القيمة',
+          value: formatCurrency(stats.totalValue),
+          icon: TrendingUp,
+          color: 'teal',
+        },
+        {
+          key: 'avgValue',
+          label: 'متوسط الشراء',
+          value: formatCurrency(stats.avgValue),
+          icon: ChartGantt,
+          color: 'indigo',
+        },
+      ]
+    }
+  ], [stats]);
 
-
-  const filterConfigs: FilterConfig[] = [
+  // تكوين الفلاتر
+  const filtersConfig: FilterConfig[] = useMemo(() => [
     {
       key: 'paymentType',
       label: 'نوع الدفع',
+      type: 'select',
       placeholder: 'اختر نوع الدفع',
       options: [
         { value: 'all', label: 'جميع الأنواع' },
@@ -722,71 +808,25 @@ export default function MaterialPurchase() {
         { value: 'توريد', label: 'توريد' }
       ],
     },
-  ];
+  ], []);
 
   return (
     <div className="p-4 slide-in">
-      {/* الإحصائيات الموحدة - شبكة 3×3 */}
+      {/* لوحة الإحصائيات والفلترة الموحدة - شبكة 3×2 */}
       {selectedProjectId && (
-        <div className="mb-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <StatsCard
-              title="إجمالي المشتريات"
-              value={stats.total}
-              icon={Package}
-              color="blue"
-            />
-            <StatsCard
-              title="مشتريات اليوم"
-              value={stats.today}
-              icon={ShoppingCart}
-              color="green"
-            />
-            <StatsCard
-              title="مشتريات نقد"
-              value={stats.cash}
-              icon={DollarSign}
-              color="orange"
-            />
-            <StatsCard
-              title="مشتريات آجلة"
-              value={stats.credit}
-              icon={CreditCard}
-              color="red"
-            />
-            <StatsCard
-              title="إجمالي القيمة"
-              value={formatCurrency(allMaterialPurchases.reduce((sum, p) => sum + parseFloat(p.totalAmount || '0'), 0))}
-              icon={TrendingUp}
-              color="purple"
-            />
-            <StatsCard
-              title="متوسط الشراء"
-              value={stats.total > 0 ? formatCurrency(allMaterialPurchases.reduce((sum, p) => sum + parseFloat(p.totalAmount || '0'), 0) / stats.total) : "0"}
-              icon={ChartGantt}
-              color="teal"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* شريط البحث والفلترة الموحد */}
-      {selectedProjectId && (
-        <div className="mb-4">
-          <UnifiedSearchFilter
-            showSearch={true}
-            searchPlaceholder="ابحث عن مادة أو مورد..."
-            searchValue={searchValue}
-            onSearchChange={setSearchValue}
-            filters={filterConfigs}
-            filterValues={filterValues}
-            onFilterChange={setFilterValue}
-            onReset={resetFilters}
-            showResetButton={true}
-            compact={true}
-            showActiveFilters={true}
-          />
-        </div>
+        <UnifiedFilterDashboard
+          statsRows={statsRowsConfig}
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          searchPlaceholder="ابحث عن مادة أو مورد..."
+          showSearch={true}
+          filters={filtersConfig}
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          onReset={handleResetFilters}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+        />
       )}
 
       {/* مؤشر التحميل لبيانات التعديل */}
@@ -1174,80 +1214,81 @@ export default function MaterialPurchase() {
         </Card>
       </Collapsible>
 
-      {/* Material Purchases List for Today */}
+      {/* قائمة المشتريات - عرض جميع البطاقات افتراضياً */}
       {materialPurchasesLoading && (
-        <Card className="mt-6">
+        <Card className="mt-4">
           <CardContent className="p-4">
             <div className="text-center text-muted-foreground">جاري تحميل المشتريات...</div>
           </CardContent>
         </Card>
       )}
 
-      {/* No purchases message for selected date */}
-      {selectedProjectId && allMaterialPurchases.length > 0 && materialPurchases.length === 0 && (
-        <Card className="mt-6">
+      {/* رسالة عدم وجود مشتريات */}
+      {selectedProjectId && !materialPurchasesLoading && filteredPurchases.length === 0 && (
+        <Card className="mt-4">
           <CardContent className="p-4">
             <div className="text-center text-muted-foreground">
               <Package className="h-12 w-12 mx-auto text-muted-foreground/50" />
-              <h3 className="text-lg font-medium">لا توجد مشتريات في {new Date(purchaseDate).toLocaleDateString('en-GB')}</h3>
-              <p className="text-sm">غيّر تاريخ الشراء أعلاه لعرض مشتريات تواريخ أخرى</p>
-              <p className="text-sm mt-1">إجمالي المشتريات المسجلة: {allMaterialPurchases.length}</p>
+              <h3 className="text-lg font-medium">لا توجد مشتريات</h3>
+              <p className="text-sm">
+                {allMaterialPurchases.length > 0 
+                  ? "لا توجد نتائج مطابقة للبحث أو الفلتر المحدد" 
+                  : "لم يتم تسجيل أي مشتريات بعد"}
+              </p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {selectedProjectId && materialPurchases && materialPurchases.length > 0 && (
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-4">
+      {/* عرض جميع البطاقات */}
+      {selectedProjectId && filteredPurchases.length > 0 && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-foreground">
-              المشتريات في {new Date(purchaseDate).toLocaleDateString('en-GB')} ({materialPurchases.length})
+              المشتريات ({filteredPurchases.length})
             </h3>
-            <p className="text-sm text-muted-foreground">
-              غيّر تاريخ الشراء أعلاه لعرض مشتريات تواريخ أخرى
-            </p>
           </div>
           <UnifiedCardGrid columns={1}>
-            {materialPurchases.map((purchase: any) => (
-                <UnifiedCard
-                  key={purchase.id}
-                  title={purchase.materialName || purchase.material?.name || "غير محدد"}
-                  titleIcon={Package}
-                  badges={[
-                    { label: purchase.purchaseType || "نقد", variant: purchase.purchaseType === "آجل" ? "warning" : "default" }
-                  ]}
-                  fields={[
-                    { label: "الفئة", value: purchase.materialCategory || "غير محدد", icon: ChartGantt },
-                    { label: "الوحدة", value: purchase.materialUnit || "غير محدد", icon: Package },
-                    { label: "الكمية", value: <span className="arabic-numbers">{purchase.quantity}</span>, icon: ShoppingCart },
-                    { label: "المورد", value: purchase.supplierName || "بدون مورد", icon: Users },
-                    { label: "السعر", value: <span className="arabic-numbers">{formatCurrency(purchase.unitPrice)}</span>, icon: DollarSign },
-                    { label: "الإجمالي", value: <span className="arabic-numbers">{formatCurrency(purchase.totalAmount)}</span>, icon: DollarSign, color: "info", emphasis: true },
-                  ]}
-                  actions={[
-                    {
-                      icon: Edit,
-                      label: "تعديل",
-                      onClick: () => handleEdit(purchase),
-                      color: "blue",
-                      disabled: editingPurchaseId === purchase.id
-                    },
-                    {
-                      icon: Trash2,
-                      label: "حذف",
-                      onClick: () => deleteMaterialPurchaseMutation.mutate(purchase.id),
-                      color: "red",
-                      disabled: deleteMaterialPurchaseMutation.isPending
-                    }
-                  ]}
-                  footer={
-                    <div className="text-xs text-muted-foreground arabic-numbers">
-                      التاريخ: {new Date(purchase.purchaseDate).toLocaleDateString('en-GB')}
-                    </div>
+            {filteredPurchases.map((purchase: any) => (
+              <UnifiedCard
+                key={purchase.id}
+                title={purchase.materialName || purchase.material?.name || "غير محدد"}
+                titleIcon={Package}
+                badges={[
+                  { label: purchase.purchaseType || "نقد", variant: purchase.purchaseType === "آجل" ? "warning" : "default" }
+                ]}
+                fields={[
+                  { label: "الفئة", value: purchase.materialCategory || "غير محدد", icon: ChartGantt },
+                  { label: "الوحدة", value: purchase.materialUnit || "غير محدد", icon: Package },
+                  { label: "الكمية", value: <span className="arabic-numbers">{purchase.quantity}</span>, icon: ShoppingCart },
+                  { label: "المورد", value: purchase.supplierName || "بدون مورد", icon: Users },
+                  { label: "السعر", value: <span className="arabic-numbers">{formatCurrency(purchase.unitPrice)}</span>, icon: DollarSign },
+                  { label: "الإجمالي", value: <span className="arabic-numbers">{formatCurrency(purchase.totalAmount)}</span>, icon: DollarSign, color: "info", emphasis: true },
+                ]}
+                actions={[
+                  {
+                    icon: Edit,
+                    label: "تعديل",
+                    onClick: () => handleEdit(purchase),
+                    color: "blue",
+                    disabled: editingPurchaseId === purchase.id
+                  },
+                  {
+                    icon: Trash2,
+                    label: "حذف",
+                    onClick: () => deleteMaterialPurchaseMutation.mutate(purchase.id),
+                    color: "red",
+                    disabled: deleteMaterialPurchaseMutation.isPending
                   }
-                  compact
-                />
-              ))}
+                ]}
+                footer={
+                  <div className="text-xs text-muted-foreground arabic-numbers">
+                    التاريخ: {new Date(purchase.purchaseDate).toLocaleDateString('en-GB')}
+                  </div>
+                }
+                compact
+              />
+            ))}
           </UnifiedCardGrid>
         </div>
       )}

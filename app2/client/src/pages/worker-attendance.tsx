@@ -1039,11 +1039,6 @@ export default function WorkerAttendance() {
       {/* Today's Attendance List */}
       {selectedProjectId && (
         <div className="mt-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4">
-            {selectedDate 
-              ? `سجلات الحضور لتاريخ ${selectedDate}` 
-              : `جميع سجلات الحضور للمشروع`}
-          </h3>
           {todayAttendance.length > 0 ? (
             <UnifiedCardGrid columns={2}>
               {todayAttendance.map((record: any) => {
@@ -1126,13 +1121,7 @@ export default function WorkerAttendance() {
                 );
               })}
             </UnifiedCardGrid>
-          ) : (
-            <p className="text-center py-8 text-muted-foreground">
-              {selectedDate 
-                ? `لا توجد سجلات حضور لتاريخ ${selectedDate}`
-                : 'لا توجد سجلات حضور للمشروع'}
-            </p>
-          )}
+          ) : null}
         </div>
       )}
     </div>

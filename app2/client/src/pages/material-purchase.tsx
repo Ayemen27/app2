@@ -27,7 +27,7 @@ export default function MaterialPurchase() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
   const [searchValue, setSearchValue] = useState("");
-  const [filterValues, setFilterValues] = useState<Record<string, any>>({ paymentType: 'all' });
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({ paymentType: 'all', dateRange: undefined });
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const handleFilterChange = useCallback((key: string, value: any) => {
@@ -36,7 +36,7 @@ export default function MaterialPurchase() {
   
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
-    setFilterValues({ paymentType: 'all' });
+    setFilterValues({ paymentType: 'all', dateRange: undefined });
   }, []);
   
   // Get URL parameters for editing
@@ -682,7 +682,7 @@ export default function MaterialPurchase() {
       : 0,
   }), [allMaterialPurchases]);
 
-  // فلترة المشتريات حسب المشروع المحدد، البحث، ونوع الدفع
+  // فلترة المشتريات حسب المشروع المحدد، البحث، ونوع الدفع، والتاريخ
   const filteredPurchases = useMemo(() => {
     return allMaterialPurchases.filter((purchase: any) => {
       // فلترة حسب المشروع المحدد
@@ -697,9 +697,25 @@ export default function MaterialPurchase() {
       const matchesPaymentType = filterValues.paymentType === 'all' || 
         purchase.purchaseType === filterValues.paymentType;
       
-      return matchesProject && matchesSearch && matchesPaymentType;
+      // فلترة حسب نطاق التاريخ
+      let matchesDateRange = true;
+      if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
+        const purchaseDate = new Date(purchase.purchaseDate);
+        if (filterValues.dateRange.from) {
+          const fromDate = new Date(filterValues.dateRange.from);
+          fromDate.setHours(0, 0, 0, 0);
+          matchesDateRange = matchesDateRange && purchaseDate >= fromDate;
+        }
+        if (filterValues.dateRange.to) {
+          const toDate = new Date(filterValues.dateRange.to);
+          toDate.setHours(23, 59, 59, 999);
+          matchesDateRange = matchesDateRange && purchaseDate <= toDate;
+        }
+      }
+      
+      return matchesProject && matchesSearch && matchesPaymentType && matchesDateRange;
     });
-  }, [allMaterialPurchases, selectedProjectId, searchValue, filterValues.paymentType]);
+  }, [allMaterialPurchases, selectedProjectId, searchValue, filterValues.paymentType, filterValues.dateRange]);
 
   // دالة التحديث
   const handleRefresh = useCallback(async () => {
@@ -807,6 +823,12 @@ export default function MaterialPurchase() {
         { value: 'آجل', label: 'آجل' },
         { value: 'توريد', label: 'توريد' }
       ],
+    },
+    {
+      key: 'dateRange',
+      label: 'نطاق التاريخ',
+      type: 'date-range',
+      placeholder: 'اختر نطاق التاريخ',
     },
   ], []);
 

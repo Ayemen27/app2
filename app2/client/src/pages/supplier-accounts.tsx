@@ -422,7 +422,7 @@ export default function SupplierAccountsPage() {
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
-      columns: 4,
+      columns: 3,
       gap: 'sm',
       items: [
         {
@@ -453,10 +453,24 @@ export default function SupplierAccountsPage() {
           icon: AlertCircle,
           color: 'red',
         },
+        {
+          key: 'activeSuppliers',
+          label: 'موردين نشطين',
+          value: overallStats.activeSuppliers.toString(),
+          icon: Package,
+          color: 'purple',
+        },
+        {
+          key: 'totalPaid',
+          label: 'إجمالي المدفوع',
+          value: formatCurrency(overallStats.totalPaid),
+          icon: DollarSign,
+          color: 'emerald',
+        },
       ]
     },
     ...(selectedSupplierId ? [{
-      columns: 4 as const,
+      columns: 3 as const,
       gap: 'sm' as const,
       items: [
         {
@@ -486,6 +500,20 @@ export default function SupplierAccountsPage() {
           value: purchases.length.toString(),
           icon: Receipt,
           color: 'blue' as const,
+        },
+        {
+          key: 'averageInvoice',
+          label: 'متوسط الفاتورة',
+          value: formatCurrency(purchases.length > 0 ? totals.totalAmount / purchases.length : 0),
+          icon: FileText,
+          color: 'amber' as const,
+        },
+        {
+          key: 'paymentProgress',
+          label: 'نسبة السداد',
+          value: totals.totalAmount > 0 ? `${((totals.paidAmount / totals.totalAmount) * 100).toFixed(1)}%` : '0%',
+          icon: TrendingUp,
+          color: 'teal' as const,
         },
       ]
     }] : [])

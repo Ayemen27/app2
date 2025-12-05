@@ -1424,8 +1424,8 @@ function DailyExpensesContent() {
       />
 
 
-      {/* بطاقات ملخص المصروفات - عرض بطاقة لكل (مشروع + تاريخ) عند اختيار جميع المشاريع */}
-      {isAllProjects && dailyExpensesData?.groupedByProjectDate && dailyExpensesData.groupedByProjectDate.length > 0 ? (
+      {/* بطاقات ملخص المصروفات - عرض بطاقة لكل تاريخ (سواء اختيار جميع المشاريع أو مشروع محدد) */}
+      {dailyExpensesData?.groupedByProjectDate && dailyExpensesData.groupedByProjectDate.length > 0 ? (
         <div className="space-y-4">
           {dailyExpensesData.groupedByProjectDate.map((cardData: any, index: number) => (
             <UnifiedCard
@@ -1497,14 +1497,14 @@ function DailyExpensesContent() {
             />
           ))}
         </div>
-      ) : selectedProjectId && (
+      ) : selectedProjectId && selectedDate && (
         <UnifiedCard
           title={projects?.find(p => p.id === selectedProjectId)?.name || "المشروع"}
-          subtitle={selectedDate ? `مصروفات يوم ${formatDate(selectedDate)}` : 'جميع المصروفات'}
+          subtitle={`مصروفات يوم ${formatDate(selectedDate)}`}
           titleIcon={Building}
           headerColor="#3b82f6"
           badges={[
-            { label: selectedDate ? formatDate(selectedDate) : 'جميع التواريخ', variant: "default" },
+            { label: formatDate(selectedDate), variant: "default" },
             { 
               label: totals.remainingBalance >= 0 ? "رصيد موجب" : "عجز", 
               variant: totals.remainingBalance >= 0 ? "success" : "destructive" 

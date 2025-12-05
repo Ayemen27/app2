@@ -2076,7 +2076,7 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
 });
 
 /**
- * 📊 جلب جميع المصاريف للمشروع (بدون تحديد تاريخ)
+ * 📊 جلب جميع المصاريف للمشروع (مجمعة حسب التاريخ)
  * GET /api/projects/:projectId/all-expenses
  */
 projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response) => {
@@ -2137,39 +2137,177 @@ projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response
       db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
     ]);
 
-    // حساب المجاميع
-    const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
-    const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
-    const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
-    const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
+    const projectName = projectInfo[0]?.name || 'مشروع غير معروف';
 
-    const totalIncome = totalFundTransfers;
-    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
-    const remainingBalance = totalIncome - totalExpenses;
+    // دالة استخراج التاريخ من أي سجل
+    const extractDate = (record: any): string => {
+      const dateField = record.transferDate || record.purchaseDate || record.date;
+      if (!dateField) return 'unknown';
+      if (typeof dateField === 'string') return dateField.split('T')[0];
+      if (dateField instanceof Date) return dateField.toISOString().split('T')[0];
+      return String(dateField).split('T')[0];
+    };
+
+    // تجميع البيانات حسب التاريخ
+    const dateGroups = new Map<string, {
+      projectId: string;
+      projectName: string;
+      date: string;
+      fundTransfers: any[];
+      workerAttendance: any[];
+      materialPurchases: any[];
+      transportationExpenses: any[];
+      workerTransfers: any[];
+      miscExpenses: any[];
+    }>();
+
+    // تهيئة المجموعات لكل تاريخ
+    const initDateGroup = (dateStr: string) => {
+      if (!dateGroups.has(dateStr)) {
+        dateGroups.set(dateStr, {
+          projectId,
+          projectName,
+          date: dateStr,
+          fundTransfers: [],
+          workerAttendance: [],
+          materialPurchases: [],
+          transportationExpenses: [],
+          workerTransfers: [],
+          miscExpenses: []
+        });
+      }
+      return dateGroups.get(dateStr)!;
+    };
+
+    // تجميع تحويلات العهد حسب التاريخ
+    fundTransfersResult.forEach(t => {
+      const dateStr = extractDate(t);
+      const group = initDateGroup(dateStr);
+      group.fundTransfers.push({ ...t, projectName });
+    });
+
+    // تجميع حضور العمال حسب التاريخ
+    workerAttendanceResult.forEach(a => {
+      const dateStr = extractDate(a);
+      const group = initDateGroup(dateStr);
+      group.workerAttendance.push({ ...a, projectName });
+    });
+
+    // تجميع مشتريات المواد حسب التاريخ
+    materialPurchasesResult.forEach(m => {
+      const dateStr = extractDate(m);
+      const group = initDateGroup(dateStr);
+      group.materialPurchases.push({ ...m, projectName });
+    });
+
+    // تجميع مصاريف النقل حسب التاريخ
+    transportationResult.forEach(t => {
+      const dateStr = extractDate(t);
+      const group = initDateGroup(dateStr);
+      group.transportationExpenses.push({ ...t, projectName });
+    });
+
+    // تجميع تحويلات العمال حسب التاريخ
+    workerTransfersResult.forEach(w => {
+      const dateStr = extractDate(w);
+      const group = initDateGroup(dateStr);
+      group.workerTransfers.push({ ...w, projectName });
+    });
+
+    // تجميع المصاريف المتنوعة حسب التاريخ
+    miscExpensesResult.forEach(m => {
+      const dateStr = extractDate(m);
+      const group = initDateGroup(dateStr);
+      group.miscExpenses.push({ ...m, projectName });
+    });
+
+    // تحويل المجموعات إلى مصفوفة مع حساب الإجماليات لكل تاريخ
+    const groupedByProjectDate = Array.from(dateGroups.values())
+      .map(group => {
+        const totalFundTransfers = group.fundTransfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+        const totalWorkerWages = group.workerAttendance.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
+        const totalMaterialCosts = group.materialPurchases.reduce((sum, m) => sum + parseFloat(m.totalAmount || '0'), 0);
+        const totalTransportation = group.transportationExpenses.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+        const totalWorkerTransfers = group.workerTransfers.reduce((sum, w) => sum + parseFloat(w.amount || '0'), 0);
+        const totalMiscExpenses = group.miscExpenses.reduce((sum, m) => sum + parseFloat(m.amount || '0'), 0);
+
+        const totalIncome = totalFundTransfers;
+        const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
+        const remainingBalance = totalIncome - totalExpenses;
+
+        return {
+          ...group,
+          totalIncome,
+          totalExpenses,
+          totalFundTransfers,
+          totalWorkerWages,
+          totalMaterialCosts,
+          totalTransportation,
+          totalWorkerTransfers,
+          totalMiscExpenses,
+          remainingBalance: parseFloat(remainingBalance.toFixed(2)),
+          counts: {
+            fundTransfers: group.fundTransfers.length,
+            workerAttendance: group.workerAttendance.length,
+            materialPurchases: group.materialPurchases.length,
+            transportationExpenses: group.transportationExpenses.length,
+            workerTransfers: group.workerTransfers.length,
+            miscExpenses: group.miscExpenses.length
+          }
+        };
+      })
+      .sort((a, b) => b.date.localeCompare(a.date)); // ترتيب حسب التاريخ (الأحدث أولاً)
+
+    // حساب الإجماليات العامة
+    const overallTotalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+    const overallTotalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
+    const overallTotalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount || '0'), 0);
+    const overallTotalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+    const overallTotalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount || '0'), 0);
+    const overallTotalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount || '0'), 0);
+
+    const overallTotalIncome = overallTotalFundTransfers;
+    const overallTotalExpenses = overallTotalWorkerWages + overallTotalMaterialCosts + overallTotalTransportation + overallTotalWorkerTransfers + overallTotalMiscExpenses;
+    const overallRemainingBalance = overallTotalIncome - overallTotalExpenses;
 
     const responseData = {
-      projectName: projectInfo[0]?.name || 'مشروع غير معروف',
+      // البيانات المجمعة حسب التاريخ (بطاقات متعددة)
+      groupedByProjectDate,
+      
+      // الإجماليات العامة
+      projectName,
       projectId,
-      totalIncome,
-      totalExpenses,
-      remainingBalance: parseFloat(remainingBalance.toFixed(2)),
-      fundTransfers: fundTransfersResult,
-      workerAttendance: workerAttendanceResult,
-      materialPurchases: materialPurchasesResult,
-      transportationExpenses: transportationResult,
-      workerTransfers: workerTransfersResult,
-      miscExpenses: miscExpensesResult
+      totalIncome: overallTotalIncome,
+      totalExpenses: overallTotalExpenses,
+      remainingBalance: parseFloat(overallRemainingBalance.toFixed(2)),
+      
+      // البيانات المسطحة (للتوافق مع الكود القديم)
+      fundTransfers: fundTransfersResult.map(t => ({ ...t, projectName })),
+      workerAttendance: workerAttendanceResult.map(a => ({ ...a, projectName })),
+      materialPurchases: materialPurchasesResult.map(m => ({ ...m, projectName })),
+      transportationExpenses: transportationResult.map(t => ({ ...t, projectName })),
+      workerTransfers: workerTransfersResult.map(w => ({ ...w, projectName })),
+      miscExpenses: miscExpensesResult.map(m => ({ ...m, projectName })),
+      
+      // إحصائيات
+      totalCards: groupedByProjectDate.length,
+      totalRecords: {
+        fundTransfers: fundTransfersResult.length,
+        workerAttendance: workerAttendanceResult.length,
+        materialPurchases: materialPurchasesResult.length,
+        transportationExpenses: transportationResult.length,
+        workerTransfers: workerTransfersResult.length,
+        miscExpenses: miscExpensesResult.length
+      }
     };
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [API] تم جلب جميع المصروفات بنجاح في ${duration}ms`);
+    console.log(`✅ [API] تم جلب جميع المصروفات بنجاح (${groupedByProjectDate.length} بطاقة) في ${duration}ms`);
 
     res.json({
       success: true,
       data: responseData,
-      message: `تم جلب جميع المصروفات للمشروع بنجاح`,
+      message: `تم جلب جميع المصروفات للمشروع بنجاح (${groupedByProjectDate.length} بطاقة)`,
       processingTime: duration
     });
 

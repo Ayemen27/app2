@@ -79,6 +79,20 @@ export default function EnhancedWorkerCard({
 
   const updateAttendance = (updates: Partial<AttendanceData>) => {
     const newAttendance = { ...localAttendance, ...updates };
+    
+    // حساب القيم فقط عند الحاجة (ليس تلقائيًا)
+    if (newAttendance.isPresent && (
+      updates.workDays !== undefined || 
+      updates.paidAmount !== undefined ||
+      updates.overtime !== undefined ||
+      updates.overtimeRate !== undefined
+    )) {
+      newAttendance.actualWage = calculateBaseWage();
+      newAttendance.totalPay = calculateTotalPay();
+      newAttendance.remainingAmount = calculateRemainingAmount();
+      newAttendance.hoursWorked = calculateWorkingHours();
+    }
+    
     setLocalAttendance(newAttendance);
     onAttendanceChange(newAttendance);
   };
@@ -184,31 +198,7 @@ export default function EnhancedWorkerCard({
     return remaining;
   };
 
-  // تحديث تلقائي للحسابات عند تغيير المدخلات
-  useEffect(() => {
-    if (localAttendance.isPresent) {
-      const calculatedTotalPay = calculateTotalPay();
-      const calculatedRemainingAmount = calculateRemainingAmount();
-
-      // تحديث القيم المحسوبة إذا تغيرت
-      if (localAttendance.totalPay !== calculatedTotalPay ||
-          localAttendance.remainingAmount !== calculatedRemainingAmount ||
-          localAttendance.hoursWorked !== calculateWorkingHours()) {
-
-        const updatedAttendance = {
-          ...localAttendance,
-          actualWage: calculateBaseWage(),
-          totalPay: calculatedTotalPay,
-          remainingAmount: calculatedRemainingAmount,
-          hoursWorked: calculateWorkingHours()
-        };
-
-        setLocalAttendance(updatedAttendance);
-        onAttendanceChange(updatedAttendance);
-      }
-    }
-  }, [localAttendance.workDays, localAttendance.overtime, localAttendance.overtimeRate,
-      localAttendance.paidAmount, localAttendance.startTime, localAttendance.endTime]);
+  // تم إزالة useEffect للتحديث التلقائي - الحسابات تتم عند الحفظ فقط
 
   // تنسيق التاريخ
   const formatDate = (dateString: string | Date) => {

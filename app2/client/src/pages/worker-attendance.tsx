@@ -481,14 +481,8 @@ export default function WorkerAttendance() {
   const applyBulkSettings = () => {
     const newAttendanceData = { ...attendanceData };
 
-    console.log("=== تطبيق الإعدادات المشتركة ===");
-    console.log("الإعدادات المشتركة:", bulkSettings);
-
     Object.keys(newAttendanceData).forEach(workerId => {
       if (newAttendanceData[workerId].isPresent) {
-        console.log(`تطبيق الإعدادات على العامل ${workerId}`);
-        console.log(`المبلغ المدفوع من الإعدادات: "${bulkSettings.paidAmount}"`);
-
         newAttendanceData[workerId] = {
           ...newAttendanceData[workerId],
           startTime: bulkSettings.startTime,
@@ -498,8 +492,6 @@ export default function WorkerAttendance() {
           paidAmount: bulkSettings.paidAmount,
           workDescription: bulkSettings.workDescription
         };
-
-        console.log("البيانات بعد التطبيق:", newAttendanceData[workerId]);
       }
     });
 
@@ -515,13 +507,8 @@ export default function WorkerAttendance() {
   const toggleAllWorkers = (isPresent: boolean) => {
     const newAttendanceData: AttendanceData = {};
 
-    console.log("=== تحديد جميع العمال ===");
-    console.log("حالة الحضور:", isPresent);
-    console.log("الإعدادات المشتركة:", bulkSettings);
-
     workers.forEach(worker => {
       if (isPresent) {
-        console.log(`إضافة العامل ${worker.name} بالمبلغ: "${bulkSettings.paidAmount}"`);
         newAttendanceData[worker.id] = {
           isPresent: true,
           startTime: bulkSettings.startTime,
@@ -537,8 +524,6 @@ export default function WorkerAttendance() {
         };
       }
     });
-
-    console.log("البيانات النهائية:", newAttendanceData);
     setAttendanceData(newAttendanceData);
   };
 
@@ -583,9 +568,6 @@ export default function WorkerAttendance() {
       });
       return;
     }
-
-    console.log("=== تصحيح الأخطاء - بيانات الحضور قبل الحفظ ===");
-    console.log("attendanceData:", attendanceData);
 
     const attendanceRecords: any[] = Object.entries(attendanceData)
       .filter(([_, data]) => {
@@ -632,13 +614,6 @@ export default function WorkerAttendance() {
           
           return Math.max(0, diffMs / (1000 * 60 * 60));
         };
-
-        console.log(`العامل ${worker?.name}:`);
-        console.log(`  - الأجر الأساسي: ${baseWage}`);
-        console.log(`  - الوقت الإضافي: ${overtimePay}`);
-        console.log(`  - إجمالي الدفع: ${totalPay}`);
-        console.log(`  - المبلغ المدفوع: ${paidAmount}`);
-        console.log(`  - المبلغ المتبقي: ${remainingAmount}`);
 
         const recordData: any = {
           projectId: selectedProjectId,

@@ -100,18 +100,8 @@ export default function EnhancedWorkerCard({
   const handleAttendanceToggle = (checked: boolean | "indeterminate") => {
     const isPresent = checked === true;
 
-    // إضافة تأثير بصري عند التحديد/الإلغاء
-    if (isPresent) {
-      // تأثير عند التحديد
-      const card = document.querySelector(`[data-testid="worker-card-detailed-${worker.id}"]`) as HTMLElement;
-      if (card) {
-        card.classList.add('animate-bounce-subtle');
-        setTimeout(() => {
-          card.classList.remove('animate-bounce-subtle');
-        }, 600);
-      }
-    } else {
-      // إخفاء التفاصيل عند إلغاء تحديد الحضور
+    // إخفاء التفاصيل عند إلغاء تحديد الحضور
+    if (!isPresent) {
       setShowDetails(false);
     }
 
@@ -248,10 +238,10 @@ export default function EnhancedWorkerCard({
   };
 
   return (
-    <Card className={`mb-3 shadow-sm border-r-4 w-full max-w-full overflow-hidden worker-card-enhanced ${
+    <Card className={`mb-3 shadow-sm border-r-4 w-full max-w-full overflow-hidden ${
       isPresentToday
-        ? "border-r-green-400 bg-gradient-to-r from-green-50/50 to-green-100/30 dark:from-green-950/20 dark:to-green-900/10 animate-pulse-slow attended-worker-glow"
-        : "border-r-primary/20 hover:border-r-primary/40"
+        ? "border-r-green-400 bg-green-50/50 dark:bg-green-950/20"
+        : "border-r-primary/20"
     }`} data-testid={`worker-card-detailed-${worker.id}`}>
       <CardContent className="p-2 sm:p-3 max-w-full overflow-hidden">
         {/* رأس البطاقة - معلومات العامل */}

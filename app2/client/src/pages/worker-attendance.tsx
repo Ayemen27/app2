@@ -871,51 +871,8 @@ export default function WorkerAttendance() {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent className="p-4 pt-0">
-                {/* الإعدادات المشتركة */}
+                {/* حقول الإعدادات */}
                 <div className="mb-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-reverse space-x-2">
-                      <h3 className="text-lg font-semibold text-foreground">الإعدادات المشتركة</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowSharedSettings(!showSharedSettings)}
-                        className="px-2 py-1 h-8"
-                        data-testid="toggle-shared-settings"
-                      >
-                        {showSharedSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                    {showSharedSettings && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => toggleAllWorkers(true)}
-                          className="text-xs"
-                        >
-                          تحديد الكل
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => toggleAllWorkers(false)}
-                          className="text-xs"
-                        >
-                          إلغاء الكل
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={applyBulkSettings}
-                          className="text-xs"
-                        >
-                          تطبيق على المحدد
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {showSharedSettings && (
                     <div className="space-y-1">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>

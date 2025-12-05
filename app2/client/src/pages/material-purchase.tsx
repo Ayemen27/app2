@@ -19,7 +19,7 @@ import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter, FilterConfig } from "@/components/ui/unified-search-filter";
-import { UnifiedStats } from "@/components/ui/unified-stats";
+import { StatsCard } from "@/components/ui/stats-card";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import type { Material, InsertMaterialPurchase, InsertMaterial, Supplier, InsertSupplier } from "@shared/schema";
 
@@ -57,8 +57,8 @@ export default function MaterialPurchase() {
   const [invoicePhoto, setInvoicePhoto] = useState<string>("");
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   
-  // حالة طي النموذج
-  const [isFormCollapsed, setIsFormCollapsed] = useState(false);
+  // حالة طي النموذج - مطوي افتراضياً
+  const [isFormCollapsed, setIsFormCollapsed] = useState(true);
   
   // حالات نموذج إضافة المورد
   const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
@@ -726,39 +726,47 @@ export default function MaterialPurchase() {
 
   return (
     <div className="p-4 slide-in">
-      {/* الإحصائيات الموحدة */}
+      {/* الإحصائيات الموحدة - شبكة 3×3 */}
       {selectedProjectId && (
         <div className="mb-4">
-          <UnifiedStats
-            stats={[
-              {
-                title: "إجمالي المشتريات",
-                value: stats.total,
-                icon: Package,
-                color: "blue"
-              },
-              {
-                title: "مشتريات اليوم",
-                value: stats.today,
-                icon: ShoppingCart,
-                color: "green"
-              },
-              {
-                title: "مشتريات نقد",
-                value: stats.cash,
-                icon: DollarSign,
-                color: "orange"
-              },
-              {
-                title: "مشتريات آجلة",
-                value: stats.credit,
-                icon: CreditCard,
-                color: "red"
-              }
-            ]}
-            columns={2}
-            hideHeader={true}
-          />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <StatsCard
+              title="إجمالي المشتريات"
+              value={stats.total}
+              icon={Package}
+              color="blue"
+            />
+            <StatsCard
+              title="مشتريات اليوم"
+              value={stats.today}
+              icon={ShoppingCart}
+              color="green"
+            />
+            <StatsCard
+              title="مشتريات نقد"
+              value={stats.cash}
+              icon={DollarSign}
+              color="orange"
+            />
+            <StatsCard
+              title="مشتريات آجلة"
+              value={stats.credit}
+              icon={CreditCard}
+              color="red"
+            />
+            <StatsCard
+              title="إجمالي القيمة"
+              value={formatCurrency(allMaterialPurchases.reduce((sum, p) => sum + parseFloat(p.totalAmount || '0'), 0))}
+              icon={TrendingUp}
+              color="purple"
+            />
+            <StatsCard
+              title="متوسط الشراء"
+              value={stats.total > 0 ? formatCurrency(allMaterialPurchases.reduce((sum, p) => sum + parseFloat(p.totalAmount || '0'), 0) / stats.total) : "0"}
+              icon={ChartGantt}
+              color="teal"
+            />
+          </div>
         </div>
       )}
 
@@ -1190,18 +1198,17 @@ export default function MaterialPurchase() {
       )}
 
       {selectedProjectId && materialPurchases && materialPurchases.length > 0 && (
-        <Card className="mt-6">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">
-                المشتريات في {new Date(purchaseDate).toLocaleDateString('en-GB')} ({materialPurchases.length})
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                غيّر تاريخ الشراء أعلاه لعرض مشتريات تواريخ أخرى
-              </p>
-            </div>
-            <UnifiedCardGrid columns={1}>
-              {materialPurchases.map((purchase: any) => (
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-foreground">
+              المشتريات في {new Date(purchaseDate).toLocaleDateString('en-GB')} ({materialPurchases.length})
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              غيّر تاريخ الشراء أعلاه لعرض مشتريات تواريخ أخرى
+            </p>
+          </div>
+          <UnifiedCardGrid columns={1}>
+            {materialPurchases.map((purchase: any) => (
                 <UnifiedCard
                   key={purchase.id}
                   title={purchase.materialName || purchase.material?.name || "غير محدد"}
@@ -1241,9 +1248,8 @@ export default function MaterialPurchase() {
                   compact
                 />
               ))}
-            </UnifiedCardGrid>
-          </CardContent>
-        </Card>
+          </UnifiedCardGrid>
+        </div>
       )}
     </div>
   );

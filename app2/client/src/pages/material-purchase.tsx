@@ -1260,7 +1260,7 @@ export default function MaterialPurchase() {
             </div>
               </div>
             </CollapsibleContent>
-          </Card>
+          </CardContent>
         </Card>
       </Collapsible>
 

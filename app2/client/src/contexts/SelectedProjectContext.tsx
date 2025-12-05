@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { invalidateAllProjectData } from "@/lib/queryClient";
 
 const SELECTED_PROJECT_KEY = "construction-app-selected-project";
@@ -40,19 +40,15 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
   const [selectedProjectId, setSelectedProjectId] = useState<string>(ALL_PROJECTS_ID);
   const [selectedProjectName, setSelectedProjectName] = useState<string>(ALL_PROJECTS_NAME);
   const [isInitialized, setIsInitialized] = useState(false);
-  
-  let queryClient: ReturnType<typeof useQueryClient> | null = null;
-  
-  try {
-    queryClient = useQueryClient();
-  } catch (e) {
-  }
 
   const { data: projectsData, isLoading: isProjectsLoading, error: projectsError } = useQuery<Project[]>({
-    queryKey: ["/api/projects", "selected-project-context"],
+    queryKey: ["/api/projects"],
     queryFn: async () => {
       const response = await fetch("/api/projects", {
         credentials: "include",
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem('accessToken') || ''}`
+        }
       });
       if (!response.ok) {
         throw new Error("فشل في جلب المشاريع");

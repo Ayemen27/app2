@@ -54,7 +54,7 @@ export default function WorkerAttendance() {
   const editId = urlParams.get('edit');
   const workerId = urlParams.get('worker');
   const dateParam = urlParams.get('date');
-  const [selectedDate, setSelectedDate] = useState(dateParam || getCurrentDate());
+  const [selectedDate, setSelectedDate] = useState<string | null>(dateParam || null);
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({});
   const [showSharedSettings, setShowSharedSettings] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -138,7 +138,10 @@ export default function WorkerAttendance() {
     queryKey: ["/api/projects", selectedProjectId, "worker-attendance", selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/worker-attendance?date=${selectedDate}`, "GET");
+        const url = selectedDate 
+          ? `/api/projects/${selectedProjectId}/worker-attendance?date=${selectedDate}`
+          : `/api/projects/${selectedProjectId}/worker-attendance`;
+        const response = await apiRequest(url, "GET");
         // معالجة الهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data;
@@ -683,7 +686,7 @@ export default function WorkerAttendance() {
     saveAttendanceMutation.mutate(attendanceRecords);
   };
 
-  // حساب إحصائيات الحضور من البيانات المجلوبة للتاريخ المختار
+  // حساب إحصائيات الحضور من البيانات المجلوبة
   const todayRecords = Array.isArray(todayAttendance) ? todayAttendance : [];
 
   const stats = useMemo(() => {
@@ -813,7 +816,7 @@ export default function WorkerAttendance() {
                 const day = String(value.getDate()).padStart(2, '0');
                 setSelectedDate(`${year}-${month}-${day}`);
               } else {
-                setSelectedDate(getCurrentDate());
+                setSelectedDate(null);
               }
             }
           }}
@@ -1037,8 +1040,8 @@ export default function WorkerAttendance() {
       {selectedProjectId && (
         <div className="mt-6">
           <h3 className="text-lg font-semibold text-foreground mb-4">
-            {todayAttendance.length > 0 
-              ? `حضور اليوم المسجل (${selectedDate})` 
+            {selectedDate 
+              ? `سجلات الحضور لتاريخ ${selectedDate}` 
               : `جميع سجلات الحضور للمشروع`}
           </h3>
           {todayAttendance.length > 0 ? (
@@ -1123,93 +1126,19 @@ export default function WorkerAttendance() {
                 );
               })}
             </UnifiedCardGrid>
-          ) : allProjectAttendance.length > 0 ? (
-            <div>
-              <p className="text-sm text-muted-foreground mb-4">لا توجد سجلات لتاريخ اليوم ({selectedDate}). تم عرض جميع السجلات:</p>
-              <UnifiedCardGrid columns={2}>
-                {allProjectAttendance.map((record: any) => {
-                  const worker = workers.find(w => w.id === record.workerId);
-                  const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
-                  const workDays = parseFloat(record.workDays || '0');
-                  const calculatedActualWage = currentDailyWage * workDays;
-                  const paidAmount = parseFloat(record.paidAmount || '0');
-                  const remainingAmount = calculatedActualWage - paidAmount;
-                  return (
-                    <UnifiedCard
-                      key={record.id}
-                      title={worker?.name || record.workerId}
-                      subtitle={record.date || record.attendanceDate}
-                      titleIcon={User}
-                      headerColor="#22c55e"
-                      badges={[
-                        { label: 'حاضر', variant: 'success' }
-                      ]}
-                      fields={[
-                        {
-                          label: "الوقت",
-                          value: `${record.startTime || 'غير محدد'} - ${record.endTime || 'غير محدد'}`,
-                          icon: Clock,
-                          color: "info",
-                        },
-                        {
-                          label: "عدد الأيام",
-                          value: workDays.toString(),
-                          icon: Calendar,
-                          color: "warning",
-                        },
-                        {
-                          label: "الراتب اليومي",
-                          value: formatCurrency(currentDailyWage),
-                          icon: DollarSign,
-                          color: "default",
-                        },
-                        {
-                          label: "المستحق",
-                          value: formatCurrency(calculatedActualWage),
-                          icon: DollarSign,
-                          color: "info",
-                          emphasis: true,
-                        },
-                        {
-                          label: "المدفوع",
-                          value: formatCurrency(paidAmount),
-                          icon: CheckCircle2,
-                          color: "success",
-                        },
-                        {
-                          label: "المتبقي",
-                          value: formatCurrency(remainingAmount),
-                          icon: DollarSign,
-                          color: remainingAmount > 0 ? "danger" : "success",
-                          emphasis: true,
-                        },
-                      ]}
-                      actions={[
-                        {
-                          icon: Edit2,
-                          label: "تعديل",
-                          onClick: () => handleEditAttendance(record),
-                          color: "blue",
-                        },
-                        {
-                          icon: Trash2,
-                          label: "حذف",
-                          onClick: () => deleteAttendanceMutation.mutate(record.id),
-                          color: "red",
-                          disabled: deleteAttendanceMutation.isPending,
-                        },
-                      ]}
-                      footer={record.workDescription ? (
-                        <p className="text-sm text-muted-foreground">{record.workDescription}</p>
-                      ) : undefined}
-                      compact
-                    />
-                  );
-                })}
-              </UnifiedCardGrid>
-            </div>
           ) : (
-            <p className="text-center py-8 text-muted-foreground">لا توجد سجلات حضور للمشروع</p>
+            <p className="text-center py-8 text-muted-foreground">
+              {selectedDate 
+                ? `لا توجد سجلات حضور لتاريخ ${selectedDate}`
+                : 'لا توجد سجلات حضور للمشروع'}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+              
           )}
         </div>
       )}

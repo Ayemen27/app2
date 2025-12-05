@@ -29,20 +29,20 @@ export default function MaterialPurchase() {
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({ paymentType: 'all', dateRange: undefined });
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
   }, []);
-  
+
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
     setFilterValues({ paymentType: 'all', dateRange: undefined });
   }, []);
-  
+
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);
   const editId = urlParams.get('edit');
-  
+
   // Form states
   const [materialName, setMaterialName] = useState<string>("");
   const [materialCategory, setMaterialCategory] = useState<string>("");
@@ -57,10 +57,10 @@ export default function MaterialPurchase() {
   const [notes, setNotes] = useState<string>("");
   const [invoicePhoto, setInvoicePhoto] = useState<string>("");
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
-  
+
   // حالة طي النموذج - مطوي افتراضياً
   const [isFormCollapsed, setIsFormCollapsed] = useState(true);
-  
+
   // حالات نموذج إضافة المورد
   const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
   const [supplierFormName, setSupplierFormName] = useState("");
@@ -69,7 +69,7 @@ export default function MaterialPurchase() {
   const [supplierFormAddress, setSupplierFormAddress] = useState("");
   const [supplierFormPaymentTerms, setSupplierFormPaymentTerms] = useState("نقد");
   const [supplierFormNotes, setSupplierFormNotes] = useState("");
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
@@ -138,10 +138,10 @@ export default function MaterialPurchase() {
         title: "تم إضافة المورد بنجاح",
         description: `تم إضافة المورد "${supplierFormName}" إلى قاعدة البيانات`,
       });
-      
+
       // تحديد المورد الجديد في قائمة الاختيار
       setSupplierName(supplierFormName);
-      
+
       // إغلاق النموذج وإعادة تعيين القيم
       setIsSupplierDialogOpen(false);
       resetSupplierForm();
@@ -157,7 +157,7 @@ export default function MaterialPurchase() {
 
   const handleAddSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!supplierFormName.trim()) {
       toast({
         title: "خطأ في البيانات",
@@ -224,13 +224,13 @@ export default function MaterialPurchase() {
     queryKey: ["/api/material-purchases", editId],
     queryFn: async () => {
       if (!editId) return null;
-      
+
       try {
         console.log(`🔄 جلب بيانات المشترية للتعديل: ${editId}`);
         const response = await apiRequest(`/api/material-purchases/${editId}`, "GET");
-        
+
         console.log('📊 استجابة جلب بيانات التعديل:', response);
-        
+
         // معالجة الهيكل المتداخل للاستجابة
         let purchaseData = null;
         if (response && response.data) {
@@ -241,7 +241,7 @@ export default function MaterialPurchase() {
           console.warn('⚠️ لا توجد بيانات في الاستجابة');
           return null;
         }
-        
+
         console.log('✅ تم جلب بيانات المشترية للتعديل:', purchaseData);
         return purchaseData;
       } catch (error) {
@@ -258,7 +258,7 @@ export default function MaterialPurchase() {
   useEffect(() => {
     if (purchaseToEdit && editId) {
       console.log('🔄 ملء النموذج ببيانات التعديل:', purchaseToEdit);
-      
+
       // تشخيص مفصل لحقول المادة
       console.log('🔍 تحليل البيانات المسترجعة:', {
         purchaseToEdit: {
@@ -273,18 +273,18 @@ export default function MaterialPurchase() {
           unit: purchaseToEdit.material.unit
         } : 'لا توجد بيانات مادة مرتبطة'
       });
-      
+
       // استخدام البيانات المحفوظة في الجدول أولاً، ثم البيانات المرتبطة
       const materialName = purchaseToEdit.materialName || purchaseToEdit.material?.name || "";
       const materialCategory = purchaseToEdit.materialCategory || purchaseToEdit.material?.category || "";
       const materialUnit = purchaseToEdit.materialUnit || purchaseToEdit.unit || purchaseToEdit.material?.unit || "";
-      
+
       console.log('📝 القيم النهائية التي سيتم ملؤها:', {
         materialName,
         materialCategory,
         materialUnit
       });
-      
+
       setMaterialName(materialName);
       setMaterialCategory(materialCategory);
       setMaterialUnit(materialUnit);
@@ -298,7 +298,7 @@ export default function MaterialPurchase() {
       setNotes(purchaseToEdit.notes || "");
       setInvoicePhoto(purchaseToEdit.invoicePhoto || "");
       setEditingPurchaseId(purchaseToEdit.id);
-      
+
       console.log('✅ تم ملء النموذج بالبيانات:', {
         materialName,
         materialCategory,
@@ -318,11 +318,11 @@ export default function MaterialPurchase() {
     onError: (error: any) => {
       console.error("Material creation error:", error);
       let errorMessage = "حدث خطأ أثناء إضافة المادة";
-      
+
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       }
-      
+
       toast({
         title: "خطأ",
         description: errorMessage,
@@ -335,7 +335,7 @@ export default function MaterialPurchase() {
   const materialNames = Array.isArray(materials) ? materials.map(m => m.name) : [];
   const materialCategories = Array.isArray(materials) ? Array.from(new Set(materials.map(m => m.category))) : [];
   const materialUnits = Array.isArray(materials) ? Array.from(new Set(materials.map(m => m.unit))) : [];
-  
+
   // الموردين النشطين من قاعدة البيانات
   const activeSuppliers = Array.isArray(suppliers) ? suppliers.filter(supplier => supplier.isActive) : [];
 
@@ -350,7 +350,7 @@ export default function MaterialPurchase() {
         saveAutocompleteValue('invoiceNumbers', invoiceNumber),
         saveAutocompleteValue('notes', notes)
       ]);
-      
+
       // تنفيذ العملية الأساسية
       return apiRequest("/api/material-purchases", "POST", data);
     },
@@ -358,23 +358,23 @@ export default function MaterialPurchase() {
       // فوري - تحديث البيانات محلياً قبل انتظار الخادم
       await queryClient.cancelQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
       const previousData = queryClient.getQueryData(["/api/projects", selectedProjectId, "material-purchases"]);
-      
+
       queryClient.setQueryData(["/api/projects", selectedProjectId, "material-purchases"], (old: any) => {
         const newPurchase = { id: `temp-${Date.now()}`, ...data, createdAt: new Date().toISOString() };
         return old ? [...old, newPurchase] : [newPurchase];
       });
-      
+
       toast({
         title: "جاري الحفظ",
         description: "البيانات تحدثت فوراً",
       });
-      
+
       return { previousData };
     },
     onSuccess: async () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       toast({
         title: "تم الحفظ",
         description: "تم حفظ شراء المواد بنجاح",
@@ -392,22 +392,22 @@ export default function MaterialPurchase() {
         saveAutocompleteValue('invoiceNumbers', invoiceNumber),
         saveAutocompleteValue('notes', notes)
       ]);
-      
+
       // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       console.error("Material purchase error:", error);
       let errorMessage = "حدث خطأ أثناء حفظ شراء المواد";
       let errorDetails: string[] = [];
-      
+
       if (error?.response?.data) {
         const errorData = error.response.data;
-        
+
         // استخدام الرسالة والتفاصيل من الخادم
         if (errorData.message) {
           errorMessage = errorData.message;
         }
-        
+
         // إضافة التفاصيل إذا كانت متوفرة
         if (errorData.details && Array.isArray(errorData.details)) {
           errorDetails = errorData.details;
@@ -415,12 +415,12 @@ export default function MaterialPurchase() {
           errorDetails = errorData.validationErrors;
         }
       }
-      
+
       // تحسين عرض الرسالة مع التفاصيل
       const fullMessage = errorDetails.length > 0 
         ? `${errorMessage}\n\n${errorDetails.map(detail => `• ${detail}`).join('\n')}`
         : errorMessage;
-      
+
       toast({
         title: "خطأ في حفظ شراء المواد",
         description: fullMessage,
@@ -451,7 +451,7 @@ export default function MaterialPurchase() {
   const updateMaterialPurchaseMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       console.log('🔄 [PATCH] بدء تحديث المشترية:', { id, data });
-      
+
       // حفظ القيم في autocomplete_data قبل العملية الأساسية
       await Promise.all([
         saveAutocompleteValue('materialNames', materialName),
@@ -461,7 +461,7 @@ export default function MaterialPurchase() {
         saveAutocompleteValue('invoiceNumbers', invoiceNumber),
         saveAutocompleteValue('notes', notes)
       ]);
-      
+
       const response = await apiRequest(`/api/material-purchases/${id}`, "PATCH", data);
       console.log('✅ [PATCH] استجابة تحديث المشترية:', response);
       return response;
@@ -469,7 +469,7 @@ export default function MaterialPurchase() {
     onSuccess: async () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       toast({
         title: "تم التعديل",
         description: "تم تعديل شراء المواد بنجاح",
@@ -487,32 +487,32 @@ export default function MaterialPurchase() {
         saveAutocompleteValue('invoiceNumbers', invoiceNumber),
         saveAutocompleteValue('notes', notes)
       ]);
-      
+
       // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
-      
+
       console.error("Material purchase update error:", error);
       let errorMessage = "حدث خطأ أثناء تحديث شراء المواد";
       let errorDetails: string[] = [];
-      
+
       if (error?.response?.data) {
         const errorData = error.response.data;
-        
+
         if (errorData.message) {
           errorMessage = errorData.message;
         }
-        
+
         if (errorData.details && Array.isArray(errorData.details)) {
           errorDetails = errorData.details;
         } else if (errorData.validationErrors && Array.isArray(errorData.validationErrors)) {
           errorDetails = errorData.validationErrors;
         }
       }
-      
+
       const fullMessage = errorDetails.length > 0 
         ? `${errorMessage}\n\n${errorDetails.map(detail => `• ${detail}`).join('\n')}`
         : errorMessage;
-      
+
       toast({
         title: "خطأ في تحديث شراء المواد",
         description: fullMessage,
@@ -530,16 +530,16 @@ export default function MaterialPurchase() {
       // فوري - حذف البيانات محلياً قبل انتظار الخادم
       await queryClient.cancelQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
       const previousData = queryClient.getQueryData(["/api/projects", selectedProjectId, "material-purchases"]);
-      
+
       queryClient.setQueryData(["/api/projects", selectedProjectId, "material-purchases"], (old: any) => {
         return old ? old.filter((p: any) => p.id !== id) : [];
       });
-      
+
       toast({
         title: "جاري الحذف",
         description: "تم حذف السجل من الواجهة",
       });
-      
+
       return { previousData };
     },
     onSuccess: () => {
@@ -553,23 +553,23 @@ export default function MaterialPurchase() {
       console.error("Material purchase delete error:", error);
       let errorMessage = "حدث خطأ أثناء حذف شراء المواد";
       let errorDetails: string[] = [];
-      
+
       if (error?.response?.data) {
         const errorData = error.response.data;
-        
+
         if (errorData.message) {
           errorMessage = errorData.message;
         }
-        
+
         if (errorData.details && Array.isArray(errorData.details)) {
           errorDetails = errorData.details;
         }
       }
-      
+
       const fullMessage = errorDetails.length > 0 
         ? `${errorMessage}\n\n${errorDetails.map(detail => `• ${detail}`).join('\n')}`
         : errorMessage;
-      
+
       toast({
         title: "خطأ في حذف شراء المواد",
         description: fullMessage,
@@ -654,7 +654,7 @@ export default function MaterialPurchase() {
       const endpoint = !selectedProjectId || selectedProjectId === 'all' 
         ? `/api/projects/all/material-purchases`
         : `/api/projects/${selectedProjectId}/material-purchases`;
-      
+
       const response = await apiRequest(endpoint, "GET");
       // Handle both array and object responses
       if (Array.isArray(response)) return response;
@@ -668,35 +668,20 @@ export default function MaterialPurchase() {
   });
 
   // Filter purchases - عرض جميع المشتريات افتراضياً
-  const materialPurchases = filteredPurchases;
-
-  // Calculate stats
-  const stats = useMemo(() => ({
-    total: allMaterialPurchases.length,
-    cash: allMaterialPurchases.filter((p: any) => p.purchaseType === 'نقد').length,
-    credit: allMaterialPurchases.filter((p: any) => p.purchaseType?.includes('آجل') || p.purchaseType?.includes('جل')).length,
-    supply: allMaterialPurchases.filter((p: any) => p.purchaseType === 'توريد').length,
-    totalValue: allMaterialPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0),
-    avgValue: allMaterialPurchases.length > 0 
-      ? allMaterialPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0) / allMaterialPurchases.length 
-      : 0,
-  }), [allMaterialPurchases]);
-
-  // فلترة المشتريات حسب المشروع المحدد، البحث، ونوع الدفع، والتاريخ
   const filteredPurchases = useMemo(() => {
     return allMaterialPurchases.filter((purchase: any) => {
       // فلترة حسب المشروع المحدد
       const matchesProject = !selectedProjectId || 
         selectedProjectId === 'all' || 
         purchase.projectId === selectedProjectId;
-      
+
       const matchesSearch = searchValue === '' || 
         purchase.materialName?.toLowerCase().includes(searchValue.toLowerCase()) ||
         purchase.supplierName?.toLowerCase().includes(searchValue.toLowerCase());
-      
+
       const matchesPaymentType = filterValues.paymentType === 'all' || 
         purchase.purchaseType === filterValues.paymentType;
-      
+
       // فلترة حسب نطاق التاريخ
       let matchesDateRange = true;
       if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
@@ -712,10 +697,27 @@ export default function MaterialPurchase() {
           matchesDateRange = matchesDateRange && purchaseDate <= toDate;
         }
       }
-      
+
       return matchesProject && matchesSearch && matchesPaymentType && matchesDateRange;
     });
   }, [allMaterialPurchases, selectedProjectId, searchValue, filterValues.paymentType, filterValues.dateRange]);
+
+
+  // Calculate stats
+  const stats = useMemo(() => ({
+    total: allMaterialPurchases.length,
+    cash: allMaterialPurchases.filter((p: any) => p.purchaseType === 'نقد').length,
+    credit: allMaterialPurchases.filter((p: any) => p.purchaseType?.includes('آجل') || p.purchaseType?.includes('جل')).length,
+    supply: allMaterialPurchases.filter((p: any) => p.purchaseType === 'توريد').length,
+    totalValue: allMaterialPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0),
+    avgValue: allMaterialPurchases.length > 0 
+      ? allMaterialPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0) / allMaterialPurchases.length 
+      : 0,
+  }), [allMaterialPurchases]);
+
+
+  // فلترة المشتريات حسب المشروع المحدد، البحث، ونوع الدفع، والتاريخ
+  // THIS IS THE LINE THAT WAS REMOVED: const materialPurchases = filteredPurchases;
 
   // دالة التحديث
   const handleRefresh = useCallback(async () => {
@@ -1026,7 +1028,7 @@ export default function MaterialPurchase() {
                           required
                         />
                       </div>
-                      
+
                       <div className="form-field">
                         <Label htmlFor="supplier-contact">الشخص المسؤول</Label>
                         <Input
@@ -1036,7 +1038,7 @@ export default function MaterialPurchase() {
                           placeholder="مثال: أحمد محمد"
                         />
                       </div>
-                      
+
                       <div className="form-field">
                         <Label htmlFor="supplier-phone">رقم الهاتف</Label>
                         <Input
@@ -1047,7 +1049,7 @@ export default function MaterialPurchase() {
                           type="tel"
                         />
                       </div>
-                      
+
                       <div className="form-field form-field-full">
                         <Label htmlFor="supplier-address">العنوان</Label>
                         <Input
@@ -1057,7 +1059,7 @@ export default function MaterialPurchase() {
                           placeholder="مثال: شارع الستين، صنعاء"
                         />
                       </div>
-                      
+
                       <div className="form-field">
                         <Label htmlFor="supplier-payment">شروط الدفع</Label>
                         <Select value={supplierFormPaymentTerms} onValueChange={setSupplierFormPaymentTerms}>
@@ -1071,7 +1073,7 @@ export default function MaterialPurchase() {
                           </SelectContent>
                         </Select>
                       </div>
-                      
+
                       <div className="form-field form-field-full">
                         <Label htmlFor="supplier-notes">ملاحظات</Label>
                         <Textarea
@@ -1082,7 +1084,7 @@ export default function MaterialPurchase() {
                           rows={3}
                         />
                       </div>
-                      
+
                       <div className="form-actions">
                         <Button
                           type="submit"
@@ -1207,7 +1209,7 @@ export default function MaterialPurchase() {
                     ? "تحديث الشراء" 
                     : "حفظ الشراء"}
               </Button>
-              
+
               {!editingPurchaseId && (
                 <Button
                   onClick={() => handleSave(true)}

@@ -128,9 +128,10 @@ export default function ProfessionalReports() {
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
   const [selectedProjectsForComparison, setSelectedProjectsForComparison] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
-  const { selectedProjectId, projects } = useSelectedProject();
+  const { selectedProjectId, projects, getProjectIdForApi } = useSelectedProject();
   const { toast } = useToast();
 
+  const projectIdForApi = getProjectIdForApi();
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
   const { data: workers = [] } = useQuery({
@@ -142,59 +143,59 @@ export default function ProfessionalReports() {
   });
 
   const { data: dashboardKPIs, isLoading: kpisLoading, refetch: refetchKPIs } = useQuery({
-    queryKey: ["/api/reports/dashboard-kpis", selectedProjectId],
+    queryKey: ["/api/reports/dashboard-kpis", projectIdForApi],
     queryFn: async () => {
-      const params = selectedProjectId ? `?projectId=${selectedProjectId}` : '';
+      const params = projectIdForApi ? `?projectId=${projectIdForApi}` : '';
       const response = await apiRequest(`/api/reports/dashboard-kpis${params}`, "GET");
       return response?.data || null;
     },
   });
 
   const { data: periodicReport, isLoading: periodicLoading, refetch: refetchPeriodic } = useQuery({
-    queryKey: ["/api/reports/periodic", selectedProjectId, dateFrom, dateTo],
+    queryKey: ["/api/reports/periodic", projectIdForApi, dateFrom, dateTo],
     queryFn: async () => {
-      if (!selectedProjectId) return null;
+      if (!projectIdForApi) return null;
       const response = await apiRequest(
-        `/api/reports/periodic?projectId=${selectedProjectId}&dateFrom=${dateFrom}&dateTo=${dateTo}`,
+        `/api/reports/periodic?projectId=${projectIdForApi}&dateFrom=${dateFrom}&dateTo=${dateTo}`,
         "GET"
       );
       return response?.data || null;
     },
-    enabled: !!selectedProjectId,
+    enabled: !!projectIdForApi,
   });
 
   const { data: projectSummary, isLoading: summaryLoading, refetch: refetchSummary } = useQuery({
-    queryKey: ["/api/reports/project-summary", selectedProjectId, dateFrom, dateTo],
+    queryKey: ["/api/reports/project-summary", projectIdForApi, dateFrom, dateTo],
     queryFn: async () => {
-      if (!selectedProjectId) return null;
+      if (!projectIdForApi) return null;
       const response = await apiRequest(
-        `/api/reports/project-summary/${selectedProjectId}?dateFrom=${dateFrom}&dateTo=${dateTo}`,
+        `/api/reports/project-summary/${projectIdForApi}?dateFrom=${dateFrom}&dateTo=${dateTo}`,
         "GET"
       );
       return response?.data || null;
     },
-    enabled: !!selectedProjectId,
+    enabled: !!projectIdForApi,
   });
 
   const { data: dailyReport, isLoading: dailyLoading, refetch: refetchDaily } = useQuery({
-    queryKey: ["/api/reports/daily", selectedProjectId, selectedDate],
+    queryKey: ["/api/reports/daily", projectIdForApi, selectedDate],
     queryFn: async () => {
-      if (!selectedProjectId) return null;
+      if (!projectIdForApi) return null;
       const response = await apiRequest(
-        `/api/reports/daily?projectId=${selectedProjectId}&date=${selectedDate}`,
+        `/api/reports/daily?projectId=${projectIdForApi}&date=${selectedDate}`,
         "GET"
       );
       return response?.data || null;
     },
-    enabled: !!selectedProjectId,
+    enabled: !!projectIdForApi,
   });
 
   const { data: workerStatement, isLoading: workerLoading, refetch: refetchWorker } = useQuery({
-    queryKey: ["/api/reports/worker-statement", selectedWorkerId, selectedProjectId, dateFrom, dateTo],
+    queryKey: ["/api/reports/worker-statement", selectedWorkerId, projectIdForApi, dateFrom, dateTo],
     queryFn: async () => {
       if (!selectedWorkerId) return null;
       const params = new URLSearchParams({ dateFrom, dateTo });
-      if (selectedProjectId) params.append('projectId', selectedProjectId);
+      if (projectIdForApi) params.append('projectId', projectIdForApi);
       const response = await apiRequest(
         `/api/reports/worker-statement/${selectedWorkerId}?${params}`,
         "GET"

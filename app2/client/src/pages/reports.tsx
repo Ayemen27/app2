@@ -79,8 +79,9 @@ export default function Reports() {
   const [selectedDate, setSelectedDate] = useState(getCurrentDate());
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
   const [searchAttendance, setSearchAttendance] = useState("");
-  const { selectedProjectId, projects } = useSelectedProject();
+  const { selectedProjectId, projects, getProjectIdForApi } = useSelectedProject();
 
+  const projectIdForApi = getProjectIdForApi();
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
   // جلب قائمة العمال
@@ -102,9 +103,9 @@ export default function Reports() {
 
   // جلب بيانات المصاريف اليومية
   const { data: expenseData, isLoading: expenseLoading, refetch: refetchExpenses } = useQuery<DailyExpenseData>({
-    queryKey: ["/api/daily-expenses-excel", selectedProjectId, selectedDate],
+    queryKey: ["/api/daily-expenses-excel", projectIdForApi, selectedDate],
     queryFn: async () => {
-      if (!selectedProjectId)
+      if (!projectIdForApi)
         return {
           date: selectedDate,
           workerWages: 0,
@@ -116,7 +117,7 @@ export default function Reports() {
         };
       try {
         const response = await apiRequest(
-          `/api/daily-expenses-excel?projectId=${selectedProjectId}&date=${selectedDate}`,
+          `/api/daily-expenses-excel?projectId=${projectIdForApi}&date=${selectedDate}`,
           "GET"
         );
         return (response?.data || response) as DailyExpenseData;
@@ -133,17 +134,17 @@ export default function Reports() {
         };
       }
     },
-    enabled: !!selectedProjectId,
+    enabled: !!projectIdForApi,
   });
 
   // جلب تفاصيل سجلات الحضور اليومية
   const { data: attendanceDetails = [], isLoading: attendanceLoading } = useQuery({
-    queryKey: ["/api/daily-attendance-details", selectedProjectId, selectedDate],
+    queryKey: ["/api/daily-attendance-details", projectIdForApi, selectedDate],
     queryFn: async () => {
-      if (!selectedProjectId) return [];
+      if (!projectIdForApi) return [];
       try {
         const response = await apiRequest(
-          `/api/daily-attendance-details?projectId=${selectedProjectId}&date=${selectedDate}`,
+          `/api/daily-attendance-details?projectId=${projectIdForApi}&date=${selectedDate}`,
           "GET"
         );
         return (response?.data || []) as any[];
@@ -152,17 +153,17 @@ export default function Reports() {
         return [];
       }
     },
-    enabled: !!selectedProjectId,
+    enabled: !!projectIdForApi,
   });
 
   // جلب بيان العامل
   const { data: statementData, isLoading: statementLoading, refetch: refetchStatement } = useQuery<WorkerStatementData | null>({
-    queryKey: ["/api/worker-statement-excel", selectedProjectId, selectedWorkerId, dateFrom, dateTo],
+    queryKey: ["/api/worker-statement-excel", projectIdForApi, selectedWorkerId, dateFrom, dateTo],
     queryFn: async () => {
-      if (!selectedProjectId || !selectedWorkerId) return null;
+      if (!projectIdForApi || !selectedWorkerId) return null;
       try {
         const params = new URLSearchParams({
-          projectId: selectedProjectId,
+          projectId: projectIdForApi,
           workerId: selectedWorkerId,
           ...(dateFrom && { dateFrom }),
           ...(dateTo && { dateTo }),
@@ -174,17 +175,17 @@ export default function Reports() {
         return null;
       }
     },
-    enabled: !!selectedProjectId && !!selectedWorkerId,
+    enabled: !!projectIdForApi && !!selectedWorkerId,
   });
 
   // جلب حوالات العامل
   const { data: transfersData = { transfers: [], total: 0 }, isLoading: transfersLoading } = useQuery({
-    queryKey: ["/api/worker-transfers-by-period", selectedProjectId, selectedWorkerId, dateFrom, dateTo],
+    queryKey: ["/api/worker-transfers-by-period", projectIdForApi, selectedWorkerId, dateFrom, dateTo],
     queryFn: async () => {
-      if (!selectedProjectId || !selectedWorkerId) return { transfers: [], total: 0 };
+      if (!projectIdForApi || !selectedWorkerId) return { transfers: [], total: 0 };
       try {
         const params = new URLSearchParams({
-          projectId: selectedProjectId,
+          projectId: projectIdForApi,
           workerId: selectedWorkerId,
           ...(dateFrom && { dateFrom }),
           ...(dateTo && { dateTo }),
@@ -196,7 +197,7 @@ export default function Reports() {
         return { transfers: [], total: 0 };
       }
     },
-    enabled: !!selectedProjectId && !!selectedWorkerId,
+    enabled: !!projectIdForApi && !!selectedWorkerId,
   });
 
   const handleReset = () => {

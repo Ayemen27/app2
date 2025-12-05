@@ -30,7 +30,7 @@ import { useSelectedProject } from "@/hooks/use-selected-project";
 import type { Supplier, MaterialPurchase, Project } from "@shared/schema";
 
 export default function SupplierAccountsPage() {
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -90,10 +90,13 @@ export default function SupplierAccountsPage() {
   const { data: purchases = [], isLoading: isLoadingPurchases } = useQuery<MaterialPurchase[]>({
     queryKey: ["/api/material-purchases", selectedProjectId, selectedSupplierId, dateFrom, dateTo, paymentTypeFilter],
     queryFn: async () => {
-      if (!selectedSupplierId) return [];
-      
       const params = new URLSearchParams();
-      params.append('supplierId', selectedSupplierId);
+      
+      // إضافة المورد فقط إذا كان محدداً وليس "all"
+      if (selectedSupplierId && selectedSupplierId !== 'all') {
+        params.append('supplierId', selectedSupplierId);
+      }
+      
       const projectIdForApi = getProjectIdForApi();
       if (projectIdForApi) params.append('projectId', projectIdForApi);
       if (dateFrom) params.append('dateFrom', dateFrom);
@@ -109,7 +112,6 @@ export default function SupplierAccountsPage() {
         return [];
       }
     },
-    enabled: !!selectedSupplierId,
     refetchOnWindowFocus: false,
     staleTime: 30000,
   });
@@ -164,7 +166,12 @@ export default function SupplierAccountsPage() {
     queryKey: ["/api/suppliers/statistics", selectedProjectId, selectedSupplierId, dateFrom, dateTo, paymentTypeFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (selectedSupplierId) params.append('supplierId', selectedSupplierId);
+      
+      // إضافة المورد فقط إذا كان محدداً وليس "all"
+      if (selectedSupplierId && selectedSupplierId !== 'all') {
+        params.append('supplierId', selectedSupplierId);
+      }
+      
       const projectIdForApi = getProjectIdForApi();
       if (projectIdForApi) params.append('projectId', projectIdForApi);
       if (dateFrom) params.append('dateFrom', dateFrom);
@@ -195,11 +202,12 @@ export default function SupplierAccountsPage() {
       }
     },
     refetchOnWindowFocus: false,
-    staleTime: 30000,
-    enabled: !!selectedSupplierId
+    staleTime: 30000
   });
 
-  const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
+  const selectedSupplier = selectedSupplierId && selectedSupplierId !== 'all' 
+    ? suppliers.find(s => s.id === selectedSupplierId) 
+    : null;
 
   const totals = Array.isArray(purchases) ? purchases.reduce((acc, purchase) => {
     acc.totalAmount += parseFloat(purchase.totalAmount || "0");
@@ -214,7 +222,7 @@ export default function SupplierAccountsPage() {
     totalCreditPurchases: globalStats?.totalCreditPurchases || "0",
     totalDebt: globalStats?.totalDebt || "0",
     totalPaid: globalStats?.totalPaid || "0",
-    remainingDebt: selectedSupplierId ? (supplierStats?.remainingDebt || "0") : (globalStats?.remainingDebt || "0"),
+    remainingDebt: (selectedSupplierId && selectedSupplierId !== 'all') ? (supplierStats?.remainingDebt || "0") : (globalStats?.remainingDebt || "0"),
     activeSuppliers: globalStats?.activeSuppliers || (Array.isArray(suppliers) ? suppliers.filter(s => parseFloat(s.totalDebt) > 0).length : 0),
     totalPurchases: Array.isArray(purchases) ? purchases.length : 0
   };
@@ -233,7 +241,7 @@ export default function SupplierAccountsPage() {
   };
 
   const exportToExcel = async () => {
-    if (!selectedSupplier || purchases.length === 0) return;
+    if (purchases.length === 0) return;
 
     const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
@@ -276,47 +284,49 @@ export default function SupplierAccountsPage() {
     worksheet.getRow(currentRow).height = 16;
     currentRow += 2;
 
-    worksheet.mergeCells(`A${currentRow}:L${currentRow}`);
-    const supplierHeaderCell = worksheet.getCell(`A${currentRow}`);
-    supplierHeaderCell.value = 'بيانات المورد';
-    supplierHeaderCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFF' } };
-    supplierHeaderCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    supplierHeaderCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2e75b6' } };
-    worksheet.getRow(currentRow).height = 22;
-    currentRow++;
-
-    const supplierData = [
-      ['اسم المورد', selectedSupplier.name, 'رقم الهاتف', selectedSupplier.phone || 'غير محدد'],
-      ['شخص الاتصال', selectedSupplier.contactPerson || 'غير محدد', 'العنوان', selectedSupplier.address || 'غير محدد']
-    ];
-
-    supplierData.forEach((dataRow) => {
-      const row = worksheet.getRow(currentRow);
-      worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
-      row.getCell(1).value = dataRow[0];
-      row.getCell(1).font = { name: 'Arial', size: 9, bold: true };
-      row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-      
-      worksheet.mergeCells(`C${currentRow}:F${currentRow}`);
-      row.getCell(3).value = dataRow[1];
-      row.getCell(3).font = { name: 'Arial', size: 9 };
-      row.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
-      
-      worksheet.mergeCells(`G${currentRow}:H${currentRow}`);
-      row.getCell(7).value = dataRow[2];
-      row.getCell(7).font = { name: 'Arial', size: 9, bold: true };
-      row.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
-      
-      worksheet.mergeCells(`I${currentRow}:L${currentRow}`);
-      row.getCell(9).value = dataRow[3];
-      row.getCell(9).font = { name: 'Arial', size: 9 };
-      row.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
-      
-      worksheet.getRow(currentRow).height = 18;
+    if (selectedSupplier) {
+      worksheet.mergeCells(`A${currentRow}:L${currentRow}`);
+      const supplierHeaderCell = worksheet.getCell(`A${currentRow}`);
+      supplierHeaderCell.value = 'بيانات المورد';
+      supplierHeaderCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFF' } };
+      supplierHeaderCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      supplierHeaderCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2e75b6' } };
+      worksheet.getRow(currentRow).height = 22;
       currentRow++;
-    });
 
-    currentRow += 1;
+      const supplierData = [
+        ['اسم المورد', selectedSupplier.name, 'رقم الهاتف', selectedSupplier.phone || 'غير محدد'],
+        ['شخص الاتصال', selectedSupplier.contactPerson || 'غير محدد', 'العنوان', selectedSupplier.address || 'غير محدد']
+      ];
+
+      supplierData.forEach((dataRow) => {
+        const row = worksheet.getRow(currentRow);
+        worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
+        row.getCell(1).value = dataRow[0];
+        row.getCell(1).font = { name: 'Arial', size: 9, bold: true };
+        row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        
+        worksheet.mergeCells(`C${currentRow}:F${currentRow}`);
+        row.getCell(3).value = dataRow[1];
+        row.getCell(3).font = { name: 'Arial', size: 9 };
+        row.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+        
+        worksheet.mergeCells(`G${currentRow}:H${currentRow}`);
+        row.getCell(7).value = dataRow[2];
+        row.getCell(7).font = { name: 'Arial', size: 9, bold: true };
+        row.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+        
+        worksheet.mergeCells(`I${currentRow}:L${currentRow}`);
+        row.getCell(9).value = dataRow[3];
+        row.getCell(9).font = { name: 'Arial', size: 9 };
+        row.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
+        
+        worksheet.getRow(currentRow).height = 18;
+        currentRow++;
+      });
+
+      currentRow += 1;
+    }
 
     const headers = ['#', 'التاريخ', 'رقم الفاتورة', 'اسم المشروع', 'المادة', 'الكمية', 'سعر الوحدة', 'المبلغ الإجمالي', 'نوع الدفع', 'المدفوع', 'المتبقي', 'الحالة'];
     const headerRow = worksheet.getRow(currentRow);
@@ -397,12 +407,15 @@ export default function SupplierAccountsPage() {
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     const currentDate = new Date().toISOString().split('T')[0];
-    link.download = `كشف-حساب-${selectedSupplier.name}-${currentDate}.xlsx`;
+    const fileName = selectedSupplier 
+      ? `كشف-حساب-${selectedSupplier.name}-${currentDate}.xlsx`
+      : `كشف-حساب-جميع-الموردين-${currentDate}.xlsx`;
+    link.download = fileName;
     link.click();
   };
 
   const resetFilters = useCallback(() => {
-    setSelectedSupplierId("");
+    setSelectedSupplierId("all");
     setDateFrom("");
     setDateTo("");
     setSearchTerm("");
@@ -471,7 +484,7 @@ export default function SupplierAccountsPage() {
         },
       ]
     },
-    ...(selectedSupplierId ? [{
+    ...(selectedSupplierId && selectedSupplierId !== 'all' ? [{
       columns: 3 as const,
       gap: 'sm' as const,
       items: [
@@ -528,7 +541,7 @@ export default function SupplierAccountsPage() {
       type: 'select',
       placeholder: 'اختر المورد',
       options: [
-        { value: 'none', label: 'اختر مورد...' },
+        { value: 'all', label: 'جميع الموردين' },
         ...filteredSuppliers.map(s => ({
           value: s.id,
           label: `${s.name}${parseFloat(s.totalDebt) > 0 ? ` - ${formatCurrency(s.totalDebt)}` : ''}`
@@ -550,7 +563,7 @@ export default function SupplierAccountsPage() {
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     if (key === 'supplier') {
-      setSelectedSupplierId(value === 'none' ? '' : value);
+      setSelectedSupplierId(value);
     } else if (key === 'paymentType') {
       setPaymentTypeFilter(value);
     }
@@ -566,7 +579,7 @@ export default function SupplierAccountsPage() {
         showSearch={true}
         filters={filtersConfig}
         filterValues={{
-          supplier: selectedSupplierId || 'none',
+          supplier: selectedSupplierId,
           paymentType: paymentTypeFilter
         }}
         onFilterChange={handleFilterChange}
@@ -579,7 +592,7 @@ export default function SupplierAccountsPage() {
             label: 'تصدير',
             icon: Download,
             onClick: exportToExcel,
-            disabled: !selectedSupplierId || purchases.length === 0,
+            disabled: purchases.length === 0,
           },
         ]}
       />
@@ -621,131 +634,104 @@ export default function SupplierAccountsPage() {
         />
       )}
 
-      {selectedSupplierId && (
-        <div className="space-y-3">
-          {isLoadingPurchases ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-gray-600 mt-2">جاري تحميل البيانات...</p>
-              </CardContent>
-            </Card>
-          ) : purchases.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <FileText className="w-12 h-12 text-gray-400 mx-auto" />
-                <p className="text-gray-500 text-lg mt-2">لا توجد مشتريات للمورد المحدد</p>
-                <p className="text-gray-400 text-sm">جرب تغيير فلاتر البحث</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <UnifiedCardGrid columns={2}>
-              {purchases.map((purchase) => {
-                const projectName = projects.find(p => p.id === purchase.projectId)?.name || 'غير محدد';
-                const materialName = purchase.materialName || 'غير محدد';
-                const remaining = parseFloat(purchase.remainingAmount || "0");
-                const invoiceDateStr = purchase.invoiceDate || purchase.purchaseDate;
-                
-                return (
-                  <UnifiedCard
-                    key={purchase.id}
-                    title={materialName}
-                    subtitle={`${formatDate(invoiceDateStr)} - ${purchase.invoiceNumber || 'بدون رقم'}`}
-                    titleIcon={Package}
-                    headerColor={remaining === 0 ? "#22c55e" : purchase.purchaseType === "نقد" ? "#3b82f6" : "#ef4444"}
-                    badges={[
-                      { 
-                        label: remaining === 0 ? 'مسدد' : 'مؤجل', 
-                        variant: remaining === 0 ? 'success' : 'destructive' 
-                      },
-                      { 
-                        label: purchase.purchaseType, 
-                        variant: purchase.purchaseType === "نقد" ? 'default' : 'warning' 
-                      }
-                    ]}
-                    fields={[
-                      {
-                        label: "المشروع",
-                        value: projectName,
-                        icon: Building2,
-                        color: "info",
-                      },
-                      {
-                        label: "الكمية",
-                        value: `${purchase.quantity} × ${formatCurrency(purchase.unitPrice)}`,
-                        icon: Package,
-                        color: "default",
-                      },
-                      {
-                        label: "المبلغ الإجمالي",
-                        value: formatCurrency(purchase.totalAmount),
-                        icon: DollarSign,
-                        color: "info",
-                        emphasis: true,
-                      },
-                      {
-                        label: "المدفوع",
-                        value: formatCurrency(purchase.paidAmount || "0"),
-                        icon: TrendingUp,
-                        color: "success",
-                      },
-                      {
-                        label: "المتبقي",
-                        value: formatCurrency(purchase.remainingAmount || "0"),
-                        icon: TrendingDown,
-                        color: remaining > 0 ? "danger" : "success",
-                        emphasis: true,
-                      },
-                      {
-                        label: "التاريخ",
-                        value: formatDate(invoiceDateStr),
-                        icon: Calendar,
-                        color: "muted",
-                      },
-                    ]}
-                    footer={purchase.notes ? (
-                      <p className="text-sm text-muted-foreground">{purchase.notes}</p>
-                    ) : undefined}
-                    compact
-                  />
-                );
-              })}
-            </UnifiedCardGrid>
-          )}
-        </div>
-      )}
-
-      {!selectedSupplierId && (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Eye className="w-16 h-16 text-gray-400 mx-auto" />
-            <h3 className="text-xl font-semibold text-gray-600 mt-4">اختر مورداً لعرض حسابه</h3>
-            <p className="text-gray-500 mt-2">
-              استخدم فلاتر البحث أعلاه لاختيار مورد وعرض تفاصيل حسابه ومشترياته
-            </p>
-            {isLoadingSuppliers ? (
-              <div className="mt-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-gray-500 mt-2">جاري تحميل الموردين...</p>
-              </div>
-            ) : suppliers.length === 0 ? (
-              <Alert className="mt-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  لا يوجد موردين مسجلين في النظام. يرجى إضافة الموردين أولاً من صفحة إدارة الموردين.
-                </AlertDescription>
-              </Alert>
-            ) : suppliersError ? (
-              <Alert className="mt-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  حدث خطأ في تحميل بيانات الموردين. يرجى تحديث الصفحة أو المحاولة مرة أخرى.
-                </AlertDescription>
-              </Alert>
-            ) : null}
-          </CardContent>
-        </Card>
-      )}
+      <div className="space-y-3">
+        {isLoadingPurchases ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-gray-600 mt-2">جاري تحميل البيانات...</p>
+            </CardContent>
+          </Card>
+        ) : purchases.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto" />
+              <p className="text-gray-500 text-lg mt-2">لا توجد مشتريات</p>
+              <p className="text-gray-400 text-sm">جرب تغيير فلاتر البحث أو أضف مشتريات جديدة</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <UnifiedCardGrid columns={2}>
+            {purchases.map((purchase) => {
+              const projectName = projects.find(p => p.id === purchase.projectId)?.name || 'غير محدد';
+              const materialName = purchase.materialName || 'غير محدد';
+              const supplierName = suppliers.find(s => s.id === purchase.supplierId)?.name || 'غير محدد';
+              const remaining = parseFloat(purchase.remainingAmount || "0");
+              const invoiceDateStr = purchase.invoiceDate || purchase.purchaseDate;
+              
+              return (
+                <UnifiedCard
+                  key={purchase.id}
+                  title={materialName}
+                  subtitle={`${formatDate(invoiceDateStr)} - ${purchase.invoiceNumber || 'بدون رقم'}`}
+                  titleIcon={Package}
+                  headerColor={remaining === 0 ? "#22c55e" : purchase.purchaseType === "نقد" ? "#3b82f6" : "#ef4444"}
+                  badges={[
+                    { 
+                      label: remaining === 0 ? 'مسدد' : 'مؤجل', 
+                      variant: remaining === 0 ? 'success' : 'destructive' 
+                    },
+                    { 
+                      label: purchase.purchaseType, 
+                      variant: purchase.purchaseType === "نقد" ? 'default' : 'warning' 
+                    }
+                  ]}
+                  fields={[
+                    {
+                      label: "المورد",
+                      value: supplierName,
+                      icon: Building2,
+                      color: "info",
+                    },
+                    {
+                      label: "المشروع",
+                      value: projectName,
+                      icon: Building2,
+                      color: "default",
+                    },
+                    {
+                      label: "الكمية",
+                      value: `${purchase.quantity} × ${formatCurrency(purchase.unitPrice)}`,
+                      icon: Package,
+                      color: "default",
+                    },
+                    {
+                      label: "المبلغ الإجمالي",
+                      value: formatCurrency(purchase.totalAmount),
+                      icon: DollarSign,
+                      color: "info",
+                      emphasis: true,
+                    },
+                    {
+                      label: "المدفوع",
+                      value: formatCurrency(purchase.paidAmount || "0"),
+                      icon: TrendingUp,
+                      color: "success",
+                    },
+                    {
+                      label: "المتبقي",
+                      value: formatCurrency(purchase.remainingAmount || "0"),
+                      icon: TrendingDown,
+                      color: remaining > 0 ? "danger" : "success",
+                      emphasis: true,
+                    },
+                    {
+                      label: "التاريخ",
+                      value: formatDate(invoiceDateStr),
+                      icon: Calendar,
+                      color: "muted",
+                    },
+                  ]}
+                  footer={purchase.notes ? (
+                    <p className="text-sm text-muted-foreground">{purchase.notes}</p>
+                  ) : undefined}
+                  compact
+                />
+              );
+            })}
+          </UnifiedCardGrid>
+        )}
+      </div>
     </div>
   );
 }

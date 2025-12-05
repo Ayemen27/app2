@@ -26,7 +26,7 @@ import { Building2, Calendar } from "lucide-react";
 
 export default function MaterialPurchase() {
   const [, setLocation] = useLocation();
-  const { selectedProjectId, selectProject } = useSelectedProject();
+  const { selectedProjectId, selectProject, isAllProjects, getProjectIdForApi } = useSelectedProject();
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({ paymentType: 'all', dateRange: undefined });
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -649,14 +649,15 @@ export default function MaterialPurchase() {
 
   // Fetch Material Purchases - جلب جميع المشتريات
   const { data: allMaterialPurchases = [], isLoading: materialPurchasesLoading, refetch: refetchMaterialPurchases } = useQuery<any[]>({
-    queryKey: ["/api/projects", selectedProjectId || 'all', "material-purchases"],
+    queryKey: ["/api/projects", getProjectIdForApi() ?? 'all', "material-purchases"],
     queryFn: async () => {
-      // جلب جميع المشتريات افتراضياً
-      const endpoint = selectedProjectId && selectedProjectId !== 'all'
-        ? `/api/projects/${selectedProjectId}/material-purchases`
+      // استخدام getProjectIdForApi للحصول على ID صحيح
+      const projectIdForApi = getProjectIdForApi();
+      const endpoint = projectIdForApi
+        ? `/api/projects/${projectIdForApi}/material-purchases`
         : `/api/projects/all/material-purchases`;
 
-      console.log('🔍 جلب المشتريات من:', endpoint);
+      console.log('🔍 جلب المشتريات من:', endpoint, { projectIdForApi, isAllProjects });
       const response = await apiRequest(endpoint, "GET");
       console.log('📊 عدد المشتريات المستلمة:', Array.isArray(response) ? response.length : response?.data?.length || 0);
       
@@ -665,7 +666,7 @@ export default function MaterialPurchase() {
       if (response?.data && Array.isArray(response.data)) return response.data;
       return [];
     },
-    enabled: true, // دائماً ممكّن
+    enabled: isAllProjects || !!selectedProjectId, // التفعيل عند جميع المشاريع أو مشروع محدد
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     staleTime: 0, // Always fetch fresh data
@@ -674,9 +675,9 @@ export default function MaterialPurchase() {
   // Filter purchases - عرض جميع المشتريات افتراضياً
   const filteredPurchases = useMemo(() => {
     return allMaterialPurchases.filter((purchase: any) => {
-      // فلترة حسب المشروع المحدد
-      const matchesProject = !selectedProjectId || 
-        selectedProjectId === 'all' || 
+      // فلترة حسب المشروع المحدد - استخدام isAllProjects
+      const matchesProject = isAllProjects || 
+        !selectedProjectId || 
         purchase.projectId === selectedProjectId;
 
       const matchesSearch = searchValue === '' || 
@@ -704,7 +705,7 @@ export default function MaterialPurchase() {
 
       return matchesProject && matchesSearch && matchesPaymentType && matchesDateRange;
     });
-  }, [allMaterialPurchases, selectedProjectId, searchValue, filterValues.paymentType, filterValues.dateRange]);
+  }, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.dateRange]);
 
 
   // Calculate stats
@@ -735,10 +736,10 @@ export default function MaterialPurchase() {
 
   // Auto-refresh when page loads or project changes
   useEffect(() => {
-    if (selectedProjectId) {
+    if (isAllProjects || selectedProjectId) {
       refetchMaterialPurchases();
     }
-  }, [selectedProjectId, refetchMaterialPurchases]);
+  }, [selectedProjectId, isAllProjects, refetchMaterialPurchases]);
 
   // Edit Function
   const handleEdit = (purchase: any) => {

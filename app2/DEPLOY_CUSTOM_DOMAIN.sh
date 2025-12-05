@@ -46,10 +46,20 @@ check_environment() {
 build_application() {
     print_separator
     log_info "🔨 جاري بناء التطبيق..."
-    npm run build > /dev/null 2>&1 && log_success "تم بناء التطبيق" || {
-        log_error "فشل البناء"
+
+    # التأكد من وجود node_modules
+    if [ ! -d "node_modules" ]; then
+        log_info "تثبيت المتطلبات..."
+        npm install --loglevel=error 2>&1 | tail -n 5
+    fi
+
+    # تشغيل البناء مع عرض الأخطاء
+    if npm run build 2>&1; then
+        log_success "تم البناء بنجاح"
+    else
+        log_error "فشل البناء - راجع الأخطاء أعلاه"
         exit 1
-    }
+    fi
 }
 
 create_deployment_package() {

@@ -128,9 +128,7 @@ function DailyExpensesContent() {
     queryKey: ["/api/workers"],
     queryFn: async () => {
       try {
-        console.log('🔄 [DailyExpenses] جلب قائمة العمال...');
         const response = await apiRequest("/api/workers", "GET");
-        console.log('📊 [DailyExpenses] استجابة العمال:', response);
 
         let workers = [];
         if (response && typeof response === 'object') {
@@ -146,21 +144,20 @@ function DailyExpensesContent() {
         }
 
         if (!Array.isArray(workers)) {
-          console.warn('⚠️ [DailyExpenses] بيانات العمال ليست مصفوفة، تحويل إلى مصفوفة فارغة');
           workers = [];
         }
 
-        console.log(`✅ [DailyExpenses] تم جلب ${workers.length} عامل`);
         return workers as Worker[];
       } catch (error) {
         console.error('❌ [DailyExpenses] خطأ في جلب العمال:', error);
         return [] as Worker[];
       }
     },
-    staleTime: 30000,
-    gcTime: 120000,
-    retry: 2,
+    staleTime: 1000 * 3,
+    gcTime: 1000 * 60,
+    retry: 1,
     refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
   });
 
   // جلب قائمة المشاريع لعرض أسماء المشاريع في ترحيل الأموال مع معالجة محسنة
@@ -168,9 +165,7 @@ function DailyExpensesContent() {
     queryKey: ["/api/projects"],
     queryFn: async () => {
       try {
-        console.log('🔄 [DailyExpenses] جلب قائمة المشاريع...');
         const response = await apiRequest("/api/projects", "GET");
-        console.log('📊 [DailyExpenses] استجابة المشاريع:', response);
 
         let projects = [];
         if (response && typeof response === 'object') {
@@ -186,21 +181,20 @@ function DailyExpensesContent() {
         }
 
         if (!Array.isArray(projects)) {
-          console.warn('⚠️ [DailyExpenses] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
           projects = [];
         }
 
-        console.log(`✅ [DailyExpenses] تم جلب ${projects.length} مشروع`);
         return projects as Project[];
       } catch (error) {
         console.error('❌ [DailyExpenses] خطأ في جلب المشاريع:', error);
         return [] as Project[];
       }
     },
-    staleTime: 30000,
-    gcTime: 120000,
-    retry: 2,
+    staleTime: 1000 * 3,
+    gcTime: 1000 * 60,
+    retry: 1,
     refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
   });
 
   // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData
@@ -211,19 +205,19 @@ function DailyExpensesContent() {
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/materials", "GET");
-        // التأكد من أن النتيجة مصفوفة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data;
         }
-        // إذا لم تكن مصفوفة، أرجع مصفوفة فارغة
         return [];
       } catch (error) {
-        console.warn('⚠️ لم يتمكن من جلب المواد، استخدام قائمة فارغة:', error);
+        console.warn('⚠️ لم يتمكن من جلب المواد:', error);
         return [];
       }
     },
-    staleTime: 300000, // 5 دقائق
-    gcTime: 600000, // 10 دقائق
+    staleTime: 1000 * 10,
+    gcTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
   });
 
   // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData

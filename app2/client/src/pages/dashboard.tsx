@@ -85,30 +85,24 @@ export default function Dashboard() {
       try {
         console.log('🔄 [Dashboard] جلب المشاريع مع الإحصائيات...');
         const response = await apiRequest("/api/projects/with-stats", "GET");
-        console.log('📊 [Dashboard] استجابة المشاريع:', response);
 
         let projects = [];
         if (response && typeof response === 'object') {
           if (response.success !== undefined && response.data !== undefined) {
             projects = Array.isArray(response.data) ? response.data : [];
-            console.log('✅ [Dashboard] استخراج البيانات من response.data');
           }
           else if (Array.isArray(response)) {
             projects = response;
-            console.log('✅ [Dashboard] استخدام الاستجابة كمصفوفة مباشرة');
           }
           else if (response.id) {
             projects = [response];
-            console.log('✅ [Dashboard] تحويل كائن واحد لمصفوفة');
           }
           else if (response.data) {
             projects = Array.isArray(response.data) ? response.data : [];
-            console.log('✅ [Dashboard] استخراج البيانات من data فقط');
           }
         }
 
         if (!Array.isArray(projects)) {
-          console.warn('⚠️ [Dashboard] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
           projects = [];
         }
 
@@ -119,10 +113,11 @@ export default function Dashboard() {
         return [] as ProjectWithStats[];
       }
     },
-    staleTime: 1000 * 30,
-    refetchInterval: 1000 * 60,
-    retry: 2,
-    refetchOnWindowFocus: false,
+    staleTime: 1000 * 3,
+    gcTime: 1000 * 60 * 2,
+    retry: 1,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
   });
 
   const { data: workerTypes = [] } = useQuery<WorkerType[]>({

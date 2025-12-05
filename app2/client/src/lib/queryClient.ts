@@ -351,11 +351,11 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: true,
-      staleTime: 1000 * 10,
-      gcTime: 1000 * 60 * 5,
+      staleTime: 1000 * 3,
+      gcTime: 1000 * 60 * 2,
       retry: 1,
       refetchOnReconnect: true,
-      refetchOnMount: true,
+      refetchOnMount: 'always',
     },
     mutations: {
       retry: 1,
@@ -363,8 +363,10 @@ export const queryClient = new QueryClient({
   },
 });
 
-export function invalidateAllProjectData(projectId?: string) {
-  console.log('🔄 [QueryClient] تحديث فوري لجميع بيانات المشروع:', projectId);
+export async function invalidateAllProjectData(projectId?: string) {
+  console.log('⚡ [QueryClient] تحديث فوري لجميع بيانات المشروع:', projectId);
+  
+  const startTime = Date.now();
   
   const keysToInvalidate = [
     ["/api/projects"],
@@ -379,20 +381,40 @@ export function invalidateAllProjectData(projectId?: string) {
     ["/api/suppliers"],
     ["/api/daily-expense-summaries"],
     ["/api/materials"],
+    ["/api/notifications"],
   ];
 
-  keysToInvalidate.forEach(key => {
-    queryClient.invalidateQueries({ queryKey: key, refetchType: 'active' });
+  await queryClient.cancelQueries();
+
+  const invalidatePromises = keysToInvalidate.map(key => 
+    queryClient.invalidateQueries({ 
+      queryKey: key, 
+      refetchType: 'all',
+      exact: false 
+    })
+  );
+
+  if (projectId && projectId !== 'all') {
+    invalidatePromises.push(
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key.some(k => String(k) === projectId);
+        },
+        refetchType: 'all'
+      })
+    );
+  }
+
+  await Promise.all(invalidatePromises);
+
+  await queryClient.refetchQueries({ 
+    type: 'active',
+    exact: false
   });
 
-  if (projectId) {
-    queryClient.invalidateQueries({
-      predicate: (query) => {
-        return query.queryKey.includes(projectId);
-      },
-      refetchType: 'active'
-    });
-  }
+  const duration = Date.now() - startTime;
+  console.log(`✅ [QueryClient] تم تحديث جميع البيانات في ${duration}ms`);
 }
 
 export function invalidateDateRelatedData(projectId: string, date: string) {

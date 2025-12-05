@@ -3,5 +3,9 @@ import { useSelectedProjectContext, ALL_PROJECTS_ID, ALL_PROJECTS_NAME } from "@
 export { ALL_PROJECTS_ID, ALL_PROJECTS_NAME };
 
 export function useSelectedProject() {
-  return useSelectedProjectContext();
+  const context = useSelectedProjectContext();
+  return {
+    ...context,
+    refreshAllData: context.refreshAllData,
+  };
 }

@@ -86,14 +86,20 @@ export default function Reports() {
 
   // جلب قائمة العمال
   const { data: workers = [] } = useQuery({
-    queryKey: ["/api/workers"],
+    queryKey: ["/api/workers", projectIdForApi],
     queryFn: async () => {
       try {
         const response = await apiRequest(`/api/workers`, "GET");
+        let allWorkers = [];
         if (response && response.data) {
-          return Array.isArray(response.data) ? response.data : [];
+          allWorkers = Array.isArray(response.data) ? response.data : [];
+        } else {
+          allWorkers = Array.isArray(response) ? response : [];
         }
-        return Array.isArray(response) ? response : [];
+        if (projectIdForApi) {
+          return allWorkers.filter((w: any) => w.projectId === projectIdForApi);
+        }
+        return allWorkers;
       } catch (error) {
         console.error("❌ خطأ في جلب العمال:", error);
         return [];

@@ -135,10 +135,14 @@ export default function ProfessionalReports() {
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
   const { data: workers = [] } = useQuery({
-    queryKey: ["/api/workers"],
+    queryKey: ["/api/workers", projectIdForApi],
     queryFn: async () => {
       const response = await apiRequest(`/api/workers`, "GET");
-      return response?.data || response || [];
+      const allWorkers = response?.data || response || [];
+      if (projectIdForApi) {
+        return allWorkers.filter((w: any) => w.projectId === projectIdForApi);
+      }
+      return allWorkers;
     },
   });
 

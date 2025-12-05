@@ -325,7 +325,15 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
             <SelectTrigger>
               <SelectValue 
                 placeholder={isLoadingProjects ? "جاري التحميل..." : "اختر المشروع..."} 
-                label={projectId ? (projects.find(p => p.id === projectId)?.name || "بدون مشروع") : undefined}
+                label={
+                  isLoadingProjects && projectId 
+                    ? "جاري التحميل..." 
+                    : projectId === "" 
+                      ? "بدون مشروع"
+                      : projectId 
+                        ? (projects.find(p => p.id === projectId)?.name || "بدون مشروع")
+                        : undefined
+                }
               />
             </SelectTrigger>
             <SelectContent>

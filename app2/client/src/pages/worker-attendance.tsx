@@ -198,14 +198,36 @@ export default function WorkerAttendance() {
   const deleteAttendanceMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/worker-attendance/${id}`, "DELETE"),
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
-      const previousData = queryClient.getQueryData(["/api/projects", selectedProjectId, "worker-attendance"]);
+      // حفظ المفاتيح الحالية للاستخدام في onError و onSettled
+      const projectId = selectedProjectId;
+      const date = selectedDate;
+      const allKey = ["/api/projects", projectId, "worker-attendance"];
+      const dateKey = ["/api/projects", projectId, "worker-attendance", date];
       
-      queryClient.setQueryData(["/api/projects", selectedProjectId, "worker-attendance"], (old: any) => {
-        return old ? old.filter((record: any) => record.id !== id) : [];
-      });
+      // إلغاء كلا الـ queries
+      await queryClient.cancelQueries({ queryKey: allKey });
+      await queryClient.cancelQueries({ queryKey: dateKey });
       
-      return { previousData };
+      // حفظ البيانات السابقة لكلا الكاشين
+      const previousAllData = queryClient.getQueryData(allKey);
+      const previousDateData = queryClient.getQueryData(dateKey);
+      
+      // تحديث كاش جميع السجلات
+      if (Array.isArray(previousAllData)) {
+        queryClient.setQueryData(allKey, 
+          previousAllData.filter((record: any) => record.id !== id)
+        );
+      }
+      
+      // تحديث كاش السجلات المحددة بالتاريخ
+      if (Array.isArray(previousDateData)) {
+        queryClient.setQueryData(dateKey, 
+          previousDateData.filter((record: any) => record.id !== id)
+        );
+      }
+      
+      // إرجاع المفاتيح مع البيانات للاستخدام في onError و onSettled
+      return { previousAllData, previousDateData, allKey, dateKey };
     },
     onSuccess: () => {
       toast({
@@ -213,11 +235,14 @@ export default function WorkerAttendance() {
         description: "تم حذف سجل الحضور بنجاح",
         className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
     },
     onError: (error: any, _id, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(["/api/projects", selectedProjectId, "worker-attendance"], context.previousData);
+      // استعادة كلا الكاشين عند الخطأ باستخدام المفاتيح المحفوظة
+      if (context?.previousAllData && context?.allKey) {
+        queryClient.setQueryData(context.allKey, context.previousAllData);
+      }
+      if (context?.previousDateData && context?.dateKey) {
+        queryClient.setQueryData(context.dateKey, context.previousDateData);
       }
       console.error('❌ [DeleteAttendance] خطأ في الحذف:', error);
       const errorMessage = error.message || "حدث خطأ أثناء حذف سجل الحضور";
@@ -226,6 +251,15 @@ export default function WorkerAttendance() {
         description: errorMessage,
         variant: "destructive",
       });
+    },
+    onSettled: (_data, _error, _id, context) => {
+      // تحديث كلا الكاشين من الخادم باستخدام المفاتيح المحفوظة
+      if (context?.allKey) {
+        queryClient.invalidateQueries({ queryKey: context.allKey });
+      }
+      if (context?.dateKey) {
+        queryClient.invalidateQueries({ queryKey: context.dateKey });
+      }
     }
   });
 

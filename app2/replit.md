@@ -40,6 +40,16 @@ A comprehensive construction project management system designed for the Middle E
 ### Secret Key Management System
 - **Functionality**: Automatically checks for and adds missing required secret keys (JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, ENCRYPTION_KEY, DATABASE_URL) at server startup, ensuring secure values are always present for app2data database connection.
 
+### Performance Optimization (December 2025)
+- **Optimistic Updates**: Implemented across Workers, Projects, and Attendance pages for instant UI feedback
+  - Uses `Array.isArray()` guards before cache modifications
+  - Preserves `previousData` for automatic rollback on errors
+  - Scopes query keys in mutation context to prevent key-switch issues
+  - Updates both aggregate and date-scoped caches for Attendance
+- **Smart Caching**: Reference data cached for 10 minutes, active data for 5 minutes, memory retention for 30 minutes
+- **Data Prefetching**: Core data (projects, workers, materials, suppliers, notifications) preloaded on login
+- **Arabic Calendar**: Fully RTL-compatible with inverted navigation buttons
+
 ### General Improvements
 - **API Robustness**: Enhanced error handling with `try-catch`, `Array.isArray()` checks, support for multiple API response structures, and optimized performance with `staleTime`, `retry`, and `refetchInterval`.
 - **Deployment Reliability**: Critical fixes for Vercel routing and CORS issues, ensuring production stability and correct API endpoint resolution.

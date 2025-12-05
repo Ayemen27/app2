@@ -17,7 +17,9 @@ import {
   ShoppingCart,
   Receipt,
   Wallet,
-  Calendar
+  Calendar,
+  Edit2,
+  Trash2
 } from "lucide-react";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
@@ -27,6 +29,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { apiRequest } from "@/lib/queryClient";
 import { useSelectedProject } from "@/hooks/use-selected-project";
+import { useToast } from "@/hooks/use-toast";
 import type { Supplier, MaterialPurchase, Project } from "@shared/schema";
 
 export default function SupplierAccountsPage() {
@@ -38,6 +41,7 @@ export default function SupplierAccountsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { setFloatingAction } = useFloatingButton();
   const { selectedProjectId, getProjectIdForApi } = useSelectedProject();
+  const { toast } = useToast();
 
   useEffect(() => {
     setFloatingAction(null);
@@ -681,13 +685,37 @@ export default function SupplierAccountsPage() {
                   ]}
                   actions={[
                     {
-                      icon: Eye,
-                      label: 'عرض',
+                      icon: Edit2,
+                      label: 'تعديل',
                       onClick: () => {
-                        // يمكن إضافة وظيفة عرض التفاصيل هنا
-                        console.log('عرض تفاصيل المشترى:', purchase.id);
+                        window.location.href = `/material-purchase?edit=${purchase.id}`;
                       },
                       color: 'blue',
+                    },
+                    {
+                      icon: Trash2,
+                      label: 'حذف',
+                      onClick: async () => {
+                        if (confirm('هل أنت متأكد من حذف هذه المشترى؟')) {
+                          try {
+                            await apiRequest(`/api/material-purchases/${purchase.id}`, 'DELETE');
+                            await queryClient.invalidateQueries({ queryKey: ['/api/material-purchases'] });
+                            await queryClient.invalidateQueries({ queryKey: ['/api/suppliers'] });
+                            await queryClient.invalidateQueries({ queryKey: ['/api/suppliers/statistics'] });
+                            toast({
+                              title: '✅ تم الحذف',
+                              description: 'تم حذف المشترى بنجاح',
+                            });
+                          } catch (error) {
+                            toast({
+                              title: '❌ خطأ',
+                              description: 'فشل حذف المشترى',
+                              variant: 'destructive',
+                            });
+                          }
+                        }
+                      },
+                      color: 'red',
                     },
                   ]}
                   fields={[

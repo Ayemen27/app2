@@ -1130,7 +1130,5 @@ export default function WorkerAttendance() {
               
           )}
         </div>
-      )}
-    </div>
   );
 }

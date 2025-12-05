@@ -26,6 +26,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { apiRequest } from "@/lib/queryClient";
+import { useSelectedProject } from "@/hooks/use-selected-project";
 import type { Supplier, MaterialPurchase, Project } from "@shared/schema";
 
 export default function SupplierAccountsPage() {
@@ -33,10 +34,10 @@ export default function SupplierAccountsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState("all");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { setFloatingAction } = useFloatingButton();
+  const { selectedProjectId, getProjectIdForApi } = useSelectedProject();
 
   useEffect(() => {
     setFloatingAction(null);
@@ -93,7 +94,8 @@ export default function SupplierAccountsPage() {
       
       const params = new URLSearchParams();
       params.append('supplierId', selectedSupplierId);
-      if (selectedProjectId && selectedProjectId !== 'all') params.append('projectId', selectedProjectId);
+      const projectIdForApi = getProjectIdForApi();
+      if (projectIdForApi) params.append('projectId', projectIdForApi);
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
       if (paymentTypeFilter && paymentTypeFilter !== 'all') params.append('purchaseType', paymentTypeFilter);
@@ -163,7 +165,8 @@ export default function SupplierAccountsPage() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedSupplierId) params.append('supplierId', selectedSupplierId);
-      if (selectedProjectId && selectedProjectId !== 'all') params.append('projectId', selectedProjectId);
+      const projectIdForApi = getProjectIdForApi();
+      if (projectIdForApi) params.append('projectId', projectIdForApi);
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
       if (paymentTypeFilter && paymentTypeFilter !== 'all') params.append('purchaseType', paymentTypeFilter);
@@ -403,7 +406,6 @@ export default function SupplierAccountsPage() {
     setDateFrom("");
     setDateTo("");
     setSearchTerm("");
-    setSelectedProjectId("all");
     setPaymentTypeFilter("all");
   }, []);
 
@@ -534,16 +536,6 @@ export default function SupplierAccountsPage() {
       ],
     },
     {
-      key: 'project',
-      label: 'المشروع',
-      type: 'select',
-      placeholder: 'اختر المشروع',
-      options: [
-        { value: 'all', label: 'جميع المشاريع' },
-        ...projects.map(p => ({ value: p.id, label: p.name }))
-      ],
-    },
-    {
       key: 'paymentType',
       label: 'نوع الدفع',
       type: 'select',
@@ -554,13 +546,11 @@ export default function SupplierAccountsPage() {
         { value: 'أجل', label: 'أجل' }
       ],
     }
-  ], [filteredSuppliers, projects, formatCurrency]);
+  ], [filteredSuppliers, formatCurrency]);
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     if (key === 'supplier') {
       setSelectedSupplierId(value === 'none' ? '' : value);
-    } else if (key === 'project') {
-      setSelectedProjectId(value);
     } else if (key === 'paymentType') {
       setPaymentTypeFilter(value);
     }
@@ -577,7 +567,6 @@ export default function SupplierAccountsPage() {
         filters={filtersConfig}
         filterValues={{
           supplier: selectedSupplierId || 'none',
-          project: selectedProjectId,
           paymentType: paymentTypeFilter
         }}
         onFilterChange={handleFilterChange}

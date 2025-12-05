@@ -679,6 +679,17 @@ export default function SupplierAccountsPage() {
                       variant: purchase.purchaseType === "نقد" ? 'default' : 'warning' 
                     }
                   ]}
+                  actions={[
+                    {
+                      icon: Eye,
+                      label: 'عرض',
+                      onClick: () => {
+                        // يمكن إضافة وظيفة عرض التفاصيل هنا
+                        console.log('عرض تفاصيل المشترى:', purchase.id);
+                      },
+                      color: 'blue',
+                    },
+                  ]}
                   fields={[
                     {
                       label: "المورد",
@@ -724,10 +735,13 @@ export default function SupplierAccountsPage() {
                       color: remaining > 0 ? "danger" : "success",
                       emphasis: true,
                     },
+                    {
+                      label: "الملاحظات",
+                      value: purchase.notes || "لا توجد ملاحظات",
+                      icon: FileText,
+                      color: purchase.notes ? "default" : "muted",
+                    },
                   ]}
-                  footer={purchase.notes ? (
-                    <p className="text-sm text-muted-foreground">{purchase.notes}</p>
-                  ) : undefined}
                   compact
                 />
               );

@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ArrowRight, Save, ChartGantt, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2, User, Calendar, Edit2, Trash2 } from "lucide-react";
+import { Save, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2, User, Calendar, Edit2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,8 @@ import EnhancedWorkerCard from "@/components/enhanced-worker-card";
 import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
-import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
-import FilterStatsBar from "@/components/ui/filter-stats-bar";
-import { useFilterStats } from "@/hooks/use-filter-stats";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import type { Worker, InsertWorkerAttendance } from "@shared/schema";
 
@@ -45,20 +44,9 @@ interface AttendanceData {
 export default function WorkerAttendance() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject } = useSelectedProject();
-  const [activeFilters, setActiveFilters] = useState({});
-
-  const {
-    searchValue,
-    filterValues,
-    setSearchValue,
-    setFilterValue,
-    resetAll,
-    refresh,
-    isRefreshing,
-  } = useFilterStats({
-    initialFilters: {},
-    queryKeys: ["/api/projects", selectedProjectId, "worker-attendance"],
-  });
+  const [searchValue, setSearchValue] = useState("");
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);
@@ -82,6 +70,40 @@ export default function WorkerAttendance() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
+
+  const handleFilterChange = useCallback((key: string, value: any) => {
+    setFilterValues(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setSearchValue("");
+    setFilterValues({});
+    toast({
+      title: "تم إعادة التعيين",
+      description: "تم مسح جميع الفلاتر",
+    });
+  }, [toast]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] 
+      });
+      toast({
+        title: "تم التحديث",
+        description: "تم تحديث البيانات بنجاح",
+      });
+    } catch (error) {
+      toast({
+        title: "خطأ",
+        description: "فشل تحديث البيانات",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [queryClient, selectedProjectId, toast]);
 
   // تعيين إجراء الزر العائم لحفظ الحضور
   useEffect(() => {
@@ -662,120 +684,142 @@ export default function WorkerAttendance() {
   // حساب إحصائيات الحضور من البيانات المجلوبة للتاريخ المختار
   const todayRecords = Array.isArray(todayAttendance) ? todayAttendance : [];
 
-  const presentWorkers = todayRecords.length;
-  const totalWorkDays = todayRecords
-    .reduce((sum, record) => sum + parseFloat(record.workDays || '0'), 0);
+  const stats = useMemo(() => {
+    const presentWorkers = todayRecords.length;
+    const totalWorkDays = todayRecords.reduce((sum, record) => sum + parseFloat(record.workDays || '0'), 0);
 
-  let totalEarned = 0;
-  let totalPaid = 0;
-  let totalTransfers = 0;
+    let totalEarned = 0;
+    let totalPaid = 0;
+    let totalTransfers = 0;
 
-  todayRecords.forEach(record => {
-    // استخدام الأجر اليومي الحالي للعامل بدلاً من الأجر المحفوظ
-    const worker = workers.find(w => w.id === record.workerId);
-    const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
-    const workDays = parseFloat(record.workDays || '0');
-    const earned = currentDailyWage * workDays;
-    const paid = parseFloat(record.paidAmount || '0');
-    totalEarned += earned;
-    totalPaid += paid;
-    // الحوالات إذا كانت موجودة
-    if (record.transfers) {
-      totalTransfers += parseFloat(record.transfers);
+    todayRecords.forEach(record => {
+      const worker = workers.find(w => w.id === record.workerId);
+      const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
+      const workDays = parseFloat(record.workDays || '0');
+      const earned = currentDailyWage * workDays;
+      const paid = parseFloat(record.paidAmount || '0');
+      totalEarned += earned;
+      totalPaid += paid;
+      if (record.transfers) {
+        totalTransfers += parseFloat(record.transfers);
+      }
+    });
+
+    const totalRemaining = totalEarned - totalPaid - totalTransfers;
+
+    return {
+      totalWorkers: workers.length,
+      presentWorkers,
+      totalWorkDays,
+      totalEarned,
+      totalPaid,
+      totalRemaining,
+    };
+  }, [todayRecords, workers]);
+
+  // تكوين صفوف الإحصائيات الموحدة
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'total',
+          label: 'إجمالي العمال',
+          value: stats.totalWorkers,
+          icon: Users,
+          color: 'blue',
+        },
+        {
+          key: 'present',
+          label: 'الحاضرون اليوم',
+          value: stats.presentWorkers,
+          icon: CheckCircle2,
+          color: 'green',
+        },
+        {
+          key: 'days',
+          label: 'إجمالي الأيام',
+          value: stats.totalWorkDays.toFixed(2),
+          icon: Clock,
+          color: 'orange',
+        },
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'earned',
+          label: 'المستحق',
+          value: formatCurrency(stats.totalEarned),
+          icon: DollarSign,
+          color: 'blue',
+        },
+        {
+          key: 'paid',
+          label: 'المدفوع',
+          value: formatCurrency(stats.totalPaid),
+          icon: CheckCircle2,
+          color: 'green',
+        },
+        {
+          key: 'remaining',
+          label: 'المتبقي',
+          value: formatCurrency(stats.totalRemaining),
+          icon: DollarSign,
+          color: stats.totalRemaining >= 0 ? 'purple' : 'red',
+        },
+      ]
     }
-  });
+  ], [stats]);
 
-  // المتبقي = المستحق - المدفوع - الحوالات
-  const totalRemaining = totalEarned - totalPaid - totalTransfers;
-
-  // resetFilters function for FilterStatsBar
-  const resetAttendanceFilters = () => {
-    resetAll();
-  };
+  // تكوين الفلاتر
+  const filtersConfig: FilterConfig[] = useMemo(() => [
+    {
+      key: 'date',
+      label: 'التاريخ',
+      type: 'date',
+      placeholder: 'اختر التاريخ',
+    },
+  ], []);
 
   return (
-    <div className="p-4 slide-in">
+    <div className="p-4 slide-in space-y-4">
 
-      {/* شريط البحث والفلترة والإحصائيات الموحد */}
+      {/* لوحة الإحصائيات والفلترة الموحدة */}
       {selectedProjectId && (
-        <FilterStatsBar
-          title="تسجيل الحضور"
+        <UnifiedFilterDashboard
+          statsRows={statsRowsConfig}
           searchValue={searchValue}
           onSearchChange={setSearchValue}
           searchPlaceholder="ابحث عن عامل..."
-          filters={[]}
-          filterValues={filterValues}
-          onFilterChange={setFilterValue}
-          onReset={resetAttendanceFilters}
-          onRefresh={refresh}
+          showSearch={true}
+          filters={filtersConfig}
+          filterValues={{ 
+            date: selectedDate ? (() => {
+              const [year, month, day] = selectedDate.split('-').map(Number);
+              return new Date(year, month - 1, day, 12, 0, 0, 0);
+            })() : undefined
+          }}
+          onFilterChange={(key, value) => {
+            if (key === 'date') {
+              if (value instanceof Date) {
+                const year = value.getFullYear();
+                const month = String(value.getMonth() + 1).padStart(2, '0');
+                const day = String(value.getDate()).padStart(2, '0');
+                setSelectedDate(`${year}-${month}-${day}`);
+              } else {
+                setSelectedDate(getCurrentDate());
+              }
+            }
+          }}
+          onReset={handleResetFilters}
+          onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
-          metricsLayout="two-columns"
-          metrics={[
-            {
-              key: 'total',
-              label: 'إجمالي العمال',
-              value: workers.length,
-              icon: Users,
-              color: 'blue',
-              column: 'right',
-            },
-            {
-              key: 'present',
-              label: 'الحاضرون اليوم',
-              value: presentWorkers,
-              icon: CheckCircle2,
-              color: 'green',
-              column: 'right',
-            },
-            {
-              key: 'earned',
-              label: 'المستحق',
-              value: formatCurrency(totalEarned),
-              icon: DollarSign,
-              color: 'blue',
-              column: 'right',
-            },
-            {
-              key: 'days',
-              label: 'إجمالي الأيام',
-              value: totalWorkDays.toFixed(2),
-              icon: Clock,
-              color: 'orange',
-              column: 'left',
-            },
-            {
-              key: 'paid',
-              label: 'المدفوع',
-              value: formatCurrency(totalPaid),
-              icon: CheckCircle2,
-              color: 'green',
-              column: 'left',
-            },
-            {
-              key: 'remaining',
-              label: 'المتبقي',
-              value: formatCurrency(totalRemaining),
-              icon: DollarSign,
-              color: totalRemaining >= 0 ? 'purple' : 'red',
-              column: 'left',
-            },
-          ]}
-          actions={[]}
         />
       )}
-
-      {/* Date Selection */}
-      <Card className="mb-4">
-        <CardContent className="p-4">
-          <Label className="block text-sm font-medium text-foreground">التاريخ</Label>
-          <Input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full"
-          />
-        </CardContent>
-      </Card>
 
 
       {/* الإعدادات المشتركة */}

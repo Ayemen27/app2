@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { useToast } from "@/hooks/use-toast";
-import { useSelectedProject } from "@/hooks/use-selected-project";
+import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
 import EnhancedWorkerCard from "@/components/enhanced-worker-card";
 import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -44,7 +44,7 @@ interface AttendanceData {
 
 export default function WorkerAttendance() {
   const [, setLocation] = useLocation();
-  const { selectedProjectId, selectProject } = useSelectedProject();
+  const { selectedProjectId, selectProject, isAllProjects, projects } = useSelectedProject();
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -138,6 +138,26 @@ export default function WorkerAttendance() {
     queryKey: ["/api/projects", selectedProjectId, "worker-attendance", selectedDate],
     queryFn: async () => {
       try {
+        // إذا كان "جميع المشاريع" محدد، نجلب من جميع المشاريع
+        if (isAllProjects) {
+          const allRecords: any[] = [];
+          for (const project of projects) {
+            const url = selectedDate 
+              ? `/api/projects/${project.id}/worker-attendance?date=${selectedDate}`
+              : `/api/projects/${project.id}/worker-attendance`;
+            try {
+              const response = await apiRequest(url, "GET");
+              const records = response?.data || response || [];
+              if (Array.isArray(records)) {
+                allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+              }
+            } catch (e) {
+              console.error(`Error fetching attendance for project ${project.id}:`, e);
+            }
+          }
+          return allRecords;
+        }
+        
         const url = selectedDate 
           ? `/api/projects/${selectedProjectId}/worker-attendance?date=${selectedDate}`
           : `/api/projects/${selectedProjectId}/worker-attendance`;
@@ -152,7 +172,7 @@ export default function WorkerAttendance() {
         return [];
       }
     },
-    enabled: !!selectedProjectId,
+    enabled: !!selectedProjectId && (isAllProjects ? projects.length > 0 : true),
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     staleTime: 0
@@ -1048,15 +1068,17 @@ export default function WorkerAttendance() {
                 const calculatedActualWage = currentDailyWage * workDays;
                 const paidAmount = parseFloat(record.paidAmount || '0');
                 const remainingAmount = calculatedActualWage - paidAmount;
+                const projectName = record.projectName || projects.find(p => p.id === record.projectId)?.name;
                 return (
                   <UnifiedCard
                     key={record.id}
                     title={worker?.name || record.workerId}
-                    subtitle={record.date || record.attendanceDate}
+                    subtitle={isAllProjects && projectName ? `${projectName} - ${record.date || record.attendanceDate}` : (record.date || record.attendanceDate)}
                     titleIcon={User}
                     headerColor="#22c55e"
                     badges={[
-                      { label: 'حاضر', variant: 'success' }
+                      { label: 'حاضر', variant: 'success' },
+                      ...(isAllProjects && projectName ? [{ label: projectName, variant: 'outline' as const }] : [])
                     ]}
                     fields={[
                       {

@@ -880,10 +880,13 @@ export default function WorkerAttendance() {
                     min="0"
                     max="2.0"
                     value={bulkSettings.workDays || ""}
-                    onChange={(e) => setBulkSettings(prev => ({ 
-                      ...prev, 
-                      workDays: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 
-                    }))}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setBulkSettings(prev => ({ 
+                        ...prev, 
+                        workDays: value === "" ? 0 : parseFloat(value) || 0 
+                      }));
+                    }}
                     placeholder="0"
                     className="mt-1 arabic-numbers"
                   />

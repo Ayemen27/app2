@@ -39,16 +39,16 @@ interface EnhancedWorkerCardProps {
   selectedDate?: string;
 }
 
-export default function EnhancedWorkerCard({ 
-  worker, 
-  attendance, 
+export default function EnhancedWorkerCard({
+  worker,
+  attendance,
   onAttendanceChange,
   selectedDate = getCurrentDate()
 }: EnhancedWorkerCardProps) {
   const [localAttendance, setLocalAttendance] = useState<AttendanceData>(attendance);
   const [showDetails, setShowDetails] = useState(false);
   const [recordType, setRecordType] = useState<"work" | "advance">(attendance.recordType || "work");
-  
+
   // جلب إحصائيات العامل
   const { data: workerStats } = useQuery({
     queryKey: ["/api/workers", worker.id, "stats"],
@@ -67,7 +67,7 @@ export default function EnhancedWorkerCard({
     },
     staleTime: 30000 // حفظ البيانات لمدة 30 ثانية
   });
-  
+
   // فحص إذا كان العامل حاضر اليوم
   const isPresentToday = localAttendance.isPresent && selectedDate === getCurrentDate();
 
@@ -85,7 +85,7 @@ export default function EnhancedWorkerCard({
 
   const handleAttendanceToggle = (checked: boolean | "indeterminate") => {
     const isPresent = checked === true;
-    
+
     // إضافة تأثير بصري عند التحديد/الإلغاء
     if (isPresent) {
       // تأثير عند التحديد
@@ -100,19 +100,19 @@ export default function EnhancedWorkerCard({
       // إخفاء التفاصيل عند إلغاء تحديد الحضور
       setShowDetails(false);
     }
-    
+
     const baseUpdate = {
       isPresent: isPresent,
       recordType: isPresent ? recordType : undefined,
     };
-    
+
     if (isPresent && recordType === "work") {
       updateAttendance({
         ...baseUpdate,
         startTime: localAttendance.startTime || "07:00",
         endTime: localAttendance.endTime || "15:00",
         workDescription: localAttendance.workDescription,
-        workDays: localAttendance.workDays || 0,
+        workDays: localAttendance.workDays === undefined ? 0 : localAttendance.workDays, // Ensure workDays is initialized
         paidAmount: localAttendance.paidAmount,
         paymentType: localAttendance.paymentType || "partial",
       });
@@ -137,12 +137,12 @@ export default function EnhancedWorkerCard({
     const start = new Date(`2000-01-01T${localAttendance.startTime}:00`);
     const end = new Date(`2000-01-01T${localAttendance.endTime}:00`);
     let diffMs = end.getTime() - start.getTime();
-    
+
     // التعامل مع الورديات الليلية
     if (diffMs < 0) {
       diffMs += 24 * 60 * 60 * 1000; // إضافة 24 ساعة
     }
-    
+
     const diffHours = diffMs / (1000 * 60 * 60);
     return Math.max(0, diffHours);
   };
@@ -189,12 +189,12 @@ export default function EnhancedWorkerCard({
     if (localAttendance.isPresent) {
       const calculatedTotalPay = calculateTotalPay();
       const calculatedRemainingAmount = calculateRemainingAmount();
-      
+
       // تحديث القيم المحسوبة إذا تغيرت
-      if (localAttendance.totalPay !== calculatedTotalPay || 
+      if (localAttendance.totalPay !== calculatedTotalPay ||
           localAttendance.remainingAmount !== calculatedRemainingAmount ||
           localAttendance.hoursWorked !== calculateWorkingHours()) {
-        
+
         const updatedAttendance = {
           ...localAttendance,
           actualWage: calculateBaseWage(),
@@ -202,12 +202,12 @@ export default function EnhancedWorkerCard({
           remainingAmount: calculatedRemainingAmount,
           hoursWorked: calculateWorkingHours()
         };
-        
+
         setLocalAttendance(updatedAttendance);
         onAttendanceChange(updatedAttendance);
       }
     }
-  }, [localAttendance.workDays, localAttendance.overtime, localAttendance.overtimeRate, 
+  }, [localAttendance.workDays, localAttendance.overtime, localAttendance.overtimeRate,
       localAttendance.paidAmount, localAttendance.startTime, localAttendance.endTime]);
 
   // تنسيق التاريخ
@@ -238,7 +238,7 @@ export default function EnhancedWorkerCard({
         return <User className="h-5 w-5" />;
     }
   };
-  
+
   // دالة لاختيار لون المهنة
   const getProfessionColor = (profession: string) => {
     switch (profession) {
@@ -256,11 +256,11 @@ export default function EnhancedWorkerCard({
         return "bg-gradient-to-br from-gray-500 to-gray-600";
     }
   };
-  
+
   return (
     <Card className={`mb-3 shadow-sm border-r-4 w-full max-w-full overflow-hidden worker-card-enhanced ${
-      isPresentToday 
-        ? "border-r-green-400 bg-gradient-to-r from-green-50/50 to-green-100/30 dark:from-green-950/20 dark:to-green-900/10 animate-pulse-slow attended-worker-glow" 
+      isPresentToday
+        ? "border-r-green-400 bg-gradient-to-r from-green-50/50 to-green-100/30 dark:from-green-950/20 dark:to-green-900/10 animate-pulse-slow attended-worker-glow"
         : "border-r-primary/20 hover:border-r-primary/40"
     }`} data-testid={`worker-card-detailed-${worker.id}`}>
       <CardContent className="p-2 sm:p-3 max-w-full overflow-hidden">
@@ -279,7 +279,7 @@ export default function EnhancedWorkerCard({
                   <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" data-testid={`worker-status-inactive-${worker.id}`} />
                 )}
               </div>
-              
+
               {/* معلومات مضغوطة */}
               <div className="flex items-center space-x-reverse space-x-4 text-xs text-muted-foreground">
                 <span className="flex items-center space-x-reverse space-x-1">
@@ -300,7 +300,7 @@ export default function EnhancedWorkerCard({
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-reverse space-x-2 flex-shrink-0">
             {localAttendance.isPresent && (
               <>
@@ -352,7 +352,7 @@ export default function EnhancedWorkerCard({
             />
           </div>
         </div>
-        
+
         {/* بطاقات البيانات في عمودين - ظاهرة دائماً عند الحضور */}
         {localAttendance.isPresent && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
@@ -373,7 +373,7 @@ export default function EnhancedWorkerCard({
                 </div>
               </div>
             </div>
-            
+
             {/* العمود الأيسر */}
             <div className={`bg-gradient-to-br ${recordType === "advance" ? "from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/20 border-red-200 dark:border-red-800" : "from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20 border-purple-200 dark:border-purple-800"} p-2 rounded-lg border`}>
               <div className="space-y-1.5 text-sm">
@@ -387,10 +387,14 @@ export default function EnhancedWorkerCard({
                         step="0.1"
                         min="0"
                         max="2.0"
-                        value={localAttendance.workDays ?? ""}
-                        onChange={(e) => updateAttendance({ workDays: e.target.value === "" ? 0 : parseFloat(e.target.value) })}
+                        value={localAttendance.workDays || ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          updateAttendance({ workDays: value === "" ? 0 : parseFloat(value) || 0 });
+                        }}
                         placeholder="0"
-                        className="w-24 text-center arabic-numbers text-sm h-7"
+                        className="w-24 text-center text-sm h-7 arabic-numbers"
+                        data-testid={`work-days-summary-${worker.id}`}
                       />
                     </div>
                     <div className="flex justify-between items-center">
@@ -429,7 +433,7 @@ export default function EnhancedWorkerCard({
             </div>
           </div>
         )}
-        
+
         {/* تفاصيل الحضور */}
         {localAttendance.isPresent && showDetails && (
           <div className="space-y-2 w-full max-w-full overflow-hidden">
@@ -439,7 +443,7 @@ export default function EnhancedWorkerCard({
                 <Clock className="h-4 w-4 text-slate-600" />
                 <h5 className="font-medium text-slate-800 dark:text-slate-200 text-sm" data-testid={`work-time-section-${worker.id}`}>تفاصيل العمل والدفع</h5>
               </div>
-              
+
               {/* الصف الأول: أوقات العمل - 3 حقول */}
               <div className="grid grid-cols-3 gap-2 mb-3">
                 <div className="space-y-1">
@@ -452,7 +456,7 @@ export default function EnhancedWorkerCard({
                     data-testid={`start-time-input-${worker.id}`}
                   />
                 </div>
-                
+
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">إلى</Label>
                   <Input
@@ -463,7 +467,7 @@ export default function EnhancedWorkerCard({
                     data-testid={`end-time-input-${worker.id}`}
                   />
                 </div>
-                
+
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">أيام</Label>
                   <Input
@@ -472,15 +476,18 @@ export default function EnhancedWorkerCard({
                     step="0.1"
                     min="0"
                     max="2.0"
-                    value={localAttendance.workDays ?? ""}
-                    onChange={(e) => updateAttendance({ workDays: e.target.value === "" ? 0 : parseFloat(e.target.value) })}
+                    value={localAttendance.workDays || ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      updateAttendance({ workDays: value === "" ? 0 : parseFloat(value) || 0 });
+                    }}
                     placeholder="0"
-                    className="text-center arabic-numbers text-sm h-8"
+                    className="text-center font-mono arabic-numbers text-sm h-8"
                     data-testid={`work-days-input-${worker.id}`}
                   />
                 </div>
               </div>
-              
+
               {/* الصف الثاني: ساعات ووقت إضافي - 3 حقول */}
               <div className="grid grid-cols-3 gap-2 mb-3">
                 <div className="space-y-1">
@@ -491,7 +498,7 @@ export default function EnhancedWorkerCard({
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">ساعات إضافية</Label>
                   <Input
@@ -506,7 +513,7 @@ export default function EnhancedWorkerCard({
                     data-testid={`overtime-input-${worker.id}`}
                   />
                 </div>
-                
+
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">معدل الساعة</Label>
                   <Input
@@ -520,7 +527,7 @@ export default function EnhancedWorkerCard({
                   />
                 </div>
               </div>
-              
+
               {/* وصف العمل */}
               <div className="space-y-1 mb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
                 <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">وصف العمل</Label>
@@ -533,14 +540,14 @@ export default function EnhancedWorkerCard({
                   data-testid={`work-description-input-${worker.id}`}
                 />
               </div>
-              
+
               {/* الصف الثالث: معلومات الدفع */}
               <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex items-center space-x-reverse space-x-2 mb-2">
                   <Banknote className="h-4 w-4 text-slate-600" />
                   <h6 className="font-medium text-slate-800 dark:text-slate-200 text-sm" data-testid={`payment-section-${worker.id}`}>معلومات الدفع</h6>
                 </div>
-              
+
                 {/* الصف الأول: معلومات أساسية - 3 حقول */}
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <div className="space-y-1">
@@ -559,7 +566,7 @@ export default function EnhancedWorkerCard({
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">الأجر الفعلي</Label>
                     <div className="h-8 px-2 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-md flex items-center justify-center">
@@ -568,7 +575,7 @@ export default function EnhancedWorkerCard({
                       </span>
                     </div>
                   </div>
-                  
+
                   {localAttendance.paymentType !== "credit" ? (
                     <div className="space-y-1">
                       <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">المبلغ المدفوع</Label>
@@ -591,7 +598,7 @@ export default function EnhancedWorkerCard({
                     </div>
                   )}
                 </div>
-                
+
                 {/* الصف الثاني: المبلغ المتبقي وإجمالي الدفع - 3 حقول */}
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <div className="space-y-1">
@@ -602,7 +609,7 @@ export default function EnhancedWorkerCard({
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">المبلغ المتبقي</Label>
                     <div className="h-8 px-2 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-md flex items-center justify-center">
@@ -615,7 +622,7 @@ export default function EnhancedWorkerCard({
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">الوقت الإضافي</Label>
                     <div className="h-8 px-2 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-md flex items-center justify-center">
@@ -625,7 +632,7 @@ export default function EnhancedWorkerCard({
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
                   <div className="space-y-1">
                     <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">إجمالي الدفع المطلوب</Label>
@@ -634,7 +641,7 @@ export default function EnhancedWorkerCard({
                         {formatCurrency(calculateTotalPay())}
                       </span>
                     </div>
-                    
+
                     {/* تفصيل الحساب */}
                     <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
                       <div className="flex justify-between">
@@ -655,7 +662,7 @@ export default function EnhancedWorkerCard({
                   </div>
                 </div>
               </div>
-              
+
               {/* قسم الملاحظات الإضافية */}
               <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex items-center space-x-reverse space-x-2 mb-2">

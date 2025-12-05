@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "713232797136",
+    "project_id": "construction-management-d86c9",
+    "storage_bucket": "construction-management-d86c9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:713232797136:android:a41e22d70ed1ce75cfbdd5",
+        "android_client_info": {
+          "package_name": "com.app2binarjoinanalytic.construction"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEmjvSmZpKyWWNbvhJXfZqtuJlLgoG8QE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

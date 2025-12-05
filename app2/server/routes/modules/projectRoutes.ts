@@ -1294,10 +1294,19 @@ projectRouter.get('/:projectId/material-purchases', async (req: Request, res: Re
       });
     }
 
-    const purchases = await db.select()
-      .from(materialPurchases)
-      .where(eq(materialPurchases.projectId, projectId))
-      .orderBy(materialPurchases.purchaseDate);
+    const isAllProjects = projectId === 'all';
+
+    let purchases;
+    if (isAllProjects) {
+      purchases = await db.select()
+        .from(materialPurchases)
+        .orderBy(desc(materialPurchases.purchaseDate));
+    } else {
+      purchases = await db.select()
+        .from(materialPurchases)
+        .where(eq(materialPurchases.projectId, projectId))
+        .orderBy(desc(materialPurchases.purchaseDate));
+    }
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${purchases.length} مشترية مواد في ${duration}ms`);

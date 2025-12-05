@@ -475,36 +475,52 @@ export default function ProjectsPage() {
     fetchDeletionStats(project.id);
   };
 
-  // Toggle project status mutation
+  // Toggle project status mutation with Optimistic Updates
   const toggleStatusMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { status: string } }) =>
       apiRequest(`/api/projects/${id}`, "PATCH", data),
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/projects/with-stats"] });
+      const previousData = queryClient.getQueryData<ProjectWithStats[]>(["/api/projects/with-stats"]);
+      
+      if (Array.isArray(previousData)) {
+        queryClient.setQueryData<ProjectWithStats[]>(["/api/projects/with-stats"], 
+          previousData.map(project => 
+            project.id === id ? { ...project, status: data.status } : project
+          )
+        );
+      }
+      
+      return { previousData };
+    },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
-      setTogglingProjectId(null);
       toast({
         title: "تم بنجاح",
         description: "تم تحديث حالة المشروع بنجاح",
+        className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
       });
     },
-    onError: (error: any) => {
-      setTogglingProjectId(null);
+    onError: (error: any, _variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/projects/with-stats"], context.previousData);
+      }
       toast({
         title: "خطأ",
         description: error.message || "حدث خطأ في تحديث حالة المشروع",
         variant: "destructive",
       });
     },
+    onSettled: () => {
+      setTogglingProjectId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+    },
   });
 
   const handleToggleProjectStatus = (project: Project) => {
     setTogglingProjectId(project.id);
     const newStatus = project.status === 'active' ? 'paused' : 'active';
-    toggleStatusMutation.mutate({ 
-      id: project.id, 
-      data: { status: newStatus } 
-    });
+    toggleStatusMutation.mutate({ id: project.id, data: { status: newStatus } });
   };
 
   const handleCreateProject = (data: InsertProject) => {

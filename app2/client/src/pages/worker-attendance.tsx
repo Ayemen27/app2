@@ -194,17 +194,31 @@ export default function WorkerAttendance() {
     }
   }, [attendanceToEdit, workerId]);
 
-  // Delete Attendance Mutation
+  // Delete Attendance Mutation with Optimistic Updates
   const deleteAttendanceMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/worker-attendance/${id}`, "DELETE"),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
+      const previousData = queryClient.getQueryData(["/api/projects", selectedProjectId, "worker-attendance"]);
+      
+      queryClient.setQueryData(["/api/projects", selectedProjectId, "worker-attendance"], (old: any) => {
+        return old ? old.filter((record: any) => record.id !== id) : [];
+      });
+      
+      return { previousData };
+    },
     onSuccess: () => {
       toast({
         title: "تم الحذف",
         description: "تم حذف سجل الحضور بنجاح",
+        className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
       });
-      queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
     },
-    onError: (error: any) => {
+    onError: (error: any, _id, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/projects", selectedProjectId, "worker-attendance"], context.previousData);
+      }
       console.error('❌ [DeleteAttendance] خطأ في الحذف:', error);
       const errorMessage = error.message || "حدث خطأ أثناء حذف سجل الحضور";
       toast({

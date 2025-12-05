@@ -349,16 +349,30 @@ export default function WorkersPage() {
 
   const deleteWorkerMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/workers/${id}`, "DELETE"),
-    onSuccess: async (data) => {
-      await queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
-      await queryClient.invalidateQueries({ queryKey: ['/api/projects/with-stats'] });
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/workers'] });
+      const previousData = queryClient.getQueryData<Worker[]>(['/api/workers']);
+      
+      if (Array.isArray(previousData)) {
+        queryClient.setQueryData<Worker[]>(['/api/workers'], 
+          previousData.filter(worker => worker.id !== id)
+        );
+      }
+      
+      return { previousData };
+    },
+    onSuccess: (data) => {
       toast({
         title: "تم حذف العامل بنجاح",
-        description: data?.message || "تم حذف العامل من النظام بنجاح.",
+        description: (data as any)?.message || "تم حذف العامل من النظام بنجاح.",
         className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
       });
     },
-    onError: (error: any) => {
+    onError: (error: any, _id, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/workers'], context.previousData);
+      }
+      
       let title = "لا يمكن حذف العامل";
       let description = error?.message || "حدث خطأ في حذف العامل";
       
@@ -373,27 +387,50 @@ export default function WorkersPage() {
         duration: 8000,
       });
     },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects/with-stats'] });
+    },
   });
 
   const updateWorkerMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => 
       apiRequest(`/api/workers/${id}`, "PATCH", data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
-      await queryClient.invalidateQueries({ queryKey: ['/api/projects/with-stats'] });
-      setTogglingWorkerId(null);
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/workers'] });
+      const previousData = queryClient.getQueryData<Worker[]>(['/api/workers']);
+      
+      if (Array.isArray(previousData)) {
+        queryClient.setQueryData<Worker[]>(['/api/workers'], 
+          previousData.map(worker => 
+            worker.id === id ? { ...worker, ...data } : worker
+          )
+        );
+      }
+      
+      return { previousData };
+    },
+    onSuccess: () => {
       toast({
         title: "تم بنجاح",
         description: "تم تحديث حالة العامل بنجاح",
+        className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
       });
     },
-    onError: (error: any) => {
-      setTogglingWorkerId(null);
+    onError: (error: any, _variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/workers'], context.previousData);
+      }
       toast({
         title: "خطأ",
         description: error.message || "حدث خطأ في تحديث العامل",
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      setTogglingWorkerId(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects/with-stats'] });
     },
   });
 
@@ -505,10 +542,7 @@ export default function WorkersPage() {
 
   const handleToggleStatus = (worker: Worker) => {
     setTogglingWorkerId(worker.id);
-    updateWorkerMutation.mutate({ 
-      id: worker.id, 
-      data: { isActive: !worker.isActive }
-    });
+    updateWorkerMutation.mutate({ id: worker.id, data: { isActive: !worker.isActive } });
   };
 
   const handleNewWorker = () => {

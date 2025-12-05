@@ -11,6 +11,7 @@ import { SyncIndicator } from './ui/SyncIndicator';
 import { ProjectsPage } from './features/projects/ProjectsPage';
 import { ProjectDetailPage } from './features/projects/ProjectDetailPage';
 import { WorkersPage } from './features/workers/WorkersPage';
+import { WorkerDetailPage } from './features/workers/WorkerDetailPage';
 import { AttendancePage } from './features/attendance/AttendancePage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { LoginPage } from './features/auth/LoginPage';

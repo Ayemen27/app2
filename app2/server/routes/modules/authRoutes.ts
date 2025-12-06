@@ -7,9 +7,11 @@ import express from 'express';
 import { Request, Response } from 'express';
 import { db } from '../../db.js';
 import bcrypt from 'bcryptjs';
-import { sql } from 'drizzle-orm';
+import { sql, eq, and, desc, gte, lte, or, like } from 'drizzle-orm';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, generateTokenPair } from '../../auth/jwt-utils.js';
 import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
+import { users } from '../../db/schema.js'; // استيراد جدول المستخدمين
+import { requireAuth, AuthenticatedRequest } from '../../middleware/authMiddleware.js'; // استيراد middleware المصادقة
 
 export const authRouter = express.Router();
 
@@ -20,9 +22,9 @@ export const authRouter = express.Router();
 authRouter.post('/login', async (req: Request, res: Response) => {
   try {
     console.log('🔐 [AUTH] محاولة تسجيل دخول:', { email: req.body.email, timestamp: new Date().toISOString() });
-    
+
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       console.log('❌ [AUTH] بيانات ناقصة - البريد أو كلمة المرور مفقودة');
       return res.status(400).json({
@@ -51,7 +53,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     // التحقق من تفعيل البريد الإلكتروني - منع الدخول نهائياً
     if (!user.email_verified_at) {
       console.log('❌ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email, '- منع تسجيل الدخول');
-      
+
       // إرسال رمز تحقق جديد تلقائياً في الخلفية (بدون انتظار)
       const userFullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || undefined;
       void sendVerificationEmail(
@@ -77,10 +79,10 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         }
       });
     }
-    
+
     // التحقق من كلمة المرور
     const passwordMatch = await bcrypt.compare(password, String(user.password));
-    
+
     if (!passwordMatch) {
       console.log('❌ [AUTH] كلمة مرور خاطئة للمستخدم:', email);
       return res.status(401).json({
@@ -98,7 +100,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       req.get('user-agent'),
       { deviceId: 'web-browser' }
     );
-    
+
     console.log('✅ [AUTH] تم تسجيل الدخول بنجاح:', { 
       userId: user.id, 
       email: user.email,
@@ -142,9 +144,9 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 authRouter.post('/register', async (req: Request, res: Response) => {
   try {
     console.log('📝 [AUTH] محاولة تسجيل حساب جديد:', { email: req.body.email });
-    
+
     const { email, password, fullName } = req.body;
-    
+
     if (!email || !password || !fullName) {
       return res.status(400).json({
         success: false,
@@ -174,7 +176,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     const names = fullName.trim().split(/\s+/);
     const firstName = names[0] || '';
     const lastName = names.slice(1).join(' ') || '';
-    
+
     const newUserResult = await db.execute(sql`
       INSERT INTO users (email, password, first_name, last_name, created_at)
       VALUES (${email}, ${hashedPassword}, ${firstName}, ${lastName}, NOW())
@@ -230,13 +232,13 @@ authRouter.post('/register', async (req: Request, res: Response) => {
  * 🚪 تسجيل الخروج
  * POST /api/auth/logout
  */
-authRouter.post('/logout', async (req: Request, res: Response) => {
+authRouter.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     console.log('🚪 [AUTH] تسجيل خروج المستخدم');
-    
+
     // في المستقبل يمكن إضافة blacklist للـ tokens
     // أو إلغاء refresh token من قاعدة البيانات
-    
+
     res.json({
       success: true,
       message: 'تم تسجيل الخروج بنجاح'
@@ -259,9 +261,9 @@ authRouter.post('/logout', async (req: Request, res: Response) => {
 authRouter.post('/refresh', async (req: Request, res: Response) => {
   try {
     console.log('🔄 [AUTH] طلب تجديد Access Token');
-    
+
     const { refreshToken } = req.body;
-    
+
     if (!refreshToken) {
       return res.status(401).json({
         success: false,
@@ -272,7 +274,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
     // التحقق من صحة refresh token
     try {
       const decoded = await verifyRefreshToken(refreshToken) as any;
-      
+
       if (!decoded) {
         console.log('❌ [AUTH] Refresh token غير صالح');
         return res.status(401).json({
@@ -296,14 +298,14 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
       }
 
       const user = userResult.rows[0] as any;
-      
+
       // إنشاء access token جديد
       const newAccessToken = generateAccessToken({
         userId: String(user.id),
         email: String(user.email),
         role: 'user'
       });
-    
+
       console.log('✅ [AUTH] تم تجديد Access Token بنجاح:', { userId: user.id });
 
       res.json({
@@ -339,9 +341,9 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 authRouter.get('/verify-email', async (req: Request, res: Response) => {
   try {
     console.log('📧 [AUTH] GET طلب تحقق من البريد الإلكتروني من الرابط');
-    
+
     const { userId, token } = req.query;
-    
+
     if (!userId || !token) {
       return res.status(400).json({
         success: false,
@@ -351,9 +353,9 @@ authRouter.get('/verify-email', async (req: Request, res: Response) => {
 
     // التحقق من الرمز
     const result = await verifyEmailToken(userId as string, token as string);
-    
+
     console.log('📧 [AUTH] نتيجة التحقق:', result);
-    
+
     if (result.success) {
       console.log('✅ [AUTH] تم التحقق من البريد بنجاح:', { userId });
       res.json({
@@ -385,9 +387,9 @@ authRouter.get('/verify-email', async (req: Request, res: Response) => {
 authRouter.post('/verify-email', async (req: Request, res: Response) => {
   try {
     console.log('📧 [AUTH] POST طلب تحقق من البريد الإلكتروني');
-    
+
     const { userId, code } = req.body;
-    
+
     if (!userId || !code) {
       return res.status(400).json({
         success: false,
@@ -397,7 +399,7 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
 
     // التحقق من الرمز
     const result = await verifyEmailToken(userId, code);
-    
+
     if (result.success) {
       console.log('✅ [AUTH] تم التحقق من البريد بنجاح:', { userId });
       res.json({
@@ -429,9 +431,9 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
 authRouter.post('/resend-verification', async (req: Request, res: Response) => {
   try {
     console.log('🔄 [AUTH] طلب إعادة إرسال رمز التحقق');
-    
+
     const { userId, email } = req.body;
-    
+
     if (!userId || !email) {
       return res.status(400).json({
         success: false,
@@ -450,7 +452,7 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
     }).catch(error => {
       console.error('❌ [AUTH] فشل في إعادة إرسال رمز التحقق:', error);
     });
-    
+
     // الرد فوراً دون انتظار
     console.log('🚀 [AUTH] تم استلام طلب إعادة الإرسال، سيتم الإرسال في الخلفية');
     res.json({
@@ -465,6 +467,140 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
       message: 'خطأ في الخادم أثناء إعادة الإرسال',
       error: error.message
     });
+  }
+});
+
+/**
+ * جلب جميع المستخدمين (للمسؤولين فقط)
+ * GET /api/auth/users
+ */
+authRouter.get('/users', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
+      return res.status(403).json({ success: false, message: 'غير مصرح' });
+    }
+
+    const { search, role, status, verified } = req.query;
+
+    let query = db.select().from(users);
+
+    const conditions = [];
+    if (search) {
+      conditions.push(
+        or(
+          like(users.email, `%${search}%`),
+          like(users.firstName, `%${search}%`),
+          like(users.lastName, `%${search}%`)
+        )
+      );
+    }
+    if (role) conditions.push(eq(users.role, role as string));
+    if (status === 'active') conditions.push(eq(users.isActive, true));
+    if (status === 'inactive') conditions.push(eq(users.isActive, false));
+    if (verified === 'verified') conditions.push(sql`${users.emailVerifiedAt} IS NOT NULL`);
+    if (verified === 'unverified') conditions.push(sql`${users.emailVerifiedAt} IS NULL`);
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const usersList = await query.orderBy(desc(users.createdAt));
+
+    const sanitizedUsers = usersList.map(u => ({
+      id: u.id,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      role: u.role,
+      isActive: u.isActive,
+      emailVerifiedAt: u.emailVerifiedAt,
+      lastLogin: u.lastLogin,
+      createdAt: u.createdAt,
+    }));
+
+    return res.json({ success: true, users: sanitizedUsers });
+  } catch (error) {
+    console.error('خطأ في جلب المستخدمين:', error);
+    return res.status(500).json({ success: false, message: 'خطأ في الخادم' });
+  }
+});
+
+/**
+ * تحديث مستخدم
+ * PUT /api/auth/users/:userId
+ */
+authRouter.put('/users/:userId', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
+      return res.status(403).json({ success: false, message: 'غير مصرح' });
+    }
+
+    const { userId } = req.params;
+    const { firstName, lastName, role, isActive } = req.body;
+
+    await db
+      .update(users)
+      .set({ firstName, lastName, role, isActive })
+      .where(eq(users.id, userId));
+
+    return res.json({ success: true, message: 'تم تحديث المستخدم بنجاح' });
+  } catch (error) {
+    console.error('خطأ في تحديث المستخدم:', error);
+    return res.status(500).json({ success: false, message: 'خطأ في الخادم' });
+  }
+});
+
+/**
+ * حذف مستخدم
+ * DELETE /api/auth/users/:userId
+ */
+authRouter.delete('/users/:userId', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (req.user?.role !== 'super_admin') {
+      return res.status(403).json({ success: false, message: 'يتطلب صلاحيات المدير الأول' });
+    }
+
+    const { userId } = req.params;
+
+    if (userId === req.user.userId) {
+      return res.status(400).json({ success: false, message: 'لا يمكنك حذف حسابك الخاص' });
+    }
+
+    await db.delete(users).where(eq(users.id, userId));
+
+    return res.json({ success: true, message: 'تم حذف المستخدم بنجاح' });
+  } catch (error) {
+    console.error('خطأ في حذف المستخدم:', error);
+    return res.status(500).json({ success: false, message: 'خطأ في الخادم' });
+  }
+});
+
+/**
+ * تبديل حالة المستخدم
+ * POST /api/auth/users/:userId/toggle-status
+ */
+authRouter.post('/users/:userId/toggle-status', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
+      return res.status(403).json({ success: false, message: 'غير مصرح' });
+    }
+
+    const { userId } = req.params;
+    const { isActive } = req.body;
+
+    if (userId === req.user.userId) {
+      return res.status(400).json({ success: false, message: 'لا يمكنك تعطيل حسابك الخاص' });
+    }
+
+    await db
+      .update(users)
+      .set({ isActive })
+      .where(eq(users.id, userId));
+
+    return res.json({ success: true, message: 'تم تحديث حالة المستخدم' });
+  } catch (error) {
+    console.error('خطأ في تحديث حالة المستخدم:', error);
+    return res.status(500).json({ success: false, message: 'خطأ في الخادم' });
   }
 });
 

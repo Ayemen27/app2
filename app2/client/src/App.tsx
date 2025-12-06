@@ -43,6 +43,8 @@ const SecurityPoliciesPage = lazy(() => import("@/pages/SecurityPoliciesPage").t
 const Reports = lazy(() => import("@/pages/reports"));
 const RealReports = lazy(() => import("@/pages/real-reports"));
 const ProfessionalReports = lazy(() => import("@/pages/professional-reports"));
+const UsersManagementPage = lazy(() => import("./pages/users-management"));
+
 
 function PageLoader() {
   return (
@@ -54,7 +56,7 @@ function PageLoader() {
 
 function Router() {
   useWebSocketSync();
-  
+
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -140,6 +142,13 @@ function Router() {
         <Suspense fallback={<PageLoader />}>
           <ProfessionalReports />
         </Suspense>
+      </Route>
+      <Route path="/users-management">
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <UsersManagementPage />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>

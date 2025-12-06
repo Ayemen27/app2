@@ -63,6 +63,13 @@ const allPagesData = [
     ]
   },
   // الإشعارات والتنبيهات - متاحة للجميع
+  // إدارة النظام - للمسؤولين فقط
+  {
+    category: "إدارة النظام",
+    pages: [
+      { path: "/users-management", icon: Users, label: "إدارة المستخدمين", description: "إدارة حسابات المستخدمين والصلاحيات", requireAdmin: true },
+    ]
+  },
   {
     category: "الإشعارات والتنبيهات",
     pages: [

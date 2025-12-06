@@ -120,14 +120,26 @@ cd $REMOTE_APP_DIR
 tar -xzf deployment-package.tar.gz 2>/dev/null && echo '✅ تم استخراج الملفات'
 rm -f deployment-package.tar.gz
 npm install --loglevel=error 2>/dev/null && echo '✅ تم تثبيت المتطلبات'
-pm2 stop all 2>/dev/null || true
-if pm2 info construction-app > /dev/null 2>&1; then
-    echo '🔄 إعادة تشغيل التطبيق...'
-    pm2 restart ecosystem.config.cjs --update-env
-else
-    echo '🚀 بدء التطبيق للمرة الأولى...'
-    pm2 start ecosystem.config.cjs
+
+# 🔧 إصلاح مهم: تحديث متغيرات البيئة بشكل صريح
+echo '🔧 تحديث متغيرات البيئة...'
+
+# تحميل متغيرات من .env.production
+if [ -f .env.production ]; then
+    set -a
+    source .env.production
+    set +a
+    echo '✅ تم تحميل متغيرات البيئة من .env.production'
 fi
+
+# التأكد من أن CUSTOM_DOMAIN لا يحتوي على https://
+export CUSTOM_DOMAIN='app2.binarjoinanelytic.info'
+echo \"CUSTOM_DOMAIN=\$CUSTOM_DOMAIN\"
+
+# حذف التطبيق القديم وإعادة إنشائه بمتغيرات جديدة
+pm2 delete construction-app 2>/dev/null || true
+echo '🚀 بدء التطبيق بمتغيرات البيئة المحدثة...'
+pm2 start ecosystem.config.cjs
 pm2 save
 echo ''
 echo '✅ تم النشر بنجاح على السيرفر!'

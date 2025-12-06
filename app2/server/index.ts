@@ -34,23 +34,23 @@ const getCSPDirectives = () => {
   const customDomain = process.env.CUSTOM_DOMAIN || 'app2.binarjoinanelytic.info';
   const isProduction = process.env.NODE_ENV === 'production';
   
-  // في الإنتاج، نكون أكثر تساهلاً مع CSP لتجنب مشاكل التحميل
+  // في الإنتاج، نستخدم إعدادات متساهلة لتجنب مشاكل التحميل
   if (isProduction) {
     return {
-      defaultSrc: ["'self'", `https://${customDomain}`, "https:", "data:", "blob:"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
-      fontSrc: ["'self'", "https:", "data:", "blob:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "blob:"],
-      scriptSrcElem: ["'self'", "'unsafe-inline'", "https:"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", `https://${customDomain}`, `wss://${customDomain}`, "https:", "wss:", "ws:"],
-      frameSrc: ["'self'", "https:"],
+      defaultSrc: ["'self'", `https://${customDomain}`, "https:", "data:", "blob:", "*"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "https:", "*"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:", "https:", "blob:", "*"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "blob:", "*"],
+      scriptSrcElem: ["'self'", "'unsafe-inline'", "https:", "*"],
+      imgSrc: ["'self'", "data:", "https:", "blob:", "*"],
+      connectSrc: ["'self'", `https://${customDomain}`, `wss://${customDomain}`, "https:", "wss:", "ws:", "*"],
+      frameSrc: ["'self'", "https:", "*"],
       objectSrc: ["'none'"],
-      mediaSrc: ["'self'", "https:", "blob:"],
-      childSrc: ["'self'", "blob:"],
-      formAction: ["'self'"],
+      mediaSrc: ["'self'", "https:", "blob:", "*"],
+      childSrc: ["'self'", "blob:", "*"],
+      formAction: ["'self'", "*"],
       frameAncestors: ["'self'"],
-      workerSrc: ["'self'", "blob:"]
+      workerSrc: ["'self'", "blob:", "*"]
     };
   }
   
@@ -98,14 +98,23 @@ const getCSPDirectives = () => {
   };
 };
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: getCSPDirectives(),
-    reportOnly: false
-  },
-  crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
+// في الإنتاج، نعطل CSP مؤقتاً لتجنب المشاكل
+if (process.env.NODE_ENV === 'production') {
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  }));
+} else {
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: getCSPDirectives(),
+      reportOnly: false
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  }));
+}
 
 // 🌐 **CORS Configuration - يمنع Cross-Origin attacks**
 const getAllowedOrigins = (): string[] => {

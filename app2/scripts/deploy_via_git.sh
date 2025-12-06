@@ -145,70 +145,67 @@ log_success() { echo -e "${GREEN}✅ $1${NC}"; }
 log_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 log_error() { echo -e "${RED}❌ $1${NC}"; }
 
-APP_DIR="'"$REMOTE_APP_DIR"'"
+REPO_DIR="/home/administrator/app2-repo"
+APP_DIR="/home/administrator/app2"
 BRANCH="'"$BRANCH"'"
 GITHUB_REPO_URL="'"$GITHUB_REPO_URL"'"
 
-# التحقق من وجود المجلد
-if [ ! -d "$APP_DIR" ]; then
-    log_info "إنشاء مجلد التطبيق..."
-    mkdir -p "$APP_DIR"
-fi
-
-cd "$APP_DIR" || { log_error "فشل الوصول إلى $APP_DIR"; exit 1; }
-
-# التحقق من وجود مستودع Git
-if [ ! -d ".git" ]; then
-    log_warning "المجلد ليس مستودع Git، جاري التهيئة..."
-    
-    # حفظ الملفات الحالية المهمة
-    if [ -f ".env.production" ]; then
-        cp .env.production /tmp/.env.production.backup
+# حفظ الملفات المهمة من المجلد الحالي
+if [ -d "$APP_DIR" ]; then
+    if [ -f "$APP_DIR/.env.production" ]; then
+        cp "$APP_DIR/.env.production" /tmp/.env.production.backup
         log_info "تم حفظ نسخة من .env.production"
     fi
-    if [ -f "ecosystem.config.cjs" ]; then
-        cp ecosystem.config.cjs /tmp/ecosystem.config.cjs.backup
-        log_info "تم حفظ نسخة من ecosystem.config.cjs"
-    fi
-    
-    # تنظيف المجلد وإنشاء clone جديد
-    cd ..
-    rm -rf "$APP_DIR"
-    log_info "استنساخ المستودع من GitHub..."
-    git clone "$GITHUB_REPO_URL" "$APP_DIR"
-    cd "$APP_DIR"
-    
-    # استعادة الملفات المهمة
-    if [ -f "/tmp/.env.production.backup" ]; then
-        cp /tmp/.env.production.backup .env.production
-        log_info "تم استعادة .env.production"
-    fi
-    
-    log_success "تم تهيئة المستودع بنجاح"
+fi
+
+# التحقق من وجود المستودع
+if [ ! -d "$REPO_DIR/.git" ]; then
+    log_warning "المستودع غير موجود، جاري الاستنساخ..."
+    rm -rf "$REPO_DIR"
+    git clone "$GITHUB_REPO_URL" "$REPO_DIR"
+    log_success "تم استنساخ المستودع"
 else
-    log_info "حفظ النسخة الحالية..."
-    PREVIOUS_SHA=$(git rev-parse HEAD 2>/dev/null || echo "none")
-    echo "$PREVIOUS_SHA" > .previous_sha
-    
-    log_info "سحب أحدث الكود..."
+    log_info "تحديث المستودع..."
+    cd "$REPO_DIR"
     git fetch --all --prune
     git reset --hard origin/$BRANCH
 fi
 
+cd "$REPO_DIR"
 NEW_SHA=$(git rev-parse --short HEAD)
 log_success "تم التحديث إلى: $NEW_SHA"
 
-log_info "تثبيت المتطلبات..."
-if [ -f "package-lock.json" ]; then
-    npm ci --loglevel=error 2>&1 || npm install --loglevel=error
-else
-    npm install --loglevel=error
+# الانتقال إلى مجلد التطبيق داخل المستودع
+cd "$REPO_DIR/app2" || { log_error "مجلد app2 غير موجود في المستودع"; exit 1; }
+
+# استعادة ملفات البيئة
+if [ -f "/tmp/.env.production.backup" ]; then
+    cp /tmp/.env.production.backup .env.production
+    log_info "تم استعادة .env.production"
 fi
+
+log_info "تثبيت المتطلبات..."
+npm ci --loglevel=error 2>&1 || npm install --loglevel=error
 log_success "تم تثبيت المتطلبات"
 
 log_info "بناء التطبيق..."
 npm run build || { log_error "فشل البناء"; exit 1; }
 log_success "تم البناء بنجاح"
+
+# نسخ الملفات المبنية إلى مجلد التطبيق
+log_info "نسخ الملفات إلى مجلد التطبيق..."
+mkdir -p "$APP_DIR"
+rsync -av --delete dist/ "$APP_DIR/dist/"
+cp -f ecosystem.config.cjs "$APP_DIR/"
+cp -f package*.json "$APP_DIR/"
+if [ -f ".env.production" ]; then
+    cp -f .env.production "$APP_DIR/"
+fi
+log_success "تم نسخ الملفات"
+
+# تثبيت المتطلبات في مجلد الإنتاج
+cd "$APP_DIR"
+npm ci --production --loglevel=error 2>&1 || npm install --production --loglevel=error
 
 log_info "إعادة تشغيل PM2..."
 mkdir -p logs

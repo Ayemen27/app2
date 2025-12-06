@@ -72,5 +72,9 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['react', 'react-dom'],
+    exclude: ['@replit/vite-plugin-cartographer']
+  },
+  esbuild: {
+    logOverride: { 'this-is-undefined-in-esm': 'silent' }
   },
 });

@@ -5,11 +5,12 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
-    "build": "npm run build:client && npm run build:server",
-    "build:client": "NODE_OPTIONS='--max-old-space-size=3072 --max-semi-space-size=256' vite build",
-    "build:server": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --log-level=info",
+    "build": "npm run clean && npm run build:client && npm run build:server",
+    "build:client": "NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' vite build --logLevel=error",
+    "build:server": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --log-level=error",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
+    "clean": "rm -rf dist node_modules/.vite",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {

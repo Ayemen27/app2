@@ -4,7 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "path";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { serveStatic, log } from "./static";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات app2data
 import authRoutes from './routes/auth.js';
 import { permissionsRouter } from './routes/permissions';
@@ -261,11 +261,14 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 // importantly only setup vite in development and after
 // setting up all the other routes so the catch-all route
 // doesn't interfere with the other routes
-if (app.get("env") === "development") {
-  setupVite(app, server);
-} else {
-  serveStatic(app);
-}
+(async () => {
+  if (app.get("env") === "development") {
+    const { setupVite } = await import("./vite");
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+})();
 
 // ALWAYS serve the app on the port specified in the environment variable PORT
 // Other ports are firewalled. Default to 5000 if not specified.

@@ -63,6 +63,15 @@ waitForPort = 6000
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow]]
+name = "Dev Mode"
+author = 50892970
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd app2 && npm run dev"
+
 [agent]
 expertMode = true
 

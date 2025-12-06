@@ -583,10 +583,16 @@ export default function WorkerAccountsPage() {
                 <Label>المبلغ (ر.ي) *</Label>
                 <Input
                   type="number"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})}
-                  placeholder="0"
+                  inputMode="decimal"
+                  step="0.01"
+                  value={formData.amount || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData({...formData, amount: value ? parseFloat(value) : 0});
+                  }}
+                  placeholder="0.00"
                   min="0"
+                  className="text-center arabic-numbers"
                 />
               </div>
               <div>

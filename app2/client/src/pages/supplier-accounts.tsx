@@ -106,9 +106,10 @@ export default function SupplierAccountsPage() {
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
       
-      // إصلاح: تصفية نوع الدفع بشكل صحيح
+      // إصلاح: إرسال نوع الدفع بألف مد للتوافق مع قاعدة البيانات
       if (paymentTypeFilter && paymentTypeFilter !== 'all') {
-        params.append('purchaseType', paymentTypeFilter);
+        const normalizedType = paymentTypeFilter === 'أجل' ? 'آجل' : paymentTypeFilter;
+        params.append('purchaseType', normalizedType);
       }
       
       try {
@@ -119,9 +120,12 @@ export default function SupplierAccountsPage() {
         let filteredData = Array.isArray(data) ? data : [];
         
         if (paymentTypeFilter && paymentTypeFilter !== 'all') {
-          filteredData = filteredData.filter(purchase => 
-            purchase.purchaseType === paymentTypeFilter
-          );
+          const normalizedFilter = paymentTypeFilter === 'أجل' ? 'آجل' : paymentTypeFilter;
+          filteredData = filteredData.filter(purchase => {
+            const purchaseType = purchase.purchaseType?.replace(/['"]/g, '') || '';
+            return purchaseType === normalizedFilter || 
+                   (normalizedFilter === 'آجل' && (purchaseType === 'أجل' || purchaseType === 'آجل'));
+          });
         }
         
         return filteredData;
@@ -195,9 +199,10 @@ export default function SupplierAccountsPage() {
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
       
-      // إصلاح: إضافة نوع الدفع بشكل صحيح
+      // إصلاح: إرسال نوع الدفع بألف مد للتوافق مع قاعدة البيانات
       if (paymentTypeFilter && paymentTypeFilter !== 'all') {
-        params.append('purchaseType', paymentTypeFilter);
+        const normalizedType = paymentTypeFilter === 'أجل' ? 'آجل' : paymentTypeFilter;
+        params.append('purchaseType', normalizedType);
       }
       
       try {

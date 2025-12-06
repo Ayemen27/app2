@@ -780,15 +780,23 @@ export default function SupplierAccountsPage() {
                     },
                     {
                       label: "المدفوع",
-                      value: formatCurrency(purchase.paidAmount || "0"),
+                      value: formatCurrency(
+                        purchase.purchaseType === 'نقد' 
+                          ? purchase.totalAmount 
+                          : (purchase.paidAmount || "0")
+                      ),
                       icon: TrendingUp,
                       color: "success",
                     },
                     {
                       label: "المتبقي",
-                      value: formatCurrency(purchase.remainingAmount || "0"),
+                      value: formatCurrency(
+                        purchase.purchaseType === 'نقد' 
+                          ? 0 
+                          : (purchase.remainingAmount || "0")
+                      ),
                       icon: TrendingDown,
-                      color: remaining > 0 ? "danger" : "success",
+                      color: (purchase.purchaseType === 'نقد' ? 0 : remaining) > 0 ? "danger" : "success",
                       emphasis: true,
                     },
                     ]}

@@ -72,10 +72,13 @@ export default function UsersManagementPage() {
     isActive: true,
   });
 
-  const getAuthHeaders = () => ({
-    'Content-Type': 'application/json',
-    'Authorization': getAccessToken() ? `Bearer ${getAccessToken()}` : '',
-  });
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('accessToken');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : '',
+    };
+  };
 
   // جلب المستخدمين
   const { data: usersData, isLoading, refetch } = useQuery({
@@ -90,7 +93,11 @@ export default function UsersManagementPage() {
       const response = await fetch(`/api/auth/users?${params}`, {
         headers: getAuthHeaders()
       });
-      if (!response.ok) throw new Error('فشل في جلب المستخدمين');
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('خطأ في جلب المستخدمين:', error);
+        throw new Error('فشل في جلب المستخدمين');
+      }
       return response.json();
     },
     enabled: isAuthenticated,

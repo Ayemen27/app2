@@ -2172,7 +2172,8 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
       
       if (p.purchaseType === 'نقد') {
         cashTotal += totalAmount;
-      } else if (p.purchaseType === 'أجل') {
+        totalPaid += totalAmount; // المشتريات النقدية مدفوعة بالكامل
+      } else if (p.purchaseType === 'أجل' || p.purchaseType === 'آجل') {
         creditTotal += totalAmount;
         totalDebt += remainingAmount;
         totalPaid += paidAmount;

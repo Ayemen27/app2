@@ -618,6 +618,8 @@ export default function MaterialPurchase() {
       unitPrice: parseFloat(unitPrice),
       totalAmount: totalAmount,
       purchaseType: paymentType.trim(), // تنظيف وتنسيق نوع الدفع - استخدام purchaseType
+      paidAmount: paymentType.trim() === 'نقد' ? totalAmount : 0, // إذا نقد، املأ المبلغ المدفوع بالكامل
+      remainingAmount: paymentType.trim() === 'نقد' ? 0 : totalAmount, // إذا نقد، لا يوجد متبقي
       supplierName: supplierName?.trim() || '',
       invoiceNumber: invoiceNumber?.trim() || '',
       invoiceDate: invoiceDate || new Date().toISOString().split('T')[0],

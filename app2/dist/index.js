@@ -2005,45 +2005,63 @@ var init_smart_connection_manager = __esm({
         }
       }
       /**
-       * 🏠 تهيئة الاتصال المحلي
+       * 🏠 تهيئة الاتصال المحلي مع إعادة المحاولة
        */
-      async initializeLocalConnection() {
-        try {
-          const databaseUrl = process.env.DATABASE_URL;
-          if (!databaseUrl) {
-            console.warn("\u26A0\uFE0F [Local DB] DATABASE_URL \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F");
-            return;
-          }
-          const isLocalConnection = databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1") || databaseUrl.includes("@localhost/");
-          const sslConfig2 = isLocalConnection ? false : {
-            rejectUnauthorized: false,
-            minVersion: "TLSv1.2"
-          };
-          this.localPool = new Pool({
-            connectionString: databaseUrl,
-            ssl: sslConfig2,
-            max: 10,
-            idleTimeoutMillis: 3e4,
-            connectionTimeoutMillis: 15e3,
-            keepAlive: true
-          });
-          this.localDb = drizzle(this.localPool, { schema: schema_exports });
-          const client = await this.localPool.connect();
-          const result = await client.query("SELECT current_database(), current_user");
-          client.release();
-          this.connectionStatus.local = true;
-          if (!this.isProduction) {
-            console.log("\u2705 [Local DB] \u0627\u062A\u0635\u0627\u0644 \u0645\u062D\u0644\u064A \u0646\u062C\u062D:", {
-              database: result.rows[0].current_database,
-              user: result.rows[0].current_user
+      async initializeLocalConnection(retries = 3) {
+        let lastError;
+        for (let attempt = 1; attempt <= retries; attempt++) {
+          try {
+            const databaseUrl = process.env.DATABASE_URL;
+            if (!databaseUrl) {
+              console.warn("\u26A0\uFE0F [Local DB] DATABASE_URL \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F");
+              return;
+            }
+            if (!this.isProduction && attempt > 1) {
+              console.log(`\u{1F504} [Local DB] \u0645\u062D\u0627\u0648\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 ${attempt}/${retries}...`);
+            }
+            const isLocalConnection = databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1") || databaseUrl.includes("@localhost/");
+            const sslConfig2 = isLocalConnection ? false : {
+              rejectUnauthorized: false,
+              minVersion: "TLSv1.2"
+            };
+            this.localPool = new Pool({
+              connectionString: databaseUrl,
+              ssl: sslConfig2,
+              max: 10,
+              idleTimeoutMillis: 3e4,
+              connectionTimeoutMillis: 6e4,
+              // 60 ثانية
+              keepAlive: true,
+              keepAliveInitialDelayMillis: 1e4
             });
+            this.localDb = drizzle(this.localPool, { schema: schema_exports });
+            const client = await this.localPool.connect();
+            const result = await client.query("SELECT current_database(), current_user");
+            client.release();
+            this.connectionStatus.local = true;
+            if (!this.isProduction) {
+              console.log("\u2705 [Local DB] \u0627\u062A\u0635\u0627\u0644 \u0645\u062D\u0644\u064A \u0646\u062C\u062D:", {
+                database: result.rows[0].current_database,
+                user: result.rows[0].current_user,
+                attempt
+              });
+            }
+            return;
+          } catch (error) {
+            lastError = error;
+            if (attempt < retries) {
+              const waitTime = attempt * 2e3;
+              if (!this.isProduction) {
+                console.log(`\u23F3 [Local DB] \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0628\u0639\u062F ${waitTime / 1e3} \u062B\u0627\u0646\u064A\u0629...`);
+              }
+              await new Promise((resolve) => setTimeout(resolve, waitTime));
+            }
           }
-        } catch (error) {
-          if (!this.isProduction) {
-            console.error("\u274C [Local DB] \u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0627\u0644\u0645\u062D\u0644\u064A:", error.message);
-          }
-          this.connectionStatus.local = false;
         }
+        if (!this.isProduction) {
+          console.error("\u274C [Local DB] \u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0627\u0644\u0645\u062D\u0644\u064A \u0628\u0639\u062F", retries, "\u0645\u062D\u0627\u0648\u0644\u0627\u062A:", lastError.message);
+        }
+        this.connectionStatus.local = false;
       }
       /**
        * ☁️ تهيئة اتصال Supabase
@@ -2355,8 +2373,10 @@ var init_db = __esm({
       // إعدادات الاتصال المحسنة
       max: 10,
       idleTimeoutMillis: 3e4,
-      connectionTimeoutMillis: 15e3,
+      connectionTimeoutMillis: 6e4,
+      // زيادة إلى 60 ثانية
       keepAlive: true,
+      keepAliveInitialDelayMillis: 1e4,
       statement_timeout: 3e4,
       query_timeout: 3e4
     });

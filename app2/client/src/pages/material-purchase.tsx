@@ -898,11 +898,11 @@ export default function MaterialPurchase() {
       {/* Purchase Form */}
       <Collapsible open={!isFormCollapsed} onOpenChange={(open) => setIsFormCollapsed(!open)}>
         <Card className="mb-4">
-          <CardContent className="p-4">
+          <CardContent className={isFormCollapsed ? "p-2" : "p-4"}>
             <CollapsibleTrigger asChild>
-              <div className="flex items-center justify-between cursor-pointer hover:bg-muted/50 rounded-lg p-2 -m-2 mb-2 transition-colors">
-                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                  <Package className="h-5 w-5 text-primary" />
+              <div className={`flex items-center justify-between cursor-pointer hover:bg-muted/50 rounded-lg transition-colors ${isFormCollapsed ? "p-2 -m-2" : "p-2 -m-2 mb-2"}`}>
+                <h3 className={`font-semibold text-foreground flex items-center gap-2 ${isFormCollapsed ? "text-base" : "text-lg"}`}>
+                  <Package className={isFormCollapsed ? "h-4 w-4 text-primary" : "h-5 w-5 text-primary"} />
                   {editingPurchaseId ? "تعديل مشترية" : "إضافة مشترية جديدة"}
                 </h3>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

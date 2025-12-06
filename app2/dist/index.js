@@ -13658,38 +13658,56 @@ import http from "http";
 import { Server } from "socket.io";
 var app = express12();
 var getCSPDirectives = () => {
-  const isProduction2 = process.env.NODE_ENV === "production";
-  const scriptSources = ["'self'", "'unsafe-inline'", "'unsafe-eval'"];
-  if (isProduction2 && process.env.CUSTOM_DOMAIN) {
-    scriptSources.push(`https://${process.env.CUSTOM_DOMAIN}`);
-  }
-  scriptSources.push("https://static.cloudflareinsights.com", "https://replit.com", "https://cdn.jsdelivr.net");
-  const connectSources = ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "ws:", "wss:", "https:", "http:"];
-  if (isProduction2 && process.env.CUSTOM_DOMAIN) {
-    connectSources.push(`https://${process.env.CUSTOM_DOMAIN}`, `wss://${process.env.CUSTOM_DOMAIN}`);
-  }
+  const customDomain = process.env.CUSTOM_DOMAIN || "app2.binarjoinanelytic.info";
   return {
-    defaultSrc: ["'self'"],
-    styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-    fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:"],
-    scriptSrc: scriptSources,
+    defaultSrc: ["'self'", `https://${customDomain}`, "https://*.cloudflare.com"],
+    styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+    fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:", "https:"],
+    scriptSrc: [
+      "'self'",
+      "'unsafe-inline'",
+      "'unsafe-eval'",
+      `https://${customDomain}`,
+      "https://static.cloudflareinsights.com",
+      "https://challenges.cloudflare.com",
+      "https://*.cloudflare.com",
+      "https://cdn.jsdelivr.net"
+    ],
+    scriptSrcElem: [
+      "'self'",
+      "'unsafe-inline'",
+      `https://${customDomain}`,
+      "https://static.cloudflareinsights.com",
+      "https://challenges.cloudflare.com",
+      "https://*.cloudflare.com"
+    ],
     imgSrc: ["'self'", "data:", "https:", "blob:"],
-    connectSrc: connectSources,
-    frameSrc: ["'self'"],
+    connectSrc: [
+      "'self'",
+      `https://${customDomain}`,
+      `wss://${customDomain}`,
+      "https://fonts.googleapis.com",
+      "https://fonts.gstatic.com",
+      "ws:",
+      "wss:",
+      "https:"
+    ],
+    frameSrc: ["'self'", "https://challenges.cloudflare.com"],
     objectSrc: ["'none'"],
     mediaSrc: ["'self'"],
     childSrc: ["'self'"],
     formAction: ["'self'"],
-    frameAncestors: ["'self'"]
+    frameAncestors: ["'self'"],
+    workerSrc: ["'self'", "blob:"]
   };
 };
 app.use(helmet({
   contentSecurityPolicy: {
     directives: getCSPDirectives(),
     reportOnly: false
-    // enforced, not just reported
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 var getAllowedOrigins = () => {
   const isProduction2 = process.env.NODE_ENV === "production";

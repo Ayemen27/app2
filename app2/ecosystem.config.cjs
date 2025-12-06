@@ -13,10 +13,10 @@ module.exports = {
       time_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       env: {
-        NODE_ENV: process.env.NODE_ENV,
-        PORT: process.env.PORT,
+        NODE_ENV: process.env.NODE_ENV || 'production',
+        PORT: process.env.PORT || 6000,
         DATABASE_URL: process.env.DATABASE_URL,
-        CUSTOM_DOMAIN: process.env.CUSTOM_DOMAIN,
+        CUSTOM_DOMAIN: process.env.CUSTOM_DOMAIN || 'app2.binarjoinanelytic.info',
         JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET,
         JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
         SESSION_SECRET: process.env.SESSION_SECRET

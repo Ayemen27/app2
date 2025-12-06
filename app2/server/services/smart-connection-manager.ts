@@ -52,57 +52,79 @@ export class SmartConnectionManager {
   }
 
   /**
-   * 🏠 تهيئة الاتصال المحلي
+   * 🏠 تهيئة الاتصال المحلي مع إعادة المحاولة
    */
-  private async initializeLocalConnection(): Promise<void> {
-    try {
-      const databaseUrl = process.env.DATABASE_URL;
-      
-      if (!databaseUrl) {
-        console.warn('⚠️ [Local DB] DATABASE_URL غير موجود');
-        return;
-      }
+  private async initializeLocalConnection(retries = 3): Promise<void> {
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const databaseUrl = process.env.DATABASE_URL;
+        
+        if (!databaseUrl) {
+          console.warn('⚠️ [Local DB] DATABASE_URL غير موجود');
+          return;
+        }
 
-      // SSL configuration for local connection
-      const isLocalConnection = databaseUrl.includes('localhost') || 
-                               databaseUrl.includes('127.0.0.1') ||
-                               databaseUrl.includes('@localhost/');
+        if (!this.isProduction && attempt > 1) {
+          console.log(`🔄 [Local DB] محاولة الاتصال ${attempt}/${retries}...`);
+        }
 
-      const sslConfig = isLocalConnection ? false : {
-        rejectUnauthorized: false,
-        minVersion: 'TLSv1.2' as const
-      };
+        // SSL configuration for local connection
+        const isLocalConnection = databaseUrl.includes('localhost') || 
+                                 databaseUrl.includes('127.0.0.1') ||
+                                 databaseUrl.includes('@localhost/');
 
-      this.localPool = new Pool({
-        connectionString: databaseUrl,
-        ssl: sslConfig,
-        max: 10,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 15000,
-        keepAlive: true
-      });
+        const sslConfig = isLocalConnection ? false : {
+          rejectUnauthorized: false,
+          minVersion: 'TLSv1.2' as const
+        };
 
-      this.localDb = drizzle(this.localPool, { schema });
-
-      // اختبار الاتصال
-      const client = await this.localPool.connect();
-      const result = await client.query('SELECT current_database(), current_user');
-      client.release();
-
-      this.connectionStatus.local = true;
-      if (!this.isProduction) {
-        console.log('✅ [Local DB] اتصال محلي نجح:', {
-          database: result.rows[0].current_database,
-          user: result.rows[0].current_user
+        this.localPool = new Pool({
+          connectionString: databaseUrl,
+          ssl: sslConfig,
+          max: 10,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 60000, // 60 ثانية
+          keepAlive: true,
+          keepAliveInitialDelayMillis: 10000
         });
-      }
 
-    } catch (error: any) {
-      if (!this.isProduction) {
-        console.error('❌ [Local DB] فشل الاتصال المحلي:', error.message);
+        this.localDb = drizzle(this.localPool, { schema });
+
+        // اختبار الاتصال
+        const client = await this.localPool.connect();
+        const result = await client.query('SELECT current_database(), current_user');
+        client.release();
+
+        this.connectionStatus.local = true;
+        if (!this.isProduction) {
+          console.log('✅ [Local DB] اتصال محلي نجح:', {
+            database: result.rows[0].current_database,
+            user: result.rows[0].current_user,
+            attempt: attempt
+          });
+        }
+        return; // نجح الاتصال
+
+      } catch (error: any) {
+        lastError = error;
+        
+        if (attempt < retries) {
+          const waitTime = attempt * 2000; // انتظار متزايد: 2s, 4s, 6s
+          if (!this.isProduction) {
+            console.log(`⏳ [Local DB] إعادة المحاولة بعد ${waitTime/1000} ثانية...`);
+          }
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
       }
-      this.connectionStatus.local = false;
     }
+
+    // فشلت جميع المحاولات
+    if (!this.isProduction) {
+      console.error('❌ [Local DB] فشل الاتصال المحلي بعد', retries, 'محاولات:', lastError.message);
+    }
+    this.connectionStatus.local = false;
   }
 
   /**

@@ -129,6 +129,8 @@ step3_update_server() {
     
     log_info "جاري تنفيذ التحديث على السيرفر..."
     
+    GITHUB_REPO_URL="https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/app2.git"
+    
     UPDATE_SCRIPT='
 set -e
 
@@ -145,16 +147,54 @@ log_error() { echo -e "${RED}❌ $1${NC}"; }
 
 APP_DIR="'"$REMOTE_APP_DIR"'"
 BRANCH="'"$BRANCH"'"
+GITHUB_REPO_URL="'"$GITHUB_REPO_URL"'"
+
+# التحقق من وجود المجلد
+if [ ! -d "$APP_DIR" ]; then
+    log_info "إنشاء مجلد التطبيق..."
+    mkdir -p "$APP_DIR"
+fi
 
 cd "$APP_DIR" || { log_error "فشل الوصول إلى $APP_DIR"; exit 1; }
 
-log_info "حفظ النسخة الحالية..."
-PREVIOUS_SHA=$(git rev-parse HEAD 2>/dev/null || echo "none")
-echo "$PREVIOUS_SHA" > .previous_sha
+# التحقق من وجود مستودع Git
+if [ ! -d ".git" ]; then
+    log_warning "المجلد ليس مستودع Git، جاري التهيئة..."
+    
+    # حفظ الملفات الحالية المهمة
+    if [ -f ".env.production" ]; then
+        cp .env.production /tmp/.env.production.backup
+        log_info "تم حفظ نسخة من .env.production"
+    fi
+    if [ -f "ecosystem.config.cjs" ]; then
+        cp ecosystem.config.cjs /tmp/ecosystem.config.cjs.backup
+        log_info "تم حفظ نسخة من ecosystem.config.cjs"
+    fi
+    
+    # تنظيف المجلد وإنشاء clone جديد
+    cd ..
+    rm -rf "$APP_DIR"
+    log_info "استنساخ المستودع من GitHub..."
+    git clone "$GITHUB_REPO_URL" "$APP_DIR"
+    cd "$APP_DIR"
+    
+    # استعادة الملفات المهمة
+    if [ -f "/tmp/.env.production.backup" ]; then
+        cp /tmp/.env.production.backup .env.production
+        log_info "تم استعادة .env.production"
+    fi
+    
+    log_success "تم تهيئة المستودع بنجاح"
+else
+    log_info "حفظ النسخة الحالية..."
+    PREVIOUS_SHA=$(git rev-parse HEAD 2>/dev/null || echo "none")
+    echo "$PREVIOUS_SHA" > .previous_sha
+    
+    log_info "سحب أحدث الكود..."
+    git fetch --all --prune
+    git reset --hard origin/$BRANCH
+fi
 
-log_info "سحب أحدث الكود..."
-git fetch --all --prune
-git reset --hard origin/$BRANCH
 NEW_SHA=$(git rev-parse --short HEAD)
 log_success "تم التحديث إلى: $NEW_SHA"
 

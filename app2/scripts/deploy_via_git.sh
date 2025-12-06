@@ -83,7 +83,7 @@ step1_push_to_github() {
     git config user.name "$GITHUB_USERNAME"
     git config user.email "$GITHUB_EMAIL"
     
-    REPO_NAME="construction-app"
+    REPO_NAME="app2"
     REMOTE_URL="https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${REPO_NAME}.git"
     
     if git remote get-url origin &>/dev/null; then

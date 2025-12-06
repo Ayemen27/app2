@@ -23,7 +23,7 @@ print_separator() { echo -e "${BLUE}══════════════�
 
 COMMIT_MESSAGE="${1:-تحديث تلقائي $(date '+%Y-%m-%d %H:%M:%S')}"
 BRANCH="${2:-main}"
-REPO_NAME="construction-app"
+REPO_NAME="app2"
 
 check_git_secrets() {
     print_separator

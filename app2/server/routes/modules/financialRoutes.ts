@@ -1334,13 +1334,28 @@ financialRouter.post('/suppliers', async (req: Request, res: Response) => {
 financialRouter.get('/material-purchases', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, supplierId, dateFrom, dateTo, paymentTypeFilter } = req.query;
+    const { projectId, supplierId, dateFrom, dateTo, purchaseType } = req.query;
+    
+    console.log('📋 [MaterialPurchases] معاملات الطلب:', { projectId, supplierId, dateFrom, dateTo, purchaseType });
     
     // بناء شروط ديناميكية
     const conditions: any[] = [];
-    if (projectId) conditions.push(eq(materialPurchases.projectId, projectId as string));
-    if (supplierId) conditions.push(eq(materialPurchases.supplierId, supplierId as string));
-    if (paymentTypeFilter) conditions.push(eq(materialPurchases.purchaseType, paymentTypeFilter as string));
+    if (projectId && projectId !== 'all') {
+      conditions.push(eq(materialPurchases.projectId, projectId as string));
+    }
+    if (supplierId && supplierId !== 'all') {
+      conditions.push(eq(materialPurchases.supplierId, supplierId as string));
+    }
+    if (purchaseType && purchaseType !== 'all') {
+      conditions.push(eq(materialPurchases.purchaseType, purchaseType as string));
+      console.log('✅ [MaterialPurchases] تطبيق فلترة نوع الدفع:', purchaseType);
+    }
+    if (dateFrom) {
+      conditions.push(gte(materialPurchases.purchaseDate, dateFrom as string));
+    }
+    if (dateTo) {
+      conditions.push(lte(materialPurchases.purchaseDate, dateTo as string));
+    }
     
     // بناء الـ query
     let query: any = db.select().from(materialPurchases);
@@ -1351,6 +1366,8 @@ financialRouter.get('/material-purchases', async (req: Request, res: Response) =
     const purchases = await query.orderBy(desc(materialPurchases.purchaseDate));
     
     const duration = Date.now() - startTime;
+    console.log(`✅ [MaterialPurchases] تم جلب ${purchases.length} مشترية في ${duration}ms`);
+    
     res.json({
       success: true,
       data: purchases,

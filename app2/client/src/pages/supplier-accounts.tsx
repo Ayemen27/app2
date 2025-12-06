@@ -105,12 +105,26 @@ export default function SupplierAccountsPage() {
       if (projectIdForApi) params.append('projectId', projectIdForApi);
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
-      if (paymentTypeFilter && paymentTypeFilter !== 'all') params.append('purchaseType', paymentTypeFilter);
+      
+      // إصلاح: تصفية نوع الدفع بشكل صحيح
+      if (paymentTypeFilter && paymentTypeFilter !== 'all') {
+        params.append('purchaseType', paymentTypeFilter);
+      }
       
       try {
         const allPurchases = await apiRequest(`/api/material-purchases?${params.toString()}`);
         const data = allPurchases.data || allPurchases || [];
-        return Array.isArray(data) ? data : [];
+        
+        // تطبيق فلترة إضافية على مستوى العميل للتأكد
+        let filteredData = Array.isArray(data) ? data : [];
+        
+        if (paymentTypeFilter && paymentTypeFilter !== 'all') {
+          filteredData = filteredData.filter(purchase => 
+            purchase.purchaseType === paymentTypeFilter
+          );
+        }
+        
+        return filteredData;
       } catch (error) {
         console.error('خطأ في جلب المشتريات:', error);
         return [];
@@ -180,7 +194,11 @@ export default function SupplierAccountsPage() {
       if (projectIdForApi) params.append('projectId', projectIdForApi);
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
-      if (paymentTypeFilter && paymentTypeFilter !== 'all') params.append('purchaseType', paymentTypeFilter);
+      
+      // إصلاح: إضافة نوع الدفع بشكل صحيح
+      if (paymentTypeFilter && paymentTypeFilter !== 'all') {
+        params.append('purchaseType', paymentTypeFilter);
+      }
       
       try {
         const result = await apiRequest(`/api/suppliers/statistics?${params.toString()}`);

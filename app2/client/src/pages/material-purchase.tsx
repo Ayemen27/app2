@@ -1299,17 +1299,13 @@ export default function MaterialPurchase() {
         <div className="mt-4">
           <UnifiedCardGrid columns={3}>
             {filteredPurchases.map((purchase) => {
-              const material = materials.find(m => m.id === purchase.materialId);
-              const supplier = suppliers.find(s => s.id === purchase.supplierId);
-              const project = { id: purchase.projectId, name: purchase.projectName }; // Assuming projectName is available or fetched
-
               // تحديد لون الشريط حسب نوع الدفع
               const headerColor = purchase.purchaseType === 'نقد' ? '#22c55e' : purchase.purchaseType === 'آجل' ? '#f97316' : '#6366f1'; // Green for cash, Orange for credit, Blue for supply
 
               return (
                 <UnifiedCard
                   key={purchase.id}
-                  title={material?.name || 'مادة محذوفة'}
+                  title={purchase.materialName || 'مادة غير محددة'}
                   subtitle={formatDate(purchase.purchaseDate)}
                   titleIcon={ShoppingCart}
                   headerColor={headerColor}
@@ -1322,13 +1318,13 @@ export default function MaterialPurchase() {
                   fields={[
                     {
                       label: "المشروع",
-                      value: project?.name || 'غير محدد',
+                      value: purchase.projectName || 'غير محدد',
                       icon: Building2,
                       color: "info",
                     },
                     {
                       label: "المورد",
-                      value: supplier?.name || 'غير محدد',
+                      value: purchase.supplierName || 'غير محدد',
                       icon: Users,
                       color: "default",
                     },

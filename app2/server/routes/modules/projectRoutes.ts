@@ -1298,14 +1298,68 @@ projectRouter.get('/:projectId/material-purchases', async (req: Request, res: Re
 
     let purchases;
     if (isAllProjects) {
-      purchases = await db.select()
+      // جلب جميع المشتريات مع اسم المشروع
+      const purchasesWithProject = await db.select({
+        id: materialPurchases.id,
+        projectId: materialPurchases.projectId,
+        projectName: projects.name,
+        supplierId: materialPurchases.supplierId,
+        materialName: materialPurchases.materialName,
+        materialCategory: materialPurchases.materialCategory,
+        materialUnit: materialPurchases.materialUnit,
+        quantity: materialPurchases.quantity,
+        unit: materialPurchases.unit,
+        unitPrice: materialPurchases.unitPrice,
+        totalAmount: materialPurchases.totalAmount,
+        purchaseType: materialPurchases.purchaseType,
+        paidAmount: materialPurchases.paidAmount,
+        remainingAmount: materialPurchases.remainingAmount,
+        supplierName: materialPurchases.supplierName,
+        receiptNumber: materialPurchases.receiptNumber,
+        invoiceNumber: materialPurchases.invoiceNumber,
+        invoiceDate: materialPurchases.invoiceDate,
+        dueDate: materialPurchases.dueDate,
+        invoicePhoto: materialPurchases.invoicePhoto,
+        notes: materialPurchases.notes,
+        purchaseDate: materialPurchases.purchaseDate,
+        createdAt: materialPurchases.createdAt,
+      })
         .from(materialPurchases)
+        .leftJoin(projects, eq(materialPurchases.projectId, projects.id))
         .orderBy(desc(materialPurchases.purchaseDate));
+      purchases = purchasesWithProject;
     } else {
-      purchases = await db.select()
+      // جلب مشتريات مشروع محدد مع اسم المشروع
+      const purchasesWithProject = await db.select({
+        id: materialPurchases.id,
+        projectId: materialPurchases.projectId,
+        projectName: projects.name,
+        supplierId: materialPurchases.supplierId,
+        materialName: materialPurchases.materialName,
+        materialCategory: materialPurchases.materialCategory,
+        materialUnit: materialPurchases.materialUnit,
+        quantity: materialPurchases.quantity,
+        unit: materialPurchases.unit,
+        unitPrice: materialPurchases.unitPrice,
+        totalAmount: materialPurchases.totalAmount,
+        purchaseType: materialPurchases.purchaseType,
+        paidAmount: materialPurchases.paidAmount,
+        remainingAmount: materialPurchases.remainingAmount,
+        supplierName: materialPurchases.supplierName,
+        receiptNumber: materialPurchases.receiptNumber,
+        invoiceNumber: materialPurchases.invoiceNumber,
+        invoiceDate: materialPurchases.invoiceDate,
+        dueDate: materialPurchases.dueDate,
+        invoicePhoto: materialPurchases.invoicePhoto,
+        notes: materialPurchases.notes,
+        purchaseDate: materialPurchases.purchaseDate,
+        createdAt: materialPurchases.createdAt,
+      })
         .from(materialPurchases)
+        .leftJoin(projects, eq(materialPurchases.projectId, projects.id))
         .where(eq(materialPurchases.projectId, projectId))
         .orderBy(desc(materialPurchases.purchaseDate));
+      purchases = purchasesWithProject;
     }
 
     const duration = Date.now() - startTime;

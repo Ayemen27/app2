@@ -5,8 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>نظام إدارة المشاريع الإنشائية</title>
     <link rel="icon" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏗️%3C/text%3E%3C/svg%3E" type="image/svg+xml" />
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- تحميل الخطوط بشكل غير حاجز مع fallback -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" onerror="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet"></noscript>
     <style>
+      /* Fallback fonts */
+      @font-face {
+        font-family: 'Cairo';
+        font-style: normal;
+        font-weight: 300 700;
+        font-display: swap;
+        src: local('Cairo'), local('Tajawal'), local('Arial');
+      }
       /* صفحة التحميل الفورية */
       #initial-loader {
         position: fixed;

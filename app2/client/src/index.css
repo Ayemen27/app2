@@ -1,5 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap');
-
+/* Fallback fonts - الخطوط محملة من index.html بشكل غير حاجز */
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: local('Cairo'), local('Tajawal'), local('Droid Arabic Kufi'), local('Arial');
+}
 
 @tailwind base;
 @tailwind components;

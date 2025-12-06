@@ -31,7 +31,7 @@ print_header() { echo -e "${CYAN}╔══════════════�
 
 COMMIT_MESSAGE="${1:-نشر تلقائي $(date '+%Y-%m-%d %H:%M:%S')}"
 BRANCH="${2:-main}"
-REMOTE_APP_DIR="/home/administrator/construction-app"
+REMOTE_APP_DIR="/home/administrator/app2"
 DOMAIN="https://app2.binarjoinanelytic.info"
 
 SSH_HOST="${SSH_HOST:-}"

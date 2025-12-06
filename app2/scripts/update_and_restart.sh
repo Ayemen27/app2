@@ -21,7 +21,7 @@ log_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 log_error() { echo -e "${RED}❌ $1${NC}"; }
 print_separator() { echo -e "${BLUE}════════════════════════════════════════════════════════${NC}"; }
 
-APP_DIR="/home/administrator/construction-app"
+APP_DIR="/home/administrator/app2"
 BRANCH="${1:-main}"
 HEALTH_URL="https://app2.binarjoinanelytic.info/api/health"
 

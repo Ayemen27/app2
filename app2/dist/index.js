@@ -13659,6 +13659,25 @@ import { Server } from "socket.io";
 var app = express12();
 var getCSPDirectives = () => {
   const customDomain = process.env.CUSTOM_DOMAIN || "app2.binarjoinanelytic.info";
+  const isProduction2 = process.env.NODE_ENV === "production";
+  if (isProduction2) {
+    return {
+      defaultSrc: ["'self'", `https://${customDomain}`, "https:", "data:", "blob:"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      fontSrc: ["'self'", "https:", "data:", "blob:"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "blob:"],
+      scriptSrcElem: ["'self'", "'unsafe-inline'", "https:"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", `https://${customDomain}`, `wss://${customDomain}`, "https:", "wss:", "ws:"],
+      frameSrc: ["'self'", "https:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'", "https:", "blob:"],
+      childSrc: ["'self'", "blob:"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
+      workerSrc: ["'self'", "blob:"]
+    };
+  }
   return {
     defaultSrc: ["'self'", `https://${customDomain}`, "https://*.cloudflare.com"],
     styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],

@@ -11890,7 +11890,8 @@ financialRouter.get("/suppliers/statistics", async (req, res) => {
       const remainingAmount = parseFloat(p.remainingAmount || "0");
       if (p.purchaseType === "\u0646\u0642\u062F") {
         cashTotal += totalAmount;
-      } else if (p.purchaseType === "\u0623\u062C\u0644") {
+        totalPaid += totalAmount;
+      } else if (p.purchaseType === "\u0623\u062C\u0644" || p.purchaseType === "\u0622\u062C\u0644") {
         creditTotal += totalAmount;
         totalDebt += remainingAmount;
         totalPaid += paidAmount;

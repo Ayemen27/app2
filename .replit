@@ -20,15 +20,6 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 34587
-
-[[ports]]
-localPort = 34843
-
-[[ports]]
-localPort = 35083
-
-[[ports]]
 localPort = 35355
 
 [[ports]]
@@ -131,23 +122,11 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Start application"
+args = "Deploy to Production"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Deploy to Production"
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd app2 && npm run dev"
-waitForPort = 5000
+args = "Start application"
 
 [[workflows.workflow]]
 name = "بناء "
@@ -168,6 +147,18 @@ args = "cd app2 && chmod +x DEPLOY_CUSTOM_DOMAIN.sh && ./DEPLOY_CUSTOM_DOMAIN.sh
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd app2 && npm run start"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [agent]
 expertMode = true

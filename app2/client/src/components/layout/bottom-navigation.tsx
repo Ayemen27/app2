@@ -5,7 +5,7 @@ import {
   MoreHorizontal, Calculator, FileSpreadsheet, UserCheck, DollarSign, Package,
   ClipboardCheck, TrendingUp, Settings, PlusCircle, ArrowLeftRight, Target,
   BookOpen, Calendar, Wrench, User, MapPin, Globe, X, Bell, Brain, Shield,
-  Database, Palette, ReceiptText
+  Database, ReceiptText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -85,13 +85,6 @@ const allPagesData = [
       { path: "/admin-notifications", icon: Bell, label: "إشعارات المسؤولين", description: "إدارة وإرسال إشعارات للمستخدمين", requireAdmin: true },
     ]
   },
-  // مكتبات ومراجع - متاحة للجميع
-  {
-    category: "مكتبات ومراجع",
-    pages: [
-      { path: "/component-gallery", icon: Palette, label: "معرض المكونات", description: "مجموعة احترافية من المكونات والقوالب", requireAdmin: false },
-    ]
-  }
 ];
 
 export default function BottomNavigation() {

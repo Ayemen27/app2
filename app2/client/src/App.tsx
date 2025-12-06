@@ -43,7 +43,6 @@ const SecurityPoliciesPage = lazy(() => import("@/pages/SecurityPoliciesPage").t
 const Reports = lazy(() => import("@/pages/reports"));
 const RealReports = lazy(() => import("@/pages/real-reports"));
 const ProfessionalReports = lazy(() => import("@/pages/professional-reports"));
-const ComponentGalleryPage = lazy(() => import("@/component-gallery"));
 
 function PageLoader() {
   return (
@@ -140,11 +139,6 @@ function Router() {
       <Route path="/professional-reports">
         <Suspense fallback={<PageLoader />}>
           <ProfessionalReports />
-        </Suspense>
-      </Route>
-      <Route path="/component-gallery">
-        <Suspense fallback={<PageLoader />}>
-          <ComponentGalleryPage />
         </Suspense>
       </Route>
       <Route component={NotFound} />

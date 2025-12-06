@@ -199,11 +199,8 @@ cat > .env.production << EOF
 EOF
 log_success "تم إنشاء .env.production"
 
-log_info "تنظيف node_modules القديم..."
-rm -rf node_modules package-lock.json
-npm cache clean --force 2>/dev/null || true
 log_info "تثبيت المتطلبات..."
-npm install --loglevel=error
+npm ci --loglevel=error 2>&1 || npm install --loglevel=error
 log_success "تم تثبيت المتطلبات"
 
 log_info "بناء التطبيق..."
@@ -223,10 +220,7 @@ log_success "تم نسخ الملفات"
 
 # تثبيت المتطلبات في مجلد الإنتاج
 cd "$APP_DIR"
-log_info "تنظيف node_modules في مجلد الإنتاج..."
-rm -rf node_modules
-npm cache clean --force 2>/dev/null || true
-npm install --loglevel=error --production 2>&1
+npm ci --loglevel=error --production 2>&1 || npm install --loglevel=error --production 2>&1
 
 log_info "إعادة تشغيل PM2..."
 # حذف العملية القديمة وإعادة البدء

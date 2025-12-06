@@ -9,8 +9,17 @@ export default defineConfig({
     outDir: '../dist/public',
     emptyOutDir: true,
     target: 'es2020',
-    minify: 'esbuild',
-    cssMinify: 'esbuild',
+    minify: 'terser',
+    cssMinify: 'lightningcss',
+    terserOptions: {
+      compress: {
+        drop_console: false,
+        drop_debugger: true,
+      },
+      format: {
+        comments: false,
+      },
+    },
     cssCodeSplit: true,
     rollupOptions: {
       maxParallelFileOps: 1,

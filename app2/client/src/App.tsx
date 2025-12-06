@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import LoginPage from "@/pages/LoginPage";
@@ -19,20 +19,8 @@ import ProjectTransactionsPage from "@/pages/project-transactions-simple";
 
 import ProjectsPage from "@/pages/projects";
 import WorkersPage from "@/pages/workers";
-import WorkerAccountsPage from "@/pages/worker-accounts";
-import SuppliersProPage from "@/pages/suppliers-professional";
-import SupplierAccountsPage from "@/pages/supplier-accounts";
-import AutocompleteAdminPage from "@/pages/autocomplete-admin";
-import { EquipmentManagement } from "@/pages/equipment-management";
 import NotificationsPage from "@/pages/notifications";
-import AdminNotificationsPage from "@/pages/admin-notifications";
-import SmartErrorsPage from "@/pages/SmartErrorsPage";
-import { SecurityPoliciesPage } from "@/pages/SecurityPoliciesPage";
-import Reports from "@/pages/reports";
 import DailyExpenses from "@/pages/daily-expenses";
-import ComponentGalleryPage from "@/component-gallery";
-import RealReports from "@/pages/real-reports";
-import ProfessionalReports from "@/pages/professional-reports";
 
 import { LayoutShell } from "@/components/layout/layout-shell";
 import { FloatingButtonProvider } from "@/components/layout/floating-button-context";
@@ -42,9 +30,30 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
 import EmailVerificationGuard from "@/components/EmailVerificationGuard";
 import { SelectedProjectProvider } from "@/contexts/SelectedProjectContext";
+import { Loader2 } from "lucide-react";
+
+const WorkerAccountsPage = lazy(() => import("@/pages/worker-accounts"));
+const SuppliersProPage = lazy(() => import("@/pages/suppliers-professional"));
+const SupplierAccountsPage = lazy(() => import("@/pages/supplier-accounts"));
+const AutocompleteAdminPage = lazy(() => import("@/pages/autocomplete-admin"));
+const EquipmentManagement = lazy(() => import("@/pages/equipment-management").then(m => ({ default: m.EquipmentManagement })));
+const AdminNotificationsPage = lazy(() => import("@/pages/admin-notifications"));
+const SmartErrorsPage = lazy(() => import("@/pages/SmartErrorsPage"));
+const SecurityPoliciesPage = lazy(() => import("@/pages/SecurityPoliciesPage").then(m => ({ default: m.SecurityPoliciesPage })));
+const Reports = lazy(() => import("@/pages/reports"));
+const RealReports = lazy(() => import("@/pages/real-reports"));
+const ProfessionalReports = lazy(() => import("@/pages/professional-reports"));
+const ComponentGalleryPage = lazy(() => import("@/component-gallery"));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+    </div>
+  );
+}
 
 function Router() {
-  // Enable real-time WebSocket updates
   useWebSocketSync();
   
   return (
@@ -54,13 +63,21 @@ function Router() {
       <Route path="/workers" component={WorkersPage} />
       <Route path="/worker-accounts">
         <AdminRoute>
-          <WorkerAccountsPage />
+          <Suspense fallback={<PageLoader />}>
+            <WorkerAccountsPage />
+          </Suspense>
         </AdminRoute>
       </Route>
-      <Route path="/suppliers-pro" component={SuppliersProPage} />
+      <Route path="/suppliers-pro">
+        <Suspense fallback={<PageLoader />}>
+          <SuppliersProPage />
+        </Suspense>
+      </Route>
       <Route path="/supplier-accounts">
         <AdminRoute>
-          <SupplierAccountsPage />
+          <Suspense fallback={<PageLoader />}>
+            <SupplierAccountsPage />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route path="/worker-attendance" component={WorkerAttendance} />
@@ -77,31 +94,59 @@ function Router() {
       </Route>
       <Route path="/autocomplete-admin">
         <AdminRoute>
-          <AutocompleteAdminPage />
+          <Suspense fallback={<PageLoader />}>
+            <AutocompleteAdminPage />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route path="/equipment">
         <AdminRoute>
-          <EquipmentManagement />
+          <Suspense fallback={<PageLoader />}>
+            <EquipmentManagement />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route path="/notifications" component={NotificationsPage} />
       <Route path="/admin-notifications">
         <AdminRoute>
-          <AdminNotificationsPage />
+          <Suspense fallback={<PageLoader />}>
+            <AdminNotificationsPage />
+          </Suspense>
         </AdminRoute>
       </Route>
-      <Route path="/smart-errors" component={SmartErrorsPage} />
+      <Route path="/smart-errors">
+        <Suspense fallback={<PageLoader />}>
+          <SmartErrorsPage />
+        </Suspense>
+      </Route>
       <Route path="/security-policies">
         <AdminRoute>
-          <SecurityPoliciesPage />
+          <Suspense fallback={<PageLoader />}>
+            <SecurityPoliciesPage />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route path="/daily-expenses" component={DailyExpenses} />
-      <Route path="/reports" component={Reports} />
-      <Route path="/real-reports" component={RealReports} />
-      <Route path="/professional-reports" component={ProfessionalReports} />
-      <Route path="/component-gallery" component={ComponentGalleryPage} />
+      <Route path="/reports">
+        <Suspense fallback={<PageLoader />}>
+          <Reports />
+        </Suspense>
+      </Route>
+      <Route path="/real-reports">
+        <Suspense fallback={<PageLoader />}>
+          <RealReports />
+        </Suspense>
+      </Route>
+      <Route path="/professional-reports">
+        <Suspense fallback={<PageLoader />}>
+          <ProfessionalReports />
+        </Suspense>
+      </Route>
+      <Route path="/component-gallery">
+        <Suspense fallback={<PageLoader />}>
+          <ComponentGalleryPage />
+        </Suspense>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );

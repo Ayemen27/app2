@@ -32,7 +32,29 @@ const app = express();
 // 🛡️ **Security Headers - يحمي من XSS, clickjacking, MIME sniffing**
 const getCSPDirectives = () => {
   const customDomain = process.env.CUSTOM_DOMAIN || 'app2.binarjoinanelytic.info';
+  const isProduction = process.env.NODE_ENV === 'production';
   
+  // في الإنتاج، نكون أكثر تساهلاً مع CSP لتجنب مشاكل التحميل
+  if (isProduction) {
+    return {
+      defaultSrc: ["'self'", `https://${customDomain}`, "https:", "data:", "blob:"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      fontSrc: ["'self'", "https:", "data:", "blob:"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "blob:"],
+      scriptSrcElem: ["'self'", "'unsafe-inline'", "https:"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", `https://${customDomain}`, `wss://${customDomain}`, "https:", "wss:", "ws:"],
+      frameSrc: ["'self'", "https:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'", "https:", "blob:"],
+      childSrc: ["'self'", "blob:"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
+      workerSrc: ["'self'", "blob:"]
+    };
+  }
+  
+  // في التطوير، نستخدم القيود الأصلية
   return {
     defaultSrc: ["'self'", `https://${customDomain}`, "https://*.cloudflare.com"],
     styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],

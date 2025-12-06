@@ -96,6 +96,44 @@ A comprehensive construction project management system designed for the Middle E
 - **Date Handling**: Robust functions for safe date formatting, validation, and comparison to prevent "Invalid Date" errors.
 - **Code Quality**: Achieved zero LSP diagnostics and perfect TypeScript compliance across the codebase.
 
+## Deployment System (Git-Based)
+
+### نظام النشر عبر Git Repository (ديسمبر 2025)
+تم استبدال آلية النشر القديمة (رفع حزمة tar.gz) بآلية جديدة تعتمد على Git:
+
+### السكربتات المتاحة:
+| السكربت | الوظيفة |
+|---------|---------|
+| `scripts/deploy_via_git.sh` | السكربت الرئيسي - ينفذ العملية كاملة |
+| `scripts/push_repo.sh` | دفع الكود إلى GitHub فقط |
+| `scripts/update_and_restart.sh` | تحديث السيرفر فقط (يُشغل عن بعد) |
+
+### الاستخدام:
+```bash
+# النشر الكامل
+cd app2
+./scripts/deploy_via_git.sh "رسالة التحديث"
+
+# دفع الكود فقط (بدون نشر)
+./scripts/push_repo.sh "رسالة الكوميت"
+```
+
+### خطوات النشر التلقائية:
+1. ✅ دفع الكود إلى GitHub Repository
+2. ✅ الاتصال بالسيرفر عبر SSH
+3. ✅ سحب الكود من المستودع
+4. ✅ تثبيت المتطلبات (npm ci)
+5. ✅ بناء التطبيق (npm run build)
+6. ✅ إعادة تشغيل PM2
+7. ✅ التحقق من صحة التطبيق
+
+### المتطلبات (Secrets):
+- `GITHUB_USERNAME`, `GITHUB_TOKEN`, `GITHUB_EMAIL` - بيانات GitHub
+- `SSH_HOST`, `SSH_USER`, `SSH_PASSWORD`, `SSH_PORT` - بيانات السيرفر
+
+### التراجع (Rollback):
+يتم حفظ SHA النسخة السابقة تلقائياً في `.previous_sha` للتراجع عند الحاجة.
+
 ## External Dependencies
 - **Database**: app2data PostgreSQL
 - **Frontend Libraries**: React.js, TypeScript, Tailwind CSS, shadcn/ui, React Query (@tanstack/react-query), Wouter, React Hook Form, Zod

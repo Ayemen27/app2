@@ -131,6 +131,20 @@ step3_update_server() {
     
     GITHUB_REPO_URL="https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/app2.git"
     
+    ENV_CONTENT="# Production Environment Variables - Auto Generated
+NODE_ENV=production
+PORT=6000
+HEALTH_CHECK_PORT=6000
+HEALTH_CHECK_URL=http://localhost:6000/api/health
+CUSTOM_DOMAIN=app2.binarjoinanelytic.info
+DATABASE_URL=${DATABASE_URL}
+JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+SESSION_SECRET=${SESSION_SECRET}
+ENABLE_RATE_LIMITING=true
+CORS_ORIGIN=*
+LOG_LEVEL=info"
+    
     UPDATE_SCRIPT='
 set -e
 
@@ -178,11 +192,12 @@ log_success "تم التحديث إلى: $NEW_SHA"
 # الانتقال إلى مجلد التطبيق داخل المستودع
 cd "$REPO_DIR/app2" || { log_error "مجلد app2 غير موجود في المستودع"; exit 1; }
 
-# استعادة ملفات البيئة
-if [ -f "/tmp/.env.production.backup" ]; then
-    cp /tmp/.env.production.backup .env.production
-    log_info "تم استعادة .env.production"
-fi
+# إنشاء ملف البيئة الجديد
+log_info "إنشاء ملف البيئة..."
+cat > .env.production << EOF
+'"$ENV_CONTENT"'
+EOF
+log_success "تم إنشاء .env.production"
 
 log_info "تثبيت المتطلبات..."
 npm ci --loglevel=error 2>&1 || npm install --loglevel=error
@@ -205,9 +220,11 @@ log_success "تم نسخ الملفات"
 
 # تثبيت المتطلبات في مجلد الإنتاج
 cd "$APP_DIR"
-npm ci --production --loglevel=error 2>&1 || npm install --production --loglevel=error
+npm install --loglevel=error 2>&1
 
 log_info "إعادة تشغيل PM2..."
+# حذف العملية القديمة وإعادة البدء
+pm2 delete construction-app 2>/dev/null || true
 mkdir -p logs
 if pm2 describe construction-app > /dev/null 2>&1; then
     pm2 reload ecosystem.config.cjs --update-env

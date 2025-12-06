@@ -3059,7 +3059,7 @@ var vite_config_default = defineConfig({
     },
     chunkSizeWarningLimit: 2e3,
     reportCompressedSize: false,
-    sourcemap: false
+    sourcemap: true
   },
   resolve: {
     alias: {

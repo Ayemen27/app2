@@ -49,7 +49,7 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 2000,
     reportCompressedSize: false,
-    sourcemap: false
+    sourcemap: true
   },
   resolve: {
     alias: {

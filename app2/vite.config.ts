@@ -13,17 +13,26 @@ export default defineConfig({
     cssMinify: 'esbuild',
     cssCodeSplit: true,
     rollupOptions: {
-      maxParallelFileOps: 2,
+      maxParallelFileOps: 1,
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-toast'],
-          charts: ['recharts'],
-          excel: ['exceljs'],
-          query: ['@tanstack/react-query'],
-          router: ['wouter']
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('@radix-ui')) {
+              return 'vendor-radix';
+            }
+            if (id.includes('recharts')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('exceljs')) {
+              return 'vendor-excel';
+            }
+            return 'vendor';
+          }
         },
-        chunkFileNames: () => `assets/[name]-[hash].js`,
+        chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
           const name = assetInfo.name ?? 'asset';
           const info = name.split('.');
@@ -38,7 +47,7 @@ export default defineConfig({
         }
       }
     },
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000,
     reportCompressedSize: false,
     sourcemap: false
   },

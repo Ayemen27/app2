@@ -220,7 +220,7 @@ log_success "تم نسخ الملفات"
 
 # تثبيت المتطلبات في مجلد الإنتاج
 cd "$APP_DIR"
-npm ci --loglevel=error --production 2>&1 || npm install --loglevel=error --production 2>&1
+npm ci --loglevel=error 2>&1 || npm install --loglevel=error 2>&1
 
 log_info "إعادة تشغيل PM2..."
 # حذف العملية القديمة وإعادة البدء

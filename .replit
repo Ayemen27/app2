@@ -12,73 +12,6 @@ build = ["npm", "run", "build"]
 run = ["npm", "run", "start"]
 
 
-
-
-[[ports]]
-localPort = 37981
-
-[[ports]]
-localPort = 38037
-
-[[ports]]
-localPort = 38227
-externalPort = 8099
-
-[[ports]]
-localPort = 38575
-externalPort = 6800
-
-[[ports]]
-localPort = 38715
-externalPort = 3002
-
-[[ports]]
-localPort = 39425
-externalPort = 8080
-
-[[ports]]
-localPort = 39821
-externalPort = 8008
-
-[[ports]]
-localPort = 39945
-externalPort = 4200
-
-[[ports]]
-localPort = 42539
-externalPort = 3003
-
-[[ports]]
-localPort = 43391
-
-[[ports]]
-localPort = 43963
-externalPort = 9000
-
-[[ports]]
-localPort = 44461
-externalPort = 3000
-
-[[ports]]
-localPort = 45047
-externalPort = 8000
-
-[[ports]]
-localPort = 45209
-externalPort = 8081
-
-[[ports]]
-localPort = 45675
-
-[[ports]]
-localPort = 46161
-externalPort = 6000
-
-[[ports]]
-localPort = 46337
-externalPort = 3001
-
-
 [env]
 PORT = "3000"
 
@@ -125,7 +58,7 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd app2 && npm run start"
-waitForPort = 5000
+waitForPort = 6000
 
 [workflows.workflow.metadata]
 outputType = "webview"
@@ -140,7 +73,11 @@ JWT_ACCESS_SECRET = "7caef7dbed50790b6bf0539bdbc6084d3727037f581e4fa4df31a4e182d
 JWT_REFRESH_SECRET = "5057cb38ab008e55901f35122af497263099573461db7c6e6e9fe4436c621b64be1eab0678557c1d2fd8160bd1c9708b93fa3a74921ea6e81147c1456b98b942"
 
 [userenv.development]
-PORT = "5000"
-HEALTH_CHECK_PORT = "5000"
-HEALTH_CHECK_URL = "http://localhost:5000/api/health"
-DOMAIN = "localhost:5000"
+PORT = "6000"
+HEALTH_CHECK_PORT = "6000"
+HEALTH_CHECK_URL = "http://localhost:6000/api/health"
+DOMAIN = "localhost:6000"
+
+[[ports]]
+localPort = 6000
+externalPort = 80

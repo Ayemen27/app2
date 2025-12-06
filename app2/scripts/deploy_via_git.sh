@@ -223,14 +223,17 @@ cd "$APP_DIR"
 npm ci --loglevel=error 2>&1 || npm install --loglevel=error 2>&1
 
 log_info "إعادة تشغيل PM2..."
+# تحميل متغيرات البيئة من .env.production
+if [ -f .env.production ]; then
+    set -a
+    source .env.production
+    set +a
+    log_info "تم تحميل متغيرات البيئة"
+fi
 # حذف العملية القديمة وإعادة البدء
 pm2 delete construction-app 2>/dev/null || true
 mkdir -p logs
-if pm2 describe construction-app > /dev/null 2>&1; then
-    pm2 reload ecosystem.config.cjs --update-env
-else
-    pm2 start ecosystem.config.cjs
-fi
+pm2 start ecosystem.config.cjs
 pm2 save
 log_success "تم إعادة التشغيل"
 

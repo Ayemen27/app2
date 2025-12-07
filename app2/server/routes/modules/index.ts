@@ -9,6 +9,7 @@ import type { Express } from "express";
 // استيراد جميع الـ routers المنظمة
 import healthRouter from './healthRoutes.js';
 import projectRouter from './projectRoutes.js';
+// import sshRoutes from './sshRoutes'; // معطل مؤقتاً بسبب مشكلة ssh2
 import workerRouter from './workerRoutes.js';
 import financialRouter from './financialRoutes.js';
 import autocompleteRouter, { registerAutocompleteAdminRoutes } from './autocompleteRoutes.js';
@@ -25,41 +26,41 @@ export function registerOrganizedRoutes(app: Express) {
   console.log('🏗️ [OrganizedRoutes] بدء تسجيل المسارات المنظمة...');
 
   // ===== المسارات العامة - بدون مصادقة =====
-  
+
   // مسارات الصحة والمراقبة (عامة)
   app.use('/api', healthRouter);
-  
+
   // ملاحظة: تم نقل مسارات المصادقة إلى routes/auth.ts لتجنب التضارب
-  
+
   // مسارات autocomplete - منطق مختلط (عام/محمي)
   app.use('/api/autocomplete', autocompleteRouter);
-  
+
   // مسارات إدارة autocomplete - مسجلة مباشرة على المستوى الرئيسي
   registerAutocompleteAdminRoutes(app);
 
   // ===== المسارات المحمية - تحتاج مصادقة =====
-  
+
   // مسارات المشاريع
   app.use('/api/projects', projectRouter);
-  
+
   // مسارات العمال - تحتوي على مسارات أساسية ومسارات فرعية
   app.use('/api', workerRouter); // تركيب على /api للمسارات الفرعية مثل worker-attendance
-  
+
   // المسارات المالية
   app.use('/api', financialRouter); // يحتوي على عدة prefixes
-  
+
   // مسارات التقارير الاحترافية
   app.use('/api', reportRouter);
-  
+
   // مسارات آخر الإجراءات
   app.use('/api', activityRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الإجراءات: /api/recent-activities');
-  
+
   // مسارات الإشعارات
   app.use('/api/notifications', notificationRouter);
 
   console.log('✅ [OrganizedRoutes] تم تسجيل جميع المسارات المنظمة بنجاح');
-  
+
   // طباعة ملخص المسارات المسجلة
   const routeSummary = {
     publicRoutes: ['health', 'status', 'db/info', 'autocomplete (HEAD/OPTIONS)'],
@@ -75,7 +76,7 @@ export function registerOrganizedRoutes(app: Express) {
       'autocomplete (GET/POST)'
     ]
   };
-  
+
   console.log('📋 [OrganizedRoutes] ملخص المسارات المنظمة:');
   console.log(`   🌐 المسارات العامة: ${routeSummary.publicRoutes.length} مجموعة`);
   console.log(`   🔒 المسارات المحمية: ${routeSummary.protectedRoutes.length} مجموعة`);
@@ -127,7 +128,7 @@ export function validateOrganizedRoutes(): boolean {
       autocompleteRouter,
       notificationRouter
     ];
-    
+
     return routers.every(router => router && typeof router === 'function');
   } catch (error) {
     console.error('❌ [OrganizedRoutes] خطأ في التحقق:', error);

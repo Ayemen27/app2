@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, TrendingUp, TrendingDown, DollarSign, Building, Clock, ArrowRightLeft } from 'lucide-react';
+import { Search, Filter, TrendingUp, TrendingDown, DollarSign, Building, Clock, ArrowRightLeft, Edit, Trash2, User, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/utils';
@@ -14,6 +14,8 @@ import { StatsGrid } from '@/components/ui/stats-grid';
 import { useSelectedProject, ALL_PROJECTS_ID } from '@/hooks/use-selected-project';
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Project } from "@shared/schema";
+import { useAuth } from '@/components/AuthProvider';
+import { useToast } from '@/hooks/use-toast';
 import { 
   DollarSign as UnifiedDollarSign, 
   TrendingUp as UnifiedTrendingUp, 
@@ -47,6 +49,9 @@ export default function ProjectTransactionsSimple() {
   const [filterType, setFilterType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const isAdmin = user?.role === 'admin' || user?.role === 'مدير';
 
   // جلب المشاريع
   const { data: projects = [] } = useQuery<Project[]>({
@@ -695,15 +700,7 @@ export default function ProjectTransactionsSimple() {
   // --- Unified Components Logic ---
 
   const formatCurrencyUnified = (amount: number) => {
-    const formatted = formatEnglishNumber(amount);
-    // تحويل الأرقام الإنجليزية إلى عربية
-    const arabicFormatted = formatted.split('').map(char => {
-      if (char >= '0' && char <= '9') {
-        return formatArabicNumber(parseInt(char));
-      }
-      return char;
-    }).join('');
-    return arabicFormatted + ' ر.ي';
+    return formatCurrency(amount);
   };
 
   const getProjectNameUnified = () => {
@@ -872,21 +869,23 @@ export default function ProjectTransactionsSimple() {
                 {filteredTransactions.map(transaction => {
                   const isIncome = transaction.type === 'income' || transaction.type === 'transfer_from_project';
                   const isDeferred = transaction.type === 'deferred';
+                  const typeLabel = isIncome ? 'دخل' : isDeferred ? 'آجل' : 'مصروف';
 
                   return (
                     <UnifiedCard
                       key={transaction.id}
                       title={formatCurrencyUnified(transaction.amount)}
+                      subtitle={format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ar })}
                       titleIcon={isIncome ? ArrowUpRight : ArrowDownRight}
                       headerColor={isIncome ? "#10b981" : isDeferred ? "#f59e0b" : "#ef4444"}
                       badges={[
                         { 
-                          label: format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ar }), 
-                          variant: 'outline' as const 
-                        },
-                        { 
                           label: transaction.category,
                           variant: isIncome ? 'default' : isDeferred ? 'warning' : 'destructive'
+                        },
+                        { 
+                          label: typeLabel,
+                          variant: isIncome ? 'success' : isDeferred ? 'warning' : 'destructive'
                         }
                       ]}
                       fields={[
@@ -898,9 +897,29 @@ export default function ProjectTransactionsSimple() {
                         },
                         {
                           label: "النوع",
-                          value: isIncome ? 'دخل' : isDeferred ? 'آجل' : 'مصروف',
+                          value: typeLabel,
                           icon: isIncome ? UnifiedTrendingUp : UnifiedTrendingDown,
-                          color: isIncome ? "success" : isDeferred ? "warning" : "danger"
+                          color: isIncome ? "success" : isDeferred ? "warning" : "danger",
+                          emphasis: true
+                        },
+                        {
+                          label: "الفئة",
+                          value: transaction.category,
+                          icon: UnifiedFileText,
+                          color: "default"
+                        },
+                        {
+                          label: "المبلغ",
+                          value: formatCurrencyUnified(transaction.amount),
+                          icon: UnifiedDollarSign,
+                          color: isIncome ? "success" : isDeferred ? "warning" : "danger",
+                          emphasis: true
+                        },
+                        {
+                          label: "التاريخ",
+                          value: format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ar }),
+                          icon: UnifiedCalendar,
+                          color: "muted"
                         },
                         {
                           label: "التفاصيل",
@@ -908,6 +927,31 @@ export default function ProjectTransactionsSimple() {
                           icon: UnifiedFileText,
                           color: "default"
                         }
+                      ]}
+                      actions={[
+                        {
+                          icon: Edit,
+                          label: "تعديل",
+                          onClick: () => {
+                            toast({
+                              title: "تعديل",
+                              description: `يتم توجيهك لتعديل العملية ${transaction.id}`,
+                            });
+                          },
+                          color: "blue"
+                        },
+                        ...(isAdmin ? [{
+                          icon: Trash2,
+                          label: "حذف",
+                          onClick: () => {
+                            toast({
+                              title: "حذف",
+                              description: `سيتم حذف العملية ${transaction.id}`,
+                              variant: "destructive" as const
+                            });
+                          },
+                          color: "red" as const
+                        }] : [])
                       ]}
                       compact
                     />

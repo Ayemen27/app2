@@ -289,6 +289,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 📊 GET endpoint لجلب حضور جميع العمال لجميع المشاريع
+  app.get("/api/projects/all/worker-attendance", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log(`📊 [API] جلب حضور العمال للمشروع: all`);
+      
+      const attendance = await db.select({
+        id: workerAttendance.id,
+        workerId: workerAttendance.workerId,
+        projectId: workerAttendance.projectId,
+        date: workerAttendance.date,
+        workDays: workerAttendance.workDays,
+        dailyWage: workerAttendance.dailyWage,
+        paidAmount: workerAttendance.paidAmount,
+        actualWage: workerAttendance.actualWage,
+        workerName: workers.name,
+        projectName: projects.name
+      })
+        .from(workerAttendance)
+        .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+        .leftJoin(projects, eq(workerAttendance.projectId, projects.id))
+        .orderBy(workerAttendance.date);
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب ${attendance.length} سجل حضور في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: attendance,
+        message: `تم جلب ${attendance.length} سجل حضور لجميع المشاريع`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب حضور العمال:', error);
+      res.status(500).json({
+        success: false,
+        data: [],
+        error: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
+  // 📊 GET endpoint لجلب حوالات جميع العمال لجميع المشاريع
+  app.get("/api/projects/all/worker-transfers", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      console.log(`📊 [API] جلب حوالات العمال للمشروع: all`);
+      
+      const transfers = await db.select({
+        id: workerTransfers.id,
+        workerId: workerTransfers.workerId,
+        projectId: workerTransfers.projectId,
+        amount: workerTransfers.amount,
+        transferDate: workerTransfers.transferDate,
+        transferMethod: workerTransfers.transferMethod,
+        recipientName: workerTransfers.recipientName,
+        notes: workerTransfers.notes,
+        workerName: workers.name,
+        projectName: projects.name
+      })
+        .from(workerTransfers)
+        .leftJoin(workers, eq(workerTransfers.workerId, workers.id))
+        .leftJoin(projects, eq(workerTransfers.projectId, projects.id))
+        .orderBy(workerTransfers.transferDate);
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب ${transfers.length} حولة عمال في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: transfers,
+        message: `تم جلب ${transfers.length} حولة عمال لجميع المشاريع`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب حوالات العمال:', error);
+      res.status(500).json({
+        success: false,
+        data: [],
+        error: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
   // 📊 GET endpoint للمشاريع مع الإحصائيات
   app.get("/api/projects/with-stats", requireAuth, async (req, res) => {
     try {

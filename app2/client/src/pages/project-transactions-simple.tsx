@@ -835,6 +835,18 @@ export default function ProjectTransactionsSimple() {
                   const isDeferred = transaction.type === 'deferred';
                   const typeLabel = isIncome ? 'دخل' : isDeferred ? 'آجل' : 'مصروف';
 
+                  // تحديد صفحة التحرير بناءً على نوع العملية
+                  const getEditRoute = () => {
+                    if (transaction.category === 'تحويل عهدة') return '/daily-expenses';
+                    if (transaction.category === 'أجور العمال') return '/worker-attendance';
+                    if (transaction.category === 'حوالات العمال') return '/worker-accounts';
+                    if (transaction.category === 'مشتريات المواد' || transaction.type === 'deferred') return '/material-purchase';
+                    if (transaction.category === 'مواصلات') return '/daily-expenses';
+                    if (transaction.category === 'نثريات') return '/worker-misc-expenses';
+                    if (transaction.category.includes('ترحيل')) return '/project-transfers';
+                    return '/daily-expenses';
+                  };
+
                   return (
                     <UnifiedCard
                       key={transaction.id}
@@ -891,10 +903,8 @@ export default function ProjectTransactionsSimple() {
                           icon: Edit,
                           label: "تعديل",
                           onClick: () => {
-                            toast({
-                              title: "تعديل",
-                              description: `يتم توجيهك لتعديل العملية ${transaction.id}`,
-                            });
+                            const route = getEditRoute();
+                            window.location.href = route;
                           },
                           color: "blue"
                         },
@@ -902,11 +912,14 @@ export default function ProjectTransactionsSimple() {
                           icon: Trash2,
                           label: "حذف",
                           onClick: () => {
-                            toast({
-                              title: "حذف",
-                              description: `سيتم حذف العملية ${transaction.id}`,
-                              variant: "destructive" as const
-                            });
+                            if (confirm(`هل أنت متأكد من حذف هذه العملية؟\n${transaction.category} - ${formatCurrencyUnified(transaction.amount)}`)) {
+                              toast({
+                                title: "حذف",
+                                description: "جاري حذف العملية...",
+                                variant: "destructive" as const
+                              });
+                              // هنا يمكن إضافة استدعاء API للحذف
+                            }
                           },
                           color: "red" as const
                         }] : [])

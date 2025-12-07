@@ -100,29 +100,39 @@ export default function UsersManagementPage() {
       });
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ خطأ في جلب المستخدمين:', response.status, errorText);
         throw new Error(`فشل في جلب المستخدمين: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('✅ استجابة API:', data);
       
       // الـ backend يُرجع { success: true, users: [...] }
       if (data.success && Array.isArray(data.users)) {
+        console.log('✅ تم جلب', data.users.length, 'مستخدم');
         return { users: data.users };
       }
       
+      console.error('❌ تنسيق استجابة غير متوقع:', data);
       throw new Error('تنسيق الاستجابة غير صحيح');
     },
     enabled: isAuthenticated,
     retry: 2,
     staleTime: 30000,
-    onError: (error: any) => {
+  });
+
+  // عرض رسالة خطأ إذا حدث خطأ
+  React.useEffect(() => {
+    if (error) {
+      console.error('❌ خطأ في Query:', error);
       toast({
         title: 'خطأ في جلب المستخدمين',
         description: error instanceof Error ? error.message : 'حدث خطأ غير متوقع',
         variant: 'destructive'
       });
     }
-  });
+  }, [error, toast]);
 
   // تحديث مستخدم
   const updateMutation = useMutation({

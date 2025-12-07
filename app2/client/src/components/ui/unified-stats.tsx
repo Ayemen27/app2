@@ -50,7 +50,7 @@ export function UnifiedStats({
             {stat.status === "warning" && (
               <div className="absolute -top-2 -right-2 h-3 w-3 bg-amber-500 rounded-full animate-pulse z-10" />
             )}
-            
+
             <StatsCard
               title={stat.title}
               value={stat.value}
@@ -123,7 +123,7 @@ export function UnifiedStats({
             {stat.status === "warning" && (
               <div className="absolute -top-2 -right-2 h-3 w-3 bg-amber-500 rounded-full animate-pulse z-10" />
             )}
-            
+
             <StatsCard
               title={stat.title}
               value={stat.value}

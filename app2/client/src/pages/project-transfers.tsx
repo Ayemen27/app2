@@ -14,6 +14,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { insertProjectFundTransferSchema } from "@shared/schema";
 import type { InsertProjectFundTransfer, ProjectFundTransfer, Project } from "@shared/schema";
 import { ArrowRightLeft, ArrowRight, Calendar, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, MoreVertical, Plus, ChevronRight, RefreshCw, Download, Upload, Settings, BarChart3, ListChecks, Building2, FileText } from "lucide-react";
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -294,20 +296,23 @@ export default function ProjectTransfers() {
       gap: 'sm',
       items: [
         {
-          title: "إجمالي العمليات",
+          key: 'total',
+          label: "إجمالي العمليات",
           value: stats.total,
           icon: ArrowRightLeft,
           color: "orange"
         },
         {
-          title: "إجمالي المبالغ",
+          key: 'totalAmount',
+          label: "إجمالي المبالغ",
           value: stats.totalAmount,
           icon: DollarSign,
           color: "green",
           formatter: formatCurrency
         },
         {
-          title: "النتائج المفلترة",
+          key: 'filtered',
+          label: "النتائج المفلترة",
           value: stats.filtered,
           icon: TrendingDown,
           color: "blue"
@@ -319,20 +324,23 @@ export default function ProjectTransfers() {
       gap: 'sm',
       items: [
         {
-          title: "عمليات اليوم",
+          key: 'today',
+          label: "عمليات اليوم",
           value: filteredTransfers.filter(t => new Date(t.transferDate).toDateString() === new Date().toDateString()).length,
           icon: TrendingUp,
           color: "purple"
         },
         {
-          title: "متوسط العملية",
+          key: 'average',
+          label: "متوسط العملية",
           value: stats.total > 0 ? stats.totalAmount / stats.total : 0,
           icon: Calendar,
           color: "red",
           formatter: formatCurrency
         },
         {
-          title: "المشاريع النشطة",
+          key: 'projects',
+          label: "المشاريع النشطة",
           value: projects.length,
           icon: BarChart3,
           color: "indigo"
@@ -415,7 +423,7 @@ export default function ProjectTransfers() {
                         },
                         {
                           label: "التاريخ",
-                          value: new Date(transfer.transferDate).toLocaleDateString('ar-SA'),
+                          value: new Date(transfer.transferDate).toLocaleDateString('en-GB'),
                           icon: Calendar,
                           color: "info"
                         }
@@ -494,7 +502,8 @@ export default function ProjectTransfers() {
                                 <Input 
                                   type="date" 
                                   {...field} 
-                                  className="h-10 md:h-11 border-2 text-xs md:text-sm english-numbers"
+                                  className="h-10 md:h-11 border-2 text-xs md:text-sm"
+                                  style={{ direction: 'ltr' }}
                                 />
                               </FormControl>
                               <FormMessage className="text-xs" />

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Wrench, Truck, PenTool, Settings, Eye, MapPin, Calendar, DollarSign, Activity, Edit, Trash2, X, FileSpreadsheet, FileText, Printer, BarChart3, History, CheckCircle2 } from "lucide-react";
+import { Plus, Wrench, Truck, PenTool, Settings, Eye, MapPin, Calendar, DollarSign, Activity, Edit, Trash2, X, FileSpreadsheet, FileText, Printer, BarChart3, History, CheckCircle2, Download } from "lucide-react";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -28,7 +28,7 @@ interface Equipment {
   currentProjectId: string | null;
   purchasePrice: string | number | null;
   purchaseDate: string | null;
-  description: string | null;
+  description?: string;
   imageUrl?: string | null;
 }
 
@@ -49,10 +49,6 @@ export function EquipmentManagement() {
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
   
-  const [showReportsSection, setShowReportsSection] = useState(false);
-  const [reportProjectFilter, setReportProjectFilter] = useState("all");
-  const [reportStatusFilter, setReportStatusFilter] = useState("all");
-  const [reportTypeFilter, setReportTypeFilter] = useState("all");
   const [isExporting, setIsExporting] = useState(false);
 
   const queryClient = useQueryClient();
@@ -337,16 +333,7 @@ export function EquipmentManagement() {
 
   const getFilteredEquipmentForReport = () => {
     if (!Array.isArray(equipment)) return [];
-    return equipment.filter((item: Equipment) => {
-      const matchesProject = reportProjectFilter === "all" || 
-        (reportProjectFilter === "warehouse" && !item.currentProjectId) ||
-        item.currentProjectId === reportProjectFilter;
-      
-      const matchesStatus = reportStatusFilter === "all" || item.status === reportStatusFilter;
-      const matchesType = reportTypeFilter === "all" || item.type === reportTypeFilter;
-      
-      return matchesProject && matchesStatus && matchesType;
-    });
+    return equipment;
   };
 
   const exportEquipmentToExcel = async () => {
@@ -375,9 +362,9 @@ export function EquipmentManagement() {
       const worksheet = workbook.addWorksheet('كشف المعدات');
       worksheet.views = [{ rightToLeft: true }];
       
-      const reportProjectName = reportProjectFilter === "all" ? "جميع المشاريع" : 
-                                reportProjectFilter === "warehouse" ? "المستودع" :
-                                (Array.isArray(projects) ? projects.find((p: any) => p.id === reportProjectFilter)?.name : undefined) || "مشروع محدد";
+      const reportProjectName = filterValues.project === "all" ? "جميع المشاريع" : 
+                                filterValues.project === "warehouse" ? "المستودع" :
+                                (Array.isArray(projects) ? projects.find((p: any) => p.id === filterValues.project)?.name : undefined) || "مشروع محدد";
       
       let currentRow = addReportHeader(
         worksheet,
@@ -460,9 +447,9 @@ export function EquipmentManagement() {
         currentRow++;
       });
 
-      const filenameProjectName = reportProjectFilter === "all" ? "جميع_المشاريع" : 
-                                  reportProjectFilter === "warehouse" ? "المستودع" :
-                                  (Array.isArray(projects) ? projects.find((p: any) => p.id === reportProjectFilter)?.name : undefined)?.replace(/\s/g, '_') || "مشروع_محدد";
+      const filenameProjectName = filterValues.project === "all" ? "جميع_المشاريع" : 
+                                  filterValues.project === "warehouse" ? "المستودع" :
+                                  (Array.isArray(projects) ? projects.find((p: any) => p.id === filterValues.project)?.name : undefined)?.replace(/\s/g, '_') || "مشروع_محدد";
       
       const filename = `كشف_المعدات_${filenameProjectName}_${new Date().toISOString().split('T')[0]}.xlsx`;
       
@@ -504,9 +491,9 @@ export function EquipmentManagement() {
     try {
       setIsExporting(true);
       
-      const pdfProjectName = reportProjectFilter === "all" ? "جميع المشاريع" : 
-                             reportProjectFilter === "warehouse" ? "المستودع" :
-                             (Array.isArray(projects) ? projects.find((p: any) => p.id === reportProjectFilter)?.name : undefined) || "مشروع محدد";
+      const pdfProjectName = filterValues.project === "all" ? "جميع المشاريع" : 
+                             filterValues.project === "warehouse" ? "المستودع" :
+                             (Array.isArray(projects) ? projects.find((p: any) => p.id === filterValues.project)?.name : undefined) || "مشروع محدد";
       
       const printContent = `
         <html dir="rtl">
@@ -622,164 +609,41 @@ export function EquipmentManagement() {
         onReset={handleResetFilters}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
-        resultsSummary={(searchValue || filterValues.status !== 'all' || filterValues.type !== 'all' || filterValues.project !== 'all') ? {
+        actions={[
+          {
+            key: 'export-excel',
+            icon: Download,
+            label: 'تصدير Excel',
+            onClick: exportEquipmentToExcel,
+            variant: 'outline',
+            disabled: equipment.length === 0 || isExporting,
+            tooltip: 'تصدير إلى Excel'
+          },
+          {
+            key: 'export-pdf',
+            icon: Printer,
+            label: 'طباعة PDF',
+            onClick: exportEquipmentToPDF,
+            variant: 'outline',
+            disabled: equipment.length === 0 || isExporting,
+            tooltip: 'طباعة كشف المعدات'
+          },
+          {
+            key: 'add',
+            icon: Plus,
+            label: 'إضافة معدة',
+            onClick: () => setShowAddDialog(true),
+            variant: 'default',
+            tooltip: 'إضافة معدة جديدة'
+          }
+        ]}
+        resultsSummary={{
           totalCount: stats.total,
           filteredCount: equipment.length,
-          totalLabel: 'النتائج',
-          filteredLabel: 'من',
-        } : undefined}
+          totalLabel: 'إجمالي المعدات',
+          filteredLabel: 'النتائج المعروضة',
+        }}
       />
-
-      <Card className="mb-6">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-blue-600" />
-              كشوفات المعدات
-            </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowReportsSection(!showReportsSection)}
-              className="flex items-center gap-2"
-            >
-              {showReportsSection ? 'إخفاء' : 'عرض'} الكشوفات
-              <Eye className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardHeader>
-        
-        {showReportsSection && (
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">فلترة حسب المشروع</label>
-                <Select value={reportProjectFilter} onValueChange={setReportProjectFilter}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <div className="flex items-center gap-2 truncate">
-                      <MapPin className="h-3 w-3 text-gray-500 shrink-0" />
-                      <SelectValue placeholder="اختر المشروع" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">جميع المشاريع</SelectItem>
-                    <SelectItem value="warehouse">المستودع</SelectItem>
-                    {Array.isArray(projects) ? projects.map((project: any) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    )) : null}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">فلترة حسب الحالة</label>
-                <Select value={reportStatusFilter} onValueChange={setReportStatusFilter}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <div className="flex items-center gap-2 truncate">
-                      <Activity className="h-3 w-3 text-gray-500 shrink-0" />
-                      <SelectValue placeholder="اختر الحالة" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">جميع الحالات</SelectItem>
-                    <SelectItem value="active">نشط</SelectItem>
-                    <SelectItem value="maintenance">صيانة</SelectItem>
-                    <SelectItem value="out_of_service">خارج الخدمة</SelectItem>
-                    <SelectItem value="inactive">غير نشط</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">فلترة حسب الفئة</label>
-                <Select value={reportTypeFilter} onValueChange={setReportTypeFilter}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <div className="flex items-center gap-2 truncate">
-                      <Wrench className="h-3 w-3 text-gray-500 shrink-0" />
-                      <SelectValue placeholder="اختر الفئة" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">جميع الفئات</SelectItem>
-                    <SelectItem value="أدوات كهربائية">أدوات كهربائية</SelectItem>
-                    <SelectItem value="أدوات يدوية">أدوات يدوية</SelectItem>
-                    <SelectItem value="أدوات قياس">أدوات قياس</SelectItem>
-                    <SelectItem value="معدات لحام">معدات لحام</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-blue-900 dark:text-blue-100">معاينة الكشف</h4>
-                <Badge variant="outline" className="text-blue-700 border-blue-300">
-                  {getFilteredEquipmentForReport().length} معدة
-                </Badge>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4">
-                <div className="bg-white dark:bg-gray-700 p-3 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{getFilteredEquipmentForReport().length}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">إجمالي المعدات</div>
-                </div>
-                <div className="bg-white dark:bg-gray-700 p-3 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{getFilteredEquipmentForReport().filter((e: Equipment) => e.status === 'active').length}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">نشطة</div>
-                </div>
-                <div className="bg-white dark:bg-gray-700 p-3 rounded-lg">
-                  <div className="text-2xl font-bold text-yellow-600">{getFilteredEquipmentForReport().filter((e: Equipment) => e.status === 'maintenance').length}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">صيانة</div>
-                </div>
-                <div className="bg-white dark:bg-gray-700 p-3 rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">{getFilteredEquipmentForReport().filter((e: Equipment) => e.status === 'out_of_service').length}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">خارج الخدمة</div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  onClick={exportEquipmentToExcel}
-                  disabled={isExporting || getFilteredEquipmentForReport().length === 0}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {isExporting ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <FileSpreadsheet className="h-4 w-4" />
-                  )}
-                  تصدير Excel
-                </Button>
-
-                <Button
-                  onClick={exportEquipmentToPDF}
-                  disabled={isExporting || getFilteredEquipmentForReport().length === 0}
-                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white"
-                >
-                  {isExporting ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <FileText className="h-4 w-4" />
-                  )}
-                  تصدير PDF
-                </Button>
-
-                <Button
-                  onClick={exportEquipmentToPDF}
-                  variant="outline"
-                  disabled={isExporting}
-                  className="flex items-center gap-2"
-                >
-                  <Printer className="h-4 w-4" />
-                  طباعة
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        )}
-      </Card>
 
       {equipment.length === 0 ? (
         <Card className="p-8 text-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
@@ -897,7 +761,7 @@ export function EquipmentManagement() {
       />
 
       <TransferEquipmentDialog
-        equipment={selectedEquipment}
+        equipment={selectedEquipment as any}
         open={showTransferDialog}
         onOpenChange={setShowTransferDialog}
         projects={projects}

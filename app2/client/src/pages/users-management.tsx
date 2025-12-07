@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
-import UnifiedFilterDashboard from '@/components/ui/unified-filter-dashboard';
-import type { FilterConfig } from '@/components/ui/unified-filter-dashboard/types';
+import { UnifiedFilterDashboard } from '@/components/ui/unified-filter-dashboard';
+import { UnifiedCard, UnifiedCardGrid } from '@/components/ui/unified-card';
+import type { StatsRowConfig, FilterConfig } from '@/components/ui/unified-filter-dashboard/types';
 import {
   Dialog,
   DialogContent,
@@ -172,6 +173,51 @@ export default function UsersManagementPage() {
     admins: users.filter((u: User) => u.role === 'admin' || u.role === 'super_admin').length,
   }), [users]);
 
+  // تكوين صفوف الإحصائيات
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 5,
+      gap: 'sm',
+      items: [
+        {
+          key: 'total',
+          label: 'إجمالي المستخدمين',
+          value: stats.total,
+          icon: Users,
+          color: 'blue'
+        },
+        {
+          key: 'active',
+          label: 'نشط',
+          value: stats.active,
+          icon: UserCheck,
+          color: 'green'
+        },
+        {
+          key: 'inactive',
+          label: 'معطل',
+          value: stats.inactive,
+          icon: UserX,
+          color: 'red'
+        },
+        {
+          key: 'verified',
+          label: 'محقق',
+          value: stats.verified,
+          icon: Mail,
+          color: 'purple'
+        },
+        {
+          key: 'admins',
+          label: 'مسؤولين',
+          value: stats.admins,
+          icon: Shield,
+          color: 'orange'
+        }
+      ]
+    }
+  ], [stats]);
+
   const filterConfigs: FilterConfig[] = [
     {
       key: 'role',
@@ -240,6 +286,22 @@ export default function UsersManagementPage() {
     }
   };
 
+  const getRoleLabel = (role: string) => {
+    switch(role) {
+      case 'super_admin': return 'مدير أول';
+      case 'admin': return 'مدير';
+      default: return 'مستخدم';
+    }
+  };
+
+  const getRoleBadgeVariant = (role: string) => {
+    switch(role) {
+      case 'super_admin': return 'default';
+      case 'admin': return 'secondary';
+      default: return 'outline';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" dir="rtl">
       {/* Header */}
@@ -259,36 +321,15 @@ export default function UsersManagementPage() {
                 </p>
               </div>
             </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetch()}
-                disabled={isLoading}
-                className="gap-2 border-2"
-              >
-                <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-                <span className="hidden md:inline">تحديث</span>
-              </Button>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="px-4 py-6 md:px-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <StatsCard icon={Users} label="إجمالي المستخدمين" value={stats.total} gradient="from-blue-500 to-cyan-500" />
-          <StatsCard icon={UserCheck} label="نشط" value={stats.active} gradient="from-green-500 to-emerald-500" />
-          <StatsCard icon={UserX} label="معطل" value={stats.inactive} gradient="from-red-500 to-rose-500" />
-          <StatsCard icon={Mail} label="محقق" value={stats.verified} gradient="from-purple-500 to-pink-500" />
-          <StatsCard icon={Shield} label="مسؤولين" value={stats.admins} gradient="from-orange-500 to-amber-500" />
-        </div>
-
-        {/* Filters */}
+      <div className="px-4 py-6 md:px-6 space-y-6">
+        {/* Unified Filter Dashboard */}
         <UnifiedFilterDashboard
+          statsRows={statsRowsConfig}
           searchValue={searchValue}
           onSearchChange={setSearchValue}
           searchPlaceholder="ابحث عن مستخدم..."
@@ -304,110 +345,90 @@ export default function UsersManagementPage() {
           isRefreshing={isLoading}
         />
 
-        {/* Users Table */}
-        <Card className="mt-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xl">
-          <CardHeader className="border-b border-slate-100 dark:border-slate-800">
-            <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-              <Users className="h-5 w-5" />
-              قائمة المستخدمين ({users.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <LoadingUsers />
-            ) : users.length === 0 ? (
-              <EmptyUsers />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                    <tr>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-700 dark:text-slate-300">المستخدم</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-700 dark:text-slate-300">البريد الإلكتروني</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-700 dark:text-slate-300">الدور</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-700 dark:text-slate-300">الحالة</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-700 dark:text-slate-300">التحقق</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-700 dark:text-slate-300">آخر دخول</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 dark:text-slate-300">الإجراءات</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {users.map((user: User) => (
-                      <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-slate-900 dark:text-white">
-                            {user.firstName} {user.lastName}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-sm text-slate-600 dark:text-slate-400">{user.email}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant={user.role === 'super_admin' ? 'default' : user.role === 'admin' ? 'secondary' : 'outline'}>
-                            {user.role === 'super_admin' ? 'مدير أول' : user.role === 'admin' ? 'مدير' : 'مستخدم'}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant={user.isActive ? 'default' : 'destructive'} className="gap-1">
-                            {user.isActive ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                            {user.isActive ? 'نشط' : 'معطل'}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          {user.emailVerifiedAt ? (
-                            <Badge variant="default" className="gap-1 bg-green-600">
-                              <UserCheck className="h-3 w-3" />
-                              محقق
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="gap-1 text-orange-600 border-orange-600">
-                              <UserX className="h-3 w-3" />
-                              غير محقق
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-xs text-slate-600 dark:text-slate-400">
-                            {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('ar-EG') : 'لم يسجل دخول'}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-2">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleEdit(user)} className="gap-2">
-                                  <Edit className="h-4 w-4" />
-                                  تعديل
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => toggleStatusMutation.mutate({ userId: user.id, isActive: !user.isActive })}
-                                  className="gap-2"
-                                >
-                                  {user.isActive ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                                  {user.isActive ? 'تعطيل' : 'تفعيل'}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleDelete(user)} className="gap-2 text-red-600">
-                                  <Trash2 className="h-4 w-4" />
-                                  حذف
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Users Grid with UnifiedCard */}
+        {isLoading ? (
+          <LoadingUsers />
+        ) : users.length === 0 ? (
+          <EmptyUsers />
+        ) : (
+          <UnifiedCardGrid columns={2}>
+            {users.map((user: User) => (
+              <UnifiedCard
+                key={user.id}
+                title={`${user.firstName} ${user.lastName}`}
+                subtitle={user.email}
+                titleIcon={Users}
+                badges={[
+                  {
+                    label: getRoleLabel(user.role),
+                    variant: getRoleBadgeVariant(user.role) as any
+                  },
+                  {
+                    label: user.isActive ? 'نشط' : 'معطل',
+                    variant: user.isActive ? 'success' : 'destructive'
+                  },
+                  {
+                    label: user.emailVerifiedAt ? 'محقق' : 'غير محقق',
+                    variant: user.emailVerifiedAt ? 'success' : 'warning'
+                  }
+                ]}
+                fields={[
+                  {
+                    label: 'البريد',
+                    value: user.email,
+                    icon: Mail,
+                    color: 'info'
+                  },
+                  {
+                    label: 'الدور',
+                    value: getRoleLabel(user.role),
+                    icon: Shield,
+                    color: 'default'
+                  },
+                  {
+                    label: 'الحالة',
+                    value: user.isActive ? 'نشط' : 'معطل',
+                    icon: user.isActive ? Unlock : Lock,
+                    color: user.isActive ? 'success' : 'danger',
+                    emphasis: true
+                  },
+                  {
+                    label: 'آخر دخول',
+                    value: user.lastLogin 
+                      ? new Date(user.lastLogin).toLocaleDateString('ar-EG')
+                      : 'لم يسجل دخول',
+                    icon: Calendar,
+                    color: 'muted'
+                  }
+                ]}
+                actions={[
+                  {
+                    icon: Edit,
+                    label: 'تعديل',
+                    onClick: () => handleEdit(user),
+                    color: 'blue'
+                  },
+                  {
+                    icon: user.isActive ? Lock : Unlock,
+                    label: user.isActive ? 'تعطيل' : 'تفعيل',
+                    onClick: () => toggleStatusMutation.mutate({ 
+                      userId: user.id, 
+                      isActive: !user.isActive 
+                    }),
+                    color: user.isActive ? 'orange' : 'green'
+                  },
+                  {
+                    icon: Trash2,
+                    label: 'حذف',
+                    onClick: () => handleDelete(user),
+                    color: 'red'
+                  }
+                ]}
+                compact={false}
+              />
+            ))}
+          </UnifiedCardGrid>
+        )}
       </div>
 
       {/* Edit Dialog */}
@@ -472,31 +493,16 @@ export default function UsersManagementPage() {
   );
 }
 
-const StatsCard = ({ icon: Icon, label, value, gradient }: any) => (
-  <Card className="relative overflow-hidden border-0 bg-white dark:bg-slate-900 shadow-lg hover:shadow-xl transition-all">
-    <div className={cn("absolute inset-0 bg-gradient-to-br opacity-5", gradient)} />
-    <CardContent className="p-4 relative">
-      <div className="flex items-center gap-3 mb-2">
-        <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br", gradient)}>
-          <Icon className="h-5 w-5 text-white" />
-        </div>
-      </div>
-      <p className="text-2xl font-black text-slate-900 dark:text-white">{value}</p>
-      <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</p>
-    </CardContent>
-  </Card>
-);
-
 const LoadingUsers = () => (
-  <div className="p-4 space-y-3">
-    {[1, 2, 3, 4, 5].map(i => (
-      <Skeleton key={i} className="h-16 w-full rounded-lg" />
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    {[1, 2, 3, 4].map(i => (
+      <Skeleton key={i} className="h-48 w-full rounded-xl" />
     ))}
   </div>
 );
 
 const EmptyUsers = () => (
-  <div className="p-12 text-center">
+  <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
     <Users className="h-16 w-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
     <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-2">لا يوجد مستخدمون</h3>
     <p className="text-sm text-slate-500 dark:text-slate-400">لم يتم العثور على أي مستخدمين</p>

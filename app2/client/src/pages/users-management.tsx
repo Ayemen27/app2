@@ -89,23 +89,36 @@ export default function UsersManagementPage() {
         const endpoint = `/api/auth/users${queryString ? '?' + queryString : ''}`;
         
         console.log('🔄 [Users] جلب المستخدمين من:', endpoint);
+        console.log('🔍 [Users] المعاملات:', { searchValue, filterValues });
         
         const response = await apiRequest(endpoint, "GET");
         
-        console.log('✅ [Users] استجابة API:', response);
+        console.log('📦 [Users] الاستجابة الكاملة:', JSON.stringify(response, null, 2));
+        console.log('📊 [Users] نوع الاستجابة:', typeof response);
+        console.log('📋 [Users] مفاتيح الاستجابة:', response ? Object.keys(response) : 'null');
         
         // معالجة هيكل الاستجابة المتعددة (مثل صفحة المشاريع)
         let users = [];
         if (response && typeof response === 'object') {
+          console.log('🔍 [Users] فحص هيكل الاستجابة...');
+          
           if (response.success !== undefined && response.users !== undefined) {
+            console.log('✅ [Users] وجدت response.users:', Array.isArray(response.users), 'العدد:', response.users?.length);
             users = Array.isArray(response.users) ? response.users : [];
           } else if (response.success !== undefined && response.data !== undefined) {
+            console.log('✅ [Users] وجدت response.data:', Array.isArray(response.data), 'العدد:', response.data?.length);
             users = Array.isArray(response.data) ? response.data : [];
           } else if (Array.isArray(response)) {
+            console.log('✅ [Users] الاستجابة مصفوفة مباشرة، العدد:', response.length);
             users = response;
           } else if (response.data) {
+            console.log('✅ [Users] وجدت data بدون success:', Array.isArray(response.data), 'العدد:', response.data?.length);
             users = Array.isArray(response.data) ? response.data : [];
+          } else {
+            console.warn('⚠️ [Users] هيكل استجابة غير معروف:', response);
           }
+        } else {
+          console.error('❌ [Users] الاستجابة null أو ليست object');
         }
 
         if (!Array.isArray(users)) {
@@ -113,7 +126,11 @@ export default function UsersManagementPage() {
           users = [];
         }
 
-        console.log(`✅ [Users] تم جلب ${users.length} مستخدم`);
+        console.log(`✅ [Users] النتيجة النهائية: ${users.length} مستخدم`);
+        if (users.length > 0) {
+          console.log('👤 [Users] عينة من أول مستخدم:', users[0]);
+        }
+        
         return { users };
       } catch (error) {
         console.error('❌ [Users] خطأ في جلب المستخدمين:', error);

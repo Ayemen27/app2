@@ -476,7 +476,11 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
  */
 authRouter.get('/users', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    console.log('👥 [AUTH/users] طلب جلب المستخدمين من:', req.user?.email);
+    console.log('🔍 [AUTH/users] معاملات البحث:', { search: req.query.search, role: req.query.role, status: req.query.status, verified: req.query.verified });
+
     if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
+      console.log('❌ [AUTH/users] غير مصرح - الدور:', req.user?.role);
       return res.status(403).json({ success: false, message: 'غير مصرح' });
     }
 
@@ -504,7 +508,9 @@ authRouter.get('/users', requireAuth, async (req: AuthenticatedRequest, res: Res
       query = query.where(and(...conditions)) as any;
     }
 
+    console.log('📊 [AUTH/users] تنفيذ الاستعلام...');
     const usersList = await query.orderBy(desc(users.createdAt));
+    console.log(`✅ [AUTH/users] تم جلب ${usersList.length} مستخدم من قاعدة البيانات`);
 
     const sanitizedUsers = usersList.map(u => ({
       id: u.id,
@@ -518,10 +524,20 @@ authRouter.get('/users', requireAuth, async (req: AuthenticatedRequest, res: Res
       createdAt: u.createdAt,
     }));
 
+    console.log('📤 [AUTH/users] إرسال الاستجابة:', { 
+      success: true, 
+      usersCount: sanitizedUsers.length,
+      sampleUser: sanitizedUsers[0] ? {
+        id: sanitizedUsers[0].id,
+        email: sanitizedUsers[0].email,
+        firstName: sanitizedUsers[0].firstName
+      } : 'لا يوجد مستخدمين'
+    });
+
     return res.json({ success: true, users: sanitizedUsers });
   } catch (error) {
-    console.error('خطأ في جلب المستخدمين:', error);
-    return res.status(500).json({ success: false, message: 'خطأ في الخادم' });
+    console.error('❌ [AUTH/users] خطأ في جلب المستخدمين:', error);
+    return res.status(500).json({ success: false, message: 'خطأ في الخادم', error: (error as Error).message });
   }
 });
 

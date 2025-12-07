@@ -382,7 +382,7 @@ export default function ProjectTransfers() {
                   {filteredTransfers.map(transfer => (
                     <UnifiedCard
                       key={transfer.id}
-                      title={formatCurrency(parseFloat(transfer.amount))}
+                      title={formatCurrency(parseFloat(transfer.amount?.toString() || '0'))}
                       titleIcon={DollarSign}
                       headerColor="#f59e0b"
                       badges={[

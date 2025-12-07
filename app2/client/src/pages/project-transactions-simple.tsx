@@ -316,7 +316,7 @@ export default function ProjectTransactionsSimple() {
       miscExpenses: miscExpensesArray?.length || 0
     });
 
-    // حساب إجمالي العمليات المتاحة
+    // ✅ عرض جميع العمليات دائماً (حتى للمشاريع الفردية أو جميع المشاريع)
     const totalOperations = fundTransfersArray.length + incomingProjectTransfersArray.length + 
                            outgoingProjectTransfersArray.length + workerAttendanceArray.length + 
                            materialPurchasesArray.length + transportExpensesArray.length + 
@@ -339,7 +339,7 @@ export default function ProjectTransactionsSimple() {
       }
     });
 
-    // إضافة التحويلات الواردة من مشاريع أخرى (دخل)
+    // إضافة التحويلات الواردة من مشاريع أخرى (دخل) - مع تحديد واضح
     if (incomingProjectTransfersArray.length > 0) {
       console.log(`📥 معالجة ${incomingProjectTransfersArray.length} تحويل وارد`);
       incomingProjectTransfersArray.forEach((transfer: any) => {
@@ -352,9 +352,9 @@ export default function ProjectTransactionsSimple() {
             id: `project-in-${transfer.id}`,
             date: date,
             type: 'transfer_from_project',
-            category: 'تحويل من مشروع آخر',
+            category: '🔄 ترحيل وارد من مشروع',
             amount: amount,
-            description: `من: ${transfer.fromProjectName || 'مشروع آخر'}`
+            description: `📥 من مشروع: ${transfer.fromProjectName || 'مشروع آخر'}${transfer.description ? ` - ${transfer.description}` : ''}`
           });
         }
       });
@@ -362,7 +362,7 @@ export default function ProjectTransactionsSimple() {
       console.log(`📥 لا توجد تحويلات واردة للمشروع ${selectedProject}`);
     }
 
-    // إضافة التحويلات الصادرة إلى مشاريع أخرى (مصروف)
+    // إضافة التحويلات الصادرة إلى مشاريع أخرى (مصروف) - مع تحديد واضح
     if (outgoingProjectTransfersArray.length > 0) {
       console.log(`📤 معالجة ${outgoingProjectTransfersArray.length} تحويل صادر`);
       outgoingProjectTransfersArray.forEach((transfer: any) => {
@@ -375,9 +375,9 @@ export default function ProjectTransactionsSimple() {
             id: `project-out-${transfer.id}`,
             date: date,
             type: 'expense',
-            category: 'تحويل إلى مشروع آخر',
+            category: '🔄 ترحيل صادر إلى مشروع',
             amount: amount,
-            description: `إلى: ${transfer.toProjectName || 'مشروع آخر'}`
+            description: `📤 إلى مشروع: ${transfer.toProjectName || 'مشروع آخر'}${transfer.description ? ` - ${transfer.description}` : ''}`
           });
         }
       });
@@ -695,7 +695,7 @@ export default function ProjectTransactionsSimple() {
         { value: 'income', label: 'دخل' },
         { value: 'expense', label: 'مصروف' },
         { value: 'deferred', label: 'آجل' },
-        { value: 'transfer_from_project', label: 'تحويل من مشروع' }
+        { value: 'transfer_from_project', label: '🔄 ترحيل وارد من مشروع' }
       ]
     }
   ];

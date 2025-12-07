@@ -256,13 +256,13 @@ export default function Dashboard() {
 
   const filteredProjects = useMemo(() => {
     if (!Array.isArray(projects)) return [];
-    
+
     return projects.filter((project: ProjectWithStats) => {
       const matchesSearch = !searchValue || 
         project.name.toLowerCase().includes(searchValue.toLowerCase());
-      
+
       const matchesStatus = filterValues.status === 'all' || project.status === filterValues.status;
-      
+
       return matchesSearch && matchesStatus;
     });
   }, [projects, searchValue, filterValues.status]);
@@ -279,7 +279,7 @@ export default function Dashboard() {
         projectsCount: 0
       };
     }
-    
+
     return projects.reduce((acc, project: ProjectWithStats) => {
       const stats = project.stats || {};
       return {
@@ -385,8 +385,8 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 fade-in space-y-4">
-      {/* قسم آخر الإجراءات */}
-      {recentActivities.length > 0 && (
+      {/* قسم آخر الإجراءات - تم نقله إلى الأسفل */}
+      {/* {recentActivities.length > 0 && (
         <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -404,7 +404,6 @@ export default function Dashboard() {
                 className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-blue-100 dark:border-blue-800 hover:shadow-md transition-shadow"
               >
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
-                  {/* من */}
                   <div className="flex items-start gap-2">
                     <User className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                     <div>
@@ -412,8 +411,6 @@ export default function Dashboard() {
                       <div className="font-medium text-foreground">{activity.userName || 'غير محدد'}</div>
                     </div>
                   </div>
-
-                  {/* أين (المشروع) */}
                   <div className="flex items-start gap-2">
                     <Building2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
                     <div>
@@ -421,8 +418,6 @@ export default function Dashboard() {
                       <div className="font-medium text-foreground truncate">{activity.projectName || 'جميع المشاريع'}</div>
                     </div>
                   </div>
-
-                  {/* كيف (نوع الإجراء) */}
                   <div className="flex items-start gap-2">
                     <ArrowRightLeft className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
                     <div>
@@ -437,8 +432,6 @@ export default function Dashboard() {
                       </Badge>
                     </div>
                   </div>
-
-                  {/* التاريخ */}
                   <div className="flex items-start gap-2">
                     <Calendar className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
                     <div>
@@ -446,8 +439,6 @@ export default function Dashboard() {
                       <div className="font-medium text-foreground">{formatDate(activity.createdAt)}</div>
                     </div>
                   </div>
-
-                  {/* الوقت */}
                   <div className="flex items-start gap-2">
                     <Clock className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
                     <div>
@@ -462,8 +453,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-
-                {/* تفاصيل إضافية */}
                 {activity.amount && (
                   <div className="mt-2 pt-2 border-t border-blue-100 dark:border-blue-800 flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-green-600" />
@@ -481,7 +470,7 @@ export default function Dashboard() {
             ))}
           </CardContent>
         </Card>
-      )}
+      )} */}
 
       <div className="mb-4">
         {selectedProject && (
@@ -609,6 +598,57 @@ export default function Dashboard() {
               );
             })}
           </UnifiedCardGrid>
+        </div>
+      )}
+
+      {/* شريط آخر الإجراءات المضغوط */}
+      {recentActivities.length > 0 && (
+        <div className="mt-6 p-2 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200/50 dark:border-blue-800/50 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <Activity className="h-3.5 w-3.5 text-blue-600" />
+            <span className="text-xs font-bold text-blue-700 dark:text-blue-400">آخر الإجراءات</span>
+            <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{recentActivities.length}</Badge>
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+            {recentActivities.slice(0, 10).map((activity: any, index: number) => (
+              <div
+                key={activity.id || index}
+                className="flex-shrink-0 bg-white dark:bg-slate-900 rounded border border-blue-100 dark:border-blue-800 p-1.5 min-w-[200px] hover:shadow-sm transition-shadow"
+              >
+                <div className="flex items-center gap-1 mb-1">
+                  <Badge variant={
+                    activity.actionType === 'transfer' ? 'default' :
+                    activity.actionType === 'expense' ? 'destructive' :
+                    activity.actionType === 'income' ? 'success' :
+                    'secondary'
+                  } className="text-[9px] px-1 h-4">
+                    {activity.actionLabel || activity.actionType}
+                  </Badge>
+                  {activity.amount && (
+                    <span className="text-[10px] font-bold text-green-600 mr-auto">
+                      {formatCurrency(activity.amount)}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-[9px]">
+                  <div className="flex items-center gap-0.5">
+                    <Building2 className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />
+                    <span className="truncate text-muted-foreground">{activity.projectName || 'الكل'}</span>
+                  </div>
+                  <div className="flex items-center gap-0.5" dir="ltr">
+                    <Clock className="h-2.5 w-2.5 text-orange-600 flex-shrink-0" />
+                    <span className="truncate text-muted-foreground">
+                      {new Date(activity.createdAt).toLocaleTimeString('ar-SA', { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: true 
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -768,7 +808,7 @@ export default function Dashboard() {
                 إلغاء
               </Button>
             </div>
-            
+
             {/* Button to add new worker type - moved outside of form */}
             <Button
               type="button"

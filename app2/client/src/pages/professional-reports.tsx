@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WorkerSelect } from "@/components/ui/searchable-select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -796,18 +797,13 @@ export default function ProfessionalReports() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                     <div>
                       <Label>اختر العامل</Label>
-                      <Select value={selectedWorkerId} onValueChange={setSelectedWorkerId}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="اختر عاملاً..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {workers.map((worker: any) => (
-                            <SelectItem key={worker.id} value={worker.id}>
-                              {worker.name} - {worker.type}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <WorkerSelect
+                        value={selectedWorkerId}
+                        onValueChange={setSelectedWorkerId}
+                        workers={workers || []}
+                        placeholder="اختر عاملاً..."
+                        className="mt-1"
+                      />
                     </div>
                     <div>
                       <Label>من تاريخ</Label>

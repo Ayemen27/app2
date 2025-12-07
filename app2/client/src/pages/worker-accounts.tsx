@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { WorkerSelect, ProjectSelect } from '@/components/ui/searchable-select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
@@ -815,39 +816,21 @@ export default function WorkerAccountsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>العامل *</Label>
-                <Select
+                <WorkerSelect
                   value={formData.workerId}
                   onValueChange={(value) => setFormData({...formData, workerId: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر العامل" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.isArray(workers) ? workers.map((worker) => (
-                      <SelectItem key={worker.id} value={worker.id}>
-                        {worker.name} ({worker.type})
-                      </SelectItem>
-                    )) : null}
-                  </SelectContent>
-                </Select>
+                  workers={workers}
+                  placeholder="اختر العامل"
+                />
               </div>
               <div>
                 <Label>المشروع *</Label>
-                <Select
+                <ProjectSelect
                   value={formData.projectId}
                   onValueChange={(value) => setFormData({...formData, projectId: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر المشروع" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project: Project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  projects={projects}
+                  placeholder="اختر المشروع"
+                />
               </div>
             </div>
 

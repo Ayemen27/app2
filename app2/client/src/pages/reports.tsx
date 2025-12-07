@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WorkerSelect } from "@/components/ui/searchable-select";
 import {
   FileSpreadsheet,
   Printer,
@@ -577,18 +578,12 @@ export default function Reports() {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                       <div>
                         <Label className="text-sm font-semibold text-gray-700 block mb-2">العامل</Label>
-                        <Select value={selectedWorkerId} onValueChange={setSelectedWorkerId}>
-                          <SelectTrigger className="h-10 text-sm">
-                            <SelectValue placeholder="اختر العامل" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.isArray(workers) && workers.map((worker: any) => (
-                              <SelectItem key={worker.id} value={worker.id}>
-                                {worker.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <WorkerSelect
+                          value={selectedWorkerId}
+                          onValueChange={setSelectedWorkerId}
+                          workers={workers || []}
+                          placeholder="اختر العامل"
+                        />
                       </div>
 
                       <div>

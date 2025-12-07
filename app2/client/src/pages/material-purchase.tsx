@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Combobox } from "@/components/ui/combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
@@ -1007,30 +1008,19 @@ export default function MaterialPurchase() {
             <div>
               <Label className="block text-sm font-medium text-foreground">اسم المورد/المحل</Label>
               <div className="flex gap-2">
-                <Select value={supplierName} onValueChange={setSupplierName}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="اختر المورد..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeSuppliers.map((supplier) => (
-                      <SelectItem key={supplier.id} value={supplier.name}>
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium">{supplier.name}</span>
-                          {supplier.contactPerson && (
-                            <span className="text-xs text-muted-foreground">
-                              جهة الاتصال: {supplier.contactPerson}
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                    {activeSuppliers.length === 0 && (
-                      <SelectItem value="no-suppliers" disabled>
-                        <span className="text-muted-foreground">لا توجد موردين مسجلين</span>
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={supplierName}
+                  onValueChange={setSupplierName}
+                  options={activeSuppliers.map((supplier) => ({
+                    value: supplier.name,
+                    label: supplier.name,
+                    description: supplier.contactPerson || undefined
+                  }))}
+                  placeholder="اختر المورد..."
+                  searchPlaceholder="ابحث عن مورد..."
+                  emptyText="لا توجد موردين مسجلين"
+                  className="flex-1"
+                />
                 <Dialog open={isSupplierDialogOpen} onOpenChange={setIsSupplierDialogOpen}>
                   <DialogTrigger asChild>
                     <Button

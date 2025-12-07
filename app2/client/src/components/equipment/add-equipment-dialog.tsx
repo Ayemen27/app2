@@ -9,6 +9,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -299,30 +300,32 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
               <FormField
                 control={form.control}
                 name="projectId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium">المشروع</FormLabel>
-                    <Select 
-                      onValueChange={(value) => field.onChange(value === "warehouse" ? null : value)}
-                      defaultValue={field.value || "warehouse"}
-                    >
+                render={({ field }) => {
+                  const projectOptions: SelectOption[] = [
+                    { value: "warehouse", label: "المستودع" },
+                    ...(Array.isArray(projects) ? projects.map((project) => ({
+                      value: project.id,
+                      label: project.name,
+                    })) : [])
+                  ];
+                  return (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">المشروع</FormLabel>
                       <FormControl>
-                        <SelectTrigger data-testid="select-current-project" className="h-9 text-sm">
-                          <SelectValue placeholder="المستودع" />
-                        </SelectTrigger>
+                        <SearchableSelect
+                          value={field.value || "warehouse"}
+                          onValueChange={(value) => field.onChange(value === "warehouse" ? null : value)}
+                          options={projectOptions}
+                          placeholder="المستودع"
+                          searchPlaceholder="ابحث عن مشروع..."
+                          emptyText="لا توجد مشاريع"
+                          triggerClassName="h-9 text-sm"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="warehouse">المستودع</SelectItem>
-                        {Array.isArray(projects) && projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
             </CompactFieldGroup>
 

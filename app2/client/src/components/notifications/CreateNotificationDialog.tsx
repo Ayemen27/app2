@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { UserSelect } from "@/components/ui/searchable-select";
 import { 
   Form, 
   FormControl, 
@@ -390,33 +391,19 @@ export function CreateNotificationDialog({
                           render={({ field: userField }) => (
                             <FormItem>
                               <FormLabel className="text-xs md:text-sm font-semibold text-gray-700">اختر المستخدم</FormLabel>
-                              <Select onValueChange={userField.onChange} value={userField.value}>
-                                <FormControl>
-                                  <SelectTrigger 
-                                    className="h-9 md:h-10 border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 rounded-lg text-sm"
-                                    data-testid="specific-user-select"
-                                  >
-                                    <SelectValue placeholder="اختر..." />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent className="rounded-lg border-0 shadow-lg max-h-40">
-                                  {isLoadingUsers ? (
-                                    <div className="p-2 text-center text-gray-500 text-xs">جاري التحميل...</div>
-                                  ) : users.length > 0 ? (
-                                    users.map((user: any) => (
-                                      <SelectItem 
-                                        key={user.id} 
-                                        value={user.id} 
-                                        className="p-2 rounded-lg text-xs"
-                                      >
-                                        <span>{user.firstName || user.name || 'بدون اسم'}</span>
-                                      </SelectItem>
-                                    ))
-                                  ) : (
-                                    <div className="p-2 text-center text-gray-500 text-xs">لا يوجد مستخدمون</div>
-                                  )}
-                                </SelectContent>
-                              </Select>
+                              <FormControl>
+                                <UserSelect
+                                  value={userField.value || ''}
+                                  onValueChange={userField.onChange}
+                                  users={users.map((user: any) => ({
+                                    id: user.id,
+                                    fullName: user.firstName || user.name || 'بدون اسم',
+                                    email: user.email
+                                  }))}
+                                  placeholder="اختر..."
+                                  disabled={isLoadingUsers}
+                                />
+                              </FormControl>
                               <FormMessage className="text-xs" />
                             </FormItem>
                           )}

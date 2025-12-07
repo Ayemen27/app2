@@ -274,9 +274,9 @@ export default function UsersManagementPage() {
         }
       ]
     }
-  ], [stats]);
+  ], [stats.total, stats.active, stats.inactive, stats.verified, stats.admins]);
 
-  const filterConfigs: FilterConfig[] = [
+  const filterConfigs: FilterConfig[] = useMemo(() => [
     {
       key: 'role',
       label: 'الدور',
@@ -311,9 +311,9 @@ export default function UsersManagementPage() {
         { value: 'unverified', label: 'غير محقق' },
       ],
     },
-  ];
+  ], []);
 
-  const handleEdit = (user: User) => {
+  const handleEdit = React.useCallback((user: User) => {
     setSelectedUser(user);
     setEditForm({
       firstName: user.firstName,
@@ -322,27 +322,27 @@ export default function UsersManagementPage() {
       isActive: user.isActive,
     });
     setIsEditDialogOpen(true);
-  };
+  }, []);
 
-  const handleDelete = (user: User) => {
+  const handleDelete = React.useCallback((user: User) => {
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
-  };
+  }, []);
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = React.useCallback(() => {
     if (selectedUser) {
       updateMutation.mutate({
         userId: selectedUser.id,
         updates: editForm,
       });
     }
-  };
+  }, [selectedUser, editForm, updateMutation]);
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = React.useCallback(() => {
     if (selectedUser) {
       deleteMutation.mutate(selectedUser.id);
     }
-  };
+  }, [selectedUser, deleteMutation]);
 
   const getRoleLabel = (role: string) => {
     switch(role) {
@@ -373,12 +373,14 @@ export default function UsersManagementPage() {
           showSearch={true}
           filters={filterConfigs}
           filterValues={filterValues}
-          onFilterChange={(key, value) => setFilterValues(prev => ({ ...prev, [key]: value }))}
-          onReset={() => {
+          onFilterChange={React.useCallback((key: string, value: any) => {
+            setFilterValues(prev => ({ ...prev, [key]: value }));
+          }, [])}
+          onReset={React.useCallback(() => {
             setSearchValue('');
             setFilterValues({ role: 'all', status: 'all', verified: 'all' });
-          }}
-          onRefresh={() => refetch()}
+          }, [])}
+          onRefresh={React.useCallback(() => refetch(), [refetch])}
           isRefreshing={isLoading}
         />
 

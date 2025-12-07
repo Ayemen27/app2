@@ -42,6 +42,7 @@ const allPagesData = [
       { path: "/material-purchase", icon: Package, label: "شراء المواد", description: "إدارة مشتريات مواد البناء", requireAdmin: false },
       { path: "/worker-accounts", icon: DollarSign, label: "حسابات العمال", description: "إدارة حوالات وتحويلات العمال", requireAdmin: true },
       { path: "/equipment", icon: Settings, label: "إدارة المعدات", description: "إدارة المعدات مع النقل والتتبع", requireAdmin: true },
+      { path: "/project-fund-custody", icon: DollarSign, label: "الوارد للعهد", description: "إدارة الوارد الرئيسي للعُهد", requireAdmin: true },
       { path: "/project-transfers", icon: ArrowLeftRight, label: "ترحيل بين المشاريع", description: "إدارة ترحيل الأرصدة بين المشاريع", requireAdmin: true },
       { path: "/project-transactions", icon: FileText, label: "سجل العمليات", description: "عرض شامل لجميع المعاملات المالية", requireAdmin: true },
     ]
@@ -98,7 +99,7 @@ export default function BottomNavigation() {
   const [location, setLocation] = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user } = useAuth();
-  
+
   // فلترة الصفحات حسب دور المستخدم
   const isAdmin = user?.role === 'admin';
   const allPages = allPagesData.map(category => ({
@@ -117,7 +118,7 @@ export default function BottomNavigation() {
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.path;
-          
+
           return (
             <Button
               key={item.key}
@@ -132,7 +133,7 @@ export default function BottomNavigation() {
             </Button>
           );
         })}
-        
+
         {/* زر المزيد */}
         <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
           <SheetTrigger asChild>
@@ -148,7 +149,7 @@ export default function BottomNavigation() {
             <SheetHeader className="mb-4 px-1">
               <SheetTitle className="text-right text-lg">جميع الصفحات</SheetTitle>
             </SheetHeader>
-            
+
             <ScrollArea className="h-full">
               <div className="space-y-3 px-1">
                 {allPages.map((category, categoryIndex) => (
@@ -160,7 +161,7 @@ export default function BottomNavigation() {
                       {category.pages.map((page, pageIndex) => {
                         const Icon = page.icon;
                         const isActive = location === page.path;
-                        
+
                         return (
                           <Button
                             key={pageIndex}

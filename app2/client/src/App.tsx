@@ -16,6 +16,7 @@ import WorkerAttendance from "@/pages/worker-attendance";
 import MaterialPurchase from "@/pages/material-purchase";
 import ProjectTransfers from "@/pages/project-transfers";
 import ProjectTransactionsPage from "@/pages/project-transactions-simple";
+import ProjectFundCustody from "@/pages/project-fund-custody";
 
 import ProjectsPage from "@/pages/projects";
 import WorkersPage from "@/pages/workers";
@@ -91,6 +92,11 @@ function Router() {
       <Route path="/project-transactions">
         <AdminRoute>
           <ProjectTransactionsPage />
+        </AdminRoute>
+      </Route>
+      <Route path="/project-fund-custody">
+        <AdminRoute>
+          <ProjectFundCustody />
         </AdminRoute>
       </Route>
       <Route path="/autocomplete-admin">

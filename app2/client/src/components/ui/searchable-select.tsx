@@ -122,7 +122,7 @@ export function SearchableSelect({
           align="start"
           onKeyDown={handleKeyDown}
         >
-          {showSearch && options.length > 5 && (
+          {showSearch && (
             <div className="border-b p-2">
               <div className="relative">
                 <Search className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -188,6 +188,7 @@ export function WorkerSelect({
   placeholder = 'اختر العامل',
   showAllOption = false,
   allOptionLabel = 'جميع العمال',
+  showInactiveWorkers = true,
   disabled = false,
   className = '',
 }: {
@@ -197,22 +198,25 @@ export function WorkerSelect({
   placeholder?: string;
   showAllOption?: boolean;
   allOptionLabel?: string;
+  showInactiveWorkers?: boolean;
   disabled?: boolean;
   className?: string;
 }) {
   const options: SelectOption[] = useMemo(() => {
-    const activeWorkers = workers.filter(w => w.isActive !== false);
-    const workerOptions = activeWorkers.map(w => ({
+    const filteredWorkers = showInactiveWorkers 
+      ? workers 
+      : workers.filter(w => w.isActive !== false);
+    const workerOptions = filteredWorkers.map(w => ({
       value: w.id,
       label: w.name,
-      description: w.type || undefined,
+      description: w.type ? `${w.type}${w.isActive === false ? ' (غير نشط)' : ''}` : (w.isActive === false ? '(غير نشط)' : undefined),
     }));
     
     if (showAllOption) {
       return [{ value: 'all', label: allOptionLabel }, ...workerOptions];
     }
     return workerOptions;
-  }, [workers, showAllOption, allOptionLabel]);
+  }, [workers, showAllOption, allOptionLabel, showInactiveWorkers]);
 
   return (
     <SearchableSelect

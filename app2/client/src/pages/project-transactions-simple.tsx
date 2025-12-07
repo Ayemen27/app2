@@ -11,11 +11,23 @@ import { ar } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/utils';
 import { StatsGrid } from '@/components/ui/stats-grid';
 import { useSelectedProject, ALL_PROJECTS_ID } from '@/hooks/use-selected-project';
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Project } from "@shared/schema";
+import { 
+  DollarSign as UnifiedDollarSign, 
+  TrendingUp as UnifiedTrendingUp, 
+  TrendingDown as UnifiedTrendingDown, 
+  Calendar as UnifiedCalendar,
+  ArrowUpRight,
+  ArrowDownRight,
+  Building2 as UnifiedBuilding2,
+  FileText as UnifiedFileText,
+  AlertCircle as UnifiedAlertCircle
+} from "lucide-react";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 
-interface Project {
-  id: string;
-  name: string;
-}
 
 interface Transaction {
   id: string;
@@ -38,7 +50,7 @@ export default function ProjectTransactionsSimple() {
   });
 
   // جلب تحويلات العهدة العادية للمشروع
-  const { data: fundTransfers = [], isLoading: fundTransfersLoading, error: fundTransfersError } = useQuery({
+  const { data: fundTransfers = [], isLoading: fundTransfersLoading, error: fundTransfersError } = useQuery<any[]>({
     queryKey: ['/api/projects', selectedProject, 'fund-transfers'],
     queryFn: async () => {
       if (!selectedProject) return [];
@@ -58,7 +70,7 @@ export default function ProjectTransactionsSimple() {
   });
 
   // جلب التحويلات بين المشاريع (الواردة) - فقط إذا كانت موجودة فعلياً
-  const { data: incomingProjectTransfers = [], isLoading: incomingTransfersLoading, error: incomingTransfersError } = useQuery({
+  const { data: incomingProjectTransfers = [], isLoading: incomingTransfersLoading, error: incomingTransfersError } = useQuery<any[]>({
     queryKey: ['/api/projects', selectedProject, 'fund-transfers', 'incoming'],
     queryFn: async () => {
       if (!selectedProject) return [];
@@ -82,7 +94,6 @@ export default function ProjectTransactionsSimple() {
         const transfers = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
         console.log(`✅ تم جلب ${transfers.length} تحويل وارد فعلي`);
 
-        // تسجيل التحويلات للتشخيص
         if (transfers.length > 0) {
           console.log('🔍 التحويلات الواردة:', transfers.map(t => ({
             من: t.fromProjectName,
@@ -104,7 +115,7 @@ export default function ProjectTransactionsSimple() {
   });
 
   // جلب التحويلات بين المشاريع (الصادرة)
-  const { data: outgoingProjectTransfers = [], isLoading: outgoingTransfersLoading, error: outgoingTransfersError } = useQuery({
+  const { data: outgoingProjectTransfers = [], isLoading: outgoingTransfersLoading, error: outgoingTransfersError } = useQuery<any[]>({
     queryKey: ['/api/projects', selectedProject, 'fund-transfers', 'outgoing'],
     queryFn: async () => {
       if (!selectedProject) return [];
@@ -128,7 +139,6 @@ export default function ProjectTransactionsSimple() {
         const transfers = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
         console.log(`✅ تم جلب ${transfers.length} تحويل صادر فعلي`);
 
-        // تسجيل التحويلات للتشخيص
         if (transfers.length > 0) {
           console.log('🔍 التحويلات الصادرة:', transfers.map(t => ({
             من: t.fromProjectName,
@@ -150,7 +160,7 @@ export default function ProjectTransactionsSimple() {
   });
 
   // جلب حضور العمال للمشروع
-  const { data: workerAttendance = [], isLoading: attendanceLoading, error: attendanceError } = useQuery({
+  const { data: workerAttendance = [], isLoading: attendanceLoading, error: attendanceError } = useQuery<any[]>({
     queryKey: ['/api/projects', selectedProject, 'attendance'],
     queryFn: async () => {
       if (!selectedProject) return [];
@@ -184,7 +194,7 @@ export default function ProjectTransactionsSimple() {
   });
 
   // جلب مشتريات المواد للمشروع
-  const { data: materialPurchases = [], isLoading: materialsLoading, error: materialsError } = useQuery({
+  const { data: materialPurchases = [], isLoading: materialsLoading, error: materialsError } = useQuery<any[]>({
     queryKey: ['/api/projects', selectedProject, 'material-purchases'],
     queryFn: async () => {
       if (!selectedProject) return [];
@@ -218,19 +228,19 @@ export default function ProjectTransactionsSimple() {
   });
 
   // جلب مصروفات النقل للمشروع
-  const { data: transportExpenses = [] } = useQuery({
+  const { data: transportExpenses = [], isLoading: transportExpensesLoading } = useQuery<any[]>({
     queryKey: ['/api/projects', selectedProject, 'transportation-expenses'],
     enabled: !!selectedProject,
   });
 
   // جلب المصروفات المتنوعة للمشروع
-  const { data: miscExpenses = [] } = useQuery({
+  const { data: miscExpenses = [], isLoading: miscExpensesLoading } = useQuery<any[]>({
     queryKey: ['/api/projects', selectedProject, 'worker-misc-expenses'],
     enabled: !!selectedProject,
   });
 
   // جلب حوالات العمال للمشروع
-  const { data: workerTransfers = [], isLoading: workerTransfersLoading, error: workerTransfersError } = useQuery({
+  const { data: workerTransfers = [], isLoading: workerTransfersLoading, error: workerTransfersError } = useQuery<any[]>({
     queryKey: ['/api/projects', selectedProject, 'worker-transfers'],
     queryFn: async () => {
       if (!selectedProject) return [];
@@ -591,299 +601,226 @@ export default function ProjectTransactionsSimple() {
 
   const selectedProjectName = Array.isArray(projects) ? projects.find(p => p.id === selectedProject)?.name || '' : '';
 
+  // --- Unified Components Logic ---
+
+  const formatCurrencyUnified = (amount: number) => {
+    return new Intl.NumberFormat('ar-SA', {
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount) + ' ر.ي';
+  };
+
+  const getProjectNameUnified = () => {
+    return projects.find(p => p.id === selectedProject)?.name || 'المشروع';
+  };
+
+  // تكوين صفوف الإحصائيات
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          title: "إجمالي الدخل",
+          value: totals.totalIncome,
+          icon: UnifiedTrendingUp,
+          color: "green",
+          formatter: formatCurrencyUnified
+        },
+        {
+          title: "إجمالي المصروفات",
+          value: totals.totalExpenses,
+          icon: UnifiedTrendingDown,
+          color: "red",
+          formatter: formatCurrencyUnified
+        },
+        {
+          title: "الرصيد الصافي",
+          value: totals.balance,
+          icon: UnifiedDollarSign,
+          color: totals.balance >= 0 ? "green" : "red",
+          formatter: formatCurrencyUnified
+        }
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          title: "المشتريات الآجلة",
+          value: filteredTransactions.filter(t => t.type === 'deferred').reduce((sum, t) => sum + t.amount, 0),
+          icon: UnifiedAlertCircle,
+          color: "orange",
+          formatter: formatCurrencyUnified
+        },
+        {
+          title: "إجمالي العمليات",
+          value: transactions.length,
+          icon: UnifiedFileText,
+          color: "blue"
+        },
+        {
+          title: "النتائج المفلترة",
+          value: filteredTransactions.length,
+          icon: UnifiedCalendar,
+          color: "purple"
+        }
+      ]
+    }
+  ], [totals, transactions, filteredTransactions]);
+
+  // تكوين الفلاتر
+  const filterConfigs: FilterConfig[] = [
+    {
+      key: 'type',
+      label: 'نوع العملية',
+      type: 'select',
+      placeholder: 'جميع الأنواع',
+      options: [
+        { value: 'all', label: 'جميع الأنواع' },
+        { value: 'income', label: 'دخل' },
+        { value: 'expense', label: 'مصروف' },
+        { value: 'deferred', label: 'آجل' },
+        { value: 'transfer_from_project', label: 'تحويل من مشروع' }
+      ]
+    }
+  ];
+
+  const isLoading = fundTransfersLoading || incomingTransfersLoading || outgoingTransfersLoading || attendanceLoading || materialsLoading || workerTransfersLoading;
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 sm:p-4" dir="rtl">
-      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-1">
-        {/* اختيار المشروع والفلاتر - مضغوط */}
-        <Card className="shadow-sm">
-          <CardContent className="p-3 sm:p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* ملاحظة: يتم اختيار المشروع من الشريط العلوي */}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-2 py-3 md:px-6 md:py-6 w-full space-y-4 md:space-y-8 pb-24 md:pb-20">
+          {/* شريط الفلترة والإحصائيات الموحد */}
+          <UnifiedFilterDashboard
+            statsRows={statsRowsConfig}
+            searchValue={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchPlaceholder="ابحث في الوصف أو الفئة..."
+            showSearch={true}
+            filters={filterConfigs}
+            filterValues={{ type: filterType }}
+            onFilterChange={(key, value) => setFilterType(value)}
+            onReset={() => {
+              setSearchTerm('');
+              setFilterType('all');
+            }}
+            projectName={getProjectNameUnified()}
+            projectOptions={projects.map(p => ({ value: p.id, label: p.name }))}
+            selectedProjectId={selectedProject}
+            onProjectChange={(projectId) => {
+              // This part might need adjustment based on how useSelectedProject is intended to be controlled externally
+              // For now, we assume selectedProjectId is managed by the hook.
+              console.log("Project changed to:", projectId);
+            }}
+            isAllProjectsSelected={isAllProjects}
+          />
 
-              {/* نوع العملية */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">نوع العملية</label>
-                <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">جميع العمليات</SelectItem>
-                    <SelectItem value="income">الدخل فقط</SelectItem>
-                    <SelectItem value="transfer_from_project">التحويلات من المشاريع</SelectItem>
-                    <SelectItem value="expense">المصاريف فقط</SelectItem>
-                    <SelectItem value="deferred">المشتريات الآجلة</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* البحث */}
-              <div className="sm:col-span-2 lg:col-span-1">
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">البحث</label>
-                <div className="relative">
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3 w-3" />
-                  <Input
-                    placeholder="ابحث في الوصف..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pr-8 h-9 text-sm"
-                  />
+          {/* رسالة عند اختيار جميع المشاريع */}
+          {isAllProjects && (
+            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+              <CardContent className="p-4 text-center">
+                <div className="text-blue-800 dark:text-blue-200">
+                  <h3 className="font-semibold mb-2">📊 جميع المشاريع</h3>
+                  <p className="text-sm">يرجى اختيار مشروع محدد لعرض سجل العمليات المالية.</p>
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* رسالة عند اختيار جميع المشاريع */}
-        {isAllProjects && (
-          <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
-            <CardContent className="p-4 text-center">
-              <div className="text-blue-800 dark:text-blue-200">
-                <h3 className="font-semibold mb-2">📊 جميع المشاريع</h3>
-                <p className="text-sm">يرجى اختيار مشروع محدد من الشريط العلوي لعرض سجل العمليات المالية.</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {selectedProject && !isAllProjects && (
-          <>
-            {/* عرض الأخطاء إن وجدت */}
-            {(fundTransfersError || attendanceError || materialsError || workerTransfersError || incomingTransfersError || outgoingTransfersError) && (
-              <Card className="bg-red-50 border-red-200">
-                <CardContent className="p-4">
-                  <div className="text-red-800">
-                    <h3 className="font-semibold">⚠️ تحذيرات في جلب البيانات:</h3>
-                    {fundTransfersError && <p>• خطأ في جلب تحويلات العهدة</p>}
-                    {attendanceError && <p>• خطأ في جلب حضور العمال</p>}
-                    {materialsError && <p>• خطأ في جلب مشتريات المواد</p>}
-                    {workerTransfersError && <p>• خطأ في جلب حوالات العمال</p>}
-                    {incomingTransfersError && <p>• خطأ في جلب التحويلات الواردة</p>}
-                    {outgoingTransfersError && <p>• خطأ في جلب التحويلات الصادرة</p>}
-                    <p className="text-sm mt-2 text-red-600">يرجى التحقق من اتصالك بالإنترنت أو تسجيل الدخول مرة أخرى.</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* مؤشر التحميل */}
-            {(fundTransfersLoading || attendanceLoading || materialsLoading || workerTransfersLoading || incomingTransfersLoading || outgoingTransfersLoading) && (
-              <Card className="bg-blue-50 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3 text-blue-800">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
-                    <span>جاري تحميل البيانات المالية...</span>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* الإحصائيات باستخدام StatsGrid */}
-            <StatsGrid 
-              stats={[
-                {
-                  title: "الدخل المباشر",
-                  value: formatCurrency(totals.income || 0),
-                  icon: TrendingUp,
-                  color: "green",
-                },
-                {
-                  title: "من مشاريع أخرى",
-                  value: formatCurrency(totals.transferFromProject || 0),
-                  icon: Building,
-                  color: "teal",
-                },
-                {
-                  title: "إجمالي المصاريف",
-                  value: formatCurrency(totals.totalExpenses || 0),
-                  icon: TrendingDown,
-                  color: "red",
-                },
-                {
-                  title: "الرصيد النهائي",
-                  value: formatCurrency(totals.balance || 0),
-                  icon: DollarSign,
-                  color: totals.balance >= 0 ? "blue" : "orange",
-                }
-              ]} 
-              columns={4}
-            />
-
-            {/* إحصائية المشتريات الآجلة منفصلة */}
-            <StatsGrid 
-              stats={[
-                {
-                  title: "المشتريات الآجلة",
-                  value: `${formatCurrency(0 || 0)} (لا تُحسب في الرصيد)`,
-                  icon: Clock,
-                  color: "amber",
-                }
-              ]} 
-              columns={2}
-            />
-
-            {/* جدول العمليات */}
-            <Card className="shadow-sm">
-              <CardHeader className="p-3 sm:p-4 sm:pb-3">
-                <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                  <span className="text-base sm:text-lg font-semibold truncate">سجل العمليات {selectedProjectName && `- ${selectedProjectName}`}</span>
-                  <Badge variant="outline" className="text-xs px-2 py-1">
-                    {filteredTransactions.length} عملية
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {filteredTransactions.length === 0 ? (
-                  <div className="text-center py-6 sm:py-8 px-4">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 sm:p-6 border border-blue-200 dark:border-blue-800">
-                      <Building className="h-10 w-10 sm:h-12 sm:w-12 text-blue-400 mx-auto sm:mb-4" />
-                      <h3 className="text-base sm:text-lg font-semibold text-blue-800 dark:text-blue-300">
-                        لا توجد عمليات مالية
-                      </h3>
-                      <p className="text-sm sm:text-base text-blue-600 dark:text-blue-400 sm:mb-4">
-                        {selectedProject ? 
-                          'هذا المشروع لا يحتوي على عمليات مالية مسجلة بعد' : 
-                          'يرجى اختيار مشروع لعرض العمليات المالية الخاصة به'
-                        }
-                      </p>
-                      <div className="text-xs sm:text-sm text-blue-500 dark:text-blue-400">
-                        💡 نصيحة: تأكد من إدخال البيانات التالية للمشروع:
-                        <ul className="list-disc list-inside mt-2 space-y-1">
-                          <li>تحويلات العهدة</li>
-                          <li>أجور العمال</li>
-                          <li>مشتريات المواد</li>
-                          <li>مصروفات النقل</li>
-                          <li>المصروفات المتنوعة</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="sm:hidden space-y-2 p-3">
-                      {/* عرض بطاقات للهواتف */}
-                      {filteredTransactions.map((transaction, index) => (
-                        <Card key={transaction.id} className="bg-white dark:bg-gray-800 shadow-sm border">
-                          <CardContent className="p-3">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <Badge 
-                                    variant={
-                                      transaction.type === 'income' ? 'default' : 
-                                      transaction.type === 'transfer_from_project' ? 'secondary' : 
-                                      transaction.type === 'deferred' ? 'outline' : 'destructive'
-                                    } 
-                                    className={`text-xs px-2 py-0.5 flex-shrink-0 ${
-                                      transaction.type === 'income' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                                      transaction.type === 'transfer_from_project' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300' :
-                                      transaction.type === 'deferred' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
-                                      'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-                                    }`}
-                                  >
-                                    {transaction.type === 'income' ? 'دخل' : 
-                                     transaction.type === 'transfer_from_project' ? 'تحويل' : 
-                                     transaction.type === 'deferred' ? 'آجل' : 'مصروف'}
-                                  </Badge>
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                                    {format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ar })}
-                                  </span>
-                                </div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-300 truncate">
-                                  {transaction.category}
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                                  {transaction.description}
-                                </p>
-                              </div>
-                              <div className="text-left flex-shrink-0 ml-2">
-                                <p className={`text-sm font-bold ${
-                                  transaction.type === 'income' || transaction.type === 'transfer_from_project' 
-                                    ? 'text-green-600 dark:text-green-400' 
-                                    : transaction.type === 'deferred' 
-                                    ? 'text-yellow-600 dark:text-yellow-400'
-                                    : 'text-red-600 dark:text-red-400'
-                                }`}>
-                                  {formatCurrency(transaction.amount)}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-
-                    <div className="hidden sm:block overflow-x-auto">
-                      {/* جدول للأجهزة الأكبر */}
-                      <table className="w-full table-auto">
-                        <thead>
-                          <tr className="border-b bg-gray-50 dark:bg-gray-800">
-                            <th className="text-right py-2 px-3 text-sm font-medium">التاريخ</th>
-                            <th className="text-right py-2 px-3 text-sm font-medium">النوع</th>
-                            <th className="text-right py-2 px-3 text-sm font-medium">الفئة</th>
-                            <th className="text-right py-2 px-3 text-sm font-medium">المبلغ</th>
-                            <th className="text-right py-2 px-3 text-sm font-medium">الوصف</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                        {filteredTransactions.map((transaction, index) => (
-                          <tr key={transaction.id} className={`border-b ${index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'} hover:bg-gray-100 dark:hover:bg-gray-700`}>
-                            <td className="py-3 px-4 text-sm">
-                              {format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ar })}
-                            </td>
-                            <td className="py-3 px-4">
-                              <Badge variant={
-                                transaction.type === 'income' ? 'default' : 
-                                transaction.type === 'transfer_from_project' ? 'secondary' : 
-                                transaction.type === 'deferred' ? 'outline' : 'destructive'
-                              } className={
-                                transaction.type === 'deferred' ? 'border-yellow-500 text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' : 
-                                transaction.type === 'transfer_from_project' ? 'border-cyan-500 text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20' : ''
-                              }>
-                                {transaction.type === 'income' ? 'دخل' : 
-                                 transaction.type === 'transfer_from_project' ? 'تحويل مشروع' :
-                                 transaction.type === 'deferred' ? 'آجل' : 'مصروف'}
-                              </Badge>
-                            </td>
-                            <td className="py-3 px-4 text-sm font-medium">
-                              {transaction.category}
-                            </td>
-                            <td className={`py-3 px-4 text-sm font-bold ${
-                              transaction.type === 'income' ? 'text-green-600' : 
-                              transaction.type === 'transfer_from_project' ? 'text-cyan-600' :
-                              transaction.type === 'deferred' ? 'text-yellow-600' : 'text-red-600'
-                            }`}>
-                              {transaction.type === 'income' || transaction.type === 'transfer_from_project' ? '+' : 
-                               transaction.type === 'deferred' ? '' : '-'}{formatCurrency(transaction.amount || 0).replace(' ر.ي', '')} ر.ي
-                            </td>
-                            <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                              {transaction.category === 'أجور العمال' ? (
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-medium text-gray-900 dark:text-gray-100">
-                                    {transaction.description.split(' - أجر يومي:')[0]}
-                                  </span>
-                                  {transaction.description.includes(' - أجر يومي:') && (
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                                      {transaction.description.split(' - أجر يومي:')[1] ? 
-                                        `أجر يومي: ${transaction.description.split(' - أجر يومي:')[1]}` : ''}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                transaction.description
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
               </CardContent>
             </Card>
-          </>
-        )}
+          )}
+
+          {/* عرض الأخطاء إن وجدت */}
+          {(fundTransfersError || attendanceError || materialsError || workerTransfersError || incomingTransfersError || outgoingTransfersError) && (
+            <Card className="bg-red-50 border-red-200">
+              <CardContent className="p-4">
+                <div className="text-red-800">
+                  <h3 className="font-semibold">⚠️ تحذيرات في جلب البيانات:</h3>
+                  {fundTransfersError && <p>• خطأ في جلب تحويلات العهدة</p>}
+                  {attendanceError && <p>• خطأ في جلب حضور العمال</p>}
+                  {materialsError && <p>• خطأ في جلب مشتريات المواد</p>}
+                  {workerTransfersError && <p>• خطأ في جلب حوالات العمال</p>}
+                  {incomingTransfersError && <p>• خطأ في جلب التحويلات الواردة</p>}
+                  {outgoingTransfersError && <p>• خطأ في جلب التحويلات الصادرة</p>}
+                  <p className="text-sm mt-2 text-red-600">يرجى التحقق من اتصالك بالإنترنت أو تسجيل الدخول مرة أخرى.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* قائمة العمليات */}
+          <div className="space-y-4 md:space-y-6">
+            {isLoading ? (
+              <div className="space-y-4 md:space-y-6">
+                {[1, 2, 3].map(i => (
+                  <Card key={i} className="bg-white dark:bg-slate-900">
+                    <CardContent className="p-4 md:p-6">
+                      <Skeleton className="h-20 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : filteredTransactions.length === 0 ? (
+              <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
+                <CardContent className="p-12">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <UnifiedFileText className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">لا توجد عمليات</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">لا توجد عمليات مالية لهذا المشروع</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <UnifiedCardGrid columns={2}>
+                {filteredTransactions.map(transaction => {
+                  const isIncome = transaction.type === 'income' || transaction.type === 'transfer_from_project';
+                  const isDeferred = transaction.type === 'deferred';
+
+                  return (
+                    <UnifiedCard
+                      key={transaction.id}
+                      title={formatCurrencyUnified(transaction.amount)}
+                      titleIcon={isIncome ? ArrowUpRight : ArrowDownRight}
+                      headerColor={isIncome ? "#10b981" : isDeferred ? "#f59e0b" : "#ef4444"}
+                      badges={[
+                        { 
+                          label: format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ar }), 
+                          variant: 'outline' as const 
+                        },
+                        { 
+                          label: transaction.category,
+                          variant: isIncome ? 'default' : isDeferred ? 'warning' : 'destructive'
+                        }
+                      ]}
+                      fields={[
+                        {
+                          label: "النوع",
+                          value: isIncome ? 'دخل' : isDeferred ? 'آجل' : 'مصروف',
+                          icon: isIncome ? UnifiedTrendingUp : UnifiedTrendingDown,
+                          color: isIncome ? "success" : isDeferred ? "warning" : "danger"
+                        },
+                        {
+                          label: "التفاصيل",
+                          value: transaction.description,
+                          icon: UnifiedFileText,
+                          color: "default"
+                        },
+                        {
+                          label: "التاريخ",
+                          value: format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ar }),
+                          icon: UnifiedCalendar,
+                          color: "info"
+                        }
+                      ]}
+                      compact
+                    />
+                  );
+                })}
+              </UnifiedCardGrid>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

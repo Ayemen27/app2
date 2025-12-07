@@ -11,12 +11,12 @@ import {
   projects
 } from '../../../shared/schema.js';
 import { desc, eq, and, sql } from 'drizzle-orm';
-import { authenticateToken } from '../../middleware/auth.js';
+import { authenticate } from '../../middleware/auth.js';
 
 const router = express.Router();
 
 // جلب آخر الإجراءات
-router.get('/recent-activities', authenticateToken, async (req, res) => {
+router.get('/recent-activities', authenticate, async (req, res) => {
   console.log('🔍 [API] تم استقبال طلب: GET /api/recent-activities');
   try {
     const { projectId } = req.query;

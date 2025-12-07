@@ -475,6 +475,7 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
  * GET /api/auth/users
  */
 authRouter.get('/users', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  console.log('🔍 [AUTH/users] تم استقبال طلب جلب المستخدمين');
   try {
     console.log('👥 [AUTH/users] طلب جلب المستخدمين من:', req.user?.email);
     console.log('🔍 [AUTH/users] معاملات البحث:', { search: req.query.search, role: req.query.role, status: req.query.status, verified: req.query.verified });
@@ -623,5 +624,18 @@ authRouter.post('/users/:userId/toggle-status', requireAuth, async (req: Authent
 // ملاحظة: تم حذف endpoint /me من هنا لتجنب التضارب مع النسخة المحمية في routes/auth.ts
 
 console.log('🔐 [AuthRouter] تم تهيئة مسارات المصادقة');
+console.log('📋 [AuthRouter] المسارات المُسجلة:');
+console.log('  - POST /login');
+console.log('  - POST /register');
+console.log('  - POST /logout');
+console.log('  - POST /refresh');
+console.log('  - GET /verify-email');
+console.log('  - POST /verify-email');
+console.log('  - POST /resend-verification');
+console.log('  - GET /users');
+console.log('  - PUT /users/:userId');
+console.log('  - DELETE /users/:userId');
+console.log('  - POST /users/:userId/toggle-status');
 
+export { authRouter };
 export default authRouter;

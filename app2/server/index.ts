@@ -202,7 +202,9 @@ app.get("/api/health", (req: Request, res: Response) => {
 });
 
 // Use auth routes
+console.log('🔗 [Server] تسجيل مسارات المصادقة على /api/auth');
 app.use("/api/auth", authRoutes);
+console.log('✅ [Server] تم تسجيل مسارات المصادقة');
 
 // Use permissions routes
 app.use("/api/permissions", permissionsRouter);

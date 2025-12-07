@@ -111,13 +111,11 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
           <Label htmlFor="project-name" className="text-sm font-medium text-foreground">
             اسم المشروع
           </Label>
-          <Input
-            id="project-name"
-            type="text"
+          <AutocompleteInput
+            category="projectNames"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={setName}
             placeholder="أدخل اسم المشروع..."
-            required
           />
         </div>
 

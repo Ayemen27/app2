@@ -1436,7 +1436,7 @@ function DailyExpensesContent() {
 
       {/* بطاقات ملخص المصروفات - عرض بطاقة لكل تاريخ (سواء اختيار جميع المشاريع أو مشروع محدد) */}
       {dailyExpensesData?.groupedByProjectDate && dailyExpensesData.groupedByProjectDate.length > 0 ? (
-        <UnifiedCardGrid columns={1}>
+        <div className="space-y-4">
           {dailyExpensesData.groupedByProjectDate.map((cardData: any, index: number) => (
             <UnifiedCard
               key={`${cardData.projectId}-${cardData.date}-${index}`}
@@ -1504,10 +1504,9 @@ function DailyExpensesContent() {
                   emphasis: true
                 },
               ]}
-              compact
             />
           ))}
-        </UnifiedCardGrid>
+        </div>
       ) : selectedProjectId && selectedDate && (
         <UnifiedCard
           title={projects?.find(p => p.id === selectedProjectId)?.name || "المشروع"}
@@ -1574,7 +1573,6 @@ function DailyExpensesContent() {
               emphasis: true
             },
           ]}
-          compact
         />
       )}
 

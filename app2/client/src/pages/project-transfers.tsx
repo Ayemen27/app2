@@ -13,7 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertProjectFundTransferSchema } from "@shared/schema";
 import type { InsertProjectFundTransfer, ProjectFundTransfer, Project } from "@shared/schema";
-import { ArrowRightLeft, ArrowRight, Calendar, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, MoreVertical, Plus, ChevronRight, RefreshCw, Download, Upload, Settings, BarChart3, ListChecks } from "lucide-react";
+import { ArrowRightLeft, ArrowRight, Calendar, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, MoreVertical, Plus, ChevronRight, RefreshCw, Download, Upload, Settings, BarChart3, ListChecks, Building2, FileText } from "lucide-react";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -377,59 +378,60 @@ export default function ProjectTransfers() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-4 md:space-y-6">
+                <UnifiedCardGrid columns={2}>
                   {filteredTransfers.map(transfer => (
-                    <Card key={transfer.id} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl transition-all">
-                      <CardContent className="p-4 md:p-6">
-                        <div className="flex items-start gap-4">
-                          <div className="flex-shrink-0">
-                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
-                              <DollarSign className="h-6 w-6 md:h-7 md:w-7 text-white" />
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="text-base md:text-lg font-bold text-slate-900 dark:text-white">
-                                {formatCurrency(parseFloat(transfer.amount))}
-                              </p>
-                              <Badge variant="outline" className="text-xs">
-                                {new Date(transfer.transferDate).toLocaleDateString('en-GB')}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400 mb-1">
-                              <span>{getProjectName(transfer.fromProjectId)}</span>
-                              <ArrowRight className="h-4 w-4" />
-                              <span>{getProjectName(transfer.toProjectId)}</span>
-                            </div>
-                            {transfer.transferReason && (
-                              <p className="text-xs text-slate-500 dark:text-slate-400">
-                                <span className="font-medium">السبب:</span> {transfer.transferReason}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex gap-2 flex-shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => startEdit(transfer)}
-                              className="h-8 w-8 p-0 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteTransferMutation.mutate(transfer.id)}
-                              className="h-8 w-8 p-0 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <UnifiedCard
+                      key={transfer.id}
+                      title={formatCurrency(parseFloat(transfer.amount))}
+                      titleIcon={DollarSign}
+                      headerColor="#f59e0b"
+                      badges={[
+                        { label: new Date(transfer.transferDate).toLocaleDateString('en-GB'), variant: 'outline' as const }
+                      ]}
+                      fields={[
+                        {
+                          label: "من",
+                          value: getProjectName(transfer.fromProjectId),
+                          icon: Building2,
+                          color: "danger"
+                        },
+                        {
+                          label: "إلى",
+                          value: getProjectName(transfer.toProjectId),
+                          icon: Building2,
+                          color: "success"
+                        },
+                        {
+                          label: "السبب",
+                          value: transfer.transferReason || "غير محدد",
+                          icon: FileText,
+                          color: "default"
+                        },
+                        {
+                          label: "التاريخ",
+                          value: new Date(transfer.transferDate).toLocaleDateString('ar-SA'),
+                          icon: Calendar,
+                          color: "info"
+                        }
+                      ]}
+                      actions={[
+                        {
+                          icon: Edit,
+                          label: "تعديل",
+                          onClick: () => startEdit(transfer),
+                          color: "blue"
+                        },
+                        {
+                          icon: Trash2,
+                          label: "حذف",
+                          onClick: () => deleteTransferMutation.mutate(transfer.id),
+                          color: "red"
+                        }
+                      ]}
+                      compact
+                    />
                   ))}
-                </div>
+                </UnifiedCardGrid>
               )}
           </div>
         </div>

@@ -504,7 +504,7 @@ export default function ProjectTransactionsSimple() {
           id: `transport-${expense.id}`,
           date: date,
           type: 'expense',
-          category: 'مصروفات النقل',
+          category: 'مواصلات',
           amount: amount,
           description: `نقل: ${expense.description || 'غير محدد'}`,
           projectId: expense.projectId,
@@ -525,7 +525,7 @@ export default function ProjectTransactionsSimple() {
           id: `misc-${expense.id}`,
           date: date,
           type: 'expense',
-          category: 'مصروفات متنوعة',
+          category: 'نثريات',
           amount: amount,
           description: `متنوع: ${expense.description || expense.workerName || 'غير محدد'}`,
           projectId: expense.projectId,
@@ -575,8 +575,8 @@ export default function ProjectTransactionsSimple() {
       حوالات_عمال: finalTransactions.filter(t => t.category === 'حوالات العمال').length,
       مشتريات_مواد: finalTransactions.filter(t => t.category === 'مشتريات المواد').length,
       مشتريات_آجلة: finalTransactions.filter(t => t.type === 'deferred').length,
-      مصروفات_نقل: finalTransactions.filter(t => t.category === 'مصروفات النقل').length,
-      مصروفات_متنوعة: finalTransactions.filter(t => t.category === 'مصروفات متنوعة').length,
+      مواصلات: finalTransactions.filter(t => t.category === 'مواصلات').length,
+      نثريات: finalTransactions.filter(t => t.category === 'نثريات').length,
       إجمالي: finalTransactions.length
     });
 
@@ -872,12 +872,6 @@ export default function ProjectTransactionsSimple() {
                           icon: UnifiedDollarSign,
                           color: isIncome ? "success" : isDeferred ? "warning" : "danger",
                           emphasis: true
-                        },
-                        {
-                          label: "التاريخ",
-                          value: format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ar }),
-                          icon: UnifiedCalendar,
-                          color: "muted"
                         },
                         {
                           label: "التفاصيل",

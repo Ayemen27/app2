@@ -318,16 +318,12 @@ export default function ProjectTransactionsSimple() {
       workerAttendance: workerAttendanceArray?.length || 0,
       materialPurchases: materialPurchasesArray?.length || 0,
       transportExpenses: transportExpensesArray?.length || 0,
-      miscExpenses: miscExpensesArray?.length || 0
+      miscExpenses: miscExpensesArray?.length || 0,
+      workerTransfers: workerTransfersArray?.length || 0
     });
 
-    // ✅ عرض جميع العمليات دائماً (حتى للمشاريع الفردية أو جميع المشاريع)
-    const totalOperations = fundTransfersArray.length + incomingProjectTransfersArray.length + 
-                           outgoingProjectTransfersArray.length + workerAttendanceArray.length + 
-                           materialPurchasesArray.length + transportExpensesArray.length + 
-                           miscExpensesArray.length;
-
-    // إضافة تحويلات العهدة العادية (دخل)
+    // ✅ إضافة تحويلات العهدة العادية (دخل)
+    console.log('💰 إضافة تحويلات العهدة:', fundTransfersArray.length);
     fundTransfersArray.forEach((transfer: any) => {
       const date = transfer.transferDate;
       const amount = parseFloat(transfer.amount);
@@ -390,11 +386,8 @@ export default function ProjectTransactionsSimple() {
       console.log(`📤 لا توجد تحويلات صادرة للمشروع ${selectedProject}`);
     }
 
-    // إضافة أجور العمال (مصروف)
-    console.log('🔍 معالجة أجور العمال - العدد:', workerAttendanceArray.length);
-    if (workerAttendanceArray.length > 0) {
-      console.log('🔍 أول عنصر من بيانات أجور العمال:', JSON.stringify(workerAttendanceArray[0], null, 2));
-    }
+    // ✅ إضافة أجور العمال (مصروف)
+    console.log('👷 إضافة أجور العمال:', workerAttendanceArray.length);
 
     workerAttendanceArray.forEach((attendance: any, index: number) => {
       console.log('🔍 معالجة العامل رقم ${index + 1}:', attendance);
@@ -456,7 +449,8 @@ export default function ProjectTransactionsSimple() {
       }
     });
 
-    // إضافة مشتريات المواد (مصروف أو آجل)
+    // ✅ إضافة مشتريات المواد (مصروف أو آجل)
+    console.log('🛒 إضافة مشتريات المواد:', materialPurchasesArray.length);
     materialPurchasesArray.forEach((purchase: any) => {
       const date = purchase.purchaseDate || purchase.date;
       let amount = 0;
@@ -484,7 +478,8 @@ export default function ProjectTransactionsSimple() {
       }
     });
 
-    // إضافة مصروفات النقل (مصروف)
+    // ✅ إضافة مصروفات النقل (مصروف)
+    console.log('🚚 إضافة مصروفات النقل:', transportExpensesArray.length);
     transportExpensesArray.forEach((expense: any) => {
       const date = expense.date;
       const amount = parseFloat(expense.amount);
@@ -501,7 +496,8 @@ export default function ProjectTransactionsSimple() {
       }
     });
 
-    // إضافة المصروفات المتنوعة (مصروف)
+    // ✅ إضافة المصروفات المتنوعة (مصروف)
+    console.log('💸 إضافة المصروفات المتنوعة:', miscExpensesArray.length);
     miscExpensesArray.forEach((expense: any) => {
       const date = expense.date;
       const amount = parseFloat(expense.amount);
@@ -518,7 +514,8 @@ export default function ProjectTransactionsSimple() {
       }
     });
 
-    // إضافة حوالات العمال (مصروف)
+    // ✅ إضافة حوالات العمال (مصروف)
+    console.log('💵 إضافة حوالات العمال:', workerTransfersArray.length);
     workerTransfersArray.forEach((transfer: any) => {
       const date = transfer.date || transfer.transferDate;
       const amount = parseFloat(transfer.amount);
@@ -548,18 +545,21 @@ export default function ProjectTransactionsSimple() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     console.log(`✅ معاملات نهائية: ${finalTransactions.length} من أصل ${allTransactions.length}`);
-    console.log('🔍 تفاصيل المعاملات النهائية:', {
-      income: finalTransactions.filter(t => t.type === 'income').length,
-      transfer_from_project: finalTransactions.filter(t => t.type === 'transfer_from_project').length,
-      expense: finalTransactions.filter(t => t.type === 'expense').length,
-      deferred: finalTransactions.filter(t => t.type === 'deferred').length,
-      workerWages: finalTransactions.filter(t => t.category === 'أجور العمال').length,
-      workerTransfers: finalTransactions.filter(t => t.category === 'حوالات العمال').length,
-      outgoingTransfers: finalTransactions.filter(t => t.category === 'تحويل إلى مشروع آخر').length
+    console.log('📊 تفاصيل المعاملات النهائية:', {
+      تحويلات_عهدة: finalTransactions.filter(t => t.category === 'تحويل عهدة').length,
+      ترحيلات_واردة: finalTransactions.filter(t => t.type === 'transfer_from_project').length,
+      ترحيلات_صادرة: finalTransactions.filter(t => t.category === '🔄 ترحيل صادر إلى مشروع').length,
+      أجور_عمال: finalTransactions.filter(t => t.category === 'أجور العمال').length,
+      حوالات_عمال: finalTransactions.filter(t => t.category === 'حوالات العمال').length,
+      مشتريات_مواد: finalTransactions.filter(t => t.category === 'مشتريات المواد').length,
+      مشتريات_آجلة: finalTransactions.filter(t => t.type === 'deferred').length,
+      مصروفات_نقل: finalTransactions.filter(t => t.category === 'مصروفات النقل').length,
+      مصروفات_متنوعة: finalTransactions.filter(t => t.category === 'مصروفات متنوعة').length,
+      إجمالي: finalTransactions.length
     });
 
     return finalTransactions;
-  }, [isAllProjects, fundTransfers, incomingProjectTransfers, outgoingProjectTransfers, workerAttendance, materialPurchases, transportExpenses, miscExpenses, workerTransfers, workers]);
+  }, [selectedProject, isAllProjects, fundTransfers, incomingProjectTransfers, outgoingProjectTransfers, workerAttendance, materialPurchases, transportExpenses, miscExpenses, workerTransfers, workers]);
 
   // تطبيق الفلاتر
   const filteredTransactions = useMemo(() => {

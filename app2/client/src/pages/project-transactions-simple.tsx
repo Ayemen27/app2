@@ -115,7 +115,7 @@ export default function ProjectTransactionsSimple() {
         return [];
       }
     },
-    enabled: !!selectedProject,
+    enabled: true, // Always enabled, logic inside handles empty selection
     retry: 1,
     staleTime: 30000,
   });
@@ -162,18 +162,17 @@ export default function ProjectTransactionsSimple() {
         return [];
       }
     },
-    enabled: !!selectedProject,
+    enabled: true, // Always enabled, logic inside handles empty selection
     retry: 1,
     staleTime: 30000,
   });
 
   // جلب حضور العمال للمشروع
   const { data: workerAttendance = [], isLoading: attendanceLoading, error: attendanceError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'attendance'],
+    queryKey: ['/api/projects', selectedProject, 'attendance', isAllProjects],
     queryFn: async () => {
-      if (!selectedProject) return [];
       try {
-        console.log(`🔄 جلب حضور العمال للمشروع: ${selectedProject}`);
+        console.log(`🔄 جلب حضور العمال للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
         const endpoint = isAllProjects
           ? '/api/projects/all/worker-attendance'
           : `/api/projects/${selectedProject}/worker-attendance`;
@@ -199,18 +198,17 @@ export default function ProjectTransactionsSimple() {
         return [];
       }
     },
-    enabled: !!selectedProject,
+    enabled: true, // Always enabled, logic inside handles empty selection
     retry: 1,
     staleTime: 30000,
   });
 
   // جلب مشتريات المواد للمشروع
   const { data: materialPurchases = [], isLoading: materialsLoading, error: materialsError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'material-purchases'],
+    queryKey: ['/api/projects', selectedProject, 'material-purchases', isAllProjects],
     queryFn: async () => {
-      if (!selectedProject) return [];
       try {
-        console.log(`🔄 جلب مشتريات المواد للمشروع: ${selectedProject}`);
+        console.log(`🔄 جلب مشتريات المواد للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
         const endpoint = isAllProjects
           ? '/api/projects/all/material-purchases'
           : `/api/projects/${selectedProject}/material-purchases`;
@@ -236,30 +234,55 @@ export default function ProjectTransactionsSimple() {
         return [];
       }
     },
-    enabled: !!selectedProject,
+    enabled: true, // Always enabled, logic inside handles empty selection
     retry: 1,
     staleTime: 30000,
   });
 
-  // جلب مصروفات النقل للمشروع
+  // جلب مصاريف النقل للمشروع
   const { data: transportExpenses = [], isLoading: transportExpensesLoading } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'transportation-expenses'],
-    enabled: !!selectedProject,
+    queryKey: ['/api/transportation-expenses', isAllProjects, selectedProject],
+    queryFn: async () => {
+      try {
+        console.log(`🔄 جلب مصاريف النقل - جميع المشاريع: ${isAllProjects}, المشروع: ${selectedProject}`);
+        const data = await apiRequest('/api/transportation-expenses');
+        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} مصروف نقل`);
+        return Array.isArray(data?.data) ? data.data : [];
+      } catch (error) {
+        console.error('❌ خطأ في جلب مصاريف النقل:', error);
+        return [];
+      }
+    },
+    enabled: true,
+    retry: 1,
+    staleTime: 30000,
   });
 
-  // جلب المصروفات المتنوعة للمشروع
+  // جلب المصاريف المتنوعة للمشروع
   const { data: miscExpenses = [], isLoading: miscExpensesLoading } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'worker-misc-expenses'],
-    enabled: !!selectedProject,
+    queryKey: ['/api/worker-misc-expenses', isAllProjects, selectedProject],
+    queryFn: async () => {
+      try {
+        console.log(`🔄 جلب المصاريف المتنوعة - جميع المشاريع: ${isAllProjects}, المشروع: ${selectedProject}`);
+        const data = await apiRequest('/api/worker-misc-expenses');
+        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} مصروف متنوع`);
+        return Array.isArray(data?.data) ? data.data : [];
+      } catch (error) {
+        console.error('❌ خطأ في جلب المصاريف المتنوعة:', error);
+        return [];
+      }
+    },
+    enabled: true,
+    retry: 1,
+    staleTime: 30000,
   });
 
   // جلب حوالات العمال للمشروع
   const { data: workerTransfers = [], isLoading: workerTransfersLoading, error: workerTransfersError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'worker-transfers'],
+    queryKey: ['/api/projects', selectedProject, 'worker-transfers', isAllProjects],
     queryFn: async () => {
-      if (!selectedProject) return [];
       try {
-        console.log(`🔄 جلب حوالات العمال للمشروع: ${selectedProject}`);
+        console.log(`🔄 جلب حوالات العمال للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
         const endpoint = isAllProjects
           ? '/api/projects/all/worker-transfers'
           : `/api/projects/${selectedProject}/worker-transfers`;
@@ -285,7 +308,7 @@ export default function ProjectTransactionsSimple() {
         return [];
       }
     },
-    enabled: !!selectedProject,
+    enabled: true, // Always enabled, logic inside handles empty selection
     retry: 1,
     staleTime: 30000,
   });
@@ -294,6 +317,15 @@ export default function ProjectTransactionsSimple() {
   const { data: workers = [] } = useQuery({
     queryKey: ['/api/workers'],
   });
+
+  // Helper function to filter by project
+  const filterByProject = (item: any) => {
+    if (isAllProjects) {
+      return true; // Show all if 'all projects' is selected
+    }
+    // Assuming items have a 'projectId' or similar field, adjust if structure differs
+    return item.projectId === selectedProject;
+  };
 
   // تحويل البيانات إلى قائمة معاملات موحدة
   const transactions = useMemo(() => {
@@ -478,9 +510,10 @@ export default function ProjectTransactionsSimple() {
       }
     });
 
-    // ✅ إضافة مصروفات النقل (مصروف)
-    console.log('🚚 إضافة مصروفات النقل:', transportExpensesArray.length);
-    transportExpensesArray.forEach((expense: any) => {
+    // ✅ إضافة مصاريف النقل (مصروف)
+    const filteredTransportExpenses = transportExpensesArray.filter(filterByProject);
+    console.log('🚚 إضافة مصاريف النقل:', filteredTransportExpenses.length);
+    filteredTransportExpenses.forEach((expense: any) => {
       const date = expense.date;
       const amount = parseFloat(expense.amount);
 
@@ -496,9 +529,10 @@ export default function ProjectTransactionsSimple() {
       }
     });
 
-    // ✅ إضافة المصروفات المتنوعة (مصروف)
-    console.log('💸 إضافة المصروفات المتنوعة:', miscExpensesArray.length);
-    miscExpensesArray.forEach((expense: any) => {
+    // ✅ إضافة المصاريف المتنوعة (مصروف)
+    const filteredMiscExpenses = miscExpensesArray.filter(filterByProject);
+    console.log('💸 إضافة المصاريف المتنوعة:', filteredMiscExpenses.length);
+    filteredMiscExpenses.forEach((expense: any) => {
       const date = expense.date;
       const amount = parseFloat(expense.amount);
 
@@ -601,8 +635,8 @@ export default function ProjectTransactionsSimple() {
     const expenses = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (t.amount || 0), 0);
 
     // التحويلات الصادرة إلى مشاريع أخرى تُحسب كمصروفات
-    const transferToProjectExpenses = filteredTransactions.filter(t => t.category === 'تحويل إلى مشروع آخر').reduce((sum, t) => sum + (t.amount || 0), 0);
-    
+    const transferToProjectExpenses = filteredTransactions.filter(t => t.category === '🔄 ترحيل صادر إلى مشروع').reduce((sum, t) => sum + (t.amount || 0), 0);
+
     // المصروفات الأخرى (بدون التحويلات)
     const otherExpenses = expenses - transferToProjectExpenses;
 
@@ -730,7 +764,7 @@ export default function ProjectTransactionsSimple() {
     }
   ];
 
-  const isLoading = fundTransfersLoading || incomingTransfersLoading || outgoingTransfersLoading || attendanceLoading || materialsLoading || workerTransfersLoading;
+  const isLoading = fundTransfersLoading || incomingTransfersLoading || outgoingTransfersLoading || attendanceLoading || materialsLoading || workerTransfersLoading || transportExpensesLoading || miscExpensesLoading;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">

@@ -672,21 +672,24 @@ export default function ProjectTransactionsSimple() {
       gap: 'sm',
       items: [
         {
-          title: "إجمالي الدخل",
+          key: 'totalIncome',
+          label: "إجمالي الدخل",
           value: totals.totalIncome,
           icon: UnifiedTrendingUp,
           color: "green",
           formatter: formatCurrencyUnified
         },
         {
-          title: "إجمالي المصروفات",
+          key: 'totalExpenses',
+          label: "إجمالي المصروفات",
           value: totals.totalExpenses,
           icon: UnifiedTrendingDown,
           color: "red",
           formatter: formatCurrencyUnified
         },
         {
-          title: "الرصيد الصافي",
+          key: 'balance',
+          label: "الرصيد الصافي",
           value: totals.balance,
           icon: UnifiedDollarSign,
           color: totals.balance >= 0 ? "green" : "red",
@@ -699,20 +702,23 @@ export default function ProjectTransactionsSimple() {
       gap: 'sm',
       items: [
         {
-          title: "المشتريات الآجلة",
+          key: 'deferred',
+          label: "المشتريات الآجلة",
           value: filteredTransactions.filter(t => t.type === 'deferred').reduce((sum, t) => sum + t.amount, 0),
           icon: UnifiedAlertCircle,
           color: "orange",
           formatter: formatCurrencyUnified
         },
         {
-          title: "إجمالي العمليات",
+          key: 'total',
+          label: "إجمالي العمليات",
           value: transactions.length,
           icon: UnifiedFileText,
           color: "blue"
         },
         {
-          title: "النتائج المفلترة",
+          key: 'filtered',
+          label: "النتائج المفلترة",
           value: filteredTransactions.length,
           icon: UnifiedCalendar,
           color: "purple"

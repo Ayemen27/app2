@@ -9,10 +9,13 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
 import { Camera, Upload, X, Image as ImageIcon } from "lucide-react";
+
+const DEFAULT_UNITS = ["قطعة", "مجموعة", "صندوق", "متر", "كيلو", "لتر", "طن", "عدد", "علبة", "كرتون"];
 
 const equipmentSchema = z.object({
   name: z.string().min(1, "اسم المعدة مطلوب"),
@@ -226,20 +229,16 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium">الوحدة *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-equipment-unit" className="h-9 text-sm">
-                          <SelectValue placeholder="اختر الوحدة" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="قطعة">قطعة</SelectItem>
-                        <SelectItem value="مجموعة">مجموعة</SelectItem>
-                        <SelectItem value="صندوق">صندوق</SelectItem>
-                        <SelectItem value="متر">متر</SelectItem>
-                        <SelectItem value="كيلو">كيلو</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <Combobox
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={DEFAULT_UNITS}
+                        placeholder="اختر الوحدة"
+                        allowCustom={true}
+                        customPlaceholder="إضافة وحدة جديدة..."
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

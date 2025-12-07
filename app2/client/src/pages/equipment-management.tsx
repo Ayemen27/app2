@@ -162,14 +162,16 @@ export function EquipmentManagement() {
 
   const stats = useMemo(() => ({
     total: Array.isArray(equipment) ? equipment.length : 0,
-    active: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'active').length : 0,
+    active: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'active' || e.status === 'available').length : 0,
+    assigned: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'assigned').length : 0,
     maintenance: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'maintenance').length : 0,
-    outOfService: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'out_of_service').length : 0,
+    outOfService: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'out_of_service' || e.status === 'lost').length : 0,
+    inWarehouse: Array.isArray(equipment) ? equipment.filter((e: Equipment) => !e.currentProjectId).length : 0,
   }), [equipment]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
-      columns: 2,
+      columns: 3,
       gap: 'sm',
       items: [
         {
@@ -181,17 +183,22 @@ export function EquipmentManagement() {
         },
         {
           key: 'active',
-          label: 'نشطة',
+          label: 'متاحة',
           value: stats.active,
           icon: CheckCircle2,
           color: 'green',
-          showDot: true,
-          dotColor: 'bg-green-500',
+        },
+        {
+          key: 'assigned',
+          label: 'مخصصة',
+          value: stats.assigned,
+          icon: MapPin,
+          color: 'purple',
         },
       ]
     },
     {
-      columns: 2,
+      columns: 3,
       gap: 'sm',
       items: [
         {
@@ -207,6 +214,13 @@ export function EquipmentManagement() {
           value: stats.outOfService,
           icon: Truck,
           color: 'red',
+        },
+        {
+          key: 'inWarehouse',
+          label: 'في المستودع',
+          value: stats.inWarehouse,
+          icon: BarChart3,
+          color: 'gray',
         },
       ]
     }
@@ -627,14 +641,6 @@ export function EquipmentManagement() {
             variant: 'outline',
             disabled: equipment.length === 0 || isExporting,
             tooltip: 'طباعة كشف المعدات'
-          },
-          {
-            key: 'add',
-            icon: Plus,
-            label: 'إضافة معدة',
-            onClick: () => setShowAddDialog(true),
-            variant: 'default',
-            tooltip: 'إضافة معدة جديدة'
           }
         ]}
         resultsSummary={{

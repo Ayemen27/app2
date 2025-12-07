@@ -180,19 +180,33 @@ export default function ProjectTransactionsSimple() {
     queryFn: async () => {
       try {
         console.log(`🔄 جلب حضور العمال للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
-        const endpoint = isAllProjects
-          ? '/api/projects/all/worker-attendance'
-          : `/api/projects/${selectedProject}/worker-attendance`;
-        const data = await apiRequest(endpoint);
-        const attendanceData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-        console.log(`✅ تم جلب ${attendanceData.length} سجل حضور عمال`);
-        return attendanceData;
+        
+        if (isAllProjects) {
+          // جلب من جميع المشاريع
+          const allRecords: any[] = [];
+          for (const project of projects) {
+            try {
+              const data = await apiRequest(`/api/projects/${project.id}/worker-attendance`);
+              const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+              allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+            } catch (e) {
+              console.error(`❌ خطأ في جلب حضور المشروع ${project.id}:`, e);
+            }
+          }
+          console.log(`✅ تم جلب ${allRecords.length} سجل حضور من جميع المشاريع`);
+          return allRecords;
+        } else {
+          const data = await apiRequest(`/api/projects/${selectedProject}/worker-attendance`);
+          const attendanceData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+          console.log(`✅ تم جلب ${attendanceData.length} سجل حضور عمال`);
+          return attendanceData;
+        }
       } catch (error) {
         console.error('❌ خطأ في جلب حضور العمال:', error);
         return [];
       }
     },
-    enabled: !!selectedProject || isAllProjects,
+    enabled: (!!selectedProject || isAllProjects) && projects.length > 0,
     retry: 1,
     staleTime: 30000,
   });
@@ -277,19 +291,36 @@ export default function ProjectTransactionsSimple() {
     queryFn: async () => {
       try {
         console.log(`🔄 جلب حوالات العمال للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
-        const endpoint = isAllProjects || !selectedProject
-          ? '/api/worker-transfers'
-          : `/api/worker-transfers?projectId=${selectedProject}`;
-        const data = await apiRequest(endpoint);
-        const transfersData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-        console.log(`✅ تم جلب ${transfersData.length} حوالة عمال`);
-        return transfersData;
+        
+        if (isAllProjects) {
+          // جلب من جميع المشاريع
+          const allRecords: any[] = [];
+          for (const project of projects) {
+            try {
+              const data = await apiRequest(`/api/worker-transfers?projectId=${project.id}`);
+              const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+              allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: r.projectName || project.name })));
+            } catch (e) {
+              console.error(`❌ خطأ في جلب حوالات المشروع ${project.id}:`, e);
+            }
+          }
+          console.log(`✅ تم جلب ${allRecords.length} حوالة عمال من جميع المشاريع`);
+          return allRecords;
+        } else {
+          const endpoint = !selectedProject
+            ? '/api/worker-transfers'
+            : `/api/worker-transfers?projectId=${selectedProject}`;
+          const data = await apiRequest(endpoint);
+          const transfersData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+          console.log(`✅ تم جلب ${transfersData.length} حوالة عمال`);
+          return transfersData;
+        }
       } catch (error) {
         console.error('❌ خطأ في جلب حوالات العمال:', error);
         return [];
       }
     },
-    enabled: true,
+    enabled: projects.length > 0,
     retry: 1,
     staleTime: 30000,
   });

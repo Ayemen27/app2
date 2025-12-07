@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { DollarSign, TrendingDown, TrendingUp, Calendar, Package, UserCheck, Plus, Users, Building2, Eye, CheckCircle, Activity, User, ArrowRightLeft, Clock } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { QuickActionsGrid } from "@/components/ui/quick-actions-grid";
+import { RecentActivitiesStrip } from "@/components/ui/recent-activities-strip";
 
 import { formatDate } from "@/lib/utils";
 import { LoadingCard } from "@/components/ui/loading-spinner";
@@ -602,74 +603,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* شريط آخر الإجراءات العمودي */}
+      {/* شريط آخر الإجراءات الأفقي */}
       {recentActivities.length > 0 && (
-        <Card className="mt-6 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200/50 dark:border-blue-800/50">
-          <CardHeader className="pb-3 px-4 pt-3">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-blue-600" />
-              <CardTitle className="text-sm font-bold text-blue-700 dark:text-blue-400">آخر الإجراءات</CardTitle>
-              <Badge variant="secondary" className="h-5 text-xs px-2 mr-auto">{recentActivities.length}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <ScrollArea className="h-[300px] pr-4">
-              <div className="space-y-2">
-                {recentActivities.map((activity: any, index: number) => (
-                  <div
-                    key={activity.id || index}
-                    className="bg-white dark:bg-slate-900 rounded-lg border border-blue-100 dark:border-blue-800 p-2.5 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant={
-                        activity.actionType === 'transfer' ? 'default' :
-                        activity.actionType === 'expense' ? 'destructive' :
-                        activity.actionType === 'income' ? 'success' :
-                        'secondary'
-                      } className="text-[10px] px-2 h-5">
-                        {activity.actionLabel || activity.actionType}
-                      </Badge>
-                      {activity.amount && (
-                        <span className="text-xs font-bold text-green-600 mr-auto">
-                          {formatCurrency(activity.amount)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-[10px]">
-                      <div className="flex items-center gap-1">
-                        <User className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                        <span className="truncate text-muted-foreground">{activity.userName || 'النظام'}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Building2 className="h-3 w-3 text-green-600 flex-shrink-0" />
-                        <span className="truncate text-muted-foreground">{activity.projectName || 'الكل'}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3 text-orange-600 flex-shrink-0" />
-                        <span className="text-muted-foreground">{formatDate(activity.createdAt)}</span>
-                      </div>
-                      <div className="flex items-center gap-1" dir="ltr">
-                        <Clock className="h-3 w-3 text-red-600 flex-shrink-0" />
-                        <span className="text-muted-foreground">
-                          {new Date(activity.createdAt).toLocaleTimeString('ar-SA', { 
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            hour12: true 
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                    {activity.description && (
-                      <div className="mt-2 pt-2 border-t border-blue-100 dark:border-blue-800">
-                        <p className="text-[10px] text-muted-foreground truncate">{activity.description}</p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+        <RecentActivitiesStrip 
+          activities={recentActivities} 
+          formatCurrency={formatCurrency}
+        />
       )}
 
       <Dialog open={showWorkerModal} onOpenChange={setShowWorkerModal}>

@@ -103,12 +103,15 @@ export const formatDate = (dateInput: string | Date): string => {
     return 'Invalid Date';
   }
 
-  // صيغة بريطانية: DD/MM/YYYY مع أرقام إنجليزية
-  return new Intl.DateTimeFormat('en-GB', {
+  // صيغة بريطانية: DD/MM/YYYY مع أرقام إنجليزية فقط
+  const dateStr = new Intl.DateTimeFormat('en-GB', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
   }).format(date);
+  
+  // ضمان عدم وجود أرقام عربية
+  return dateStr.replace(/[٠-٩]/g, (d) => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)]);
 };
 
 // دالة جديدة لتنسيق الأرقام بالإنجليزية
@@ -131,8 +134,9 @@ export const formatNumber = (num: number | string | null | undefined): string =>
 export function formatTime(time: string): string {
   if (!time) return "";
   const [hours, minutes] = time.split(":");
-  // أرقام إنجليزية فقط
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  // أرقام إنجليزية فقط - ضمان عدم وجود أرقام عربية
+  const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  return formattedTime.replace(/[٠-٩]/g, (d) => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)]);
 }
 
 export function getCurrentDate(): string {

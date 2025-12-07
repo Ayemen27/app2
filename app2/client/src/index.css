@@ -1527,14 +1527,26 @@
     font-family: 'Arial', sans-serif;
   }
 
-  /* إجبار الأرقام الإنجليزية في جميع الحقول الرقمية */
+  /* إجبار الأرقام الإنجليزية في جميع الحقول الرقمية والتواريخ */
   input[type="number"], 
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
   .currency-display,
-  .number-display {
+  .number-display,
+  .date-display,
+  .time-display {
     font-feature-settings: 'lnum';
     font-variant-numeric: lining-nums;
     font-family: 'Arial', sans-serif;
     direction: ltr;
+  }
+  
+  /* إجبار الأرقام الإنجليزية في عناصر التاريخ */
+  time, .timestamp, [data-type="date"], [data-type="time"] {
+    font-feature-settings: 'lnum';
+    font-variant-numeric: lining-nums;
+    font-family: 'Arial', sans-serif;
   }
 
   .stats-number {

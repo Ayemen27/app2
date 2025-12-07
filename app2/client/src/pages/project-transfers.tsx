@@ -171,11 +171,11 @@ export default function ProjectTransfers() {
         console.log('📊 [Client] البيانات الجديدة:', result);
         return result;
       });
-      
+
       // إبطال الاستعلامات
       queryClient.refetchQueries({ queryKey: ["/api/project-fund-transfers"] });
       queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
-      
+
       toast({
         title: "تم الحذف",
         description: "تم حذف عملية الترحيل بنجاح",
@@ -470,19 +470,12 @@ export default function ProjectTransfers() {
                           name="transferDate"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-xs md:text-sm font-semibold">التاريخ (DD/MM/YYYY)</FormLabel>
+                              <FormLabel className="text-xs md:text-sm font-semibold">التاريخ</FormLabel>
                               <FormControl>
                                 <Input 
                                   type="date" 
                                   {...field} 
-                                  className="h-10 md:h-11 border-2 text-xs md:text-sm"
-                                  onBlur={(e) => {
-                                    field.onBlur();
-                                    if (e.target.value) {
-                                      const [year, month, day] = e.target.value.split('-');
-                                      e.target.value = `${day}/${month}/${year}`;
-                                    }
-                                  }}
+                                  className="h-10 md:h-11 border-2 text-xs md:text-sm english-numbers"
                                 />
                               </FormControl>
                               <FormMessage className="text-xs" />

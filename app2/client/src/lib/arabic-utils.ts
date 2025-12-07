@@ -1,20 +1,27 @@
 export function formatArabicTime(date: Date): string {
   // أرقام إنجليزية فقط بالصيغة البريطانية HH:MM:SS
-  return date.toLocaleTimeString('en-GB', {
+  const timeStr = date.toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
     hour12: false
   });
+  // ضمان الأرقام الإنجليزية
+  return timeStr.replace(/[٠-٩]/g, (d) => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)]);
 }
 
-export function formatArabicDate(date: Date): string {
+export function formatArabicDate(date: Date | string): string {
   // صيغة بريطانية: DD/MM/YYYY مع أرقام إنجليزية
-  return date.toLocaleDateString('en-GB', {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return '';
+  
+  const dateStr = dateObj.toLocaleDateString('en-GB', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
   });
+  // ضمان الأرقام الإنجليزية
+  return dateStr.replace(/[٠-٩]/g, (d) => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)]);
 }
 
 export function formatArabicNumber(num: number): string {

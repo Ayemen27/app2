@@ -16,13 +16,15 @@ import { Camera, Upload, X, Image as ImageIcon } from "lucide-react";
 
 const equipmentSchema = z.object({
   name: z.string().min(1, "اسم المعدة مطلوب"),
-  code: z.string().optional(),
-  type: z.string().min(1, "فئة المعدة مطلوبة"),
+  sku: z.string().optional(),
+  categoryId: z.string().optional(),
+  unit: z.string().min(1, "الوحدة مطلوبة"),
   status: z.string().min(1, "حالة المعدة مطلوبة"),
+  condition: z.string().min(1, "حالة الجودة مطلوبة"),
   description: z.string().optional(),
   purchaseDate: z.string().optional(),
   purchasePrice: z.string().optional(),
-  currentProjectId: z.string().nullable().optional(),
+  projectId: z.string().nullable().optional(),
   imageUrl: z.string().optional(),
 });
 
@@ -48,13 +50,15 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
     resolver: zodResolver(equipmentSchema),
     defaultValues: {
       name: equipment?.name || "",
-      code: equipment?.code || "", 
-      type: equipment?.type || "أدوات كهربائية",
-      status: equipment?.status || "active",
+      sku: equipment?.sku || "", 
+      categoryId: equipment?.categoryId || "",
+      unit: equipment?.unit || "قطعة",
+      status: equipment?.status || "available",
+      condition: equipment?.condition || "excellent",
       description: equipment?.description || "",
       purchaseDate: equipment?.purchaseDate || "",
       purchasePrice: equipment?.purchasePrice?.toString() || "",
-      currentProjectId: equipment?.currentProjectId || null,
+      projectId: equipment?.projectId || null,
       imageUrl: equipment?.imageUrl || "",
     },
   });
@@ -136,13 +140,15 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
     if (equipment && isEditing) {
       form.reset({
         name: equipment.name || "",
-        code: equipment.code || "", 
-        type: equipment.type || "أدوات كهربائية",
-        status: equipment.status || "active",
+        sku: equipment.sku || "", 
+        categoryId: equipment.categoryId || "",
+        unit: equipment.unit || "قطعة",
+        status: equipment.status || "available",
+        condition: equipment.condition || "excellent",
         description: equipment.description || "",
         purchaseDate: equipment.purchaseDate || "",
         purchasePrice: equipment.purchasePrice?.toString() || "",
-        currentProjectId: equipment.currentProjectId || null,
+        projectId: equipment.projectId || null,
         imageUrl: equipment.imageUrl || "",
       });
       if (equipment.imageUrl) {
@@ -155,7 +161,8 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
     const submitData = {
       ...data,
       purchasePrice: data.purchasePrice ? data.purchasePrice : undefined,
-      currentProjectId: data.currentProjectId || null,
+      projectId: data.projectId || null,
+      categoryId: data.categoryId || undefined,
     };
     saveMutation.mutate(submitData);
   };
@@ -172,49 +179,65 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">اسم المعدة *</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="مثال: حفار صغير"
-                      className="h-9 text-sm"
-                      {...field} 
-                      data-testid="input-equipment-name"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <CompactFieldGroup columns={2}>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">اسم المعدة *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="مثال: حفار صغير"
+                        className="h-9 text-sm"
+                        {...field} 
+                        data-testid="input-equipment-name"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sku"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">الكود</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="مثال: EQ-001"
+                        className="h-9 text-sm"
+                        {...field} 
+                        data-testid="input-equipment-sku"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CompactFieldGroup>
 
             <CompactFieldGroup columns={2}>
               <FormField
                 control={form.control}
-                name="type"
+                name="unit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium">الفئة *</FormLabel>
+                    <FormLabel className="text-sm font-medium">الوحدة *</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger data-testid="select-equipment-type" className="h-9 text-sm">
-                          <SelectValue placeholder="اختر الفئة" />
+                        <SelectTrigger data-testid="select-equipment-unit" className="h-9 text-sm">
+                          <SelectValue placeholder="اختر الوحدة" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="أدوات كهربائية">أدوات كهربائية</SelectItem>
-                        <SelectItem value="أدوات يدوية">أدوات يدوية</SelectItem>
-                        <SelectItem value="أدوات قياس">أدوات قياس</SelectItem>
-                        <SelectItem value="معدات لحام">معدات لحام</SelectItem>
-                        <SelectItem value="معدات حفر">معدات حفر</SelectItem>
-                        <SelectItem value="معدات قطع">معدات قطع</SelectItem>
-                        <SelectItem value="أدوات ربط">أدوات ربط</SelectItem>
-                        <SelectItem value="مواد كهربائية">مواد كهربائية</SelectItem>
-                        <SelectItem value="معدات أمان">معدات أمان</SelectItem>
-                        <SelectItem value="أدوات نقل">أدوات نقل</SelectItem>
+                        <SelectItem value="قطعة">قطعة</SelectItem>
+                        <SelectItem value="مجموعة">مجموعة</SelectItem>
+                        <SelectItem value="صندوق">صندوق</SelectItem>
+                        <SelectItem value="متر">متر</SelectItem>
+                        <SelectItem value="كيلو">كيلو</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -235,10 +258,67 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="active">نشط</SelectItem>
+                        <SelectItem value="available">متاح</SelectItem>
+                        <SelectItem value="assigned">مخصص</SelectItem>
                         <SelectItem value="maintenance">صيانة</SelectItem>
-                        <SelectItem value="out_of_service">خارج الخدمة</SelectItem>
-                        <SelectItem value="inactive">غير نشط</SelectItem>
+                        <SelectItem value="lost">مفقود</SelectItem>
+                        <SelectItem value="consumed">مستهلك</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CompactFieldGroup>
+
+            <CompactFieldGroup columns={2}>
+              <FormField
+                control={form.control}
+                name="condition"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">حالة الجودة *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-equipment-condition" className="h-9 text-sm">
+                          <SelectValue placeholder="اختر الجودة" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="excellent">ممتاز</SelectItem>
+                        <SelectItem value="good">جيد</SelectItem>
+                        <SelectItem value="fair">مقبول</SelectItem>
+                        <SelectItem value="poor">ضعيف</SelectItem>
+                        <SelectItem value="damaged">تالف</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="projectId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">المشروع</FormLabel>
+                    <Select 
+                      onValueChange={(value) => field.onChange(value === "warehouse" ? null : value)}
+                      defaultValue={field.value || "warehouse"}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-current-project" className="h-9 text-sm">
+                          <SelectValue placeholder="المستودع" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="warehouse">المستودع</SelectItem>
+                        {Array.isArray(projects) && projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -287,38 +367,6 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                 )}
               />
             </CompactFieldGroup>
-
-            <FormField
-              control={form.control}
-              name="currentProjectId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">المشروع الحالي</FormLabel>
-                  <Select 
-                    onValueChange={(value) => field.onChange(value === "warehouse" ? null : value)}
-                    defaultValue={field.value || "warehouse"}
-                  >
-                    <FormControl>
-                      <SelectTrigger data-testid="select-current-project" className="h-9 text-sm">
-                        <SelectValue placeholder="اختر المشروع (اختياري)" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="warehouse">المستودع</SelectItem>
-                      {Array.isArray(projects) && projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription className="text-xs text-gray-500">
-                    اتركه فارغاً إذا كانت المعدة في المستودع
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <FormField
               control={form.control}

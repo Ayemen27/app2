@@ -94,60 +94,35 @@ export default function UsersManagementPage() {
       const queryString = params.toString();
       const url = `/api/auth/users${queryString ? '?' + queryString : ''}`;
       
-      console.log('🔍 جلب المستخدمين من:', url);
-      
       const response = await fetch(url, {
         headers: getAuthHeaders(),
         credentials: 'include'
       });
       
       if (!response.ok) {
-        const error = await response.text();
-        console.error('❌ خطأ في جلب المستخدمين:', response.status, error);
         throw new Error(`فشل في جلب المستخدمين: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log('✅ تم جلب المستخدمين:', data);
       
-      // التأكد من أن البيانات المرجعة صحيحة
-      if (!data || typeof data !== 'object') {
-        console.error('❌ البيانات المرجعة غير صحيحة:', data);
-        return { users: [] };
+      // الـ backend يُرجع { success: true, users: [...] }
+      if (data.success && Array.isArray(data.users)) {
+        return { users: data.users };
       }
       
-      // إذا كانت البيانات مباشرة مصفوفة
-      if (Array.isArray(data)) {
-        return { users: data };
-      }
-      
-      // إذا كانت البيانات تحتوي على خاصية users
-      if (data.users && Array.isArray(data.users)) {
-        return data;
-      }
-      
-      // إذا كانت البيانات تحتوي على خاصية data
-      if (data.data && Array.isArray(data.data)) {
-        return { users: data.data };
-      }
-      
-      console.error('❌ تنسيق البيانات غير معروف:', data);
-      return { users: [] };
+      throw new Error('تنسيق الاستجابة غير صحيح');
     },
     enabled: isAuthenticated,
     retry: 2,
     staleTime: 30000,
+    onError: (error: any) => {
+      toast({
+        title: 'خطأ في جلب المستخدمين',
+        description: error instanceof Error ? error.message : 'حدث خطأ غير متوقع',
+        variant: 'destructive'
+      });
+    }
   });
-
-  // عرض رسالة خطأ إذا فشل جلب المستخدمين
-  if (error) {
-    console.error('❌ خطأ في Query:', error);
-    toast({
-      title: 'خطأ في جلب المستخدمين',
-      description: error instanceof Error ? error.message : 'حدث خطأ غير متوقع',
-      variant: 'destructive'
-    });
-  }
 
   // تحديث مستخدم
   const updateMutation = useMutation({

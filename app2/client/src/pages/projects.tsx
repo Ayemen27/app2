@@ -9,6 +9,7 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UserSelect, SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -889,30 +890,31 @@ export default function ProjectsPage() {
                   <FormField
                     control={createForm.control}
                     name="engineerId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>المهندس / المشرف</FormLabel>
-                        <Select 
-                          onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
-                          value={field.value || "none"}
-                        >
+                    render={({ field }) => {
+                      const engineerOptions: SelectOption[] = [
+                        { value: "none", label: "بدون مهندس" },
+                        ...usersData.map((u) => ({
+                          value: u.id,
+                          label: `${u.name} (${u.role})`,
+                        }))
+                      ];
+                      return (
+                        <FormItem>
+                          <FormLabel>المهندس / المشرف</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="اختر المهندس المسؤول" />
-                            </SelectTrigger>
+                            <SearchableSelect
+                              value={field.value || "none"}
+                              onValueChange={(value) => field.onChange(value === "none" ? null : value)}
+                              options={engineerOptions}
+                              placeholder="اختر المهندس المسؤول"
+                              searchPlaceholder="ابحث عن مهندس..."
+                              emptyText="لا يوجد مهندسون"
+                            />
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="none">بدون مهندس</SelectItem>
-                            {usersData.map((u) => (
-                              <SelectItem key={u.id} value={u.id}>
-                                {u.name} ({u.role})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                 )}
                 <FormField
@@ -981,30 +983,31 @@ export default function ProjectsPage() {
                 <FormField
                   control={editForm.control}
                   name="engineerId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>المهندس / المشرف</FormLabel>
-                      <Select 
-                        onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
-                        value={field.value || "none"}
-                      >
+                  render={({ field }) => {
+                    const engineerOptions: SelectOption[] = [
+                      { value: "none", label: "بدون مهندس" },
+                      ...usersData.map((u) => ({
+                        value: u.id,
+                        label: `${u.name} (${u.role})`,
+                      }))
+                    ];
+                    return (
+                      <FormItem>
+                        <FormLabel>المهندس / المشرف</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="اختر المهندس المسؤول" />
-                          </SelectTrigger>
+                          <SearchableSelect
+                            value={field.value || "none"}
+                            onValueChange={(value) => field.onChange(value === "none" ? null : value)}
+                            options={engineerOptions}
+                            placeholder="اختر المهندس المسؤول"
+                            searchPlaceholder="ابحث عن مهندس..."
+                            emptyText="لا يوجد مهندسون"
+                          />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="none">بدون مهندس</SelectItem>
-                          {usersData.map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.name} ({u.role})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               )}
               <FormField

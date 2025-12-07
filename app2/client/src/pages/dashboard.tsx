@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -654,31 +655,31 @@ export default function Dashboard() {
             <div className="form-field form-field-full">
               <Label htmlFor="worker-type">نوع العامل</Label>
               <div className="flex gap-2">
-                <Select value={workerData.type || ""} onValueChange={(value) => setWorkerData({...workerData, type: value})}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="اختر نوع العامل..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.isArray(workerTypes) && workerTypes.length > 0 ? (
-                      workerTypes.map((workerType) => (
-                        <SelectItem key={workerType.id} value={workerType.value}>
-                          {workerType.value}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <>
-                        <SelectItem value="معلم">معلم</SelectItem>
-                        <SelectItem value="عامل">عامل</SelectItem>
-                        <SelectItem value="حداد">حداد</SelectItem>
-                        <SelectItem value="نجار">نجار</SelectItem>
-                        <SelectItem value="سائق">سائق</SelectItem>
-                        <SelectItem value="كهربائي">كهربائي</SelectItem>
-                        <SelectItem value="سباك">سباك</SelectItem>
-                        <SelectItem value="تمرير">تمرير</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={workerData.type || ""}
+                  onValueChange={(value) => setWorkerData({...workerData, type: value})}
+                  options={
+                    Array.isArray(workerTypes) && workerTypes.length > 0 
+                      ? workerTypes.map((workerType) => ({
+                          value: workerType.value,
+                          label: workerType.value,
+                        }))
+                      : [
+                          { value: "معلم", label: "معلم" },
+                          { value: "عامل", label: "عامل" },
+                          { value: "حداد", label: "حداد" },
+                          { value: "نجار", label: "نجار" },
+                          { value: "سائق", label: "سائق" },
+                          { value: "كهربائي", label: "كهربائي" },
+                          { value: "سباك", label: "سباك" },
+                          { value: "تمرير", label: "تمرير" },
+                        ]
+                  }
+                  placeholder="اختر نوع العامل..."
+                  searchPlaceholder="ابحث عن نوع..."
+                  emptyText="لا توجد أنواع"
+                  className="flex-1"
+                />
               </div>
             </div>
 

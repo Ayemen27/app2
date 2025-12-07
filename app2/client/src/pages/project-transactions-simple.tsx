@@ -9,6 +9,7 @@ import { Search, Filter, TrendingUp, TrendingDown, DollarSign, Building, Clock, 
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/utils';
+import { formatArabicNumber, formatEnglishNumber } from '@/lib/arabic-utils';
 import { StatsGrid } from '@/components/ui/stats-grid';
 import { useSelectedProject, ALL_PROJECTS_ID } from '@/hooks/use-selected-project';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +44,7 @@ export default function ProjectTransactionsSimple() {
   const selectedProject = getProjectIdForApi() || '';
   const [filterType, setFilterType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
 
   // جلب المشاريع
   const { data: projects = [] } = useQuery<Project[]>({
@@ -51,11 +53,10 @@ export default function ProjectTransactionsSimple() {
 
   // جلب تحويلات العهدة العادية للمشروع
   const { data: fundTransfers = [], isLoading: fundTransfersLoading, error: fundTransfersError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'fund-transfers'],
+    queryKey: ['/api/projects', selectedProject, 'fund-transfers', isAllProjects],
     queryFn: async () => {
-      if (!selectedProject) return [];
       try {
-        console.log(`🔄 جلب تحويلات العهدة للمشروع: ${selectedProject}`);
+        console.log(`🔄 جلب تحويلات العهدة للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
         const endpoint = isAllProjects 
           ? '/api/projects/all/fund-transfers'
           : `/api/projects/${selectedProject}/fund-transfers`;
@@ -67,19 +68,21 @@ export default function ProjectTransactionsSimple() {
         return [];
       }
     },
-    enabled: !!selectedProject,
+    enabled: true,
     retry: 1,
     staleTime: 30000,
   });
 
   // جلب التحويلات بين المشاريع (الواردة) - فقط إذا كانت موجودة فعلياً
   const { data: incomingProjectTransfers = [], isLoading: incomingTransfersLoading, error: incomingTransfersError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'fund-transfers', 'incoming'],
+    queryKey: ['/api/projects', selectedProject, 'fund-transfers', 'incoming', isAllProjects],
     queryFn: async () => {
-      if (!selectedProject) return [];
       try {
-        console.log(`🔄 جلب التحويلات الواردة للمشروع: ${selectedProject}`);
-        const response = await fetch(`/api/projects/fund-transfers/incoming/${selectedProject}`, {
+        console.log(`🔄 جلب التحويلات الواردة للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
+        const endpoint = isAllProjects 
+          ? '/api/project-fund-transfers'
+          : `/api/projects/fund-transfers/incoming/${selectedProject}`;
+        const response = await fetch(endpoint, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
             'Content-Type': 'application/json',
@@ -119,12 +122,14 @@ export default function ProjectTransactionsSimple() {
 
   // جلب التحويلات بين المشاريع (الصادرة)
   const { data: outgoingProjectTransfers = [], isLoading: outgoingTransfersLoading, error: outgoingTransfersError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'fund-transfers', 'outgoing'],
+    queryKey: ['/api/projects', selectedProject, 'fund-transfers', 'outgoing', isAllProjects],
     queryFn: async () => {
-      if (!selectedProject) return [];
       try {
-        console.log(`🔄 جلب التحويلات الصادرة للمشروع: ${selectedProject}`);
-        const response = await fetch(`/api/projects/fund-transfers/outgoing/${selectedProject}`, {
+        console.log(`🔄 جلب التحويلات الصادرة للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
+        const endpoint = isAllProjects 
+          ? '/api/project-fund-transfers'
+          : `/api/projects/fund-transfers/outgoing/${selectedProject}`;
+        const response = await fetch(endpoint, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
             'Content-Type': 'application/json',
@@ -571,8 +576,23 @@ export default function ProjectTransactionsSimple() {
       );
     }
 
+    // فلترة حسب التاريخ
+    if (dateRange.from) {
+      filtered = filtered.filter(t => {
+        const transactionDate = new Date(t.date);
+        return transactionDate >= dateRange.from!;
+      });
+    }
+
+    if (dateRange.to) {
+      filtered = filtered.filter(t => {
+        const transactionDate = new Date(t.date);
+        return transactionDate <= dateRange.to!;
+      });
+    }
+
     return filtered;
-  }, [transactions, filterType, searchTerm]);
+  }, [transactions, filterType, searchTerm, dateRange]);
 
   // حساب الإجماليات مع تشخيص مفصل
     const totals = useMemo(() => {
@@ -616,11 +636,15 @@ export default function ProjectTransactionsSimple() {
   // --- Unified Components Logic ---
 
   const formatCurrencyUnified = (amount: number) => {
-    return new Intl.NumberFormat('ar-SA', {
-      style: 'decimal',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount) + ' ر.ي';
+    const formatted = formatEnglishNumber(amount);
+    // تحويل الأرقام الإنجليزية إلى عربية
+    const arabicFormatted = formatted.split('').map(char => {
+      if (char >= '0' && char <= '9') {
+        return formatArabicNumber(parseInt(char));
+      }
+      return char;
+    }).join('');
+    return arabicFormatted + ' ر.ي';
   };
 
   const getProjectNameUnified = () => {
@@ -697,6 +721,12 @@ export default function ProjectTransactionsSimple() {
         { value: 'deferred', label: 'آجل' },
         { value: 'transfer_from_project', label: '🔄 ترحيل وارد من مشروع' }
       ]
+    },
+    {
+      key: 'dateRange',
+      label: 'الفترة الزمنية',
+      type: 'date-range',
+      placeholder: 'اختر الفترة'
     }
   ];
 
@@ -714,11 +744,18 @@ export default function ProjectTransactionsSimple() {
             searchPlaceholder="ابحث في الوصف أو الفئة..."
             showSearch={true}
             filters={filterConfigs}
-            filterValues={{ type: filterType }}
-            onFilterChange={(key, value) => setFilterType(value)}
+            filterValues={{ type: filterType, dateRange: dateRange }}
+            onFilterChange={(key, value) => {
+              if (key === 'type') {
+                setFilterType(value);
+              } else if (key === 'dateRange') {
+                setDateRange(value || {});
+              }
+            }}
             onReset={() => {
               setSearchTerm('');
               setFilterType('all');
+              setDateRange({});
             }}
             projectName={getProjectNameUnified()}
             projectOptions={projects.map(p => ({ value: p.id, label: p.name }))}
@@ -805,12 +842,6 @@ export default function ProjectTransactionsSimple() {
                           value: transaction.description,
                           icon: UnifiedFileText,
                           color: "default"
-                        },
-                        {
-                          label: "التاريخ",
-                          value: format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ar }),
-                          icon: UnifiedCalendar,
-                          color: "info"
                         }
                       ]}
                       compact

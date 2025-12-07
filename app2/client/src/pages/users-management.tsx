@@ -38,6 +38,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { apiRequest } from '@/lib/queryClient';
 
 interface User {
   id: string;
@@ -73,49 +74,51 @@ export default function UsersManagementPage() {
     isActive: true,
   });
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('accessToken');
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
-    };
-  };
-
-  // جلب المستخدمين
+  // جلب المستخدمين - موحد مع صفحة المشاريع
   const { data: usersData, isLoading, refetch, error } = useQuery({
     queryKey: ['users', searchValue, filterValues],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (searchValue) params.append('search', searchValue);
-      if (filterValues.role && filterValues.role !== 'all') params.append('role', filterValues.role);
-      if (filterValues.status && filterValues.status !== 'all') params.append('status', filterValues.status);
-      if (filterValues.verified && filterValues.verified !== 'all') params.append('verified', filterValues.verified);
+      try {
+        const params = new URLSearchParams();
+        if (searchValue) params.append('search', searchValue);
+        if (filterValues.role && filterValues.role !== 'all') params.append('role', filterValues.role);
+        if (filterValues.status && filterValues.status !== 'all') params.append('status', filterValues.status);
+        if (filterValues.verified && filterValues.verified !== 'all') params.append('verified', filterValues.verified);
 
-      const queryString = params.toString();
-      const url = `/api/auth/users${queryString ? '?' + queryString : ''}`;
-      
-      const response = await fetch(url, {
-        headers: getAuthHeaders(),
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ خطأ في جلب المستخدمين:', response.status, errorText);
-        throw new Error(`فشل في جلب المستخدمين: ${response.status}`);
+        const queryString = params.toString();
+        const endpoint = `/api/auth/users${queryString ? '?' + queryString : ''}`;
+        
+        console.log('🔄 [Users] جلب المستخدمين من:', endpoint);
+        
+        const response = await apiRequest(endpoint, "GET");
+        
+        console.log('✅ [Users] استجابة API:', response);
+        
+        // معالجة هيكل الاستجابة المتعددة (مثل صفحة المشاريع)
+        let users = [];
+        if (response && typeof response === 'object') {
+          if (response.success !== undefined && response.users !== undefined) {
+            users = Array.isArray(response.users) ? response.users : [];
+          } else if (response.success !== undefined && response.data !== undefined) {
+            users = Array.isArray(response.data) ? response.data : [];
+          } else if (Array.isArray(response)) {
+            users = response;
+          } else if (response.data) {
+            users = Array.isArray(response.data) ? response.data : [];
+          }
+        }
+
+        if (!Array.isArray(users)) {
+          console.warn('⚠️ [Users] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
+          users = [];
+        }
+
+        console.log(`✅ [Users] تم جلب ${users.length} مستخدم`);
+        return { users };
+      } catch (error) {
+        console.error('❌ [Users] خطأ في جلب المستخدمين:', error);
+        return { users: [] };
       }
-      
-      const data = await response.json();
-      console.log('✅ استجابة API:', data);
-      
-      // الـ backend يُرجع { success: true, users: [...] }
-      if (data.success && Array.isArray(data.users)) {
-        console.log('✅ تم جلب', data.users.length, 'مستخدم');
-        return { users: data.users };
-      }
-      
-      console.error('❌ تنسيق استجابة غير متوقع:', data);
-      throw new Error('تنسيق الاستجابة غير صحيح');
     },
     enabled: isAuthenticated,
     retry: 2,

@@ -691,18 +691,6 @@ export default function WorkerAccountsPage() {
             variant: 'outline',
             disabled: filteredTransfers.length === 0,
             tooltip: 'تصدير إلى Excel'
-          },
-          {
-            key: 'add',
-            icon: Plus,
-            label: 'إضافة حولة',
-            onClick: () => {
-              setEditingTransfer(null);
-              resetForm();
-              setShowTransferDialog(true);
-            },
-            variant: 'default',
-            tooltip: 'إضافة حولة جديدة'
           }
         ]}
         resultsSummary={{

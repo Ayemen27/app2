@@ -18,7 +18,8 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import UnifiedSearchFilter, { useUnifiedFilter, FilterConfig } from "@/components/ui/unified-search-filter";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
@@ -58,10 +59,20 @@ export default function ProjectTransfers() {
     }
   ];
 
-  const { searchValue, filterValues, onSearchChange, onFilterChange, onReset } = useUnifiedFilter(
-    { reason: '', dateRange: { from: undefined, to: undefined } },
-    ''
-  );
+  const [searchValue, setSearchValue] = useState('');
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({
+    reason: '',
+    dateRange: { from: undefined, to: undefined }
+  });
+
+  const onSearchChange = (value: string) => setSearchValue(value);
+  const onFilterChange = (key: string, value: any) => {
+    setFilterValues(prev => ({ ...prev, [key]: value }));
+  };
+  const onReset = () => {
+    setSearchValue('');
+    setFilterValues({ reason: '', dateRange: { from: undefined, to: undefined } });
+  };
 
   // Fetch Projects with Stats (للحصول على الرصيد الحالي)
   const { data: projectsWithStats = [] } = useQuery<any[]>({
@@ -276,70 +287,78 @@ export default function ProjectTransfers() {
     }).format(amount) + ' ر.ي';
   };
 
+  // تكوين صفوف الإحصائيات للمكون الموحد
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          title: "إجمالي العمليات",
+          value: stats.total,
+          icon: ArrowRightLeft,
+          color: "orange"
+        },
+        {
+          title: "إجمالي المبالغ",
+          value: stats.totalAmount,
+          icon: DollarSign,
+          color: "green",
+          formatter: formatCurrency
+        },
+        {
+          title: "النتائج المفلترة",
+          value: stats.filtered,
+          icon: TrendingDown,
+          color: "blue"
+        }
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          title: "عمليات اليوم",
+          value: filteredTransfers.filter(t => new Date(t.transferDate).toDateString() === new Date().toDateString()).length,
+          icon: TrendingUp,
+          color: "purple"
+        },
+        {
+          title: "متوسط العملية",
+          value: stats.total > 0 ? stats.totalAmount / stats.total : 0,
+          icon: Calendar,
+          color: "red",
+          formatter: formatCurrency
+        },
+        {
+          title: "المشاريع النشطة",
+          value: projects.length,
+          icon: BarChart3,
+          color: "indigo"
+        }
+      ]
+    }
+  ], [stats, filteredTransfers, projects]);
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-2 py-3 md:px-6 md:py-6 w-full space-y-4 md:space-y-8 pb-24 md:pb-20">
-          {/* Stats Cards */}
-          <UnifiedStats
-            stats={[
-              {
-                title: "إجمالي العمليات",
-                value: stats.total,
-                icon: ArrowRightLeft,
-                color: "orange"
-              },
-              {
-                title: "إجمالي المبالغ",
-                value: stats.totalAmount,
-                icon: DollarSign,
-                color: "green",
-                formatter: formatCurrency
-              },
-              {
-                title: "النتائج المفلترة",
-                value: stats.filtered,
-                icon: TrendingDown,
-                color: "blue"
-              },
-              {
-                title: "عمليات اليوم",
-                value: filteredTransfers.filter(t => new Date(t.transferDate).toDateString() === new Date().toDateString()).length,
-                icon: TrendingUp,
-                color: "purple"
-              },
-              {
-                title: "متوسط العملية",
-                value: stats.total > 0 ? stats.totalAmount / stats.total : 0,
-                icon: Calendar,
-                color: "red",
-                formatter: formatCurrency
-              },
-              {
-                title: "المشاريع النشطة",
-                value: projects.length,
-                icon: BarChart3,
-                color: "indigo"
-              }
-            ]}
-            columns={3}
-            hideHeader={true}
-          />
-
-          {/* Unified Filter */}
-          <UnifiedSearchFilter
-            showSearch={true}
-            searchPlaceholder="ابحث عن التحويلات..."
+          {/* شريط الفلترة والإحصائيات الموحد */}
+          <UnifiedFilterDashboard
+            statsRows={statsRowsConfig}
             searchValue={searchValue}
             onSearchChange={onSearchChange}
+            searchPlaceholder="ابحث عن التحويلات..."
+            showSearch={true}
             filters={filterConfigs}
             filterValues={filterValues}
             onFilterChange={onFilterChange}
             onReset={onReset}
-            showResetButton={true}
-            compact={false}
-            showActiveFilters={true}
+            onRefresh={() => refetch()}
+            isRefreshing={transfersLoading}
           />
 
           {/* List Tab Content - Always Displayed */}

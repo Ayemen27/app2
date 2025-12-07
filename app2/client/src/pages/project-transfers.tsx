@@ -233,24 +233,11 @@ export default function ProjectTransfers() {
       return;
     }
 
-    // التحقق من الرصيد الموجب للمشروع المرسل
-    const fromProject = projectsWithStats.find((p: any) => p.id === data.fromProjectId);
-    const projectBalance = parseFloat(fromProject?.currentBalance?.toString() || '0');
-    const transferAmount = parseFloat(data.amount?.toString() || '0');
-
-    if (projectBalance <= 0) {
+    // التحقق من أن المشروع المرسل مختلف عن المشروع المستقبل
+    if (data.fromProjectId === data.toProjectId) {
       toast({
-        title: "لا يمكن الترحيل",
-        description: `المشروع المرسل "${fromProject?.name}" ليس لديه رصيد موجب (الرصيد الحالي: ${projectBalance.toLocaleString('ar-SA')} ريال)`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (transferAmount > projectBalance) {
-      toast({
-        title: "لا يمكن الترحيل",
-        description: `مبلغ الترحيل (${transferAmount.toLocaleString('ar-SA')} ريال) أكبر من رصيد المشروع المرسل (${projectBalance.toLocaleString('ar-SA')} ريال)`,
+        title: "خطأ",
+        description: "لا يمكن الترحيل من وإلى نفس المشروع",
         variant: "destructive",
       });
       return;

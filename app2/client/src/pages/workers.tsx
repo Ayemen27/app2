@@ -459,7 +459,7 @@ export default function WorkersPage() {
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
-      columns: 2,
+      columns: 3,
       gap: 'sm',
       items: [
         {
@@ -478,12 +478,6 @@ export default function WorkersPage() {
           showDot: true,
           dotColor: 'bg-green-500',
         },
-      ]
-    },
-    {
-      columns: 2,
-      gap: 'sm',
-      items: [
         {
           key: 'inactive',
           label: 'غير النشطين',
@@ -491,6 +485,12 @@ export default function WorkersPage() {
           icon: Clock,
           color: 'orange',
         },
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
         {
           key: 'avgWage',
           label: 'متوسط الأجر',
@@ -498,9 +498,23 @@ export default function WorkersPage() {
           icon: DollarSign,
           color: 'purple',
         },
+        {
+          key: 'totalTypes',
+          label: 'أنواع العمال',
+          value: workerTypes.length,
+          icon: Briefcase,
+          color: 'teal',
+        },
+        {
+          key: 'totalWorkDays',
+          label: 'مجموع أيام العمل',
+          value: '-',
+          icon: Calendar,
+          color: 'indigo',
+        },
       ]
     }
-  ], [stats]);
+  ], [stats, workerTypes]);
 
   const filtersConfig: FilterConfig[] = useMemo(() => [
     {

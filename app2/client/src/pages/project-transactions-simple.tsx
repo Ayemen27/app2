@@ -176,36 +176,23 @@ export default function ProjectTransactionsSimple() {
 
   // جلب حضور العمال للمشروع
   const { data: workerAttendance = [], isLoading: attendanceLoading, error: attendanceError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'attendance', isAllProjects],
+    queryKey: ['/api/projects', selectedProject, 'worker-attendance', isAllProjects],
     queryFn: async () => {
       try {
         console.log(`🔄 جلب حضور العمال للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
         const endpoint = isAllProjects
           ? '/api/projects/all/worker-attendance'
           : `/api/projects/${selectedProject}/worker-attendance`;
-        const response = await fetch(endpoint, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-            'Content-Type': 'application/json',
-          }
-        });
-        if (!response.ok) {
-          if (response.status === 401) {
-            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
-            return [];
-          }
-          console.error(`❌ خطأ في جلب حضور العمال: ${response.status}`);
-          return [];
-        }
-        const data = await response.json();
-        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} سجل حضور`);
-        return Array.isArray(data?.data) ? data.data : [];
+        const data = await apiRequest(endpoint);
+        const attendanceData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+        console.log(`✅ تم جلب ${attendanceData.length} سجل حضور عمال`);
+        return attendanceData;
       } catch (error) {
         console.error('❌ خطأ في جلب حضور العمال:', error);
         return [];
       }
     },
-    enabled: true, // Always enabled, logic inside handles empty selection
+    enabled: !!selectedProject || isAllProjects,
     retry: 1,
     staleTime: 30000,
   });
@@ -286,36 +273,23 @@ export default function ProjectTransactionsSimple() {
 
   // جلب حوالات العمال للمشروع
   const { data: workerTransfers = [], isLoading: workerTransfersLoading, error: workerTransfersError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'worker-transfers', isAllProjects],
+    queryKey: ['/api/worker-transfers', selectedProject, isAllProjects],
     queryFn: async () => {
       try {
         console.log(`🔄 جلب حوالات العمال للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
-        const endpoint = isAllProjects
-          ? '/api/projects/all/worker-transfers'
-          : `/api/projects/${selectedProject}/worker-transfers`;
-        const response = await fetch(endpoint, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-            'Content-Type': 'application/json',
-          }
-        });
-        if (!response.ok) {
-          if (response.status === 401) {
-            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
-            return [];
-          }
-          console.error(`❌ خطأ في جلب حوالات العمال: ${response.status}`);
-          return [];
-        }
-        const data = await response.json();
-        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : (Array.isArray(data) ? data.length : 0)} حولة عمال`);
-        return Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+        const endpoint = isAllProjects || !selectedProject
+          ? '/api/worker-transfers'
+          : `/api/worker-transfers?projectId=${selectedProject}`;
+        const data = await apiRequest(endpoint);
+        const transfersData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+        console.log(`✅ تم جلب ${transfersData.length} حوالة عمال`);
+        return transfersData;
       } catch (error) {
         console.error('❌ خطأ في جلب حوالات العمال:', error);
         return [];
       }
     },
-    enabled: true, // Always enabled, logic inside handles empty selection
+    enabled: true,
     retry: 1,
     staleTime: 30000,
   });
@@ -442,45 +416,35 @@ export default function ProjectTransactionsSimple() {
     console.log('👷 إضافة أجور العمال:', workerAttendanceArray.length);
 
     workerAttendanceArray.forEach((attendance: any, index: number) => {
-      console.log('🔍 معالجة العامل رقم ${index + 1}:', attendance);
-
       const date = attendance.date || attendance.attendanceDate || attendance.created_at;
-      console.log('📅 التاريخ المستخرج:', date);
 
-      // فحص جميع الحقول الموجودة في الكائن
-      console.log('🔍 جميع الحقول المتاحة:', Object.keys(attendance));
-
-      // حساب المبلغ المدفوع فعلياً فقط (وليس الأجر الكامل)
+      // حساب المبلغ المدفوع فعلياً (استخدام actualWage إذا لم يكن paidAmount متوفراً)
       let amount = 0;
 
-      // استخدام المبلغ المدفوع فعلياً (يشمل 0 إذا لم يُدفع شيء)
       if (attendance.paidAmount !== undefined && attendance.paidAmount !== null && attendance.paidAmount !== '') {
         const paidAmount = parseFloat(attendance.paidAmount);
-        if (!isNaN(paidAmount)) {
-          amount = Math.max(0, paidAmount); // تأكد من عدم وجود قيم سالبة
-          console.log(`💰 المبلغ المدفوع فعلياً:`, amount);
+        if (!isNaN(paidAmount) && paidAmount > 0) {
+          amount = paidAmount;
+        }
+      } else if (attendance.actualWage !== undefined && attendance.actualWage !== null && attendance.actualWage !== '') {
+        const actualWage = parseFloat(attendance.actualWage);
+        if (!isNaN(actualWage) && actualWage > 0) {
+          amount = actualWage;
+        }
+      } else if (attendance.dailyWage && attendance.workDays) {
+        const dailyWage = parseFloat(attendance.dailyWage);
+        const workDays = parseFloat(attendance.workDays);
+        if (!isNaN(dailyWage) && !isNaN(workDays) && dailyWage > 0 && workDays > 0) {
+          amount = dailyWage * workDays;
         }
       }
 
-
-      console.log('✅ النتيجة النهائية:', { 
-        date, 
-        amount, 
-        hasDate: !!date, 
-        hasAmount: amount >= 0, 
-        willAdd: !!date 
-      });
-
-      // إظهار جميع سجلات الحضور حتى لو كان المبلغ المدفوع 0
-      if (date) {
+      // عرض فقط السجلات التي لها مبلغ فعلي
+      if (date && amount > 0) {
         // البحث عن العامل باستخدام workerId
         const worker = Array.isArray(workersArray) ? workersArray.find((w: any) => w.id === attendance.workerId) : undefined;
         const workerName = worker?.name || attendance.workerName || attendance.worker?.name || attendance.name || 'غير محدد';
         const workDays = attendance.workDays ? ` (${attendance.workDays} يوم)` : '';
-        const dailyWage = attendance.dailyWage ? ` - أجر يومي: ${formatCurrency(parseFloat(attendance.dailyWage))}` : '';
-
-        // إضافة توضيح إذا كان المبلغ المدفوع 0
-        const paymentStatus = amount === 0 ? ' (لم يُدفع)' : '';
 
         const newTransaction = {
           id: `wage-${attendance.id}`,
@@ -488,18 +452,12 @@ export default function ProjectTransactionsSimple() {
           type: 'expense' as const,
           category: 'أجور العمال',
           amount: amount,
-          description: `${workerName}${workDays}${dailyWage}${paymentStatus}`,
+          description: `${workerName}${workDays}`,
           projectId: attendance.projectId,
           projectName: attendance.projectName || getProjectName(attendance.projectId)
         };
 
-        console.log('✅ إضافة معاملة أجور العمال:', newTransaction);
         allTransactions.push(newTransaction);
-      } else {
-        console.log(`❌ تم تخطي العامل ${attendance.workerName || attendance.name || 'غير معروف'} - السبب: التاريخ مفقود`, {
-          missingDate: !date,
-          originalData: attendance
-        });
       }
     });
 
@@ -579,16 +537,16 @@ export default function ProjectTransactionsSimple() {
     // ✅ إضافة حوالات العمال (مصروف)
     console.log('💵 إضافة حوالات العمال:', workerTransfersArray.length);
     workerTransfersArray.forEach((transfer: any) => {
-      const date = transfer.date || transfer.transferDate;
+      const date = transfer.transferDate || transfer.date;
       const amount = parseFloat(transfer.amount);
 
       if (date && !isNaN(amount) && amount > 0) {
         // البحث عن العامل باستخدام workerId
         const worker = Array.isArray(workersArray) ? workersArray.find((w: any) => w.id === transfer.workerId) : undefined;
         const workerName = worker?.name || transfer.workerName || 'عامل غير معروف';
-        const recipientName = transfer.recipientName ? ` - المستلم: ${transfer.recipientName}` : '';
-        const transferMethod = transfer.transferMethod === 'hawaleh' ? 'حولة' : 
-                              transfer.transferMethod === 'bank' ? 'تحويل بنكي' : 'نقداً';
+        const recipientName = transfer.recipientName ? ` → ${transfer.recipientName}` : '';
+        const transferMethod = transfer.transferMethod === 'hawaleh' ? '(حولة)' : 
+                              transfer.transferMethod === 'bank' ? '(تحويل بنكي)' : '(نقداً)';
 
         allTransactions.push({
           id: `worker-transfer-${transfer.id}`,
@@ -596,7 +554,7 @@ export default function ProjectTransactionsSimple() {
           type: 'expense',
           category: 'حوالات العمال',
           amount: amount,
-          description: `${workerName}${recipientName} - ${transferMethod}`,
+          description: `${workerName}${recipientName} ${transferMethod}`,
           projectId: transfer.projectId,
           projectName: transfer.projectName || getProjectName(transfer.projectId)
         });

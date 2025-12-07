@@ -44,13 +44,13 @@ args = "cd app2 && npm run build "
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd app2 && npm run start"
-waitForPort = 6000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd app2 && npm run dev"
+waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Dev Mode"
@@ -89,4 +89,8 @@ DOMAIN = "localhost:6000"
 
 [[ports]]
 localPort = 6000
+externalPort = 80
+
+[[ports]]
+localPort = 5000
 externalPort = 80

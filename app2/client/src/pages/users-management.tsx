@@ -82,27 +82,72 @@ export default function UsersManagementPage() {
   };
 
   // جلب المستخدمين
-  const { data: usersData, isLoading, refetch } = useQuery({
+  const { data: usersData, isLoading, refetch, error } = useQuery({
     queryKey: ['users', searchValue, filterValues],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchValue) params.append('search', searchValue);
-      if (filterValues.role) params.append('role', filterValues.role);
-      if (filterValues.status) params.append('status', filterValues.status);
-      if (filterValues.verified) params.append('verified', filterValues.verified);
+      if (filterValues.role && filterValues.role !== '') params.append('role', filterValues.role);
+      if (filterValues.status && filterValues.status !== '') params.append('status', filterValues.status);
+      if (filterValues.verified && filterValues.verified !== '') params.append('verified', filterValues.verified);
 
-      const response = await fetch(`/api/auth/users?${params}`, {
-        headers: getAuthHeaders()
+      const queryString = params.toString();
+      const url = `/api/auth/users${queryString ? '?' + queryString : ''}`;
+      
+      console.log('🔍 جلب المستخدمين من:', url);
+      
+      const response = await fetch(url, {
+        headers: getAuthHeaders(),
+        credentials: 'include'
       });
+      
       if (!response.ok) {
         const error = await response.text();
-        console.error('خطأ في جلب المستخدمين:', error);
-        throw new Error('فشل في جلب المستخدمين');
+        console.error('❌ خطأ في جلب المستخدمين:', response.status, error);
+        throw new Error(`فشل في جلب المستخدمين: ${response.status}`);
       }
-      return response.json();
+      
+      const data = await response.json();
+      console.log('✅ تم جلب المستخدمين:', data);
+      
+      // التأكد من أن البيانات المرجعة صحيحة
+      if (!data || typeof data !== 'object') {
+        console.error('❌ البيانات المرجعة غير صحيحة:', data);
+        return { users: [] };
+      }
+      
+      // إذا كانت البيانات مباشرة مصفوفة
+      if (Array.isArray(data)) {
+        return { users: data };
+      }
+      
+      // إذا كانت البيانات تحتوي على خاصية users
+      if (data.users && Array.isArray(data.users)) {
+        return data;
+      }
+      
+      // إذا كانت البيانات تحتوي على خاصية data
+      if (data.data && Array.isArray(data.data)) {
+        return { users: data.data };
+      }
+      
+      console.error('❌ تنسيق البيانات غير معروف:', data);
+      return { users: [] };
     },
     enabled: isAuthenticated,
+    retry: 2,
+    staleTime: 30000,
   });
+
+  // عرض رسالة خطأ إذا فشل جلب المستخدمين
+  if (error) {
+    console.error('❌ خطأ في Query:', error);
+    toast({
+      title: 'خطأ في جلب المستخدمين',
+      description: error instanceof Error ? error.message : 'حدث خطأ غير متوقع',
+      variant: 'destructive'
+    });
+  }
 
   // تحديث مستخدم
   const updateMutation = useMutation({
@@ -173,10 +218,10 @@ export default function UsersManagementPage() {
     admins: users.filter((u: User) => u.role === 'admin' || u.role === 'super_admin').length,
   }), [users]);
 
-  // تكوين صفوف الإحصائيات
+  // تكوين صفوف الإحصائيات - شبكة 3×2
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
-      columns: 5,
+      columns: 3,
       gap: 'sm',
       items: [
         {
@@ -199,7 +244,13 @@ export default function UsersManagementPage() {
           value: stats.inactive,
           icon: UserX,
           color: 'red'
-        },
+        }
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
         {
           key: 'verified',
           label: 'محقق',
@@ -213,6 +264,13 @@ export default function UsersManagementPage() {
           value: stats.admins,
           icon: Shield,
           color: 'orange'
+        },
+        {
+          key: 'unverified',
+          label: 'غير محقق',
+          value: stats.total - stats.verified,
+          icon: Mail,
+          color: 'gray'
         }
       ]
     }
@@ -304,27 +362,6 @@ export default function UsersManagementPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" dir="rtl">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 shadow-lg">
-        <div className="px-4 py-4 md:px-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 via-pink-600 to-red-600 flex items-center justify-center shadow-xl shadow-purple-500/30 ring-2 ring-white dark:ring-slate-900">
-                <Users className="h-6 w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-black text-slate-900 dark:text-white truncate">
-                  إدارة المستخدمين
-                </h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                  إدارة ومراقبة الحسابات
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="px-4 py-6 md:px-6 space-y-6">
         {/* Unified Filter Dashboard */}

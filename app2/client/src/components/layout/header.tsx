@@ -36,6 +36,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/tools-management': { title: 'إدارة الأدوات والمعدات', icon: Wrench },
   '/notifications': { title: 'الإشعارات', icon: Bell },
   '/smart-errors': { title: 'كشف الأخطاء الذكي', icon: Shield },
+  '/users-management': { title: 'إدارة المستخدمين', icon: Users },
 };
 
 export default function Header() {

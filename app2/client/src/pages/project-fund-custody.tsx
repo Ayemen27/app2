@@ -469,28 +469,52 @@ export default function ProjectFundCustody() {
                     />
                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="projectId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-semibold">المشروع *</FormLabel>
-                        <FormControl>
-                          <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger className="h-10 md:h-11 border-2">
-                              <SelectValue placeholder="اختر المشروع" />
-                            </SelectTrigger>
-                            <SelectContent className="z-[100]">
-                              {projects.map(p => (
-                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-3 md:gap-4">
+                    <FormField
+                      control={form.control}
+                      name="projectId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-semibold">المشروع *</FormLabel>
+                          <FormControl>
+                            <Select value={field.value} onValueChange={field.onChange}>
+                              <SelectTrigger className="h-10 md:h-11 border-2">
+                                <SelectValue placeholder="اختر المشروع" />
+                              </SelectTrigger>
+                              <SelectContent className="z-[100]">
+                                {projects.map(p => (
+                                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="transferType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-semibold">نوع التحويل</FormLabel>
+                          <FormControl>
+                            <Select value={field.value || ""} onValueChange={field.onChange}>
+                              <SelectTrigger className="h-10 md:h-11 border-2">
+                                <SelectValue placeholder="اختر النوع" />
+                              </SelectTrigger>
+                              <SelectContent className="z-[100]">
+                                <SelectItem value="شيك">شيك</SelectItem>
+                                <SelectItem value="نقدي">نقدي</SelectItem>
+                                <SelectItem value="تحويل بنكي">تحويل بنكي</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <div className="grid grid-cols-2 gap-3 md:gap-4">
                     <FormField
@@ -520,29 +544,6 @@ export default function ProjectFundCustody() {
                       )}
                     />
                   </div>
-
-                  <FormField
-                    control={form.control}
-                    name="transferType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-semibold">نوع التحويل</FormLabel>
-                        <FormControl>
-                          <Select value={field.value || ""} onValueChange={field.onChange}>
-                            <SelectTrigger className="h-10 md:h-11 border-2">
-                              <SelectValue placeholder="اختر النوع" />
-                            </SelectTrigger>
-                            <SelectContent className="z-[100]">
-                              <SelectItem value="شيك">شيك</SelectItem>
-                              <SelectItem value="نقدي">نقدي</SelectItem>
-                              <SelectItem value="تحويل بنكي">تحويل بنكي</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
 
                   <FormField
                     control={form.control}

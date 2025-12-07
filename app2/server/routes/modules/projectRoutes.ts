@@ -1163,6 +1163,53 @@ projectRouter.delete('/:id', async (req: Request, res: Response) => {
  */
 
 /**
+ * 📊 جلب تحويلات العهدة من جميع المشاريع
+ * GET /api/projects/all/fund-transfers
+ */
+projectRouter.get('/all/fund-transfers', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    console.log('📊 [API] جلب تحويلات العهدة من جميع المشاريع');
+
+    const transfers = await db.select({
+      id: fundTransfers.id,
+      projectId: fundTransfers.projectId,
+      amount: fundTransfers.amount,
+      senderName: fundTransfers.senderName,
+      transferNumber: fundTransfers.transferNumber,
+      transferType: fundTransfers.transferType,
+      transferDate: fundTransfers.transferDate,
+      notes: fundTransfers.notes,
+      createdAt: fundTransfers.createdAt,
+      projectName: projects.name
+    })
+    .from(fundTransfers)
+    .leftJoin(projects, eq(fundTransfers.projectId, projects.id))
+    .orderBy(desc(fundTransfers.transferDate));
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب ${transfers.length} تحويل عهدة من جميع المشاريع في ${duration}ms`);
+
+    res.json({
+      success: true,
+      data: transfers,
+      message: `تم جلب ${transfers.length} تحويل عهدة بنجاح`,
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب تحويلات العهدة من جميع المشاريع:', error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      error: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
  * 📊 جلب تحويلات العهدة لمشروع محدد
  * GET /api/projects/:projectId/fund-transfers
  */
@@ -1181,10 +1228,22 @@ projectRouter.get('/:projectId/fund-transfers', async (req: Request, res: Respon
       });
     }
 
-    const transfers = await db.select()
-      .from(fundTransfers)
-      .where(eq(fundTransfers.projectId, projectId))
-      .orderBy(fundTransfers.transferDate);
+    const transfers = await db.select({
+      id: fundTransfers.id,
+      projectId: fundTransfers.projectId,
+      amount: fundTransfers.amount,
+      senderName: fundTransfers.senderName,
+      transferNumber: fundTransfers.transferNumber,
+      transferType: fundTransfers.transferType,
+      transferDate: fundTransfers.transferDate,
+      notes: fundTransfers.notes,
+      createdAt: fundTransfers.createdAt,
+      projectName: projects.name
+    })
+    .from(fundTransfers)
+    .leftJoin(projects, eq(fundTransfers.projectId, projects.id))
+    .where(eq(fundTransfers.projectId, projectId))
+    .orderBy(desc(fundTransfers.transferDate));
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل عهدة في ${duration}ms`);

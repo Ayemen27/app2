@@ -53,6 +53,7 @@ export function registerOrganizedRoutes(app: Express) {
   
   // مسارات آخر الإجراءات
   app.use('/api', activityRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الإجراءات: /api/recent-activities');
   
   // مسارات الإشعارات
   app.use('/api/notifications', notificationRouter);
@@ -70,6 +71,7 @@ export function registerOrganizedRoutes(app: Express) {
       'worker-transfers/*',
       'worker-misc-expenses/*',
       'notifications/*',
+      'recent-activities',
       'autocomplete (GET/POST)'
     ]
   };

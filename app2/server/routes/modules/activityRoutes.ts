@@ -17,6 +17,7 @@ const router = express.Router();
 
 // جلب آخر الإجراءات
 router.get('/recent-activities', authenticateToken, async (req, res) => {
+  console.log('🔍 [API] تم استقبال طلب: GET /api/recent-activities');
   try {
     const { projectId } = req.query;
     const limit = parseInt(req.query.limit as string) || 20;

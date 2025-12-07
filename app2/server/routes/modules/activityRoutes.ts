@@ -10,7 +10,7 @@ import {
   users,
   projects
 } from '../../../shared/schema.js';
-import { desc, eq, and, sql } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { authenticate } from '../../middleware/auth.js';
 
 const router = express.Router();
@@ -32,9 +32,9 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       .select({
         id: fundTransfers.id,
         amount: fundTransfers.amount,
-        description: fundTransfers.description,
+        description: fundTransfers.notes,
         createdAt: fundTransfers.createdAt,
-        userId: fundTransfers.userId,
+        projectId: fundTransfers.projectId,
       })
       .from(fundTransfers)
       .orderBy(desc(fundTransfers.createdAt))
@@ -42,9 +42,10 @@ router.get('/recent-activities', authenticate, async (req, res) => {
 
     activities.push(...transfers.map(t => ({
       ...t,
-      actionType: 'transfer',
-      actionLabel: 'تحويل مالي',
-      projectId: null
+      actionType: 'fund_transfer',
+      actionLabel: 'تحويل للصندوق',
+      userName: 'النظام',
+      projectName: 'غير محدد'
     })));
 
     // 2. تحويلات المشاريع
@@ -54,21 +55,24 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         amount: projectFundTransfers.amount,
         description: projectFundTransfers.description,
         createdAt: projectFundTransfers.createdAt,
-        projectId: projectFundTransfers.projectId,
+        projectId: projectFundTransfers.toProjectId,
       })
       .from(projectFundTransfers)
       .orderBy(desc(projectFundTransfers.createdAt))
       .limit(limit);
 
-    const projectTransfers = projectId 
-      ? await projectTransfersQuery.where(eq(projectFundTransfers.projectId, projectId as string))
+    const projectTransfers = projectId && projectId !== 'all'
+      ? await projectTransfersQuery.where(
+          sql`${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId}`
+        )
       : await projectTransfersQuery;
 
     activities.push(...projectTransfers.map(t => ({
       ...t,
       actionType: 'project_transfer',
-      actionLabel: 'تحويل للمشروع',
-      userId: null
+      actionLabel: 'تحويل بين المشاريع',
+      userName: 'النظام',
+      projectName: 'غير محدد'
     })));
 
     // 3. مصروفات العمال المتنوعة
@@ -84,7 +88,7 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       .orderBy(desc(workerMiscExpenses.createdAt))
       .limit(limit);
 
-    const workerExpenses = projectId
+    const workerExpenses = projectId && projectId !== 'all'
       ? await workerExpensesQuery.where(eq(workerMiscExpenses.projectId, projectId as string))
       : await workerExpensesQuery;
 
@@ -92,14 +96,15 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       ...e,
       actionType: 'worker_expense',
       actionLabel: 'مصروف عامل',
-      userId: null
+      userName: 'النظام',
+      projectName: 'غير محدد'
     })));
 
     // 4. مشتريات المواد
     const materialsQuery = db
       .select({
         id: materialPurchases.id,
-        amount: materialPurchases.totalCost,
+        amount: materialPurchases.totalAmount,
         description: materialPurchases.materialName,
         createdAt: materialPurchases.createdAt,
         projectId: materialPurchases.projectId,
@@ -108,7 +113,7 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       .orderBy(desc(materialPurchases.createdAt))
       .limit(limit);
 
-    const materials = projectId
+    const materials = projectId && projectId !== 'all'
       ? await materialsQuery.where(eq(materialPurchases.projectId, projectId as string))
       : await materialsQuery;
 
@@ -116,7 +121,33 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       ...m,
       actionType: 'material',
       actionLabel: 'شراء مواد',
-      userId: null
+      userName: 'النظام',
+      projectName: 'غير محدد'
+    })));
+
+    // 5. تحويلات العمال
+    const workerTransfersQuery = db
+      .select({
+        id: workerTransfers.id,
+        amount: workerTransfers.amount,
+        description: workerTransfers.notes,
+        createdAt: workerTransfers.createdAt,
+        projectId: workerTransfers.projectId,
+      })
+      .from(workerTransfers)
+      .orderBy(desc(workerTransfers.createdAt))
+      .limit(limit);
+
+    const transfers2 = projectId && projectId !== 'all'
+      ? await workerTransfersQuery.where(eq(workerTransfers.projectId, projectId as string))
+      : await workerTransfersQuery;
+
+    activities.push(...transfers2.map(t => ({
+      ...t,
+      actionType: 'worker_transfer',
+      actionLabel: 'تحويل لعامل',
+      userName: 'النظام',
+      projectName: 'غير محدد'
     })));
 
     // ترتيب حسب التاريخ
@@ -124,35 +155,27 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    // إضافة معلومات المستخدم والمشروع
+    // إضافة معلومات المشروع
     const enrichedActivities = await Promise.all(
       activities.slice(0, limit).map(async (activity) => {
-        let userName = 'النظام';
         let projectName = 'جميع المشاريع';
-
-        // جلب اسم المستخدم إذا كان متوفراً
-        if (activity.userId) {
-          const user = await db
-            .select({ name: users.name })
-            .from(users)
-            .where(eq(users.id, activity.userId))
-            .limit(1);
-          if (user.length > 0) userName = user[0].name;
-        }
 
         // جلب اسم المشروع
         if (activity.projectId) {
-          const project = await db
-            .select({ name: projects.name })
-            .from(projects)
-            .where(eq(projects.id, activity.projectId))
-            .limit(1);
-          if (project.length > 0) projectName = project[0].name;
+          try {
+            const project = await db
+              .select({ name: projects.name })
+              .from(projects)
+              .where(eq(projects.id, activity.projectId))
+              .limit(1);
+            if (project.length > 0) projectName = project[0].name;
+          } catch (error) {
+            console.error('خطأ في جلب اسم المشروع:', error);
+          }
         }
 
         return {
           ...activity,
-          userName,
           projectName,
         };
       })

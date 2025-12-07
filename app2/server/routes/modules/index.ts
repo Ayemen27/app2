@@ -14,6 +14,7 @@ import financialRouter from './financialRoutes.js';
 import autocompleteRouter, { registerAutocompleteAdminRoutes } from './autocompleteRoutes.js';
 import notificationRouter from './notificationRoutes.js';
 import { reportRouter } from './reportRoutes.js';
+import activityRouter from './activityRoutes.js';
 // authRouter moved to main routes/auth.ts to avoid duplication
 
 /**
@@ -49,6 +50,9 @@ export function registerOrganizedRoutes(app: Express) {
   
   // مسارات التقارير الاحترافية
   app.use('/api', reportRouter);
+  
+  // مسارات آخر الإجراءات
+  app.use('/api', activityRouter);
   
   // مسارات الإشعارات
   app.use('/api/notifications', notificationRouter);

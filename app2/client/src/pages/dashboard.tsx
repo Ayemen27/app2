@@ -233,6 +233,23 @@ export default function Dashboard() {
     staleTime: 1000 * 30,
   });
 
+  // جلب آخر الإجراءات
+  const { data: recentActivities = [] } = useQuery({
+    queryKey: ["/api/recent-activities", selectedProjectId],
+    queryFn: async () => {
+      try {
+        const projectFilter = selectedProjectId ? `?projectId=${selectedProjectId}` : '';
+        const response = await apiRequest(`/api/recent-activities${projectFilter}`, "GET");
+        return response?.data || [];
+      } catch (error) {
+        console.error("خطأ في جلب آخر الإجراءات:", error);
+        return [];
+      }
+    },
+    staleTime: 1000 * 10,
+    refetchInterval: 30000, // تحديث كل 30 ثانية
+  });
+
   const selectedProject = Array.isArray(projects) ? projects.find((p: ProjectWithStats) => p.id === selectedProjectId) : undefined;
 
   const filteredProjects = useMemo(() => {
@@ -366,6 +383,104 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 fade-in space-y-4">
+      {/* قسم آخر الإجراءات */}
+      {recentActivities.length > 0 && (
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Activity className="h-5 w-5 text-blue-600" />
+              آخر الإجراءات
+              <Badge variant="secondary" className="mr-auto">
+                {recentActivities.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-96 overflow-y-auto">
+            {recentActivities.slice(0, 10).map((activity: any, index: number) => (
+              <div
+                key={activity.id || index}
+                className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-blue-100 dark:border-blue-800 hover:shadow-md transition-shadow"
+              >
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
+                  {/* من */}
+                  <div className="flex items-start gap-2">
+                    <User className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">من</div>
+                      <div className="font-medium text-foreground">{activity.userName || 'غير محدد'}</div>
+                    </div>
+                  </div>
+
+                  {/* أين (المشروع) */}
+                  <div className="flex items-start gap-2">
+                    <Building2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">أين</div>
+                      <div className="font-medium text-foreground truncate">{activity.projectName || 'جميع المشاريع'}</div>
+                    </div>
+                  </div>
+
+                  {/* كيف (نوع الإجراء) */}
+                  <div className="flex items-start gap-2">
+                    <ArrowRightLeft className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">كيف</div>
+                      <Badge variant={
+                        activity.actionType === 'transfer' ? 'default' :
+                        activity.actionType === 'expense' ? 'destructive' :
+                        activity.actionType === 'income' ? 'success' :
+                        'secondary'
+                      } className="text-xs">
+                        {activity.actionLabel || activity.actionType}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* التاريخ */}
+                  <div className="flex items-start gap-2">
+                    <Calendar className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">التاريخ</div>
+                      <div className="font-medium text-foreground">{formatDate(activity.createdAt)}</div>
+                    </div>
+                  </div>
+
+                  {/* الوقت */}
+                  <div className="flex items-start gap-2">
+                    <Clock className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">الوقت</div>
+                      <div className="font-medium text-foreground" dir="ltr">
+                        {new Date(activity.createdAt).toLocaleTimeString('ar-SA', { 
+                          hour: '2-digit', 
+                          minute: '2-digit',
+                          hour12: true 
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* تفاصيل إضافية */}
+                {activity.amount && (
+                  <div className="mt-2 pt-2 border-t border-blue-100 dark:border-blue-800 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-semibold text-green-600">
+                      {formatCurrency(activity.amount)}
+                    </span>
+                    {activity.description && (
+                      <span className="text-xs text-muted-foreground mr-auto truncate">
+                        {activity.description}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="mb-4">
         {selectedProject && (
           <div className="mb-2 text-sm text-muted-foreground flex items-center gap-2">

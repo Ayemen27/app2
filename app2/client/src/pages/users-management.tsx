@@ -58,9 +58,9 @@ export default function UsersManagementPage() {
 
   const [searchValue, setSearchValue] = useState('');
   const [filterValues, setFilterValues] = useState({
-    role: '',
-    status: '',
-    verified: '',
+    role: 'all',
+    status: 'all',
+    verified: 'all',
   });
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -87,9 +87,9 @@ export default function UsersManagementPage() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchValue) params.append('search', searchValue);
-      if (filterValues.role && filterValues.role !== '') params.append('role', filterValues.role);
-      if (filterValues.status && filterValues.status !== '') params.append('status', filterValues.status);
-      if (filterValues.verified && filterValues.verified !== '') params.append('verified', filterValues.verified);
+      if (filterValues.role && filterValues.role !== 'all') params.append('role', filterValues.role);
+      if (filterValues.status && filterValues.status !== 'all') params.append('status', filterValues.status);
+      if (filterValues.verified && filterValues.verified !== 'all') params.append('verified', filterValues.verified);
 
       const queryString = params.toString();
       const url = `/api/auth/users${queryString ? '?' + queryString : ''}`;
@@ -283,7 +283,7 @@ export default function UsersManagementPage() {
       type: 'select',
       placeholder: 'اختر الدور',
       options: [
-        { value: '', label: 'الكل' },
+        { value: 'all', label: 'الكل' },
         { value: 'super_admin', label: 'مدير أول' },
         { value: 'admin', label: 'مدير' },
         { value: 'user', label: 'مستخدم' },
@@ -295,7 +295,7 @@ export default function UsersManagementPage() {
       type: 'select',
       placeholder: 'اختر الحالة',
       options: [
-        { value: '', label: 'الكل' },
+        { value: 'all', label: 'الكل' },
         { value: 'active', label: 'نشط' },
         { value: 'inactive', label: 'معطل' },
       ],
@@ -306,7 +306,7 @@ export default function UsersManagementPage() {
       type: 'select',
       placeholder: 'حالة التحقق',
       options: [
-        { value: '', label: 'الكل' },
+        { value: 'all', label: 'الكل' },
         { value: 'verified', label: 'محقق' },
         { value: 'unverified', label: 'غير محقق' },
       ],
@@ -376,7 +376,7 @@ export default function UsersManagementPage() {
           onFilterChange={(key, value) => setFilterValues(prev => ({ ...prev, [key]: value }))}
           onReset={() => {
             setSearchValue('');
-            setFilterValues({ role: '', status: '', verified: '' });
+            setFilterValues({ role: 'all', status: 'all', verified: 'all' });
           }}
           onRefresh={() => refetch()}
           isRefreshing={isLoading}

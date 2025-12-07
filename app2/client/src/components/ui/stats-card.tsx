@@ -227,7 +227,7 @@ export function StatsCard({
         <div className="flex-1 min-w-0">
           <LabelWithTooltip>
             <p 
-              className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-snug break-words"
+              className="text-[10px] font-medium text-slate-600 dark:text-slate-400 leading-snug break-words"
               style={{ 
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
@@ -241,8 +241,8 @@ export function StatsCard({
             </p>
           </LabelWithTooltip>
           <p 
-            className="text-sm md:text-base font-bold text-slate-900 dark:text-white leading-tight break-words"
-            style={{ fontSize: 'clamp(0.85rem, 2.5vw, 1rem)' }}
+            className="text-xs md:text-sm font-bold text-slate-900 dark:text-white leading-tight break-words"
+            style={{ fontSize: 'clamp(0.7rem, 2vw, 0.85rem)' }}
           >
             {displayValue}
           </p>
@@ -260,7 +260,7 @@ export function StatsCard({
           <div className="flex items-center justify-center gap-1.5 w-full min-w-0">
             <LabelWithTooltip>
               <p 
-                className="text-sm sm:text-base font-bold text-muted-foreground leading-tight break-words flex-1 min-w-0"
+                className="text-xs sm:text-sm font-bold text-muted-foreground leading-tight break-words flex-1 min-w-0"
                 title={displayLabel}
               >
                 {displayLabel}
@@ -271,11 +271,11 @@ export function StatsCard({
             </div>
           </div>
           
-          {/* Value centered - خط كبير وواضح */}
+          {/* Value centered - خط أصغر */}
           <p 
             className={`font-extrabold ${colors.text} leading-none w-full`}
             style={{ 
-              fontSize: 'clamp(1.1rem, 4vw, 1.4rem)'
+              fontSize: 'clamp(0.9rem, 3.5vw, 1.1rem)'
             }}
           >
             {displayValue}

@@ -25,7 +25,7 @@ router.get('/recent-activities', authenticate, async (req, res) => {
     console.log('📊 [API] جلب آخر الإجراءات:', { projectId, limit });
 
     // جمع البيانات من جداول مختلفة
-    const activities = [];
+    const activities: any[] = [];
 
     // 1. تحويلات الصندوق
     const transfers = await db
@@ -35,77 +35,98 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         description: fundTransfers.description,
         createdAt: fundTransfers.createdAt,
         userId: fundTransfers.userId,
-        actionType: sql<string>`'transfer'`,
-        actionLabel: sql<string>`'تحويل مالي'`,
       })
       .from(fundTransfers)
       .orderBy(desc(fundTransfers.createdAt))
       .limit(limit);
 
+    activities.push(...transfers.map(t => ({
+      ...t,
+      actionType: 'transfer',
+      actionLabel: 'تحويل مالي',
+      projectId: null
+    })));
+
     // 2. تحويلات المشاريع
-    const projectTransfers = await db
+    const projectTransfersQuery = db
       .select({
         id: projectFundTransfers.id,
         amount: projectFundTransfers.amount,
         description: projectFundTransfers.description,
         createdAt: projectFundTransfers.createdAt,
         projectId: projectFundTransfers.projectId,
-        actionType: sql<string>`'project_transfer'`,
-        actionLabel: sql<string>`'تحويل للمشروع'`,
       })
       .from(projectFundTransfers)
-      .where(projectId ? eq(projectFundTransfers.projectId, projectId as string) : undefined)
       .orderBy(desc(projectFundTransfers.createdAt))
       .limit(limit);
 
+    const projectTransfers = projectId 
+      ? await projectTransfersQuery.where(eq(projectFundTransfers.projectId, projectId as string))
+      : await projectTransfersQuery;
+
+    activities.push(...projectTransfers.map(t => ({
+      ...t,
+      actionType: 'project_transfer',
+      actionLabel: 'تحويل للمشروع',
+      userId: null
+    })));
+
     // 3. مصروفات العمال المتنوعة
-    const workerExpenses = await db
+    const workerExpensesQuery = db
       .select({
         id: workerMiscExpenses.id,
         amount: workerMiscExpenses.amount,
         description: workerMiscExpenses.description,
         createdAt: workerMiscExpenses.createdAt,
         projectId: workerMiscExpenses.projectId,
-        actionType: sql<string>`'worker_expense'`,
-        actionLabel: sql<string>`'مصروف عامل'`,
       })
       .from(workerMiscExpenses)
-      .where(projectId ? eq(workerMiscExpenses.projectId, projectId as string) : undefined)
       .orderBy(desc(workerMiscExpenses.createdAt))
       .limit(limit);
 
+    const workerExpenses = projectId
+      ? await workerExpensesQuery.where(eq(workerMiscExpenses.projectId, projectId as string))
+      : await workerExpensesQuery;
+
+    activities.push(...workerExpenses.map(e => ({
+      ...e,
+      actionType: 'worker_expense',
+      actionLabel: 'مصروف عامل',
+      userId: null
+    })));
+
     // 4. مشتريات المواد
-    const materials = await db
+    const materialsQuery = db
       .select({
         id: materialPurchases.id,
         amount: materialPurchases.totalCost,
         description: materialPurchases.materialName,
         createdAt: materialPurchases.createdAt,
         projectId: materialPurchases.projectId,
-        actionType: sql<string>`'material'`,
-        actionLabel: sql<string>`'شراء مواد'`,
       })
       .from(materialPurchases)
-      .where(projectId ? eq(materialPurchases.projectId, projectId as string) : undefined)
       .orderBy(desc(materialPurchases.createdAt))
       .limit(limit);
 
-    // دمج جميع الإجراءات
-    const allActivities = [
-      ...transfers.map(t => ({ ...t, projectId: null })),
-      ...projectTransfers,
-      ...workerExpenses,
-      ...materials,
-    ];
+    const materials = projectId
+      ? await materialsQuery.where(eq(materialPurchases.projectId, projectId as string))
+      : await materialsQuery;
+
+    activities.push(...materials.map(m => ({
+      ...m,
+      actionType: 'material',
+      actionLabel: 'شراء مواد',
+      userId: null
+    })));
 
     // ترتيب حسب التاريخ
-    allActivities.sort((a, b) => 
+    activities.sort((a, b) => 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
     // إضافة معلومات المستخدم والمشروع
     const enrichedActivities = await Promise.all(
-      allActivities.slice(0, limit).map(async (activity) => {
+      activities.slice(0, limit).map(async (activity) => {
         let userName = 'النظام';
         let projectName = 'جميع المشاريع';
 

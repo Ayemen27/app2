@@ -1,21 +1,18 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { DollarSign, TrendingDown, TrendingUp, Calendar, Package, UserCheck, Plus } from "lucide-react";
-import { StatsCard, StatsGrid } from "@/components/ui/stats-card";
+import { DollarSign, TrendingDown, TrendingUp, Calendar, Package, UserCheck, Plus, Users, Building2, Eye, CheckCircle } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { QuickActionsGrid } from "@/components/ui/quick-actions-grid";
 
 import { formatDate } from "@/lib/utils";
-import { LoadingCard, LoadingSpinner } from "@/components/ui/loading-spinner";
+import { LoadingCard } from "@/components/ui/loading-spinner";
 import { useEffect } from "react";
 
 import { apiRequest } from "@/lib/queryClient";
@@ -26,6 +23,8 @@ import type {
   AutocompleteData as WorkerType 
 } from "@shared/schema";
 import { UnifiedStats } from "@/components/ui/unified-stats";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
+import { UnifiedSearchFilter, useUnifiedFilter, PROJECT_STATUS_OPTIONS } from "@/components/ui/unified-search-filter";
 
 interface ProjectStats {
   totalWorkers: string;
@@ -66,6 +65,14 @@ export default function Dashboard() {
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const {
+    searchValue,
+    filterValues,
+    onSearchChange,
+    onFilterChange,
+    onReset
+  } = useUnifiedFilter({ status: 'all' }, '');
 
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
@@ -228,6 +235,80 @@ export default function Dashboard() {
 
   const selectedProject = Array.isArray(projects) ? projects.find((p: ProjectWithStats) => p.id === selectedProjectId) : undefined;
 
+  const filteredProjects = useMemo(() => {
+    if (!Array.isArray(projects)) return [];
+    
+    return projects.filter((project: ProjectWithStats) => {
+      const matchesSearch = !searchValue || 
+        project.name.toLowerCase().includes(searchValue.toLowerCase());
+      
+      const matchesStatus = filterValues.status === 'all' || project.status === filterValues.status;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [projects, searchValue, filterValues.status]);
+
+  const totalStats = useMemo(() => {
+    if (!Array.isArray(projects) || projects.length === 0) {
+      return {
+        totalIncome: 0,
+        totalExpenses: 0,
+        currentBalance: 0,
+        activeWorkers: 0,
+        completedDays: 0,
+        materialPurchases: 0,
+        projectsCount: 0
+      };
+    }
+    
+    return projects.reduce((acc, project: ProjectWithStats) => {
+      const stats = project.stats || {};
+      return {
+        totalIncome: acc.totalIncome + (Number(stats.totalIncome) || 0),
+        totalExpenses: acc.totalExpenses + (Number(stats.totalExpenses) || 0),
+        currentBalance: acc.currentBalance + (Number(stats.currentBalance) || 0),
+        activeWorkers: acc.activeWorkers + (Number(stats.activeWorkers) || 0),
+        completedDays: acc.completedDays + (Number(stats.completedDays) || 0),
+        materialPurchases: acc.materialPurchases + (Number(stats.materialPurchases) || 0),
+        projectsCount: acc.projectsCount + 1
+      };
+    }, {
+      totalIncome: 0,
+      totalExpenses: 0,
+      currentBalance: 0,
+      activeWorkers: 0,
+      completedDays: 0,
+      materialPurchases: 0,
+      projectsCount: 0
+    });
+  }, [projects]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return { label: 'نشط', variant: 'success' as const };
+      case 'completed':
+        return { label: 'مكتمل', variant: 'default' as const };
+      case 'paused':
+        return { label: 'متوقف', variant: 'warning' as const };
+      default:
+        return { label: status, variant: 'secondary' as const };
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return '#22c55e';
+      case 'completed':
+        return '#3b82f6';
+      case 'paused':
+        return '#f59e0b';
+      default:
+        return '#6b7280';
+    }
+  };
+
   useEffect(() => {
     if (selectedProject) {
       console.log('🔍 بيانات المشروع المحدد في Frontend:', {
@@ -267,62 +348,152 @@ export default function Dashboard() {
     return <LoadingCard />;
   }
 
+  const currentStats = selectedProject ? {
+    totalIncome: selectedProject.stats?.totalIncome || 0,
+    totalExpenses: selectedProject.stats?.totalExpenses || 0,
+    currentBalance: selectedProject.stats?.currentBalance || 0,
+    activeWorkers: selectedProject.stats?.activeWorkers || "0",
+    completedDays: selectedProject.stats?.completedDays || "0",
+    materialPurchases: selectedProject.stats?.materialPurchases || "0"
+  } : {
+    totalIncome: totalStats.totalIncome,
+    totalExpenses: totalStats.totalExpenses,
+    currentBalance: totalStats.currentBalance,
+    activeWorkers: String(totalStats.activeWorkers),
+    completedDays: String(totalStats.completedDays),
+    materialPurchases: String(totalStats.materialPurchases)
+  };
+
   return (
     <div className="p-4 fade-in space-y-4">
-      {selectedProject && (
-        <div className="mb-4">
-          <UnifiedStats
-            stats={[
-              {
-                title: "إجمالي التوريد",
-                value: selectedProject?.stats?.totalIncome || 0,
-                icon: TrendingUp,
-                color: "blue",
-                formatter: formatCurrency
-              },
-              {
-                title: "إجمالي المنصرف",
-                value: selectedProject?.stats?.totalExpenses || 0,
-                icon: TrendingDown,
-                color: "red",
-                formatter: formatCurrency
-              },
-              {
-                title: "المتبقي الحالي",
-                value: selectedProject?.stats?.currentBalance || 0,
-                icon: DollarSign,
-                color: "green",
-                formatter: formatCurrency
-              },
-              {
-                title: "العمال النشطين",
-                value: selectedProject?.stats?.activeWorkers || "0",
-                icon: UserCheck,
-                color: "purple"
-              },
-              {
-                title: "أيام العمل المكتملة",
-                value: selectedProject?.stats?.completedDays || "0",
-                icon: Calendar,
-                color: "teal"
-              },
-              {
-                title: "مشتريات المواد",
-                value: selectedProject?.stats?.materialPurchases || "0",
-                icon: Package,
-                color: "indigo"
-              }
-            ]}
-            columns={3}
-            hideHeader={true}
-          />
-        </div>
-      )}
+      <div className="mb-4">
+        {selectedProject && (
+          <div className="mb-2 text-sm text-muted-foreground flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            <span>إحصائيات: <strong className="text-foreground">{selectedProject.name}</strong></span>
+          </div>
+        )}
+        {!selectedProject && projects.length > 0 && (
+          <div className="mb-2 text-sm text-muted-foreground flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            <span>إحصائيات جميع المشاريع ({projects.length} مشروع)</span>
+          </div>
+        )}
+        <UnifiedStats
+          stats={[
+            {
+              title: "إجمالي التوريد",
+              value: currentStats.totalIncome,
+              icon: TrendingUp,
+              color: "blue",
+              formatter: formatCurrency
+            },
+            {
+              title: "إجمالي المنصرف",
+              value: currentStats.totalExpenses,
+              icon: TrendingDown,
+              color: "red",
+              formatter: formatCurrency
+            },
+            {
+              title: "المتبقي الحالي",
+              value: currentStats.currentBalance,
+              icon: DollarSign,
+              color: "green",
+              formatter: formatCurrency
+            },
+            {
+              title: "العمال النشطين",
+              value: currentStats.activeWorkers,
+              icon: UserCheck,
+              color: "purple"
+            },
+            {
+              title: "أيام العمل المكتملة",
+              value: currentStats.completedDays,
+              icon: Calendar,
+              color: "teal"
+            },
+            {
+              title: "مشتريات المواد",
+              value: currentStats.materialPurchases,
+              icon: Package,
+              color: "indigo"
+            }
+          ]}
+          columns={3}
+          hideHeader={true}
+        />
+      </div>
 
       <QuickActionsGrid 
         onAddWorker={() => setShowWorkerModal(true)}
         onAddProject={() => setShowProjectModal(true)}
       />
+
+      {filteredProjects.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              المشاريع ({filteredProjects.length})
+            </h3>
+          </div>
+          <UnifiedCardGrid columns={2}>
+            {filteredProjects.map((project: ProjectWithStats) => {
+              const statusBadge = getStatusBadge(project.status);
+              const isSelected = project.id === selectedProjectId;
+              return (
+                <UnifiedCard
+                  key={project.id}
+                  title={project.name}
+                  titleIcon={Building2}
+                  headerColor={getStatusColor(project.status)}
+                  badges={[statusBadge]}
+                  className={isSelected ? "ring-2 ring-primary ring-offset-2" : ""}
+                  fields={[
+                    {
+                      label: "التوريد",
+                      value: formatCurrency(project.stats?.totalIncome || 0),
+                      icon: TrendingUp,
+                      color: "info"
+                    },
+                    {
+                      label: "المنصرف",
+                      value: formatCurrency(project.stats?.totalExpenses || 0),
+                      icon: TrendingDown,
+                      color: "danger"
+                    },
+                    {
+                      label: "المتبقي",
+                      value: formatCurrency(project.stats?.currentBalance || 0),
+                      icon: DollarSign,
+                      color: "success",
+                      emphasis: true
+                    },
+                    {
+                      label: "العمال",
+                      value: project.stats?.activeWorkers || "0",
+                      icon: Users,
+                      color: "default"
+                    }
+                  ]}
+                  actions={[
+                    {
+                      icon: isSelected ? CheckCircle : Eye,
+                      label: isSelected ? "محدد" : "تحديد",
+                      onClick: () => selectProject(project.id),
+                      color: isSelected ? "green" : "blue"
+                    }
+                  ]}
+                  onClick={() => selectProject(project.id)}
+                  compact
+                />
+              );
+            })}
+          </UnifiedCardGrid>
+        </div>
+      )}
 
       <Dialog open={showWorkerModal} onOpenChange={setShowWorkerModal}>
         <DialogContent className="max-w-lg">

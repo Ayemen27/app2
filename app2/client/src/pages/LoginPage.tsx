@@ -126,20 +126,20 @@ const AnimatedBackground = () => (
   </div>
 );
 
-// مكون شعار الشركة المتطور
+// مكون شعار الشركة المضغوط للهواتف
 const CompanyLogo = () => (
-  <div className="flex flex-col items-center space-y-1">
+  <div className="flex items-center justify-center gap-2">
     <div className="relative">
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur-lg opacity-75 animate-pulse"></div>
-      <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 rounded-full p-1.5">
-        <Shield className="w-6 h-6 text-white" />
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur-md opacity-60"></div>
+      <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 rounded-full p-1">
+        <Shield className="w-4 h-4 text-white" />
       </div>
     </div>
-    <div className="text-center">
-      <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+    <div className="text-right">
+      <h1 className="text-base font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent leading-tight">
         نظام إدارة المشاريع
       </h1>
-      <p className="text-[10px] text-gray-600 mt-0.5">الحل الشامل لإدارة المشاريع الإنشائية</p>
+      <p className="text-[9px] text-gray-500 hidden sm:block">الحل الشامل لإدارة المشاريع الإنشائية</p>
     </div>
   </div>
 );
@@ -429,45 +429,46 @@ export default function AuthPage() {
 
 
   return (
-    <div className="h-screen relative overflow-hidden" dir="rtl">
+    <div className="min-h-screen relative overflow-x-hidden" dir="rtl">
       {/* الخلفية المتحركة */}
       <AnimatedBackground />
       
       {/* تأثير التدرج */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50/80 via-white/90 to-purple-50/80 backdrop-blur-sm"></div>
       
-      {/* المحتوى الرئيسي */}
-      <div className="relative z-10 h-screen flex items-center justify-center p-2 overflow-y-auto">
-        <div className="w-full max-w-md space-y-1">
-          
-          {/* شعار الشركة */}
+      {/* المحتوى الرئيسي - تخطيط محسن للهواتف مع scroll */}
+      <div className="relative z-10 min-h-screen max-h-screen flex flex-col py-3 px-2 sm:px-4 sm:py-6 overflow-hidden">
+        {/* الجزء العلوي - الشعار */}
+        <div className="flex-shrink-0 mb-2">
           <CompanyLogo />
+        </div>
 
-          {/* البطاقة الرئيسية مع التأثيرات */}
-          <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl">
-            <CardHeader className="space-y-0 text-center pt-3 px-3">
-              <CardTitle className="text-lg font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+        {/* الجزء الرئيسي - البطاقة مع scroll مستقل */}
+        <div className="flex-1 flex items-center justify-center overflow-y-auto min-h-0">
+          <Card className="glass-morphism border-0 shadow-xl backdrop-blur-xl w-full max-w-sm">
+            <CardHeader className="space-y-0 text-center py-2 px-2 sm:px-3">
+              <CardTitle className="text-base font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                 مرحباً بك
               </CardTitle>
-              <CardDescription className="text-xs text-gray-600">
-                اختر العملية المطلوبة من الأسفل
+              <CardDescription className="text-[11px] text-gray-600">
+                اختر العملية المطلوبة
               </CardDescription>
             </CardHeader>
             
-            <CardContent className="space-y-2 px-3">
-              {/* نظام التبويبات المتطور */}
+            <CardContent className="space-y-1.5 px-2 sm:px-3 pb-3">
+              {/* نظام التبويبات المضغوط */}
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 glass-tabs gap-1">
+                <TabsList className="grid w-full grid-cols-2 glass-tabs gap-0.5 h-8">
                   <TabsTrigger 
                     value="login" 
-                    className="flex items-center gap-1 tab-trigger px-3 py-2 text-sm"
+                    className="flex items-center gap-1 tab-trigger px-2 py-1 text-xs"
                   >
                     <Shield className="w-3 h-3" />
                     تسجيل الدخول
                   </TabsTrigger>
                   <TabsTrigger 
                     value="register" 
-                    className="flex items-center gap-1 tab-trigger px-3 py-2 text-sm"
+                    className="flex items-center gap-1 tab-trigger px-2 py-1 text-xs"
                   >
                     <UserPlus className="w-3 h-3" />
                     حساب جديد
@@ -475,9 +476,9 @@ export default function AuthPage() {
                 </TabsList>
 
                 {/* محتوى تسجيل الدخول */}
-                <TabsContent value="login" className="space-y-2 tab-content mt-2">
+                <TabsContent value="login" className="space-y-1.5 tab-content mt-1.5">
                   <Form {...loginForm}>
-                    <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-2">
+                    <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-1.5">
                       
                       {loginStep === 'credentials' && (
                         <>
@@ -533,22 +534,22 @@ export default function AuthPage() {
                             )}
                           />
 
-                          {/* خيارات تسجيل الدخول */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                          {/* خيارات تسجيل الدخول - مضغوطة */}
+                          <div className="flex items-center justify-between text-[11px]">
+                            <div className="flex items-center gap-1">
                               <input
                                 type="checkbox"
                                 id="remember-me"
-                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3 h-3"
                               />
-                              <label htmlFor="remember-me" className="text-sm text-gray-600">
+                              <label htmlFor="remember-me" className="text-gray-600">
                                 تذكرني
                               </label>
                             </div>
                             <button
                               type="button"
                               onClick={() => setActiveTab('forgot')}
-                              className="text-sm text-blue-600 hover:text-blue-500 cursor-pointer transition-colors duration-200"
+                              className="text-blue-600 hover:text-blue-500 cursor-pointer transition-colors"
                             >
                               نسيت كلمة المرور؟
                             </button>
@@ -582,28 +583,31 @@ export default function AuthPage() {
                         />
                       )}
 
-                      <Button
-                        type="submit"
-                        loading={loginMutation.isPending}
-                        loadingText="جارِ تسجيل الدخول..."
-                        enableRateLimit={true}
-                        rateLimitDelay={2000}
-                        className="w-full h-8 text-sm"
-                        data-testid="button-login"
-                      >
-                        <ArrowRight className="ml-2 h-3 w-3" />
-                        {loginStep === 'credentials' && 'تسجيل الدخول'}
-                        {loginStep === 'mfa' && 'تأكيد الرمز'}
-                      </Button>
+                      {/* زر تسجيل الدخول - ثابت في الأسفل */}
+                      <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm pt-2 -mx-2 px-2 pb-1">
+                        <Button
+                          type="submit"
+                          loading={loginMutation.isPending}
+                          loadingText="جارِ تسجيل الدخول..."
+                          enableRateLimit={true}
+                          rateLimitDelay={2000}
+                          className="w-full h-9 text-sm font-medium"
+                          data-testid="button-login"
+                        >
+                          <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                          {loginStep === 'credentials' && 'تسجيل الدخول'}
+                          {loginStep === 'mfa' && 'تأكيد الرمز'}
+                        </Button>
+                      </div>
 
                     </form>
                   </Form>
                 </TabsContent>
 
-                {/* محتوى التسجيل */}
-                <TabsContent value="register" className="space-y-2 tab-content mt-2">
+                {/* محتوى التسجيل - مضغوط */}
+                <TabsContent value="register" className="space-y-1 tab-content mt-1.5">
                   <Form {...registerForm}>
-                    <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-2">
+                    <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-1.5">
                       
                       <FormField
                         control={registerForm.control}
@@ -745,40 +749,43 @@ export default function AuthPage() {
                         )}
                       />
 
-                      <Button
-                        type="submit"
-                        className="w-full h-8 text-sm enhanced-button"
-                        disabled={registerMutation.isPending}
-                        data-testid="button-register"
-                      >
-                        {registerMutation.isPending ? (
-                          <>
-                            <Loader2 className="ml-2 h-3 w-3 animate-spin" />
-                            جارِ إنشاء الحساب...
-                          </>
-                        ) : (
-                          <>
-                            <UserPlus className="ml-2 h-3 w-3" />
-                            إنشاء حساب جديد
-                          </>
-                        )}
-                      </Button>
+                      {/* زر التسجيل - ثابت في الأسفل */}
+                      <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm pt-2 -mx-2 px-2 pb-1">
+                        <Button
+                          type="submit"
+                          className="w-full h-9 text-sm font-medium enhanced-button"
+                          disabled={registerMutation.isPending}
+                          data-testid="button-register"
+                        >
+                          {registerMutation.isPending ? (
+                            <>
+                              <Loader2 className="ml-2 h-3.5 w-3.5 animate-spin" />
+                              جارِ إنشاء الحساب...
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="ml-2 h-3.5 w-3.5" />
+                              إنشاء حساب جديد
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </form>
                   </Form>
                 </TabsContent>
 
-                {/* محتوى استرجاع كلمة المرور */}
-                <TabsContent value="forgot" className="space-y-2 tab-content mt-2">
-                  <div className="text-center space-y-1">
-                    <Lock className="w-8 h-8 text-blue-500 mx-auto" />
-                    <h3 className="text-sm font-semibold text-gray-900">استرجاع كلمة المرور</h3>
-                    <p className="text-xs text-gray-600">
-                      أدخل بريدك الإلكتروني وسنرسل لك رابط لإعادة تعيين كلمة المرور
+                {/* محتوى استرجاع كلمة المرور - مضغوط */}
+                <TabsContent value="forgot" className="space-y-1.5 tab-content mt-1.5">
+                  <div className="text-center space-y-0.5">
+                    <Lock className="w-6 h-6 text-blue-500 mx-auto" />
+                    <h3 className="text-xs font-semibold text-gray-900">استرجاع كلمة المرور</h3>
+                    <p className="text-[10px] text-gray-600">
+                      أدخل بريدك الإلكتروني وسنرسل لك رابط الاسترجاع
                     </p>
                   </div>
 
                   <Form {...forgotPasswordForm}>
-                    <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-2">
+                    <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-1.5">
                       
                       <FormField
                         control={forgotPasswordForm.control}
@@ -806,36 +813,38 @@ export default function AuthPage() {
                         )}
                       />
 
-                      <Button
-                        type="submit"
-                        className="w-full h-8 text-sm enhanced-button"
-                        disabled={forgotPasswordMutation.isPending}
-                        data-testid="button-forgot-password"
-                      >
-                        {forgotPasswordMutation.isPending ? (
-                          <>
-                            <Loader2 className="ml-2 h-3 w-3 animate-spin" />
-                            جارِ الإرسال...
-                          </>
-                        ) : (
-                          <>
-                            <Mail className="ml-2 h-3 w-3" />
-                            إرسال رابط الاسترجاع
-                          </>
-                        )}
-                      </Button>
+                      {/* زر الاسترجاع - ثابت في الأسفل */}
+                      <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm pt-2 -mx-2 px-2 pb-1">
+                        <Button
+                          type="submit"
+                          className="w-full h-9 text-sm font-medium enhanced-button"
+                          disabled={forgotPasswordMutation.isPending}
+                          data-testid="button-forgot-password"
+                        >
+                          {forgotPasswordMutation.isPending ? (
+                            <>
+                              <Loader2 className="ml-2 h-3.5 w-3.5 animate-spin" />
+                              جارِ الإرسال...
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="ml-2 h-3.5 w-3.5" />
+                              إرسال رابط الاسترجاع
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </form>
                   </Form>
                 </TabsContent>
               </Tabs>
             </CardContent>
           </Card>
+        </div>
 
-          {/* Footer */}
-          <div className="text-center text-xs text-gray-500 space-y-0">
-            <p className="text-[10px]">© 2025 نظام إدارة المشاريع الإنشائية</p>
-            <p className="text-[10px]">جميع الحقوق محفوظة</p>
-          </div>
+        {/* التذييل المضغوط */}
+        <div className="flex-shrink-0 mt-2 text-center">
+          <p className="text-[9px] text-gray-400">© 2025 نظام إدارة المشاريع الإنشائية - جميع الحقوق محفوظة</p>
         </div>
       </div>
     </div>

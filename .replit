@@ -88,9 +88,8 @@ HEALTH_CHECK_URL = "http://localhost:6000/api/health"
 DOMAIN = "localhost:6000"
 
 [[ports]]
-localPort = 6000
-externalPort = 80
+localPort = 5000
 
 [[ports]]
-localPort = 5000
+localPort = 6000
 externalPort = 80

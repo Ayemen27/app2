@@ -56,7 +56,10 @@ export default function ProjectTransactionsSimple() {
       if (!selectedProject) return [];
       try {
         console.log(`🔄 جلب تحويلات العهدة للمشروع: ${selectedProject}`);
-        const data = await apiRequest(`/api/projects/${selectedProject}/fund-transfers`);
+        const endpoint = isAllProjects 
+          ? '/api/projects/all/fund-transfers'
+          : `/api/projects/${selectedProject}/fund-transfers`;
+        const data = await apiRequest(endpoint);
         console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} تحويل عهدة`);
         return Array.isArray(data?.data) ? data.data : [];
       } catch (error) {
@@ -166,7 +169,10 @@ export default function ProjectTransactionsSimple() {
       if (!selectedProject) return [];
       try {
         console.log(`🔄 جلب حضور العمال للمشروع: ${selectedProject}`);
-        const response = await fetch(`/api/projects/${selectedProject}/worker-attendance`, {
+        const endpoint = isAllProjects
+          ? '/api/projects/all/worker-attendance'
+          : `/api/projects/${selectedProject}/worker-attendance`;
+        const response = await fetch(endpoint, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
             'Content-Type': 'application/json',
@@ -200,7 +206,10 @@ export default function ProjectTransactionsSimple() {
       if (!selectedProject) return [];
       try {
         console.log(`🔄 جلب مشتريات المواد للمشروع: ${selectedProject}`);
-        const response = await fetch(`/api/projects/${selectedProject}/material-purchases`, {
+        const endpoint = isAllProjects
+          ? '/api/projects/all/material-purchases'
+          : `/api/projects/${selectedProject}/material-purchases`;
+        const response = await fetch(endpoint, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
             'Content-Type': 'application/json',
@@ -246,7 +255,10 @@ export default function ProjectTransactionsSimple() {
       if (!selectedProject) return [];
       try {
         console.log(`🔄 جلب حوالات العمال للمشروع: ${selectedProject}`);
-        const response = await fetch(`/api/projects/${selectedProject}/worker-transfers`, {
+        const endpoint = isAllProjects
+          ? '/api/projects/all/worker-transfers'
+          : `/api/projects/${selectedProject}/worker-transfers`;
+        const response = await fetch(endpoint, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
             'Content-Type': 'application/json',
@@ -542,7 +554,7 @@ export default function ProjectTransactionsSimple() {
     });
 
     return finalTransactions;
-  }, [fundTransfers, incomingProjectTransfers, outgoingProjectTransfers, workerAttendance, materialPurchases, transportExpenses, miscExpenses, workerTransfers, workers]);
+  }, [isAllProjects, fundTransfers, incomingProjectTransfers, outgoingProjectTransfers, workerAttendance, materialPurchases, transportExpenses, miscExpenses, workerTransfers, workers]);
 
   // تطبيق الفلاتر
   const filteredTransactions = useMemo(() => {
@@ -718,18 +730,6 @@ export default function ProjectTransactionsSimple() {
             }}
             isAllProjectsSelected={isAllProjects}
           />
-
-          {/* رسالة عند اختيار جميع المشاريع */}
-          {isAllProjects && (
-            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
-              <CardContent className="p-4 text-center">
-                <div className="text-blue-800 dark:text-blue-200">
-                  <h3 className="font-semibold mb-2">📊 جميع المشاريع</h3>
-                  <p className="text-sm">يرجى اختيار مشروع محدد لعرض سجل العمليات المالية.</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* عرض الأخطاء إن وجدت */}
           {(fundTransfersError || attendanceError || materialsError || workerTransfersError || incomingTransfersError || outgoingTransfersError) && (

@@ -693,14 +693,6 @@ export default function WorkerAccountsPage() {
             tooltip: 'تصدير إلى Excel'
           }
         ]}
-        resultsSummary={{
-          totalCount: transfers.length,
-          filteredCount: filteredTransfers.length,
-          totalLabel: 'إجمالي الحوالات',
-          filteredLabel: 'النتائج المعروضة',
-          totalValue: formatCurrency(stats.totalAmount),
-          totalValueLabel: 'إجمالي المبالغ'
-        }}
       />
 
       {isLoadingTransfers ? (

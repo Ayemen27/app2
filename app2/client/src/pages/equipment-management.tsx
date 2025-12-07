@@ -643,12 +643,6 @@ export function EquipmentManagement() {
             tooltip: 'طباعة كشف المعدات'
           }
         ]}
-        resultsSummary={{
-          totalCount: stats.total,
-          filteredCount: equipment.length,
-          totalLabel: 'إجمالي المعدات',
-          filteredLabel: 'النتائج المعروضة',
-        }}
       />
 
       {equipment.length === 0 ? (

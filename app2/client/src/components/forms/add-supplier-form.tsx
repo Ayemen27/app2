@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -220,13 +219,12 @@ export default function AddSupplierForm({
         <Label htmlFor="notes" className="text-sm font-medium text-foreground">
           ملاحظات
         </Label>
-        <Textarea
-          id="notes"
+        <AutocompleteInput
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={setNotes}
           placeholder="ملاحظات إضافية..."
-          rows={2}
-          className="resize-none"
+          category="notes"
+          className="w-full"
         />
       </div>
 

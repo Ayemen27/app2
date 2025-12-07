@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -568,7 +568,13 @@ export default function ProjectTransfers() {
                           <FormItem>
                             <FormLabel className="text-sm font-semibold">سبب التحويل</FormLabel>
                             <FormControl>
-                              <Input placeholder="أدخل السبب" {...field} value={field.value || ""} className="h-10 md:h-11 border-2" />
+                              <AutocompleteInput
+                                category="transferTypes"
+                                placeholder="أدخل السبب"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                className="h-10 md:h-11 border-2"
+                              />
                             </FormControl>
                             <FormMessage className="text-xs" />
                           </FormItem>
@@ -583,7 +589,13 @@ export default function ProjectTransfers() {
                           <FormItem>
                             <FormLabel className="text-sm font-semibold">الملاحظات (اختياري)</FormLabel>
                             <FormControl>
-                              <Textarea placeholder="أدخل أي ملاحظات" {...field} value={field.value || ""} className="border-2 min-h-24 md:min-h-28" />
+                              <AutocompleteInput
+                                category="notes"
+                                placeholder="أدخل أي ملاحظات"
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                className="border-2 min-h-24 md:min-h-28"
+                              />
                             </FormControl>
                             <FormMessage className="text-xs" />
                           </FormItem>

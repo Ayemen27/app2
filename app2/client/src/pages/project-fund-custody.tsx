@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -524,7 +524,13 @@ export default function ProjectFundCustody() {
                         <FormItem>
                           <FormLabel className="text-sm font-semibold">اسم المرسل</FormLabel>
                           <FormControl>
-                            <Input placeholder="أدخل الاسم" {...field} value={field.value || ""} className="h-10 md:h-11 border-2" />
+                            <AutocompleteInput
+                              category="senderNames"
+                              placeholder="أدخل الاسم"
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              className="h-10 md:h-11 border-2"
+                            />
                           </FormControl>
                           <FormMessage className="text-xs" />
                         </FormItem>
@@ -537,7 +543,13 @@ export default function ProjectFundCustody() {
                         <FormItem>
                           <FormLabel className="text-sm font-semibold">رقم الحوالة</FormLabel>
                           <FormControl>
-                            <Input placeholder="أدخل الرقم" {...field} value={field.value || ""} className="h-10 md:h-11 border-2" />
+                            <AutocompleteInput
+                              category="transferNumbers"
+                              placeholder="أدخل الرقم"
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              className="h-10 md:h-11 border-2"
+                            />
                           </FormControl>
                           <FormMessage className="text-xs" />
                         </FormItem>
@@ -552,7 +564,13 @@ export default function ProjectFundCustody() {
                       <FormItem>
                         <FormLabel className="text-sm font-semibold">الملاحظات</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="أدخل ملاحظات" {...field} value={field.value || ""} className="border-2 min-h-24 md:min-h-28" />
+                          <AutocompleteInput
+                            category="notes"
+                            placeholder="أدخل ملاحظات"
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            className="border-2 min-h-24 md:min-h-28"
+                          />
                         </FormControl>
                         <FormMessage className="text-xs" />
                       </FormItem>

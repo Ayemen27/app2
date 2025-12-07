@@ -37,6 +37,8 @@ interface Transaction {
   category: string;
   amount: number;
   description: string;
+  projectId?: string;
+  projectName?: string;
 }
 
 export default function ProjectTransactionsSimple() {
@@ -354,6 +356,13 @@ export default function ProjectTransactionsSimple() {
       workerTransfers: workerTransfersArray?.length || 0
     });
 
+    // Helper function to get project name by id
+    const getProjectName = (projectId: string | number | undefined): string => {
+      if (!projectId) return 'غير محدد';
+      const project = (projects as Project[]).find(p => String(p.id) === String(projectId));
+      return project?.name || 'غير محدد';
+    };
+
     // ✅ إضافة تحويلات العهدة العادية (دخل)
     console.log('💰 إضافة تحويلات العهدة:', fundTransfersArray.length);
     fundTransfersArray.forEach((transfer: any) => {
@@ -367,7 +376,9 @@ export default function ProjectTransactionsSimple() {
           type: 'income',
           category: 'تحويل عهدة',
           amount: amount,
-          description: `من: ${transfer.senderName || 'غير محدد'}`
+          description: `من: ${transfer.senderName || 'غير محدد'}`,
+          projectId: transfer.projectId,
+          projectName: transfer.projectName || getProjectName(transfer.projectId)
         });
       }
     });
@@ -387,7 +398,9 @@ export default function ProjectTransactionsSimple() {
             type: 'transfer_from_project',
             category: '🔄 ترحيل وارد من مشروع',
             amount: amount,
-            description: `📥 من مشروع: ${transfer.fromProjectName || 'مشروع آخر'}${transfer.description ? ` - ${transfer.description}` : ''}`
+            description: `📥 من مشروع: ${transfer.fromProjectName || 'مشروع آخر'}${transfer.description ? ` - ${transfer.description}` : ''}`,
+            projectId: transfer.toProjectId,
+            projectName: transfer.toProjectName || getProjectName(transfer.toProjectId)
           });
         }
       });
@@ -410,7 +423,9 @@ export default function ProjectTransactionsSimple() {
             type: 'expense',
             category: '🔄 ترحيل صادر إلى مشروع',
             amount: amount,
-            description: `📤 إلى مشروع: ${transfer.toProjectName || 'مشروع آخر'}${transfer.description ? ` - ${transfer.description}` : ''}`
+            description: `📤 إلى مشروع: ${transfer.toProjectName || 'مشروع آخر'}${transfer.description ? ` - ${transfer.description}` : ''}`,
+            projectId: transfer.fromProjectId,
+            projectName: transfer.fromProjectName || getProjectName(transfer.fromProjectId)
           });
         }
       });
@@ -468,7 +483,9 @@ export default function ProjectTransactionsSimple() {
           type: 'expense' as const,
           category: 'أجور العمال',
           amount: amount,
-          description: `${workerName}${workDays}${dailyWage}${paymentStatus}`
+          description: `${workerName}${workDays}${dailyWage}${paymentStatus}`,
+          projectId: attendance.projectId,
+          projectName: attendance.projectName || getProjectName(attendance.projectId)
         };
 
         console.log('✅ إضافة معاملة أجور العمال:', newTransaction);
@@ -505,7 +522,9 @@ export default function ProjectTransactionsSimple() {
           type: isDeferred ? 'deferred' : 'expense',
           category: isDeferred ? 'مشتريات آجلة' : 'مشتريات المواد',
           amount: amount,
-          description: `مادة: ${purchase.materialName || purchase.name || 'غير محدد'}${isDeferred ? ' (آجل)' : ''}`
+          description: `مادة: ${purchase.materialName || purchase.name || 'غير محدد'}${isDeferred ? ' (آجل)' : ''}`,
+          projectId: purchase.projectId,
+          projectName: purchase.projectName || getProjectName(purchase.projectId)
         });
       }
     });
@@ -524,7 +543,9 @@ export default function ProjectTransactionsSimple() {
           type: 'expense',
           category: 'مصروفات النقل',
           amount: amount,
-          description: `نقل: ${expense.description || 'غير محدد'}`
+          description: `نقل: ${expense.description || 'غير محدد'}`,
+          projectId: expense.projectId,
+          projectName: expense.projectName || getProjectName(expense.projectId)
         });
       }
     });
@@ -543,7 +564,9 @@ export default function ProjectTransactionsSimple() {
           type: 'expense',
           category: 'مصروفات متنوعة',
           amount: amount,
-          description: `متنوع: ${expense.description || expense.workerName || 'غير محدد'}`
+          description: `متنوع: ${expense.description || expense.workerName || 'غير محدد'}`,
+          projectId: expense.projectId,
+          projectName: expense.projectName || getProjectName(expense.projectId)
         });
       }
     });
@@ -568,7 +591,9 @@ export default function ProjectTransactionsSimple() {
           type: 'expense',
           category: 'حوالات العمال',
           amount: amount,
-          description: `${workerName}${recipientName} - ${transferMethod}`
+          description: `${workerName}${recipientName} - ${transferMethod}`,
+          projectId: transfer.projectId,
+          projectName: transfer.projectName || getProjectName(transfer.projectId)
         });
       }
     });
@@ -593,7 +618,7 @@ export default function ProjectTransactionsSimple() {
     });
 
     return finalTransactions;
-  }, [selectedProject, isAllProjects, fundTransfers, incomingProjectTransfers, outgoingProjectTransfers, workerAttendance, materialPurchases, transportExpenses, miscExpenses, workerTransfers, workers]);
+  }, [selectedProject, isAllProjects, fundTransfers, incomingProjectTransfers, outgoingProjectTransfers, workerAttendance, materialPurchases, transportExpenses, miscExpenses, workerTransfers, workers, projects]);
 
   // تطبيق الفلاتر
   const filteredTransactions = useMemo(() => {
@@ -865,6 +890,12 @@ export default function ProjectTransactionsSimple() {
                         }
                       ]}
                       fields={[
+                        {
+                          label: "المشروع",
+                          value: transaction.projectName || 'غير محدد',
+                          icon: UnifiedBuilding2,
+                          color: "info"
+                        },
                         {
                           label: "النوع",
                           value: isIncome ? 'دخل' : isDeferred ? 'آجل' : 'مصروف',

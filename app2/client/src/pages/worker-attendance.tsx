@@ -350,7 +350,7 @@ export default function WorkerAttendance() {
 
       // تحسين منطق الحفظ لتجنب تضارب السجلات الموجودة
       const results = [];
-      const errors = [];
+      const errors: Array<{ workerId: string; workerName: string; error: string }> = [];
 
       for (const record of attendanceRecords) {
         try {
@@ -420,9 +420,23 @@ export default function WorkerAttendance() {
 
         } catch (error: any) {
           console.error(`❌ فشل في حفظ حضور العامل ${record.workerId}:`, error);
+          const worker = workers.find(w => w.id === record.workerId);
+          const workerName = worker?.name || 'عامل غير معروف';
+          
+          // استخراج رسالة الخطأ بشكل أفضل
+          let errorMsg = "خطأ غير معروف";
+          if (error?.response?.data?.message) {
+            errorMsg = error.response.data.message;
+          } else if (error?.response?.data?.error) {
+            errorMsg = error.response.data.error;
+          } else if (error?.message) {
+            errorMsg = error.message;
+          }
+          
           errors.push({
             workerId: record.workerId,
-            error: error.message || "خطأ غير معروف"
+            workerName: workerName,
+            error: errorMsg
           });
         }
       }
@@ -448,22 +462,24 @@ export default function WorkerAttendance() {
       if (failed.length === 0) {
         // جميع العمليات نجحت
         toast({
-          title: "تم الحفظ بنجاح",
+          title: "✅ تم الحفظ بنجاح",
           description: `تم حفظ حضور ${successful.length} عامل بنجاح`,
         });
       } else if (successful.length > 0) {
         // بعض العمليات نجحت وبعضها فشل
+        const failedDetails = failed.map((f: any) => `• ${f.workerName}: ${f.error}`).join('\n');
         toast({
-          title: "تم الحفظ جزئياً",
-          description: `نجح حفظ ${successful.length} عامل، فشل ${failed.length} عامل`,
+          title: "⚠️ تم الحفظ جزئياً",
+          description: `نجح: ${successful.length} عامل\nفشل: ${failed.length} عامل\n\n${failedDetails}`,
           variant: "default",
         });
         console.error("تفاصيل الأخطاء:", failed);
       } else {
         // جميع العمليات فشلت
+        const failedDetails = failed.map((f: any) => `• ${f.workerName}: ${f.error}`).join('\n');
         toast({
-          title: "فشل الحفظ",
-          description: `فشل في حفظ جميع سجلات الحضور (${failed.length} عامل)`,
+          title: "❌ فشل الحفظ",
+          description: `فشل في حفظ جميع سجلات الحضور:\n\n${failedDetails}`,
           variant: "destructive",
         });
       }

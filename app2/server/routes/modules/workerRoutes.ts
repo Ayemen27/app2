@@ -1159,7 +1159,14 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     console.log('📝 [API] طلب إضافة حضور عامل جديد من المستخدم:', req.user?.email);
     console.log('📋 [API] بيانات حضور العامل المرسلة:', req.body);
     
-    // Validation باستخدام insert schema
+    // Validation باستخدام insert schema مع معالجة خاصة للسحب المقدم
+    const recordType = (req.body as any).recordType || 'work';
+    
+    // للسحب المقدم: نسمح بـ workDays = 0
+    if (recordType === 'advance' && req.body.workDays === 0) {
+      req.body.workDays = 0.001; // قيمة صغيرة جداً لتمرير الـ validation
+    }
+    
     const validationResult = insertWorkerAttendanceSchema.safeParse(req.body);
     
     if (!validationResult.success) {
@@ -1167,7 +1174,27 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       console.error('❌ [API] فشل في validation حضور العامل:', validationResult.error.flatten());
       
       const errorMessages = validationResult.error.flatten().fieldErrors;
-      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات حضور العامل غير صحيحة';
+      
+      // إنشاء رسالة خطأ مفصلة وواضحة
+      let detailedMessage = '⚠️ خطأ في البيانات:\n';
+      
+      if (errorMessages.workDays) {
+        detailedMessage += '• عدد الأيام: ' + errorMessages.workDays[0] + '\n';
+      }
+      if (errorMessages.paidAmount) {
+        detailedMessage += '• المبلغ المدفوع: ' + errorMessages.paidAmount[0] + '\n';
+      }
+      if (errorMessages.date) {
+        detailedMessage += '• التاريخ: ' + errorMessages.date[0] + '\n';
+      }
+      if (errorMessages.projectId) {
+        detailedMessage += '• المشروع: يجب اختيار مشروع محدد\n';
+      }
+      if (errorMessages.workerId) {
+        detailedMessage += '• العامل: يجب اختيار عامل\n';
+      }
+      
+      const firstError = detailedMessage || 'بيانات حضور العامل غير صحيحة';
       
       return res.status(400).json({
         success: false,
@@ -1178,6 +1205,11 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       });
     }
     
+    // للسحب المقدم: إرجاع workDays إلى 0
+    if (recordType === 'advance' && validationResult.data.workDays === 0.001) {
+      validationResult.data.workDays = 0;
+    }
+    
     console.log('✅ [API] نجح validation حضور العامل');
     
     // حساب actualWage و totalPay = dailyWage * workDays وتحويل workDays إلى string
@@ -1186,7 +1218,8 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       ...validationResult.data,
       workDays: validationResult.data.workDays.toString(), // تحويل إلى string للتوافق مع decimal
       actualWage: actualWageValue.toString(),
-      totalPay: actualWageValue.toString() // totalPay = actualWage
+      totalPay: actualWageValue.toString(), // totalPay = actualWage
+      recordType: recordType // إضافة نوع السجل
     };
     
     // إدراج حضور العامل الجديد في قاعدة البيانات
@@ -1222,25 +1255,29 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     const duration = Date.now() - startTime;
     console.error('❌ [API] خطأ في إنشاء حضور العامل:', error);
     
-    // تحليل نوع الخطأ لرسالة أفضل
+    // تحليل نوع الخطأ لرسالة أفضل ومفصلة
     let errorMessage = 'فشل في إنشاء حضور العامل';
+    let detailedMessage = error.message;
     let statusCode = 500;
     
     if (error.code === '23503') { // foreign key violation
-      errorMessage = 'العامل أو المشروع المحدد غير موجود';
+      errorMessage = '⚠️ خطأ في البيانات المرتبطة';
+      detailedMessage = 'العامل أو المشروع المحدد غير موجود في النظام. تأكد من:\n• اختيار مشروع موجود\n• اختيار عامل موجود';
       statusCode = 400;
     } else if (error.code === '23502') { // not null violation
-      errorMessage = 'بيانات حضور العامل ناقصة';
+      errorMessage = '⚠️ بيانات ناقصة';
+      detailedMessage = 'بعض الحقول المطلوبة فارغة:\n' + (error.column ? `• ${error.column} مطلوب` : '• تأكد من ملء جميع الحقول المطلوبة');
       statusCode = 400;
     } else if (error.code === '23505') { // unique violation
-      errorMessage = 'تم تسجيل حضور هذا العامل مسبقاً لهذا التاريخ';
+      errorMessage = '⚠️ سجل مكرر';
+      detailedMessage = 'تم تسجيل حضور هذا العامل مسبقاً لهذا التاريخ.\nاستخدم زر "تعديل" لتحديث السجل الموجود.';
       statusCode = 409;
     }
     
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
-      message: error.message,
+      message: detailedMessage,
       processingTime: duration
     });
   }

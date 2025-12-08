@@ -26,6 +26,7 @@ import { useSelectedProject } from "@/hooks/use-selected-project";
 import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import "@/styles/excel-print-styles.css";
+import { downloadExcelFile } from "@/utils/webview-download";
 
 interface DailyExpenseData {
   date: string;
@@ -266,11 +267,7 @@ export default function Reports() {
       totalRow.getCell(2).numFmt = "#,##0.00";
 
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `تقرير_المصاريف_${selectedProject.name}_${selectedDate}.xlsx`;
-      link.click();
+      await downloadExcelFile(buffer as ArrayBuffer, `تقرير_المصاريف_${selectedProject.name}_${selectedDate}.xlsx`);
     } catch (error) {
       console.error("خطأ في تصدير Excel:", error);
     }
@@ -343,11 +340,7 @@ export default function Reports() {
       balanceRow.getCell(2).numFmt = "#,##0.00";
 
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `بيان_العامل_${statementData.worker.name}_${dateTo}.xlsx`;
-      link.click();
+      await downloadExcelFile(buffer as ArrayBuffer, `بيان_العامل_${statementData.worker.name}_${dateTo}.xlsx`);
     } catch (error) {
       console.error("خطأ في تصدير Excel:", error);
     }

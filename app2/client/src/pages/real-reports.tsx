@@ -7,6 +7,7 @@ import { Download, Printer, RefreshCw, BarChart3, Users, AlertCircle } from "luc
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
 import { useSelectedProject } from "@/hooks/use-selected-project";
+import { downloadExcelFile } from "@/utils/webview-download";
 
 export default function RealReports() {
   const [activeTab, setActiveTab] = useState("projects");
@@ -142,11 +143,7 @@ export default function RealReports() {
       });
 
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `تقرير_يومي_${projectName}_${new Date().toLocaleDateString("ar-EG")}.xlsx`;
-      link.click();
+      await downloadExcelFile(buffer as ArrayBuffer, `تقرير_يومي_${projectName}_${new Date().toLocaleDateString("ar-EG")}.xlsx`);
     } catch (error) {
       console.error("خطأ في التصدير:", error);
     }
@@ -247,11 +244,7 @@ export default function RealReports() {
       finalDetailsRow.alignment = { horizontal: "center", vertical: "middle" };
 
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `كشف_حساب_تفصيلي_${projectName}_${new Date().toLocaleDateString("ar-EG")}.xlsx`;
-      link.click();
+      await downloadExcelFile(buffer as ArrayBuffer, `كشف_حساب_تفصيلي_${projectName}_${new Date().toLocaleDateString("ar-EG")}.xlsx`);
     } catch (error) {
       console.error("خطأ في التصدير:", error);
     }

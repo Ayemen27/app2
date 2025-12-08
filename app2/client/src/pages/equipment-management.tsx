@@ -18,6 +18,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { saveAs } from 'file-saver';
 import { useToast } from "@/hooks/use-toast";
 import { EXCEL_STYLES, COMPANY_INFO, addReportHeader } from "@/components/excel-export-utils";
+import { downloadExcelFile } from "@/utils/webview-download";
 
 interface Equipment {
   id: string;
@@ -468,10 +469,7 @@ export function EquipmentManagement() {
       const filename = `كشف_المعدات_${filenameProjectName}_${new Date().toISOString().split('T')[0]}.xlsx`;
       
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-      });
-      saveAs(blob, filename);
+      await downloadExcelFile(buffer as ArrayBuffer, filename);
       
       toast({
         title: "تم تصدير كشف المعدات بنجاح",

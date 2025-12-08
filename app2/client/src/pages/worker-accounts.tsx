@@ -43,6 +43,7 @@ import {
   Building2
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import { downloadExcelFile } from '@/utils/webview-download';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input-database';
 import '@/styles/unified-print-styles.css';
 
@@ -658,12 +659,8 @@ export default function WorkerAccountsPage() {
     totalValueCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
     const currentDate = new Date().toISOString().split('T')[0];
-    link.download = `حوالات-العمال-${currentDate}.xlsx`;
-    link.click();
+    await downloadExcelFile(buffer as ArrayBuffer, `حوالات-العمال-${currentDate}.xlsx`);
   };
 
   return (

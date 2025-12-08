@@ -5,6 +5,7 @@
  */
 
 import { formatCurrency } from '@/lib/utils';
+import { downloadExcelFile } from '@/utils/webview-download';
 
 export const COMPANY_INFO = {
   name: 'شركة الفتيني للمقاولات والاستشارات الهندسية',
@@ -460,15 +461,7 @@ export async function exportDailyExpensesReport(
   addReportFooter(worksheet, currentRow, 5);
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { 
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-  });
-  
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `كشف_مصروفات_${data.projectName}_${data.date}.xlsx`;
-  link.click();
-  URL.revokeObjectURL(link.href);
+  await downloadExcelFile(buffer as ArrayBuffer, `كشف_مصروفات_${data.projectName}_${data.date}.xlsx`);
 }
 
 export async function exportWorkerSettlementReport(
@@ -635,15 +628,7 @@ export async function exportWorkerSettlementReport(
   addReportFooter(worksheet, currentRow, 11);
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { 
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-  });
-  
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `كشف_تصفية_العمال_${data.dateRange.from}_${data.dateRange.to}.xlsx`;
-  link.click();
-  URL.revokeObjectURL(link.href);
+  await downloadExcelFile(buffer as ArrayBuffer, `كشف_تصفية_العمال_${data.dateRange.from}_${data.dateRange.to}.xlsx`);
 }
 
 export async function exportDetailedWorkerStatement(
@@ -812,15 +797,7 @@ export async function exportDetailedWorkerStatement(
   addReportFooter(worksheet, currentRow, 11);
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { 
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-  });
-  
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `كشف_حساب_تفصيلي_${data.workerName}_${data.dateRange.to}.xlsx`;
-  link.click();
-  URL.revokeObjectURL(link.href);
+  await downloadExcelFile(buffer as ArrayBuffer, `كشف_حساب_تفصيلي_${data.workerName}_${data.dateRange.to}.xlsx`);
 }
 
 export async function exportDailyReportToExcel(
@@ -939,15 +916,7 @@ export async function exportDailyReportToExcel(
   addReportFooter(worksheet, currentRow, 5);
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { 
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-  });
-  
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `تقرير_يومي_${options.projectName || ''}_${options.date || new Date().toISOString().split('T')[0]}.xlsx`;
-  link.click();
-  URL.revokeObjectURL(link.href);
+  await downloadExcelFile(buffer as ArrayBuffer, `تقرير_يومي_${options.projectName || ''}_${options.date || new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
 export async function exportPeriodicReportToExcel(
@@ -1075,15 +1044,7 @@ export async function exportPeriodicReportToExcel(
   addReportFooter(worksheet, currentRow, 7);
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { 
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-  });
-  
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `تقرير_فترة_${options.dateRange?.from}_${options.dateRange?.to}.xlsx`;
-  link.click();
-  URL.revokeObjectURL(link.href);
+  await downloadExcelFile(buffer as ArrayBuffer, `تقرير_فترة_${options.dateRange?.from}_${options.dateRange?.to}.xlsx`);
 }
 
 export async function exportWorkerStatementToExcel(
@@ -1188,13 +1149,5 @@ export async function exportComparisonReportToExcel(
   addReportFooter(worksheet, currentRow, colCount);
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { 
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-  });
-  
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `مقارنة_المشاريع_${options.dateRange?.from}_${options.dateRange?.to}.xlsx`;
-  link.click();
-  URL.revokeObjectURL(link.href);
+  await downloadExcelFile(buffer as ArrayBuffer, `مقارنة_المشاريع_${options.dateRange?.from}_${options.dateRange?.to}.xlsx`);
 }

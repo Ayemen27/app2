@@ -27,6 +27,7 @@ import {
 import { saveAs } from 'file-saver';
 import html2canvas from 'html2canvas';
 import type { Project } from '@shared/schema';
+import { downloadExcelFile } from '@/utils/webview-download';
 
 interface DailyExpenseData {
   date: string;
@@ -849,13 +850,10 @@ export default function DailyExpensesBulkExport() {
 
       // تصدير الملف
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-      });
       
       const projectName = selectedProject?.name?.replace(/[\\/:*?"<>|]/g, '-') || 'مشروع';
       const fileName = `تقرير_المصروفات_اليومية_${projectName}_من_${dateFrom}_إلى_${dateTo}.xlsx`;
-      saveAs(blob, fileName);
+      await downloadExcelFile(buffer as ArrayBuffer, fileName);
 
 
 

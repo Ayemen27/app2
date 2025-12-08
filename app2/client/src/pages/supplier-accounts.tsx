@@ -29,6 +29,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { apiRequest } from "@/lib/queryClient";
 import { useSelectedProject } from "@/hooks/use-selected-project";
+import { downloadExcelFile } from "@/utils/webview-download";
 import { useToast } from "@/hooks/use-toast";
 import type { Supplier, MaterialPurchase, Project } from "@shared/schema";
 
@@ -435,15 +436,11 @@ export default function SupplierAccountsPage() {
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
     const currentDate = new Date().toISOString().split('T')[0];
     const fileName = selectedSupplier 
       ? `كشف-حساب-${selectedSupplier.name}-${currentDate}.xlsx`
       : `كشف-حساب-جميع-الموردين-${currentDate}.xlsx`;
-    link.download = fileName;
-    link.click();
+    await downloadExcelFile(buffer as ArrayBuffer, fileName);
   };
 
   const resetFilters = useCallback(() => {

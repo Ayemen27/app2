@@ -11,6 +11,8 @@ export {
   addReportHeader
 } from '@/utils/professional-export';
 
+import { downloadExcelFile } from '@/utils/webview-download';
+
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('ar-SA', {
     style: 'decimal',
@@ -71,14 +73,5 @@ export async function exportToExcel(
   });
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { 
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-  });
-  
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${fileName}.xlsx`;
-  link.click();
-  window.URL.revokeObjectURL(url);
+  await downloadExcelFile(buffer as ArrayBuffer, `${fileName}.xlsx`);
 }

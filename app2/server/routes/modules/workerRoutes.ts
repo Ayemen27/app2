@@ -4,7 +4,8 @@ replit_final_file>
  * Worker Management Routes
  */
 
-import express, { Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import { eq, sql, and } from 'drizzle-orm';
 import { db } from '../../db.js';
 import {

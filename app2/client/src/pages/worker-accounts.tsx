@@ -431,14 +431,14 @@ export default function WorkerAccountsPage() {
   }, [transfers, selectedProject, selectedWorkerId, transferMethodFilter, searchTerm, dateFrom, dateTo, workers]);
 
   const stats = useMemo(() => {
-    const totalAmount = filteredTransfers.reduce((sum, t) => sum + t.amount, 0);
+    const totalAmount = filteredTransfers.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const cashTransfers = filteredTransfers.filter(t => t.transferMethod === 'cash');
     const bankTransfers = filteredTransfers.filter(t => t.transferMethod === 'bank');
     const hawalehTransfers = filteredTransfers.filter(t => t.transferMethod === 'hawaleh');
     
-    const cashAmount = cashTransfers.reduce((sum, t) => sum + t.amount, 0);
-    const bankAmount = bankTransfers.reduce((sum, t) => sum + t.amount, 0);
-    const hawalehAmount = hawalehTransfers.reduce((sum, t) => sum + t.amount, 0);
+    const cashAmount = cashTransfers.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const bankAmount = bankTransfers.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const hawalehAmount = hawalehTransfers.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     
     const uniqueWorkers = new Set(filteredTransfers.map(t => t.workerId)).size;
     

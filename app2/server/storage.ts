@@ -1586,10 +1586,11 @@ export class DatabaseStorage implements IStorage {
       }
       
       // حساب الإحصائيات الإجمالية
-      const totalWorkDays = attendance.reduce((sum, record) => sum + (Number(record.workDays) || 1), 0);
+      const totalWorkDays = attendance.reduce((sum, record) => sum + (Number(record.workDays) || 0), 0);
       const totalWagesEarned = attendance.reduce((sum, record) => {
-        const dailyWage = Number(record.dailyWage) || Number(worker?.dailyWage) || 0;
-        const workDays = Number(record.workDays) || 1;
+        // استخدام dailyWage من سجل الحضور نفسه لأنه الأدق
+        const dailyWage = Number(record.dailyWage) || 0;
+        const workDays = Number(record.workDays) || 0;
         return sum + (dailyWage * workDays);
       }, 0);
       const totalPaidAmount = attendance.reduce((sum, record) => sum + (Number(record.paidAmount) || 0), 0);

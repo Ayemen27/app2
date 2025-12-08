@@ -733,9 +733,11 @@ export class DatabaseStorage implements IStorage {
     }
     
     // حساب الأجر الفعلي بناءً على عدد أيام العمل
-    const workDays = attendance.workDays || 1.0;
+    const workDays = parseFloat((attendance.workDays || 1.0).toString());
     const dailyWage = parseFloat(attendance.dailyWage.toString());
-    const actualWage = dailyWage * workDays;
+    const actualWage = Math.round(dailyWage * workDays * 100) / 100; // تقريب لرقمين عشريين
+    
+    console.log(`💰 [Storage] حساب actualWage: workDays=${workDays}, dailyWage=${dailyWage}, actualWage=${actualWage}`);
     
     // إعداد الحضور مع الأجر المحسوب
     const attendanceData = {

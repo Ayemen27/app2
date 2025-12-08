@@ -407,7 +407,7 @@ export const insertFundTransferSchema = createInsertSchema(fundTransfers).omit({
 });
 export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance).omit({ id: true, createdAt: true }).extend({
   attendanceDate: z.string(), // اسم الحقل الصحيح
-  workDays: z.number().min(0.1).max(2.0).default(1.0), // عدد أيام العمل من 0.1 إلى 2.0
+  workDays: z.number().min(0).max(2.0).default(1.0), // عدد أيام العمل من 0 إلى 2.0 (السماح بـ 0 للسحب المقدم)
   dailyWage: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
   actualWage: z.coerce.string().optional(), // nullable في قاعدة البيانات
   totalPay: z.coerce.string(), // إجمالي الدفع المطلوب

@@ -575,10 +575,21 @@ export default function WorkerAttendance() {
   };
 
   const handleSaveAttendance = () => {
-    if (!selectedProjectId) {
+    // التحقق من اختيار المشروع
+    if (!selectedProjectId || selectedProjectId === ALL_PROJECTS_ID) {
       toast({
-        title: "خطأ",
-        description: "يرجى اختيار المشروع أولاً",
+        title: "⚠️ خطأ في البيانات",
+        description: "يرجى اختيار مشروع محدد من القائمة أعلاه قبل تسجيل الحضور",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // التحقق من اختيار التاريخ
+    if (!selectedDate) {
+      toast({
+        title: "⚠️ خطأ في البيانات",
+        description: "يرجى اختيار تاريخ الحضور من الفلتر أعلاه",
         variant: "destructive",
       });
       return;
@@ -613,12 +624,45 @@ export default function WorkerAttendance() {
       });
 
       let errorMsg = "";
-      if (hasWorkErrors) errorMsg += "يرجى إدخال عدد أيام عمل > 0 للعمل العادي. ";
-      if (hasAdvanceErrors) errorMsg += "يرجى إدخال مبلغ مسحوب > 0 للسحب المقدم.";
+      const errorDetails: string[] = [];
+      
+      if (hasWorkErrors) {
+        errorMsg += "• يرجى إدخال عدد أيام عمل أكبر من صفر للعمل العادي\n";
+        invalidRecords.forEach(([workerId, data]) => {
+          const recordType = (data as any).recordType || "work";
+          if (recordType === "work") {
+            const worker = workers.find(w => w.id === workerId);
+            errorDetails.push(`  - ${worker?.name || 'عامل غير معروف'}: يجب إدخال أيام العمل`);
+          }
+        });
+      }
+      
+      if (hasAdvanceErrors) {
+        errorMsg += "• يرجى إدخال مبلغ مسحوب أكبر من صفر للسحب المقدم\n";
+        invalidRecords.forEach(([workerId, data]) => {
+          const recordType = (data as any).recordType || "work";
+          if (recordType === "advance") {
+            const worker = workers.find(w => w.id === workerId);
+            errorDetails.push(`  - ${worker?.name || 'عامل غير معروف'}: يجب إدخال المبلغ المسحوب`);
+          }
+        });
+      }
 
       toast({
-        title: "خطأ في البيانات",
-        description: errorMsg,
+        title: "⚠️ خطأ في البيانات",
+        description: errorMsg + (errorDetails.length > 0 ? "\n" + errorDetails.join("\n") : ""),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // التحقق من وجود عمال محددين كحاضرين
+    const presentWorkers = Object.entries(attendanceData).filter(([_, data]) => data.isPresent);
+    
+    if (presentWorkers.length === 0) {
+      toast({
+        title: "⚠️ تنبيه",
+        description: "لم يتم تحديد أي عامل كحاضر. يرجى تحديد العمال الحاضرين أولاً.",
         variant: "destructive",
       });
       return;
@@ -712,8 +756,8 @@ export default function WorkerAttendance() {
 
     if (attendanceRecords.length === 0) {
       toast({
-        title: "تنبيه",
-        description: "لم يتم تحديد أي عامل كحاضر",
+        title: "⚠️ لا توجد سجلات صالحة للحفظ",
+        description: "يرجى التأكد من:\n• تحديد عمال كحاضرين\n• إدخال عدد الأيام للعمل العادي\n• إدخال المبلغ المسحوب للسحب المقدم",
         variant: "destructive",
       });
       return;
@@ -867,6 +911,32 @@ export default function WorkerAttendance() {
       {workers.length > 0 && (
         <Collapsible open={isFormOpen} onOpenChange={setIsFormOpen}>
           <Card className="mb-4">
+            {/* رسالة تنبيه عند عدم تحديد المشروع أو التاريخ */}
+            {(!selectedProjectId || selectedProjectId === ALL_PROJECTS_ID || !selectedDate) && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 m-4 rounded">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-amber-600 dark:text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-1">
+                      ⚠️ يرجى إكمال البيانات المطلوبة
+                    </h3>
+                    <div className="text-sm text-amber-700 dark:text-amber-400 space-y-1">
+                      {(!selectedProjectId || selectedProjectId === ALL_PROJECTS_ID) && (
+                        <p>• اختر مشروعاً محدداً من القائمة أعلاه</p>
+                      )}
+                      {!selectedDate && (
+                        <p>• اختر تاريخ الحضور من الفلتر أعلاه</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <CollapsibleTrigger asChild>
               <div className="flex items-center justify-between p-4 cursor-pointer">
                 <div className="flex items-center gap-2">

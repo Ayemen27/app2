@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -189,22 +189,22 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
             نوع العامل
           </Label>
           <div className="flex gap-2">
-            <Select value={type} onValueChange={setType}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="اختر نوع العامل..." />
-              </SelectTrigger>
-              <SelectContent>
-                {loadingTypes ? (
-                  <SelectItem value="loading" disabled>جاري التحميل...</SelectItem>
-                ) : (
-                  workerTypes.map((workerType) => (
-                    <SelectItem key={workerType.id} value={workerType.name}>
-                      {workerType.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={type}
+              onValueChange={setType}
+              options={
+                loadingTypes 
+                  ? [{ value: "loading", label: "جاري التحميل...", disabled: true }]
+                  : workerTypes.map((workerType) => ({
+                      value: workerType.name,
+                      label: workerType.name,
+                    }))
+              }
+              placeholder="اختر نوع العامل..."
+              searchPlaceholder="ابحث عن نوع..."
+              emptyText="لا توجد أنواع"
+              className="flex-1"
+            />
             <Button
               type="button"
               variant="outline"

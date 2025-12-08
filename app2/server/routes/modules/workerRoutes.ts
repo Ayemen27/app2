@@ -1,4 +1,3 @@
-replit_final_file>
 /**
  * مسارات إدارة العمال
  * Worker Management Routes
@@ -25,10 +24,10 @@ workerRouter.get('/worker-types', async (req: Request, res: Response) => {
   try {
     const allWorkerTypes = await db.select().from(workerTypes).orderBy(workerTypes.name);
 
-    res.json({
-      success: true,
-      data: allWorkerTypes,
-      message: "تم جلب أنواع العمال بنجاح"
+    res.json({ 
+      success: true, 
+      data: allWorkerTypes, 
+      message: "تم جلب أنواع العمال بنجاح" 
     });
   } catch (error: any) {
     console.error('❌ خطأ في جلب أنواع العمال:', error);
@@ -56,18 +55,18 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
 
     console.log(`✅ [API] تم جلب ${workersList.length} عامل من قاعدة البيانات`);
 
-    res.json({
-      success: true,
-      data: workersList,
-      message: `تم جلب ${workersList.length} عامل بنجاح`
+    res.json({ 
+      success: true, 
+      data: workersList, 
+      message: `تم جلب ${workersList.length} عامل بنجاح` 
     });
   } catch (error: any) {
     console.error('❌ [API] خطأ في جلب العمال:', error);
-    res.status(500).json({
-      success: false,
-      data: [],
+    res.status(500).json({ 
+      success: false, 
+      data: [], 
       error: error.message,
-      message: "فشل في جلب قائمة العمال"
+      message: "فشل في جلب قائمة العمال" 
     });
   }
 });
@@ -360,9 +359,9 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
       date: workerAttendance.date,
       projectId: workerAttendance.projectId
     })
-      .from(workerAttendance)
-      .where(eq(workerAttendance.workerId, workerId))
-      .limit(5); // جلب 5 سجلات كحد أقصى للمعاينة
+    .from(workerAttendance)
+    .where(eq(workerAttendance.workerId, workerId))
+    .limit(5); // جلب 5 سجلات كحد أقصى للمعاينة
 
     if (attendanceRecords.length > 0) {
       const duration = Date.now() - startTime;
@@ -371,8 +370,8 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
       const totalAttendanceCount = await db.select({
         count: sql`COUNT(*)`
       })
-        .from(workerAttendance)
-        .where(eq(workerAttendance.workerId, workerId));
+      .from(workerAttendance)
+      .where(eq(workerAttendance.workerId, workerId));
 
       const totalCount = totalAttendanceCount[0]?.count || attendanceRecords.length;
 
@@ -403,8 +402,8 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
       const totalTransfersCount = await db.select({
         count: sql`COUNT(*)`
       })
-        .from(workerTransfers)
-        .where(eq(workerTransfers.workerId, workerId));
+      .from(workerTransfers)
+      .where(eq(workerTransfers.workerId, workerId));
 
       const transfersCount = totalTransfersCount[0]?.count || transferRecords.length;
 
@@ -435,8 +434,8 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
       const totalTransportCount = await db.select({
         count: sql`COUNT(*)`
       })
-        .from(transportationExpenses)
-        .where(eq(transportationExpenses.workerId, workerId));
+      .from(transportationExpenses)
+      .where(eq(transportationExpenses.workerId, workerId));
 
       const transportCount = totalTransportCount[0]?.count || transportRecords.length;
 
@@ -467,8 +466,8 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
       const totalBalanceCount = await db.select({
         count: sql`COUNT(*)`
       })
-        .from(workerBalances)
-        .where(eq(workerBalances.workerId, workerId));
+      .from(workerBalances)
+      .where(eq(workerBalances.workerId, workerId));
 
       const balanceCount = totalBalanceCount[0]?.count || balanceRecords.length;
 
@@ -738,9 +737,9 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
 workerRouter.get('/worker-misc-expenses', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, date } = req.query;
+    const {projectId, date} = req.query;
     console.log('📊 [API] جلب مصاريف العمال المتنوعة');
-    console.log('🔍 [API] معاملات الفلترة:', { projectId, date });
+    console.log('🔍 [API] معاملات الفلترة:', {projectId, date});
 
     // بناء الاستعلام مع الفلترة
     let query;
@@ -977,8 +976,8 @@ workerRouter.post('/worker-types', async (req: Request, res: Response) => {
 workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.params;
-    const { date } = req.query;
+    const {projectId} = req.params;
+    const {date} = req.query;
 
     console.log(`📊 [API] جلب حضور العمال للمشروع: ${projectId}${date ? ` للتاريخ: ${date}` : ''}`);
 
@@ -1021,10 +1020,10 @@ workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, 
       createdAt: workerAttendance.createdAt,
       workerName: workers.name
     })
-      .from(workerAttendance)
-      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
-      .where(whereCondition)
-      .orderBy(workerAttendance.date);
+    .from(workerAttendance)
+    .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+    .where(whereCondition)
+    .orderBy(workerAttendance.date);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${attendance.length} سجل حضور في ${duration}ms`);
@@ -1601,7 +1600,7 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
 workerRouter.get('/projects/:projectId/worker-misc-expenses', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.params;
+    const {projectId} = req.params;
 
     console.log(`📊 [API] جلب المصاريف المتنوعة للعمال للمشروع: ${projectId}`);
 
@@ -1736,71 +1735,8 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
 });
 
 /**
- * 🔍 فحص بيانات حضور العامل (للتشخيص)
- * GET /workers/:workerId/attendance-debug
- */
-workerRouter.get('/workers/:workerId/attendance-debug', async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    const { workerId } = req.params;
-    const { projectId } = req.query;
-
-    let whereConditions: any[] = [eq(workerAttendance.workerId, workerId)];
-    if (projectId && projectId !== 'all') {
-      whereConditions.push(eq(workerAttendance.projectId, projectId as string));
-    }
-
-    const records = await db.select()
-      .from(workerAttendance)
-      .where(and(...whereConditions))
-      .orderBy(workerAttendance.date);
-
-    const analysis = records.map(r => {
-      const workDays = parseFloat(r.workDays || '0');
-      const dailyWage = parseFloat(r.dailyWage || '0');
-      const actualWage = parseFloat(r.actualWage || '0');
-      const calculated = workDays * dailyWage;
-
-      return {
-        date: r.date,
-        workDays,
-        dailyWage,
-        actualWageInDB: actualWage,
-        calculatedWage: calculated,
-        difference: Math.abs(actualWage - calculated),
-        isCorrect: Math.abs(actualWage - calculated) < 0.01
-      };
-    });
-
-    const totalFromDB = records.reduce((sum, r) => sum + parseFloat(r.actualWage || '0'), 0);
-    const totalCalculated = analysis.reduce((sum, a) => sum + a.calculatedWage, 0);
-
-    res.json({
-      success: true,
-      data: {
-        records: analysis,
-        summary: {
-          totalRecords: records.length,
-          totalFromDB,
-          totalCalculated,
-          difference: Math.abs(totalFromDB - totalCalculated),
-          isCorrect: Math.abs(totalFromDB - totalCalculated) < 0.01
-        }
-      },
-      processingTime: Date.now() - startTime
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      processingTime: Date.now() - startTime
-    });
-  }
-});
-
-/**
- * 📊 جلب إحصائيات عامل محدد
- * GET /workers/:workerId/stats
+ * 📊 جلب إحصائيات العامل
+ * GET /api/workers/:id/stats
  * Query params:
  *   - projectId: فلترة بمشروع محدد (اختياري)
  *   - 'all' أو عدم التحديد = جميع المشاريع
@@ -1839,7 +1775,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     }
 
     // بناء شرط الفلترة بالمشروع
-    const attendanceWhereCondition = isAllProjects
+    const attendanceWhereCondition = isAllProjects 
       ? eq(workerAttendance.workerId, workerId)
       : and(eq(workerAttendance.workerId, workerId), eq(workerAttendance.projectId, projectId));
 
@@ -1851,8 +1787,8 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     const totalWorkDaysResult = await db.select({
       totalDays: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL)), 0)`
     })
-      .from(workerAttendance)
-      .where(attendanceWhereCondition);
+    .from(workerAttendance)
+    .where(attendanceWhereCondition);
 
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
     console.log(`📊 [API] إجمالي أيام العمل للعامل ${workerId}${!isAllProjects ? ` في المشروع ${projectId}` : ''}: ${totalWorkDays}`);
@@ -1862,10 +1798,10 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       lastAttendanceDate: workerAttendance.attendanceDate,
       projectId: workerAttendance.projectId
     })
-      .from(workerAttendance)
-      .where(attendanceWhereCondition)
-      .orderBy(sql`${workerAttendance.attendanceDate} DESC`)
-      .limit(1);
+    .from(workerAttendance)
+    .where(attendanceWhereCondition)
+    .orderBy(sql`${workerAttendance.attendanceDate} DESC`)
+    .limit(1);
 
     const lastAttendanceDate = lastAttendanceResult[0]?.lastAttendanceDate || null;
 
@@ -1882,8 +1818,8 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     const monthlyAttendanceResult = await db.select({
       monthlyDays: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL)), 0)`
     })
-      .from(workerAttendance)
-      .where(monthlyAttendanceCondition);
+    .from(workerAttendance)
+    .where(monthlyAttendanceCondition);
 
     const monthlyAttendanceRate = Number(monthlyAttendanceResult[0]?.monthlyDays) || 0;
     console.log(`📊 [API] أيام العمل في آخر 30 يوم: ${monthlyAttendanceRate}`);
@@ -1893,8 +1829,8 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       totalTransfers: sql`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
       transfersCount: sql`COUNT(*)`
     })
-      .from(workerTransfers)
-      .where(transfersWhereCondition);
+    .from(workerTransfers)
+    .where(transfersWhereCondition);
 
     const totalTransfersOnly = Number(totalTransfersResult[0]?.totalTransfers) || 0;
     const transfersCount = Number(totalTransfersResult[0]?.transfersCount) || 0;
@@ -1903,8 +1839,8 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     const totalPaidWagesResult = await db.select({
       totalPaidWages: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.paidAmount}, '0') AS DECIMAL)), 0)`
     })
-      .from(workerAttendance)
-      .where(attendanceWhereCondition);
+    .from(workerAttendance)
+    .where(attendanceWhereCondition);
 
     const totalPaidWages = Number(totalPaidWagesResult[0]?.totalPaidWages) || 0;
     console.log(`💰 [API] إجمالي الأجور المدفوعة (paidAmount) للعامل ${workerId}: ${totalPaidWages}`);
@@ -1917,8 +1853,8 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     const projectsWorkedResult = await db.select({
       projectsCount: sql`COUNT(DISTINCT ${workerAttendance.projectId})`
     })
-      .from(workerAttendance)
-      .where(attendanceWhereCondition);
+    .from(workerAttendance)
+    .where(attendanceWhereCondition);
 
     const projectsWorked = isAllProjects ? (Number(projectsWorkedResult[0]?.projectsCount) || 0) : (totalWorkDays > 0 ? 1 : 0);
 
@@ -1926,12 +1862,12 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     // نستخدم dailyWage من سجل الحضور نفسه (وليس من جدول العمال) لأنه قد يتغير بين المشاريع
     const totalEarningsResult = await db.select({
       totalEarnings: sql`COALESCE(SUM(
-        CAST(COALESCE(${workerAttendance.dailyWage}, '0') AS DECIMAL) *
+        CAST(COALESCE(${workerAttendance.dailyWage}, '0') AS DECIMAL) * 
         CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL)
       ), 0)`
     })
-      .from(workerAttendance)
-      .where(attendanceWhereCondition);
+    .from(workerAttendance)
+    .where(attendanceWhereCondition);
 
     const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;
     console.log(`💰 [API] إجمالي المستحقات (dailyWage × workDays من جميع السجلات): ${totalEarnings}`);
@@ -1988,4 +1924,3 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 console.log('👷 [WorkerRouter] تم تهيئة مسارات إدارة العمال');
 
 export default workerRouter;
-</replit_final_file>

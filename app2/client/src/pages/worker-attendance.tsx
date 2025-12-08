@@ -585,24 +585,32 @@ export default function WorkerAttendance() {
     }
 
     // التحقق من أن جميع السجلات الحاضرة من نوع "work" لها أيام عمل > 0
-    // أما "advance" فيجب أن يكون workDays = 0
+    // أما "advance" فيجب أن يكون workDays = 0 ومبلغ > 0
     const invalidRecords = Object.entries(attendanceData)
       .filter(([_, data]) => {
         if (!data.isPresent) return false;
+        const recordType = (data as any).recordType || "work";
+        
         // إذا كان عمل عادي - يجب أن يكون هناك أيام
-        if ((data as any).recordType !== "advance" && (!data.workDays || data.workDays <= 0)) {
+        if (recordType === "work" && (!data.workDays || data.workDays <= 0)) {
           return true;
         }
-        // إذا كان سحب مقدم - يجب أن يكون هناك مبلغ مسحوب
-        if ((data as any).recordType === "advance" && (!data.paidAmount || data.paidAmount === "0")) {
+        // إذا كان سحب مقدم - يجب أن يكون هناك مبلغ مسحوب فقط
+        if (recordType === "advance" && (!data.paidAmount || parseFloat(data.paidAmount) <= 0)) {
           return true;
         }
         return false;
       });
 
     if (invalidRecords.length > 0) {
-      const hasWorkErrors = invalidRecords.some(([_, data]) => (data as any).recordType !== "advance");
-      const hasAdvanceErrors = invalidRecords.some(([_, data]) => (data as any).recordType === "advance");
+      const hasWorkErrors = invalidRecords.some(([_, data]) => {
+        const recordType = (data as any).recordType || "work";
+        return recordType === "work";
+      });
+      const hasAdvanceErrors = invalidRecords.some(([_, data]) => {
+        const recordType = (data as any).recordType || "work";
+        return recordType === "advance";
+      });
 
       let errorMsg = "";
       if (hasWorkErrors) errorMsg += "يرجى إدخال عدد أيام عمل > 0 للعمل العادي. ";
@@ -619,18 +627,22 @@ export default function WorkerAttendance() {
     const attendanceRecords: any[] = Object.entries(attendanceData)
       .filter(([_, data]) => {
         if (!data.isPresent) return false;
+        const recordType = (data as any).recordType || "work";
+        
         // للعمل العادي: workDays > 0
-        if ((data as any).recordType !== "advance") {
+        if (recordType === "work") {
           return data.workDays && data.workDays > 0;
         }
-        // للسحب المقدم: paidAmount > 0
+        // للسحب المقدم: paidAmount > 0 فقط
         return data.paidAmount && parseFloat(data.paidAmount) > 0;
       })
       .map(([workerId, data]) => {
         const worker = workers.find(w => w.id === workerId);
         const dailyWage = parseFloat(worker?.dailyWage || "0");
+        const recordType = (data as any).recordType || "work";
+        
         // للسحب المقدم: workDays = 0 دائماً
-        const workDays = (data as any).recordType === "advance" ? 0 : (data.workDays || 0);
+        const workDays = recordType === "advance" ? 0 : (data.workDays || 0);
 
         // حساب الأجر الأساسي
         const baseWage = dailyWage * workDays;
@@ -640,12 +652,16 @@ export default function WorkerAttendance() {
         const overtimeRate = parseFloat(String(data.overtimeRate || 0));
         const overtimePay = overtime * overtimeRate;
 
-        // حساب إجمالي الدفع (المعادلة الموحدة)
-        const totalPay = Math.max(0, baseWage + overtimePay);
+        // حساب إجمالي الدفع
+        // للسحب المقدم: totalPay = 0 (لأنه لم يعمل)
+        const totalPay = recordType === "advance" ? 0 : Math.max(0, baseWage + overtimePay);
 
         // حساب المبلغ المدفوع والمتبقي
         const paidAmount = parseFloat(data.paidAmount || "0");
-        const remainingAmount = data.paymentType === 'credit' ? totalPay : (totalPay - paidAmount);
+        // للسحب المقدم: المتبقي = سالب المبلغ المسحوب (دين على العامل)
+        const remainingAmount = recordType === "advance" 
+          ? -paidAmount 
+          : (data.paymentType === 'credit' ? totalPay : (totalPay - paidAmount));
 
         // حساب ساعات العمل
         const calculateWorkingHours = () => {

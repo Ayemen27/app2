@@ -261,6 +261,11 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
 
     console.log('✅ [API] نجح validation تحديث العامل');
 
+    // التحقق مما إذا كان يتم تحديث اليومية
+    const oldDailyWage = existingWorker[0].dailyWage;
+    const newDailyWage = validationResult.data.dailyWage;
+    const isDailyWageChanged = newDailyWage && newDailyWage !== oldDailyWage;
+
     // تحديث العامل في قاعدة البيانات
     console.log('💾 [API] تحديث العامل في قاعدة البيانات...');
     const updatedWorker = await db
@@ -269,18 +274,67 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
       .where(eq(workers.id, workerId))
       .returning();
 
+    // إذا تم تغيير اليومية، نقوم بتحديث جميع سجلات الحضور السابقة
+    let attendanceUpdatedCount = 0;
+    if (isDailyWageChanged) {
+      console.log(`💰 [API] تم تغيير اليومية من ${oldDailyWage} إلى ${newDailyWage} - جاري تحديث سجلات الحضور السابقة...`);
+      
+      // تحديث سجلات الحضور: dailyWage, actualWage, totalPay, remainingAmount
+      // نستخدم work_days الفعلية المحفوظة في السجل (لا نستبدل NULL أو 0 بـ 1)
+      const attendanceUpdateResult = await db.execute(sql`
+        UPDATE worker_attendance
+        SET 
+          daily_wage = ${newDailyWage},
+          actual_wage = CAST(${newDailyWage} AS DECIMAL(15,2)) * work_days,
+          total_pay = CAST(${newDailyWage} AS DECIMAL(15,2)) * work_days,
+          remaining_amount = (CAST(${newDailyWage} AS DECIMAL(15,2)) * work_days) - COALESCE(paid_amount, 0)
+        WHERE worker_id = ${workerId}
+          AND work_days IS NOT NULL
+          AND work_days > 0
+      `);
+      
+      attendanceUpdatedCount = attendanceUpdateResult.rowCount || 0;
+      console.log(`✅ [API] تم تحديث ${attendanceUpdatedCount} سجل حضور بالأجر الجديد`);
+
+      // تحديث أرصدة العامل في جميع المشاريع
+      console.log('💾 [API] جاري إعادة حساب أرصدة العامل...');
+      await db.execute(sql`
+        UPDATE worker_balances wb
+        SET 
+          total_earned = COALESCE((
+            SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+            FROM worker_attendance wa
+            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
+          ), 0),
+          current_balance = COALESCE((
+            SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+            FROM worker_attendance wa
+            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
+          ), 0) - wb.total_paid - wb.total_transferred,
+          last_updated = NOW()
+        WHERE wb.worker_id = ${workerId}
+      `);
+      console.log('✅ [API] تم تحديث أرصدة العامل بنجاح');
+    }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث العامل بنجاح في ${duration}ms:`, {
       id: updatedWorker[0].id,
       name: updatedWorker[0].name,
       type: updatedWorker[0].type,
-      dailyWage: updatedWorker[0].dailyWage
+      dailyWage: updatedWorker[0].dailyWage,
+      attendanceRecordsUpdated: attendanceUpdatedCount
     });
+
+    const message = isDailyWageChanged 
+      ? `تم تحديث العامل "${updatedWorker[0].name}" وتحديث ${attendanceUpdatedCount} سجل حضور سابق بالأجر الجديد`
+      : `تم تحديث العامل "${updatedWorker[0].name}" (${updatedWorker[0].type}) بنجاح`;
 
     res.json({
       success: true,
       data: updatedWorker[0],
-      message: `تم تحديث العامل "${updatedWorker[0].name}" (${updatedWorker[0].type}) بنجاح`,
+      message,
+      attendanceRecordsUpdated: attendanceUpdatedCount,
       processingTime: duration
     });
 

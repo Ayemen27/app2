@@ -21,11 +21,11 @@ import { LoadingCard } from "@/components/ui/loading-spinner";
 import { useEffect } from "react";
 
 import { apiRequest } from "@/lib/queryClient";
-import type { 
-  Project, 
-  DailyExpenseSummary, 
-  Worker, 
-  AutocompleteData as WorkerType 
+import type {
+  Project,
+  DailyExpenseSummary,
+  Worker,
+  AutocompleteData as WorkerType
 } from "@shared/schema";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -82,9 +82,9 @@ export default function Dashboard() {
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
-      await apiRequest("/api/autocomplete", "POST", { 
-        category, 
-        value: value.trim() 
+      await apiRequest("/api/autocomplete", "POST", {
+        category,
+        value: value.trim()
       });
     } catch (error) {
       console.log(`Failed to save autocomplete value for ${category}:`, error);
@@ -261,7 +261,7 @@ export default function Dashboard() {
     if (!Array.isArray(projects)) return [];
 
     return projects.filter((project: ProjectWithStats) => {
-      const matchesSearch = !searchValue || 
+      const matchesSearch = !searchValue ||
         project.name.toLowerCase().includes(searchValue.toLowerCase());
 
       const matchesStatus = filterValues.status === 'all' || project.status === filterValues.status;
@@ -285,6 +285,8 @@ export default function Dashboard() {
 
     return projects.reduce((acc, project: ProjectWithStats) => {
       const stats = project.stats || {};
+      // ✅ حساب موحد - استخدام totalExpenses من الـ stats مباشرة
+      // (الـ backend يحسبها بشكل صحيح يشمل جميع أنواع المصروفات)
       return {
         totalIncome: acc.totalIncome + (Number(stats.totalIncome) || 0),
         totalExpenses: acc.totalExpenses + (Number(stats.totalExpenses) || 0),
@@ -447,10 +449,10 @@ export default function Dashboard() {
                     <div>
                       <div className="text-xs text-muted-foreground">الوقت</div>
                       <div className="font-medium text-foreground" dir="ltr">
-                        {new Date(activity.createdAt).toLocaleTimeString('ar-SA', { 
-                          hour: '2-digit', 
+                        {new Date(activity.createdAt).toLocaleTimeString('ar-SA', {
+                          hour: '2-digit',
                           minute: '2-digit',
-                          hour12: true 
+                          hour12: true
                         })}
                       </div>
                     </div>
@@ -535,7 +537,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <QuickActionsGrid 
+      <QuickActionsGrid
         onAddWorker={() => setShowWorkerModal(true)}
         onAddProject={() => setShowProjectModal(true)}
       />
@@ -606,8 +608,8 @@ export default function Dashboard() {
 
       {/* شريط آخر الإجراءات الأفقي */}
       {recentActivities.length > 0 && (
-        <RecentActivitiesStrip 
-          activities={recentActivities} 
+        <RecentActivitiesStrip
+          activities={recentActivities}
           formatCurrency={formatCurrency}
         />
       )}
@@ -659,7 +661,7 @@ export default function Dashboard() {
                   value={workerData.type || ""}
                   onValueChange={(value) => setWorkerData({...workerData, type: value})}
                   options={
-                    Array.isArray(workerTypes) && workerTypes.length > 0 
+                    Array.isArray(workerTypes) && workerTypes.length > 0
                       ? workerTypes.map((workerType) => ({
                           value: workerType.value,
                           label: workerType.value,

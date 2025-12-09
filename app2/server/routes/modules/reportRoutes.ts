@@ -517,21 +517,60 @@ reportRouter.get('/reports/project-summary/:projectId', async (req: Request, res
       .where(eq(workerTransfers.projectId, projectId));
 
     // حساب الملخص النهائي
-    const totalIncome = Number(fundTransfersStats[0]?.totalAmount || 0);
-    const totalWagesPaid = Number(attendanceStats[0]?.totalPaid || 0);
-    const totalMaterials = Number(materialsStats[0]?.totalAmount || 0);
-    const totalTransport = Number(transportStats[0]?.totalAmount || 0);
-    const totalWorkerTransfers = Number(workerTransfersStats[0]?.totalAmount || 0);
+    // إضافة المصاريف المتنوعة (كانت مفقودة!)
+        const miscExpensesStats = await db
+          .select({
+            totalAmount: sql<number>`COALESCE(SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL)), 0)`
+          })
+          .from(workerMiscExpenses)
+          .where(eq(workerMiscExpenses.projectId, projectId));
 
-    const totalExpenses = totalWagesPaid + totalMaterials + totalTransport + totalWorkerTransfers;
-    const currentBalance = totalIncome - totalExpenses;
+        // إضافة التحويلات بين المشاريع
+        const outgoingTransfersStats = await db
+          .select({
+            totalAmount: sql<number>`COALESCE(SUM(CAST(${projectFundTransfers.amount} AS DECIMAL)), 0)`
+          })
+          .from(projectFundTransfers)
+          .where(eq(projectFundTransfers.fromProjectId, projectId));
+
+        const incomingTransfersStats = await db
+          .select({
+            totalAmount: sql<number>`COALESCE(SUM(CAST(${projectFundTransfers.amount} AS DECIMAL)), 0)`
+          })
+          .from(projectFundTransfers)
+          .where(eq(projectFundTransfers.toProjectId, projectId));
+
+        // ✅ حساب موحد للمصروفات - يشمل جميع الأنواع
+        const totalWagesPaid = Number(attendanceStats[0]?.totalPaid || 0);
+        const totalMaterials = Number(materialsStats[0]?.totalAmount || 0);
+        const totalTransport = Number(transportStats[0]?.totalAmount || 0);
+        const totalWorkerTransfers = Number(workerTransfersStats[0]?.totalAmount || 0);
+        const totalMiscExpenses = Number(miscExpensesStats[0]?.totalAmount || 0);
+        const totalOutgoingTransfers = Number(outgoingTransfersStats[0]?.totalAmount || 0);
+
+        const totalExpenses = 
+          totalWagesPaid + 
+          totalMaterials + 
+          totalTransport + 
+          totalWorkerTransfers + 
+          totalMiscExpenses + 
+          totalOutgoingTransfers;
+
+        // الدخل يشمل تحويلات العهدة + التحويلات الواردة
+        const fundTransfersIncome = Number(fundTransfersStats[0]?.totalAmount || 0);
+        const incomingTransfers = Number(incomingTransfersStats[0]?.totalAmount || 0);
+        const totalIncome = fundTransfersIncome + incomingTransfers;
+
+        const currentBalance = totalIncome - totalExpenses;
 
     // توزيع المصروفات للرسم البياني الدائري
     const expenseBreakdown = [
       { name: 'أجور العمال', value: totalWagesPaid, color: '#3B82F6' },
       { name: 'مشتريات المواد', value: totalMaterials, color: '#10B981' },
       { name: 'مصاريف النقل', value: totalTransport, color: '#F59E0B' },
-      { name: 'حوالات العمال', value: totalWorkerTransfers, color: '#EF4444' }
+      { name: 'حوالات العمال', value: totalWorkerTransfers, color: '#EF4444' },
+      { name: 'مصاريف متنوعة', value: totalMiscExpenses, color: '#8B5CF6' },
+      { name: 'تحويلات صادرة', value: totalOutgoingTransfers, color: '#60A5FA' }
     ].filter(item => item.value > 0);
 
     const duration = Date.now() - startTime;
@@ -568,8 +607,14 @@ reportRouter.get('/reports/project-summary/:projectId', async (req: Request, res
             count: Number(workerTransfersStats[0]?.transferCount || 0)
           },
           fundTransfers: {
-            total: totalIncome,
+            total: fundTransfersIncome, // Use fundTransfersIncome for clarity
             count: Number(fundTransfersStats[0]?.transferCount || 0)
+          },
+          miscExpenses: {
+            total: totalMiscExpenses
+          },
+          outgoingTransfers: {
+            total: totalOutgoingTransfers
           }
         },
         workforce: {
@@ -669,19 +714,46 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
           .from(transportationExpenses)
           .where(and(...transportConditions));
 
-        // إحصائيات الدخل
+        // إحصائيات الدخل (عهدة)
         const fundStats = await db
           .select({
             total: sql<number>`COALESCE(SUM(CAST(${fundTransfers.amount} AS DECIMAL)), 0)`
           })
           .from(fundTransfers)
           .where(eq(fundTransfers.projectId, projectId));
+        
+        // إحصائيات التحويلات الواردة
+        const incomingTransfersStats = await db
+          .select({
+            total: sql<number>`COALESCE(SUM(CAST(${projectFundTransfers.amount} AS DECIMAL)), 0)`
+          })
+          .from(projectFundTransfers)
+          .where(eq(projectFundTransfers.toProjectId, projectId));
 
-        const totalIncome = Number(fundStats[0]?.total || 0);
+        // إحصائيات المصاريف المتنوعة
+        const miscExpensesStats = await db
+          .select({
+            total: sql<number>`COALESCE(SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL)), 0)`
+          })
+          .from(workerMiscExpenses)
+          .where(eq(workerMiscExpenses.projectId, projectId));
+
+        // إحصائيات حوالات العمال
+        const workerTransfersStats = await db
+          .select({
+            total: sql<number>`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`
+          })
+          .from(workerTransfers)
+          .where(eq(workerTransfers.projectId, projectId));
+
+        const totalIncome = Number(fundStats[0]?.total || 0) + Number(incomingTransfersStats[0]?.total || 0);
         const totalWages = Number(attendanceStats[0]?.totalPaid || 0);
         const totalMaterials = Number(materialsStats[0]?.total || 0);
         const totalTransport = Number(transportStats[0]?.total || 0);
-        const totalExpenses = totalWages + totalMaterials + totalTransport;
+        const totalMiscExpenses = Number(miscExpensesStats[0]?.total || 0);
+        const totalWorkerTransfers = Number(workerTransfersStats[0]?.total || 0);
+        
+        const totalExpenses = totalWages + totalMaterials + totalTransport + totalMiscExpenses + totalWorkerTransfers;
 
         return {
           project: projectInfo[0],
@@ -692,6 +764,8 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
             wages: totalWages,
             materials: totalMaterials,
             transport: totalTransport,
+            miscExpenses: totalMiscExpenses,
+            workerTransfers: totalWorkerTransfers,
             workers: Number(attendanceStats[0]?.workerCount || 0),
             workDays: Number(attendanceStats[0]?.totalWorkDays || 0)
           }

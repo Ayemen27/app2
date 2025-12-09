@@ -620,7 +620,6 @@ export default function ProjectsPage() {
   };
 
   // حساب الإحصائيات العامة مع تحسين معالجة البيانات - يجب أن يكون قبل أي return
-  // ✅ حساب موحد للإحصائيات - يعتمد على stats من الـ backend
   const overallStats = useMemo(() => {
     console.log('🔄 [Projects] حساب الإحصائيات العامة، عدد المشاريع:', projects.length);
     
@@ -636,7 +635,6 @@ export default function ProjectsPage() {
       };
     }
 
-    // ✅ نستخدم totalExpenses من stats مباشرة (محسوبة في الـ backend بشكل موحد)
     const calculatedStats = projects.reduce((acc, project, index) => {
       // التأكد من وجود المشروع وصحة بياناته
       if (!project || typeof project !== 'object') {

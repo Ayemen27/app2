@@ -107,13 +107,13 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
           WHERE wa.project_id = ${projectId}
         `);
 
-        // حساب مصاريف المواد
+        // حساب مصاريف المواد (النقدية فقط)
         const materialStats = await db.execute(sql`
           SELECT 
             COUNT(*) as material_purchases,
             COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
           FROM material_purchases 
-          WHERE project_id = ${projectId}
+          WHERE project_id = ${projectId} AND purchase_type = 'نقد'
         `);
 
         // حساب أجور العمال وأيام العمل المكتملة

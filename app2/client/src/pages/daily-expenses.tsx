@@ -1439,9 +1439,6 @@ function DailyExpensesContent() {
   ], []);
 
   // دوال معالجة الفلاتر
-  const [searchValue, setSearchValue] = useState("");
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
   const handleFilterChange = (key: string, value: any) => {
     if (key === 'date') {
       if (value instanceof Date) {

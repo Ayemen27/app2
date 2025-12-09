@@ -55,6 +55,8 @@ function DailyExpensesContent() {
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
   const [activeFilters, setActiveFilters] = useState({});
   const [isAddFormOpen, setIsAddFormOpen] = useState<boolean>(false);
+  const [searchValue, setSearchValue] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fund transfer form
   const [fundAmount, setFundAmount] = useState<string>("");
@@ -329,6 +331,78 @@ function DailyExpensesContent() {
   const safeWorkerTransfers = Array.isArray(todayWorkerTransfers) ? todayWorkerTransfers : [];
   const safeMiscExpenses = Array.isArray(todayMiscExpenses) ? todayMiscExpenses : [];
   const safeFundTransfers = Array.isArray(todayFundTransfers) ? todayFundTransfers : [];
+
+  // فلترة البيانات حسب نص البحث
+  const filteredFundTransfers = useMemo(() => {
+    if (!searchValue.trim()) return safeFundTransfers;
+    const searchLower = searchValue.toLowerCase().trim();
+    return safeFundTransfers.filter((transfer: any) => 
+      transfer.senderName?.toLowerCase().includes(searchLower) ||
+      transfer.transferType?.toLowerCase().includes(searchLower) ||
+      transfer.transferNumber?.toLowerCase().includes(searchLower) ||
+      transfer.amount?.toString().includes(searchLower)
+    );
+  }, [safeFundTransfers, searchValue]);
+
+  const filteredAttendance = useMemo(() => {
+    if (!searchValue.trim()) return safeAttendance;
+    const searchLower = searchValue.toLowerCase().trim();
+    return safeAttendance.filter((record: any) => {
+      const worker = workers.find((w: any) => w.id === record.workerId);
+      return (
+        worker?.name?.toLowerCase().includes(searchLower) ||
+        record.workDescription?.toLowerCase().includes(searchLower) ||
+        record.notes?.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [safeAttendance, workers, searchValue]);
+
+  const filteredTransportation = useMemo(() => {
+    if (!searchValue.trim()) return safeTransportation;
+    const searchLower = searchValue.toLowerCase().trim();
+    return safeTransportation.filter((expense: any) => 
+      expense.description?.toLowerCase().includes(searchLower) ||
+      expense.notes?.toLowerCase().includes(searchLower) ||
+      expense.amount?.toString().includes(searchLower)
+    );
+  }, [safeTransportation, searchValue]);
+
+  const filteredMaterialPurchases = useMemo(() => {
+    if (!searchValue.trim()) return safeMaterialPurchases;
+    const searchLower = searchValue.toLowerCase().trim();
+    return safeMaterialPurchases.filter((purchase: any) => {
+      const material = materials.find((m: any) => m.id === purchase.materialId);
+      return (
+        material?.name?.toLowerCase().includes(searchLower) ||
+        purchase.supplier?.toLowerCase().includes(searchLower) ||
+        purchase.notes?.toLowerCase().includes(searchLower) ||
+        purchase.totalAmount?.toString().includes(searchLower)
+      );
+    });
+  }, [safeMaterialPurchases, materials, searchValue]);
+
+  const filteredWorkerTransfers = useMemo(() => {
+    if (!searchValue.trim()) return safeWorkerTransfers;
+    const searchLower = searchValue.toLowerCase().trim();
+    return safeWorkerTransfers.filter((transfer: any) => {
+      const worker = workers.find((w: any) => w.id === transfer.workerId);
+      return (
+        worker?.name?.toLowerCase().includes(searchLower) ||
+        transfer.notes?.toLowerCase().includes(searchLower) ||
+        transfer.amount?.toString().includes(searchLower)
+      );
+    });
+  }, [safeWorkerTransfers, workers, searchValue]);
+
+  const filteredMiscExpenses = useMemo(() => {
+    if (!searchValue.trim()) return safeMiscExpenses;
+    const searchLower = searchValue.toLowerCase().trim();
+    return safeMiscExpenses.filter((expense: any) => 
+      expense.description?.toLowerCase().includes(searchLower) ||
+      expense.notes?.toLowerCase().includes(searchLower) ||
+      expense.amount?.toString().includes(searchLower)
+    );
+  }, [safeMiscExpenses, searchValue]);
 
   // جلب الرصيد المتبقي من اليوم السابق
   const { data: previousBalance } = useQuery({

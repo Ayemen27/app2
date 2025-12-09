@@ -785,15 +785,40 @@ export default function WorkerAttendance() {
   // حساب إحصائيات الحضور من البيانات المجلوبة
   const todayRecords = Array.isArray(todayAttendance) ? todayAttendance : [];
 
+  // فلترة العمال حسب نص البحث
+  const filteredWorkers = useMemo(() => {
+    if (!searchValue.trim()) return workers;
+    const searchLower = searchValue.toLowerCase().trim();
+    return workers.filter(worker => 
+      worker.name?.toLowerCase().includes(searchLower) ||
+      worker.phone?.toLowerCase().includes(searchLower) ||
+      worker.type?.toLowerCase().includes(searchLower)
+    );
+  }, [workers, searchValue]);
+
+  // فلترة سجلات الحضور حسب نص البحث
+  const filteredAttendance = useMemo(() => {
+    if (!searchValue.trim()) return todayRecords;
+    const searchLower = searchValue.toLowerCase().trim();
+    return todayRecords.filter(record => {
+      const worker = workers.find(w => w.id === record.workerId);
+      return (
+        worker?.name?.toLowerCase().includes(searchLower) ||
+        record.workDescription?.toLowerCase().includes(searchLower) ||
+        record.notes?.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [todayRecords, workers, searchValue]);
+
   const stats = useMemo(() => {
-    const presentWorkers = todayRecords.length;
-    const totalWorkDays = todayRecords.reduce((sum, record) => sum + parseFloat(record.workDays || '0'), 0);
+    const presentWorkers = filteredAttendance.length;
+    const totalWorkDays = filteredAttendance.reduce((sum, record) => sum + parseFloat(record.workDays || '0'), 0);
 
     let totalEarned = 0;
     let totalPaid = 0;
     let totalTransfers = 0;
 
-    todayRecords.forEach(record => {
+    filteredAttendance.forEach(record => {
       const worker = workers.find(w => w.id === record.workerId);
       const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
       const workDays = parseFloat(record.workDays || '0');
@@ -809,14 +834,17 @@ export default function WorkerAttendance() {
     const totalRemaining = totalEarned - totalPaid - totalTransfers;
 
     return {
-      totalWorkers: workers.length,
+      totalWorkers: filteredWorkers.length,
       presentWorkers,
       totalWorkDays,
       totalEarned,
       totalPaid,
       totalRemaining,
+      // للملخص
+      allWorkersCount: workers.length,
+      allRecordsCount: todayRecords.length,
     };
-  }, [todayRecords, workers]);
+  }, [filteredAttendance, filteredWorkers, workers, todayRecords]);
 
   // تكوين صفوف الإحصائيات الموحدة
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
@@ -919,6 +947,15 @@ export default function WorkerAttendance() {
           onReset={handleResetFilters}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
+          resultsSummary={searchValue ? {
+            totalCount: stats.allRecordsCount,
+            filteredCount: stats.presentWorkers,
+            totalLabel: 'نتائج البحث',
+            filteredLabel: 'من',
+            totalValue: stats.totalEarned,
+            totalValueLabel: 'إجمالي المستحق',
+            unit: 'ر.ي',
+          } : undefined}
         />
       )}
 
@@ -1128,15 +1165,21 @@ export default function WorkerAttendance() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {Array.isArray(workers) ? workers.map((worker) => (
-                    <EnhancedWorkerCard
-                      key={worker.id}
-                      worker={worker}
-                      attendance={attendanceData[worker.id] || { isPresent: false }}
-                      onAttendanceChange={(attendance) => handleAttendanceChange(worker.id, attendance)}
-                      selectedDate={selectedDate ?? undefined}
-                    />
-                  )) : null}
+                  {filteredWorkers.length === 0 && searchValue ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">لا توجد نتائج للبحث "{searchValue}"</p>
+                    </div>
+                  ) : (
+                    filteredWorkers.map((worker) => (
+                      <EnhancedWorkerCard
+                        key={worker.id}
+                        worker={worker}
+                        attendance={attendanceData[worker.id] || { isPresent: false }}
+                        onAttendanceChange={(attendance) => handleAttendanceChange(worker.id, attendance)}
+                        selectedDate={selectedDate ?? undefined}
+                      />
+                    ))
+                  )}
                 </div>
               )}
 
@@ -1160,9 +1203,9 @@ export default function WorkerAttendance() {
       {/* Today's Attendance List */}
       {selectedProjectId && (
         <div className="mt-6">
-          {todayAttendance.length > 0 ? (
+          {filteredAttendance.length > 0 ? (
             <UnifiedCardGrid columns={2}>
-              {todayAttendance.map((record: any) => {
+              {filteredAttendance.map((record: any) => {
                 const worker = workers.find(w => w.id === record.workerId);
                 const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
                 const workDays = parseFloat(record.workDays || '0');

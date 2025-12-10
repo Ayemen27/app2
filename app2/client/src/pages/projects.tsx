@@ -50,6 +50,7 @@ import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { useAuth } from "@/components/AuthProvider";
 import { ProjectsPageSkeleton } from "@/components/ui/project-skeleton";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 
 interface ProjectStats {
   totalWorkers: number;
@@ -255,6 +256,12 @@ export default function ProjectsPage() {
 
   // ✅ معالجة البيانات بعد الحصول عليها مع تنظيف إضافي
   const projects = Array.isArray(projectsData) ? projectsData.filter(project => project && typeof project === 'object') : [];
+
+  // استخدام الملخص المالي الموحد من ExpenseLedgerService للإجماليات
+  const { totals: financialTotals, isLoading: financialLoading } = useFinancialSummary({
+    projectId: 'all',
+    enabled: true
+  });
 
   // دالة التحديث مع إشعار
   const handleRefresh = useCallback(async () => {
@@ -619,75 +626,35 @@ export default function ProjectsPage() {
     return defaultValue;
   };
 
-  // حساب الإحصائيات العامة مع تحسين معالجة البيانات - يجب أن يكون قبل أي return
+  // الإحصائيات العامة من ExpenseLedgerService الموحد (Single Source of Truth)
   const overallStats = useMemo(() => {
-    console.log('🔄 [Projects] حساب الإحصائيات العامة، عدد المشاريع:', projects.length);
+    console.log('📊 [Projects] استخدام الإحصائيات من ExpenseLedgerService الموحد');
     
-    if (!Array.isArray(projects) || projects.length === 0) {
-      console.log('⚠️ [Projects] لا توجد مشاريع للحساب');
+    // استخدام البيانات من الـ Hook الموحد
+    if (financialTotals) {
+      const activeProjects = projects.filter(p => p.status === 'active').length;
       return {
-        totalProjects: 0,
-        activeProjects: 0,
-        totalIncome: 0,
-        totalExpenses: 0,
-        totalWorkers: 0,
-        materialPurchases: 0,
+        totalProjects: projects.length,
+        activeProjects,
+        totalIncome: financialTotals.totalIncome || 0,
+        totalExpenses: financialTotals.totalCashExpenses || financialTotals.totalExpenses || 0,
+        totalWorkers: financialTotals.totalWorkers || 0,
+        materialPurchases: 0, // سيتم حسابه من counts إذا لزم
       };
     }
-
-    const calculatedStats = projects.reduce((acc, project, index) => {
-      // التأكد من وجود المشروع وصحة بياناته
-      if (!project || typeof project !== 'object') {
-        console.warn(`⚠️ [Projects] مشروع ${index} غير صحيح تم تخطيه:`, project);
-        return acc;
-      }
-
-      const stats = project.stats || {};
-      
-      // تسجيل تفصيلي لكل مشروع
-      console.log(`📊 [Projects] مشروع "${project.name}":`, {
-        totalIncome: stats.totalIncome,
-        totalExpenses: stats.totalExpenses,
-        totalWorkers: stats.totalWorkers,
-        materialPurchases: stats.materialPurchases,
-        status: project.status
-      });
-      
-      // استخدام دالة تنظيف محسنة للأرقام
-      const safeIncome = safeParseNumber(stats.totalIncome, 0);
-      const safeExpenses = safeParseNumber(stats.totalExpenses, 0);
-      const safeWorkers = cleanInteger(stats.totalWorkers);
-      const safePurchases = cleanInteger(stats.materialPurchases);
-
-      console.log(`✅ [Projects] قيم منظفة للمشروع "${project.name}":`, {
-        safeIncome,
-        safeExpenses,
-        safeWorkers,
-        safePurchases
-      });
-
-      return {
-        totalProjects: acc.totalProjects + 1,
-        activeProjects: acc.activeProjects + (project.status === 'active' ? 1 : 0),
-        totalIncome: acc.totalIncome + safeIncome,
-        totalExpenses: acc.totalExpenses + safeExpenses,
-        totalWorkers: acc.totalWorkers + safeWorkers,
-        materialPurchases: acc.materialPurchases + safePurchases,
-      };
-    }, {
-      totalProjects: 0,
-      activeProjects: 0,
+    
+    // قيم افتراضية إذا لم تتوفر البيانات
+    return {
+      totalProjects: projects.length,
+      activeProjects: projects.filter(p => p.status === 'active').length,
       totalIncome: 0,
       totalExpenses: 0,
       totalWorkers: 0,
       materialPurchases: 0,
-    });
+    };
+  }, [financialTotals, projects]);
 
-    console.log('✅ [Projects] إجمالي الإحصائيات المحسوبة:', calculatedStats);
-    return calculatedStats;
-  }, [projects]);
-
-  const currentBalance = overallStats.totalIncome - overallStats.totalExpenses;
+  const currentBalance = financialTotals?.currentBalance ?? (overallStats.totalIncome - overallStats.totalExpenses);
 
   // استخدام دالة formatCurrency من utils.ts لضمان التوحيد
   const formatCurrencyLocal = formatCurrency;

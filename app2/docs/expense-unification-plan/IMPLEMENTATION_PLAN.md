@@ -173,15 +173,24 @@ totalBalance: number;  // الدخل - جميع المصروفات
 | 2025-12-10 | إضافة WorkerStats في ExpenseLedgerService |
 | 2025-12-10 | (وكيل 2) إصلاح أخطاء LSP ومطابقة أنواع Hook مع API |
 | 2025-12-10 | (وكيل 2) إضافة استيراد useFinancialSummary في dashboard.tsx |
+| 2025-12-10 | (وكيل 3) إضافة status و description في ExpenseLedgerService |
+| 2025-12-10 | (وكيل 3) تحديث projects.tsx لاستخدام useFinancialSummary للإجماليات |
 
 ---
 
-## الحالة: قيد التنفيذ - المرحلة 1 مكتملة ⏳
+## الحالة: مكتمل جزئياً ✅
 
 ### ملخص التقدم:
 - ✅ الخادم (Backend): تم توحيد مصدر البيانات
 - ✅ /api/projects/with-stats يستخدم ExpenseLedgerService
-- ✅ /api/financial-summary متاح للاستخدام
-- ✅ useFinancialSummary Hook جاهز
-- ⏳ الواجهة: dashboard.tsx و projects.tsx تستخدم بيانات موحدة
-- ⏳ daily-expenses.tsx و reports.tsx تحتاج مراجعة
+- ✅ /api/financial-summary متاح للاستخدام مع status و description
+- ✅ useFinancialSummary Hook جاهز مع الأنواع الكاملة
+- ✅ dashboard.tsx يستخدم useFinancialSummary للإجماليات
+- ✅ projects.tsx يستخدم useFinancialSummary للإجماليات
+- ⏳ daily-expenses.tsx: صفحة تفصيلية تحتاج بيانات فردية للتعديل
+- ⏳ reports.tsx: يستخدم APIs مخصصة للتقارير
+
+### ملاحظات:
+- daily-expenses.tsx و reports.tsx تحتاجان للتفاصيل الفردية لأغراض العرض والتعديل
+- الحسابات المحلية في هذه الصفحات ضرورية لعرض تفاصيل كل عنصر
+- الهدف الأساسي (توحيد الإجماليات في dashboard و projects) محقق

@@ -36,6 +36,8 @@ export interface WorkerStats {
 export interface ProjectFinancialSummary {
   projectId: string;
   projectName: string;
+  status: string;                // حالة المشروع (active, completed, paused)
+  description: string | null;    // وصف المشروع
   expenses: ExpenseSummary;
   income: IncomeSummary;
   workers: WorkerStats;
@@ -103,7 +105,7 @@ export class ExpenseLedgerService {
         incomingTransfersStats,
         workersStatsResult
       ] = await Promise.all([
-        db.execute(sql`SELECT name FROM projects WHERE id = ${projectId}`),
+        db.execute(sql`SELECT name, status, description FROM projects WHERE id = ${projectId}`),
         
         db.execute(sql`
           SELECT 
@@ -185,6 +187,8 @@ export class ExpenseLedgerService {
       ]);
 
       const projectName = String(projectInfo.rows[0]?.name || 'مشروع غير معروف');
+      const projectStatus = String(projectInfo.rows[0]?.status || 'active');
+      const projectDescription = projectInfo.rows[0]?.description ? String(projectInfo.rows[0].description) : null;
 
       const materialExpenses = this.cleanDbValue(materialCashStats.rows[0]?.total);
       const materialExpensesCredit = this.cleanDbValue(materialCreditStats.rows[0]?.total);
@@ -211,6 +215,8 @@ export class ExpenseLedgerService {
       return {
         projectId,
         projectName,
+        status: projectStatus,
+        description: projectDescription,
         expenses: {
           materialExpenses,
           materialExpensesCredit,

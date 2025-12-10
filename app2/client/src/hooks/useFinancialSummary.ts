@@ -36,6 +36,8 @@ export interface WorkerStats {
 export interface ProjectFinancialSummary {
   projectId: string;
   projectName: string;
+  status: string;
+  description: string | null;
   expenses: ExpenseSummary;
   income: IncomeSummary;
   workers: WorkerStats;

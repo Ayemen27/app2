@@ -30,6 +30,7 @@ import type {
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { UnifiedSearchFilter, useUnifiedFilter, PROJECT_STATUS_OPTIONS } from "@/components/ui/unified-search-filter";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 
 interface ProjectStats {
   totalWorkers: string;

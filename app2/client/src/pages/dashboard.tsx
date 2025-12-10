@@ -80,6 +80,12 @@ export default function Dashboard() {
     onReset
   } = useUnifiedFilter({ status: 'all' }, '');
 
+  // استخدام الملخص المالي الموحد من ExpenseLedgerService
+  const { allProjects: financialData, isLoading: financialLoading } = useFinancialSummary({
+    projectId: 'all',
+    enabled: true
+  });
+
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
     try {
@@ -271,31 +277,20 @@ export default function Dashboard() {
     });
   }, [projects, searchValue, filterValues.status]);
 
+  // الإجماليات من /api/financial-summary - مصدر موحد من ExpenseLedgerService (لا حسابات محلية)
   const totalStats = useMemo(() => {
-    if (!Array.isArray(projects) || projects.length === 0) {
+    if (financialData?.totals) {
       return {
-        totalIncome: 0,
-        totalExpenses: 0,
-        currentBalance: 0,
-        activeWorkers: 0,
+        totalIncome: financialData.totals.totalIncome || 0,
+        totalExpenses: financialData.totals.totalCashExpenses || 0,
+        currentBalance: financialData.totals.cashBalance || 0,
+        activeWorkers: financialData.totals.activeWorkers || 0,
         completedDays: 0,
         materialPurchases: 0,
-        projectsCount: 0
+        projectsCount: financialData.projectsCount || projects.length || 0
       };
     }
-
-    return projects.reduce((acc, project: ProjectWithStats) => {
-      const stats = project.stats || {};
-      return {
-        totalIncome: acc.totalIncome + (Number(stats.totalIncome) || 0),
-        totalExpenses: acc.totalExpenses + (Number(stats.totalExpenses) || 0),
-        currentBalance: acc.currentBalance + (Number(stats.currentBalance) || 0),
-        activeWorkers: acc.activeWorkers + (Number(stats.activeWorkers) || 0),
-        completedDays: acc.completedDays + (Number(stats.completedDays) || 0),
-        materialPurchases: acc.materialPurchases + (Number(stats.materialPurchases) || 0),
-        projectsCount: acc.projectsCount + 1
-      };
-    }, {
+    return {
       totalIncome: 0,
       totalExpenses: 0,
       currentBalance: 0,
@@ -303,8 +298,8 @@ export default function Dashboard() {
       completedDays: 0,
       materialPurchases: 0,
       projectsCount: 0
-    });
-  }, [projects]);
+    };
+  }, [financialData, projects.length]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -371,6 +366,7 @@ export default function Dashboard() {
     return <LoadingCard />;
   }
 
+  // الإحصائيات الحالية - من ExpenseLedgerService عبر /api/projects/with-stats
   const currentStats = selectedProject ? {
     totalIncome: selectedProject.stats?.totalIncome || 0,
     totalExpenses: selectedProject.stats?.totalExpenses || 0,

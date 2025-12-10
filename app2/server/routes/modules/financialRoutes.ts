@@ -50,11 +50,23 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
       
       const totalSummary = summaries.reduce((acc, s) => ({
         totalIncome: acc.totalIncome + s.income.totalIncome,
-        totalExpenses: acc.totalExpenses + s.expenses.totalCashExpenses,
-        totalBalance: acc.totalBalance + s.cashBalance,
+        totalCashExpenses: acc.totalCashExpenses + s.expenses.totalCashExpenses,
+        totalAllExpenses: acc.totalAllExpenses + s.expenses.totalAllExpenses,
+        cashBalance: acc.cashBalance + s.cashBalance,
+        totalBalance: acc.totalBalance + s.totalBalance,
         totalWorkers: acc.totalWorkers + s.workers.totalWorkers,
-        activeWorkers: acc.activeWorkers + s.workers.activeWorkers
-      }), { totalIncome: 0, totalExpenses: 0, totalBalance: 0, totalWorkers: 0, activeWorkers: 0 });
+        activeWorkers: acc.activeWorkers + s.workers.activeWorkers,
+        materialExpensesCredit: acc.materialExpensesCredit + s.expenses.materialExpensesCredit
+      }), { 
+        totalIncome: 0, 
+        totalCashExpenses: 0, 
+        totalAllExpenses: 0, 
+        cashBalance: 0, 
+        totalBalance: 0, 
+        totalWorkers: 0, 
+        activeWorkers: 0,
+        materialExpensesCredit: 0
+      });
 
       const duration = Date.now() - startTime;
       console.log(`✅ [API] تم جلب الملخص المالي لجميع المشاريع (${summaries.length}) في ${duration}ms`);

@@ -73,11 +73,14 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
           stats: {
             totalWorkers: summary.workers.totalWorkers,
             totalExpenses: summary.expenses.totalCashExpenses,
+            totalExpensesAll: summary.expenses.totalAllExpenses,
             totalIncome: summary.income.totalIncome,
             currentBalance: summary.cashBalance,
+            totalBalance: summary.totalBalance,
             activeWorkers: summary.workers.activeWorkers,
             completedDays: summary.workers.completedDays,
             materialPurchases: summary.counts.materialPurchases,
+            materialExpensesCredit: summary.expenses.materialExpensesCredit,
             lastActivity: project.createdAt.toISOString()
           }
         };
@@ -88,11 +91,14 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
           stats: {
             totalWorkers: 0,
             totalExpenses: 0,
+            totalExpensesAll: 0,
             totalIncome: 0,
             currentBalance: 0,
+            totalBalance: 0,
             activeWorkers: 0,
             completedDays: 0,
             materialPurchases: 0,
+            materialExpensesCredit: 0,
             lastActivity: project.createdAt.toISOString()
           }
         };

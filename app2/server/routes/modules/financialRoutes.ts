@@ -2087,11 +2087,11 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
     
     // فلترة يدوية حسب التاريخ على مستوى التطبيق
     if (dateFrom && dateFrom !== '') {
-      attendanceRecords = attendanceRecords.filter(r => r.date >= (dateFrom as string));
+      attendanceRecords = attendanceRecords.filter(r => r.date && r.date >= (dateFrom as string));
       console.log(`🔍 [WorkerStatement] بعد فلترة dateFrom (${dateFrom}): ${attendanceRecords.length} سجل`);
     }
     if (dateTo && dateTo !== '') {
-      attendanceRecords = attendanceRecords.filter(r => r.date <= (dateTo as string));
+      attendanceRecords = attendanceRecords.filter(r => r.date && r.date <= (dateTo as string));
       console.log(`🔍 [WorkerStatement] بعد فلترة dateTo (${dateTo}): ${attendanceRecords.length} سجل`);
     }
 

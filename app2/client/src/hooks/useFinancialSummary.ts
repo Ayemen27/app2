@@ -57,10 +57,13 @@ export interface AllProjectsSummary {
   projects: ProjectFinancialSummary[];
   totals: {
     totalIncome: number;
-    totalExpenses: number;
+    totalCashExpenses: number;
+    totalAllExpenses: number;
+    cashBalance: number;
     totalBalance: number;
     totalWorkers: number;
     activeWorkers: number;
+    materialExpensesCredit: number;
   };
   projectsCount: number;
 }
@@ -122,7 +125,11 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
     return {
       summary: null as ProjectFinancialSummary | null,
       allProjects: allProjectsData,
-      totals: allProjectsData.totals,
+      totals: {
+        ...allProjectsData.totals,
+        totalExpenses: allProjectsData.totals.totalCashExpenses,
+        currentBalance: allProjectsData.totals.cashBalance
+      },
       isLoading,
       error,
       refetch
@@ -134,10 +141,15 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
     allProjects: null as AllProjectsSummary | null,
     totals: data ? {
       totalIncome: (data as ProjectFinancialSummary).income.totalIncome,
+      totalCashExpenses: (data as ProjectFinancialSummary).expenses.totalCashExpenses,
+      totalAllExpenses: (data as ProjectFinancialSummary).expenses.totalAllExpenses,
       totalExpenses: (data as ProjectFinancialSummary).expenses.totalCashExpenses,
-      totalBalance: (data as ProjectFinancialSummary).cashBalance,
+      cashBalance: (data as ProjectFinancialSummary).cashBalance,
+      totalBalance: (data as ProjectFinancialSummary).totalBalance,
+      currentBalance: (data as ProjectFinancialSummary).cashBalance,
       totalWorkers: (data as ProjectFinancialSummary).workers.totalWorkers,
-      activeWorkers: (data as ProjectFinancialSummary).workers.activeWorkers
+      activeWorkers: (data as ProjectFinancialSummary).workers.activeWorkers,
+      materialExpensesCredit: (data as ProjectFinancialSummary).expenses.materialExpensesCredit
     } : null,
     isLoading,
     error,

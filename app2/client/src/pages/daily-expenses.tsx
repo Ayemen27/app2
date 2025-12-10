@@ -156,11 +156,12 @@ function DailyExpensesContent() {
         return [] as Worker[];
       }
     },
-    staleTime: 1000 * 3,
-    gcTime: 1000 * 60,
+    staleTime: 1000 * 60 * 10, // 10 دقائق
+    gcTime: 1000 * 60 * 30, // 30 دقيقة
     retry: 1,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
+    refetchOnWindowFocus: false, // تعطيل الجلب عند التركيز
+    refetchOnMount: false, // تعطيل الجلب عند التحميل
+    refetchInterval: false,
   });
 
   // جلب قائمة المشاريع لعرض أسماء المشاريع في ترحيل الأموال مع معالجة محسنة
@@ -193,11 +194,12 @@ function DailyExpensesContent() {
         return [] as Project[];
       }
     },
-    staleTime: 1000 * 3,
-    gcTime: 1000 * 60,
+    staleTime: 1000 * 60 * 10, // 10 دقائق
+    gcTime: 1000 * 60 * 30, // 30 دقيقة
     retry: 1,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
   });
 
   // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData
@@ -217,10 +219,11 @@ function DailyExpensesContent() {
         return [];
       }
     },
-    staleTime: 1000 * 10,
-    gcTime: 1000 * 60 * 2,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
+    staleTime: 1000 * 60 * 15, // 15 دقيقة
+    gcTime: 1000 * 60 * 30, // 30 دقيقة
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
   });
 
   // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData
@@ -268,7 +271,7 @@ function DailyExpensesContent() {
     enabled: !!selectedProjectId && !isAllProjects
   });
 
-  // جلب البيانات التفصيلية فقط عند الحاجة
+  // جلب البيانات التفصيلية فقط عند الحاجة - محسّن للأداء
   const { data: dailyExpensesData, isLoading: dailyExpensesLoading, error: dailyExpensesError, refetch: refetchDailyExpenses } = useQuery({
     queryKey: ["/api/projects", isAllProjects ? "all-projects" : selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],
     queryFn: async () => {
@@ -309,10 +312,11 @@ function DailyExpensesContent() {
     },
     enabled: isAllProjects || !!selectedProjectId,
     retry: 1,
-    staleTime: 1000 * 30,
-    gcTime: 1000 * 60,
+    staleTime: 1000 * 60 * 5, // 5 دقائق بدلاً من 30 ثانية
+    gcTime: 1000 * 60 * 10, // 10 دقائق
     refetchOnMount: false,
     refetchOnWindowFocus: false,
+    refetchInterval: false, // منع الجلب التلقائي
     placeholderData: (previousData: any) => previousData,
   });
 

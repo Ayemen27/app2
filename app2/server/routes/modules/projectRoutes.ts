@@ -7,8 +7,8 @@ import express from 'express';
 import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc } from 'drizzle-orm';
 import { db } from '../../db';
-import { 
-  projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
+import {
+  projects, workers, materials, suppliers, materialPurchases, workerAttendance,
   fundTransfers, transportationExpenses, dailyExpenseSummaries, tools, toolMovements,
   workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers, supplierPayments,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
@@ -37,18 +37,18 @@ projectRouter.get('/', async (req: Request, res: Response) => {
 
     console.log(`✅ [API] تم جلب ${projectsList.length} مشروع من قاعدة البيانات`);
 
-    res.json({ 
-      success: true, 
-      data: projectsList, 
-      message: `تم جلب ${projectsList.length} مشروع بنجاح` 
+    res.json({
+      success: true,
+      data: projectsList,
+      message: `تم جلب ${projectsList.length} مشروع بنجاح`
     });
   } catch (error: any) {
     console.error('❌ [API] خطأ في جلب المشاريع:', error);
-    res.status(500).json({ 
-      success: false, 
-      data: [], 
-      error: error.message,
-      message: "فشل في جلب قائمة المشاريع" 
+    res.status(500).json({
+      success: false,
+      data: [],
+      error: error.error,
+      message: "فشل في جلب قائمة المشاريع"
     });
   }
 });
@@ -107,18 +107,18 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
 
     console.log(`✅ [API] تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات من ExpenseLedgerService`);
 
-    res.json({ 
-      success: true, 
-      data: projectsWithStats, 
-      message: `تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات بنجاح` 
+    res.json({
+      success: true,
+      data: projectsWithStats,
+      message: `تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات بنجاح`
     });
   } catch (error: any) {
     console.error('❌ [API] خطأ في جلب المشاريع مع الإحصائيات:', error);
-    res.status(500).json({ 
-      success: false, 
-      data: [], 
-      error: error.message,
-      message: "فشل في جلب قائمة المشاريع مع الإحصائيات" 
+    res.status(500).json({
+      success: false,
+      data: [],
+      error: error.error,
+      message: "فشل في جلب قائمة المشاريع مع الإحصائيات"
     });
   }
 });
@@ -131,8 +131,12 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
   const startTime = Date.now();
   try {
     const { date } = req.query;
-    
+
     console.log(`📊 [API] طلب جلب جميع المصروفات من جميع المشاريع (مجمعة حسب المشروع)`, { date });
+
+    // جلب جميع المصروفات لتاريخ محدد من جميع المشاريع - محسّن
+    console.log(`⚡ [API] بدء جلب المصروفات من جميع المشاريع للتاريخ: ${date}`);
+    const startTimeFetch = Date.now();
 
     // جلب جميع البيانات من جميع المشاريع
     const [
@@ -144,10 +148,10 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       miscExpensesResult,
       projectsList
     ] = await Promise.all([
-      date 
+      date
         ? db.select().from(fundTransfers).where(sql`DATE(${fundTransfers.transferDate}) = ${date}`).orderBy(desc(fundTransfers.transferDate))
         : db.select().from(fundTransfers).orderBy(desc(fundTransfers.transferDate)),
-      
+
       date
         ? db.select({
             id: workerAttendance.id,
@@ -176,23 +180,23 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
           .from(workerAttendance)
           .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
           .orderBy(desc(workerAttendance.date)),
-      
+
       date
         ? db.select().from(materialPurchases).where(eq(materialPurchases.purchaseDate, date as string)).orderBy(desc(materialPurchases.purchaseDate))
         : db.select().from(materialPurchases).orderBy(desc(materialPurchases.purchaseDate)),
-      
+
       date
         ? db.select().from(transportationExpenses).where(eq(transportationExpenses.date, date as string)).orderBy(desc(transportationExpenses.date))
         : db.select().from(transportationExpenses).orderBy(desc(transportationExpenses.date)),
-      
+
       date
         ? db.select().from(workerTransfers).where(sql`DATE(${workerTransfers.transferDate}) = ${date}`).orderBy(desc(workerTransfers.transferDate))
         : db.select().from(workerTransfers).orderBy(desc(workerTransfers.transferDate)),
-      
+
       date
         ? db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.date, date as string)).orderBy(desc(workerMiscExpenses.date))
         : db.select().from(workerMiscExpenses).orderBy(desc(workerMiscExpenses.date)),
-      
+
       db.select().from(projects)
     ]);
 
@@ -348,13 +352,13 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       // البيانات المجمعة حسب (المشروع + التاريخ) - الجديدة
       groupedByProjectDate,
       cardsCount: groupedByProjectDate.length,
-      
+
       // الإجماليات العامة
       projectName: 'جميع المشاريع',
       totalIncome: overallTotalIncome,
       totalExpenses: overallTotalExpenses,
       remainingBalance: parseFloat(overallRemainingBalance.toFixed(2)),
-      
+
       // البيانات المسطحة (للتوافق مع الكود القديم)
       fundTransfers: allFundTransfers,
       workerAttendance: allWorkerAttendance,
@@ -362,7 +366,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       transportationExpenses: allTransportation,
       workerTransfers: allWorkerTransfers,
       miscExpenses: allMiscExpenses,
-      
+
       counts: {
         fundTransfers: fundTransfersResult.length,
         workerAttendance: workerAttendanceResult.length,
@@ -373,7 +377,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       }
     };
 
-    const duration = Date.now() - startTime;
+    const duration = Date.now() - startTimeFetch;
     console.log(`✅ [API] تم جلب جميع المصروفات من جميع المشاريع بنجاح (${groupedByProjectDate.length} بطاقة) في ${duration}ms`);
 
     res.json({
@@ -390,7 +394,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     res.status(500).json({
       success: false,
       error: 'فشل في جلب جميع المصروفات',
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }
@@ -464,7 +468,7 @@ projectRouter.post('/', async (req: Request, res: Response) => {
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }
@@ -536,7 +540,7 @@ projectRouter.get('/:id', async (req: Request, res: Response) => {
           miscExpensesStats
         ] = await Promise.all([
           db.execute(sql`
-            SELECT 
+            SELECT
               COUNT(DISTINCT wa.worker_id) as total_workers,
               COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
             FROM worker_attendance wa
@@ -544,37 +548,37 @@ projectRouter.get('/:id', async (req: Request, res: Response) => {
             WHERE wa.project_id = ${id}
           `),
           db.execute(sql`
-            SELECT 
+            SELECT
               COUNT(*) as material_purchases,
               COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
-            FROM material_purchases 
+            FROM material_purchases
             WHERE project_id = ${id}
           `),
           db.execute(sql`
-            SELECT 
+            SELECT
               COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
               COUNT(DISTINCT date) as completed_days
-            FROM worker_attendance 
+            FROM worker_attendance
             WHERE project_id = ${id} AND is_present = true
           `),
           db.execute(sql`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
-            FROM fund_transfers 
+            FROM fund_transfers
             WHERE project_id = ${id}
           `),
           db.execute(sql`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
-            FROM transportation_expenses 
+            FROM transportation_expenses
             WHERE project_id = ${id}
           `),
           db.execute(sql`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
-            FROM worker_transfers 
+            FROM worker_transfers
             WHERE project_id = ${id}
           `),
           db.execute(sql`
             SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
-            FROM worker_misc_expenses 
+            FROM worker_misc_expenses
             WHERE project_id = ${id}
           `)
         ]);
@@ -647,7 +651,7 @@ projectRouter.get('/:id', async (req: Request, res: Response) => {
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }
@@ -706,7 +710,7 @@ projectRouter.patch('/:id', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'فشل في تحديث المشروع',
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }
@@ -842,7 +846,7 @@ projectRouter.get('/:id/deletion-stats', async (req: Request, res: Response) => 
         userRole: user?.role || 'user',
         isOwner
       },
-      message: canDelete 
+      message: canDelete
         ? `يمكن حذف المشروع "${project.name}" - سيتم حذف ${totalLinkedRecords} سجل مرتبط`
         : deleteBlockReason,
       processingTime: duration
@@ -854,7 +858,7 @@ projectRouter.get('/:id/deletion-stats', async (req: Request, res: Response) => 
     res.status(500).json({
       success: false,
       error: 'فشل في جلب إحصائيات الحذف',
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }
@@ -900,7 +904,7 @@ projectRouter.delete('/:id', async (req: Request, res: Response) => {
     }
 
     const projectToDelete = existingProject[0];
-    
+
     // التحقق من الصلاحيات
     const isAdmin = user?.role === 'admin';
     const isOwner = projectToDelete.engineerId === user?.id;
@@ -935,7 +939,7 @@ projectRouter.delete('/:id', async (req: Request, res: Response) => {
       db.select({ count: sql<number>`count(*)` }).from(supplierPayments).where(eq(supplierPayments.projectId, projectId))
     ]);
 
-    const totalLinked = Number(ftCount[0]?.count || 0) + Number(waCount[0]?.count || 0) + 
+    const totalLinked = Number(ftCount[0]?.count || 0) + Number(waCount[0]?.count || 0) +
                        Number(mpCount[0]?.count || 0) + Number(teCount[0]?.count || 0) +
                        Number(wtCount[0]?.count || 0) + Number(wmCount[0]?.count || 0) +
                        Number(dsCount[0]?.count || 0) + Number(ptFromCount[0]?.count || 0) +
@@ -1018,7 +1022,7 @@ projectRouter.delete('/:id', async (req: Request, res: Response) => {
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }
@@ -1070,7 +1074,7 @@ projectRouter.get('/all/fund-transfers', async (req: Request, res: Response) => 
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
+      error: error.error,
       processingTime: duration
     });
   }
@@ -1128,7 +1132,7 @@ projectRouter.get('/:projectId/fund-transfers', async (req: Request, res: Respon
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
+      error: error.error,
       processingTime: duration
     });
   }
@@ -1195,7 +1199,7 @@ projectRouter.get('/:projectId/worker-attendance', async (req: Request, res: Res
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
+      error: error.error,
       processingTime: duration
     });
   }
@@ -1304,7 +1308,7 @@ projectRouter.get('/:projectId/material-purchases', async (req: Request, res: Re
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
+      error: error.error,
       processingTime: duration
     });
   }
@@ -1350,7 +1354,7 @@ projectRouter.get('/:projectId/transportation-expenses', async (req: Request, re
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
+      error: error.error,
       processingTime: duration
     });
   }
@@ -1396,7 +1400,7 @@ projectRouter.get('/:projectId/worker-misc-expenses', async (req: Request, res: 
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
+      error: error.error,
       processingTime: duration
     });
   }
@@ -1452,7 +1456,7 @@ projectRouter.get('/fund-transfers/incoming/:projectId', async (req: Request, re
     res.status(500).json({
       success: false,
       error: 'فشل في جلب التحويلات الواردة',
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }
@@ -1508,7 +1512,7 @@ projectRouter.get('/fund-transfers/outgoing/:projectId', async (req: Request, re
     res.status(500).json({
       success: false,
       error: 'فشل في جلب التحويلات الصادرة',
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }
@@ -1568,7 +1572,7 @@ projectRouter.get('/:projectId/worker-transfers', async (req: Request, res: Resp
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
+      error: error.error,
       processingTime: duration
     });
   }
@@ -1654,7 +1658,7 @@ projectRouter.get('/:projectId/actual-transfers', async (req: Request, res: Resp
     res.status(500).json({
       success: false,
       data: { incoming: [], outgoing: [], summary: {} },
-      error: error.message,
+      error: error.error,
       processingTime: duration
     });
   }
@@ -1720,7 +1724,7 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
       // محاولة استخدام Materialized View للأداء الأفضل
       console.log('⚡ [API] محاولة جلب البيانات من daily_summary_mv...');
       const mvResult = await db.execute(sql`
-        SELECT 
+        SELECT
           id,
           project_id,
           summary_date,
@@ -1738,7 +1742,7 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
           created_at,
           updated_at,
           project_name
-        FROM daily_summary_mv 
+        FROM daily_summary_mv
         WHERE project_id = ${projectId} AND summary_date = ${date}
         LIMIT 1
       `);
@@ -1870,7 +1874,7 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
       success: false,
       data: null,
       error: errorMessage,
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }
@@ -2058,7 +2062,7 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
     res.status(500).json({
       success: false,
       error: 'فشل في جلب المصروفات اليومية',
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }
@@ -2262,14 +2266,14 @@ projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response
     const responseData = {
       // البيانات المجمعة حسب التاريخ (بطاقات متعددة)
       groupedByProjectDate,
-      
+
       // الإجماليات العامة
       projectName,
       projectId,
       totalIncome: overallTotalIncome,
       totalExpenses: overallTotalExpenses,
       remainingBalance: parseFloat(overallRemainingBalance.toFixed(2)),
-      
+
       // البيانات المسطحة (للتوافق مع الكود القديم)
       fundTransfers: fundTransfersResult.map(t => ({ ...t, projectName })),
       workerAttendance: workerAttendanceResult.map(a => ({ ...a, projectName })),
@@ -2277,7 +2281,7 @@ projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response
       transportationExpenses: transportationResult.map(t => ({ ...t, projectName })),
       workerTransfers: workerTransfersResult.map(w => ({ ...w, projectName })),
       miscExpenses: miscExpensesResult.map(m => ({ ...m, projectName })),
-      
+
       // إحصائيات
       totalCards: groupedByProjectDate.length,
       totalRecords: {
@@ -2307,7 +2311,7 @@ projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response
     res.status(500).json({
       success: false,
       error: 'فشل في جلب جميع المصروفات',
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }
@@ -2433,7 +2437,7 @@ projectRouter.get('/:projectId/previous-balance/:date', async (req: Request, res
         balance: "0"
       },
       error: 'فشل في حساب الرصيد المتبقي',
-      message: error.message,
+      message: error.error,
       processingTime: duration
     });
   }

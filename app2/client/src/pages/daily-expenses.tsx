@@ -31,6 +31,7 @@ import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 import type { 
   WorkerAttendance, 
   TransportationExpense, 
@@ -260,18 +261,23 @@ function DailyExpensesContent() {
   // معالجة آمنة لترحيل المشاريع
   const safeProjectTransfers = Array.isArray(projectTransfers) ? projectTransfers : [];
 
-  // جلب البيانات الموحدة للمصروفات اليومية أو جميع المصروفات
+  // استخدام useFinancialSummary الموحد لتحسين الأداء
+  const { summary: financialSummary, isLoading: summaryLoading } = useFinancialSummary({
+    projectId: selectedProjectId,
+    date: selectedDate || undefined,
+    enabled: !!selectedProjectId && !isAllProjects
+  });
+
+  // جلب البيانات التفصيلية فقط عند الحاجة
   const { data: dailyExpensesData, isLoading: dailyExpensesLoading, error: dailyExpensesError, refetch: refetchDailyExpenses } = useQuery({
     queryKey: ["/api/projects", isAllProjects ? "all-projects" : selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],
     queryFn: async () => {
       try {
         if (isAllProjects) {
-          console.log(`📊 جلب جميع المصروفات من جميع المشاريع`, { date: selectedDate });
           const url = selectedDate 
             ? `/api/projects/all-projects-expenses?date=${selectedDate}`
             : `/api/projects/all-projects-expenses`;
           const response = await apiRequest(url, "GET");
-          console.log('📊 استجابة جميع المشاريع:', response);
           if (response && response.success && response.data) {
             return response.data;
           }
@@ -283,20 +289,14 @@ function DailyExpensesContent() {
         }
 
         if (!selectedDate) {
-          console.log(`📊 جلب جميع المصروفات: مشروع ${selectedProjectId}`);
           const response = await apiRequest(`/api/projects/${selectedProjectId}/all-expenses`, "GET");
-          console.log('📊 استجابة جميع المصروفات:', response);
           if (response && response.success && response.data) {
             return response.data;
           }
           return null;
         }
 
-        console.log(`📊 جلب المصروفات اليومية: مشروع ${selectedProjectId}, تاريخ ${selectedDate}`);
         const response = await apiRequest(`/api/projects/${selectedProjectId}/daily-expenses/${selectedDate}`, "GET");
-
-        console.log('📊 استجابة المصروفات اليومية:', response);
-
         if (response && response.success && response.data) {
           return response.data;
         }
@@ -308,12 +308,12 @@ function DailyExpensesContent() {
       }
     },
     enabled: isAllProjects || !!selectedProjectId,
-    retry: 2,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    placeholderData: undefined,
+    retry: 1,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData: any) => previousData,
   });
 
   // استخراج البيانات من الاستجابة الموحدة
@@ -435,97 +435,39 @@ function DailyExpensesContent() {
     }
   }, [previousBalance]);
 
-  // ⚡ تحديث فوري عند تغيير التاريخ أو المشروع - حل مشكلة التأخير
+  // ⚡ تحديث ذكي عند تغيير التاريخ أو المشروع
   useEffect(() => {
-    console.log('⚡ [DailyExpenses] تغيير التاريخ/المشروع - تحديث فوري', { selectedProjectId, selectedDate, isAllProjects });
-    
-    // إلغاء الاستعلامات السابقة وإعادة الجلب فوراً
-    queryClient.cancelQueries({ queryKey: ["/api/projects"] });
-    
-    // مسح البيانات المخزنة مؤقتاً للتاريخ/المشروع السابق
-    queryClient.removeQueries({ 
-      predicate: (query) => {
-        const key = query.queryKey;
-        return (
-          (Array.isArray(key) && key[0] === "/api/projects" && 
-           (key.includes("daily-expenses") || key.includes("previous-balance") || key.includes("all-expenses")))
-        );
-      }
-    });
-    
-    // إعادة جلب البيانات فوراً
+    // فقط إبطال الكاش دون إعادة جلب فورية - سيتم الجلب عند الحاجة
     if (selectedProjectId || isAllProjects) {
-      refetchDailyExpenses();
-      if (selectedProjectId && selectedDate && showProjectTransfers) {
-        refetchProjectTransfers();
-      }
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects"],
+        refetchType: 'none' // لا تعيد الجلب تلقائياً
+      });
     }
-  }, [selectedProjectId, selectedDate, isAllProjects]);
+  }, [selectedProjectId, selectedDate, isAllProjects, queryClient]);
 
-  // دالة مساعدة لتحديث جميع البيانات فوراً
+  // دالة مساعدة لتحديث جميع البيانات - محسّنة
   const refreshAllData = useCallback(() => {
     const currentProjectId = selectedProjectId;
     const currentDate = selectedDate || getCurrentDate();
     
-    console.log('🔄 [DailyExpenses] تحديث فوري لجميع البيانات...', { currentProjectId, currentDate, isAllProjects });
-    
-    queryClient.invalidateQueries({ 
-      queryKey: ["/api/fund-transfers"],
-      refetchType: 'active'
-    });
-    queryClient.invalidateQueries({ 
-      queryKey: ["/api/transportation-expenses"],
-      refetchType: 'active'
-    });
-    queryClient.invalidateQueries({ 
-      queryKey: ["/api/worker-attendance"],
-      refetchType: 'active'
-    });
-    queryClient.invalidateQueries({ 
-      queryKey: ["/api/material-purchases"],
-      refetchType: 'active'
-    });
-    queryClient.invalidateQueries({ 
-      queryKey: ["/api/worker-transfers"],
-      refetchType: 'active'
-    });
-    queryClient.invalidateQueries({ 
-      queryKey: ["/api/worker-misc-expenses"],
-      refetchType: 'active'
-    });
-    
+    // تحديث فقط الاستعلامات النشطة
     if (isAllProjects) {
       queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", "all-projects", "daily-expenses", currentDate],
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", "all-projects", "all-expenses"],
-        refetchType: 'active'
+        queryKey: ["/api/projects", "all-projects"],
+        exact: false
       });
     } else if (currentProjectId && currentProjectId !== 'all') {
+      // تحديث مجمّع للمشروع المحدد
       queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", currentProjectId, "daily-expenses", currentDate],
-        refetchType: 'active'
+        queryKey: ["/api/projects", currentProjectId],
+        exact: false
       });
       queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", currentProjectId, "previous-balance", currentDate],
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", currentProjectId, "all-expenses"],
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/daily-project-transfers", currentProjectId, currentDate],
-        refetchType: 'active'
+        queryKey: ["/api/financial-summary", currentProjectId],
+        exact: false
       });
     }
-    
-    queryClient.invalidateQueries({ 
-      queryKey: ["/api/projects"],
-      refetchType: 'active'
-    });
   }, [queryClient, selectedProjectId, selectedDate, isAllProjects]);
 
   // تهيئة قيم الإكمال التلقائي الافتراضية لنوع التحويل

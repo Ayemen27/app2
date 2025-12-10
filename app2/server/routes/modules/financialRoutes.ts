@@ -12,11 +12,75 @@ import {
   insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema
 } from '@shared/schema';
 import { requireAuth } from '../../middleware/auth.js';
+import { ExpenseLedgerService } from '../../services/ExpenseLedgerService';
 
 export const financialRouter = express.Router();
 
 // تطبيق المصادقة على جميع المسارات المالية
 financialRouter.use(requireAuth);
+
+/**
+ * 📊 الملخص المالي الموحد
+ * Unified Financial Summary - Single Source of Truth
+ * GET /api/financial-summary
+ */
+financialRouter.get('/financial-summary', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, date, dateFrom, dateTo } = req.query;
+    
+    console.log('📊 [API] جلب الملخص المالي الموحد', { projectId, date, dateFrom, dateTo });
+
+    if (projectId && projectId !== 'all') {
+      const summary = date 
+        ? await ExpenseLedgerService.getDailyFinancialSummary(projectId as string, date as string)
+        : await ExpenseLedgerService.getProjectFinancialSummary(projectId as string);
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب الملخص المالي للمشروع ${projectId} في ${duration}ms`);
+
+      res.json({
+        success: true,
+        data: summary,
+        message: 'تم جلب الملخص المالي بنجاح',
+        processingTime: duration
+      });
+    } else {
+      const summaries = await ExpenseLedgerService.getAllProjectsStats();
+      
+      const totalSummary = summaries.reduce((acc, s) => ({
+        totalIncome: acc.totalIncome + s.income.totalIncome,
+        totalExpenses: acc.totalExpenses + s.expenses.totalCashExpenses,
+        totalBalance: acc.totalBalance + s.cashBalance,
+        totalWorkers: acc.totalWorkers + s.workers.totalWorkers,
+        activeWorkers: acc.activeWorkers + s.workers.activeWorkers
+      }), { totalIncome: 0, totalExpenses: 0, totalBalance: 0, totalWorkers: 0, activeWorkers: 0 });
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب الملخص المالي لجميع المشاريع (${summaries.length}) في ${duration}ms`);
+
+      res.json({
+        success: true,
+        data: {
+          projects: summaries,
+          totals: totalSummary,
+          projectsCount: summaries.length
+        },
+        message: `تم جلب الملخص المالي لـ ${summaries.length} مشروع`,
+        processingTime: duration
+      });
+    }
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب الملخص المالي:', error);
+    res.status(500).json({
+      success: false,
+      error: 'فشل في جلب الملخص المالي',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 
 /**
  * 💰 تحويلات الأموال العامة

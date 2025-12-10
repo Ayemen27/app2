@@ -27,11 +27,18 @@ export interface IncomeSummary {
   totalIncome: number;           // إجمالي الدخل
 }
 
+export interface WorkerStats {
+  totalWorkers: number;
+  activeWorkers: number;
+  completedDays: number;
+}
+
 export interface ProjectFinancialSummary {
   projectId: string;
   projectName: string;
   expenses: ExpenseSummary;
   income: IncomeSummary;
+  workers: WorkerStats;
   cashBalance: number;           // الرصيد النقدي (الدخل - المصروفات النقدية)
   totalBalance: number;          // الرصيد الإجمالي (الدخل - جميع المصروفات)
   counts: {
@@ -93,7 +100,8 @@ export class ExpenseLedgerService {
         miscExpensesStats,
         fundTransfersStats,
         outgoingTransfersStats,
-        incomingTransfersStats
+        incomingTransfersStats,
+        workersStatsResult
       ] = await Promise.all([
         db.execute(sql`SELECT name FROM projects WHERE id = ${projectId}`),
         
@@ -116,7 +124,8 @@ export class ExpenseLedgerService {
         db.execute(sql`
           SELECT 
             COUNT(*) as count,
-            COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as total
+            COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as total,
+            COUNT(DISTINCT date) as completed_days
           FROM worker_attendance 
           WHERE project_id = ${projectId} AND is_present = true ${dateFilterAttendance}
         `),
@@ -163,6 +172,15 @@ export class ExpenseLedgerService {
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM project_fund_transfers 
           WHERE to_project_id = ${projectId} ${dateFilterTransfer}
+        `),
+        
+        db.execute(sql`
+          SELECT 
+            COUNT(DISTINCT wa.worker_id) as total_workers,
+            COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
+          FROM worker_attendance wa
+          INNER JOIN workers w ON wa.worker_id = w.id
+          WHERE wa.project_id = ${projectId} ${dateFilterAttendance}
         `)
       ]);
 
@@ -186,6 +204,10 @@ export class ExpenseLedgerService {
       const cashBalance = totalIncome - totalCashExpenses;
       const totalBalance = totalIncome - totalAllExpenses;
 
+      const totalWorkers = this.cleanDbValue(workersStatsResult.rows[0]?.total_workers, 'integer');
+      const activeWorkers = this.cleanDbValue(workersStatsResult.rows[0]?.active_workers, 'integer');
+      const completedDays = this.cleanDbValue(workerWagesStats.rows[0]?.completed_days, 'integer');
+
       return {
         projectId,
         projectName,
@@ -204,6 +226,11 @@ export class ExpenseLedgerService {
           fundTransfers,
           incomingProjectTransfers,
           totalIncome
+        },
+        workers: {
+          totalWorkers,
+          activeWorkers,
+          completedDays
         },
         cashBalance,
         totalBalance,

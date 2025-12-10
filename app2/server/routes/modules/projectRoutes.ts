@@ -18,6 +18,7 @@ import {
   insertWorkerTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerBalanceSchema
 } from '../../../shared/schema';
 import { requireAuth } from '../../middleware/auth';
+import { ExpenseLedgerService } from '../../services/ExpenseLedgerService';
 
 export const projectRouter = express.Router();
 
@@ -55,173 +56,33 @@ projectRouter.get('/', async (req: Request, res: Response) => {
 /**
  * 📊 جلب المشاريع مع الإحصائيات
  * GET /api/projects/with-stats
+ * يستخدم ExpenseLedgerService كمصدر موحد للحقيقة
  */
 projectRouter.get('/with-stats', async (req: Request, res: Response) => {
   try {
-    console.log('📊 [API] جلب المشاريع مع الإحصائيات من قاعدة البيانات');
+    console.log('📊 [API] جلب المشاريع مع الإحصائيات باستخدام ExpenseLedgerService');
 
-    // جلب جميع المشاريع أولاً
     const projectsList = await db.select().from(projects).orderBy(projects.createdAt);
 
-    // حساب الإحصائيات الفعلية لكل مشروع
     const projectsWithStats = await Promise.all(projectsList.map(async (project) => {
-      const projectId = project.id;
-
       try {
-        // دالة مساعدة لتنظيف القيم المسترجعة من قاعدة البيانات
-        const cleanDbValue = (value: any, type: 'integer' | 'decimal' = 'decimal'): number => {
-          if (value === null || value === undefined) return 0;
-
-          const strValue = String(value).trim();
-
-          // فحص الأنماط المشبوهة
-          if (strValue.match(/^(\d{1,3})\1{2,}$/)) {
-            console.warn('⚠️ [API] قيمة مشبوهة من قاعدة البيانات:', strValue);
-            return 0;
-          }
-
-          const parsed = type === 'integer' ? parseInt(strValue, 10) : parseFloat(strValue);
-
-          if (isNaN(parsed) || !isFinite(parsed)) return 0;
-
-          // فحص الحدود المنطقية
-          const maxValue = type === 'integer' ? 
-            (strValue.includes('worker') || strValue.includes('total_workers') ? 10000 : 1000000) : 
-            100000000000; // 100 مليار للمبالغ المالية
-
-          if (Math.abs(parsed) > maxValue) {
-            console.warn(`⚠️ [API] قيمة تتجاوز الحد المنطقي (${type}):`, parsed);
-            return 0;
-          }
-
-          return Math.max(0, parsed);
-        };
-
-        // حساب إجمالي العمال والعمال النشطين المرتبطين بهذا المشروع فقط
-        const workersStats = await db.execute(sql`
-          SELECT 
-            COUNT(DISTINCT wa.worker_id) as total_workers,
-            COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
-          FROM worker_attendance wa
-          INNER JOIN workers w ON wa.worker_id = w.id
-          WHERE wa.project_id = ${projectId}
-        `);
-
-        // حساب مصاريف المواد (النقدية فقط)
-        const materialStats = await db.execute(sql`
-          SELECT 
-            COUNT(*) as material_purchases,
-            COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
-          FROM material_purchases 
-          WHERE project_id = ${projectId} AND purchase_type = 'نقد'
-        `);
-
-        // حساب أجور العمال وأيام العمل المكتملة
-        const workerWagesStats = await db.execute(sql`
-          SELECT 
-            COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
-            COUNT(DISTINCT date) as completed_days
-          FROM worker_attendance 
-          WHERE project_id = ${projectId} AND is_present = true
-        `);
-
-        // حساب تحويلات العهدة (الإيرادات)
-        const fundTransfersStats = await db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
-          FROM fund_transfers 
-          WHERE project_id = ${projectId}
-        `);
-
-        // حساب مصاريف المواصلات
-        const transportStats = await db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
-          FROM transportation_expenses 
-          WHERE project_id = ${projectId}
-        `);
-
-        // حساب تحويلات العمال والمصاريف المتنوعة
-        const workerTransfersStats = await db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
-          FROM worker_transfers 
-          WHERE project_id = ${projectId}
-        `);
-
-        const miscExpensesStats = await db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
-          FROM worker_misc_expenses 
-          WHERE project_id = ${projectId}
-        `);
-
-        // حساب التحويلات الصادرة إلى مشاريع أخرى (تُحسب كمصاريف)
-        const outgoingProjectTransfersStats = await db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as outgoing_project_transfers
-          FROM project_fund_transfers 
-          WHERE from_project_id = ${projectId}
-        `);
-
-        // حساب التحويلات الواردة من مشاريع أخرى (تُحسب كدخل إضافي)
-        const incomingProjectTransfersStats = await db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as incoming_project_transfers
-          FROM project_fund_transfers 
-          WHERE to_project_id = ${projectId}
-        `);
-
-        // استخراج القيم مع تنظيف البيانات المحسن
-        const totalWorkers = cleanDbValue(workersStats.rows[0]?.total_workers || '0', 'integer');
-        const activeWorkers = cleanDbValue(workersStats.rows[0]?.active_workers || '0', 'integer');
-        const materialExpenses = cleanDbValue(materialStats.rows[0]?.material_expenses || '0');
-        const materialPurchases = cleanDbValue(materialStats.rows[0]?.material_purchases || '0', 'integer');
-        const workerWages = cleanDbValue(workerWagesStats.rows[0]?.worker_wages || '0');
-        const completedDays = cleanDbValue(workerWagesStats.rows[0]?.completed_days || '0', 'integer');
-        const fundTransfersIncome = cleanDbValue(fundTransfersStats.rows[0]?.total_income || '0');
-        const transportExpenses = cleanDbValue(transportStats.rows[0]?.transport_expenses || '0');
-        const workerTransfers = cleanDbValue(workerTransfersStats.rows[0]?.worker_transfers || '0');
-        const miscExpenses = cleanDbValue(miscExpensesStats.rows[0]?.misc_expenses || '0');
-        const outgoingProjectTransfers = cleanDbValue(outgoingProjectTransfersStats.rows[0]?.outgoing_project_transfers || '0');
-        const incomingProjectTransfers = cleanDbValue(incomingProjectTransfersStats.rows[0]?.incoming_project_transfers || '0');
-
-        // فحص إضافي للتأكد من منطقية العدد
-        if (totalWorkers > 1000) {
-          console.warn(`⚠️ [API] عدد عمال غير منطقي للمشروع ${project.name}: ${totalWorkers}`);
-        }
-
-        // حساب إجمالي الدخل (تحويلات العهدة + التحويلات من مشاريع أخرى)
-        const totalIncome = fundTransfersIncome + incomingProjectTransfers;
-        
-        // حساب إجمالي المصاريف (تشمل التحويلات إلى مشاريع أخرى)
-        const totalExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
-        const currentBalance = totalIncome - totalExpenses;
-
-        // تسجيل مفصل في بيئة التطوير
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`📊 [API] إحصائيات المشروع "${project.name}":`, {
-            totalWorkers,
-            activeWorkers,
-            totalIncome,
-            totalExpenses,
-            currentBalance,
-            completedDays,
-            materialPurchases
-          });
-        }
+        const summary = await ExpenseLedgerService.getProjectFinancialSummary(project.id);
 
         return {
           ...project,
           stats: {
-            totalWorkers: Math.max(0, totalWorkers),
-            totalExpenses: Math.max(0, totalExpenses),
-            totalIncome: Math.max(0, totalIncome),
-            currentBalance: currentBalance, // يمكن أن يكون سالباً
-            activeWorkers: Math.max(0, activeWorkers),
-            completedDays: Math.max(0, completedDays),
-            materialPurchases: Math.max(0, materialPurchases),
+            totalWorkers: summary.workers.totalWorkers,
+            totalExpenses: summary.expenses.totalCashExpenses,
+            totalIncome: summary.income.totalIncome,
+            currentBalance: summary.cashBalance,
+            activeWorkers: summary.workers.activeWorkers,
+            completedDays: summary.workers.completedDays,
+            materialPurchases: summary.counts.materialPurchases,
             lastActivity: project.createdAt.toISOString()
           }
         };
       } catch (error) {
         console.error(`❌ [API] خطأ في حساب إحصائيات المشروع ${project.name}:`, error);
-
-        // إرجاع قيم افتراضية في حالة الخطأ
         return {
           ...project,
           stats: {
@@ -238,7 +99,7 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
       }
     }));
 
-    console.log(`✅ [API] تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات من قاعدة البيانات`);
+    console.log(`✅ [API] تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات من ExpenseLedgerService`);
 
     res.json({ 
       success: true, 

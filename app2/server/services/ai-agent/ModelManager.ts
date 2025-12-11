@@ -6,6 +6,8 @@
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+const nodeFetch = globalThis.fetch || require("node-fetch");
+
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -61,7 +63,11 @@ const HUGGINGFACE_MODELS = {
   },
 };
 
-type HuggingFaceModelKey = keyof typeof HUGGINGFACE_MODELS;
+export type HuggingFaceModelKey = keyof typeof HUGGINGFACE_MODELS;
+
+export function isValidHuggingFaceModel(key: string): key is HuggingFaceModelKey {
+  return key in HUGGINGFACE_MODELS;
+}
 
 export class ModelManager {
   private openai: OpenAI | null = null;
@@ -310,7 +316,7 @@ export class ModelManager {
     }
     prompt += "### Assistant:\n";
 
-    const response = await fetch(endpoint, {
+    const response = await nodeFetch(endpoint, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${this.huggingfaceApiKey}`,
@@ -375,12 +381,12 @@ export class ModelManager {
     }));
   }
 
-  async switchHuggingFaceModel(modelKey: HuggingFaceModelKey): Promise<boolean> {
-    const modelConfig = HUGGINGFACE_MODELS[modelKey];
-    if (!modelConfig) {
+  async switchHuggingFaceModel(modelKey: string): Promise<boolean> {
+    if (!isValidHuggingFaceModel(modelKey)) {
       console.error(`❌ [ModelManager] Unknown Hugging Face model: ${modelKey}`);
       return false;
     }
+    const modelConfig = HUGGINGFACE_MODELS[modelKey];
 
     const hfModelIndex = this.models.findIndex(m => m.provider === "huggingface");
     if (hfModelIndex >= 0) {

@@ -1720,3 +1720,73 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 // Types for TypeScript
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+
+// ==================== جداول الوكيل الذكي AI Agent ====================
+
+// جلسات المحادثات
+export const aiChatSessions = pgTable("ai_chat_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").default("محادثة جديدة"),
+  isActive: boolean("is_active").default(true).notNull(),
+  lastMessageAt: timestamp("last_message_at"),
+  messagesCount: integer("messages_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// رسائل المحادثات
+export const aiChatMessages = pgTable("ai_chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => aiChatSessions.id, { onDelete: "cascade" }),
+  role: text("role").notNull(), // user, assistant
+  content: text("content").notNull(),
+  model: text("model"), // gpt-4o, gemini-1.5-flash
+  provider: text("provider"), // openai, gemini
+  tokensUsed: integer("tokens_used"),
+  action: text("action"), // نوع الأمر المنفذ
+  actionData: jsonb("action_data"), // بيانات الأمر
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// إحصائيات استخدام النماذج
+export const aiUsageStats = pgTable("ai_usage_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  date: text("date").notNull(), // YYYY-MM-DD
+  provider: text("provider").notNull(), // openai, gemini
+  model: text("model").notNull(),
+  requestsCount: integer("requests_count").default(0).notNull(),
+  tokensUsed: integer("tokens_used").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Schemas for AI tables
+export const insertAiChatSessionSchema = createInsertSchema(aiChatSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAiChatMessageSchema = createInsertSchema(aiChatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAiUsageStatsSchema = createInsertSchema(aiUsageStats).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for AI tables
+export type AiChatSession = typeof aiChatSessions.$inferSelect;
+export type InsertAiChatSession = z.infer<typeof insertAiChatSessionSchema>;
+
+export type AiChatMessage = typeof aiChatMessages.$inferSelect;
+export type InsertAiChatMessage = z.infer<typeof insertAiChatMessageSchema>;
+
+export type AiUsageStats = typeof aiUsageStats.$inferSelect;
+export type InsertAiUsageStats = z.infer<typeof insertAiUsageStatsSchema>;

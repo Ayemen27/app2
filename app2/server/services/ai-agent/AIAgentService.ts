@@ -1,11 +1,14 @@
 /**
  * AI Agent Service - خدمة الوكيل الذكي الرئيسية
- * تعالج أوامر المستخدم وتنفذها
+ * تعالج أوامر المستخدم وتنفذها مع حفظ المحادثات في قاعدة البيانات
  */
 
 import { getModelManager, ChatMessage, ModelResponse } from "./ModelManager";
 import { getDatabaseActions, ActionResult } from "./DatabaseActions";
 import { getReportGenerator, ReportResult } from "./ReportGenerator";
+import { db } from "../../db";
+import { eq, desc, and, sql } from "drizzle-orm";
+import { aiChatSessions, aiChatMessages, aiUsageStats } from "@shared/schema";
 
 export interface AgentResponse {
   message: string;
@@ -14,6 +17,7 @@ export interface AgentResponse {
   reportGenerated?: boolean;
   model?: string;
   provider?: string;
+  sessionId?: string;
 }
 
 export interface ConversationMessage {
@@ -58,7 +62,57 @@ export class AIAgentService {
   private modelManager = getModelManager();
   private dbActions = getDatabaseActions();
   private reportGenerator = getReportGenerator();
-  private conversationHistory: Map<string, ConversationMessage[]> = new Map();
+
+  /**
+   * إنشاء جلسة محادثة جديدة
+   */
+  async createSession(userId: string, title?: string): Promise<string> {
+    const [session] = await db.insert(aiChatSessions).values({
+      userId,
+      title: title || "محادثة جديدة",
+      isActive: true,
+      messagesCount: 0,
+    }).returning({ id: aiChatSessions.id });
+
+    return session.id;
+  }
+
+  /**
+   * الحصول على جلسات المستخدم
+   */
+  async getUserSessions(userId: string) {
+    return await db
+      .select()
+      .from(aiChatSessions)
+      .where(eq(aiChatSessions.userId, userId))
+      .orderBy(desc(aiChatSessions.updatedAt));
+  }
+
+  /**
+   * الحصول على رسائل جلسة
+   */
+  async getSessionMessages(sessionId: string) {
+    return await db
+      .select()
+      .from(aiChatMessages)
+      .where(eq(aiChatMessages.sessionId, sessionId))
+      .orderBy(aiChatMessages.createdAt);
+  }
+
+  /**
+   * حذف جلسة
+   */
+  async deleteSession(sessionId: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(aiChatSessions)
+      .where(and(
+        eq(aiChatSessions.id, sessionId),
+        eq(aiChatSessions.userId, userId)
+      ))
+      .returning();
+    
+    return result.length > 0;
+  }
 
   /**
    * معالجة رسالة من المستخدم
@@ -66,20 +120,29 @@ export class AIAgentService {
   async processMessage(
     sessionId: string,
     userMessage: string,
-    userId?: string
+    userId: string
   ): Promise<AgentResponse> {
-    // إضافة الرسالة للتاريخ
-    this.addToHistory(sessionId, {
+    // حفظ رسالة المستخدم
+    await db.insert(aiChatMessages).values({
+      sessionId,
       role: "user",
       content: userMessage,
-      timestamp: new Date(),
     });
 
+    // تحديث عدد الرسائل
+    await db.update(aiChatSessions)
+      .set({ 
+        messagesCount: sql`${aiChatSessions.messagesCount} + 1`,
+        lastMessageAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(aiChatSessions.id, sessionId));
+
     try {
-      // الحصول على تاريخ المحادثة
-      const history = this.getHistory(sessionId);
+      // الحصول على تاريخ المحادثة من قاعدة البيانات
+      const history = await this.getSessionMessages(sessionId);
       const messages: ChatMessage[] = history.map((m) => ({
-        role: m.role,
+        role: m.role as "user" | "assistant",
         content: m.content,
       }));
 
@@ -91,14 +154,29 @@ export class AIAgentService {
         aiResponse.content
       );
 
-      // إضافة رد الوكيل للتاريخ
-      this.addToHistory(sessionId, {
+      // حفظ رد الوكيل
+      await db.insert(aiChatMessages).values({
+        sessionId,
         role: "assistant",
         content: processedResponse,
-        timestamp: new Date(),
+        model: aiResponse.model,
+        provider: aiResponse.provider,
+        tokensUsed: aiResponse.tokensUsed,
         action,
-        data: actionData,
+        actionData,
       });
+
+      // تحديث عدد الرسائل
+      await db.update(aiChatSessions)
+        .set({ 
+          messagesCount: sql`${aiChatSessions.messagesCount} + 1`,
+          lastMessageAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(aiChatSessions.id, sessionId));
+
+      // تحديث إحصائيات الاستخدام
+      await this.updateUsageStats(userId, aiResponse);
 
       return {
         message: processedResponse,
@@ -106,20 +184,60 @@ export class AIAgentService {
         action,
         model: aiResponse.model,
         provider: aiResponse.provider,
+        sessionId,
       };
     } catch (error: any) {
       console.error("❌ [AIAgentService] Error:", error.message);
 
       const errorMessage = `عذراً، حدث خطأ: ${error.message}`;
-      this.addToHistory(sessionId, {
+      
+      // حفظ رسالة الخطأ
+      await db.insert(aiChatMessages).values({
+        sessionId,
         role: "assistant",
         content: errorMessage,
-        timestamp: new Date(),
       });
 
       return {
         message: errorMessage,
+        sessionId,
       };
+    }
+  }
+
+  /**
+   * تحديث إحصائيات الاستخدام
+   */
+  private async updateUsageStats(userId: string, response: ModelResponse) {
+    const today = new Date().toISOString().split("T")[0];
+    
+    const existing = await db
+      .select()
+      .from(aiUsageStats)
+      .where(and(
+        eq(aiUsageStats.userId, userId),
+        eq(aiUsageStats.date, today),
+        eq(aiUsageStats.provider, response.provider),
+        eq(aiUsageStats.model, response.model)
+      ));
+
+    if (existing.length > 0) {
+      await db.update(aiUsageStats)
+        .set({
+          requestsCount: sql`${aiUsageStats.requestsCount} + 1`,
+          tokensUsed: sql`${aiUsageStats.tokensUsed} + ${response.tokensUsed || 0}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiUsageStats.id, existing[0].id));
+    } else {
+      await db.insert(aiUsageStats).values({
+        userId,
+        date: today,
+        provider: response.provider,
+        model: response.model,
+        requestsCount: 1,
+        tokensUsed: response.tokensUsed || 0,
+      });
     }
   }
 
@@ -195,7 +313,6 @@ export class AIAgentService {
 
     if (result) {
       if (result.success && result.data) {
-        // تنسيق النتيجة كنص
         if (actionType === "WORKER_STATEMENT" || actionType === "PROJECT_EXPENSES") {
           const formattedReport = this.reportGenerator.formatAsText(
             result.data,
@@ -241,36 +358,6 @@ export class AIAgentService {
         return `${i + 1}. ${JSON.stringify(item).slice(0, 50)}...`;
       })
       .join("\n");
-  }
-
-  /**
-   * إضافة رسالة للتاريخ
-   */
-  private addToHistory(sessionId: string, message: ConversationMessage) {
-    if (!this.conversationHistory.has(sessionId)) {
-      this.conversationHistory.set(sessionId, []);
-    }
-    const history = this.conversationHistory.get(sessionId)!;
-    history.push(message);
-
-    // الاحتفاظ بآخر 50 رسالة فقط
-    if (history.length > 50) {
-      history.splice(0, history.length - 50);
-    }
-  }
-
-  /**
-   * الحصول على تاريخ المحادثة
-   */
-  getHistory(sessionId: string): ConversationMessage[] {
-    return this.conversationHistory.get(sessionId) || [];
-  }
-
-  /**
-   * مسح تاريخ المحادثة
-   */
-  clearHistory(sessionId: string) {
-    this.conversationHistory.delete(sessionId);
   }
 
   /**

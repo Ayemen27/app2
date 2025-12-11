@@ -4,7 +4,7 @@
  */
 
 import OpenAI from "openai";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -29,23 +29,21 @@ export interface ModelConfig {
   dailyLimit: number;
 }
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const OPENAI_MODEL = "gpt-5";
-// the newest Gemini model series is "gemini-2.5-flash"
-const GEMINI_MODEL = "gemini-2.5-flash";
+const OPENAI_MODEL = "gpt-4o";
+const GEMINI_MODEL = "gemini-1.5-flash";
 
 export class ModelManager {
   private openai: OpenAI | null = null;
-  private gemini: GoogleGenAI | null = null;
+  private gemini: GoogleGenerativeAI | null = null;
   private models: ModelConfig[] = [];
   private currentModelIndex: number = 0;
+  private lastResetDate: string = new Date().toISOString().split("T")[0];
 
   constructor() {
     this.initializeModels();
   }
 
   private initializeModels() {
-    // تهيئة OpenAI إذا كان المفتاح متوفراً
     if (process.env.OPENAI_API_KEY) {
       this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       this.models.push({
@@ -59,9 +57,8 @@ export class ModelManager {
       console.log("✅ [ModelManager] OpenAI initialized");
     }
 
-    // تهيئة Gemini إذا كان المفتاح متوفراً
     if (process.env.GEMINI_API_KEY) {
-      this.gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      this.gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       this.models.push({
         provider: "gemini",
         model: GEMINI_MODEL,
@@ -73,7 +70,6 @@ export class ModelManager {
       console.log("✅ [ModelManager] Gemini initialized");
     }
 
-    // ترتيب النماذج حسب الأولوية
     this.models.sort((a, b) => a.priority - b.priority);
 
     if (this.models.length === 0) {
@@ -83,9 +79,22 @@ export class ModelManager {
     }
   }
 
-  /**
-   * إرسال رسالة وتلقي الرد مع التبديل التلقائي
-   */
+  private checkAndResetDailyUsage() {
+    const today = new Date().toISOString().split("T")[0];
+    if (today !== this.lastResetDate) {
+      this.resetDailyUsage();
+      this.lastResetDate = today;
+    }
+  }
+
+  private checkDailyLimit(model: ModelConfig): boolean {
+    if (model.dailyUsage >= model.dailyLimit) {
+      console.log(`⚠️ [ModelManager] ${model.provider} daily limit reached (${model.dailyUsage}/${model.dailyLimit})`);
+      return false;
+    }
+    return true;
+  }
+
   async chat(
     messages: ChatMessage[],
     systemPrompt?: string
@@ -94,15 +103,20 @@ export class ModelManager {
       throw new Error("لا يوجد نماذج ذكاء اصطناعي متاحة. يرجى إعداد مفاتيح API.");
     }
 
+    this.checkAndResetDailyUsage();
+
     let lastError: Error | null = null;
 
-    // محاولة استخدام النماذج بالترتيب
     for (let i = 0; i < this.models.length; i++) {
       const modelIndex = (this.currentModelIndex + i) % this.models.length;
       const model = this.models[modelIndex];
 
+      if (!this.checkDailyLimit(model)) {
+        model.isAvailable = false;
+        continue;
+      }
+
       if (!model.isAvailable) {
-        // التحقق من إمكانية إعادة المحاولة (بعد 5 دقائق)
         if (model.lastErrorTime && Date.now() - model.lastErrorTime.getTime() > 5 * 60 * 1000) {
           model.isAvailable = true;
           model.lastError = undefined;
@@ -121,10 +135,9 @@ export class ModelManager {
         model.lastError = error.message;
         model.lastErrorTime = new Date();
 
-        // تعطيل النموذج مؤقتاً عند خطأ 429 (تجاوز الحد)
-        if (error.status === 429 || error.message?.includes("rate limit")) {
+        if (error.status === 429 || error.message?.includes("rate limit") || error.message?.includes("quota")) {
           model.isAvailable = false;
-          console.log(`🔄 [ModelManager] Switching from ${model.provider} due to rate limit`);
+          console.log(`🔄 [ModelManager] Switching from ${model.provider} due to rate limit/quota`);
         }
 
         lastError = error;
@@ -134,9 +147,6 @@ export class ModelManager {
     throw lastError || new Error("فشل في الاتصال بجميع نماذج الذكاء الاصطناعي");
   }
 
-  /**
-   * استدعاء نموذج محدد
-   */
   private async callModel(
     modelConfig: ModelConfig,
     messages: ChatMessage[],
@@ -150,9 +160,6 @@ export class ModelManager {
     throw new Error(`Unknown provider: ${modelConfig.provider}`);
   }
 
-  /**
-   * استدعاء OpenAI
-   */
   private async callOpenAI(
     model: string,
     messages: ChatMessage[],
@@ -175,11 +182,10 @@ export class ModelManager {
       }))
     );
 
-    // gpt-5 doesn't support temperature parameter
     const response = await this.openai.chat.completions.create({
       model,
       messages: allMessages,
-      max_completion_tokens: 8192,
+      max_tokens: 4096,
     });
 
     return {
@@ -190,9 +196,6 @@ export class ModelManager {
     };
   }
 
-  /**
-   * استدعاء Gemini
-   */
   private async callGemini(
     model: string,
     messages: ChatMessage[],
@@ -202,42 +205,33 @@ export class ModelManager {
       throw new Error("Gemini not initialized");
     }
 
-    // تحويل الرسائل إلى نص واحد
-    let prompt = "";
-    if (systemPrompt) {
-      prompt += `System: ${systemPrompt}\n\n`;
-    }
-
-    for (const msg of messages) {
-      const roleLabel = msg.role === "user" ? "User" : "Assistant";
-      prompt += `${roleLabel}: ${msg.content}\n`;
-    }
-
-    const response = await this.gemini.models.generateContent({
+    const genModel = this.gemini.getGenerativeModel({ 
       model,
-      contents: prompt,
-      config: {
-        systemInstruction: systemPrompt,
-      },
+      systemInstruction: systemPrompt 
     });
 
+    const history = messages.slice(0, -1).map((msg) => ({
+      role: msg.role === "assistant" ? "model" : "user" as const,
+      parts: [{ text: msg.content }],
+    }));
+
+    const chat = genModel.startChat({ history });
+
+    const lastMessage = messages[messages.length - 1];
+    const result = await chat.sendMessage(lastMessage.content);
+    const response = result.response;
+
     return {
-      content: response.text || "",
+      content: response.text() || "",
       model,
       provider: "gemini",
     };
   }
 
-  /**
-   * الحصول على حالة النماذج
-   */
   getModelsStatus(): ModelConfig[] {
     return this.models.map((m) => ({ ...m }));
   }
 
-  /**
-   * إعادة تعيين إحصائيات الاستخدام اليومي
-   */
   resetDailyUsage() {
     for (const model of this.models) {
       model.dailyUsage = 0;
@@ -247,15 +241,12 @@ export class ModelManager {
     console.log("🔄 [ModelManager] Daily usage reset");
   }
 
-  /**
-   * التحقق من توفر نموذج واحد على الأقل
-   */
   hasAvailableModel(): boolean {
-    return this.models.some((m) => m.isAvailable);
+    this.checkAndResetDailyUsage();
+    return this.models.some((m) => m.isAvailable && this.checkDailyLimit(m));
   }
 }
 
-// Singleton instance
 let modelManagerInstance: ModelManager | null = null;
 
 export function getModelManager(): ModelManager {

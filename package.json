@@ -11,6 +11,7 @@
   "description": "",
   "dependencies": {
     "@google/genai": "^1.33.0",
+    "@google/generative-ai": "^0.24.1",
     "openai": "^6.10.0",
     "scp-sshpass": "^0.1.0"
   },

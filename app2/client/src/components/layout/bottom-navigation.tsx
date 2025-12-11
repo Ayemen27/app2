@@ -93,6 +93,13 @@ const allPagesData = [
       { path: "/admin-notifications", icon: Bell, label: "إشعارات المسؤولين", description: "إدارة وإرسال إشعارات للمستخدمين", requireAdmin: true },
     ]
   },
+  // الوكيل الذكي - للمسؤول الأول فقط
+  {
+    category: "الذكاء الاصطناعي",
+    pages: [
+      { path: "/ai-chat", icon: Brain, label: "الوكيل الذكي", description: "مساعد ذكي لإدارة المشاريع والاستعلامات", requireAdmin: true },
+    ]
+  },
 ];
 
 export default function BottomNavigation() {

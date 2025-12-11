@@ -45,6 +45,7 @@ const Reports = lazy(() => import("@/pages/reports"));
 const RealReports = lazy(() => import("@/pages/real-reports"));
 const ProfessionalReports = lazy(() => import("@/pages/professional-reports"));
 const UsersManagementPage = lazy(() => import("./pages/users-management"));
+const AIChatPage = lazy(() => import("@/pages/ai-chat"));
 
 
 function PageLoader() {
@@ -153,6 +154,13 @@ function Router() {
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>
             <UsersManagementPage />
+          </Suspense>
+        </AdminRoute>
+      </Route>
+      <Route path="/ai-chat">
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <AIChatPage />
           </Suspense>
         </AdminRoute>
       </Route>

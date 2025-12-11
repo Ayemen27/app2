@@ -264,6 +264,17 @@ export default function Dashboard() {
 
   const selectedProject = Array.isArray(projects) ? projects.find((p: ProjectWithStats) => p.id === selectedProjectId) : undefined;
 
+  // إنشاء map للوصول السريع لبيانات المشاريع المالية من ExpenseLedgerService
+  const financialProjectsMap = useMemo(() => {
+    const map = new Map<string, any>();
+    if (financialData?.projects) {
+      financialData.projects.forEach((p: any) => {
+        map.set(p.projectId, p);
+      });
+    }
+    return map;
+  }, [financialData?.projects]);
+
   const filteredProjects = useMemo(() => {
     if (!Array.isArray(projects)) return [];
 
@@ -276,6 +287,22 @@ export default function Dashboard() {
       return matchesSearch && matchesStatus;
     });
   }, [projects, searchValue, filterValues.status]);
+
+  // دالة للحصول على إحصائيات المشروع من ExpenseLedgerService
+  const getProjectStats = useCallback((projectId: string) => {
+    const financialProject = financialProjectsMap.get(projectId);
+    if (financialProject) {
+      return {
+        totalIncome: financialProject.income?.totalIncome || 0,
+        totalExpenses: financialProject.expenses?.totalCashExpenses || 0,
+        currentBalance: financialProject.cashBalance || 0,
+        activeWorkers: financialProject.workers?.activeWorkers || 0,
+        completedDays: financialProject.workers?.completedDays || 0,
+        materialPurchases: financialProject.counts?.materialPurchases || 0
+      };
+    }
+    return null;
+  }, [financialProjectsMap]);
 
   // الإجماليات من /api/financial-summary - مصدر موحد من ExpenseLedgerService (لا حسابات محلية)
   const totalStats = useMemo(() => {
@@ -366,22 +393,30 @@ export default function Dashboard() {
     return <LoadingCard />;
   }
 
-  // الإحصائيات الحالية - من ExpenseLedgerService عبر /api/projects/with-stats
-  const currentStats = selectedProject ? {
-    totalIncome: selectedProject.stats?.totalIncome || 0,
-    totalExpenses: selectedProject.stats?.totalExpenses || 0,
-    currentBalance: selectedProject.stats?.currentBalance || 0,
-    activeWorkers: selectedProject.stats?.activeWorkers || "0",
-    completedDays: selectedProject.stats?.completedDays || "0",
-    materialPurchases: selectedProject.stats?.materialPurchases || "0"
-  } : {
-    totalIncome: totalStats.totalIncome,
-    totalExpenses: totalStats.totalExpenses,
-    currentBalance: totalStats.currentBalance,
-    activeWorkers: String(totalStats.activeWorkers),
-    completedDays: String(totalStats.completedDays),
-    materialPurchases: String(totalStats.materialPurchases)
-  };
+  // الإحصائيات الحالية - من ExpenseLedgerService فقط (مصدر موحد للحقيقة)
+  const currentStats = useMemo(() => {
+    if (selectedProject && selectedProjectId) {
+      const projectStats = getProjectStats(selectedProjectId);
+      if (projectStats) {
+        return {
+          totalIncome: projectStats.totalIncome,
+          totalExpenses: projectStats.totalExpenses,
+          currentBalance: projectStats.currentBalance,
+          activeWorkers: String(projectStats.activeWorkers),
+          completedDays: String(projectStats.completedDays),
+          materialPurchases: String(projectStats.materialPurchases)
+        };
+      }
+    }
+    return {
+      totalIncome: totalStats.totalIncome,
+      totalExpenses: totalStats.totalExpenses,
+      currentBalance: totalStats.currentBalance,
+      activeWorkers: String(totalStats.activeWorkers),
+      completedDays: String(totalStats.completedDays),
+      materialPurchases: String(totalStats.materialPurchases)
+    };
+  }, [selectedProject, selectedProjectId, getProjectStats, totalStats]);
 
   return (
     <div className="p-4 fade-in space-y-4">
@@ -549,6 +584,12 @@ export default function Dashboard() {
             {filteredProjects.map((project: ProjectWithStats) => {
               const statusBadge = getStatusBadge(project.status);
               const isSelected = project.id === selectedProjectId;
+              // استخدام بيانات ExpenseLedgerService للإحصائيات المالية
+              const projectStats = getProjectStats(project.id);
+              const income = projectStats?.totalIncome || 0;
+              const expenses = projectStats?.totalExpenses || 0;
+              const balance = projectStats?.currentBalance || 0;
+              const workers = projectStats?.activeWorkers || 0;
               return (
                 <UnifiedCard
                   key={project.id}
@@ -560,26 +601,26 @@ export default function Dashboard() {
                   fields={[
                     {
                       label: "التوريد",
-                      value: formatCurrency(project.stats?.totalIncome || 0),
+                      value: formatCurrency(income),
                       icon: TrendingUp,
                       color: "info"
                     },
                     {
                       label: "المنصرف",
-                      value: formatCurrency(project.stats?.totalExpenses || 0),
+                      value: formatCurrency(expenses),
                       icon: TrendingDown,
                       color: "danger"
                     },
                     {
                       label: "المتبقي",
-                      value: formatCurrency(project.stats?.currentBalance || 0),
+                      value: formatCurrency(balance),
                       icon: DollarSign,
                       color: "success",
                       emphasis: true
                     },
                     {
                       label: "العمال",
-                      value: project.stats?.activeWorkers || "0",
+                      value: String(workers),
                       icon: Users,
                       color: "default"
                     }

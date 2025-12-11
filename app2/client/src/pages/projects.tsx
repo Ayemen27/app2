@@ -257,11 +257,39 @@ export default function ProjectsPage() {
   // ✅ معالجة البيانات بعد الحصول عليها مع تنظيف إضافي
   const projects = Array.isArray(projectsData) ? projectsData.filter(project => project && typeof project === 'object') : [];
 
-  // استخدام الملخص المالي الموحد من ExpenseLedgerService للإجماليات
-  const { totals: financialTotals, isLoading: financialLoading } = useFinancialSummary({
+  // استخدام الملخص المالي الموحد من ExpenseLedgerService للإجماليات والمشاريع الفردية
+  const { totals: financialTotals, allProjects: financialData, isLoading: financialLoading } = useFinancialSummary({
     projectId: 'all',
     enabled: true
   });
+
+  // إنشاء map للوصول السريع لبيانات المشاريع المالية من ExpenseLedgerService
+  const financialProjectsMap = useMemo(() => {
+    const map = new Map<string, any>();
+    if (financialData?.projects) {
+      financialData.projects.forEach((p: any) => {
+        map.set(p.projectId, p);
+      });
+    }
+    return map;
+  }, [financialData?.projects]);
+
+  // دالة للحصول على إحصائيات المشروع من ExpenseLedgerService (مصدر موحد للحقيقة)
+  const getProjectStats = useCallback((projectId: string) => {
+    const financialProject = financialProjectsMap.get(projectId);
+    if (financialProject) {
+      return {
+        totalIncome: financialProject.income?.totalIncome || 0,
+        totalExpenses: financialProject.expenses?.totalCashExpenses || 0,
+        currentBalance: financialProject.cashBalance || 0,
+        totalWorkers: financialProject.workers?.totalWorkers || 0,
+        activeWorkers: financialProject.workers?.activeWorkers || 0,
+        completedDays: financialProject.workers?.completedDays || 0,
+        materialPurchases: financialProject.counts?.materialPurchases || 0
+      };
+    }
+    return null;
+  }, [financialProjectsMap]);
 
   // دالة التحديث مع إشعار
   const handleRefresh = useCallback(async () => {
@@ -819,7 +847,10 @@ export default function ProjectsPage() {
             filteredCount: filteredProjects.length,
             totalLabel: 'النتائج',
             filteredLabel: 'من',
-            totalValue: filteredProjects.reduce((acc, p) => acc + (p.stats?.currentBalance || 0), 0),
+            totalValue: filteredProjects.reduce((acc, p) => {
+              const stats = getProjectStats(p.id);
+              return acc + (stats?.currentBalance || 0);
+            }, 0),
             totalValueLabel: 'الإجمالي',
             unit: 'ر.ي',
           } : undefined}
@@ -1042,7 +1073,15 @@ export default function ProjectsPage() {
       ) : (
         <UnifiedCardGrid columns={4}>
           {filteredProjects.map((project) => {
-            const balance = safeParseNumber(project.stats?.currentBalance, 0);
+            // استخدام بيانات ExpenseLedgerService للإحصائيات المالية (مصدر موحد للحقيقة)
+            const projectStats = getProjectStats(project.id);
+            const income = projectStats?.totalIncome || 0;
+            const expenses = projectStats?.totalExpenses || 0;
+            const balance = projectStats?.currentBalance || 0;
+            const totalWorkers = projectStats?.totalWorkers || 0;
+            const materialPurchases = projectStats?.materialPurchases || 0;
+            const completedDays = projectStats?.completedDays || 0;
+            
             const statusBadgeVariant = project.status === 'active' ? 'success' : 
                                        project.status === 'completed' ? 'default' : 'destructive';
             
@@ -1063,20 +1102,20 @@ export default function ProjectsPage() {
                 fields={[
                   {
                     label: "العمال",
-                    value: cleanInteger(project.stats?.totalWorkers),
+                    value: totalWorkers,
                     icon: Users,
                     emphasis: true,
                     color: "info",
                   },
                   {
                     label: "المشتريات",
-                    value: cleanInteger(project.stats?.materialPurchases),
+                    value: materialPurchases,
                     icon: Package,
                     color: "warning",
                   },
                   {
                     label: "الأيام النشطة",
-                    value: cleanInteger(project.stats?.completedDays),
+                    value: completedDays,
                     icon: Clock,
                     color: "success",
                   },
@@ -1112,8 +1151,8 @@ export default function ProjectsPage() {
                 ]}
                 footer={
                   <ProjectFinancialStatsFooter 
-                    income={safeParseNumber(project.stats?.totalIncome, 0)}
-                    expenses={safeParseNumber(project.stats?.totalExpenses, 0)}
+                    income={income}
+                    expenses={expenses}
                     balance={balance}
                     formatCurrencyFn={formatCurrency}
                   />

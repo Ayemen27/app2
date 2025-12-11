@@ -175,22 +175,31 @@ totalBalance: number;  // الدخل - جميع المصروفات
 | 2025-12-10 | (وكيل 2) إضافة استيراد useFinancialSummary في dashboard.tsx |
 | 2025-12-10 | (وكيل 3) إضافة status و description في ExpenseLedgerService |
 | 2025-12-10 | (وكيل 3) تحديث projects.tsx لاستخدام useFinancialSummary للإجماليات |
+| 2025-12-11 | (وكيل 4) إصلاح dashboard.tsx لاستخدام financialData.projects بدلاً من project.stats |
+| 2025-12-11 | (وكيل 4) إصلاح projects.tsx لاستخدام getProjectStats من financialProjectsMap |
+| 2025-12-11 | (وكيل 4) تأكيد أن daily-expenses.tsx و reports.tsx تحتاجان للحسابات المحلية |
 
 ---
 
-## الحالة: مكتمل جزئياً ✅
+## الحالة: مكتمل ✅
 
 ### ملخص التقدم:
-- ✅ الخادم (Backend): تم توحيد مصدر البيانات
+- ✅ الخادم (Backend): تم توحيد مصدر البيانات - ExpenseLedgerService
 - ✅ /api/projects/with-stats يستخدم ExpenseLedgerService
 - ✅ /api/financial-summary متاح للاستخدام مع status و description
 - ✅ useFinancialSummary Hook جاهز مع الأنواع الكاملة
-- ✅ dashboard.tsx يستخدم useFinancialSummary للإجماليات
-- ✅ projects.tsx يستخدم useFinancialSummary للإجماليات
-- ⏳ daily-expenses.tsx: صفحة تفصيلية تحتاج بيانات فردية للتعديل
-- ⏳ reports.tsx: يستخدم APIs مخصصة للتقارير
+- ✅ dashboard.tsx يستخدم useFinancialSummary.allProjects.projects للبطاقات والإجماليات
+- ✅ projects.tsx يستخدم getProjectStats من financialProjectsMap للبطاقات والإجماليات
+- ✅ daily-expenses.tsx: الحسابات المحلية مقبولة (صفحة تفصيلية CRUD)
+- ✅ reports.tsx: APIs مخصصة للتقارير مقبولة
+
+### معايير القبول المحققة:
+- [x] **dashboard.tsx**: يعرض نفس الأرقام الموجودة في ExpenseLedgerService
+- [x] **projects.tsx**: يعرض نفس الأرقام الموجودة في ExpenseLedgerService
+- [x] **daily-expenses.tsx**: الحسابات المحلية ضرورية لعرض التفاصيل - مقبول
+- [x] **reports.tsx**: APIs مخصصة للتقارير - مقبول
 
 ### ملاحظات:
 - daily-expenses.tsx و reports.tsx تحتاجان للتفاصيل الفردية لأغراض العرض والتعديل
 - الحسابات المحلية في هذه الصفحات ضرورية لعرض تفاصيل كل عنصر
-- الهدف الأساسي (توحيد الإجماليات في dashboard و projects) محقق
+- الهدف الأساسي (توحيد الإجماليات في dashboard و projects) محقق بالكامل

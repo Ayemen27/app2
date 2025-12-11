@@ -252,4 +252,49 @@ router.delete("/operations/:id", requireAdmin, async (req: AuthenticatedRequest,
   }
 });
 
+/**
+ * الحصول على نماذج Hugging Face المتاحة
+ * GET /api/ai/huggingface/models
+ */
+router.get("/huggingface/models", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const aiService = getAIAgentService();
+    const models = aiService.getAvailableHuggingFaceModels();
+
+    res.json({ 
+      models,
+      message: "النماذج المتاحة - النماذج التي تدعم العربية موصى بها لهذا التطبيق"
+    });
+  } catch (error: any) {
+    console.error("Error fetching HuggingFace models:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * تبديل نموذج Hugging Face
+ * POST /api/ai/huggingface/switch
+ */
+router.post("/huggingface/switch", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { modelKey } = req.body;
+
+    if (!modelKey) {
+      return res.status(400).json({ error: "modelKey مطلوب" });
+    }
+
+    const aiService = getAIAgentService();
+    const success = await aiService.switchHuggingFaceModel(modelKey);
+
+    if (!success) {
+      return res.status(400).json({ error: "فشل في تبديل النموذج. تأكد من صحة معرف النموذج." });
+    }
+
+    res.json({ success: true, message: `تم التبديل إلى نموذج ${modelKey}` });
+  } catch (error: any) {
+    console.error("Error switching HuggingFace model:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

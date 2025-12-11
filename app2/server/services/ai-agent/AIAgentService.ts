@@ -245,6 +245,7 @@ export class AIAgentService {
    */
   private async updateUsageStats(userId: string, response: ModelResponse) {
     const today = new Date().toISOString().split("T")[0];
+    const providerString = response.provider as string;
     
     const existing = await db
       .select()
@@ -252,7 +253,7 @@ export class AIAgentService {
       .where(and(
         eq(aiUsageStats.userId, userId),
         eq(aiUsageStats.date, today),
-        eq(aiUsageStats.provider, response.provider),
+        eq(aiUsageStats.provider, providerString),
         eq(aiUsageStats.model, response.model)
       ));
 
@@ -268,12 +269,26 @@ export class AIAgentService {
       await db.insert(aiUsageStats).values({
         userId,
         date: today,
-        provider: response.provider,
+        provider: providerString,
         model: response.model,
         requestsCount: 1,
         tokensUsed: response.tokensUsed || 0,
       });
     }
+  }
+
+  /**
+   * الحصول على قائمة نماذج Hugging Face المتاحة
+   */
+  getAvailableHuggingFaceModels() {
+    return this.modelManager.getAvailableHuggingFaceModels();
+  }
+
+  /**
+   * تبديل نموذج Hugging Face
+   */
+  async switchHuggingFaceModel(modelKey: string): Promise<boolean> {
+    return await this.modelManager.switchHuggingFaceModel(modelKey as any);
   }
 
   // متغير لحفظ العمليات المعلقة التي تنتظر الموافقة

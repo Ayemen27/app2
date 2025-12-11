@@ -1,6 +1,6 @@
 /**
  * Model Manager - إدارة النماذج المتعددة
- * يدعم OpenAI و Google Gemini مع التبديل التلقائي
+ * يدعم OpenAI و Google Gemini و Hugging Face مع التبديل التلقائي
  */
 
 import OpenAI from "openai";
@@ -14,12 +14,12 @@ export interface ChatMessage {
 export interface ModelResponse {
   content: string;
   model: string;
-  provider: "openai" | "gemini";
+  provider: "openai" | "gemini" | "huggingface";
   tokensUsed?: number;
 }
 
 export interface ModelConfig {
-  provider: "openai" | "gemini";
+  provider: "openai" | "gemini" | "huggingface";
   model: string;
   priority: number;
   isAvailable: boolean;
@@ -27,14 +27,46 @@ export interface ModelConfig {
   lastErrorTime?: Date;
   dailyUsage: number;
   dailyLimit: number;
+  apiEndpoint?: string;
 }
 
 const OPENAI_MODEL = "gpt-4o";
 const GEMINI_MODEL = "gemini-2.0-flash";
 
+const HUGGINGFACE_MODELS = {
+  "jais-chat": {
+    endpoint: "https://api-inference.huggingface.co/models/inceptionai/jais-13b-chat",
+    name: "Jais 13B Chat",
+    supportsArabic: true,
+  },
+  "llama2-chat": {
+    endpoint: "https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf",
+    name: "LLaMA 2 7B Chat",
+    supportsArabic: false,
+  },
+  "falcon-7b": {
+    endpoint: "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
+    name: "Falcon 7B Instruct",
+    supportsArabic: false,
+  },
+  "mistral-7b": {
+    endpoint: "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
+    name: "Mistral 7B Instruct",
+    supportsArabic: false,
+  },
+  "qwen2": {
+    endpoint: "https://api-inference.huggingface.co/models/Qwen/Qwen2-7B-Instruct",
+    name: "Qwen2 7B Instruct",
+    supportsArabic: true,
+  },
+};
+
+type HuggingFaceModelKey = keyof typeof HUGGINGFACE_MODELS;
+
 export class ModelManager {
   private openai: OpenAI | null = null;
   private gemini: GoogleGenerativeAI | null = null;
+  private huggingfaceApiKey: string | null = null;
   private models: ModelConfig[] = [];
   private currentModelIndex: number = 0;
   private lastResetDate: string = new Date().toISOString().split("T")[0];
@@ -44,12 +76,32 @@ export class ModelManager {
   }
 
   private initializeModels() {
+    // Initialize Hugging Face (مجاني وبدون حد يومي صارم)
+    const hfKey = process.env.HUGGINGFACE_API_KEY;
+    if (hfKey) {
+      this.huggingfaceApiKey = hfKey;
+      const defaultModel = (process.env.HUGGINGFACE_DEFAULT_MODEL || "jais-chat") as HuggingFaceModelKey;
+      const modelConfig = HUGGINGFACE_MODELS[defaultModel] || HUGGINGFACE_MODELS["jais-chat"];
+      
+      this.models.push({
+        provider: "huggingface",
+        model: defaultModel,
+        priority: 1,
+        isAvailable: true,
+        dailyUsage: 0,
+        dailyLimit: 10000,
+        apiEndpoint: modelConfig.endpoint,
+      });
+      console.log(`✅ [ModelManager] Hugging Face initialized with ${modelConfig.name}`);
+    }
+
+    // Initialize OpenAI
     if (process.env.OPENAI_API_KEY) {
       this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       this.models.push({
         provider: "openai",
         model: OPENAI_MODEL,
-        priority: 1,
+        priority: 2,
         isAvailable: true,
         dailyUsage: 0,
         dailyLimit: 1000,
@@ -57,13 +109,14 @@ export class ModelManager {
       console.log("✅ [ModelManager] OpenAI initialized");
     }
 
+    // Initialize Gemini
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (geminiKey) {
       this.gemini = new GoogleGenerativeAI(geminiKey);
       this.models.push({
         provider: "gemini",
         model: GEMINI_MODEL,
-        priority: 2,
+        priority: 3,
         isAvailable: true,
         dailyUsage: 0,
         dailyLimit: 1500,
@@ -74,9 +127,10 @@ export class ModelManager {
     this.models.sort((a, b) => a.priority - b.priority);
 
     if (this.models.length === 0) {
-      console.warn("⚠️ [ModelManager] No AI models configured! Please set OPENAI_API_KEY or GEMINI_API_KEY");
+      console.warn("⚠️ [ModelManager] No AI models configured! Please set HUGGINGFACE_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY");
     } else {
       console.log(`🤖 [ModelManager] ${this.models.length} models available`);
+      console.log(`📊 [ModelManager] Priority order: ${this.models.map(m => `${m.provider}/${m.model}`).join(" → ")}`);
     }
   }
 
@@ -157,6 +211,8 @@ export class ModelManager {
       return this.callOpenAI(modelConfig.model, messages, systemPrompt);
     } else if (modelConfig.provider === "gemini") {
       return this.callGemini(modelConfig.model, messages, systemPrompt);
+    } else if (modelConfig.provider === "huggingface") {
+      return this.callHuggingFace(modelConfig, messages, systemPrompt);
     }
     throw new Error(`Unknown provider: ${modelConfig.provider}`);
   }
@@ -229,8 +285,113 @@ export class ModelManager {
     };
   }
 
+  private async callHuggingFace(
+    modelConfig: ModelConfig,
+    messages: ChatMessage[],
+    systemPrompt?: string
+  ): Promise<ModelResponse> {
+    if (!this.huggingfaceApiKey) {
+      throw new Error("Hugging Face API key not initialized");
+    }
+
+    const endpoint = modelConfig.apiEndpoint || HUGGINGFACE_MODELS["jais-chat"].endpoint;
+    
+    let prompt = "";
+    if (systemPrompt) {
+      prompt += `### System:\n${systemPrompt}\n\n`;
+    }
+    
+    for (const msg of messages) {
+      if (msg.role === "user") {
+        prompt += `### User:\n${msg.content}\n\n`;
+      } else if (msg.role === "assistant") {
+        prompt += `### Assistant:\n${msg.content}\n\n`;
+      }
+    }
+    prompt += "### Assistant:\n";
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${this.huggingfaceApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 2048,
+          temperature: 0.7,
+          top_p: 0.95,
+          do_sample: true,
+          return_full_text: false,
+        },
+        options: {
+          wait_for_model: true,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      
+      if (response.status === 503) {
+        throw new Error(`Model is loading, please wait: ${errorText}`);
+      }
+      if (response.status === 429) {
+        throw new Error(`Rate limit exceeded: ${errorText}`);
+      }
+      throw new Error(`Hugging Face API error (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    let content = "";
+    if (Array.isArray(data)) {
+      content = data[0]?.generated_text || "";
+    } else if (data.generated_text) {
+      content = data.generated_text;
+    } else if (typeof data === "string") {
+      content = data;
+    }
+
+    content = content.replace(/^### Assistant:\s*/i, "").trim();
+
+    return {
+      content: content || "لم أتمكن من توليد رد.",
+      model: modelConfig.model,
+      provider: "huggingface",
+    };
+  }
+
   getModelsStatus(): ModelConfig[] {
     return this.models.map((m) => ({ ...m }));
+  }
+
+  getAvailableHuggingFaceModels(): Array<{ key: string; name: string; supportsArabic: boolean }> {
+    return Object.entries(HUGGINGFACE_MODELS).map(([key, value]) => ({
+      key,
+      name: value.name,
+      supportsArabic: value.supportsArabic,
+    }));
+  }
+
+  async switchHuggingFaceModel(modelKey: HuggingFaceModelKey): Promise<boolean> {
+    const modelConfig = HUGGINGFACE_MODELS[modelKey];
+    if (!modelConfig) {
+      console.error(`❌ [ModelManager] Unknown Hugging Face model: ${modelKey}`);
+      return false;
+    }
+
+    const hfModelIndex = this.models.findIndex(m => m.provider === "huggingface");
+    if (hfModelIndex >= 0) {
+      this.models[hfModelIndex].model = modelKey;
+      this.models[hfModelIndex].apiEndpoint = modelConfig.endpoint;
+      this.models[hfModelIndex].isAvailable = true;
+      this.models[hfModelIndex].lastError = undefined;
+      console.log(`🔄 [ModelManager] Switched to Hugging Face model: ${modelConfig.name}`);
+      return true;
+    }
+    return false;
   }
 
   resetDailyUsage() {

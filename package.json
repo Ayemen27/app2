@@ -10,6 +10,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google/genai": "^1.33.0",
+    "openai": "^6.10.0",
     "scp-sshpass": "^0.1.0"
   },
   "devDependencies": {

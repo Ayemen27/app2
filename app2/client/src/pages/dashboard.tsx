@@ -389,11 +389,8 @@ export default function Dashboard() {
     }).format(amount) + ' ر.ي';
   };
 
-  if (projectsLoading) {
-    return <LoadingCard />;
-  }
-
   // الإحصائيات الحالية - من ExpenseLedgerService فقط (مصدر موحد للحقيقة)
+  // نقل هذا useMemo قبل أي return مبكر لتجنب خطأ Hooks
   const currentStats = useMemo(() => {
     if (selectedProject && selectedProjectId) {
       const projectStats = getProjectStats(selectedProjectId);
@@ -417,6 +414,10 @@ export default function Dashboard() {
       materialPurchases: String(totalStats.materialPurchases)
     };
   }, [selectedProject, selectedProjectId, getProjectStats, totalStats]);
+
+  if (projectsLoading) {
+    return <LoadingCard />;
+  }
 
   return (
     <div className="p-4 fade-in space-y-4">

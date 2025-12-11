@@ -30,7 +30,7 @@ export interface ModelConfig {
 }
 
 const OPENAI_MODEL = "gpt-4o";
-const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_MODEL = "gemini-2.0-flash";
 
 export class ModelManager {
   private openai: OpenAI | null = null;
@@ -57,8 +57,9 @@ export class ModelManager {
       console.log("✅ [ModelManager] OpenAI initialized");
     }
 
-    if (process.env.GEMINI_API_KEY) {
-      this.gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (geminiKey) {
+      this.gemini = new GoogleGenerativeAI(geminiKey);
       this.models.push({
         provider: "gemini",
         model: GEMINI_MODEL,

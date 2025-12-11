@@ -144,8 +144,8 @@
 ```typescript
 {
   provider: "gemini",
-  model: "gemini-1.5-flash",
-  apiKey: process.env.GEMINI_API_KEY,
+  model: "gemini-2.0-flash",
+  apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
   priority: 2,
   dailyLimit: 1500
 }

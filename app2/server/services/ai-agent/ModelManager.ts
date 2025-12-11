@@ -37,27 +37,27 @@ const GEMINI_MODEL = "gemini-2.0-flash";
 
 const HUGGINGFACE_MODELS = {
   "jais-chat": {
-    endpoint: "https://api-inference.huggingface.co/models/inceptionai/jais-13b-chat",
+    endpoint: "https://router.huggingface.co/hf-inference/models/inceptionai/jais-13b-chat",
     name: "Jais 13B Chat",
     supportsArabic: true,
   },
   "llama2-chat": {
-    endpoint: "https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf",
+    endpoint: "https://router.huggingface.co/hf-inference/models/meta-llama/Llama-2-7b-chat-hf",
     name: "LLaMA 2 7B Chat",
     supportsArabic: false,
   },
   "falcon-7b": {
-    endpoint: "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
+    endpoint: "https://router.huggingface.co/hf-inference/models/tiiuae/falcon-7b-instruct",
     name: "Falcon 7B Instruct",
     supportsArabic: false,
   },
   "mistral-7b": {
-    endpoint: "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
+    endpoint: "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2",
     name: "Mistral 7B Instruct",
     supportsArabic: false,
   },
   "qwen2": {
-    endpoint: "https://api-inference.huggingface.co/models/Qwen/Qwen2-7B-Instruct",
+    endpoint: "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2-7B-Instruct",
     name: "Qwen2 7B Instruct",
     supportsArabic: true,
   },

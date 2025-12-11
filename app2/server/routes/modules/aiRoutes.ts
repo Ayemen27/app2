@@ -186,4 +186,70 @@ router.post("/chat", requireFirstAdmin, async (req: AuthenticatedRequest, res: R
   }
 });
 
+/**
+ * الحصول على العمليات المعلقة
+ * GET /api/ai/sessions/:id/pending-operations
+ */
+router.get("/sessions/:id/pending-operations", requireFirstAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const aiService = getAIAgentService();
+    const operations = aiService.getPendingOperations(id);
+
+    res.json({ operations });
+  } catch (error: any) {
+    console.error("Error fetching pending operations:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * تنفيذ عملية معتمدة
+ * POST /api/ai/execute-operation
+ */
+router.post("/execute-operation", requireFirstAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { operationId, sessionId } = req.body;
+
+    if (!operationId || !sessionId) {
+      return res.status(400).json({ error: "operationId و sessionId مطلوبان" });
+    }
+
+    const aiService = getAIAgentService();
+    const result = await aiService.executeApprovedOperation(operationId, sessionId);
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("Error executing operation:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * إلغاء عملية معلقة
+ * DELETE /api/ai/operations/:id
+ */
+router.delete("/operations/:id", requireFirstAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ error: "sessionId مطلوب" });
+    }
+
+    const aiService = getAIAgentService();
+    const cancelled = aiService.cancelPendingOperation(id, sessionId);
+
+    if (!cancelled) {
+      return res.status(404).json({ error: "العملية غير موجودة أو غير مصرح بها" });
+    }
+
+    res.json({ success: true, message: "تم إلغاء العملية" });
+  } catch (error: any) {
+    console.error("Error cancelling operation:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

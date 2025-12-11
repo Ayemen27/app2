@@ -134,6 +134,38 @@ cd app2
 ### التراجع (Rollback):
 يتم حفظ SHA النسخة السابقة تلقائياً في `.previous_sha` للتراجع عند الحاجة.
 
+## AI Models Integration (December 2025)
+
+### نظام النماذج المجانية بدون حدود يومية
+تم تكامل Hugging Face API لتوفير نماذج ذكاء اصطناعي مجانية بدون حدود صارمة:
+
+### النماذج المتاحة:
+| النموذج | الاسم | دعم العربية |
+|---------|-------|-------------|
+| `jais-chat` | Jais 13B Chat | ✅ موصى به |
+| `qwen2` | Qwen2 7B Instruct | ✅ |
+| `llama2-chat` | LLaMA 2 7B Chat | ❌ |
+| `falcon-7b` | Falcon 7B Instruct | ❌ |
+| `mistral-7b` | Mistral 7B Instruct | ❌ |
+
+### الترتيب التلقائي (Fallback):
+1. **Hugging Face** (الافتراضي - مجاني مع حدود سخية)
+2. OpenAI (إذا متوفر)
+3. Google Gemini (إذا متوفر)
+
+### المتغيرات البيئية:
+- `HUGGINGFACE_API_KEY` - مفتاح API من huggingface.co (مطلوب)
+- `HUGGINGFACE_DEFAULT_MODEL` - النموذج الافتراضي (اختياري، الافتراضي: jais-chat)
+
+### نقاط النهاية الجديدة:
+- `GET /api/ai/huggingface/models` - قائمة النماذج المتاحة
+- `POST /api/ai/huggingface/switch` - تبديل النموذج النشط
+
+### الملفات المعدلة:
+- `server/services/ai-agent/ModelManager.ts` - إضافة مزود Hugging Face
+- `server/services/ai-agent/AIAgentService.ts` - دوال التبديل والقائمة
+- `server/routes/modules/aiRoutes.ts` - نقاط النهاية الجديدة
+
 ## External Dependencies
 - **Database**: app2data PostgreSQL
 - **Frontend Libraries**: React.js, TypeScript, Tailwind CSS, shadcn/ui, React Query (@tanstack/react-query), Wouter, React Hook Form, Zod
@@ -142,3 +174,4 @@ cd app2
 - **Export Libraries**: ExcelJS, jsPDF
 - **Build Tools**: Vite (web), EAS Build (mobile)
 - **Security & Utilities**: crypto (Node.js built-in), dotenv
+- **AI Services**: Hugging Face Inference API, OpenAI (optional), Google Gemini (optional)

@@ -61,7 +61,11 @@ export default function AIChatPage() {
   const { data: accessData } = useQuery({
     queryKey: ["/api/ai/access"],
     queryFn: async () => {
-      const res = await fetch("/api/ai/access", { credentials: "include" });
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch("/api/ai/access", { 
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       return res.json();
     },
   });
@@ -69,7 +73,11 @@ export default function AIChatPage() {
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<ChatSession[]>({
     queryKey: ["/api/ai/sessions"],
     queryFn: async () => {
-      const res = await fetch("/api/ai/sessions", { credentials: "include" });
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch("/api/ai/sessions", { 
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       if (!res.ok) return [];
       return res.json();
     },
@@ -80,7 +88,11 @@ export default function AIChatPage() {
     queryKey: ["/api/ai/sessions", currentSessionId, "messages"],
     queryFn: async () => {
       if (!currentSessionId) return [];
-      const res = await fetch(`/api/ai/sessions/${currentSessionId}/messages`, { credentials: "include" });
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(`/api/ai/sessions/${currentSessionId}/messages`, { 
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       if (!res.ok) return [];
       return res.json();
     },
@@ -89,9 +101,13 @@ export default function AIChatPage() {
 
   const createSessionMutation = useMutation({
     mutationFn: async () => {
+      const token = localStorage.getItem("accessToken");
       const res = await fetch("/api/ai/sessions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         credentials: "include",
         body: JSON.stringify({ title: "محادثة جديدة" }),
       });
@@ -105,9 +121,11 @@ export default function AIChatPage() {
 
   const deleteSessionMutation = useMutation({
     mutationFn: async (sessionId: string) => {
+      const token = localStorage.getItem("accessToken");
       await fetch(`/api/ai/sessions/${sessionId}`, {
         method: "DELETE",
         credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
     },
     onSuccess: () => {
@@ -136,9 +154,13 @@ export default function AIChatPage() {
         { id: "3", type: "executing", message: "جاري تنفيذ الأمر...", status: "active" },
       ]);
 
+      const token = localStorage.getItem("accessToken");
       const res = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         credentials: "include",
         body: JSON.stringify({ sessionId: currentSessionId, message: msg }),
       });
@@ -202,7 +224,7 @@ export default function AIChatPage() {
             <AlertCircle className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
             <h2 className="text-xl font-bold mb-2">غير مصرح</h2>
             <p className="text-muted-foreground">
-              {accessData?.reason || "هذه الميزة متاحة فقط للمسؤول الأول"}
+              {accessData?.reason || "هذه الميزة متاحة فقط للمسؤولين"}
             </p>
           </CardContent>
         </Card>

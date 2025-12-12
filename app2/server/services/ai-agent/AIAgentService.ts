@@ -550,6 +550,27 @@ export class AIAgentService {
   isAvailable(): boolean {
     return this.modelManager.hasAvailableModel();
   }
+
+  /**
+   * الحصول على جميع النماذج المتاحة
+   */
+  getAllModels() {
+    return this.modelManager.getAllModels();
+  }
+
+  /**
+   * تحديد نموذج معين للاستخدام
+   */
+  setSelectedModel(modelKey: string | null) {
+    this.modelManager.setSelectedProvider(modelKey);
+  }
+
+  /**
+   * الحصول على النموذج المحدد حالياً
+   */
+  getSelectedModel(): string | null {
+    return this.modelManager.getSelectedProvider();
+  }
 }
 
 // Singleton instance

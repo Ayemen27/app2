@@ -4,12 +4,19 @@ import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Bot, Send, Plus, Trash2, MessageSquare, Loader2, 
   Brain, Search, Database, FileText, ChevronDown, ChevronRight,
   Users, Building2, Calculator, ClipboardList, Sparkles,
   CheckCircle, AlertCircle, Clock, Menu, X, Settings,
-  Zap, MoreHorizontal
+  Zap, MoreHorizontal, Cpu
 } from "lucide-react";
 
 interface ChatMessage {
@@ -38,6 +45,13 @@ interface ThinkingStep {
   details?: string;
 }
 
+interface AIModel {
+  key: string;
+  name: string;
+  provider: string;
+  isAvailable: boolean;
+}
+
 const quickCommands = [
   { icon: Users, label: "عرض العمال", command: "أعطني قائمة بجميع العمال" },
   { icon: Building2, label: "عرض المشاريع", command: "أعطني قائمة بجميع المشاريع" },
@@ -58,6 +72,7 @@ export default function AIChatPage() {
   const [isThinking, setIsThinking] = useState(false);
   const [expandedSteps, setExpandedSteps] = useState<Record<string, boolean>>({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>("auto");
 
   const { data: accessData } = useQuery({
     queryKey: ["/api/ai/access"],
@@ -83,6 +98,39 @@ export default function AIChatPage() {
       return res.json();
     },
     enabled: accessData?.hasAccess,
+  });
+
+  const { data: modelsData } = useQuery<{ models: AIModel[]; selectedModel: string | null }>({
+    queryKey: ["/api/ai/models"],
+    queryFn: async () => {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch("/api/ai/models", { 
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) return { models: [], selectedModel: null };
+      return res.json();
+    },
+    enabled: accessData?.hasAccess,
+  });
+
+  const selectModelMutation = useMutation({
+    mutationFn: async (modelKey: string) => {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch("/api/ai/models/select", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        credentials: "include",
+        body: JSON.stringify({ modelKey: modelKey === "auto" ? null : modelKey }),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ai/models"] });
+    },
   });
 
   const { data: messages = [], isLoading: messagesLoading } = useQuery<ChatMessage[]>({
@@ -206,6 +254,14 @@ export default function AIChatPage() {
   }, [messages, thinkingSteps]);
 
   useEffect(() => {
+    if (modelsData?.selectedModel) {
+      setSelectedModel(modelsData.selectedModel);
+    } else if (modelsData && modelsData.selectedModel === null) {
+      setSelectedModel("auto");
+    }
+  }, [modelsData?.selectedModel]);
+
+  useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 150) + "px";
@@ -220,6 +276,11 @@ export default function AIChatPage() {
   const handleQuickCommand = (cmd: string) => {
     setMessage(cmd);
     textareaRef.current?.focus();
+  };
+
+  const handleModelChange = (value: string) => {
+    setSelectedModel(value);
+    selectModelMutation.mutate(value);
   };
 
   const toggleStepExpand = (stepId: string) => {
@@ -539,17 +600,48 @@ export default function AIChatPage() {
         {currentSessionId && (
           <div className="border-t border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-4">
             <div className="max-w-4xl mx-auto">
-              <div className="flex flex-wrap gap-2 mb-3">
-                {quickCommands.slice(0, 4).map((cmd, i) => (
-                  <button
-                    key={i}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-xs text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-                    onClick={() => handleQuickCommand(cmd.command)}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-wrap gap-2">
+                  {quickCommands.slice(0, 4).map((cmd, i) => (
+                    <button
+                      key={i}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-xs text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                      onClick={() => handleQuickCommand(cmd.command)}
+                    >
+                      <cmd.icon className="h-3 w-3" />
+                      {cmd.label}
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Cpu className="h-4 w-4 text-slate-400" />
+                  <Select
+                    value={selectedModel}
+                    onValueChange={handleModelChange}
+                    disabled={selectModelMutation.isPending}
                   >
-                    <cmd.icon className="h-3 w-3" />
-                    {cmd.label}
-                  </button>
-                ))}
+                    <SelectTrigger className="w-[200px] h-8 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600">
+                      <SelectValue placeholder="اختر النموذج" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">
+                        <span className="flex items-center gap-2">
+                          <Zap className="h-3 w-3 text-amber-500" />
+                          تلقائي (الأفضل المتاح)
+                        </span>
+                      </SelectItem>
+                      {modelsData?.models?.map((model) => (
+                        <SelectItem key={model.key} value={model.key}>
+                          <span className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${model.isAvailable ? 'bg-green-500' : 'bg-red-500'}`} />
+                            {model.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <div className="flex gap-2 items-end">

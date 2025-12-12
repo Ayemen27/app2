@@ -297,4 +297,47 @@ router.post("/huggingface/switch", requireAdmin, async (req: AuthenticatedReques
   }
 });
 
+/**
+ * الحصول على جميع النماذج المتاحة
+ * GET /api/ai/models
+ */
+router.get("/models", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const aiService = getAIAgentService();
+    const models = aiService.getAllModels();
+    const selectedModel = aiService.getSelectedModel();
+
+    res.json({ 
+      models,
+      selectedModel,
+      message: "جميع النماذج المتاحة"
+    });
+  } catch (error: any) {
+    console.error("Error fetching models:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * تحديد نموذج معين للاستخدام
+ * POST /api/ai/models/select
+ */
+router.post("/models/select", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { modelKey } = req.body;
+
+    const aiService = getAIAgentService();
+    aiService.setSelectedModel(modelKey || null);
+
+    res.json({ 
+      success: true, 
+      selectedModel: modelKey || null,
+      message: modelKey ? `تم تحديد النموذج: ${modelKey}` : "تم التبديل إلى الوضع التلقائي"
+    });
+  } catch (error: any) {
+    console.error("Error selecting model:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

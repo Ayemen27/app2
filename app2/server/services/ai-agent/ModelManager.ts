@@ -36,30 +36,30 @@ const OPENAI_MODEL = "gpt-4o";
 const GEMINI_MODEL = "gemini-2.0-flash";
 
 const HUGGINGFACE_MODELS = {
-  "jais-chat": {
-    endpoint: "https://router.huggingface.co/hf-inference/models/inceptionai/jais-13b-chat",
-    name: "Jais 13B Chat",
+  "mistral-nemo": {
+    endpoint: "https://api-inference.huggingface.co/models/mistralai/Mistral-Nemo-Instruct-2407",
+    name: "Mistral Nemo 12B",
     supportsArabic: true,
   },
-  "llama2-chat": {
-    endpoint: "https://router.huggingface.co/hf-inference/models/meta-llama/Llama-2-7b-chat-hf",
-    name: "LLaMA 2 7B Chat",
-    supportsArabic: false,
-  },
-  "falcon-7b": {
-    endpoint: "https://router.huggingface.co/hf-inference/models/tiiuae/falcon-7b-instruct",
-    name: "Falcon 7B Instruct",
-    supportsArabic: false,
-  },
-  "mistral-7b": {
-    endpoint: "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2",
-    name: "Mistral 7B Instruct",
-    supportsArabic: false,
-  },
-  "qwen2": {
-    endpoint: "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2-7B-Instruct",
-    name: "Qwen2 7B Instruct",
+  "qwen2.5-72b": {
+    endpoint: "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-72B-Instruct",
+    name: "Qwen 2.5 72B",
     supportsArabic: true,
+  },
+  "llama3.2-3b": {
+    endpoint: "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct",
+    name: "Llama 3.2 3B",
+    supportsArabic: false,
+  },
+  "phi-3.5-mini": {
+    endpoint: "https://api-inference.huggingface.co/models/microsoft/Phi-3.5-mini-instruct",
+    name: "Phi 3.5 Mini",
+    supportsArabic: false,
+  },
+  "gemma2-9b": {
+    endpoint: "https://api-inference.huggingface.co/models/google/gemma-2-9b-it",
+    name: "Gemma 2 9B",
+    supportsArabic: false,
   },
 };
 
@@ -86,8 +86,8 @@ export class ModelManager {
     const hfKey = process.env.HUGGINGFACE_API_KEY;
     if (hfKey) {
       this.huggingfaceApiKey = hfKey;
-      const defaultModel = (process.env.HUGGINGFACE_DEFAULT_MODEL || "jais-chat") as HuggingFaceModelKey;
-      const modelConfig = HUGGINGFACE_MODELS[defaultModel] || HUGGINGFACE_MODELS["jais-chat"];
+      const defaultModel = (process.env.HUGGINGFACE_DEFAULT_MODEL || "mistral-nemo") as HuggingFaceModelKey;
+      const modelConfig = HUGGINGFACE_MODELS[defaultModel] || HUGGINGFACE_MODELS["mistral-nemo"];
       
       this.models.push({
         provider: "huggingface",
@@ -156,6 +156,43 @@ export class ModelManager {
     return true;
   }
 
+  private selectedProvider: string | null = null;
+
+  setSelectedProvider(provider: string | null) {
+    this.selectedProvider = provider;
+    console.log(`🎯 [ModelManager] Selected provider: ${provider || 'auto'}`);
+  }
+
+  getSelectedProvider(): string | null {
+    return this.selectedProvider;
+  }
+
+  getAllModels(): Array<{ key: string; name: string; provider: string; isAvailable: boolean }> {
+    const allModels: Array<{ key: string; name: string; provider: string; isAvailable: boolean }> = [];
+    
+    for (const model of this.models) {
+      if (model.provider === "huggingface") {
+        for (const [key, value] of Object.entries(HUGGINGFACE_MODELS)) {
+          allModels.push({
+            key: `huggingface/${key}`,
+            name: `${value.name}${value.supportsArabic ? ' (يدعم العربية)' : ''}`,
+            provider: "huggingface",
+            isAvailable: model.isAvailable,
+          });
+        }
+      } else {
+        allModels.push({
+          key: `${model.provider}/${model.model}`,
+          name: model.provider === "openai" ? "OpenAI GPT-4o" : "Google Gemini 2.0 Flash",
+          provider: model.provider,
+          isAvailable: model.isAvailable,
+        });
+      }
+    }
+    
+    return allModels;
+  }
+
   async chat(
     messages: ChatMessage[],
     systemPrompt?: string
@@ -165,6 +202,40 @@ export class ModelManager {
     }
 
     this.checkAndResetDailyUsage();
+
+    if (this.selectedProvider) {
+      const [provider, modelName] = this.selectedProvider.split('/');
+      
+      if (provider === "huggingface" && modelName) {
+        const hfModel = this.models.find(m => m.provider === "huggingface");
+        if (hfModel && isValidHuggingFaceModel(modelName)) {
+          const modelConfig = HUGGINGFACE_MODELS[modelName];
+          hfModel.model = modelName;
+          hfModel.apiEndpoint = modelConfig.endpoint;
+          
+          try {
+            const response = await this.callModel(hfModel, messages, systemPrompt);
+            hfModel.dailyUsage++;
+            return response;
+          } catch (error: any) {
+            console.error(`❌ [ModelManager] Selected model ${this.selectedProvider} error:`, error.message);
+            throw error;
+          }
+        }
+      } else {
+        const selectedModel = this.models.find(m => m.provider === provider);
+        if (selectedModel) {
+          try {
+            const response = await this.callModel(selectedModel, messages, systemPrompt);
+            selectedModel.dailyUsage++;
+            return response;
+          } catch (error: any) {
+            console.error(`❌ [ModelManager] Selected model ${this.selectedProvider} error:`, error.message);
+            throw error;
+          }
+        }
+      }
+    }
 
     let lastError: Error | null = null;
 
@@ -300,7 +371,7 @@ export class ModelManager {
       throw new Error("Hugging Face API key not initialized");
     }
 
-    const endpoint = modelConfig.apiEndpoint || HUGGINGFACE_MODELS["jais-chat"].endpoint;
+    const endpoint = modelConfig.apiEndpoint || HUGGINGFACE_MODELS["mistral-nemo"].endpoint;
     
     let prompt = "";
     if (systemPrompt) {

@@ -1,6 +1,7 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { 
   Activity, 
   User, 
@@ -14,9 +15,12 @@ import {
   Wallet,
   Users,
   Package,
-  Truck
+  Truck,
+  FileSpreadsheet,
+  Loader2
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { exportActivitiesToExcel } from "./export-activities-excel";
 
 interface ActivityItem {
   id?: number;
@@ -163,6 +167,20 @@ export const RecentActivitiesStrip = memo(({
   activities, 
   formatCurrency 
 }: RecentActivitiesStripProps) => {
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (isExporting || !activities || activities.length === 0) return;
+    setIsExporting(true);
+    try {
+      await exportActivitiesToExcel(activities, formatCurrency);
+    } catch (error) {
+      console.error('خطأ في التصدير:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (!activities || activities.length === 0) {
     return null;
   }
@@ -177,6 +195,20 @@ export const RecentActivitiesStrip = memo(({
         <Badge variant="secondary" className="h-5 text-[10px] px-2 font-medium">
           {activities.length}
         </Badge>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={isExporting}
+          className="h-6 px-2 text-[10px] gap-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-300 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-400 dark:border-green-700"
+        >
+          {isExporting ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <FileSpreadsheet className="h-3 w-3" />
+          )}
+          تصدير Excel
+        </Button>
         <div className="flex-1" />
         <span className="text-[10px] text-muted-foreground">← مرر للمزيد</span>
       </div>

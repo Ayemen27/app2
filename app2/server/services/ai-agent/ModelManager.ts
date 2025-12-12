@@ -35,30 +35,32 @@ export interface ModelConfig {
 const OPENAI_MODEL = "gpt-4o";
 const GEMINI_MODEL = "gemini-2.0-flash";
 
+const HUGGINGFACE_ROUTER_BASE = "https://router.huggingface.co/v1/chat/completions";
+
 const HUGGINGFACE_MODELS = {
   "mistral-nemo": {
-    endpoint: "https://api-inference.huggingface.co/models/mistralai/Mistral-Nemo-Instruct-2407",
+    modelId: "mistralai/Mistral-Nemo-Instruct-2407",
     name: "Mistral Nemo 12B",
     supportsArabic: true,
   },
   "qwen2.5-72b": {
-    endpoint: "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-72B-Instruct",
+    modelId: "Qwen/Qwen2.5-72B-Instruct",
     name: "Qwen 2.5 72B",
     supportsArabic: true,
   },
   "llama3.2-3b": {
-    endpoint: "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct",
+    modelId: "meta-llama/Llama-3.2-3B-Instruct",
     name: "Llama 3.2 3B",
     supportsArabic: false,
   },
-  "phi-3.5-mini": {
-    endpoint: "https://api-inference.huggingface.co/models/microsoft/Phi-3.5-mini-instruct",
-    name: "Phi 3.5 Mini",
-    supportsArabic: false,
+  "deepseek-r1": {
+    modelId: "deepseek-ai/DeepSeek-R1",
+    name: "DeepSeek R1",
+    supportsArabic: true,
   },
-  "gemma2-9b": {
-    endpoint: "https://api-inference.huggingface.co/models/google/gemma-2-9b-it",
-    name: "Gemma 2 9B",
+  "llama3.1-8b": {
+    modelId: "meta-llama/Llama-3.1-8B-Instruct",
+    name: "Llama 3.1 8B",
     supportsArabic: false,
   },
 };
@@ -96,7 +98,6 @@ export class ModelManager {
         isAvailable: true,
         dailyUsage: 0,
         dailyLimit: 10000,
-        apiEndpoint: modelConfig.endpoint,
       });
       console.log(`✅ [ModelManager] Hugging Face initialized with ${modelConfig.name}`);
     }
@@ -209,9 +210,7 @@ export class ModelManager {
       if (provider === "huggingface" && modelName) {
         const hfModel = this.models.find(m => m.provider === "huggingface");
         if (hfModel && isValidHuggingFaceModel(modelName)) {
-          const modelConfig = HUGGINGFACE_MODELS[modelName];
           hfModel.model = modelName;
-          hfModel.apiEndpoint = modelConfig.endpoint;
           
           try {
             const response = await this.callModel(hfModel, messages, systemPrompt);
@@ -371,40 +370,31 @@ export class ModelManager {
       throw new Error("Hugging Face API key not initialized");
     }
 
-    const endpoint = modelConfig.apiEndpoint || HUGGINGFACE_MODELS["mistral-nemo"].endpoint;
+    const modelKey = modelConfig.model as HuggingFaceModelKey;
+    const hfModel = HUGGINGFACE_MODELS[modelKey] || HUGGINGFACE_MODELS["mistral-nemo"];
+    const modelId = hfModel.modelId;
     
-    let prompt = "";
+    const chatMessages: Array<{role: string; content: string}> = [];
+    
     if (systemPrompt) {
-      prompt += `### System:\n${systemPrompt}\n\n`;
+      chatMessages.push({ role: "system", content: systemPrompt });
     }
     
     for (const msg of messages) {
-      if (msg.role === "user") {
-        prompt += `### User:\n${msg.content}\n\n`;
-      } else if (msg.role === "assistant") {
-        prompt += `### Assistant:\n${msg.content}\n\n`;
-      }
+      chatMessages.push({ role: msg.role, content: msg.content });
     }
-    prompt += "### Assistant:\n";
 
-    const response = await nodeFetch(endpoint, {
+    const response = await nodeFetch(HUGGINGFACE_ROUTER_BASE, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${this.huggingfaceApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 2048,
-          temperature: 0.7,
-          top_p: 0.95,
-          do_sample: true,
-          return_full_text: false,
-        },
-        options: {
-          wait_for_model: true,
-        },
+        model: modelId,
+        messages: chatMessages,
+        max_tokens: 2048,
+        temperature: 0.7,
       }),
     });
 
@@ -420,23 +410,15 @@ export class ModelManager {
       throw new Error(`Hugging Face API error (${response.status}): ${errorText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     
-    let content = "";
-    if (Array.isArray(data)) {
-      content = data[0]?.generated_text || "";
-    } else if (data.generated_text) {
-      content = data.generated_text;
-    } else if (typeof data === "string") {
-      content = data;
-    }
-
-    content = content.replace(/^### Assistant:\s*/i, "").trim();
+    const content = data.choices?.[0]?.message?.content || "لم أتمكن من توليد رد.";
 
     return {
-      content: content || "لم أتمكن من توليد رد.",
+      content: content,
       model: modelConfig.model,
       provider: "huggingface",
+      tokensUsed: data.usage?.total_tokens,
     };
   }
 
@@ -462,7 +444,6 @@ export class ModelManager {
     const hfModelIndex = this.models.findIndex(m => m.provider === "huggingface");
     if (hfModelIndex >= 0) {
       this.models[hfModelIndex].model = modelKey;
-      this.models[hfModelIndex].apiEndpoint = modelConfig.endpoint;
       this.models[hfModelIndex].isAvailable = true;
       this.models[hfModelIndex].lastError = undefined;
       console.log(`🔄 [ModelManager] Switched to Hugging Face model: ${modelConfig.name}`);

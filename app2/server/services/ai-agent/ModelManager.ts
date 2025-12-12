@@ -38,9 +38,9 @@ const GEMINI_MODEL = "gemini-2.0-flash";
 const HUGGINGFACE_ROUTER_BASE = "https://router.huggingface.co/v1/chat/completions";
 
 const HUGGINGFACE_MODELS = {
-  "mistral-nemo": {
-    modelId: "mistralai/Mistral-Nemo-Instruct-2407",
-    name: "Mistral Nemo 12B",
+  "llama3.1-8b": {
+    modelId: "meta-llama/Llama-3.1-8B-Instruct",
+    name: "Llama 3.1 8B",
     supportsArabic: true,
   },
   "qwen2.5-72b": {
@@ -51,17 +51,17 @@ const HUGGINGFACE_MODELS = {
   "llama3.2-3b": {
     modelId: "meta-llama/Llama-3.2-3B-Instruct",
     name: "Llama 3.2 3B",
-    supportsArabic: false,
-  },
-  "deepseek-r1": {
-    modelId: "deepseek-ai/DeepSeek-R1",
-    name: "DeepSeek R1",
     supportsArabic: true,
   },
-  "llama3.1-8b": {
-    modelId: "meta-llama/Llama-3.1-8B-Instruct",
-    name: "Llama 3.1 8B",
-    supportsArabic: false,
+  "deepseek-r1": {
+    modelId: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+    name: "DeepSeek R1 32B",
+    supportsArabic: true,
+  },
+  "gemma2-9b": {
+    modelId: "google/gemma-2-9b-it",
+    name: "Gemma 2 9B",
+    supportsArabic: true,
   },
 };
 
@@ -88,8 +88,8 @@ export class ModelManager {
     const hfKey = process.env.HUGGINGFACE_API_KEY;
     if (hfKey) {
       this.huggingfaceApiKey = hfKey;
-      const defaultModel = (process.env.HUGGINGFACE_DEFAULT_MODEL || "mistral-nemo") as HuggingFaceModelKey;
-      const modelConfig = HUGGINGFACE_MODELS[defaultModel] || HUGGINGFACE_MODELS["mistral-nemo"];
+      const defaultModel = (process.env.HUGGINGFACE_DEFAULT_MODEL || "llama3.1-8b") as HuggingFaceModelKey;
+      const modelConfig = HUGGINGFACE_MODELS[defaultModel] || HUGGINGFACE_MODELS["llama3.1-8b"];
       
       this.models.push({
         provider: "huggingface",
@@ -371,7 +371,7 @@ export class ModelManager {
     }
 
     const modelKey = modelConfig.model as HuggingFaceModelKey;
-    const hfModel = HUGGINGFACE_MODELS[modelKey] || HUGGINGFACE_MODELS["mistral-nemo"];
+    const hfModel = HUGGINGFACE_MODELS[modelKey] || HUGGINGFACE_MODELS["llama3.1-8b"];
     const modelId = hfModel.modelId;
     
     const chatMessages: Array<{role: string; content: string}> = [];

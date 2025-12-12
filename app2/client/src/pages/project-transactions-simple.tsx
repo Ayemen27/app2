@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, TrendingUp, TrendingDown, DollarSign, Building, Clock, ArrowRightLeft, Edit, Trash2, User, Calendar } from 'lucide-react';
+import { Search, Filter, TrendingUp, TrendingDown, DollarSign, Building, Clock, ArrowRightLeft, Edit, Trash2, User, Calendar, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/utils';
@@ -29,7 +29,8 @@ import {
 } from "lucide-react";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
-import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
+import { exportTransactionsToExcel } from "@/components/ui/export-transactions-excel";
 
 
 interface Transaction {
@@ -49,6 +50,7 @@ export default function ProjectTransactionsSimple() {
   const [filterType, setFilterType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [isExporting, setIsExporting] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin' || user?.role === 'مدير';
@@ -696,6 +698,43 @@ export default function ProjectTransactionsSimple() {
     return projects.find(p => p.id === selectedProject)?.name || 'المشروع';
   };
 
+  const handleExportToExcel = async () => {
+    if (isExporting || filteredTransactions.length === 0) return;
+    setIsExporting(true);
+    try {
+      await exportTransactionsToExcel(
+        filteredTransactions,
+        { totalIncome: totals.totalIncome, totalExpenses: totals.totalExpenses, balance: totals.balance },
+        formatCurrency,
+        isAllProjects ? 'جميع المشاريع' : getProjectNameUnified()
+      );
+      toast({
+        title: 'تم التصدير بنجاح',
+        description: `تم تصدير ${filteredTransactions.length} عملية إلى ملف Excel`,
+      });
+    } catch (error) {
+      console.error('خطأ في التصدير:', error);
+      toast({
+        title: 'خطأ في التصدير',
+        description: 'حدث خطأ أثناء تصدير البيانات',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportAction: ActionButton = {
+    key: 'export',
+    icon: isExporting ? Loader2 : FileSpreadsheet,
+    label: 'تصدير Excel',
+    onClick: handleExportToExcel,
+    variant: 'outline',
+    disabled: isExporting || filteredTransactions.length === 0,
+    loading: isExporting,
+    tooltip: 'تصدير سجل العمليات إلى ملف Excel'
+  };
+
   // تكوين صفوف الإحصائيات
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
@@ -795,6 +834,7 @@ export default function ProjectTransactionsSimple() {
             searchPlaceholder="ابحث في الوصف أو الفئة..."
             showSearch={true}
             filters={filterConfigs}
+            actions={[exportAction]}
             filterValues={{ type: filterType, dateRange: dateRange }}
             onFilterChange={(key, value) => {
               if (key === 'type') {

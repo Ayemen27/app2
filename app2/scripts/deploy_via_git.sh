@@ -220,7 +220,13 @@ log_success "تم نسخ الملفات"
 
 # تثبيت المتطلبات في مجلد الإنتاج
 cd "$APP_DIR"
+log_info "تثبيت الحزم في مجلد الإنتاج..."
 npm ci --loglevel=error 2>&1 || npm install --loglevel=error 2>&1
+
+# تثبيت الحزم الإضافية المطلوبة للإنتاج (AI و APIs)
+log_info "تثبيت حزم AI و APIs..."
+npm install openai @google/generative-ai --save --loglevel=error 2>&1 || true
+log_success "تم تثبيت جميع الحزم"
 
 log_info "إعادة تشغيل PM2..."
 # تحميل متغيرات البيئة من .env.production

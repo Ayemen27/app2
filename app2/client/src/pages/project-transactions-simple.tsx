@@ -42,6 +42,16 @@ interface Transaction {
   description: string;
   projectId?: string;
   projectName?: string;
+  workDays?: number;
+  dailyWage?: number;
+  workerName?: string;
+  transferMethod?: string;
+  recipientName?: string;
+  quantity?: number;
+  unitPrice?: number;
+  paymentType?: string;
+  supplierName?: string;
+  materialName?: string;
 }
 
 export default function ProjectTransactionsSimple() {
@@ -486,6 +496,9 @@ export default function ProjectTransactionsSimple() {
           category: 'أجور العمال',
           amount: amount,
           description: `${workerName}${workDays}`,
+          workerName: workerName,
+          workDays: attendance.workDays ? parseFloat(attendance.workDays) : undefined,
+          dailyWage: attendance.dailyWage ? parseFloat(attendance.dailyWage) : undefined,
           projectId: attendance.projectId,
           projectName: attendance.projectName || getProjectName(attendance.projectId)
         };
@@ -519,6 +532,11 @@ export default function ProjectTransactionsSimple() {
           category: isDeferred ? 'مشتريات آجلة' : 'مشتريات المواد',
           amount: amount,
           description: `مادة: ${purchase.materialName || purchase.name || 'غير محدد'}${isDeferred ? ' (آجل)' : ''}`,
+          materialName: purchase.materialName || purchase.name || 'غير محدد',
+          quantity: purchase.quantity ? parseFloat(purchase.quantity) : undefined,
+          unitPrice: purchase.unitPrice ? parseFloat(purchase.unitPrice) : undefined,
+          paymentType: isDeferred ? 'آجل' : 'نقد',
+          supplierName: purchase.supplierName || purchase.supplier?.name || '',
           projectId: purchase.projectId,
           projectName: purchase.projectName || getProjectName(purchase.projectId)
         });
@@ -588,6 +606,9 @@ export default function ProjectTransactionsSimple() {
           category: 'حوالات العمال',
           amount: amount,
           description: `${workerName}${recipientName} ${transferMethod}`,
+          workerName: workerName,
+          recipientName: transfer.recipientName || '',
+          transferMethod: transfer.transferMethod === 'hawaleh' ? 'حولة' : transfer.transferMethod === 'bank' ? 'بنكي' : 'نقداً',
           projectId: transfer.projectId,
           projectName: transfer.projectName || getProjectName(transfer.projectId)
         });

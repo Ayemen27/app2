@@ -18,6 +18,16 @@ interface Transaction {
   description: string;
   projectId?: string;
   projectName?: string;
+  workDays?: number;
+  dailyWage?: number;
+  workerName?: string;
+  transferMethod?: string;
+  recipientName?: string;
+  quantity?: number;
+  unitPrice?: number;
+  paymentType?: string;
+  supplierName?: string;
+  materialName?: string;
 }
 
 interface Totals {
@@ -56,19 +66,20 @@ export async function exportTransactionsToExcel(
       fitToWidth: 1,
       fitToHeight: 0,
       margins: {
-        left: 0.3,
-        right: 0.3,
-        top: 0.5,
-        bottom: 0.5,
-        header: 0.3,
-        footer: 0.3
+        left: 0.2,
+        right: 0.2,
+        top: 0.4,
+        bottom: 0.4,
+        header: 0.2,
+        footer: 0.2
       }
     }
   });
 
+  const totalColumns = 14;
   let currentRow = 1;
 
-  worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
+  worksheet.mergeCells(`A${currentRow}:N${currentRow}`);
   const titleCell = worksheet.getCell(`A${currentRow}`);
   titleCell.value = COMPANY_INFO.name;
   titleCell.font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
@@ -77,7 +88,7 @@ export async function exportTransactionsToExcel(
   worksheet.getRow(currentRow).height = 30;
   currentRow++;
 
-  worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
+  worksheet.mergeCells(`A${currentRow}:N${currentRow}`);
   const subtitleCell = worksheet.getCell(`A${currentRow}`);
   subtitleCell.value = COMPANY_INFO.subtitle;
   subtitleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
@@ -86,7 +97,7 @@ export async function exportTransactionsToExcel(
   worksheet.getRow(currentRow).height = 25;
   currentRow++;
 
-  worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
+  worksheet.mergeCells(`A${currentRow}:N${currentRow}`);
   const reportTitleCell = worksheet.getCell(`A${currentRow}`);
   const reportTitle = projectName 
     ? `سجل العمليات - ${projectName} - ${new Date().toLocaleDateString('ar-SA')}`
@@ -107,14 +118,14 @@ export async function exportTransactionsToExcel(
 
   summaryData.forEach(([label, value]) => {
     const row = worksheet.getRow(currentRow);
-    worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+    worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
     const labelCell = row.getCell(1);
     labelCell.value = label;
     labelCell.font = { bold: true, size: 11 };
     labelCell.alignment = { horizontal: 'right', vertical: 'middle' };
 
-    worksheet.mergeCells(`D${currentRow}:G${currentRow}`);
-    const valueCell = row.getCell(4);
+    worksheet.mergeCells(`E${currentRow}:H${currentRow}`);
+    const valueCell = row.getCell(5);
     valueCell.value = value;
     valueCell.font = { bold: true, size: 11, color: { argb: label === 'الرصيد الصافي' ? (totals.balance >= 0 ? 'FF008000' : 'FFFF0000') : 'FF000000' } };
     valueCell.alignment = { horizontal: 'left', vertical: 'middle' };
@@ -124,7 +135,23 @@ export async function exportTransactionsToExcel(
 
   currentRow++;
 
-  const headers = ['#', 'التاريخ', 'النوع', 'الفئة', 'الوصف', 'المشروع', 'المبلغ'];
+  const headers = [
+    '#',           // 1
+    'التاريخ',      // 2
+    'النوع',        // 3
+    'الفئة',        // 4
+    'المشروع',      // 5
+    'اسم العامل/المادة', // 6
+    'عدد الأيام',    // 7
+    'الأجر اليومي',  // 8
+    'الكمية',       // 9
+    'سعر الوحدة',   // 10
+    'نوع الدفع',    // 11
+    'المورد/المستلم', // 12
+    'طريقة التحويل', // 13
+    'المبلغ'        // 14
+  ];
+  
   const headerRow = worksheet.getRow(currentRow);
   headers.forEach((header, idx) => {
     const cell = headerRow.getCell(idx + 1);
@@ -137,13 +164,20 @@ export async function exportTransactionsToExcel(
   headerRow.height = 28;
   currentRow++;
 
-  worksheet.getColumn(1).width = 6;
-  worksheet.getColumn(2).width = 14;
-  worksheet.getColumn(3).width = 12;
-  worksheet.getColumn(4).width = 18;
-  worksheet.getColumn(5).width = 30;
-  worksheet.getColumn(6).width = 18;
-  worksheet.getColumn(7).width = 16;
+  worksheet.getColumn(1).width = 5;
+  worksheet.getColumn(2).width = 12;
+  worksheet.getColumn(3).width = 10;
+  worksheet.getColumn(4).width = 14;
+  worksheet.getColumn(5).width = 14;
+  worksheet.getColumn(6).width = 16;
+  worksheet.getColumn(7).width = 10;
+  worksheet.getColumn(8).width = 11;
+  worksheet.getColumn(9).width = 8;
+  worksheet.getColumn(10).width = 10;
+  worksheet.getColumn(11).width = 9;
+  worksheet.getColumn(12).width = 14;
+  worksheet.getColumn(13).width = 11;
+  worksheet.getColumn(14).width = 13;
 
   transactions.forEach((transaction, idx) => {
     const row = worksheet.getRow(currentRow);
@@ -152,13 +186,32 @@ export async function exportTransactionsToExcel(
     const dateObj = new Date(transaction.date);
     const formattedDate = dateObj.toLocaleDateString('ar-SA');
 
+    const getNameField = (): string => {
+      if (transaction.workerName) return transaction.workerName;
+      if (transaction.materialName) return transaction.materialName;
+      return '-';
+    };
+
+    const getRecipientOrSupplier = (): string => {
+      if (transaction.supplierName) return transaction.supplierName;
+      if (transaction.recipientName) return transaction.recipientName;
+      return '-';
+    };
+
     const rowData = [
       idx + 1,
       formattedDate,
       getTypeLabel(transaction.type),
       transaction.category,
-      transaction.description,
       transaction.projectName || 'غير محدد',
+      getNameField(),
+      transaction.workDays ?? '-',
+      transaction.dailyWage ? formatCurrency(transaction.dailyWage) : '-',
+      transaction.quantity ?? '-',
+      transaction.unitPrice ? formatCurrency(transaction.unitPrice) : '-',
+      transaction.paymentType || '-',
+      getRecipientOrSupplier(),
+      transaction.transferMethod || '-',
       formatCurrency(transaction.amount)
     ];
 
@@ -179,6 +232,16 @@ export async function exportTransactionsToExcel(
           cell.font = { ...style.font, color: { argb: 'FFFF8C00' } };
         }
       }
+
+      if (colIdx === 13) {
+        if (transaction.type === 'income' || transaction.type === 'transfer_from_project') {
+          cell.font = { ...style.font, bold: true, color: { argb: 'FF008000' } };
+        } else if (transaction.type === 'expense') {
+          cell.font = { ...style.font, bold: true, color: { argb: 'FFFF0000' } };
+        } else if (transaction.type === 'deferred') {
+          cell.font = { ...style.font, bold: true, color: { argb: 'FFFF8C00' } };
+        }
+      }
     });
     
     row.height = 24;
@@ -187,7 +250,7 @@ export async function exportTransactionsToExcel(
 
   currentRow++;
   const summaryRow = worksheet.getRow(currentRow);
-  worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
+  worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
   const summaryLabelCell = summaryRow.getCell(1);
   summaryLabelCell.value = `إجمالي العمليات: ${transactions.length}`;
   summaryLabelCell.font = EXCEL_STYLES.summaryRow.font;
@@ -195,8 +258,8 @@ export async function exportTransactionsToExcel(
   summaryLabelCell.alignment = EXCEL_STYLES.summaryRow.alignment;
   summaryLabelCell.border = EXCEL_STYLES.summaryRow.border;
 
-  worksheet.mergeCells(`E${currentRow}:G${currentRow}`);
-  const dateCell = summaryRow.getCell(5);
+  worksheet.mergeCells(`H${currentRow}:N${currentRow}`);
+  const dateCell = summaryRow.getCell(8);
   dateCell.value = `تاريخ التصدير: ${new Date().toLocaleDateString('ar-SA')} ${new Date().toLocaleTimeString('ar-SA')}`;
   dateCell.font = { size: 10, italic: true };
   dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -204,15 +267,15 @@ export async function exportTransactionsToExcel(
   currentRow += 2;
 
   const signatureRow = worksheet.getRow(currentRow);
-  worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+  worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
   const sig1 = signatureRow.getCell(1);
   sig1.value = 'توقيع المدير المالي: ________________';
   sig1.font = EXCEL_STYLES.signatureBox.font;
   sig1.alignment = EXCEL_STYLES.signatureBox.alignment;
   sig1.border = EXCEL_STYLES.signatureBox.border;
 
-  worksheet.mergeCells(`E${currentRow}:G${currentRow}`);
-  const sig2 = signatureRow.getCell(5);
+  worksheet.mergeCells(`J${currentRow}:N${currentRow}`);
+  const sig2 = signatureRow.getCell(10);
   sig2.value = 'توقيع المدير العام: ________________';
   sig2.font = EXCEL_STYLES.signatureBox.font;
   sig2.alignment = EXCEL_STYLES.signatureBox.alignment;
@@ -220,7 +283,7 @@ export async function exportTransactionsToExcel(
   signatureRow.height = 35;
   currentRow += 2;
 
-  worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
+  worksheet.mergeCells(`A${currentRow}:N${currentRow}`);
   const footerCell = worksheet.getCell(`A${currentRow}`);
   footerCell.value = `${COMPANY_INFO.name} | ${COMPANY_INFO.address} | تم إنشاء هذا التقرير آلياً`;
   footerCell.font = EXCEL_STYLES.footer.font;

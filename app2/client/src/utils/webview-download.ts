@@ -170,11 +170,11 @@ async function downloadViaShareAPI(
   try {
     const file = new File([blob], fileName, { type: mimeType });
     
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    const shareData = { files: [file] };
+    if (typeof navigator.canShare === 'function' && navigator.canShare(shareData)) {
       await navigator.share({
         files: [file],
-        title: fileName,
-        text: `تحميل ملف: ${fileName}`
+        title: fileName
       });
       console.log('✅ [Download] تم مشاركة الملف بنجاح');
       return true;
@@ -188,6 +188,47 @@ async function downloadViaShareAPI(
       return true;
     }
     console.error('❌ [Download] فشل Share API:', error);
+    return false;
+  }
+}
+
+async function downloadViaServer(
+  blob: Blob,
+  fileName: string,
+  mimeType: string
+): Promise<boolean> {
+  try {
+    const base64 = await blobToBase64(blob);
+    
+    const response = await fetch('/api/download-file', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+      },
+      body: JSON.stringify({
+        base64,
+        fileName,
+        mimeType
+      })
+    });
+    
+    if (!response.ok) {
+      console.error('❌ [Download] Server download failed:', response.status);
+      return false;
+    }
+    
+    const downloadBlob = await response.blob();
+    const url = URL.createObjectURL(downloadBlob);
+    
+    window.location.href = url;
+    
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    
+    console.log('✅ [Download] تم التنزيل عبر السيرفر');
+    return true;
+  } catch (error) {
+    console.error('❌ [Download] فشل تنزيل السيرفر:', error);
     return false;
   }
 }
@@ -218,10 +259,11 @@ async function downloadForWebView(
 ): Promise<boolean> {
   console.log('📱 [Download] محاولة التنزيل في WebView...');
   
-  if (hasShareAPI()) {
-    const shareResult = await downloadViaShareAPI(blob, fileName, mimeType);
-    if (shareResult) return true;
-  }
+  const serverResult = await downloadViaServer(blob, fileName, mimeType);
+  if (serverResult) return true;
+  
+  const shareResult = await downloadViaShareAPI(blob, fileName, mimeType);
+  if (shareResult) return true;
 
   try {
     const base64 = await blobToBase64(blob);

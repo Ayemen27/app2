@@ -256,6 +256,46 @@ privateRouter.get('/auth/sessions', async (req: Request, res: Response) => {
 });
 
 /**
+ * ===== مسار تنزيل الملفات للـ WebView =====
+ */
+privateRouter.post('/download-file', async (req: Request, res: Response) => {
+  try {
+    const { base64, fileName, mimeType } = req.body;
+    
+    if (!base64 || !fileName || !mimeType) {
+      return res.status(400).json({
+        success: false,
+        error: 'البيانات المطلوبة غير مكتملة'
+      });
+    }
+    
+    const buffer = Buffer.from(base64, 'base64');
+    
+    const safeFileName = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
+    
+    res.set({
+      'Content-Type': mimeType,
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(safeFileName)}`,
+      'Content-Length': buffer.length.toString(),
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    
+    res.send(buffer);
+    
+    console.log(`📥 [Download] تم تنزيل ملف: ${safeFileName} (${buffer.length} bytes)`);
+  } catch (error: any) {
+    console.error('❌ [Download] خطأ في تنزيل الملف:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في تنزيل الملف',
+      code: 'DOWNLOAD_ERROR'
+    });
+  }
+});
+
+/**
  * ===== middleware الإضافية للمسارات المحمية =====
  */
 

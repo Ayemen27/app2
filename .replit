@@ -1,0 +1,119 @@
+modules = ["nodejs-20", "web", "bash", "postgresql-16"]
+run = "cd app2 && npm run dev"
+hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["unzipNLS", "nano", "openssh", "lsof", "jq", "postgresql_13", "sshpass"]
+
+[deployment]
+deploymentTarget = "autoscale"
+build = ["npm", "run", "build"]
+run = ["npm", "run", "start"]
+
+
+[env]
+PORT = "3000"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "بناء "
+mode = "sequential"
+author = 47788345
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd app2 && npm run build "
+
+[[workflows.workflow]]
+name = "Dev Mode"
+author = 50892970
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd app2 && npm run dev"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Build & Deploy"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Deploy via Git"
+
+[[workflows.workflow]]
+name = "Build & Deploy"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build:client && npm run build:server && NODE_ENV=production npm start"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Deploy via Git"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash ./scripts/deploy_via_git.sh"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[agent]
+expertMode = true
+
+[userenv]
+
+[userenv.shared]
+JWT_ACCESS_SECRET = "7caef7dbed50790b6bf0539bdbc6084d3727037f581e4fa4df31a4e182dd5a060103fcabb23037281219556ec06b1f0b81acb3b806119d70ab9ca139713cae5b"
+JWT_REFRESH_SECRET = "5057cb38ab008e55901f35122af497263099573461db7c6e6e9fe4436c621b64be1eab0678557c1d2fd8160bd1c9708b93fa3a74921ea6e81147c1456b98b942"
+VITE_FIREBASE_API_KEY = "AIzaSyCRguKSOk0lkjxNt4OJIsk12KBddVLmaxI"
+VITE_FIREBASE_AUTH_DOMAIN = "app2-eb4df.firebaseapp.com"
+VITE_FIREBASE_PROJECT_ID = "app2-eb4df"
+VITE_FIREBASE_STORAGE_BUCKET = "app2-eb4df.firebasestorage.app"
+VITE_FIREBASE_MESSAGING_SENDER_ID = "364100399820"
+VITE_FIREBASE_APP_ID = "1:364100399820:web:e60953c720fc45d11cc869"
+VITE_FIREBASE_VAPID_KEY = "YGwRxS-k2lYQ-HdK5KkTYdceZgM3xcaTYxQoitDTwZk"
+
+[userenv.development]
+PORT = "5000"
+HEALTH_CHECK_PORT = "5000"
+HEALTH_CHECK_URL = "http://localhost:5000/api/health"
+DOMAIN = "https://b508ebe2-8a03-4d51-98f7-59f6a61c4271-00-nvsjr9z9iz1g.sisko.replit.dev"
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
+
+[[ports]]
+localPort = 5000
+externalPort = 80

@@ -1,0 +1,154 @@
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import fs from 'fs';
+import * as schema from "@shared/schema";
+import { envLoader, initializeEnvironment } from './utils/env-loader';
+import { smartConnectionManager } from './services/smart-connection-manager';
+
+// تهيئة متغيرات البيئة عند تحميل الموديول
+initializeEnvironment();
+
+// التحقق من بيئة الإنتاج
+const isProduction = process.env.NODE_ENV === 'production';
+
+// إخفاء المعلومات الحساسة في السجلات
+function maskConnectionString(url: string): string {
+  return url.replace(/\/\/[^:]+:[^@]+@/, '//***:***@').replace(/\d+\.\d+\.\d+\.\d+/, '***.***.***.**');
+}
+
+// إنشاء رابط قاعدة البيانات مع الأولوية الصحيحة
+function createDatabaseUrl(): string {
+  const databaseUrl = envLoader.get('DATABASE_URL');
+
+  if (databaseUrl) {
+    if (!isProduction) {
+      console.log('✅ تم العثور على DATABASE_URL');
+      console.log('🔧 Connection:', maskConnectionString(databaseUrl));
+    }
+    return databaseUrl;
+  }
+
+  console.error('❌ DATABASE_URL غير موجود');
+  throw new Error('DATABASE_URL is required');
+}
+
+// 🔧 **إعداد SSL محسّن وآمن للاتصال**
+function setupSSLConfig() {
+  const connectionString = createDatabaseUrl();
+
+  // التحقق من نوع الاتصال
+  const isLocalConnection = connectionString.includes('localhost') || 
+                           connectionString.includes('127.0.0.1') ||
+                           connectionString.includes('@localhost/');
+
+  // التحقق إذا كان SSL معطّل في connection string
+  const isSslDisabled = connectionString.includes('sslmode=disable') ||
+                        connectionString.includes('ssl=false');
+
+  if (isLocalConnection || isSslDisabled) {
+    console.log('🔓 اتصال محلي أو SSL معطّل - تعطيل SSL');
+    return false;
+  }
+
+  console.log('🔐 اتصال خارجي - إعداد SSL آمن ومرن');
+
+  // 🛡️ **SSL Configuration آمن ومحسن**
+  const sslConfig: any = {
+    // الافتراضي: تفعيل التحقق من الشهادات (أمان قوي)
+    rejectUnauthorized: true,
+    // تطلب تشفير قوي
+    minVersion: 'TLSv1.2' as const,
+    maxVersion: 'TLSv1.3' as const,
+  };
+  
+  // محاولة استخدام شهادة SSL من متغيرات البيئة أولاً
+  try {
+    const sslCert = envLoader.get('PGSSLROOTCERT');
+    
+    if (sslCert) {
+      console.log('📜 [SSL] استخدام شهادة SSL من متغيرات البيئة');
+      sslConfig.ca = sslCert;
+      // تعطيل التحقق للاختبار حتى مع وجود شهادة
+      sslConfig.rejectUnauthorized = false;
+      console.log('✅ [SSL] تم تحميل الشهادة - تعطيل التحقق للاختبار');
+    } else {
+      // إذا لم توجد شهادة في متغيرات البيئة، تحقق من الملف
+      const certPath = './pg_cert.pem';
+      if (fs.existsSync(certPath)) {
+        console.log('📜 [SSL] استخدام شهادة SSL من الملف');
+        sslConfig.ca = fs.readFileSync(certPath);
+        sslConfig.rejectUnauthorized = false; // للخوادم ذات الشهادات الموقعة ذاتياً
+        console.log('✅ [SSL] تم تحميل الشهادة من الملف - تعطيل التحقق للشهادات الموقعة ذاتياً');
+      } else {
+        // للخوادم الخاصة المعروفة والموثوقة فقط أو الاختبار
+        if (!isProduction) {
+          console.log('🔧 [SSL] تعطيل التحقق للاختبار');
+        }
+        sslConfig.rejectUnauthorized = false;
+        
+        // إضافة تحقق مخصص للخوادم الخاصة
+        sslConfig.checkServerIdentity = () => undefined;
+      }
+    }
+  } catch (error) {
+    console.error('❌ [SSL] خطأ في إعداد SSL:', error);
+    throw error;
+  }
+
+  return sslConfig;
+}
+
+// SSL configuration is handled per connection in setupSSLConfig()
+
+const connectionString = createDatabaseUrl(); // Re-fetch to ensure we have the correct string for config
+const sslConfig = setupSSLConfig();
+
+// تكوين اتصال قاعدة البيانات
+// Remove SSL parameters from connection string to avoid conflicts
+const cleanConnectionString = connectionString.replace(/[?&]sslmode=[^&]*/g, '').replace(/[?&]ssl=[^&]*/g, '');
+
+export const pool = new Pool({ 
+  connectionString: cleanConnectionString,
+  ssl: sslConfig,
+  // إعدادات الاتصال المحسنة
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 60000, // زيادة إلى 60 ثانية
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
+  statement_timeout: 30000,
+  query_timeout: 30000
+});
+
+export const db = drizzle(pool, { schema });
+
+// اختبار الاتصال عند تحميل الموديول
+(async () => {
+  try {
+    const client = await pool.connect();
+    const res = await client.query('SELECT version(), current_database(), current_user');
+    console.log('✅ نجح الاتصال بقاعدة البيانات');
+    if (!isProduction) {
+      console.log('📊 إصدار PostgreSQL:', res.rows[0].version?.split(' ')[0] || 'غير معروف');
+      console.log('🗃️ قاعدة البيانات:', res.rows[0].current_database);
+      console.log('👤 المستخدم:', res.rows[0].current_user);
+    }
+    client.release();
+  } catch (err) {
+    console.error('❌ فشل الاتصال بقاعدة البيانات');
+    if (!isProduction) {
+      console.error('   التفاصيل:', err);
+    }
+  }
+})();
+
+// 🧠 الدوال الذكية لإدارة الاتصالات
+export function getSmartDB(operationType: 'read' | 'write' | 'backup' | 'sync' = 'read') {
+  const connection = smartConnectionManager.getSmartConnection(operationType);
+  return connection.db || db;
+}
+
+export function getSmartPool(operationType: 'read' | 'write' | 'backup' | 'sync' = 'read') {
+  const connection = smartConnectionManager.getSmartConnection(operationType);
+  return connection.pool || pool;
+}

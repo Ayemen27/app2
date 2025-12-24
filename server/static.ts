@@ -1,0 +1,46 @@
+import express, { type Express } from "express";
+import fs from "fs";
+import path from "path";
+
+export function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+
+export function serveStatic(app: Express) {
+  const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
+
+  if (!fs.existsSync(distPath)) {
+    console.warn(`⚠️ Build directory not found: ${distPath}, creating it...`);
+    try {
+      fs.mkdirSync(distPath, { recursive: true });
+    } catch (e) {
+      console.error(`❌ Failed to create build directory: ${e}`);
+    }
+  }
+
+  app.use(express.static(distPath));
+
+  app.use("*", (req, res, next) => {
+    if (req.originalUrl.startsWith('/api/')) {
+      return next();
+    }
+
+    if (/\.\w+(\?|$)/i.test(req.originalUrl)) {
+      return next();
+    }
+
+    const indexPath = path.resolve(distPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).send('index.html not found');
+    }
+  });
+}

@@ -1,0 +1,554 @@
+
+import React, { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Users, UserPlus, UserCheck, UserX, Shield, Mail, Calendar, Settings, Search, Filter, Trash2, Edit, MoreVertical, RefreshCw, Download, Eye, Lock, Unlock } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/AuthProvider';
+import { UnifiedFilterDashboard } from '@/components/ui/unified-filter-dashboard';
+import { UnifiedCard, UnifiedCardGrid } from '@/components/ui/unified-card';
+import type { StatsRowConfig, FilterConfig } from '@/components/ui/unified-filter-dashboard/types';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
+import { apiRequest } from '@/lib/queryClient';
+
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  isActive: boolean;
+  emailVerifiedAt: string | null;
+  lastLogin: string | null;
+  createdAt: string;
+}
+
+export default function UsersManagementPage() {
+  const { toast } = useToast();
+  const { isAuthenticated, getAccessToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  const [searchValue, setSearchValue] = useState('');
+  const [filterValues, setFilterValues] = useState({
+    role: 'all',
+    status: 'all',
+    verified: 'all',
+  });
+
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    firstName: '',
+    lastName: '',
+    role: '',
+    isActive: true,
+  });
+
+  // جلب المستخدمين - موحد مع صفحة المشاريع
+  const { data: usersData, isLoading, refetch, error } = useQuery({
+    queryKey: ['users', searchValue, filterValues],
+    queryFn: async () => {
+      try {
+        const params = new URLSearchParams();
+        if (searchValue) params.append('search', searchValue);
+        if (filterValues.role && filterValues.role !== 'all') params.append('role', filterValues.role);
+        if (filterValues.status && filterValues.status !== 'all') params.append('status', filterValues.status);
+        if (filterValues.verified && filterValues.verified !== 'all') params.append('verified', filterValues.verified);
+
+        const queryString = params.toString();
+        const endpoint = `/api/auth/users${queryString ? '?' + queryString : ''}`;
+        
+        console.log('🔄 [Users] جلب المستخدمين من:', endpoint);
+        console.log('🔍 [Users] المعاملات:', { searchValue, filterValues });
+        
+        const response = await apiRequest(endpoint, "GET");
+        
+        console.log('📦 [Users] الاستجابة الكاملة:', JSON.stringify(response, null, 2));
+        console.log('📊 [Users] نوع الاستجابة:', typeof response);
+        console.log('📋 [Users] مفاتيح الاستجابة:', response ? Object.keys(response) : 'null');
+        
+        // معالجة هيكل الاستجابة المتعددة (مثل صفحة المشاريع)
+        let users = [];
+        if (response && typeof response === 'object') {
+          console.log('🔍 [Users] فحص هيكل الاستجابة...');
+          
+          if (response.success !== undefined && response.users !== undefined) {
+            console.log('✅ [Users] وجدت response.users:', Array.isArray(response.users), 'العدد:', response.users?.length);
+            users = Array.isArray(response.users) ? response.users : [];
+          } else if (response.success !== undefined && response.data !== undefined) {
+            console.log('✅ [Users] وجدت response.data:', Array.isArray(response.data), 'العدد:', response.data?.length);
+            users = Array.isArray(response.data) ? response.data : [];
+          } else if (Array.isArray(response)) {
+            console.log('✅ [Users] الاستجابة مصفوفة مباشرة، العدد:', response.length);
+            users = response;
+          } else if (response.data) {
+            console.log('✅ [Users] وجدت data بدون success:', Array.isArray(response.data), 'العدد:', response.data?.length);
+            users = Array.isArray(response.data) ? response.data : [];
+          } else {
+            console.warn('⚠️ [Users] هيكل استجابة غير معروف:', response);
+          }
+        } else {
+          console.error('❌ [Users] الاستجابة null أو ليست object');
+        }
+
+        if (!Array.isArray(users)) {
+          console.warn('⚠️ [Users] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
+          users = [];
+        }
+
+        console.log(`✅ [Users] النتيجة النهائية: ${users.length} مستخدم`);
+        if (users.length > 0) {
+          console.log('👤 [Users] عينة من أول مستخدم:', users[0]);
+        }
+        
+        return { users };
+      } catch (error) {
+        console.error('❌ [Users] خطأ في جلب المستخدمين:', error);
+        return { users: [] };
+      }
+    },
+    enabled: isAuthenticated,
+    retry: 2,
+    staleTime: 30000,
+  });
+
+  // عرض رسالة خطأ إذا حدث خطأ
+  React.useEffect(() => {
+    if (error) {
+      console.error('❌ خطأ في Query:', error);
+      toast({
+        title: 'خطأ في جلب المستخدمين',
+        description: error instanceof Error ? error.message : 'حدث خطأ غير متوقع',
+        variant: 'destructive'
+      });
+    }
+  }, [error, toast]);
+
+  // تحديث مستخدم
+  const updateMutation = useMutation({
+    mutationFn: async (data: { userId: string; updates: any }) => {
+      const response = await fetch(`/api/auth/users/${data.userId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data.updates),
+      });
+      if (!response.ok) throw new Error('فشل في تحديث المستخدم');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'تم تحديث المستخدم بنجاح', variant: 'default' });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+    },
+    onError: () => {
+      toast({ title: 'خطأ في تحديث المستخدم', variant: 'destructive' });
+    },
+  });
+
+  // حذف مستخدم
+  const deleteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await fetch(`/api/auth/users/${userId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) throw new Error('فشل في حذف المستخدم');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'تم حذف المستخدم بنجاح', variant: 'default' });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setIsDeleteDialogOpen(false);
+      setSelectedUser(null);
+    },
+    onError: () => {
+      toast({ title: 'خطأ في حذف المستخدم', variant: 'destructive' });
+    },
+  });
+
+  // تبديل حالة المستخدم
+  const toggleStatusMutation = useMutation({
+    mutationFn: async (data: { userId: string; isActive: boolean }) => {
+      const response = await fetch(`/api/auth/users/${data.userId}/toggle-status`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ isActive: data.isActive }),
+      });
+      if (!response.ok) throw new Error('فشل في تحديث الحالة');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'تم تحديث حالة المستخدم', variant: 'default' });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+
+  const users = usersData?.users || [];
+  const stats = useMemo(() => ({
+    total: users.length,
+    active: users.filter((u: User) => u.isActive).length,
+    inactive: users.filter((u: User) => !u.isActive).length,
+    verified: users.filter((u: User) => u.emailVerifiedAt).length,
+    admins: users.filter((u: User) => u.role === 'admin' || u.role === 'super_admin').length,
+  }), [users]);
+
+  // تكوين صفوف الإحصائيات - شبكة 3×2
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'total',
+          label: 'إجمالي المستخدمين',
+          value: stats.total,
+          icon: Users,
+          color: 'blue'
+        },
+        {
+          key: 'active',
+          label: 'نشط',
+          value: stats.active,
+          icon: UserCheck,
+          color: 'green'
+        },
+        {
+          key: 'inactive',
+          label: 'معطل',
+          value: stats.inactive,
+          icon: UserX,
+          color: 'red'
+        }
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        {
+          key: 'verified',
+          label: 'محقق',
+          value: stats.verified,
+          icon: Mail,
+          color: 'purple'
+        },
+        {
+          key: 'admins',
+          label: 'مسؤولين',
+          value: stats.admins,
+          icon: Shield,
+          color: 'orange'
+        },
+        {
+          key: 'unverified',
+          label: 'غير محقق',
+          value: stats.total - stats.verified,
+          icon: Mail,
+          color: 'gray'
+        }
+      ]
+    }
+  ], [stats.total, stats.active, stats.inactive, stats.verified, stats.admins]);
+
+  const filterConfigs: FilterConfig[] = useMemo(() => [
+    {
+      key: 'role',
+      label: 'الدور',
+      type: 'select',
+      placeholder: 'اختر الدور',
+      options: [
+        { value: 'all', label: 'الكل' },
+        { value: 'super_admin', label: 'مدير أول' },
+        { value: 'admin', label: 'مدير' },
+        { value: 'user', label: 'مستخدم' },
+      ],
+    },
+    {
+      key: 'status',
+      label: 'الحالة',
+      type: 'select',
+      placeholder: 'اختر الحالة',
+      options: [
+        { value: 'all', label: 'الكل' },
+        { value: 'active', label: 'نشط' },
+        { value: 'inactive', label: 'معطل' },
+      ],
+    },
+    {
+      key: 'verified',
+      label: 'التحقق',
+      type: 'select',
+      placeholder: 'حالة التحقق',
+      options: [
+        { value: 'all', label: 'الكل' },
+        { value: 'verified', label: 'محقق' },
+        { value: 'unverified', label: 'غير محقق' },
+      ],
+    },
+  ], []);
+
+  const handleEdit = React.useCallback((user: User) => {
+    setSelectedUser(user);
+    setEditForm({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      isActive: user.isActive,
+    });
+    setIsEditDialogOpen(true);
+  }, []);
+
+  const handleDelete = React.useCallback((user: User) => {
+    setSelectedUser(user);
+    setIsDeleteDialogOpen(true);
+  }, []);
+
+  const handleSaveEdit = React.useCallback(() => {
+    if (selectedUser) {
+      updateMutation.mutate({
+        userId: selectedUser.id,
+        updates: editForm,
+      });
+    }
+  }, [selectedUser, editForm, updateMutation]);
+
+  const handleConfirmDelete = React.useCallback(() => {
+    if (selectedUser) {
+      deleteMutation.mutate(selectedUser.id);
+    }
+  }, [selectedUser, deleteMutation]);
+
+  const getRoleLabel = (role: string) => {
+    switch(role) {
+      case 'super_admin': return 'مدير أول';
+      case 'admin': return 'مدير';
+      default: return 'مستخدم';
+    }
+  };
+
+  const getRoleBadgeVariant = (role: string) => {
+    switch(role) {
+      case 'super_admin': return 'default';
+      case 'admin': return 'secondary';
+      default: return 'outline';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" dir="rtl">
+      {/* Main Content */}
+      <div className="px-4 py-6 md:px-6 space-y-6">
+        {/* Unified Filter Dashboard */}
+        <UnifiedFilterDashboard
+          statsRows={statsRowsConfig}
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          searchPlaceholder="ابحث عن مستخدم..."
+          showSearch={true}
+          filters={filterConfigs}
+          filterValues={filterValues}
+          onFilterChange={React.useCallback((key: string, value: any) => {
+            setFilterValues(prev => ({ ...prev, [key]: value }));
+          }, [])}
+          onReset={React.useCallback(() => {
+            setSearchValue('');
+            setFilterValues({ role: 'all', status: 'all', verified: 'all' });
+          }, [])}
+          onRefresh={React.useCallback(() => refetch(), [refetch])}
+          isRefreshing={isLoading}
+        />
+
+        {/* Users Grid with UnifiedCard */}
+        {isLoading ? (
+          <LoadingUsers />
+        ) : users.length === 0 ? (
+          <EmptyUsers />
+        ) : (
+          <UnifiedCardGrid columns={2}>
+            {users.map((user: User) => (
+              <UnifiedCard
+                key={user.id}
+                title={`${user.firstName} ${user.lastName}`}
+                subtitle={user.email}
+                titleIcon={Users}
+                badges={[
+                  {
+                    label: getRoleLabel(user.role),
+                    variant: getRoleBadgeVariant(user.role) as any
+                  },
+                  {
+                    label: user.isActive ? 'نشط' : 'معطل',
+                    variant: user.isActive ? 'success' : 'destructive'
+                  },
+                  {
+                    label: user.emailVerifiedAt ? 'محقق' : 'غير محقق',
+                    variant: user.emailVerifiedAt ? 'success' : 'warning'
+                  }
+                ]}
+                fields={[
+                  {
+                    label: 'البريد',
+                    value: user.email,
+                    icon: Mail,
+                    color: 'info'
+                  },
+                  {
+                    label: 'الدور',
+                    value: getRoleLabel(user.role),
+                    icon: Shield,
+                    color: 'default'
+                  },
+                  {
+                    label: 'الحالة',
+                    value: user.isActive ? 'نشط' : 'معطل',
+                    icon: user.isActive ? Unlock : Lock,
+                    color: user.isActive ? 'success' : 'danger',
+                    emphasis: true
+                  },
+                  {
+                    label: 'آخر دخول',
+                    value: user.lastLogin 
+                      ? new Date(user.lastLogin).toLocaleDateString('ar-EG')
+                      : 'لم يسجل دخول',
+                    icon: Calendar,
+                    color: 'muted'
+                  }
+                ]}
+                actions={[
+                  {
+                    icon: Edit,
+                    label: 'تعديل',
+                    onClick: () => handleEdit(user),
+                    color: 'blue'
+                  },
+                  {
+                    icon: user.isActive ? Lock : Unlock,
+                    label: user.isActive ? 'تعطيل' : 'تفعيل',
+                    onClick: () => toggleStatusMutation.mutate({ 
+                      userId: user.id, 
+                      isActive: !user.isActive 
+                    }),
+                    color: user.isActive ? 'orange' : 'green'
+                  },
+                  {
+                    icon: Trash2,
+                    label: 'حذف',
+                    onClick: () => handleDelete(user),
+                    color: 'red'
+                  }
+                ]}
+                compact={false}
+              />
+            ))}
+          </UnifiedCardGrid>
+        )}
+      </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تعديل المستخدم</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>الاسم الأول</Label>
+              <Input
+                value={editForm.firstName}
+                onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>الاسم الأخير</Label>
+              <Input
+                value={editForm.lastName}
+                onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>الدور</Label>
+              <select
+                className="w-full border rounded-md px-3 py-2"
+                value={editForm.role}
+                onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value }))}
+              >
+                <option value="user">مستخدم</option>
+                <option value="admin">مدير</option>
+                <option value="super_admin">مدير أول</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>إلغاء</Button>
+            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>حفظ</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+            <AlertDialogDescription>
+              سيتم حذف المستخدم {selectedUser?.firstName} {selectedUser?.lastName} نهائياً. لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+const LoadingUsers = () => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    {[1, 2, 3, 4].map(i => (
+      <Skeleton key={i} className="h-48 w-full rounded-xl" />
+    ))}
+  </div>
+);
+
+const EmptyUsers = () => (
+  <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+    <Users className="h-16 w-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+    <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-2">لا يوجد مستخدمون</h3>
+    <p className="text-sm text-slate-500 dark:text-slate-400">لم يتم العثور على أي مستخدمين</p>
+  </div>
+);

@@ -1,0 +1,24 @@
+{
+  "appId": "com.binarjoin.analytics",
+  "appName": "BinarJoin",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "url": "https://b508ebe2-8a03-4d51-98f7-59f6a61c4271-00-nvsjr9z9iz1g.sisko.replit.dev",
+    "cleartext": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchFadeOutDuration": 3000
+    },
+    "StatusBar": {
+      "style": "dark",
+      "backgroundColor": "#3b82f6"
+    },
+    "Keyboard": {
+      "resize": "body",
+      "resizeOnFullScreen": true
+    }
+  }
+}

@@ -356,7 +356,7 @@ export default function Reports() {
                 <AlertCircle className="h-12 w-12 text-blue-600" />
               </div>
             </div>
-            <h2 className="text-xl font-bold text-gray-900">اختر مشروعاً</h2>
+            <div className="text-xl font-bold text-gray-900">اختر مشروعاً</div>
             <p className="text-sm text-gray-600">يرجى اختيار مشروع من أيقونة المجلد في الشريط العلوي لعرض التقارير</p>
           </CardContent>
         </Card>
@@ -376,7 +376,7 @@ export default function Reports() {
                   <FileSpreadsheet className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-lg md:text-2xl font-bold text-gray-900">{selectedProject?.name}</h1>
+                  <div className="text-lg md:text-2xl font-bold text-gray-900">{selectedProject?.name}</div>
                   <p className="text-xs md:text-sm text-gray-500">التقارير والإحصائيات</p>
                 </div>
               </div>

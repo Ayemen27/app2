@@ -99,7 +99,7 @@ export default function WellCostReport() {
 
       {/* قائمة الآبار */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">اختر البئر</h2>
+        <div className="text-xl font-semibold mb-4">اختر البئر</div>
         <UnifiedCardGrid columns={3}>
           {wells.map((well: any) => (
             <UnifiedCard

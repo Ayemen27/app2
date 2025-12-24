@@ -200,7 +200,7 @@ export default function WellAccounting() {
 
       {/* قائمة الآبار */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">اختر البئر ({filteredWells.length})</h2>
+        <div className="text-lg font-semibold mb-3">اختر البئر ({filteredWells.length})</div>
         <UnifiedCardGrid columns={4}>
           {filteredWells.map((well: any) => (
             <UnifiedCard

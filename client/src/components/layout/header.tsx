@@ -31,15 +31,20 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/material-purchase': { title: 'شراء المواد', icon: Package },
   '/project-transfers': { title: 'ترحيل بين المشاريع', icon: ArrowLeftRight },
   '/project-transactions': { title: 'سجل العمليات', icon: FileText },
-  '/project-transactions-simple': { title: 'سجل العمليات المبسط', icon: FileText },
-  '/supplier-accounts': { title: 'حسابات الموردين', icon: CreditCard },
-  '/reports': { title: 'التقارير', icon: FileSpreadsheet },
-  '/autocomplete-admin': { title: 'إعدادات الإكمال التلقائي', icon: Wrench },
-  '/tools-management': { title: 'إدارة الأدوات والمعدات', icon: Wrench },
-  '/notifications': { title: 'الإشعارات', icon: Bell },
-  '/smart-errors': { title: 'كشف الأخطاء الذكي', icon: Shield },
-  '/users-management': { title: 'إدارة المستخدمين', icon: Users },
+  '/well-accounting': { title: 'محاسبة الآبار', icon: Calculator },
+  '/well-cost-report': { title: 'تقرير تكلفة الآبار', icon: FileText },
+  '/wells': { title: 'إدارة الآبار', icon: Layers },
+  '/daily-expenses': { title: 'المصاريف اليومية', icon: DollarSign },
+  '/project-fund-custody': { title: 'عهدة صندوق المشروع', icon: Wallet },
+  '/admin-notifications': { title: 'إشعارات الإدارة', icon: Shield },
+  '/ai-chat': { title: 'المساعد الذكي', icon: MessageSquare },
+  '/security-policies': { title: 'سياسات الأمان', icon: Lock },
+  '/equipment': { title: 'إدارة المعدات', icon: Wrench },
+  '/real-reports': { title: 'تقارير حقيقية', icon: FileBarChart },
+  '/professional-reports': { title: 'تقارير احترافية', icon: FileCheck },
 };
+
+import { Wallet, MessageSquare, Lock, FileBarChart, FileCheck } from "lucide-react";
 
 export default function Header() {
   const [location, setLocation] = useLocation();

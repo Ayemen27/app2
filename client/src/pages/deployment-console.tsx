@@ -4,6 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Play, 
   Square, 
@@ -19,7 +26,8 @@ import {
   Download,
   Copy,
   RotateCcw,
-  Activity
+  Activity,
+  Smartphone
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -44,10 +52,11 @@ const INITIAL_STEPS: BuildStep[] = [
   { id: 2, name: 'رفع التحديثات لـ GitHub', status: 'pending', icon: GitBranch },
   { id: 3, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Server },
   { id: 4, name: 'تثبيت الاعتمادات', status: 'pending', icon: Package },
-  { id: 5, name: 'بناء تطبيق الويب', status: 'pending', icon: Zap },
-  { id: 6, name: 'بناء تطبيق Android APK', status: 'pending', icon: Activity },
-  { id: 7, name: 'تشغيل الخدمات (PM2)', status: 'pending', icon: Check },
+  { id: 5, name: 'بناء التطبيق', status: 'pending', icon: Zap },
+  { id: 6, name: 'تشغيل الخدمات', status: 'pending', icon: Activity },
 ];
+
+type AppType = 'web' | 'android';
 
 export default function DeploymentConsole() {
   const { toast } = useToast();
@@ -58,17 +67,33 @@ export default function DeploymentConsole() {
   const [autoScroll, setAutoScroll] = useState(true);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
+  const [selectedApp, setSelectedApp] = useState<AppType>('web');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const STEPS_LOGIC = [
-    { id: 1, name: 'تجهيز المشروع', duration: 1000 },
-    { id: 2, name: 'رفع التحديثات لـ GitHub', duration: 3000 },
-    { id: 3, name: 'سحب التحديثات على السيرفر', duration: 2500 },
-    { id: 4, name: 'تثبيت الاعتمادات', duration: 4000 },
-    { id: 5, name: 'بناء تطبيق الويب', duration: 6000 },
-    { id: 6, name: 'بناء تطبيق Android APK', duration: 60000 },
-    { id: 7, name: 'تشغيل الخدمات (PM2)', duration: 2000 },
-  ];
+  const getStepsLogic = () => {
+    const baseSteps = [
+      { id: 1, name: 'تجهيز المشروع', duration: 1000 },
+      { id: 2, name: 'رفع التحديثات لـ GitHub', duration: 3000 },
+      { id: 3, name: 'سحب التحديثات على السيرفر', duration: 2500 },
+      { id: 4, name: 'تثبيت الاعتمادات', duration: 4000 },
+    ];
+
+    if (selectedApp === 'web') {
+      return [
+        ...baseSteps,
+        { id: 5, name: 'بناء تطبيق الويب', duration: 6000 },
+        { id: 6, name: 'تشغيل الخدمات (PM2)', duration: 2000 },
+      ];
+    } else {
+      return [
+        ...baseSteps,
+        { id: 5, name: 'بناء تطبيق Android APK', duration: 60000 },
+        { id: 6, name: 'تحميل الملف على السيرفر', duration: 2000 },
+      ];
+    }
+  };
+
+  const STEPS_LOGIC = getStepsLogic();
 
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
@@ -95,6 +120,11 @@ export default function DeploymentConsole() {
   };
 
   const startDeployment = async () => {
+    if (!selectedApp) {
+      toast({ description: "يرجى اختيار التطبيق أولاً", variant: "destructive" });
+      return;
+    }
+
     setIsRunning(true);
     setProgress(0);
     setLogs([]);
@@ -102,7 +132,8 @@ export default function DeploymentConsole() {
     setStartTime(Date.now());
     setEndTime(null);
 
-    addLog('🚀 بدء عملية البناء والنشر عبر GitHub...', 'info');
+    const appName = selectedApp === 'web' ? 'تطبيق الويب' : 'تطبيق Android';
+    addLog(`🚀 بدء عملية البناء والنشر لـ ${appName} عبر GitHub...`, 'info');
 
     // تسجيل في قاعدة البيانات
     try {
@@ -120,8 +151,9 @@ export default function DeploymentConsole() {
       console.error('Failed to log build start');
     }
 
-    for (let i = 0; i < STEPS_LOGIC.length; i++) {
-      const stepConfig = STEPS_LOGIC[i];
+    const stepsLogic = getStepsLogic();
+    for (let i = 0; i < stepsLogic.length; i++) {
+      const stepConfig = stepsLogic[i];
       updateStep(stepConfig.id, 'running');
       const timestamp = new Date().toLocaleTimeString('ar-SA');
       addLog(`[${stepConfig.name}] جاري التنفيذ...`, 'info');
@@ -133,13 +165,14 @@ export default function DeploymentConsole() {
         const duration = Math.floor((Date.now() - stepStartTime) / 1000);
         updateStep(stepConfig.id, 'success', duration);
         addLog(`✅ اكتملت مرحلة: ${stepConfig.name}`, 'success');
-        const newProgress = ((i + 1) / STEPS_LOGIC.length) * 100;
+        const newProgress = ((i + 1) / stepsLogic.length) * 100;
         setProgress(newProgress);
 
         // تحديث قاعدة البيانات لكل خطوة
         await apiRequest('PATCH', '/api/builds/latest', {
           currentStep: stepConfig.name,
           progress: Math.floor(newProgress),
+          appType: selectedApp,
           logs: [...logs, { id: Math.random().toString(), timestamp, message: `Completed ${stepConfig.name}`, type: 'success' }]
         }).catch(() => {});
 
@@ -156,7 +189,7 @@ export default function DeploymentConsole() {
     setIsRunning(false);
     setEndTime(Date.now());
     addLog('🎉 اكتملت عملية النشر عبر GitHub بنجاح!', 'success');
-    await apiRequest('PATCH', '/api/builds/latest', { status: 'success', progress: 100, endTime: new Date().toISOString() }).catch(() => {});
+    await apiRequest('PATCH', '/api/builds/latest', { status: 'success', progress: 100, endTime: new Date().toISOString(), appType: selectedApp }).catch(() => {});
   };
 
   const simulateStep = async (step: any) => {
@@ -190,22 +223,45 @@ export default function DeploymentConsole() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 space-y-8">
       {/* Action Bar */}
-      <div className="flex flex-col md:flex-row justify-end items-start md:items-center gap-4">
-        <div className="flex gap-2">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        {/* App Selection Dropdown */}
+        <div className="w-full md:w-auto">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground">اختر التطبيق المراد بناؤه</label>
+            <Select value={selectedApp} onValueChange={(value) => setSelectedApp(value as AppType)} disabled={isRunning}>
+              <SelectTrigger className="w-full md:w-56" data-testid="select-app-type">
+                <SelectValue placeholder="اختر التطبيق" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="web" data-testid="option-web-app">
+                  تطبيق الويب
+                </SelectItem>
+                <SelectItem value="android" data-testid="option-android-app">
+                  تطبيق Android
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex gap-2 w-full md:w-auto">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={copyLogs}
-            className="hover-elevate"
+            className="flex-1 md:flex-none hover-elevate"
+            data-testid="button-copy-logs"
           >
             <Copy className="w-4 h-4 ml-2" />
             نسخ السجلات
           </Button>
           {!isRunning ? (
             <Button 
-              onClick={startDeployment} 
-              className="bg-primary hover-elevate active-elevate-2 px-8"
+              onClick={startDeployment}
+              disabled={!selectedApp}
+              className="flex-1 md:flex-none bg-primary hover-elevate active-elevate-2 px-8"
               size="lg"
+              data-testid="button-start-deployment"
             >
               <Play className="w-4 h-4 ml-2" />
               ابدأ النشر الآن
@@ -214,7 +270,8 @@ export default function DeploymentConsole() {
             <Button 
               variant="destructive" 
               onClick={() => setIsRunning(false)}
-              className="hover-elevate"
+              className="flex-1 md:flex-none hover-elevate"
+              data-testid="button-stop-build"
             >
               <Square className="w-4 h-4 ml-2" />
               إيقاف البناء

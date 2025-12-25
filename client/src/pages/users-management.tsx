@@ -86,7 +86,7 @@ export default function UsersManagementPage() {
         if (filterValues.verified && filterValues.verified !== 'all') params.append('verified', filterValues.verified);
 
         const queryString = params.toString();
-        const endpoint = `/api/auth/users${queryString ? '?' + queryString : ''}`;
+        const endpoint = `/api/users/list${queryString ? '?' + queryString : ''}`;
         
         console.log('🔄 [Users] جلب المستخدمين من:', endpoint);
         console.log('🔍 [Users] المعاملات:', { searchValue, filterValues });
@@ -117,9 +117,15 @@ export default function UsersManagementPage() {
           } else {
             console.warn('⚠️ [Users] هيكل استجابة غير معروف:', response);
           }
-        } else {
-          console.error('❌ [Users] الاستجابة null أو ليست object');
         }
+
+        // تحويل البيانات لضمان وجود firstName و lastName
+        users = users.map((u: any) => ({
+          ...u,
+          firstName: u.firstName || u.name?.split(' ')[0] || u.email?.split('@')[0] || 'مستخدم',
+          lastName: u.lastName || u.name?.split(' ').slice(1).join(' ') || '',
+          isActive: u.isActive !== undefined ? u.isActive : true,
+        }));
 
         if (!Array.isArray(users)) {
           console.warn('⚠️ [Users] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');

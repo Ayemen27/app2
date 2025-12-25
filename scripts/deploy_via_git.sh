@@ -175,6 +175,7 @@ if [ ! -d "$REPO_DIR/.git" ]; then
     rm -rf "$REPO_DIR"
     git clone "$GITHUB_REPO_URL" "$REPO_DIR"
     log_success "تم استنساخ المستودع"
+    cd "$REPO_DIR"
 else
     log_info "تحديث المستودع..."
     cd "$REPO_DIR"
@@ -186,8 +187,13 @@ cd "$REPO_DIR"
 NEW_SHA=$(git rev-parse --short HEAD)
 log_success "تم التحديث إلى: $NEW_SHA"
 
-# الانتقال إلى مجلد التطبيق داخل المستودع
-cd "$REPO_DIR/app2" || { log_error "مجلد app2 غير موجود في المستودع"; exit 1; }
+# الانتقال إلى مجلد التطبيق (إذا كان موجوداً، وإلا فاستخدم المجلد الرئيسي)
+if [ -d "$REPO_DIR/app2" ]; then
+    cd "$REPO_DIR/app2"
+    log_info "الانتقال إلى مجلد app2 الداخلي"
+else
+    log_info "استخدام المجلد الرئيسي للمستودع"
+fi
 
 # إنشاء ملف البيئة الجديد
 log_info "إنشاء ملف البيئة..."

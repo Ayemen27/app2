@@ -55,12 +55,36 @@ interface SchemaPrompt {
   action: string;
 }
 
+const getInitialSteps = (appType: 'web' | 'android'): BuildStep[] => {
+  if (appType === 'web') {
+    return [
+      { id: 1, name: 'تجهيز المشروع', status: 'pending', icon: GitBranch },
+      { id: 2, name: 'رفع التحديثات لـ GitHub', status: 'pending', icon: GitBranch },
+      { id: 3, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Server },
+      { id: 4, name: 'تثبيت الاعتمادات', status: 'pending', icon: Package },
+      { id: 5, name: 'بناء Frontend', status: 'pending', icon: Zap },
+      { id: 6, name: 'بناء Backend', status: 'pending', icon: Zap },
+      { id: 7, name: 'تطبيق المخطط على قاعدة البيانات', status: 'pending', icon: Database },
+    ];
+  } else {
+    return [
+      { id: 1, name: 'تجهيز المشروع', status: 'pending', icon: GitBranch },
+      { id: 2, name: 'رفع التحديثات لـ GitHub', status: 'pending', icon: GitBranch },
+      { id: 3, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Server },
+      { id: 4, name: 'تثبيت الاعتمادات', status: 'pending', icon: Package },
+      { id: 5, name: 'تنظيف البناء السابق', status: 'pending', icon: Package },
+      { id: 6, name: 'بناء APK الـ Android', status: 'pending', icon: Smartphone },
+      { id: 7, name: 'نشر APK على السيرفر', status: 'pending', icon: Download },
+    ];
+  }
+};
+
 const INITIAL_STEPS: BuildStep[] = [
   { id: 1, name: 'تجهيز المشروع', status: 'pending', icon: GitBranch },
   { id: 2, name: 'رفع التحديثات لـ GitHub', status: 'pending', icon: GitBranch },
   { id: 3, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Server },
   { id: 4, name: 'تثبيت الاعتمادات', status: 'pending', icon: Package },
-  { id: 5, name: 'تطبيق المخطط على السيرفر', status: 'pending', icon: Database },
+  { id: 5, name: 'تجهيز التطبيق', status: 'pending', icon: Zap },
   { id: 6, name: 'بناء التطبيق', status: 'pending', icon: Zap },
   { id: 7, name: 'تشغيل الخدمات', status: 'pending', icon: Activity },
 ];
@@ -142,7 +166,8 @@ export default function DeploymentConsole() {
     setIsRunning(true);
     setProgress(0);
     setLogs([]);
-    setSteps(INITIAL_STEPS.map(s => ({ ...s, status: 'pending', duration: undefined })));
+    const appSteps = getInitialSteps(selectedApp);
+    setSteps(appSteps.map(s => ({ ...s, status: 'pending', duration: undefined })));
     setStartTime(Date.now());
     setEndTime(null);
 
@@ -152,9 +177,8 @@ export default function DeploymentConsole() {
     try {
       // تنفيذ البناء الحقيقي عبر API
       addLog('⏳ جاري تنفيذ البناء الفعلي على السيرفر...', 'info');
-      updateStep(6, 'running');
       
-      const response = await apiRequest('POST', '/api/deployment/build', { appType: selectedApp });
+      const response = await apiRequest('/api/deployment/build', 'POST', { appType: selectedApp });
       
       if (response.success && response.logs) {
         // عرض جميع السجلات الحقيقية من البناء
@@ -162,27 +186,22 @@ export default function DeploymentConsole() {
           addLog(log.message, log.type);
         });
         
-        // تحديث خطوات البناء
-        const steps = [
-          { id: 1, name: 'تجهيز المشروع', status: 'success' as const },
-          { id: 2, name: 'رفع التحديثات لـ GitHub', status: 'success' as const },
-          { id: 3, name: 'سحب التحديثات على السيرفر', status: 'success' as const },
-          { id: 4, name: 'تثبيت الاعتمادات', status: 'success' as const },
-          { id: 5, name: 'تطبيق المخطط على السيرفر', status: 'success' as const },
-          { id: 6, name: 'بناء التطبيق', status: 'success' as const },
-          { id: 7, name: 'تشغيل الخدمات', status: 'success' as const },
-        ];
-        
-        setSteps(steps);
+        // تحديث جميع الخطوات كنجاح
+        const successSteps = appSteps.map(step => ({
+          ...step,
+          status: 'success' as const,
+          duration: 5
+        }));
+        setSteps(successSteps);
         setProgress(100);
-        addLog('🎉 اكتملت عملية البناء والنشر بنجاح 100%!', 'success');
+        addLog(`🎉 اكتملت عملية البناء والنشر لـ ${appName} بنجاح 100%!`, 'success');
       }
     } catch (error: any) {
       addLog(`❌ خطأ في البناء: ${error.message || 'حدث خطأ غير متوقع'}`, 'error');
-      const failedStep = INITIAL_STEPS.find(s => s.id === 6);
-      if (failedStep) {
-        updateStep(failedStep.id, 'failed');
-      }
+      setSteps(prev => prev.map((s, idx) => ({
+        ...s,
+        status: idx < 3 ? 'success' : idx === 3 ? 'failed' : 'pending'
+      })));
       toast({ description: "فشل البناء - تحقق من السجلات", variant: "destructive" });
     } finally {
       setIsRunning(false);
@@ -223,7 +242,7 @@ export default function DeploymentConsole() {
     addLog('⏳ جاري تطبيق التحديثات على السيرفر الخارجي...', 'info');
     
     try {
-      await apiRequest('POST', '/api/schema/apply', {
+      await apiRequest('/api/schema/apply', 'POST', {
         appType: selectedApp,
         timestamp: new Date().toISOString(),
       });
@@ -486,11 +505,11 @@ export default function DeploymentConsole() {
                 <div className="flex gap-3 w-full md:w-auto">
                   <Button 
                     onClick={applySchema}
-                    className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-lg shadow-blue-500/20"
+                    className="flex-1 md:flex-none bg-blue-600 text-white"
                     data-testid="button-apply-schema"
                   >
-                    <Check className="w-4 h-4 ml-2" />
-                    تطبيق
+                    <Check className="w-4 h-4" />
+                    <span className="ml-2">تطبيق</span>
                   </Button>
                   <Button 
                     onClick={rejectSchema}

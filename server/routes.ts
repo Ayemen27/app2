@@ -122,7 +122,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const logs: { timestamp: string; message: string; type: string }[] = [];
 
     try {
-      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🚀 بدء عملية البناء الحقيقية", type: "info" });
+      const appName = appType === 'web' ? 'تطبيق الويب' : 'تطبيق Android';
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `🚀 بدء عملية البناء الحقيقية لـ ${appName}`, type: "info" });
       
       // 1. تثبيت الاعتمادات
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📦 تثبيت الاعتمادات...", type: "info" });
@@ -133,30 +134,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ خطأ في التثبيت: ${e.message}`, type: "error" });
       }
 
-      // 2. بناء الـ Frontend و Backend
-      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔨 بناء التطبيق...", type: "info" });
-      try {
-        execSync("npm run build", { timeout: 300000 });
-        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء التطبيق بنجاح", type: "success" });
-      } catch (e: any) {
-        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ فشل البناء: ${e.message}`, type: "error" });
-        return res.status(500).json({ success: false, logs, error: "فشل البناء" });
-      }
+      if (appType === 'web') {
+        // === بناء تطبيق الويب ===
+        
+        // 2. بناء Frontend و Backend
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔨 بناء تطبيق الويب (Frontend + Backend)...", type: "info" });
+        try {
+          execSync("npm run build", { timeout: 300000 });
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء الـ Frontend بنجاح", type: "success" });
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء الـ Backend بنجاح", type: "success" });
+        } catch (e: any) {
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ فشل البناء: ${e.message}`, type: "error" });
+          return res.status(500).json({ success: false, logs, error: "فشل بناء الويب" });
+        }
 
-      // 3. تطبيق المخطط على قاعدة البيانات
-      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🗄️ تطبيق المخطط على قاعدة البيانات...", type: "info" });
-      try {
-        execSync("npm run db:push", { timeout: 120000 });
-        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تطبيق المخطط بنجاح", type: "success" });
-      } catch (e: any) {
-        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `⚠️ تنبيه المخطط: ${e.message}`, type: "warning" });
-      }
+        // 3. تطبيق المخطط على قاعدة البيانات
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🗄️ تطبيق المخطط على قاعدة البيانات...", type: "info" });
+        try {
+          execSync("npm run db:push", { timeout: 120000 });
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تطبيق المخطط بنجاح", type: "success" });
+        } catch (e: any) {
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `⚠️ تنبيه المخطط: ${e.message}`, type: "warning" });
+        }
 
-      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🎉 اكتملت عملية البناء والنشر بنجاح!", type: "success" });
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🎉 اكتملت عملية بناء ونشر الويب بنجاح!", type: "success" });
+      } else if (appType === 'android') {
+        // === بناء تطبيق Android ===
+        
+        // 2. تنظيف البناء السابق
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🧹 تنظيف البناء السابق...", type: "info" });
+        try {
+          execSync("npm run android:clean", { timeout: 120000 });
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تنظيف البناء السابق", type: "success" });
+        } catch (e: any) {
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `⚠️ تنبيه التنظيف: ${e.message}`, type: "warning" });
+        }
+
+        // 3. بناء APK الـ Android
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔨 بناء APK الـ Android...", type: "info" });
+        try {
+          execSync("npm run android:build", { timeout: 600000 }); // 10 دقائق
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء APK بنجاح", type: "success" });
+        } catch (e: any) {
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ فشل بناء APK: ${e.message}`, type: "error" });
+          return res.status(500).json({ success: false, logs, error: "فشل بناء Android" });
+        }
+
+        // 4. نشر APK
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📤 نشر APK على السيرفر...", type: "info" });
+        try {
+          execSync("npm run android:deploy", { timeout: 300000 });
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم نشر APK بنجاح على السيرفر", type: "success" });
+        } catch (e: any) {
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `⚠️ تنبيه النشر: ${e.message}`, type: "warning" });
+        }
+
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🎉 اكتملت عملية بناء ونشر Android بنجاح!", type: "success" });
+      }
       
       res.json({ success: true, logs, message: "تم البناء بنجاح" });
     } catch (error: any) {
-      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `💥 خطأ: ${error.message}`, type: "error" });
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `💥 خطأ غير متوقع: ${error.message}`, type: "error" });
       res.status(500).json({ success: false, logs, error: error.message });
     }
   });

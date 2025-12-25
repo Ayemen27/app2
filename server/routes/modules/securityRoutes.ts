@@ -9,9 +9,9 @@ const router = Router();
 router.get("/policies", async (req, res) => {
   try {
     const policies = await db.select().from(securityPolicies).orderBy(desc(securityPolicies.createdAt));
-    res.json(policies);
+    res.json({ success: true, data: policies });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch policies" });
+    res.status(500).json({ success: false, error: "Failed to fetch policies" });
   }
 });
 
@@ -19,9 +19,9 @@ router.get("/policies", async (req, res) => {
 router.get("/suggestions", async (req, res) => {
   try {
     const suggestions = await db.select().from(securityPolicySuggestions).orderBy(desc(securityPolicySuggestions.createdAt));
-    res.json(suggestions);
+    res.json({ success: true, data: suggestions });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch suggestions" });
+    res.status(500).json({ success: false, error: "Failed to fetch suggestions" });
   }
 });
 
@@ -29,9 +29,9 @@ router.get("/suggestions", async (req, res) => {
 router.get("/violations", async (req, res) => {
   try {
     const violations = await db.select().from(securityPolicyViolations).orderBy(desc(securityPolicyViolations.createdAt));
-    res.json(violations);
+    res.json({ success: true, data: violations });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch violations" });
+    res.status(500).json({ success: false, error: "Failed to fetch violations" });
   }
 });
 

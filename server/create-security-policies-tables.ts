@@ -1,9 +1,4 @@
-/**
- * إنشاء جداول السياسات الأمنية في قاعدة البيانات
- * يجب تشغيل هذا الملف مرة واحدة لإنشاء الجداول المطلوبة
- */
-
-import { db } from "./db.js";
+import { db } from "./db";
 import { sql } from 'drizzle-orm';
 
 const createSecurityPolicyTables = async () => {
@@ -41,7 +36,7 @@ const createSecurityPolicyTables = async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS security_policy_suggestions (
         id VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text,
-        suggested_policy_id VARCHAR(255) NOT NULL,
+        suggested_policy_id VARCHAR(255) NOT NULL UNIQUE,
         title VARCHAR(500) NOT NULL,
         description TEXT,
         category VARCHAR(100) NOT NULL,
@@ -60,33 +55,10 @@ const createSecurityPolicyTables = async () => {
         implemented_at TIMESTAMP WITH TIME ZONE,
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-        FOREIGN KEY (implemented_as) REFERENCES security_policies(id) ON DELETE SET NULL
+        CONSTRAINT fk_implemented_as FOREIGN KEY (implemented_as) REFERENCES security_policies(id) ON DELETE SET NULL
       )
     `);
     console.log('✅ تم إنشاء جدول security_policy_suggestions');
-
-    // إنشاء جدول security_policy_implementations
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS security_policy_implementations (
-        id VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text,
-        policy_id VARCHAR(255) NOT NULL,
-        implementation_id VARCHAR(255) NOT NULL,
-        implementation_type VARCHAR(100) NOT NULL,
-        status VARCHAR(50) NOT NULL DEFAULT 'pending',
-        configuration JSONB,
-        deployment_details JSONB,
-        success_criteria JSONB,
-        rollback_plan JSONB,
-        implemented_by VARCHAR(255),
-        implementation_date TIMESTAMP WITH TIME ZONE,
-        verification_date TIMESTAMP WITH TIME ZONE,
-        next_review TIMESTAMP WITH TIME ZONE,
-        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-        FOREIGN KEY (policy_id) REFERENCES security_policies(id) ON DELETE CASCADE
-      )
-    `);
-    console.log('✅ تم إنشاء جدول security_policy_implementations');
 
     // إنشاء جدول security_policy_violations
     await db.execute(sql`
@@ -106,20 +78,10 @@ const createSecurityPolicyTables = async () => {
         resolved_by VARCHAR(255),
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-        FOREIGN KEY (policy_id) REFERENCES security_policies(id) ON DELETE CASCADE
+        CONSTRAINT fk_policy_id FOREIGN KEY (policy_id) REFERENCES security_policies(id) ON DELETE CASCADE
       )
     `);
     console.log('✅ تم إنشاء جدول security_policy_violations');
-
-    // إنشاء فهارس للأداء
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_security_policies_status ON security_policies(status)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_security_policies_category ON security_policies(category)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_security_policies_severity ON security_policies(severity)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_security_policy_suggestions_status ON security_policy_suggestions(status)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_security_policy_suggestions_priority ON security_policy_suggestions(priority)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_security_policy_violations_policy_id ON security_policy_violations(policy_id)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_security_policy_violations_severity ON security_policy_violations(severity)`);
-    console.log('✅ تم إنشاء الفهارس للأداء');
 
     // إضافة بيانات تجريبية
     await createSampleData();
@@ -177,7 +139,12 @@ const createSampleData = async () => {
         '{"method": "encryption", "scope": "all_sensitive_data"}',
         '{"encryption_status": "enabled", "compliance": "gdpr"}'
       )
-      ON CONFLICT (policy_id) DO NOTHING
+      ON CONFLICT (policy_id) DO UPDATE SET
+        title = EXCLUDED.title,
+        description = EXCLUDED.description,
+        category = EXCLUDED.category,
+        severity = EXCLUDED.severity,
+        status = EXCLUDED.status;
     `);
 
     // إضافة اقتراحات تجريبية
@@ -208,7 +175,12 @@ const createSampleData = async () => {
         'منع 95% من التهديدات الشبكية',
         'high'
       )
-      ON CONFLICT (suggested_policy_id) DO NOTHING
+      ON CONFLICT (suggested_policy_id) DO UPDATE SET
+        title = EXCLUDED.title,
+        description = EXCLUDED.description,
+        category = EXCLUDED.category,
+        priority = EXCLUDED.priority,
+        confidence = EXCLUDED.confidence;
     `);
 
     console.log('✅ تم إضافة البيانات التجريبية');

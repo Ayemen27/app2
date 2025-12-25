@@ -78,7 +78,8 @@ export function SecurityPoliciesPage() {
     queryFn: async () => {
       const response = await fetch('/api/security/policies');
       if (!response.ok) throw new Error('فشل في جلب السياسات الأمنية');
-      return response.json() as Promise<SecurityPolicy[]>;
+      const result = await response.json();
+      return (result.success ? result.data : result) as SecurityPolicy[];
     }
   });
 
@@ -88,7 +89,8 @@ export function SecurityPoliciesPage() {
     queryFn: async () => {
       const response = await fetch('/api/security/suggestions');
       if (!response.ok) throw new Error('فشل في جلب اقتراحات السياسات');
-      return response.json() as Promise<PolicySuggestion[]>;
+      const result = await response.json();
+      return (result.success ? result.data : result) as PolicySuggestion[];
     }
   });
 
@@ -98,7 +100,8 @@ export function SecurityPoliciesPage() {
     queryFn: async () => {
       const response = await fetch('/api/security/violations');
       if (!response.ok) throw new Error('فشل في جلب انتهاكات السياسات');
-      return response.json() as Promise<PolicyViolation[]>;
+      const result = await response.json();
+      return (result.success ? result.data : result) as PolicyViolation[];
     }
   });
 

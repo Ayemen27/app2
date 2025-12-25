@@ -3,7 +3,7 @@ import type { Server } from "http";
 import { createServer } from "http";
 import rateLimit from "express-rate-limit";
 import { eq, and, or, sql, gte, lt, lte, desc } from "drizzle-orm";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { 
   projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
   fundTransfers, transportationExpenses, dailyExpenseSummaries, tools, toolMovements,
@@ -124,7 +124,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isActive !== undefined) updates.isActive = isActive;
       
       if (password) {
-        const bcrypt = await import('bcryptjs');
+        const bcryptModule = await import('bcryptjs');
+        const bcrypt = bcryptModule.default;
         updates.password = await bcrypt.hash(password, 10);
       }
 
@@ -152,6 +153,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`🗑️ [Admin] حذف المستخدم: ${userId}`);
+
+      // حذف البيانات المرتبطة أولاً باستخدام SQL مباشر
+      try {
+        // حذف رموز التحقق من البريد
+        await pool.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]).catch(() => {});
+        // حذف جلسات المستخدم
+        await pool.query('DELETE FROM sessions WHERE user_id = $1', [userId]).catch(() => {});
+      } catch (e) {
+        console.log('⚠️ [Admin] تم محاولة حذف البيانات المرتبطة');
+      }
+
+      // حذف المستخدم
       await db.delete(users).where(eq(users.id, userId));
 
       console.log(`✅ [Admin] تم حذف المستخدم: ${userId}`);

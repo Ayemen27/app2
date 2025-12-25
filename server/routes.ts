@@ -116,13 +116,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 🚀 Real Build & Deployment Endpoint
+  // 🚀 Real Build & Deployment Endpoint with Database Logging
   app.post("/api/deployment/build", requireAuth, async (req, res) => {
     const { appType } = req.body;
     const logs: { timestamp: string; message: string; type: string }[] = [];
+    let buildId: string | null = null;
 
     try {
       const appName = appType === 'web' ? 'تطبيق الويب' : 'تطبيق Android';
+      
+      // إنشاء سجل البناء في قاعدة البيانات
+      const [newBuild] = await db.insert(buildDeployments).values({
+        buildNumber: Math.floor(Math.random() * 100000),
+        status: 'running',
+        currentStep: 'Initializing',
+        progress: 0,
+        version: '1.0.11',
+        appType,
+        logs: [],
+        steps: [],
+        triggeredBy: req.user!.id,
+      }).returning();
+      
+      buildId = newBuild.id;
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `🚀 بدء عملية البناء الحقيقية لـ ${appName}`, type: "info" });
       
       // 1. تثبيت الاعتمادات
@@ -136,8 +152,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (appType === 'web') {
         // === بناء تطبيق الويب ===
-        
-        // 2. بناء Frontend و Backend
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔨 بناء تطبيق الويب (Frontend + Backend)...", type: "info" });
         try {
           execSync("npm run build", { timeout: 300000 });
@@ -145,10 +159,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء الـ Backend بنجاح", type: "success" });
         } catch (e: any) {
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ فشل البناء: ${e.message}`, type: "error" });
+          // حفظ البناء الفاشل
+          await db.update(buildDeployments).set({ status: 'failed', logs, progress: 50, endTime: new Date() }).where(eq(buildDeployments.id, buildId));
           return res.status(500).json({ success: false, logs, error: "فشل بناء الويب" });
         }
 
-        // 3. تطبيق المخطط على قاعدة البيانات
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🗄️ تطبيق المخطط على قاعدة البيانات...", type: "info" });
         try {
           execSync("npm run db:push", { timeout: 120000 });
@@ -160,8 +175,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🎉 اكتملت عملية بناء ونشر الويب بنجاح!", type: "success" });
       } else if (appType === 'android') {
         // === بناء تطبيق Android ===
-        
-        // 2. تنظيف البناء السابق
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🧹 تنظيف البناء السابق...", type: "info" });
         try {
           execSync("npm run android:clean", { timeout: 120000 });
@@ -170,17 +183,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `⚠️ تنبيه التنظيف: ${e.message}`, type: "warning" });
         }
 
-        // 3. بناء APK الـ Android
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔨 بناء APK الـ Android...", type: "info" });
         try {
-          execSync("npm run android:build", { timeout: 600000 }); // 10 دقائق
+          execSync("npm run android:build", { timeout: 600000 });
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء APK بنجاح", type: "success" });
         } catch (e: any) {
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ فشل بناء APK: ${e.message}`, type: "error" });
+          await db.update(buildDeployments).set({ status: 'failed', logs, progress: 50, endTime: new Date() }).where(eq(buildDeployments.id, buildId));
           return res.status(500).json({ success: false, logs, error: "فشل بناء Android" });
         }
 
-        // 4. نشر APK
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📤 نشر APK على السيرفر...", type: "info" });
         try {
           execSync("npm run android:deploy", { timeout: 300000 });
@@ -192,9 +204,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🎉 اكتملت عملية بناء ونشر Android بنجاح!", type: "success" });
       }
       
-      res.json({ success: true, logs, message: "تم البناء بنجاح" });
+      // حفظ البناء الناجح
+      await db.update(buildDeployments).set({ 
+        status: 'success', 
+        logs, 
+        progress: 100,
+        endTime: new Date()
+      }).where(eq(buildDeployments.id, buildId));
+      
+      res.json({ success: true, logs, message: "تم البناء بنجاح", buildId });
     } catch (error: any) {
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `💥 خطأ غير متوقع: ${error.message}`, type: "error" });
+      if (buildId) {
+        await db.update(buildDeployments).set({ status: 'failed', logs, endTime: new Date() }).where(eq(buildDeployments.id, buildId));
+      }
       res.status(500).json({ success: false, logs, error: error.message });
     }
   });

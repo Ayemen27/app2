@@ -1301,6 +1301,7 @@ export const buildDeployments = pgTable("build_deployments", {
   currentStep: text("current_step").notNull(),
   progress: integer("progress").notNull().default(0),
   version: text("version").notNull(),
+  appType: text("app_type").notNull().default("web"), // web, android
   logs: jsonb("logs").notNull().default([]), // Array of {timestamp, message, type}
   steps: jsonb("steps").notNull().default([]), // Array of {name, status, duration}
   startTime: timestamp("start_time").defaultNow().notNull(),

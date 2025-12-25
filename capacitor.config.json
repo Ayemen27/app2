@@ -4,8 +4,8 @@
   "webDir": "dist",
   "server": {
     "androidScheme": "https",
-    "url": "https://b508ebe2-8a03-4d51-98f7-59f6a61c4271-00-nvsjr9z9iz1g.sisko.replit.dev",
-    "cleartext": true
+    "url": "https://app2.binarjoinanelytic.info",
+    "cleartext": false
   },
   "plugins": {
     "SplashScreen": {

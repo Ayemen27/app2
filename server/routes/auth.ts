@@ -264,21 +264,6 @@ router.post('/login', async (req, res) => {
       user.isActive = true;
     }
 
-    // التحقق من التحقق من البريد الإلكتروني - استثناء للمدير الأول
-    if (!user.emailVerifiedAt && !isFirstAdmin) {
-      console.log('❌ [Auth] البريد الإلكتروني غير مُحقق:', email);
-      return res.status(403).json({
-        success: false,
-        message: "بريدك الإلكتروني لم يتم التحقق منه بعد. تحقق من رسائل بريدك لتأكيد العنوان",
-        requireEmailVerification: true,
-        data: {
-          userId: user.id,
-          email: user.email,
-          needsVerification: true
-        }
-      });
-    }
-    
     // تحقيق بريد المدير الأول تلقائياً
     if (isFirstAdmin && !user.emailVerifiedAt) {
       console.log('✅ [Auth] تحقيق بريد المدير الأول تلقائياً');

@@ -52,6 +52,11 @@ interface User {
   createdAt: string;
 }
 
+interface DeletingUser {
+  id: string;
+  progress: number;
+}
+
 export default function UsersManagementPage() {
   const { toast } = useToast();
   const { isAuthenticated, getAccessToken } = useAuth();
@@ -67,6 +72,7 @@ export default function UsersManagementPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<DeletingUser | null>(null);
   const [editForm, setEditForm] = useState({
     firstName: '',
     lastName: '',
@@ -149,7 +155,23 @@ export default function UsersManagementPage() {
   // حذف مستخدم
   const deleteMutation = useMutation({
     mutationFn: async (userId: string) => {
+      setDeletingUser({ id: userId, progress: 0 });
+      
+      // محاكاة شريط التقدم
+      const progressInterval = setInterval(() => {
+        setDeletingUser(prev => {
+          if (prev && prev.progress < 90) {
+            return { ...prev, progress: prev.progress + Math.random() * 30 };
+          }
+          return prev;
+        });
+      }, 100);
+
       const response = await apiRequest(`/api/auth/users/${userId}`, "DELETE");
+      
+      clearInterval(progressInterval);
+      setDeletingUser(prev => prev ? { ...prev, progress: 100 } : null);
+      
       return response;
     },
     onSuccess: () => {
@@ -157,7 +179,11 @@ export default function UsersManagementPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setIsDeleteDialogOpen(false);
       setSelectedUser(null);
+      setDeletingUser(null);
     },
+    onError: () => {
+      setDeletingUser(null);
+    }
   });
 
   // تبديل حالة المستخدم
@@ -391,88 +417,104 @@ export default function UsersManagementPage() {
         ) : (
           <UnifiedCardGrid columns={2}>
             {users.map((user: User) => (
-              <UnifiedCard
-                key={user.id}
-                title={`${user.firstName} ${user.lastName}`}
-                subtitle={user.email}
-                titleIcon={Users}
-                badges={[
-                  {
-                    label: getRoleLabel(user.role),
-                    variant: getRoleBadgeVariant(user.role) as any
-                  },
-                  {
-                    label: user.isActive ? 'نشط' : 'معطل',
-                    variant: user.isActive ? 'success' : 'destructive'
-                  },
-                  {
-                    label: user.emailVerifiedAt ? 'محقق' : 'غير محقق',
-                    variant: user.emailVerifiedAt ? 'success' : 'warning'
-                  }
-                ]}
-                fields={[
-                  {
-                    label: 'البريد',
-                    value: user.email,
-                    icon: Mail,
-                    color: 'info'
-                  },
-                  {
-                    label: 'الدور',
-                    value: getRoleLabel(user.role),
-                    icon: Shield,
-                    color: 'default'
-                  },
-                  {
-                    label: 'الحالة',
-                    value: user.isActive ? 'نشط' : 'معطل',
-                    icon: user.isActive ? Unlock : Lock,
-                    color: user.isActive ? 'success' : 'danger',
-                    emphasis: true
-                  },
-                  {
-                    label: 'آخر دخول',
-                    value: user.lastLogin 
-                      ? new Date(user.lastLogin).toLocaleDateString('ar-EG')
-                      : 'لم يسجل دخول',
-                    icon: Calendar,
-                    color: 'muted'
-                  }
-                ]}
-                actions={[
-                  {
-                    icon: Edit,
-                    label: 'تعديل',
-                    onClick: () => handleEdit(user),
-                    color: 'blue'
-                  },
-                  {
-                    icon: user.isActive ? Lock : Unlock,
-                    label: user.isActive ? 'تعطيل' : 'تفعيل',
-                    onClick: () => toggleStatusMutation.mutate({ 
-                      userId: user.id, 
-                      isActive: !user.isActive 
-                    }),
-                    color: user.isActive ? 'orange' : 'green',
-                    disabled: toggleStatusMutation.isPending
-                  },
-                  {
-                    icon: user.emailVerifiedAt ? Mail : Shield,
-                    label: user.emailVerifiedAt ? 'إلغاء التحقق' : 'تفعيل التحقق',
-                    onClick: () => toggleVerificationMutation.mutate(user.id),
-                    color: user.emailVerifiedAt ? 'purple' : 'blue',
-                    disabled: toggleVerificationMutation.isPending
-                  },
-                  {
-                    icon: Trash2,
-                    label: 'حذف',
-                    onClick: () => handleDelete(user),
-                    color: 'red',
-                    disabled: deleteMutation.isPending
-                  }
-                ]}
-                compact={false}
-              />
+              <div key={user.id} className="relative">
+                {deletingUser?.id === user.id && (
+                  <div className="absolute inset-0 bg-red-500/5 rounded-xl z-10 pointer-events-none flex flex-col items-center justify-center gap-2">
+                    <div className="w-3/4 h-1 bg-red-200 dark:bg-red-900 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-red-400 to-red-600 transition-all duration-300"
+                        style={{ width: `${Math.min(deletingUser.progress, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs font-medium text-red-600 dark:text-red-400">
+                      {Math.min(Math.round(deletingUser.progress), 100)}%
+                    </p>
+                  </div>
+                )}
+                <UnifiedCard
+                  key={user.id}
+                  title={`${user.firstName} ${user.lastName}`}
+                  subtitle={user.email}
+                  titleIcon={Users}
+                  badges={[
+                    {
+                      label: getRoleLabel(user.role),
+                      variant: getRoleBadgeVariant(user.role) as any
+                    },
+                    {
+                      label: user.isActive ? 'نشط' : 'معطل',
+                      variant: user.isActive ? 'success' : 'destructive'
+                    },
+                    {
+                      label: user.emailVerifiedAt ? 'محقق' : 'غير محقق',
+                      variant: user.emailVerifiedAt ? 'success' : 'warning'
+                    }
+                  ]}
+                  fields={[
+                    {
+                      label: 'البريد',
+                      value: user.email,
+                      icon: Mail,
+                      color: 'info'
+                    },
+                    {
+                      label: 'الدور',
+                      value: getRoleLabel(user.role),
+                      icon: Shield,
+                      color: 'default'
+                    },
+                    {
+                      label: 'الحالة',
+                      value: user.isActive ? 'نشط' : 'معطل',
+                      icon: user.isActive ? Unlock : Lock,
+                      color: user.isActive ? 'success' : 'danger',
+                      emphasis: true
+                    },
+                    {
+                      label: 'آخر دخول',
+                      value: user.lastLogin 
+                        ? new Date(user.lastLogin).toLocaleDateString('ar-EG')
+                        : 'لم يسجل دخول',
+                      icon: Calendar,
+                      color: 'muted'
+                    }
+                  ]}
+                  actions={[
+                    {
+                      icon: Edit,
+                      label: 'تعديل',
+                      onClick: () => handleEdit(user),
+                      color: 'blue',
+                      disabled: deletingUser?.id === user.id
+                    },
+                    {
+                      icon: user.isActive ? Lock : Unlock,
+                      label: user.isActive ? 'تعطيل' : 'تفعيل',
+                      onClick: () => toggleStatusMutation.mutate({ 
+                        userId: user.id, 
+                        isActive: !user.isActive 
+                      }),
+                      color: user.isActive ? 'orange' : 'green',
+                      disabled: toggleStatusMutation.isPending || deletingUser?.id === user.id
+                    },
+                    {
+                      icon: user.emailVerifiedAt ? Mail : Shield,
+                      label: user.emailVerifiedAt ? 'إلغاء التحقق' : 'تفعيل التحقق',
+                      onClick: () => toggleVerificationMutation.mutate(user.id),
+                      color: user.emailVerifiedAt ? 'purple' : 'blue',
+                      disabled: toggleVerificationMutation.isPending || deletingUser?.id === user.id
+                    },
+                    {
+                      icon: Trash2,
+                      label: 'حذف',
+                      onClick: () => handleDelete(user),
+                      color: 'red',
+                      disabled: deleteMutation.isPending || deletingUser?.id === user.id
+                    }
+                  ]}
+                  compact={false}
+                />
+              </div>
             ))}
           </UnifiedCardGrid>
         )}

@@ -36,21 +36,21 @@ const getCSPDirectives = () => {
   const isProduction = process.env.NODE_ENV === 'production';
   
   // في الإنتاج، نستخدم إعدادات متساهلة لتجنب مشاكل التحميل
-  if (isProduction) {
+  if (isProduction || customDomain === 'app2.binarjoinanelytic.info') {
     return {
-      defaultSrc: ["'self'", `https://${customDomain}`, "https:", "data:", "blob:", "*"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "https:", "*"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:", "https:", "blob:", "*"],
+      defaultSrc: ["'self'", "https:", "data:", "blob:", "*"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:", "*"],
+      fontSrc: ["'self'", "data:", "https:", "blob:", "*"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "blob:", "*"],
       scriptSrcElem: ["'self'", "'unsafe-inline'", "https:", "*"],
       imgSrc: ["'self'", "data:", "https:", "blob:", "*"],
-      connectSrc: ["'self'", `https://${customDomain}`, `wss://${customDomain}`, "https:", "wss:", "ws:", "*"],
+      connectSrc: ["'self'", "https:", "wss:", "ws:", "*"],
       frameSrc: ["'self'", "https:", "*"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'", "https:", "blob:", "*"],
       childSrc: ["'self'", "blob:", "*"],
       formAction: ["'self'", "*"],
-      frameAncestors: ["'self'"],
+      frameAncestors: ["'self'", "*"],
       workerSrc: ["'self'", "blob:", "*"]
     };
   }
@@ -119,10 +119,15 @@ if (process.env.NODE_ENV === 'production') {
 
 // 🌐 **CORS Configuration - Enhanced for mobile and web apps**
 app.use((req, res, next) => {
-  // السماح بجميع origins مؤقتاً للـ mobile app
-  const origin = req.headers.origin || '*';
+  const origin = req.headers.origin;
   
-  res.header('Access-Control-Allow-Origin', origin);
+  // السماح بجميع الـ origins التي تحتوي على النطاق الخاص بنا أو الموبايل
+  if (!origin || origin === 'null' || origin.includes('binarjoinanelytic.info') || origin.includes('localhost') || origin.startsWith('http://localhost')) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.header('Access-Control-Allow-Credentials', 'true');

@@ -139,6 +139,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // جلب جميع المشاريع المتاحة
+  app.get("/api/projects/all", requireAuth, async (req, res) => {
+    try {
+      console.log(`📊 [API] جلب جميع المشاريع`);
+      
+      const allProjects = await db.select({
+        id: projects.id,
+        name: projects.name,
+        status: projects.status,
+        engineerId: projects.engineerId,
+        projectTypeId: projects.projectTypeId,
+        createdAt: projects.createdAt,
+      }).from(projects).orderBy(projects.name);
+      
+      console.log(`✅ [API] تم جلب ${allProjects.length} مشروع`);
+      res.json({ 
+        success: true, 
+        projects: allProjects,
+        message: `تم جلب ${allProjects.length} مشروع بنجاح`
+      });
+    } catch (error: any) {
+      console.error('❌ [API] خطأ في جلب المشاريع:', error);
+      res.status(500).json({ 
+        success: false, 
+        projects: [], 
+        error: error.message,
+        message: "فشل في جلب قائمة المشاريع"
+      });
+    }
+  });
+
+  // تحديث المشاريع المرتبطة بالمستخدم
+  app.post("/api/users/:userId/projects", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { projectIds } = req.body;
+
+      console.log(`🔗 [Admin] تحديث المشاريع للمستخدم: ${userId}`);
+
+      // إزالة جميع المشاريع القديمة المرتبطة
+      await db.update(projects).set({ engineerId: null }).where(eq(projects.engineerId, userId));
+
+      // إضافة المشاريع الجديدة
+      if (projectIds && projectIds.length > 0) {
+        for (const projectId of projectIds) {
+          await db.update(projects).set({ engineerId: userId }).where(eq(projects.id, projectId));
+        }
+      }
+
+      console.log(`✅ [Admin] تم تحديث ${projectIds?.length || 0} مشروع للمستخدم: ${userId}`);
+      res.json({ 
+        success: true, 
+        message: `تم ربط ${projectIds?.length || 0} مشروع بالمستخدم بنجاح`
+      });
+    } catch (error: any) {
+      console.error('❌ [Admin] خطأ في تحديث المشاريع:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message,
+        message: "فشل في تحديث المشاريع"
+      });
+    }
+  });
+
   // تحديث مستخدم
   app.put("/api/auth/users/:userId", requireAuth, requireRole('admin'), async (req, res) => {
     try {

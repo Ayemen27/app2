@@ -81,6 +81,7 @@ export default function UsersManagementPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isProjectsDialogOpen, setIsProjectsDialogOpen] = useState(false);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [deletingUser, setDeletingUser] = useState<DeletingUser | null>(null);
   const [editForm, setEditForm] = useState({
     firstName: '',
@@ -244,6 +245,38 @@ export default function UsersManagementPage() {
       return response || { projects: [] };
     },
     enabled: !!selectedUser?.id && isProjectsDialogOpen,
+  });
+
+  // جلب جميع المشاريع المتاحة
+  const { data: allProjectsData = { projects: [] } } = useQuery({
+    queryKey: ['all-projects'],
+    queryFn: async () => {
+      const response = await apiRequest(`/api/projects/all`, "GET");
+      return response || { projects: [] };
+    },
+    enabled: isProjectsDialogOpen,
+  });
+
+  // تحديث المشاريع المرتبطة بالمستخدم
+  const updateProjectsMutation = useMutation({
+    mutationFn: async (projectIds: string[]) => {
+      if (!selectedUser?.id) return;
+      const response = await apiRequest(`/api/users/${selectedUser.id}/projects`, "POST", { projectIds });
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: 'تم تحديث المشاريع بنجاح', variant: 'default' });
+      queryClient.invalidateQueries({ queryKey: ['user-projects', selectedUser?.id] });
+      setIsProjectsDialogOpen(false);
+      setSelectedProjectIds([]);
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'خطأ في تحديث المشاريع', 
+        description: error.message || 'حاول مرة أخرى',
+        variant: 'destructive' 
+      });
+    },
   });
 
   const users = usersData?.users || [];
@@ -644,42 +677,66 @@ export default function UsersManagementPage() {
       </Dialog>
 
       {/* Projects Dialog */}
-      <Dialog open={isProjectsDialogOpen} onOpenChange={setIsProjectsDialogOpen}>
+      <Dialog open={isProjectsDialogOpen} onOpenChange={(open) => {
+        setIsProjectsDialogOpen(open);
+        if (!open) {
+          setSelectedProjectIds([]);
+          const userCurrentProjects = userProjects?.projects || [];
+          setSelectedProjectIds(userCurrentProjects.map((p: Project) => p.id));
+        } else if (selectedUser?.id && userProjects?.projects) {
+          setSelectedProjectIds(userProjects.projects.map((p: Project) => p.id));
+        }
+      }}>
         <DialogContent className="sm:max-w-[500px] max-h-[600px] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Briefcase className="h-5 w-5 text-purple-500" />
-              المشاريع المرتبطة بـ {selectedUser?.firstName}
+              ربط المشاريع بـ {selectedUser?.firstName}
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            {!userProjects?.projects || userProjects.projects.length === 0 ? (
+          <div className="py-4 space-y-3">
+            <p className="text-sm text-muted-foreground">اختر المشاريع المراد ربطها بهذا المستخدم:</p>
+            {!allProjectsData?.projects || allProjectsData.projects.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Briefcase className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                <p>لا توجد مشاريع مرتبطة بهذا المستخدم</p>
+                <p>لا توجد مشاريع متاحة</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {userProjects.projects.map((project: Project) => (
-                  <Card key={project.id} className="p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-sm">{project.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(project.createdAt).toLocaleDateString('ar-EG')}
-                        </p>
-                      </div>
-                      <Badge variant={project.status === 'active' ? 'success' : 'secondary'} className="whitespace-nowrap">
-                        {project.status === 'active' ? 'نشط' : project.status === 'completed' ? 'مكتمل' : 'معلق'}
-                      </Badge>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {allProjectsData.projects.map((project: any) => (
+                  <label key={project.id} className="flex items-center gap-3 p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedProjectIds.includes(project.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedProjectIds([...selectedProjectIds, project.id]);
+                        } else {
+                          setSelectedProjectIds(selectedProjectIds.filter(id => id !== project.id));
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{project.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        الحالة: {project.status === 'active' ? 'نشط' : project.status === 'completed' ? 'مكتمل' : 'معلق'}
+                      </p>
                     </div>
-                  </Card>
+                    {project.engineerId && project.engineerId !== selectedUser?.id && (
+                      <Badge variant="secondary" className="text-xs">مرتبط</Badge>
+                    )}
+                  </label>
                 ))}
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button onClick={() => setIsProjectsDialogOpen(false)}>إغلاق</Button>
+          <DialogFooter className="gap-2 justify-end">
+            <Button variant="outline" onClick={() => setIsProjectsDialogOpen(false)}>إلغاء</Button>
+            <Button onClick={() => updateProjectsMutation.mutate(selectedProjectIds)} disabled={updateProjectsMutation.isPending}>
+              {updateProjectsMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
+              حفظ المشاريع
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

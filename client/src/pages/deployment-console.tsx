@@ -226,7 +226,7 @@ export default function DeploymentConsole() {
                       step.status === 'success' ? 'bg-primary' : 'bg-border'
                     }`} />
                   )}
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-center gap-4">
                     <div className={`absolute left-0 w-6 h-6 rounded-full flex items-center justify-center z-10 transition-colors ${
                       step.status === 'success' ? 'bg-primary text-primary-foreground' :
                       step.status === 'running' ? 'bg-primary/20 text-primary animate-pulse border-2 border-primary' :
@@ -235,7 +235,10 @@ export default function DeploymentConsole() {
                     }`}>
                       {step.status === 'success' ? <Check className="w-3 h-3" /> : 
                        step.status === 'failed' ? <AlertCircle className="w-3 h-3" /> :
-                       <step.icon className="w-3 h-3" />}
+                       (() => {
+                         const Icon = step.icon;
+                         return <Icon className="w-3 h-3" />;
+                       })()}
                     </div>
                     <div className="flex-1">
                       <p className={`text-sm font-semibold ${

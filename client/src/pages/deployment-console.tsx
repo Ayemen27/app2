@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import { useState, useEffect, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import { 
   Play, 
   Square, 
@@ -13,8 +14,14 @@ import {
   Package,
   GitBranch,
   Zap,
-  Terminal
+  Terminal,
+  ChevronRight,
+  Download,
+  Copy,
+  RotateCcw,
+  Activity
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface BuildLog {
   id: string;
@@ -23,335 +30,350 @@ interface BuildLog {
   type: 'info' | 'success' | 'error' | 'warning';
 }
 
-interface BuildStatus {
-  isRunning: boolean;
-  progress: number;
-  currentStep: string;
-  version: string;
-  logs: BuildLog[];
-  startTime?: number;
-  endTime?: number;
-  success?: boolean;
+interface BuildStep {
+  id: number;
+  name: string;
+  status: 'pending' | 'running' | 'success' | 'failed';
+  icon: any;
+  duration?: number;
 }
 
-const STEPS = [
-  { id: 1, label: 'تحديث الإصدار', icon: GitBranch },
-  { id: 2, label: 'إنشاء الأرشيف', icon: Package },
-  { id: 3, label: 'نقل الملفات', icon: Server },
-  { id: 4, label: 'بناء APK', icon: Zap },
-  { id: 5, label: 'اكتمال البناء', icon: Check },
+const INITIAL_STEPS: BuildStep[] = [
+  { id: 1, name: 'Initializing Project', status: 'pending', icon: GitBranch },
+  { id: 2, name: 'Installing Dependencies', status: 'pending', icon: Package },
+  { id: 3, name: 'Building Application', status: 'pending', icon: Zap },
+  { id: 4, name: 'Optimizing Assets', status: 'pending', icon: Activity },
+  { id: 5, name: 'Deploying to Server', status: 'pending', icon: Server },
+  { id: 6, name: 'Finalizing', status: 'pending', icon: Check },
 ];
 
 export default function DeploymentConsole() {
-  const [status, setStatus] = useState<BuildStatus>({
-    isRunning: false,
-    progress: 0,
-    currentStep: 'جاهز للبناء',
-    version: '1.0.8',
-    logs: [],
-  });
+  const { toast } = useToast();
+  const [isRunning, setIsRunning] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [steps, setSteps] = useState<BuildStep[]>(INITIAL_STEPS);
+  const [logs, setLogs] = useState<BuildLog[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [endTime, setEndTime] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Simulate build process
-  const startBuild = async () => {
-    setStatus(prev => ({
-      ...prev,
-      isRunning: true,
-      progress: 0,
-      logs: [],
-      startTime: Date.now(),
-      success: undefined,
-    }));
-
-    // Step 1: Version Update
-    addLog('جاري تحديث رقم الإصدار...', 'info');
-    await sleep(2000);
-    updateProgress(1, 20, 'تحديث الإصدار');
-    addLog('✅ تم تحديث الإصدار إلى 1.0.9', 'success');
-
-    // Step 2: Archive Creation
-    await sleep(500);
-    addLog('📦 إنشاء أرشيف الملفات...', 'info');
-    await sleep(3000);
-    updateProgress(2, 40, 'إنشاء الأرشيف');
-    addLog('✅ تم إنشاء أرشيف بحجم 137MB', 'success');
-
-    // Step 3: Transfer
-    await sleep(500);
-    addLog('📥 بدء نقل الملفات للسيرفر...', 'info');
-    await sleep(4000);
-    updateProgress(3, 60, 'نقل الملفات');
-    addLog('✅ تم نقل الملفات بنجاح', 'success');
-
-    // Step 4: Build
-    await sleep(500);
-    addLog('🔨 جاري بناء APK على السيرفر...', 'info');
-    addLog('  └─ إعداد Gradle...', 'info');
-    await sleep(2000);
-    addLog('  └─ تنزيل الاعتماديات...', 'info');
-    await sleep(3000);
-    addLog('  └─ ترجمة الكود...', 'info');
-    await sleep(3000);
-    addLog('  └─ إنشاء APK...', 'info');
-    await sleep(2000);
-    updateProgress(4, 85, 'بناء APK');
-    addLog('✅ BUILD SUCCESSFUL in 56s', 'success');
-
-    // Step 5: Complete
-    await sleep(500);
-    updateProgress(5, 100, 'اكتمل البناء');
-    addLog('📱 APK جاهز: app/build/outputs/apk/debug/app-debug.apk', 'success');
-
-    setStatus(prev => ({
-      ...prev,
-      isRunning: false,
-      progress: 100,
-      currentStep: 'اكتمل البناء بنجاح ✅',
-      endTime: Date.now(),
-      success: true,
-    }));
-  };
-
-  const stopBuild = () => {
-    addLog('❌ تم إيقاف البناء من قبل المستخدم', 'error');
-    setStatus(prev => ({
-      ...prev,
-      isRunning: false,
-      success: false,
-      endTime: Date.now(),
-    }));
-  };
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [logs, autoScroll]);
 
   const addLog = (message: string, type: BuildLog['type'] = 'info') => {
-    setStatus(prev => ({
+    setLogs(prev => [
       ...prev,
-      logs: [
-        ...prev.logs,
-        {
-          id: Date.now().toString(),
-          timestamp: new Date().toLocaleTimeString('ar-SA'),
-          message,
-          type,
-        },
-      ],
-    }));
+      {
+        id: Math.random().toString(36).substr(2, 9),
+        timestamp: new Date().toLocaleTimeString('ar-SA'),
+        message,
+        type,
+      },
+    ]);
   };
 
-  const updateProgress = (step: number, progress: number, stepLabel: string) => {
-    setStatus(prev => ({
-      ...prev,
-      progress,
-      currentStep: stepLabel,
-    }));
+  const updateStep = (id: number, status: BuildStep['status'], duration?: number) => {
+    setSteps(prev => prev.map(step => 
+      step.id === id ? { ...step, status, duration } : step
+    ));
   };
 
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  const startDeployment = async () => {
+    setIsRunning(true);
+    setProgress(0);
+    setLogs([]);
+    setSteps(INITIAL_STEPS.map(s => ({ ...s, status: 'pending', duration: undefined })));
+    setStartTime(Date.now());
+    setEndTime(null);
 
-  const currentStepIndex = Math.ceil((status.progress / 100) * STEPS.length) - 1;
+    addLog('🚀 بدء عملية البناء والنشر...', 'info');
+
+    for (let i = 0; i < STEPS_LOGIC.length; i++) {
+      const stepConfig = STEPS_LOGIC[i];
+      updateStep(stepConfig.id, 'running');
+      addLog(`[${stepConfig.name}] جاري التنفيذ...`, 'info');
+      
+      const stepStartTime = Date.now();
+      
+      try {
+        await simulateStep(stepConfig);
+        const duration = Math.floor((Date.now() - stepStartTime) / 1000);
+        updateStep(stepConfig.id, 'success', duration);
+        addLog(`✅ اكتملت مرحلة: ${stepConfig.name}`, 'success');
+        setProgress(((i + 1) / STEPS_LOGIC.length) * 100);
+      } catch (error) {
+        updateStep(stepConfig.id, 'failed');
+        addLog(`❌ فشلت العملية في مرحلة: ${stepConfig.name}`, 'error');
+        addLog(`سبب محتمل: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`, 'warning');
+        setIsRunning(false);
+        setEndTime(Date.now());
+        return;
+      }
+    }
+
+    setIsRunning(false);
+    setEndTime(Date.now());
+    addLog('🎉 اكتملت عملية النشر بنجاح! التطبيق الآن متاح بنسخته الجديدة.', 'success');
+    toast({
+      title: "نجاح النشر",
+      description: "تم تحديث التطبيق بنجاح.",
+    });
+  };
+
+  const simulateStep = async (step: any) => {
+    return new Promise((resolve, reject) => {
+      const duration = step.duration || 2000;
+      setTimeout(() => {
+        if (Math.random() < 0.05) { // 5% failure rate for realism
+          reject(new Error("Network timeout or resource unavailable"));
+        } else {
+          resolve(true);
+        }
+      }, duration);
+    });
+  };
+
+  const STEPS_LOGIC = [
+    { id: 1, name: 'Initializing Project', duration: 1500 },
+    { id: 2, name: 'Installing Dependencies', duration: 4000 },
+    { id: 3, name: 'Building Application', duration: 6000 },
+    { id: 4, name: 'Optimizing Assets', duration: 3000 },
+    { id: 5, name: 'Deploying to Server', duration: 5000 },
+    { id: 6, name: 'Finalizing', duration: 1000 },
+  ];
 
   const getDuration = () => {
-    if (!status.startTime) return '00:00';
-    const end = status.endTime || Date.now();
-    const duration = Math.floor((end - status.startTime) / 1000);
-    const minutes = Math.floor(duration / 60);
-    const seconds = duration % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    if (!startTime) return '00:00';
+    const currentEnd = endTime || Date.now();
+    const diff = Math.floor((currentEnd - startTime) / 1000);
+    const mins = Math.floor(diff / 60);
+    const secs = diff % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const copyLogs = () => {
+    const text = logs.map(l => `[${l.timestamp}] ${l.message}`).join('\n');
+    navigator.clipboard.writeText(text);
+    toast({ description: "تم نسخ السجلات إلى الحافظة" });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Terminal className="w-8 h-8 text-blue-400" />
-            <h1 className="text-3xl font-bold text-white">لوحة التحكم</h1>
-          </div>
-          <p className="text-slate-400">نظام البناء والنشر الآلي - BinarJoin</p>
+    <div className="min-h-screen bg-background p-4 md:p-8 space-y-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <Activity className="w-8 h-8 text-primary" />
+            Build & Deployment Pipeline
+          </h1>
+          <p className="text-muted-foreground mt-1 text-lg">
+            مراقبة حية لعملية البناء والنشر التلقائي (CI/CD)
+          </p>
         </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={copyLogs}
+            className="hover-elevate"
+          >
+            <Copy className="w-4 h-4 ml-2" />
+            Copy Logs
+          </Button>
+          {!isRunning ? (
+            <Button 
+              onClick={startDeployment} 
+              className="bg-primary hover-elevate active-elevate-2 px-8"
+              size="lg"
+            >
+              <Play className="w-4 h-4 ml-2" />
+              Deploy Now
+            </Button>
+          ) : (
+            <Button 
+              variant="destructive" 
+              onClick={() => setIsRunning(false)}
+              className="hover-elevate"
+            >
+              <Square className="w-4 h-4 ml-2" />
+              Stop Build
+            </Button>
+          )}
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Console */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Status Card */}
-            <Card className="bg-slate-800 border-slate-700 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${status.isRunning ? 'bg-yellow-400 animate-pulse' : status.success ? 'bg-green-400' : 'bg-slate-500'}`} />
-                  <div>
-                    <p className="text-sm text-slate-400">الحالة الحالية</p>
-                    <p className="text-xl font-semibold text-white">{status.currentStep}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Progress & Steps Column */}
+        <div className="lg:col-span-1 space-y-6">
+          <Card className="border-border/50 shadow-sm overflow-hidden">
+            <CardHeader className="bg-muted/30 pb-4">
+              <CardTitle className="text-sm font-medium flex items-center justify-between">
+                <span>Pipeline Steps</span>
+                <Badge variant={isRunning ? "secondary" : "outline"} className="animate-pulse">
+                  {isRunning ? "Running" : "Idle"}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-1">
+              {steps.map((step, idx) => (
+                <div key={step.id} className="relative pl-6 pb-6 last:pb-0">
+                  {idx !== steps.length - 1 && (
+                    <div className={`absolute left-[11px] top-6 bottom-0 w-[2px] ${
+                      step.status === 'success' ? 'bg-primary' : 'bg-border'
+                    }`} />
+                  )}
+                  <div className="flex items-start gap-4">
+                    <div className={`absolute left-0 w-6 h-6 rounded-full flex items-center justify-center z-10 transition-colors ${
+                      step.status === 'success' ? 'bg-primary text-primary-foreground' :
+                      step.status === 'running' ? 'bg-primary/20 text-primary animate-pulse border-2 border-primary' :
+                      step.status === 'failed' ? 'bg-destructive text-destructive-foreground' :
+                      'bg-muted text-muted-foreground border-2 border-border'
+                    }`}>
+                      {step.status === 'success' ? <Check className="w-3 h-3" /> : 
+                       step.status === 'failed' ? <AlertCircle className="w-3 h-3" /> :
+                       <step.icon className="w-3 h-3" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-sm font-semibold ${
+                        step.status === 'running' ? 'text-primary' : 'text-foreground'
+                      }`}>
+                        {step.name}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {step.status === 'running' && (
+                          <span className="text-[10px] text-primary animate-pulse uppercase font-bold">In Progress</span>
+                        )}
+                        {step.duration && (
+                          <span className="text-[10px] text-muted-foreground font-mono">{step.duration}s</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-slate-400">النسخة</p>
-                  <p className="text-2xl font-bold text-blue-400">{status.version}</p>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex justify-between items-end">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase">Total Duration</p>
+                  <p className="text-3xl font-mono font-bold text-primary">{getDuration()}</p>
                 </div>
+                <Clock className="w-10 h-10 text-primary/20" />
               </div>
+            </CardContent>
+          </Card>
+        </div>
 
-              {/* Progress Bar */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-slate-300">التقدم</span>
-                  <span className="text-sm font-bold text-blue-400">{status.progress}%</span>
+        {/* Console / Logs Column */}
+        <div className="lg:col-span-3 space-y-6">
+          <Card className="border-border/50 shadow-sm h-full flex flex-col">
+            <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 px-3 py-1 bg-black/5 dark:bg-white/5 rounded-md border">
+                  <Terminal className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider">Console Output</span>
                 </div>
-                <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500 transition-all duration-300"
-                    style={{ width: `${status.progress}%` }}
-                  />
-                </div>
+                {isRunning && <Badge className="bg-primary animate-pulse text-[10px]">LIVE UPDATES</Badge>}
               </div>
-
-              {/* Timeline */}
-              <div className="mt-6 space-y-3">
-                {STEPS.map((step, idx) => {
-                  const isCompleted = idx < currentStepIndex || (idx === currentStepIndex && status.progress > idx * 20);
-                  const isActive = idx === currentStepIndex;
-                  const Icon = step.icon;
-
-                  return (
-                    <div key={step.id} className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                        isCompleted ? 'bg-green-500/20 text-green-400' :
-                        isActive ? 'bg-blue-500/20 text-blue-400 animate-pulse' :
-                        'bg-slate-700 text-slate-400'
-                      }`}>
-                        {isCompleted ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
-                      </div>
-                      <span className={`text-sm font-medium ${
-                        isCompleted ? 'text-green-400' :
-                        isActive ? 'text-blue-400' :
-                        'text-slate-400'
-                      }`}>
-                        {step.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-
-            {/* Control Buttons */}
-            <div className="flex gap-3">
-              <Button
-                onClick={startBuild}
-                disabled={status.isRunning}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-2"
-                data-testid="button-start-build"
-              >
-                <Play className="w-4 h-4 ml-2" />
-                {status.isRunning ? 'جاري البناء...' : 'ابدأ البناء'}
-              </Button>
-              <Button
-                onClick={stopBuild}
-                disabled={!status.isRunning}
-                variant="destructive"
-                className="flex-1 py-2"
-                data-testid="button-stop-build"
-              >
-                <Square className="w-4 h-4 ml-2" />
-                إيقاف
-              </Button>
-            </div>
-
-            {/* Logs Console */}
-            <Card className="bg-slate-900 border-slate-700 overflow-hidden">
-              <div className="bg-slate-800 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
-                <h3 className="text-sm font-semibold text-white">السجلات</h3>
-                <label className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
                   <input
                     type="checkbox"
                     checked={autoScroll}
                     onChange={(e) => setAutoScroll(e.target.checked)}
-                    className="w-3 h-3"
+                    className="rounded border-border"
                   />
-                  تمرير تلقائي
+                  Auto-scroll
                 </label>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                  <Download className="w-4 h-4" />
+                </Button>
               </div>
-              <ScrollArea className="h-[400px] bg-slate-900 font-mono text-sm">
-                <div className="p-4 space-y-1">
-                  {status.logs.length === 0 ? (
-                    <div className="text-slate-500 italic">السجلات ستظهر هنا عند بدء البناء...</div>
+            </CardHeader>
+            <CardContent className="p-0 bg-[#0d1117] min-h-[600px] flex-1">
+              <ScrollArea className="h-full">
+                <div className="p-6 font-mono text-sm leading-relaxed space-y-1">
+                  {logs.length === 0 ? (
+                    <div className="text-muted-foreground/30 italic flex items-center gap-2">
+                      <ChevronRight className="w-4 h-4" />
+                      Ready for deployment...
+                    </div>
                   ) : (
-                    status.logs.map(log => (
-                      <div key={log.id} className="flex gap-2">
-                        <span className="text-slate-500 flex-shrink-0 w-20">{log.timestamp}</span>
-                        <span className={`flex-1 ${
-                          log.type === 'success' ? 'text-green-400' :
-                          log.type === 'error' ? 'text-red-400' :
-                          log.type === 'warning' ? 'text-yellow-400' :
-                          'text-blue-400'
+                    logs.map((log, i) => (
+                      <div key={log.id} className="group flex gap-4 hover:bg-white/5 py-0.5 rounded px-2 -mx-2 transition-colors">
+                        <span className="text-gray-600 select-none w-12 text-right text-[10px] pt-1">{i + 1}</span>
+                        <span className="text-gray-500 select-none w-20 pt-1 text-[11px]">{log.timestamp}</span>
+                        <span className={`flex-1 break-all ${
+                          log.type === 'success' ? 'text-emerald-400 font-medium' :
+                          log.type === 'error' ? 'text-rose-400 font-bold' :
+                          log.type === 'warning' ? 'text-amber-400' :
+                          'text-slate-300'
                         }`}>
                           {log.message}
                         </span>
                       </div>
                     ))
                   )}
+                  <div ref={scrollRef} className="h-2" />
                 </div>
               </ScrollArea>
-            </Card>
-          </div>
+            </CardContent>
+          </Card>
 
-          {/* Sidebar Stats */}
-          <div className="space-y-4">
-            {/* Time */}
-            <Card className="bg-slate-800 border-slate-700 p-4">
-              <div className="flex items-center gap-3">
-                <Clock className="w-5 h-5 text-orange-400" />
-                <div>
-                  <p className="text-xs text-slate-400">المدة</p>
-                  <p className="text-2xl font-bold text-white">{getDuration()}</p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Server Status */}
-            <Card className="bg-slate-800 border-slate-700 p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <Server className="w-5 h-5 text-green-400" />
-                <p className="text-sm font-semibold text-white">حالة السيرفر</p>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">الحالة</span>
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/50">متصل</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">الإصدار</span>
-                  <span className="text-white font-mono">1.0.8</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">آخر بناء</span>
-                  <span className="text-white text-xs">قبل دقائق</span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Last Build Result */}
-            {status.success !== undefined && (
-              <Card className={`p-4 border ${status.success ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
-                <div className="flex items-start gap-3">
-                  {status.success ? (
-                    <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  ) : (
-                    <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  )}
+          {/* Real-time Metrics or Success Actions */}
+          {progress === 100 && !isRunning && (
+            <Card className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 animate-in fade-in slide-in-from-bottom-4">
+              <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4 text-emerald-700 dark:text-emerald-400">
+                  <div className="bg-emerald-500 text-white p-3 rounded-full shadow-lg shadow-emerald-500/20">
+                    <Check className="w-6 h-6" />
+                  </div>
                   <div>
-                    <p className={`font-semibold ${status.success ? 'text-green-400' : 'text-red-400'}`}>
-                      {status.success ? 'نجح البناء' : 'فشل البناء'}
-                    </p>
-                    <p className="text-sm text-slate-400 mt-1">
-                      {status.success 
-                        ? '✅ APK جاهز للاختبار والنشر'
-                        : '❌ حدث خطأ أثناء البناء'
-                      }
-                    </p>
+                    <h3 className="text-xl font-bold">نشر ناجح!</h3>
+                    <p className="text-sm opacity-90">تم تحديث نسخة الإنتاج بنجاح وتجاوزت جميع الاختبارات.</p>
                   </div>
                 </div>
-              </Card>
-            )}
-          </div>
+                <div className="flex gap-3 w-full md:w-auto">
+                  <Button className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20" asChild>
+                    <a href="/" target="_blank">View Live App</a>
+                  </Button>
+                  <Button variant="outline" className="flex-1 md:flex-none border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 bg-transparent hover:bg-emerald-50 dark:hover:bg-emerald-900/30">
+                    Go to Dashboard
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {steps.some(s => s.status === 'failed') && !isRunning && (
+            <Card className="bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800">
+              <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4 text-rose-700 dark:text-rose-400">
+                  <div className="bg-rose-500 text-white p-3 rounded-full shadow-lg shadow-rose-500/20">
+                    <AlertCircle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">فشل في البناء</h3>
+                    <p className="text-sm opacity-90">توقفت العملية بسبب خطأ في الموارد. يرجى مراجعة السجلات.</p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={startDeployment} 
+                  className="w-full md:w-auto bg-rose-600 hover:bg-rose-700 text-white border-0 shadow-lg shadow-rose-500/20"
+                >
+                  <RotateCcw className="w-4 h-4 ml-2" />
+                  Retry Build
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

@@ -1207,6 +1207,30 @@ export const notificationReadStates = pgTable("notification_read_states", {
   uniqueNotificationUser: sql`UNIQUE (notification_id, user_id)`
 }));
 
+// Build & Deployment table (جدول عمليات البناء والنشر)
+export const buildDeployments = pgTable("build_deployments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  buildNumber: integer("build_number").notNull(),
+  status: text("status").notNull().default("running"), // pending, running, success, failed
+  currentStep: text("current_step").notNull(),
+  progress: integer("progress").notNull().default(0),
+  version: text("version").notNull(),
+  logs: jsonb("logs").notNull().default([]), // Array of {timestamp, message, type}
+  steps: jsonb("steps").notNull().default([]), // Array of {name, status, duration}
+  startTime: timestamp("start_time").defaultNow().notNull(),
+  endTime: timestamp("end_time"),
+  triggeredBy: varchar("triggered_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBuildDeploymentSchema = createInsertSchema(buildDeployments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type BuildDeployment = typeof buildDeployments.$inferSelect;
+export type InsertBuildDeployment = z.infer<typeof insertBuildDeploymentSchema>;
+
 // Schema Types and Validators for Tools System
 export const insertToolCategorySchema = createInsertSchema(toolCategories).omit({
   id: true,

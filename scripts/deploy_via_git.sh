@@ -187,12 +187,16 @@ cd "$REPO_DIR"
 NEW_SHA=$(git rev-parse --short HEAD)
 log_success "تم التحديث إلى: $NEW_SHA"
 
-# الانتقال إلى مجلد التطبيق (إذا كان موجوداً، وإلا فاستخدم المجلد الرئيسي)
-if [ -d "$REPO_DIR/app2" ]; then
+# التحقق من مكان وجود package.json لتحديد المجلد الجذري للتطبيق
+if [ -f "$REPO_DIR/package.json" ]; then
+    log_info "تم العثور على package.json في المجلد الجذري للمستودع"
+elif [ -d "$REPO_DIR/app2" ] && [ -f "$REPO_DIR/app2/package.json" ]; then
     cd "$REPO_DIR/app2"
-    log_info "الانتقال إلى مجلد app2 الداخلي"
+    log_info "الانتقال إلى مجلد app2 الداخلي حيث يوجد package.json"
 else
-    log_info "استخدام المجلد الرئيسي للمستودع"
+    log_error "لم يتم العثور على package.json في المجلد الجذري أو في مجلد app2"
+    ls -R "$REPO_DIR"
+    exit 1
 fi
 
 # إنشاء ملف البيئة الجديد

@@ -130,9 +130,9 @@ step3_update_server() {
     
     ENV_CONTENT="# Production Environment Variables - Auto Generated
 NODE_ENV=production
-PORT=5000
-HEALTH_CHECK_PORT=5000
-HEALTH_CHECK_URL=http://localhost:5000/api/health
+PORT=6000
+HEALTH_CHECK_PORT=6000
+HEALTH_CHECK_URL=http://localhost:6000/api/health
 CUSTOM_DOMAIN=app2.binarjoinanelytic.info
 DATABASE_URL=${DATABASE_URL}
 JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}

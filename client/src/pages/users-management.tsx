@@ -603,9 +603,9 @@ export default function UsersManagementPage() {
               </Button>
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="flex-1">إلغاء</Button>
-            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending} className="flex-1">
+          <DialogFooter className="gap-2 justify-end">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>إلغاء</Button>
+            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>
               {updateMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
               حفظ التغييرات
             </Button>

@@ -1,18 +1,19 @@
-/**
- * صفحة إدارة السياسات الأمنية المتقدمة
- * تدير جميع السياسات الأمنية والاقتراحات والانتهاكات
- */
-
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Shield, TrendingUp, Users, Settings, Plus, Search, Filter } from "lucide-react";
+import { 
+  Shield, TrendingUp, AlertTriangle, ShieldAlert, ShieldCheck, Zap, Clock, Lock, 
+  Eye, CheckCircle2, XCircle
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from "recharts";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
+import { UnifiedStats } from "@/components/ui/unified-stats";
+import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface SecurityPolicy {
   id: string;
@@ -24,9 +25,9 @@ interface SecurityPolicy {
   status: 'draft' | 'active' | 'inactive';
   complianceLevel: string;
   violationsCount: number;
-  lastViolation?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  lastViolation?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface PolicySuggestion {
@@ -38,7 +39,7 @@ interface PolicySuggestion {
   priority: 'low' | 'medium' | 'high' | 'critical';
   confidence: number;
   status: 'pending' | 'approved' | 'rejected' | 'implemented';
-  createdAt: Date;
+  createdAt: string;
 }
 
 interface PolicyViolation {
@@ -48,7 +49,7 @@ interface PolicyViolation {
     violatedRule: string;
     severity: string;
     status: string;
-    detectedAt: Date;
+    detectedAt: string;
   };
   policy: {
     id: string;
@@ -61,454 +62,237 @@ export function SecurityPoliciesPage() {
   const [activeTab, setActiveTab] = useState("policies");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
 
   // جلب السياسات الأمنية
-  const { data: policies = [], isLoading: policiesLoading, refetch: refetchPolicies } = useQuery({
-    queryKey: ['/api/security-policies', statusFilter, categoryFilter, severityFilter],
+  const { data: policies = [], isLoading: policiesLoading } = useQuery({
+    queryKey: ['/api/security/policies'],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (statusFilter !== 'all') params.append('status', statusFilter);
-      if (categoryFilter !== 'all') params.append('category', categoryFilter);
-      if (severityFilter !== 'all') params.append('severity', severityFilter);
-      
-      const response = await fetch(`/api/security-policies?${params}`);
+      const response = await fetch('/api/security/policies');
       if (!response.ok) throw new Error('فشل في جلب السياسات الأمنية');
       return response.json() as Promise<SecurityPolicy[]>;
     }
   });
 
   // جلب اقتراحات السياسات
-  const { data: suggestions = [], isLoading: suggestionsLoading, refetch: refetchSuggestions } = useQuery({
-    queryKey: ['/api/security-policy-suggestions'],
+  const { data: suggestions = [], isLoading: suggestionsLoading } = useQuery({
+    queryKey: ['/api/security/suggestions'],
     queryFn: async () => {
-      const response = await fetch('/api/security-policy-suggestions');
+      const response = await fetch('/api/security/suggestions');
       if (!response.ok) throw new Error('فشل في جلب اقتراحات السياسات');
       return response.json() as Promise<PolicySuggestion[]>;
     }
   });
 
   // جلب انتهاكات السياسات
-  const { data: violations = [], isLoading: violationsLoading, refetch: refetchViolations } = useQuery({
-    queryKey: ['/api/security-policy-violations'],
+  const { data: violations = [], isLoading: violationsLoading } = useQuery({
+    queryKey: ['/api/security/violations'],
     queryFn: async () => {
-      const response = await fetch('/api/security-policy-violations');
+      const response = await fetch('/api/security/violations');
       if (!response.ok) throw new Error('فشل في جلب انتهاكات السياسات');
       return response.json() as Promise<PolicyViolation[]>;
     }
   });
 
-  // إنشاء اقتراحات ذكية
-  const generateSmartSuggestions = async () => {
-    try {
-      const response = await fetch('/api/security-policies/generate-smart-suggestions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      if (!response.ok) throw new Error('فشل في إنشاء الاقتراحات الذكية');
-      const result = await response.json();
-      alert(`✅ تم إنشاء ${result.count} اقتراح ذكي للسياسات الأمنية`);
-      refetchSuggestions();
-    } catch (error) {
-      console.error('خطأ في إنشاء الاقتراحات الذكية:', error);
-      alert('❌ حدث خطأ في إنشاء الاقتراحات الذكية');
-    }
-  };
+  const filteredPolicies = policies.filter(policy => 
+    (policy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    policy.description.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (statusFilter === 'all' || policy.status === statusFilter) &&
+    (severityFilter === 'all' || policy.severity === severityFilter)
+  );
 
-  // الموافقة على اقتراح
-  const approvesSuggestion = async (suggestionId: string) => {
-    try {
-      const response = await fetch(`/api/security-policy-suggestions/${suggestionId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reviewerId: 'current-user' })
-      });
-      if (!response.ok) throw new Error('فشل في الموافقة على الاقتراح');
-      const result = await response.json();
-      alert(`✅ تم تحويل الاقتراح إلى سياسة فعالة: ${result.policy.title}`);
-      refetchSuggestions();
-      refetchPolicies();
-    } catch (error) {
-      console.error('خطأ في الموافقة على الاقتراح:', error);
-      alert('❌ حدث خطأ في الموافقة على الاقتراح');
-    }
-  };
+  const statsItems = [
+    { title: 'مؤشر الأمان', value: '85%', icon: Zap, color: 'orange' as const },
+    { title: 'السياسات النشطة', value: policies.filter(p => p.status === 'active').length, icon: ShieldCheck, color: 'green' as const },
+    { title: 'انتهاكات حرجة', value: violations.filter(v => v.violation.severity === 'critical').length, icon: ShieldAlert, color: 'red' as const },
+    { title: 'اقتراحات ذكية', value: suggestions.filter(s => s.status === 'pending').length, icon: TrendingUp, color: 'blue' as const }
+  ];
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'critical': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'inactive': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-      case 'draft': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'implemented': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'rejected': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-    }
-  };
-
-  const filteredPolicies = Array.isArray(policies) ? policies.filter(policy => 
-    policy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    policy.description.toLowerCase().includes(searchTerm.toLowerCase())
-  ) : [];
-
-  // إحصائيات سريعة
-  const stats = {
-    totalPolicies: Array.isArray(policies) ? policies.length : 0,
-    activePolicies: Array.isArray(policies) ? policies.filter(p => p.status === 'active').length : 0,
-    criticalViolations: Array.isArray(violations) ? violations.filter(v => v.violation.severity === 'critical').length : 0,
-    pendingSuggestions: Array.isArray(suggestions) ? suggestions.filter(s => s.status === 'pending').length : 0
-  };
+  const chartData = [
+    { name: 'الأحد', violations: 4 },
+    { name: 'الاثنين', violations: 3 },
+    { name: 'الثلاثاء', violations: 7 },
+    { name: 'الأربعاء', violations: 5 },
+    { name: 'الخميس', violations: 2 },
+    { name: 'الجمعة', violations: 0 },
+    { name: 'السبت', violations: 1 },
+  ];
 
   return (
-    <div className="container mx-auto px-4 space-y-2" dir="rtl">
-      {/* العنوان الرئيسي */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            🔐 السياسات الأمنية المتقدمة
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            إدارة شاملة للسياسات الأمنية والاقتراحات والانتهاكات
-          </p>
+    <div className="container mx-auto px-2 sm:px-4 py-4 space-y-6" dir="rtl">
+      {/* الإحصائيات الموحدة */}
+      <UnifiedStats stats={statsItems} columns={4} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* المحتوى الرئيسي */}
+        <div className="lg:col-span-2 space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+              <TabsList className="w-full sm:w-auto p-1 rounded-xl h-11">
+                <TabsTrigger value="policies" className="rounded-lg px-6 h-9">السياسات</TabsTrigger>
+                <TabsTrigger value="suggestions" className="rounded-lg px-6 h-9">الاقتراحات</TabsTrigger>
+                <TabsTrigger value="violations" className="rounded-lg px-6 h-9">الانتهاكات</TabsTrigger>
+              </TabsList>
+
+              <UnifiedSearchFilter
+                searchValue={searchTerm}
+                onSearchChange={setSearchTerm}
+                searchPlaceholder="بحث في السياسات..."
+                className="w-full sm:w-64"
+                showActiveFilters={false}
+              />
+            </div>
+
+            <AnimatePresence mode="wait">
+              <TabsContent value="policies" key="policies">
+                <UnifiedCardGrid columns={2}>
+                  {filteredPolicies.map((policy) => (
+                    <motion.div
+                      key={policy.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      <UnifiedCard
+                        title={policy.title}
+                        subtitle={policy.policyId}
+                        titleIcon={Shield}
+                        headerColor={policy.status === 'active' ? '#10b981' : '#64748b'}
+                        badges={[
+                          { 
+                            label: policy.severity === 'critical' ? 'حرج' : policy.severity === 'high' ? 'عالي' : 'متوسط',
+                            variant: policy.severity === 'critical' ? 'destructive' : policy.severity === 'high' ? 'warning' : 'default'
+                          },
+                          {
+                            label: policy.status === 'active' ? 'نشط' : 'مسودة',
+                            variant: policy.status === 'active' ? 'success' : 'secondary'
+                          }
+                        ]}
+                        fields={[
+                          { label: 'الفئة', value: policy.category, icon: Lock },
+                          { label: 'الانتهاكات', value: policy.violationsCount, icon: AlertTriangle, color: policy.violationsCount > 0 ? 'danger' : 'success' },
+                          { label: 'آخر تحديث', value: new Date(policy.updatedAt).toLocaleDateString('ar'), icon: Clock, color: 'muted' }
+                        ]}
+                        actions={[
+                          { icon: Eye, label: 'عرض التفاصيل', onClick: () => {} },
+                          { icon: CheckCircle2, label: 'تفعيل', onClick: () => {}, hidden: policy.status === 'active' }
+                        ]}
+                      />
+                    </motion.div>
+                  ))}
+                </UnifiedCardGrid>
+              </TabsContent>
+
+              <TabsContent value="suggestions" key="suggestions">
+                <div className="space-y-4">
+                  {suggestions.map((s) => (
+                    <motion.div
+                      key={s.id}
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                    >
+                      <UnifiedCard
+                        title={s.title}
+                        subtitle={`اقتراح ذكي - ثقة ${s.confidence}%`}
+                        titleIcon={Zap}
+                        fields={[
+                          { label: 'الوصف', value: s.description },
+                          { label: 'الفئة', value: s.category, icon: Lock }
+                        ]}
+                        actions={[
+                          { icon: CheckCircle2, label: 'تطبيق', onClick: () => {}, color: 'green' },
+                          { icon: XCircle, label: 'رفض', onClick: () => {}, color: 'red' }
+                        ]}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="violations" key="violations">
+                <div className="space-y-4">
+                  {violations.map((v) => (
+                    <motion.div
+                      key={v.violation.id}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                    >
+                      <UnifiedCard
+                        title={v.violation.violatedRule}
+                        subtitle={`السياسة: ${v.policy?.title || 'غير محدد'}`}
+                        titleIcon={ShieldAlert}
+                        headerColor="#ef4444"
+                        fields={[
+                          { label: 'التوقيت', value: new Date(v.violation.detectedAt).toLocaleString('ar'), icon: Clock },
+                          { label: 'المستوى', value: v.violation.severity, color: 'danger' }
+                        ]}
+                        actions={[
+                          { icon: Eye, label: 'تحليل', onClick: () => {} }
+                        ]}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </TabsContent>
+            </AnimatePresence>
+          </Tabs>
         </div>
-        <Button 
-          onClick={generateSmartSuggestions}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <TrendingUp className="w-4 h-4 ml-2" />
-          إنشاء اقتراحات ذكية
-        </Button>
-      </div>
 
-      {/* الإحصائيات السريعة */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي السياسات</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalPolicies}</p>
-              </div>
-              <Shield className="w-8 h-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">السياسات النشطة</p>
-                <p className="text-2xl font-bold text-green-600">{stats.activePolicies}</p>
-              </div>
-              <Users className="w-8 h-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">انتهاكات حرجة</p>
-                <p className="text-2xl font-bold text-red-600">{stats.criticalViolations}</p>
-              </div>
-              <AlertTriangle className="w-8 h-8 text-red-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">اقتراحات معلقة</p>
-                <p className="text-2xl font-bold text-orange-600">{stats.pendingSuggestions}</p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* التبويبات الرئيسية */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="policies">السياسات الأمنية</TabsTrigger>
-          <TabsTrigger value="suggestions">الاقتراحات</TabsTrigger>
-          <TabsTrigger value="violations">الانتهاكات</TabsTrigger>
-        </TabsList>
-
-        {/* تبويب السياسات الأمنية */}
-        <TabsContent value="policies" className="space-y-1">
-          {/* أدوات البحث والفلترة */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Search className="w-5 h-5 ml-2" />
-                البحث والفلترة
+        {/* الجانب التحليلي */}
+        <div className="space-y-6">
+          <Card className="border-0 shadow-sm overflow-hidden bg-card rounded-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-primary" />
+                تحليل الانتهاكات الأسبوعي
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="search">البحث</Label>
-                  <Input
-                    id="search"
-                    placeholder="ابحث في السياسات..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="status-filter">الحالة</Label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر الحالة" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">جميع الحالات</SelectItem>
-                      <SelectItem value="active">نشط</SelectItem>
-                      <SelectItem value="inactive">غير نشط</SelectItem>
-                      <SelectItem value="draft">مسودة</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="category-filter">الفئة</Label>
-                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر الفئة" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">جميع الفئات</SelectItem>
-                      <SelectItem value="authentication">المصادقة</SelectItem>
-                      <SelectItem value="access_control">التحكم بالوصول</SelectItem>
-                      <SelectItem value="data_protection">حماية البيانات</SelectItem>
-                      <SelectItem value="network_security">أمان الشبكة</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="severity-filter">الأهمية</Label>
-                  <Select value={severityFilter} onValueChange={setSeverityFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر الأهمية" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">جميع المستويات</SelectItem>
-                      <SelectItem value="critical">حرج</SelectItem>
-                      <SelectItem value="high">عالي</SelectItem>
-                      <SelectItem value="medium">متوسط</SelectItem>
-                      <SelectItem value="low">منخفض</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="h-[200px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorViolations" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" hide />
+                    <YAxis hide />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Area type="monotone" dataKey="violations" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorViolations)" />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
 
-          {/* قائمة السياسات */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {policiesLoading ? (
-              <div className="col-span-full text-center py-2">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">جاري تحميل السياسات...</p>
-              </div>
-            ) : Array.isArray(filteredPolicies) && filteredPolicies.length > 0 ? (
-              filteredPolicies.map((policy) => (
-                <Card key={policy.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{policy.title}</CardTitle>
-                        <p className="text-sm text-gray-500 font-mono">{policy.policyId}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Badge className={getSeverityColor(policy.severity)}>
-                          {policy.severity === 'critical' ? 'حرج' :
-                           policy.severity === 'high' ? 'عالي' :
-                           policy.severity === 'medium' ? 'متوسط' : 'منخفض'}
-                        </Badge>
-                        <Badge className={getStatusColor(policy.status)}>
-                          {policy.status === 'active' ? 'نشط' :
-                           policy.status === 'inactive' ? 'غير نشط' : 'مسودة'}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">
-                      {policy.description}
-                    </p>
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="space-y-1">
-                        <p className="text-gray-500">
-                          الفئة: <span className="font-medium">{policy.category}</span>
-                        </p>
-                        <p className="text-gray-500">
-                          الانتهاكات: <span className="font-medium text-red-600">{policy.violationsCount}</span>
-                        </p>
-                      </div>
-                      <div className="text-left space-y-1">
-                        <p className="text-gray-500">
-                          تم الإنشاء: {new Date(policy.createdAt).toLocaleDateString('ar')}
-                        </p>
-                        {policy.lastViolation && (
-                          <p className="text-red-500 text-xs">
-                            آخر انتهاك: {new Date(policy.lastViolation).toLocaleDateString('ar')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-2">
-                <Shield className="w-12 h-12 text-gray-400 mx-auto" />
-                <p className="text-gray-600 dark:text-gray-400">لا توجد سياسات أمنية</p>
-              </div>
-            )}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="font-bold flex items-center gap-2">
+                <Clock className="w-4 h-4 text-destructive" />
+                آخر الانتهاكات
+              </h3>
+              <Button variant="link" className="text-xs">مشاهدة الكل</Button>
+            </div>
+            <div className="space-y-3">
+              {violations.slice(0, 4).map((v) => (
+                <div key={v.violation.id} className="p-4 bg-card rounded-xl border flex items-center gap-4 group cursor-pointer hover:border-destructive/30 transition-all">
+                  <div className="p-2 bg-destructive/10 rounded-lg group-hover:scale-110 transition-transform">
+                    <ShieldAlert className="w-4 h-4 text-destructive" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate">{v.violation.violatedRule}</p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(v.violation.detectedAt).toLocaleTimeString('ar')}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </TabsContent>
-
-        {/* تبويب الاقتراحات */}
-        <TabsContent value="suggestions" className="space-y-1">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {suggestionsLoading ? (
-              <div className="col-span-full text-center py-2">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">جاري تحميل الاقتراحات...</p>
-              </div>
-            ) : Array.isArray(suggestions) && suggestions.length > 0 ? (
-              suggestions.map((suggestion) => (
-                <Card key={suggestion.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{suggestion.title}</CardTitle>
-                        <p className="text-sm text-gray-500 font-mono">{suggestion.suggestedPolicyId}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Badge className={getSeverityColor(suggestion.priority)}>
-                          {suggestion.priority === 'critical' ? 'حرج' :
-                           suggestion.priority === 'high' ? 'عالي' :
-                           suggestion.priority === 'medium' ? 'متوسط' : 'منخفض'}
-                        </Badge>
-                        <Badge className={getStatusColor(suggestion.status)}>
-                          {suggestion.status === 'pending' ? 'معلق' :
-                           suggestion.status === 'approved' ? 'موافق عليه' :
-                           suggestion.status === 'rejected' ? 'مرفوض' : 'منفذ'}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">
-                      {suggestion.description}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm text-gray-500">
-                          الفئة: <span className="font-medium">{suggestion.category}</span>
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          الثقة: <span className="font-medium text-green-600">{suggestion.confidence}%</span>
-                        </p>
-                      </div>
-                      {suggestion.status === 'pending' && (
-                        <Button
-                          size="sm"
-                          onClick={() => approvesSuggestion(suggestion.id)}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          موافقة
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-2">
-                <TrendingUp className="w-12 h-12 text-gray-400 mx-auto" />
-                <p className="text-gray-600 dark:text-gray-400">لا توجد اقتراحات</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* تبويب الانتهاكات */}
-        <TabsContent value="violations" className="space-y-1">
-          <div className="space-y-1">
-            {violationsLoading ? (
-              <div className="text-center py-2">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">جاري تحميل الانتهاكات...</p>
-              </div>
-            ) : Array.isArray(violations) && violations.length > 0 ? (
-              violations.map((item) => (
-                <Card key={item.violation.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg text-red-600 flex items-center">
-                          <AlertTriangle className="w-5 h-5 ml-2" />
-                          {item.violation.violatedRule}
-                        </CardTitle>
-                        <p className="text-sm text-gray-500">
-                          السياسة: {item.policy?.title || 'غير محدد'}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Badge className={getSeverityColor(item.violation.severity)}>
-                          {item.violation.severity === 'critical' ? 'حرج' :
-                           item.violation.severity === 'high' ? 'عالي' :
-                           item.violation.severity === 'medium' ? 'متوسط' : 'منخفض'}
-                        </Badge>
-                        <Badge className={getStatusColor(item.violation.status)}>
-                          {item.violation.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between text-sm">
-                      <div>
-                        <p className="text-gray-500">
-                          معرف الانتهاك: <span className="font-mono">{item.violation.violationId}</span>
-                        </p>
-                        <p className="text-gray-500">
-                          الفئة: <span className="font-medium">{item.policy?.category || 'غير محدد'}</span>
-                        </p>
-                      </div>
-                      <div className="text-left">
-                        <p className="text-gray-500">
-                          وقت الاكتشاف: {new Date(item.violation.detectedAt).toLocaleString('en-GB')}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <div className="text-center py-2">
-                <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto" />
-                <p className="text-gray-600 dark:text-gray-400">لا توجد انتهاكات</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
     </div>
   );
 }

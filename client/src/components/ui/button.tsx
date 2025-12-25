@@ -117,6 +117,40 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     const isDisabled = disabled || loading || (enableRateLimit && isLimited);
 
+    const content = (
+      <>
+        {showRipple && ripple && (
+          <motion.span
+            className="absolute bg-white/30 rounded-full pointer-events-none"
+            style={rippleStyle}
+            initial={{ scale: 0, opacity: 1 }}
+            animate={{ scale: 4, opacity: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          />
+        )}
+        
+        {loading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {loadingText}
+          </>
+        ) : (
+          children
+        )}
+        
+        {enableRateLimit && isLimited && (
+          <motion.div
+            className="absolute inset-0 bg-gray-400/20 rounded-lg flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <span className="text-xs text-gray-600">انتظر...</span>
+          </motion.div>
+        )}
+      </>
+    );
+
     return (
       <motion.div
         whileHover={{ scale: isDisabled ? 1 : 1.02 }}
@@ -130,38 +164,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           disabled={isDisabled}
           {...props}
         >
-          {/* تأثير الـ Ripple */}
-          {showRipple && ripple && (
-            <motion.span
-              className="absolute bg-white/30 rounded-full pointer-events-none"
-              style={rippleStyle}
-              initial={{ scale: 0, opacity: 1 }}
-              animate={{ scale: 4, opacity: 0 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-            />
-          )}
-          
-          {/* محتوى الزر */}
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {loadingText}
-            </>
-          ) : (
-            children
-          )}
-          
-          {/* مؤشر Rate Limiting */}
-          {enableRateLimit && isLimited && (
-            <motion.div
-              className="absolute inset-0 bg-gray-400/20 rounded-lg flex items-center justify-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <span className="text-xs text-gray-600">انتظر...</span>
-            </motion.div>
-          )}
+          {content}
         </Comp>
       </motion.div>
     )

@@ -12,7 +12,7 @@ NC='\033[0m'
 # Environment
 SSH_HOST="${SSH_HOST}"
 SSH_USER="${SSH_USER}"
-SSH_PORT="${SSH_PORT}"
+SSH_PORT="${SSH_PORT:-22}"
 SSH_PASSWORD="${SSH_PASSWORD}"
 REMOTE_APP_DIR="/home/administrator/app2"
 

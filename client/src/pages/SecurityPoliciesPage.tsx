@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { UnifiedStats } from "@/components/ui/unified-stats";
-import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
+import { UnifiedSearchFilter, useUnifiedFilter, STATUS_FILTER_OPTIONS, PRIORITY_OPTIONS } from "@/components/ui/unified-search-filter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -60,9 +60,17 @@ interface PolicyViolation {
 
 export function SecurityPoliciesPage() {
   const [activeTab, setActiveTab] = useState("policies");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [severityFilter, setSeverityFilter] = useState<string>("all");
+  
+  const {
+    searchValue,
+    filterValues,
+    onSearchChange,
+    onFilterChange,
+    onReset
+  } = useUnifiedFilter({
+    status: 'all',
+    severity: 'all'
+  });
 
   // جلب السياسات الأمنية
   const { data: policies = [], isLoading: policiesLoading } = useQuery({
@@ -95,10 +103,10 @@ export function SecurityPoliciesPage() {
   });
 
   const filteredPolicies = policies.filter(policy => 
-    (policy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    policy.description.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    (statusFilter === 'all' || policy.status === statusFilter) &&
-    (severityFilter === 'all' || policy.severity === severityFilter)
+    (policy.title.toLowerCase().includes(searchValue.toLowerCase()) ||
+    policy.description.toLowerCase().includes(searchValue.toLowerCase())) &&
+    (filterValues.status === 'all' || policy.status === filterValues.status) &&
+    (filterValues.severity === 'all' || policy.severity === filterValues.severity)
   );
 
   const statsItems = [
@@ -118,6 +126,32 @@ export function SecurityPoliciesPage() {
     { name: 'السبت', violations: 1 },
   ];
 
+  const policyFilters = [
+    {
+      key: 'status',
+      label: 'الحالة',
+      type: 'select' as const,
+      options: [
+        { value: 'all', label: 'جميع الحالات' },
+        { value: 'active', label: 'نشط' },
+        { value: 'draft', label: 'مسودة' },
+        { value: 'inactive', label: 'غير نشط' }
+      ]
+    },
+    {
+      key: 'severity',
+      label: 'المستوى',
+      type: 'select' as const,
+      options: [
+        { value: 'all', label: 'جميع المستويات' },
+        { value: 'critical', label: 'حرج' },
+        { value: 'high', label: 'عالي' },
+        { value: 'medium', label: 'متوسط' },
+        { value: 'low', label: 'منخفض' }
+      ]
+    }
+  ];
+
   return (
     <div className="container mx-auto px-2 sm:px-4 py-4 space-y-6" dir="rtl">
       {/* الإحصائيات الموحدة */}
@@ -135,11 +169,15 @@ export function SecurityPoliciesPage() {
               </TabsList>
 
               <UnifiedSearchFilter
-                searchValue={searchTerm}
-                onSearchChange={setSearchTerm}
+                searchValue={searchValue}
+                onSearchChange={onSearchChange}
                 searchPlaceholder="بحث في السياسات..."
-                className="w-full sm:w-64"
-                showActiveFilters={false}
+                filters={activeTab === 'policies' ? policyFilters : []}
+                filterValues={filterValues}
+                onFilterChange={onFilterChange}
+                onReset={onReset}
+                className="w-full sm:w-80"
+                showActiveFilters={true}
               />
             </div>
 

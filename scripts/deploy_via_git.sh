@@ -207,17 +207,25 @@ EOF
 log_success "تم إنشاء .env.production"
 
 log_info "تثبيت المتطلبات..."
-npm ci --loglevel=error 2>&1 || npm install --loglevel=error
+npm install --loglevel=error
 log_success "تم تثبيت المتطلبات"
 
-log_info "بناء التطبيق..."
-npm run build || { log_error "فشل البناء"; exit 1; }
+log_info "بناء التطبيق (Client & Server)..."
+npm run build:client
+npm run build:server
 log_success "تم البناء بنجاح"
 
 # نسخ الملفات المبنية إلى مجلد التطبيق
 log_info "نسخ الملفات إلى مجلد التطبيق..."
-mkdir -p "$APP_DIR"
+mkdir -p "$APP_DIR/dist/public"
 rsync -av --delete dist/ "$APP_DIR/dist/"
+
+# التأكد من وجود index.html
+if [ ! -f "$APP_DIR/dist/public/index.html" ]; then
+    log_warning "index.html غير موجود في dist/public، محاولة النسخ من المجلد الأصلي..."
+    cp -r public/* "$APP_DIR/dist/public/" 2>/dev/null || true
+fi
+
 cp -f ecosystem.config.cjs "$APP_DIR/"
 cp -f package*.json "$APP_DIR/"
 if [ -f ".env.production" ]; then
@@ -228,7 +236,7 @@ log_success "تم نسخ الملفات"
 # تثبيت المتطلبات في مجلد الإنتاج
 cd "$APP_DIR"
 log_info "تثبيت الحزم في مجلد الإنتاج..."
-npm ci --loglevel=error 2>&1 || npm install --loglevel=error 2>&1
+npm install --production --loglevel=error 2>&1 || npm install --loglevel=error 2>&1
 
 # تثبيت الحزم الإضافية المطلوبة للإنتاج (AI و APIs)
 log_info "تثبيت حزم AI و APIs..."

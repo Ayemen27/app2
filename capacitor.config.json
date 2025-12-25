@@ -5,7 +5,7 @@
   "server": {
     "androidScheme": "https",
     "url": "https://app2.binarjoinanelytic.info",
-    "cleartext": false
+    "cleartext": true
   },
   "plugins": {
     "SplashScreen": {

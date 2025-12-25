@@ -62,7 +62,10 @@ export async function apiRequest(
   data?: any,
   retryCount: number = 0
 ): Promise<any> {
-  const url = `${endpoint.startsWith("http") ? "" : window.location.origin}${endpoint}`;
+  // استخدام API_BASE_URL من متغيرات البيئة الآمنة (Secrets)
+  // أولاً نحاول VITE_API_BASE_URL (للـ production)، ثم VITE_API_URL، ثم window.location.origin
+  const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || window.location.origin;
+  const url = `${endpoint.startsWith("http") ? "" : apiBase}${endpoint}`;
 
   // ✅ جلب التوكن من localStorage بشكل مباشر - لا تعتمد على authProviderHelpers
   const token = localStorage.getItem('accessToken');
@@ -114,7 +117,8 @@ export async function apiRequest(
       const refreshToken = localStorage.getItem("refreshToken");
       if (refreshToken) {
         try {
-          const refreshResponse = await fetch(`${window.location.origin}/api/auth/refresh`, {
+          const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || window.location.origin;
+          const refreshResponse = await fetch(`${apiBase}/api/auth/refresh`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

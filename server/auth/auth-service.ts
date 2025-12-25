@@ -172,8 +172,10 @@ export async function loginUser(request: LoginRequest): Promise<LoginResult> {
 
     const user = userResult[0];
 
-    // التحقق من حالة المستخدم
-    if (!user.isActive) {
+    // التحقق من حالة المستخدم (استثناء للمدير الأول)
+    const isFirstAdmin = user.email === 'binarjoinanalytic@gmail.com';
+    
+    if (!user.isActive && !isFirstAdmin) {
       await logAuditEvent({
         userId: user.id,
         action: 'login_failed',
@@ -188,6 +190,13 @@ export async function loginUser(request: LoginRequest): Promise<LoginResult> {
         success: false,
         message: 'الحساب معطل. يرجى التواصل مع المدير'
       };
+    }
+    
+    // تفعيل المدير الأول تلقائياً إذا كان معطلاً
+    if (isFirstAdmin && !user.isActive) {
+      console.log('✅ [AuthService] تفعيل المدير الأول تلقائياً');
+      await db.update(users).set({ isActive: true }).where(eq(users.id, user.id));
+      user.isActive = true;
     }
 
     // التحقق من كلمة المرور

@@ -226,7 +226,7 @@ router.post('/login', async (req, res) => {
       console.log('❌ [Auth] المستخدم غير موجود:', email);
       return res.status(401).json({
         success: false,
-        message: "بيانات تسجيل الدخول غير صحيحة"
+        message: `المستخدم بالبريد "${email}" غير مسجل في النظام`
       });
     }
 
@@ -241,28 +241,48 @@ router.post('/login', async (req, res) => {
       console.log('❌ [Auth] كلمة المرور غير صحيحة');
       return res.status(401).json({
         success: false,
-        message: "بيانات تسجيل الدخول غير صحيحة"
+        message: "كلمة المرور غير صحيحة. يرجى التأكد من إدخالك كلمة المرور بشكل صحيح"
       });
     }
 
-    // التحقق من حالة المستخدم
-    if (!user.isActive) {
+    // التحقق من حالة المستخدم (استثناء للمدير الأول)
+    const isFirstAdmin = user.email === 'binarjoinanalytic@gmail.com';
+    
+    if (!user.isActive && !isFirstAdmin) {
       console.log('❌ [Auth] الحساب معطل');
       return res.status(403).json({
         success: false,
-        message: "الحساب معطل، يرجى الاتصال بالمدير"
+        message: "حسابك معطل حالياً. يرجى التواصل مع إدارة النظام لتفعيل حسابك"
       });
     }
+    
+    // تفعيل المدير الأول تلقائياً إذا كان معطلاً
+    if (isFirstAdmin && !user.isActive) {
+      console.log('✅ [Auth] تفعيل المدير الأول تلقائياً');
+      await db.update(users).set({ isActive: true }).where(eq(users.id, user.id));
+      user.isActive = true;
+    }
 
-    // التحقق من التحقق من البريد الإلكتروني - أمان مهم
-    if (!user.emailVerifiedAt) {
+    // التحقق من التحقق من البريد الإلكتروني - استثناء للمدير الأول
+    if (!user.emailVerifiedAt && !isFirstAdmin) {
       console.log('❌ [Auth] البريد الإلكتروني غير مُحقق:', email);
       return res.status(403).json({
         success: false,
-        message: "يجب تأكيد البريد الإلكتروني أولاً. تحقق من بريدك الإلكتروني لإكمال التسجيل.",
-        requiresEmailVerification: true,
-        userEmail: email
+        message: "بريدك الإلكتروني لم يتم التحقق منه بعد. تحقق من رسائل بريدك لتأكيد العنوان",
+        requireEmailVerification: true,
+        data: {
+          userId: user.id,
+          email: user.email,
+          needsVerification: true
+        }
       });
+    }
+    
+    // تحقيق بريد المدير الأول تلقائياً
+    if (isFirstAdmin && !user.emailVerifiedAt) {
+      console.log('✅ [Auth] تحقيق بريد المدير الأول تلقائياً');
+      await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, user.id));
+      user.emailVerifiedAt = new Date();
     }
 
     console.log('🎯 [Auth] إنشاء التوكينات...');

@@ -228,47 +228,61 @@ export default function AuthPage() {
         status: error?.status,
         message: error?.message,
         response: error?.response,
-        data: error?.data
+        data: error?.data,
+        requireEmailVerification: error?.requireEmailVerification,
+        userId: error?.userId,
+        email: error?.email
       });
       
-      // التحقق من حالة عدم تفعيل البريد الإلكتروني - تحسين المنطق
+      // التحقق من حالة عدم تفعيل البريد الإلكتروني
       const isEmailNotVerified = 
         error?.status === 403 ||
-        error?.message?.includes('requireEmailVerification') || 
-        error?.message?.includes('يجب تأكيد البريد') ||
-        error?.message?.includes('يجب التحقق من بريدك الإلكتروني') ||
-        (error as any)?.response?.data?.requireEmailVerification ||
-        (error as any)?.response?.status === 403 ||
-        error?.data?.requireEmailVerification;
+        error?.requireEmailVerification === true ||
+        error?.message?.includes('يجب التحقق من البريد') ||
+        (error as any)?.response?.data?.requireEmailVerification;
+      
+      console.log('🔍 [AuthPage.loginMutation] فحص التحقق من البريد:', {
+        isEmailNotVerified,
+        statusCheck: error?.status === 403,
+        flagCheck: error?.requireEmailVerification === true,
+        messageCheck: error?.message?.includes('يجب التحقق من البريد')
+      });
       
       if (isEmailNotVerified) {
-        const errorData = error?.data || (error as any)?.response?.data;
-        const userId = errorData?.data?.userId || errorData?.userId;
-        const email = errorData?.data?.email || errorData?.email;
+        const userId = error?.userId || (error as any)?.response?.data?.userId;
+        const email = error?.email || (error as any)?.response?.data?.email;
+        const formEmail = loginForm.getValues('email');
         
-        // استخدام نظام Toast الجديد المحسن للهواتف
-        showToast({
-          title: "البريد الإلكتروني غير مفعل",
-          message: "يجب التحقق من بريدك الإلكتروني أولاً. تم إرسال رمز تحقق جديد.",
-          variant: "error",
-          duration: 5000 // عرض لمدة 5 ثواني لإعطاء وقت للقراءة
+        console.log('📧 [AuthPage.loginMutation] توجيه إلى صفحة التحقق:', {
+          userId,
+          email,
+          formEmail,
+          willNavigate: !!(userId && email) || !!formEmail
         });
         
-        // توجيه إلى صفحة التحقق من البريد بعد 3 ثوان لإعطاء وقت أكثر لقراءة الرسالة
+        // عرض رسالة الخطأ
+        toast({
+          title: "التحقق من البريد الإلكتروني مطلوب",
+          description: error.message || "بريدك الإلكتروني لم يتم التحقق منه بعد",
+          variant: "destructive",
+        });
+        
+        // توجيه إلى صفحة التحقق من البريد
         setTimeout(() => {
           if (userId && email) {
+            console.log('✅ [AuthPage.loginMutation] توجيه باستخدام userId و email من الخطأ');
             navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(email)}`);
+          } else if (formEmail) {
+            console.log('✅ [AuthPage.loginMutation] توجيه باستخدام email من النموذج');
+            navigate(`/verify-email?email=${encodeURIComponent(formEmail)}`);
           } else {
-            // في حالة عدم وجود معرف المستخدم، نحاول استخدام البريد من النموذج
-            const formEmail = loginForm.getValues('email');
-            if (formEmail) {
-              navigate(`/verify-email?email=${encodeURIComponent(formEmail)}`);
-            }
+            console.log('❌ [AuthPage.loginMutation] لا توجد بيانات كافية للتوجيه');
           }
-        }, 3000);
+        }, 1500);
         return;
       }
       
+      // رسالة خطأ عامة
       toast({
         title: "فشل تسجيل الدخول",
         description: error.message || "حدث خطأ أثناء الاتصال بالخادم",

@@ -226,12 +226,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const result = await response.json();
 
       if (!response.ok) {
+        console.log('📋 [AuthProvider.login] الاستجابة غير الناجحة:', {
+          status: response.status,
+          requireEmailVerification: result.requireEmailVerification,
+          data: result.data,
+          message: result.message
+        });
+
         // في حالة عدم التحقق من البريد الإلكتروني (403)
         if (response.status === 403 && result.requireEmailVerification) {
           const error = new Error(result.message || 'يجب التحقق من البريد الإلكتروني أولاً');
           (error as any).requireEmailVerification = true;
           (error as any).userId = result.data?.userId;
           (error as any).email = result.data?.email;
+          (error as any).status = 403;
+          (error as any).data = result.data;
+          
+          console.log('🚨 [AuthProvider.login] خطأ التحقق من البريد:', {
+            userId: (error as any).userId,
+            email: (error as any).email
+          });
+          
           throw error;
         }
         throw new Error(result.message || 'فشل تسجيل الدخول');

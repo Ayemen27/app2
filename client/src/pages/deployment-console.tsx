@@ -59,20 +59,20 @@ const getInitialSteps = (appType: 'web' | 'android'): BuildStep[] => {
   if (appType === 'web') {
     return [
       { id: 1, name: 'تجهيز المشروع', status: 'pending', icon: GitBranch },
-      { id: 2, name: 'رفع التحديثات لـ GitHub', status: 'pending', icon: GitBranch },
-      { id: 3, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Server },
-      { id: 4, name: 'تثبيت الاعتمادات', status: 'pending', icon: Package },
-      { id: 5, name: 'بناء Frontend', status: 'pending', icon: Zap },
-      { id: 6, name: 'بناء Backend', status: 'pending', icon: Zap },
-      { id: 7, name: 'تطبيق المخطط على قاعدة البيانات', status: 'pending', icon: Database },
+      { id: 2, name: 'رفع التحديثات إلى GitHub', status: 'pending', icon: GitBranch },
+      { id: 3, name: 'الاتصال بالسيرفر الخارجي', status: 'pending', icon: Server },
+      { id: 4, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Download },
+      { id: 5, name: 'تثبيت الاعتمادات على السيرفر', status: 'pending', icon: Package },
+      { id: 6, name: 'بناء المشروع على السيرفر', status: 'pending', icon: Zap },
+      { id: 7, name: 'إعادة تشغيل الخدمات', status: 'pending', icon: Activity },
     ];
   } else {
     return [
       { id: 1, name: 'تجهيز المشروع', status: 'pending', icon: GitBranch },
-      { id: 2, name: 'رفع التحديثات لـ GitHub', status: 'pending', icon: GitBranch },
-      { id: 3, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Server },
-      { id: 4, name: 'تثبيت الاعتمادات', status: 'pending', icon: Package },
-      { id: 5, name: 'تنظيف البناء السابق', status: 'pending', icon: Package },
+      { id: 2, name: 'رفع التحديثات إلى GitHub', status: 'pending', icon: GitBranch },
+      { id: 3, name: 'الاتصال بالسيرفر الخارجي', status: 'pending', icon: Server },
+      { id: 4, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Download },
+      { id: 5, name: 'تثبيت الاعتمادات على السيرفر', status: 'pending', icon: Package },
       { id: 6, name: 'بناء APK الـ Android', status: 'pending', icon: Smartphone },
       { id: 7, name: 'نشر APK على السيرفر', status: 'pending', icon: Download },
     ];

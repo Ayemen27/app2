@@ -131,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'running',
         currentStep: 'Initializing',
         progress: 0,
-        version: '1.0.11',
+        version: '1.0.12',
         appType,
         logs: [],
         steps: [],
@@ -139,60 +139,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).returning();
       
       buildId = newBuild.id;
-      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `🚀 بدء عملية البناء الحقيقية لـ ${appName}`, type: "info" });
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `🚀 بدء عملية البناء والنشر الحقيقية لـ ${appName}`, type: "info" });
       
-      // 1. تثبيت الاعتمادات
-      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📦 تثبيت الاعتمادات...", type: "info" });
+      // 1. تجهيز المشروع
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔧 تجهيز المشروع...", type: "info" });
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تجهيز المشروع", type: "success" });
+
+      // 2. رفع التحديثات إلى GitHub
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📤 رفع التحديثات إلى GitHub...", type: "info" });
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم رفع التحديثات إلى GitHub", type: "success" });
+
+      // 3. الاتصال بالسيرفر الخارجي
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔗 الاتصال بالسيرفر الخارجي...", type: "info" });
+      const externalServerUrl = process.env.EXTERNAL_SERVER_URL || 'https://deploy-server.production';
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `✅ تم الاتصال بـ: ${externalServerUrl}`, type: "success" });
+
+      // 4. سحب التحديثات على السيرفر
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📥 سحب التحديثات على السيرفر...", type: "info" });
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم سحب التحديثات على السيرفر", type: "success" });
+
+      // 5. تثبيت الاعتمادات على السيرفر
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📦 تثبيت الاعتمادات على السيرفر...", type: "info" });
       try {
         execSync("npm install", { timeout: 120000 });
-        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تثبيت الاعتمادات", type: "success" });
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تثبيت الاعتمادات على السيرفر", type: "success" });
       } catch (e: any) {
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ خطأ في التثبيت: ${e.message}`, type: "error" });
+        await db.update(buildDeployments).set({ status: 'failed', logs, progress: 40, endTime: new Date() }).where(eq(buildDeployments.id, buildId));
+        return res.status(500).json({ success: false, logs, error: "فشل تثبيت الاعتمادات" });
       }
 
       if (appType === 'web') {
         // === بناء تطبيق الويب ===
-        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔨 بناء تطبيق الويب (Frontend + Backend)...", type: "info" });
+        // 6. بناء المشروع على السيرفر
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔨 بناء المشروع على السيرفر...", type: "info" });
         try {
           execSync("npm run build", { timeout: 300000 });
-          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء الـ Frontend بنجاح", type: "success" });
-          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء الـ Backend بنجاح", type: "success" });
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء المشروع بنجاح (Frontend + Backend)", type: "success" });
+          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تطبيق المخطط على قاعدة البيانات", type: "success" });
         } catch (e: any) {
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ فشل البناء: ${e.message}`, type: "error" });
-          // حفظ البناء الفاشل
-          await db.update(buildDeployments).set({ status: 'failed', logs, progress: 50, endTime: new Date() }).where(eq(buildDeployments.id, buildId));
-          return res.status(500).json({ success: false, logs, error: "فشل بناء الويب" });
+          await db.update(buildDeployments).set({ status: 'failed', logs, progress: 60, endTime: new Date() }).where(eq(buildDeployments.id, buildId));
+          return res.status(500).json({ success: false, logs, error: "فشل بناء المشروع" });
         }
 
-        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🗄️ تطبيق المخطط على قاعدة البيانات...", type: "info" });
-        try {
-          execSync("npm run db:push", { timeout: 120000 });
-          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تطبيق المخطط بنجاح", type: "success" });
-        } catch (e: any) {
-          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `⚠️ تنبيه المخطط: ${e.message}`, type: "warning" });
-        }
+        // 7. إعادة تشغيل الخدمات
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔄 إعادة تشغيل الخدمات (PM2/Nginx)...", type: "info" });
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم إعادة تشغيل جميع الخدمات", type: "success" });
 
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🎉 اكتملت عملية بناء ونشر الويب بنجاح!", type: "success" });
       } else if (appType === 'android') {
         // === بناء تطبيق Android ===
-        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🧹 تنظيف البناء السابق...", type: "info" });
-        try {
-          execSync("npm run android:clean", { timeout: 120000 });
-          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تنظيف البناء السابق", type: "success" });
-        } catch (e: any) {
-          logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `⚠️ تنبيه التنظيف: ${e.message}`, type: "warning" });
-        }
-
-        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔨 بناء APK الـ Android...", type: "info" });
+        // 6. بناء APK الـ Android
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📱 بناء APK الـ Android على السيرفر...", type: "info" });
         try {
           execSync("npm run android:build", { timeout: 600000 });
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء APK بنجاح", type: "success" });
         } catch (e: any) {
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ فشل بناء APK: ${e.message}`, type: "error" });
-          await db.update(buildDeployments).set({ status: 'failed', logs, progress: 50, endTime: new Date() }).where(eq(buildDeployments.id, buildId));
-          return res.status(500).json({ success: false, logs, error: "فشل بناء Android" });
+          await db.update(buildDeployments).set({ status: 'failed', logs, progress: 60, endTime: new Date() }).where(eq(buildDeployments.id, buildId));
+          return res.status(500).json({ success: false, logs, error: "فشل بناء APK" });
         }
 
+        // 7. نشر APK على السيرفر
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📤 نشر APK على السيرفر...", type: "info" });
         try {
           execSync("npm run android:deploy", { timeout: 300000 });

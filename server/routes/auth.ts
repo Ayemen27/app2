@@ -164,7 +164,8 @@ router.post('/login', async (req, res) => {
             lastName: user[0].lastName,
             name: `${user[0].firstName || ''} ${user[0].lastName || ''}`.trim() || user[0].email,
             role: user[0].role,
-            mfaEnabled: false
+            mfaEnabled: false,
+            emailVerified: !!user[0].emailVerifiedAt
           },
           accessToken,
           refreshToken
@@ -314,7 +315,8 @@ router.post('/login', async (req, res) => {
           lastName: user.lastName,
           name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
           role: user.role,
-          mfaEnabled: false
+          mfaEnabled: false,
+          emailVerified: !!user.emailVerifiedAt
         },
         accessToken,
         refreshToken

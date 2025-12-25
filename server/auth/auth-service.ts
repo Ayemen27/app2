@@ -465,6 +465,7 @@ export async function registerUser(request: RegisterRequest) {
         firstName: parsedName.firstName,
         lastName: parsedName.lastName || '',
         role,
+        emailVerified: false
       }
     };
 

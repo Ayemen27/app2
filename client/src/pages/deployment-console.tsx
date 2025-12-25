@@ -92,9 +92,26 @@ export default function DeploymentConsole() {
 
     addLog('🚀 بدء عملية البناء والنشر...', 'info');
 
+    // تسجيل في قاعدة البيانات
+    try {
+      await apiRequest('POST', '/api/builds', {
+        buildNumber: Math.floor(Math.random() * 10000),
+        status: 'running',
+        currentStep: 'Initializing',
+        progress: 0,
+        version: '1.0.9',
+        triggeredBy: 'ba1f45fa-3a01-496a-87a2-09c7aaa92c4f', // Admin ID
+        logs: [],
+        steps: INITIAL_STEPS
+      });
+    } catch (e) {
+      console.error('Failed to log build start');
+    }
+
     for (let i = 0; i < STEPS_LOGIC.length; i++) {
       const stepConfig = STEPS_LOGIC[i];
       updateStep(stepConfig.id, 'running');
+      const timestamp = new Date().toLocaleTimeString('ar-SA');
       addLog(`[${stepConfig.name}] جاري التنفيذ...`, 'info');
       
       const stepStartTime = Date.now();
@@ -104,24 +121,30 @@ export default function DeploymentConsole() {
         const duration = Math.floor((Date.now() - stepStartTime) / 1000);
         updateStep(stepConfig.id, 'success', duration);
         addLog(`✅ اكتملت مرحلة: ${stepConfig.name}`, 'success');
-        setProgress(((i + 1) / STEPS_LOGIC.length) * 100);
+        const newProgress = ((i + 1) / STEPS_LOGIC.length) * 100;
+        setProgress(newProgress);
+
+        // تحديث قاعدة البيانات لكل خطوة
+        await apiRequest('PATCH', '/api/builds/latest', {
+          currentStep: stepConfig.name,
+          progress: Math.floor(newProgress),
+          logs: [...logs, { id: Math.random().toString(), timestamp, message: `Completed ${stepConfig.name}`, type: 'success' }]
+        }).catch(() => {});
+
       } catch (error) {
         updateStep(stepConfig.id, 'failed');
         addLog(`❌ فشلت العملية في مرحلة: ${stepConfig.name}`, 'error');
-        addLog(`سبب محتمل: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`, 'warning');
         setIsRunning(false);
         setEndTime(Date.now());
+        await apiRequest('PATCH', '/api/builds/latest', { status: 'failed', currentStep: stepConfig.name }).catch(() => {});
         return;
       }
     }
 
     setIsRunning(false);
     setEndTime(Date.now());
-    addLog('🎉 اكتملت عملية النشر بنجاح! التطبيق الآن متاح بنسخته الجديدة.', 'success');
-    toast({
-      title: "نجاح النشر",
-      description: "تم تحديث التطبيق بنجاح.",
-    });
+    addLog('🎉 اكتملت عملية النشر بنجاح!', 'success');
+    await apiRequest('PATCH', '/api/builds/latest', { status: 'success', progress: 100, endTime: new Date().toISOString() }).catch(() => {});
   };
 
   const simulateStep = async (step: any) => {

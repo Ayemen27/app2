@@ -43,6 +43,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // 🚀 Build & Deployment Routes
+  // ========================================
+  app.post("/api/builds", requireAuth, async (req, res) => {
+    try {
+      const [newBuild] = await db.insert(buildDeployments).values({
+        ...req.body,
+        triggeredBy: req.user!.id,
+      }).returning();
+      res.json({ success: true, data: newBuild });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.patch("/api/builds/latest", requireAuth, async (req, res) => {
+    try {
+      const latestBuild = await db.select().from(buildDeployments)
+        .where(eq(buildDeployments.triggeredBy, req.user!.id))
+        .orderBy(desc(buildDeployments.startTime))
+        .limit(1);
+
+      if (!latestBuild.length) return res.status(404).json({ success: false });
+
+      const [updated] = await db.update(buildDeployments)
+        .set(req.body)
+        .where(eq(buildDeployments.id, latestBuild[0].id))
+        .returning();
+      res.json({ success: true, data: updated });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/builds", requireAuth, async (req, res) => {
+    try {
+      const builds = await db.select().from(buildDeployments).orderBy(desc(buildDeployments.startTime)).limit(10);
+      res.json({ success: true, data: builds });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });

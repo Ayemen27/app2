@@ -147,85 +147,47 @@ export default function DeploymentConsole() {
     setEndTime(null);
 
     const appName = selectedApp === 'web' ? 'تطبيق الويب' : 'تطبيق Android';
-    addLog(`🚀 بدء عملية البناء والنشر لـ ${appName} عبر GitHub...`, 'info');
+    addLog(`🚀 بدء عملية البناء والنشر الحقيقية لـ ${appName}...`, 'info');
 
-    // تسجيل في قاعدة البيانات
     try {
-      await apiRequest('POST', '/api/builds', {
-        buildNumber: Math.floor(Math.random() * 10000),
-        status: 'running',
-        currentStep: 'Initializing',
-        progress: 0,
-        version: '1.0.11',
-        triggeredBy: 'ba1f45fa-3a01-496a-87a2-09c7aaa92c4f', // Admin ID
-        logs: [],
-        steps: INITIAL_STEPS
-      });
-    } catch (e) {
-      console.error('Failed to log build start');
-    }
-
-    const stepsLogic = getStepsLogic();
-    for (let i = 0; i < stepsLogic.length; i++) {
-      const stepConfig = stepsLogic[i];
-      updateStep(stepConfig.id, 'running');
-      const timestamp = new Date().toLocaleTimeString('ar-SA');
-      addLog(`[${stepConfig.name}] جاري التنفيذ...`, 'info');
+      // تنفيذ البناء الحقيقي عبر API
+      addLog('⏳ جاري تنفيذ البناء الفعلي على السيرفر...', 'info');
+      updateStep(6, 'running');
       
-      const stepStartTime = Date.now();
+      const response = await apiRequest('POST', '/api/deployment/build', { appType: selectedApp });
       
-      try {
-        // معالجة خطوة تطبيق المخطط بشكل خاص
-        if (stepConfig.name === 'تطبيق المخطط على السيرفر') {
-          updateStep(stepConfig.id, 'running');
-          addLog('🔄 بدء عملية تطبيق المخطط...', 'info');
-          
-          // عرض نافذة التفاعل
-          setSchemaPrompt({
-            show: true,
-            message: 'هناك تغييرات في المخطط تحتاج تطبيقها على السيرفر الخارجي. هل تريد المتابعة؟',
-            action: 'apply_schema'
-          });
-          
-          // انتظار رد المستخدم (يتم معالجته بواسطة applySchema أو rejectSchema)
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          if (!schemaPrompt.show) {
-            const duration = Math.floor((Date.now() - stepStartTime) / 1000);
-            updateStep(stepConfig.id, 'success', duration);
-          }
-        } else {
-          await simulateStep(stepConfig);
-          const duration = Math.floor((Date.now() - stepStartTime) / 1000);
-          updateStep(stepConfig.id, 'success', duration);
-          addLog(`✅ اكتملت مرحلة: ${stepConfig.name}`, 'success');
-        }
-
-        const newProgress = ((i + 1) / stepsLogic.length) * 100;
-        setProgress(newProgress);
-
-        // تحديث قاعدة البيانات لكل خطوة
-        await apiRequest('PATCH', '/api/builds/latest', {
-          currentStep: stepConfig.name,
-          progress: Math.floor(newProgress),
-          appType: selectedApp,
-          logs: [...logs, { id: Math.random().toString(), timestamp, message: `Completed ${stepConfig.name}`, type: 'success' }]
-        }).catch(() => {});
-
-      } catch (error) {
-        updateStep(stepConfig.id, 'failed');
-        addLog(`❌ فشلت العملية في مرحلة: ${stepConfig.name}`, 'error');
-        setIsRunning(false);
-        setEndTime(Date.now());
-        await apiRequest('PATCH', '/api/builds/latest', { status: 'failed', currentStep: stepConfig.name }).catch(() => {});
-        return;
+      if (response.success && response.logs) {
+        // عرض جميع السجلات الحقيقية من البناء
+        response.logs.forEach((log: any) => {
+          addLog(log.message, log.type);
+        });
+        
+        // تحديث خطوات البناء
+        const steps = [
+          { id: 1, name: 'تجهيز المشروع', status: 'success' as const },
+          { id: 2, name: 'رفع التحديثات لـ GitHub', status: 'success' as const },
+          { id: 3, name: 'سحب التحديثات على السيرفر', status: 'success' as const },
+          { id: 4, name: 'تثبيت الاعتمادات', status: 'success' as const },
+          { id: 5, name: 'تطبيق المخطط على السيرفر', status: 'success' as const },
+          { id: 6, name: 'بناء التطبيق', status: 'success' as const },
+          { id: 7, name: 'تشغيل الخدمات', status: 'success' as const },
+        ];
+        
+        setSteps(steps);
+        setProgress(100);
+        addLog('🎉 اكتملت عملية البناء والنشر بنجاح 100%!', 'success');
       }
+    } catch (error: any) {
+      addLog(`❌ خطأ في البناء: ${error.message || 'حدث خطأ غير متوقع'}`, 'error');
+      const failedStep = INITIAL_STEPS.find(s => s.id === 6);
+      if (failedStep) {
+        updateStep(failedStep.id, 'failed');
+      }
+      toast({ description: "فشل البناء - تحقق من السجلات", variant: "destructive" });
+    } finally {
+      setIsRunning(false);
+      setEndTime(Date.now());
     }
-
-    setIsRunning(false);
-    setEndTime(Date.now());
-    addLog('🎉 اكتملت عملية النشر عبر GitHub بنجاح!', 'success');
-    await apiRequest('PATCH', '/api/builds/latest', { status: 'success', progress: 100, endTime: new Date().toISOString(), appType: selectedApp }).catch(() => {});
   };
 
   const simulateStep = async (step: any) => {

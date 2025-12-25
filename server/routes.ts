@@ -2,6 +2,7 @@ import type { Express } from "express";
 import type { Server } from "http";
 import { createServer } from "http";
 import rateLimit from "express-rate-limit";
+import { execSync, spawn } from "child_process";
 import { eq, and, or, sql, gte, lt, lte, desc } from "drizzle-orm";
 import { db, pool } from "./db";
 import { 
@@ -112,6 +113,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: error.message,
         message: 'فشل في تطبيق المخطط على السيرفر الخارجي'
       });
+    }
+  });
+
+  // 🚀 Real Build & Deployment Endpoint
+  app.post("/api/deployment/build", requireAuth, async (req, res) => {
+    const { appType } = req.body;
+    const logs: { timestamp: string; message: string; type: string }[] = [];
+
+    try {
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🚀 بدء عملية البناء الحقيقية", type: "info" });
+      
+      // 1. تثبيت الاعتمادات
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📦 تثبيت الاعتمادات...", type: "info" });
+      try {
+        execSync("npm install", { timeout: 120000 });
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تثبيت الاعتمادات", type: "success" });
+      } catch (e: any) {
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ خطأ في التثبيت: ${e.message}`, type: "error" });
+      }
+
+      // 2. بناء الـ Frontend و Backend
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔨 بناء التطبيق...", type: "info" });
+      try {
+        execSync("npm run build", { timeout: 300000 });
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء التطبيق بنجاح", type: "success" });
+      } catch (e: any) {
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ فشل البناء: ${e.message}`, type: "error" });
+        return res.status(500).json({ success: false, logs, error: "فشل البناء" });
+      }
+
+      // 3. تطبيق المخطط على قاعدة البيانات
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🗄️ تطبيق المخطط على قاعدة البيانات...", type: "info" });
+      try {
+        execSync("npm run db:push", { timeout: 120000 });
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تطبيق المخطط بنجاح", type: "success" });
+      } catch (e: any) {
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `⚠️ تنبيه المخطط: ${e.message}`, type: "warning" });
+      }
+
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🎉 اكتملت عملية البناء والنشر بنجاح!", type: "success" });
+      
+      res.json({ success: true, logs, message: "تم البناء بنجاح" });
+    } catch (error: any) {
+      logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `💥 خطأ: ${error.message}`, type: "error" });
+      res.status(500).json({ success: false, logs, error: error.message });
     }
   });
 

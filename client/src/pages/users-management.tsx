@@ -70,6 +70,8 @@ export default function UsersManagementPage() {
   const [editForm, setEditForm] = useState({
     firstName: '',
     lastName: '',
+    email: '',
+    password: '',
     role: '',
     isActive: true,
   });
@@ -89,33 +91,20 @@ export default function UsersManagementPage() {
         const endpoint = `/api/users/list${queryString ? '?' + queryString : ''}`;
         
         console.log('🔄 [Users] جلب المستخدمين من:', endpoint);
-        console.log('🔍 [Users] المعاملات:', { searchValue, filterValues });
         
         const response = await apiRequest(endpoint, "GET");
-        
-        console.log('📦 [Users] الاستجابة الكاملة:', JSON.stringify(response, null, 2));
-        console.log('📊 [Users] نوع الاستجابة:', typeof response);
-        console.log('📋 [Users] مفاتيح الاستجابة:', response ? Object.keys(response) : 'null');
         
         // معالجة هيكل الاستجابة المتعددة (مثل صفحة المشاريع)
         let users = [];
         if (response && typeof response === 'object') {
-          console.log('🔍 [Users] فحص هيكل الاستجابة...');
-          
           if (response.success !== undefined && response.users !== undefined) {
-            console.log('✅ [Users] وجدت response.users:', Array.isArray(response.users), 'العدد:', response.users?.length);
             users = Array.isArray(response.users) ? response.users : [];
           } else if (response.success !== undefined && response.data !== undefined) {
-            console.log('✅ [Users] وجدت response.data:', Array.isArray(response.data), 'العدد:', response.data?.length);
             users = Array.isArray(response.data) ? response.data : [];
           } else if (Array.isArray(response)) {
-            console.log('✅ [Users] الاستجابة مصفوفة مباشرة، العدد:', response.length);
             users = response;
           } else if (response.data) {
-            console.log('✅ [Users] وجدت data بدون success:', Array.isArray(response.data), 'العدد:', response.data?.length);
             users = Array.isArray(response.data) ? response.data : [];
-          } else {
-            console.warn('⚠️ [Users] هيكل استجابة غير معروف:', response);
           }
         }
 
@@ -127,16 +116,6 @@ export default function UsersManagementPage() {
           isActive: u.isActive !== undefined ? u.isActive : true,
         }));
 
-        if (!Array.isArray(users)) {
-          console.warn('⚠️ [Users] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
-          users = [];
-        }
-
-        console.log(`✅ [Users] النتيجة النهائية: ${users.length} مستخدم`);
-        if (users.length > 0) {
-          console.log('👤 [Users] عينة من أول مستخدم:', users[0]);
-        }
-        
         return { users };
       } catch (error) {
         console.error('❌ [Users] خطأ في جلب المستخدمين:', error);
@@ -144,32 +123,13 @@ export default function UsersManagementPage() {
       }
     },
     enabled: isAuthenticated,
-    retry: 2,
-    staleTime: 30000,
   });
-
-  // عرض رسالة خطأ إذا حدث خطأ
-  React.useEffect(() => {
-    if (error) {
-      console.error('❌ خطأ في Query:', error);
-      toast({
-        title: 'خطأ في جلب المستخدمين',
-        description: error instanceof Error ? error.message : 'حدث خطأ غير متوقع',
-        variant: 'destructive'
-      });
-    }
-  }, [error, toast]);
 
   // تحديث مستخدم
   const updateMutation = useMutation({
     mutationFn: async (data: { userId: string; updates: any }) => {
-      const response = await fetch(`/api/auth/users/${data.userId}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(data.updates),
-      });
-      if (!response.ok) throw new Error('فشل في تحديث المستخدم');
-      return response.json();
+      const response = await apiRequest(`/api/auth/users/${data.userId}`, "PUT", data.updates);
+      return response;
     },
     onSuccess: () => {
       toast({ title: 'تم تحديث المستخدم بنجاح', variant: 'default' });
@@ -177,20 +137,20 @@ export default function UsersManagementPage() {
       setIsEditDialogOpen(false);
       setSelectedUser(null);
     },
-    onError: () => {
-      toast({ title: 'خطأ في تحديث المستخدم', variant: 'destructive' });
+    onError: (error: any) => {
+      toast({ 
+        title: 'خطأ في تحديث المستخدم', 
+        description: error.message || 'فشل الاتصال بالسيرفر',
+        variant: 'destructive' 
+      });
     },
   });
 
   // حذف مستخدم
   const deleteMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const response = await fetch(`/api/auth/users/${userId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('فشل في حذف المستخدم');
-      return response.json();
+      const response = await apiRequest(`/api/auth/users/${userId}`, "DELETE");
+      return response;
     },
     onSuccess: () => {
       toast({ title: 'تم حذف المستخدم بنجاح', variant: 'default' });
@@ -198,25 +158,27 @@ export default function UsersManagementPage() {
       setIsDeleteDialogOpen(false);
       setSelectedUser(null);
     },
-    onError: () => {
-      toast({ title: 'خطأ في حذف المستخدم', variant: 'destructive' });
-    },
   });
 
   // تبديل حالة المستخدم
   const toggleStatusMutation = useMutation({
     mutationFn: async (data: { userId: string; isActive: boolean }) => {
-      const response = await fetch(`/api/auth/users/${data.userId}/toggle-status`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ isActive: data.isActive }),
+      // استخدام المسار الصحيح المكتشف من السجل
+      const response = await apiRequest(`/api/auth/users/${data.userId}/toggle-status`, "POST", { 
+        isActive: data.isActive 
       });
-      if (!response.ok) throw new Error('فشل في تحديث الحالة');
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       toast({ title: 'تم تحديث حالة المستخدم', variant: 'default' });
       queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'خطأ في تحديث الحالة', 
+        description: error.message || 'تأكد من صلاحياتك كمسؤول',
+        variant: 'destructive' 
+      });
     },
   });
 
@@ -329,6 +291,8 @@ export default function UsersManagementPage() {
     setEditForm({
       firstName: user.firstName,
       lastName: user.lastName,
+      email: user.email,
+      password: '', // لا تظهر كلمة المرور الحالية لأسباب أمنية
       role: user.role,
       isActive: user.isActive,
     });
@@ -342,9 +306,15 @@ export default function UsersManagementPage() {
 
   const handleSaveEdit = React.useCallback(() => {
     if (selectedUser) {
+      // إرسال البيانات فقط إذا تم إدخال كلمة مرور جديدة، وإلا استبعاد الحقل
+      const updates = { ...editForm };
+      if (!updates.password) {
+        delete (updates as any).password;
+      }
+      
       updateMutation.mutate({
         userId: selectedUser.id,
-        updates: editForm,
+        updates: updates,
       });
     }
   }, [selectedUser, editForm, updateMutation]);
@@ -483,29 +453,59 @@ export default function UsersManagementPage() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>تعديل المستخدم</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5 text-blue-500" />
+              تعديل بيانات المستخدم
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>الاسم الأول</Label>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">الاسم الأول</Label>
+                <Input
+                  id="firstName"
+                  value={editForm.firstName}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">الاسم الأخير</Label>
+                <Input
+                  id="lastName"
+                  value={editForm.lastName}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="email">البريد الإلكتروني</Label>
               <Input
-                value={editForm.firstName}
-                onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
+                id="email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
               />
             </div>
-            <div>
-              <Label>الاسم الأخير</Label>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">كلمة المرور الجديدة (اختياري)</Label>
               <Input
-                value={editForm.lastName}
-                onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
+                id="password"
+                type="password"
+                placeholder="اتركها فارغة لعدم التغيير"
+                value={editForm.password}
+                onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))}
               />
             </div>
-            <div>
-              <Label>الدور</Label>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">الدور</Label>
               <select
-                className="w-full border rounded-md px-3 py-2"
+                id="role"
+                className="w-full h-10 border rounded-md px-3 bg-background"
                 value={editForm.role}
                 onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value }))}
               >
@@ -514,10 +514,32 @@ export default function UsersManagementPage() {
                 <option value="super_admin">مدير أول</option>
               </select>
             </div>
+
+            <div className="flex items-center justify-between p-3 border rounded-lg bg-slate-50 dark:bg-slate-900">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">حالة الحساب</Label>
+                <p className="text-xs text-muted-foreground">تفعيل أو تعطيل دخول المستخدم</p>
+              </div>
+              <Button
+                variant={editForm.isActive ? "default" : "outline"}
+                size="sm"
+                onClick={() => setEditForm(prev => ({ ...prev, isActive: !prev.isActive }))}
+                className={cn(
+                  "gap-2",
+                  editForm.isActive ? "bg-green-600 hover:bg-green-700" : "text-red-600 border-red-200 bg-red-50 hover:bg-red-100"
+                )}
+              >
+                {editForm.isActive ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                {editForm.isActive ? 'نشط' : 'معطل'}
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>إلغاء</Button>
-            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>حفظ</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="flex-1">إلغاء</Button>
+            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending} className="flex-1">
+              {updateMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
+              حفظ التغييرات
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

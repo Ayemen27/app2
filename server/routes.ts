@@ -8,6 +8,7 @@ import {
   projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
   fundTransfers, transportationExpenses, dailyExpenseSummaries, tools, toolMovements,
   workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers, users,
+  buildDeployments,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
   insertMaterialSchema, insertSupplierSchema, insertMaterialPurchaseSchema,
   insertWorkerAttendanceSchema, insertFundTransferSchema, insertTransportationExpenseSchema,

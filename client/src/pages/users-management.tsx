@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Users, UserPlus, UserCheck, UserX, Shield, Mail, Calendar, Settings, Search, Filter, Trash2, Edit, MoreVertical, RefreshCw, Download, Eye, Lock, Unlock } from 'lucide-react';
+import { Users, UserPlus, UserCheck, UserX, Shield, Mail, Calendar, Settings, Search, Filter, Trash2, Edit, MoreVertical, RefreshCw, Download, Eye, Lock, Unlock, Briefcase } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +57,14 @@ interface DeletingUser {
   progress: number;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+  projectTypeId: number | null;
+  createdAt: string;
+}
+
 export default function UsersManagementPage() {
   const { toast } = useToast();
   const { isAuthenticated, getAccessToken } = useAuth();
@@ -72,6 +80,7 @@ export default function UsersManagementPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isProjectsDialogOpen, setIsProjectsDialogOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<DeletingUser | null>(null);
   const [editForm, setEditForm] = useState({
     firstName: '',
@@ -224,6 +233,17 @@ export default function UsersManagementPage() {
         variant: 'destructive' 
       });
     },
+  });
+
+  // جلب المشاريع المرتبطة بالمستخدم
+  const { data: userProjects = { projects: [] } } = useQuery({
+    queryKey: ['user-projects', selectedUser?.id],
+    queryFn: async () => {
+      if (!selectedUser?.id) return { projects: [] };
+      const response = await apiRequest(`/api/users/${selectedUser.id}/projects`, "GET");
+      return response || { projects: [] };
+    },
+    enabled: !!selectedUser?.id && isProjectsDialogOpen,
   });
 
   const users = usersData?.users || [];
@@ -488,6 +508,16 @@ export default function UsersManagementPage() {
                       disabled: deletingUser?.id === user.id
                     },
                     {
+                      icon: Briefcase,
+                      label: 'المشاريع',
+                      onClick: () => {
+                        setSelectedUser(user);
+                        setIsProjectsDialogOpen(true);
+                      },
+                      color: 'purple',
+                      disabled: deletingUser?.id === user.id
+                    },
+                    {
                       icon: user.isActive ? Lock : Unlock,
                       label: user.isActive ? 'تعطيل' : 'تفعيل',
                       onClick: () => toggleStatusMutation.mutate({ 
@@ -609,6 +639,47 @@ export default function UsersManagementPage() {
               {updateMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
               حفظ التغييرات
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Projects Dialog */}
+      <Dialog open={isProjectsDialogOpen} onOpenChange={setIsProjectsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] max-h-[600px] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-purple-500" />
+              المشاريع المرتبطة بـ {selectedUser?.firstName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {!userProjects?.projects || userProjects.projects.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Briefcase className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                <p>لا توجد مشاريع مرتبطة بهذا المستخدم</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {userProjects.projects.map((project: Project) => (
+                  <Card key={project.id} className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-medium text-sm">{project.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(project.createdAt).toLocaleDateString('ar-EG')}
+                        </p>
+                      </div>
+                      <Badge variant={project.status === 'active' ? 'success' : 'secondary'} className="whitespace-nowrap">
+                        {project.status === 'active' ? 'نشط' : project.status === 'completed' ? 'مكتمل' : 'معلق'}
+                      </Badge>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsProjectsDialogOpen(false)}>إغلاق</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

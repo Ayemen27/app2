@@ -108,6 +108,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // جلب المشاريع المرتبطة بمستخدم معين (المهندس/المشرف)
+  app.get("/api/users/:userId/projects", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      console.log(`📊 [API] جلب المشاريع للمستخدم: ${userId}`);
+      
+      const userProjects = await db.select({
+        id: projects.id,
+        name: projects.name,
+        status: projects.status,
+        projectTypeId: projects.projectTypeId,
+        createdAt: projects.createdAt,
+      }).from(projects).where(eq(projects.engineerId, userId));
+      
+      console.log(`✅ [API] تم جلب ${userProjects.length} مشروع للمستخدم: ${userId}`);
+      res.json({ 
+        success: true, 
+        projects: userProjects,
+        message: `تم جلب ${userProjects.length} مشروع بنجاح`
+      });
+    } catch (error: any) {
+      console.error('❌ [API] خطأ في جلب المشاريع:', error);
+      res.status(500).json({ 
+        success: false, 
+        projects: [], 
+        error: error.message,
+        message: "فشل في جلب قائمة المشاريع"
+      });
+    }
+  });
+
   // تحديث مستخدم
   app.put("/api/auth/users/:userId", requireAuth, requireRole('admin'), async (req, res) => {
     try {

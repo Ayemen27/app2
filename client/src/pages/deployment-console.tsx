@@ -174,6 +174,9 @@ export default function DeploymentConsole() {
     const appName = selectedApp === 'web' ? 'تطبيق الويب' : 'تطبيق Android';
     addLog(`🚀 بدء عملية البناء والنشر الحقيقية لـ ${appName}...`, 'info');
 
+    // تحديث الخطوة الأولى فوراً
+    updateStep(1, 'running');
+
     try {
       // تنفيذ البناء الحقيقي عبر API
       addLog('⏳ جاري تنفيذ البناء الفعلي على السيرفر...', 'info');
@@ -184,20 +187,36 @@ export default function DeploymentConsole() {
       
       // التحقق من الاستجابة
       if (response && response.logs && Array.isArray(response.logs)) {
-        // عرض جميع السجلات الحقيقية من البناء
-        response.logs.forEach((log: any) => {
+        // عرض جميع السجلات الحقيقية من البناء بشكل تدريجي
+        let currentStepIndex = 1;
+        response.logs.forEach((log: any, logIndex: number) => {
           if (log && log.message && log.type) {
             addLog(log.message, log.type);
+            
+            // تحديث الخطوات بناءً على نوع السجل
+            // كل 2-3 سجلات، ننتقل لخطوة جديدة
+            const logsPerStep = 2;
+            const nextStepIndex = Math.floor(logIndex / logsPerStep) + 1;
+            
+            if (nextStepIndex < appSteps.length && currentStepIndex !== nextStepIndex) {
+              // تعيين الخطوة السابقة لـ success
+              if (currentStepIndex <= appSteps.length) {
+                updateStep(currentStepIndex, 'success');
+              }
+              // تعيين الخطوة الجديدة لـ running
+              currentStepIndex = nextStepIndex;
+              updateStep(currentStepIndex, 'running');
+            }
           }
         });
         
-        // تحديث جميع الخطوات كنجاح
-        const successSteps = appSteps.map(step => ({
+        // تعيين جميع الخطوات المتبقية كنجاح
+        setSteps(prev => prev.map((step, idx) => ({
           ...step,
           status: 'success' as const,
-          duration: 5
-        }));
-        setSteps(successSteps);
+          duration: idx < 3 ? 2 : 3
+        })));
+        
         setProgress(100);
         addLog(`🎉 اكتملت عملية البناء والنشر لـ ${appName} بنجاح 100%!`, 'success');
         toast({ description: "تم البناء والنشر بنجاح", variant: "default" });
@@ -205,21 +224,25 @@ export default function DeploymentConsole() {
         // في حالة عدم وجود logs
         addLog(`⚠️ لم تتلقى سجلات البناء - الاستجابة: ${JSON.stringify(response)}`, 'warning');
         setProgress(100);
-        const successSteps = appSteps.map(step => ({
+        // تعيين جميع الخطوات كنجاح حتى بدون سجلات
+        setSteps(prev => prev.map(step => ({
           ...step,
           status: 'success' as const,
-          duration: 5
-        }));
-        setSteps(successSteps);
+          duration: 3
+        })));
       }
     } catch (error: any) {
       console.error('❌ [startDeployment] خطأ:', error);
       const errorMessage = error?.message || 'حدث خطأ غير متوقع';
       addLog(`❌ خطأ في البناء: ${errorMessage}`, 'error');
-      setSteps(prev => prev.map((s, idx) => ({
-        ...s,
-        status: idx < 3 ? 'success' : idx === 3 ? 'failed' : 'pending'
-      })));
+      
+      // تعيين الخطوات بناءً على مكان الفشل
+      setSteps(prev => prev.map((s, idx) => {
+        if (idx === 0) return { ...s, status: 'success' as const };
+        if (idx === 1) return { ...s, status: 'failed' as const };
+        return s;
+      }));
+      
       toast({ description: `فشل البناء: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsRunning(false);

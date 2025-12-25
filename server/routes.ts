@@ -151,7 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // 3. الاتصال بالسيرفر الخارجي
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔗 الاتصال بالسيرفر الخارجي...", type: "info" });
-      const externalServerUrl = process.env.EXTERNAL_SERVER_URL || 'https://deploy-server.production';
+      const externalServerUrl = process.env.EXTERNAL_SERVER_URL || 'http://localhost:6000';
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `✅ تم الاتصال بـ: ${externalServerUrl}`, type: "success" });
 
       // 4. سحب التحديثات على السيرفر
@@ -161,7 +161,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 5. تثبيت الاعتمادات على السيرفر
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📦 تثبيت الاعتمادات على السيرفر...", type: "info" });
       try {
-        execSync("npm install", { timeout: 120000 });
+        // إرسال طلب للسيرفر الخارجي بدلاً من تنفيذ محلي
+        const installResponse = await fetch(`${externalServerUrl}/api/build/install`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appType })
+        });
+        
+        if (!installResponse.ok) {
+          throw new Error(`فشل الاتصال بالسيرفر: ${installResponse.statusText}`);
+        }
+        
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تثبيت الاعتمادات على السيرفر", type: "success" });
       } catch (e: any) {
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ خطأ في التثبيت: ${e.message}`, type: "error" });
@@ -174,7 +184,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // 6. بناء المشروع على السيرفر
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔨 بناء المشروع على السيرفر...", type: "info" });
         try {
-          execSync("npm run build", { timeout: 300000 });
+          // إرسال طلب للسيرفر الخارجي
+          const buildResponse = await fetch(`${externalServerUrl}/api/build/web`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appType })
+          });
+          
+          if (!buildResponse.ok) {
+            throw new Error(`فشل البناء على السيرفر: ${buildResponse.statusText}`);
+          }
+          
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء المشروع بنجاح (Frontend + Backend)", type: "success" });
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم تطبيق المخطط على قاعدة البيانات", type: "success" });
         } catch (e: any) {
@@ -193,7 +213,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // 6. بناء APK الـ Android
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📱 بناء APK الـ Android على السيرفر...", type: "info" });
         try {
-          execSync("npm run android:build", { timeout: 600000 });
+          const apkResponse = await fetch(`${externalServerUrl}/api/build/android`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appType })
+          });
+          
+          if (!apkResponse.ok) {
+            throw new Error(`فشل بناء APK: ${apkResponse.statusText}`);
+          }
+          
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم بناء APK بنجاح", type: "success" });
         } catch (e: any) {
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `❌ فشل بناء APK: ${e.message}`, type: "error" });
@@ -204,7 +233,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // 7. نشر APK على السيرفر
         logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📤 نشر APK على السيرفر...", type: "info" });
         try {
-          execSync("npm run android:deploy", { timeout: 300000 });
+          const deployResponse = await fetch(`${externalServerUrl}/api/build/deploy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appType })
+          });
+          
+          if (!deployResponse.ok) {
+            throw new Error(`فشل النشر: ${deployResponse.statusText}`);
+          }
+          
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم نشر APK بنجاح على السيرفر", type: "success" });
         } catch (e: any) {
           logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `⚠️ تنبيه النشر: ${e.message}`, type: "warning" });

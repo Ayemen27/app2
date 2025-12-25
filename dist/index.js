@@ -17778,34 +17778,192 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/users/list", requireAuth, async (req, res) => {
     try {
-      console.log("\u{1F4CA} [API] \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646");
+      console.log("\u{1F4CA} [API] \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646 \u0627\u0644\u0643\u0627\u0645\u0644\u0629");
       const usersList = await db.select({
         id: users.id,
         firstName: users.firstName,
         lastName: users.lastName,
         email: users.email,
-        role: users.role
+        role: users.role,
+        isActive: users.isActive,
+        emailVerifiedAt: users.emailVerifiedAt,
+        lastLogin: users.lastLogin,
+        createdAt: users.createdAt,
+        mfaEnabled: users.mfaEnabled
       }).from(users).orderBy(users.firstName);
-      const usersWithName = usersList.map((user) => ({
-        id: user.id,
-        name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
-        email: user.email,
-        role: user.role
-      }));
-      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${usersWithName.length} \u0645\u0633\u062A\u062E\u062F\u0645`);
+      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${usersList.length} \u0645\u0633\u062A\u062E\u062F\u0645`);
       res.json({
         success: true,
-        data: usersWithName,
-        message: `\u062A\u0645 \u062C\u0644\u0628 ${usersWithName.length} \u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0646\u062C\u0627\u062D`
+        users: usersList,
+        message: `\u062A\u0645 \u062C\u0644\u0628 ${usersList.length} \u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0646\u062C\u0627\u062D`
       });
     } catch (error) {
       console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646:", error);
       res.status(500).json({
         success: false,
-        data: [],
+        users: [],
         error: error.message,
         message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646"
       });
+    }
+  });
+  app2.get("/api/users/:userId/projects", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
+      const userProjects = await db.select({
+        id: projects.id,
+        name: projects.name,
+        status: projects.status,
+        projectTypeId: projects.projectTypeId,
+        createdAt: projects.createdAt
+      }).from(projects).where(eq21(projects.engineerId, userId));
+      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${userProjects.length} \u0645\u0634\u0631\u0648\u0639 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
+      res.json({
+        success: true,
+        projects: userProjects,
+        message: `\u062A\u0645 \u062C\u0644\u0628 ${userProjects.length} \u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D`
+      });
+    } catch (error) {
+      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639:", error);
+      res.status(500).json({
+        success: false,
+        projects: [],
+        error: error.message,
+        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
+      });
+    }
+  });
+  app2.get("/api/projects/all", requireAuth, async (req, res) => {
+    try {
+      console.log(`\u{1F4CA} [API] \u062C\u0644\u0628 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639`);
+      const allProjects = await db.select({
+        id: projects.id,
+        name: projects.name,
+        status: projects.status,
+        engineerId: projects.engineerId,
+        projectTypeId: projects.projectTypeId,
+        createdAt: projects.createdAt
+      }).from(projects).orderBy(projects.name);
+      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${allProjects.length} \u0645\u0634\u0631\u0648\u0639`);
+      res.json({
+        success: true,
+        projects: allProjects,
+        message: `\u062A\u0645 \u062C\u0644\u0628 ${allProjects.length} \u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D`
+      });
+    } catch (error) {
+      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639:", error);
+      res.status(500).json({
+        success: false,
+        projects: [],
+        error: error.message,
+        message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
+      });
+    }
+  });
+  app2.post("/api/users/:userId/projects", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { projectIds } = req.body;
+      console.log(`\u{1F517} [Admin] \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
+      await db.update(projects).set({ engineerId: null }).where(eq21(projects.engineerId, userId));
+      if (projectIds && projectIds.length > 0) {
+        for (const projectId of projectIds) {
+          await db.update(projects).set({ engineerId: userId }).where(eq21(projects.id, projectId));
+        }
+      }
+      console.log(`\u2705 [Admin] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B ${projectIds?.length || 0} \u0645\u0634\u0631\u0648\u0639 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
+      res.json({
+        success: true,
+        message: `\u062A\u0645 \u0631\u0628\u0637 ${projectIds?.length || 0} \u0645\u0634\u0631\u0648\u0639 \u0628\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0646\u062C\u0627\u062D`
+      });
+    } catch (error) {
+      console.error("\u274C [Admin] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "\u0641\u0634\u0644 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
+      });
+    }
+  });
+  app2.put("/api/auth/users/:userId", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { firstName, lastName, email, password, role, isActive } = req.body;
+      console.log(`\u270F\uFE0F [Admin] \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
+      const updates = {};
+      if (firstName !== void 0) updates.firstName = firstName;
+      if (lastName !== void 0) updates.lastName = lastName;
+      if (email !== void 0) updates.email = email;
+      if (role !== void 0) updates.role = role;
+      if (isActive !== void 0) updates.isActive = isActive;
+      if (password) {
+        const bcryptModule = await import("bcryptjs");
+        const bcrypt2 = bcryptModule.default;
+        updates.password = await bcrypt2.hash(password, 10);
+      }
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ success: false, message: "\u0644\u0627 \u062A\u0648\u062C\u062F \u062A\u062D\u062F\u064A\u062B\u0627\u062A" });
+      }
+      await db.update(users).set(updates).where(eq21(users.id, userId));
+      console.log(`\u2705 [Admin] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
+      res.json({ success: true, message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0646\u062C\u0627\u062D" });
+    } catch (error) {
+      console.error("\u274C [Admin] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  app2.delete("/api/auth/users/:userId", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const { userId } = req.params;
+      if (userId === req.user?.id) {
+        return res.status(400).json({ success: false, message: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u062D\u0633\u0627\u0628\u0643 \u0627\u0644\u062E\u0627\u0635" });
+      }
+      console.log(`\u{1F5D1}\uFE0F [Admin] \u062D\u0630\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
+      try {
+        await pool.query("DELETE FROM email_verification_tokens WHERE user_id = $1", [userId]).catch(() => {
+        });
+        await pool.query("DELETE FROM sessions WHERE user_id = $1", [userId]).catch(() => {
+        });
+      } catch (e) {
+        console.log("\u26A0\uFE0F [Admin] \u062A\u0645 \u0645\u062D\u0627\u0648\u0644\u0629 \u062D\u0630\u0641 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629");
+      }
+      await db.delete(users).where(eq21(users.id, userId));
+      console.log(`\u2705 [Admin] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
+      res.json({ success: true, message: "\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0646\u062C\u0627\u062D" });
+    } catch (error) {
+      console.error("\u274C [Admin] \u062E\u0637\u0623 \u0641\u064A \u062D\u0630\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  app2.post("/api/auth/users/:userId/toggle-status", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { isActive } = req.body;
+      console.log(`\u{1F504} [Admin] \u062A\u0628\u062F\u064A\u0644 \u062D\u0627\u0644\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId} -> ${isActive}`);
+      await db.update(users).set({ isActive }).where(eq21(users.id, userId));
+      console.log(`\u2705 [Admin] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645`);
+      res.json({ success: true, message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645" });
+    } catch (error) {
+      console.error("\u274C [Admin] \u062E\u0637\u0623 \u0641\u064A \u062A\u0628\u062F\u064A\u0644 \u0627\u0644\u062D\u0627\u0644\u0629:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  app2.post("/api/auth/users/:userId/toggle-verification", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await db.select().from(users).where(eq21(users.id, userId)).limit(1);
+      if (!user.length) {
+        return res.status(404).json({ success: false, message: "\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      }
+      const newVerificationStatus = user[0].emailVerifiedAt ? null : /* @__PURE__ */ new Date();
+      console.log(`\u2709\uFE0F [Admin] \u062A\u0628\u062F\u064A\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId} -> ${newVerificationStatus ? "\u0645\u062D\u0642\u0642" : "\u063A\u064A\u0631 \u0645\u062D\u0642\u0642"}`);
+      await db.update(users).set({ emailVerifiedAt: newVerificationStatus }).where(eq21(users.id, userId));
+      console.log(`\u2705 [Admin] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u062A\u062D\u0642\u0642`);
+      res.json({ success: true, message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u062A\u062D\u0642\u0642" });
+    } catch (error) {
+      console.error("\u274C [Admin] \u062E\u0637\u0623 \u0641\u064A \u062A\u0628\u062F\u064A\u0644 \u0627\u0644\u062A\u062D\u0642\u0642:", error);
+      res.status(500).json({ success: false, error: error.message });
     }
   });
   app2.get("/api/projects", requireAuth, async (req, res) => {

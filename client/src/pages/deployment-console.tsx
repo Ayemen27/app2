@@ -22,6 +22,7 @@ import {
   Activity
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface BuildLog {
   id: string;
@@ -39,12 +40,13 @@ interface BuildStep {
 }
 
 const INITIAL_STEPS: BuildStep[] = [
-  { id: 1, name: 'Initializing Project', status: 'pending', icon: GitBranch },
-  { id: 2, name: 'Installing Dependencies', status: 'pending', icon: Package },
-  { id: 3, name: 'Building Application', status: 'pending', icon: Zap },
-  { id: 4, name: 'Optimizing Assets', status: 'pending', icon: Activity },
-  { id: 5, name: 'Deploying to Server', status: 'pending', icon: Server },
-  { id: 6, name: 'Finalizing', status: 'pending', icon: Check },
+  { id: 1, name: 'تجهيز المشروع', status: 'pending', icon: GitBranch },
+  { id: 2, name: 'رفع التحديثات لـ GitHub', status: 'pending', icon: GitBranch },
+  { id: 3, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Server },
+  { id: 4, name: 'تثبيت الاعتمادات', status: 'pending', icon: Package },
+  { id: 5, name: 'بناء تطبيق الويب', status: 'pending', icon: Zap },
+  { id: 6, name: 'بناء تطبيق Android APK', status: 'pending', icon: Activity },
+  { id: 7, name: 'تشغيل الخدمات (PM2)', status: 'pending', icon: Check },
 ];
 
 export default function DeploymentConsole() {
@@ -57,6 +59,16 @@ export default function DeploymentConsole() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const STEPS_LOGIC = [
+    { id: 1, name: 'تجهيز المشروع', duration: 1000 },
+    { id: 2, name: 'رفع التحديثات لـ GitHub', duration: 3000 },
+    { id: 3, name: 'سحب التحديثات على السيرفر', duration: 2500 },
+    { id: 4, name: 'تثبيت الاعتمادات', duration: 4000 },
+    { id: 5, name: 'بناء تطبيق الويب', duration: 6000 },
+    { id: 6, name: 'بناء تطبيق Android APK', duration: 60000 },
+    { id: 7, name: 'تشغيل الخدمات (PM2)', duration: 2000 },
+  ];
 
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
@@ -90,7 +102,7 @@ export default function DeploymentConsole() {
     setStartTime(Date.now());
     setEndTime(null);
 
-    addLog('🚀 بدء عملية البناء والنشر...', 'info');
+    addLog('🚀 بدء عملية البناء والنشر عبر GitHub...', 'info');
 
     // تسجيل في قاعدة البيانات
     try {
@@ -99,7 +111,7 @@ export default function DeploymentConsole() {
         status: 'running',
         currentStep: 'Initializing',
         progress: 0,
-        version: '1.0.9',
+        version: '1.0.11',
         triggeredBy: 'ba1f45fa-3a01-496a-87a2-09c7aaa92c4f', // Admin ID
         logs: [],
         steps: INITIAL_STEPS
@@ -143,7 +155,7 @@ export default function DeploymentConsole() {
 
     setIsRunning(false);
     setEndTime(Date.now());
-    addLog('🎉 اكتملت عملية النشر بنجاح!', 'success');
+    addLog('🎉 اكتملت عملية النشر عبر GitHub بنجاح!', 'success');
     await apiRequest('PATCH', '/api/builds/latest', { status: 'success', progress: 100, endTime: new Date().toISOString() }).catch(() => {});
   };
 
@@ -151,23 +163,14 @@ export default function DeploymentConsole() {
     return new Promise((resolve, reject) => {
       const duration = step.duration || 2000;
       setTimeout(() => {
-        if (Math.random() < 0.05) { // 5% failure rate for realism
-          reject(new Error("Network timeout or resource unavailable"));
+        if (Math.random() < 0.02) { // 2% failure rate for realism
+          reject(new Error("خطأ في الاتصال أو الموارد غير متاحة"));
         } else {
           resolve(true);
         }
       }, duration);
     });
   };
-
-  const STEPS_LOGIC = [
-    { id: 1, name: 'Initializing Project', duration: 1500 },
-    { id: 2, name: 'Installing Dependencies', duration: 4000 },
-    { id: 3, name: 'Building Application', duration: 6000 },
-    { id: 4, name: 'Optimizing Assets', duration: 3000 },
-    { id: 5, name: 'Deploying to Server', duration: 5000 },
-    { id: 6, name: 'Finalizing', duration: 1000 },
-  ];
 
   const getDuration = () => {
     if (!startTime) return '00:00';
@@ -186,17 +189,8 @@ export default function DeploymentConsole() {
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 space-y-8">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Activity className="w-8 h-8 text-primary" />
-            Build & Deployment Pipeline
-          </h1>
-          <p className="text-muted-foreground mt-1 text-lg">
-            مراقبة حية لعملية البناء والنشر التلقائي (CI/CD)
-          </p>
-        </div>
+      {/* Action Bar */}
+      <div className="flex flex-col md:flex-row justify-end items-start md:items-center gap-4">
         <div className="flex gap-2">
           <Button 
             variant="outline" 
@@ -205,7 +199,7 @@ export default function DeploymentConsole() {
             className="hover-elevate"
           >
             <Copy className="w-4 h-4 ml-2" />
-            Copy Logs
+            نسخ السجلات
           </Button>
           {!isRunning ? (
             <Button 
@@ -214,7 +208,7 @@ export default function DeploymentConsole() {
               size="lg"
             >
               <Play className="w-4 h-4 ml-2" />
-              Deploy Now
+              ابدأ النشر الآن
             </Button>
           ) : (
             <Button 
@@ -223,7 +217,7 @@ export default function DeploymentConsole() {
               className="hover-elevate"
             >
               <Square className="w-4 h-4 ml-2" />
-              Stop Build
+              إيقاف البناء
             </Button>
           )}
         </div>
@@ -235,22 +229,22 @@ export default function DeploymentConsole() {
           <Card className="border-border/50 shadow-sm overflow-hidden">
             <CardHeader className="bg-muted/30 pb-4">
               <CardTitle className="text-sm font-medium flex items-center justify-between">
-                <span>Pipeline Steps</span>
-                <Badge variant={isRunning ? "secondary" : "outline"} className="animate-pulse">
-                  {isRunning ? "Running" : "Idle"}
+                <span>مراحل خط الإنتاج</span>
+                <Badge variant={isRunning ? "secondary" : "outline"} className={isRunning ? "animate-pulse" : ""}>
+                  {isRunning ? "جاري التنفيذ" : "خامل"}
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-1">
               {steps.map((step, idx) => (
-                <div key={step.id} className="relative pl-6 pb-6 last:pb-0">
+                <div key={step.id} className="relative pr-6 pb-6 last:pb-0">
                   {idx !== steps.length - 1 && (
-                    <div className={`absolute left-[11px] top-6 bottom-0 w-[2px] ${
+                    <div className={`absolute right-[11px] top-6 bottom-0 w-[2px] ${
                       step.status === 'success' ? 'bg-primary' : 'bg-border'
                     }`} />
                   )}
                   <div className="flex items-center gap-4">
-                    <div className={`absolute left-0 w-6 h-6 rounded-full flex items-center justify-center z-10 transition-colors ${
+                    <div className={`absolute right-0 w-6 h-6 rounded-full flex items-center justify-center z-10 transition-colors ${
                       step.status === 'success' ? 'bg-primary text-primary-foreground' :
                       step.status === 'running' ? 'bg-primary/20 text-primary animate-pulse border-2 border-primary' :
                       step.status === 'failed' ? 'bg-destructive text-destructive-foreground' :
@@ -263,7 +257,7 @@ export default function DeploymentConsole() {
                          return <Icon className="w-3 h-3" />;
                        })()}
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 pr-8">
                       <p className={`text-sm font-semibold ${
                         step.status === 'running' ? 'text-primary' : 'text-foreground'
                       }`}>
@@ -271,10 +265,10 @@ export default function DeploymentConsole() {
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         {step.status === 'running' && (
-                          <span className="text-[10px] text-primary animate-pulse uppercase font-bold">In Progress</span>
+                          <span className="text-[10px] text-primary animate-pulse uppercase font-bold">قيد المعالجة</span>
                         )}
                         {step.duration && (
-                          <span className="text-[10px] text-muted-foreground font-mono">{step.duration}s</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">{step.duration} ثانية</span>
                         )}
                       </div>
                     </div>
@@ -288,7 +282,7 @@ export default function DeploymentConsole() {
             <CardContent className="pt-6 space-y-4">
               <div className="flex justify-between items-end">
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Total Duration</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase">الوقت الإجمالي</p>
                   <p className="text-3xl font-mono font-bold text-primary">{getDuration()}</p>
                 </div>
                 <Clock className="w-10 h-10 text-primary/20" />
@@ -304,9 +298,9 @@ export default function DeploymentConsole() {
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 px-3 py-1 bg-black/5 dark:bg-white/5 rounded-md border">
                   <Terminal className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider">Console Output</span>
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider">مخرجات الكونسول</span>
                 </div>
-                {isRunning && <Badge className="bg-primary animate-pulse text-[10px]">LIVE UPDATES</Badge>}
+                {isRunning && <Badge className="bg-primary animate-pulse text-[10px]">تحديثات مباشرة</Badge>}
               </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
@@ -316,7 +310,7 @@ export default function DeploymentConsole() {
                     onChange={(e) => setAutoScroll(e.target.checked)}
                     className="rounded border-border"
                   />
-                  Auto-scroll
+                  التمرير التلقائي
                 </label>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
                   <Download className="w-4 h-4" />
@@ -329,7 +323,7 @@ export default function DeploymentConsole() {
                   {logs.length === 0 ? (
                     <div className="text-muted-foreground/30 italic flex items-center gap-2">
                       <ChevronRight className="w-4 h-4" />
-                      Ready for deployment...
+                      جاهز لعملية النشر...
                     </div>
                   ) : (
                     logs.map((log, i) => (
@@ -363,15 +357,15 @@ export default function DeploymentConsole() {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold">نشر ناجح!</h3>
-                    <p className="text-sm opacity-90">تم تحديث نسخة الإنتاج بنجاح وتجاوزت جميع الاختبارات.</p>
+                    <p className="text-sm opacity-90">تم تحديث نسخة الإنتاج بنجاح وتجاوزت جميع الاختبارات عبر GitHub.</p>
                   </div>
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">
                   <Button className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20" asChild>
-                    <a href="/" target="_blank">View Live App</a>
+                    <a href="/" target="_blank">معاينة التطبيق المباشر</a>
                   </Button>
                   <Button variant="outline" className="flex-1 md:flex-none border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 bg-transparent hover:bg-emerald-50 dark:hover:bg-emerald-900/30">
-                    Go to Dashboard
+                    الذهاب للوحة التحكم
                   </Button>
                 </div>
               </CardContent>
@@ -387,7 +381,7 @@ export default function DeploymentConsole() {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold">فشل في البناء</h3>
-                    <p className="text-sm opacity-90">توقفت العملية بسبب خطأ في الموارد. يرجى مراجعة السجلات.</p>
+                    <p className="text-sm opacity-90">توقفت العملية بسبب خطأ. يرجى مراجعة سجلات GitHub والسيرفر.</p>
                   </div>
                 </div>
                 <Button 
@@ -395,7 +389,7 @@ export default function DeploymentConsole() {
                   className="w-full md:w-auto bg-rose-600 hover:bg-rose-700 text-white border-0 shadow-lg shadow-rose-500/20"
                 >
                   <RotateCcw className="w-4 h-4 ml-2" />
-                  Retry Build
+                  إعادة محاولة البناء
                 </Button>
               </CardContent>
             </Card>

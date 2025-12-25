@@ -1,5 +1,4 @@
-// @ts-ignore
-import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers } from "lucide-react";
+import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
@@ -35,6 +34,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/well-cost-report': { title: 'تقرير تكلفة الآبار', icon: FileText },
   '/wells': { title: 'إدارة الآبار', icon: Layers },
   '/daily-expenses': { title: 'المصاريف اليومية', icon: DollarSign },
+  '/deployment': { title: 'لوحة البناء والنشر التلقائي', icon: Activity },
   '/project-fund-custody': { title: 'عهدة صندوق المشروع', icon: Wallet },
   '/admin-notifications': { title: 'إشعارات الإدارة', icon: Shield },
   '/ai-chat': { title: 'المساعد الذكي', icon: MessageSquare },
@@ -43,8 +43,6 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/real-reports': { title: 'تقارير حقيقية', icon: FileBarChart },
   '/professional-reports': { title: 'تقارير احترافية', icon: FileCheck },
 };
-
-import { Wallet, MessageSquare, Lock, FileBarChart, FileCheck } from "lucide-react";
 
 export default function Header() {
   const [location, setLocation] = useLocation();

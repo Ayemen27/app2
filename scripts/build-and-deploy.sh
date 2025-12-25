@@ -93,7 +93,26 @@ if [ -f "/tmp/app-build-${VERSION}.tar.gz" ]; then
     echo "✅ Files extracted"
 fi
 
+echo ""
+echo "🔨 Building Web App First..."
+export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info
+export NODE_ENV=production
+
+npm run build 2>&1 | tail -10
+
+if [ ! -d "dist" ]; then
+    echo "❌ Build failed - dist folder not found"
+    exit 1
+fi
+
+echo "✅ Web app built successfully"
+
 cd android
+
+echo ""
+echo "🔨 Syncing Capacitor..."
+npx cap sync android 2>&1 | tail -5
+echo "✅ Capacitor synced"
 
 echo ""
 echo "🔨 Building APK - Version: $VERSION"

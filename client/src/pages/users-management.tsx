@@ -163,7 +163,6 @@ export default function UsersManagementPage() {
   // تبديل حالة المستخدم
   const toggleStatusMutation = useMutation({
     mutationFn: async (data: { userId: string; isActive: boolean }) => {
-      // استخدام المسار الصحيح المكتشف من السجل
       const response = await apiRequest(`/api/auth/users/${data.userId}/toggle-status`, "POST", { 
         isActive: data.isActive 
       });
@@ -176,6 +175,25 @@ export default function UsersManagementPage() {
     onError: (error: any) => {
       toast({ 
         title: 'خطأ في تحديث الحالة', 
+        description: error.message || 'تأكد من صلاحياتك كمسؤول',
+        variant: 'destructive' 
+      });
+    },
+  });
+
+  // تبديل التحقق من البريد
+  const toggleVerificationMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiRequest(`/api/auth/users/${userId}/toggle-verification`, "POST", {});
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: 'تم تحديث حالة التحقق', variant: 'default' });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'خطأ في تحديث التحقق', 
         description: error.message || 'تأكد من صلاحياتك كمسؤول',
         variant: 'destructive' 
       });
@@ -435,13 +453,22 @@ export default function UsersManagementPage() {
                       userId: user.id, 
                       isActive: !user.isActive 
                     }),
-                    color: user.isActive ? 'orange' : 'green'
+                    color: user.isActive ? 'orange' : 'green',
+                    disabled: toggleStatusMutation.isPending
+                  },
+                  {
+                    icon: user.emailVerifiedAt ? Mail : Shield,
+                    label: user.emailVerifiedAt ? 'إلغاء التحقق' : 'تفعيل التحقق',
+                    onClick: () => toggleVerificationMutation.mutate(user.id),
+                    color: user.emailVerifiedAt ? 'purple' : 'blue',
+                    disabled: toggleVerificationMutation.isPending
                   },
                   {
                     icon: Trash2,
                     label: 'حذف',
                     onClick: () => handleDelete(user),
-                    color: 'red'
+                    color: 'red',
+                    disabled: deleteMutation.isPending
                   }
                 ]}
                 compact={false}

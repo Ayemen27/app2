@@ -77,37 +77,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/users/list", requireAuth, async (req, res) => {
     try {
-      console.log('📊 [API] جلب قائمة المستخدمين');
+      console.log('📊 [API] جلب قائمة المستخدمين الكاملة');
       const usersList = await db.select({
         id: users.id,
         firstName: users.firstName,
         lastName: users.lastName,
         email: users.email,
         role: users.role,
+        isActive: users.isActive,
+        emailVerifiedAt: users.emailVerifiedAt,
+        lastLogin: users.lastLogin,
+        createdAt: users.createdAt,
+        mfaEnabled: users.mfaEnabled,
       }).from(users).orderBy(users.firstName);
       
-      // تحويل البيانات لإضافة حقل name مجمع
-      const usersWithName = usersList.map(user => ({
-        id: user.id,
-        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
-        email: user.email,
-        role: user.role,
-      }));
-      
-      console.log(`✅ [API] تم جلب ${usersWithName.length} مستخدم`);
+      console.log(`✅ [API] تم جلب ${usersList.length} مستخدم`);
       res.json({ 
         success: true, 
-        data: usersWithName,
-        message: `تم جلب ${usersWithName.length} مستخدم بنجاح`
+        users: usersList,
+        message: `تم جلب ${usersList.length} مستخدم بنجاح`
       });
     } catch (error: any) {
       console.error('❌ [API] خطأ في جلب المستخدمين:', error);
       res.status(500).json({ 
         success: false, 
-        data: [], 
+        users: [], 
         error: error.message,
         message: "فشل في جلب قائمة المستخدمين"
       });
+    }
+  });
+
+  // تحديث مستخدم
+  app.put("/api/auth/users/:userId", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { firstName, lastName, email, password, role, isActive } = req.body;
+
+      console.log(`✏️ [Admin] تحديث المستخدم: ${userId}`);
+
+      const updates: any = {};
+      if (firstName !== undefined) updates.firstName = firstName;
+      if (lastName !== undefined) updates.lastName = lastName;
+      if (email !== undefined) updates.email = email;
+      if (role !== undefined) updates.role = role;
+      if (isActive !== undefined) updates.isActive = isActive;
+      
+      if (password) {
+        const bcrypt = await import('bcryptjs');
+        updates.password = await bcrypt.hash(password, 10);
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ success: false, message: "لا توجد تحديثات" });
+      }
+
+      await db.update(users).set(updates).where(eq(users.id, userId));
+
+      console.log(`✅ [Admin] تم تحديث المستخدم: ${userId}`);
+      res.json({ success: true, message: "تم تحديث المستخدم بنجاح" });
+    } catch (error: any) {
+      console.error('❌ [Admin] خطأ في تحديث المستخدم:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // حذف مستخدم
+  app.delete("/api/auth/users/:userId", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      if (userId === req.user?.id) {
+        return res.status(400).json({ success: false, message: "لا يمكن حذف حسابك الخاص" });
+      }
+
+      console.log(`🗑️ [Admin] حذف المستخدم: ${userId}`);
+      await db.delete(users).where(eq(users.id, userId));
+
+      console.log(`✅ [Admin] تم حذف المستخدم: ${userId}`);
+      res.json({ success: true, message: "تم حذف المستخدم بنجاح" });
+    } catch (error: any) {
+      console.error('❌ [Admin] خطأ في حذف المستخدم:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // تبديل حالة المستخدم
+  app.post("/api/auth/users/:userId/toggle-status", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { isActive } = req.body;
+
+      console.log(`🔄 [Admin] تبديل حالة المستخدم: ${userId} -> ${isActive}`);
+      await db.update(users).set({ isActive }).where(eq(users.id, userId));
+
+      console.log(`✅ [Admin] تم تحديث حالة المستخدم`);
+      res.json({ success: true, message: "تم تحديث حالة المستخدم" });
+    } catch (error: any) {
+      console.error('❌ [Admin] خطأ في تبديل الحالة:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // تبديل التحقق من البريد
+  app.post("/api/auth/users/:userId/toggle-verification", requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+      if (!user.length) {
+        return res.status(404).json({ success: false, message: "المستخدم غير موجود" });
+      }
+
+      const newVerificationStatus = user[0].emailVerifiedAt ? null : new Date();
+
+      console.log(`✉️ [Admin] تبديل التحقق للمستخدم: ${userId} -> ${newVerificationStatus ? 'محقق' : 'غير محقق'}`);
+      await db.update(users).set({ emailVerifiedAt: newVerificationStatus }).where(eq(users.id, userId));
+
+      console.log(`✅ [Admin] تم تحديث حالة التحقق`);
+      res.json({ success: true, message: "تم تحديث حالة التحقق" });
+    } catch (error: any) {
+      console.error('❌ [Admin] خطأ في تبديل التحقق:', error);
+      res.status(500).json({ success: false, error: error.message });
     }
   });
 

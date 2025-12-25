@@ -21,6 +21,7 @@ import { reportRouter } from './reportRoutes.js';
 import activityRouter from './activityRoutes.js';
 import aiRouter from './aiRoutes.js';
 import syncRouter from './syncRoutes.js';
+import securityRouter from './securityRoutes.js'; // إضافة مسارات الأمان
 // authRouter moved to main routes/auth.ts to avoid duplication
 
 /**
@@ -83,6 +84,10 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات المزامنة المتقدمة
   app.use('/api/sync', syncRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات المزامنة المتقدمة: /api/sync');
+
+  // مسارات الأمان
+  app.use('/api/security', securityRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الأمان: /api/security');
 
   console.log('✅ [OrganizedRoutes] تم تسجيل جميع المسارات المنظمة بنجاح');
 

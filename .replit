@@ -43,27 +43,11 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Build & Deploy"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Start application"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Deploy via Git"
-
-[[workflows.workflow]]
-name = "Build & Deploy"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run build:client && npm run build:server && NODE_ENV=production npm start"
-waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow]]
 name = "Start application"

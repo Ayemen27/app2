@@ -130,9 +130,9 @@ step3_update_server() {
     
     ENV_CONTENT="# Production Environment Variables - Auto Generated
 NODE_ENV=production
-PORT=6000
-HEALTH_CHECK_PORT=6000
-HEALTH_CHECK_URL=http://localhost:6000/api/health
+PORT=5000
+HEALTH_CHECK_PORT=5000
+HEALTH_CHECK_URL=http://localhost:5000/api/health
 CUSTOM_DOMAIN=app2.binarjoinanelytic.info
 DATABASE_URL=${DATABASE_URL}
 JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
@@ -140,7 +140,8 @@ JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
 SESSION_SECRET=${SESSION_SECRET}
 ENABLE_RATE_LIMITING=true
 CORS_ORIGIN=*
-LOG_LEVEL=info"
+LOG_LEVEL=info
+DOMAIN=https://app2.binarjoinanelytic.info"
     
     UPDATE_SCRIPT='
 set -e
@@ -211,8 +212,14 @@ npm install --loglevel=error
 log_success "تم تثبيت المتطلبات"
 
 log_info "بناء التطبيق (Client & Server)..."
-npm run build:client
-npm run build:server
+npm run build:client 2>&1 || {
+    log_error "فشل بناء Client"
+    exit 1
+}
+npm run build:server 2>&1 || {
+    log_error "فشل بناء Server"
+    exit 1
+}
 log_success "تم البناء بنجاح"
 
 # نسخ الملفات المبنية إلى مجلد التطبيق
@@ -252,7 +259,7 @@ if [ -f .env.production ]; then
     log_info "تم تحميل متغيرات البيئة"
 fi
 # حذف العملية القديمة وإعادة البدء
-pm2 delete construction-app 2>/dev/null || true
+pm2 delete app2 2>/dev/null || true
 mkdir -p logs
 pm2 start ecosystem.config.cjs
 pm2 save

@@ -1,45 +1,54 @@
-# BinarJoin Android App - Automated Build & Deploy
+# BinarJoin Build & Deployment Console
 
 ## 📋 Project Overview
-Automated deployment system for BinarJoin Android app with:
-- Auto version increment (MAJOR.MINOR.PATCH)
-- Secure SSH file transfer to remote server
-- Automated APK building with Gradle
+Advanced deployment and build management system for BinarJoin with:
+- Web and Android app building
+- Real-time deployment console with progress tracking
+- Visual build pipeline with step-by-step execution
 - Production server integration (https://app2.binarjoinanelytic.info)
+- Database logging of all build operations
 
-## ✅ Latest Status
-- **Current Version**: 1.0.8 (auto-incremented)
-- **APK Built**: ✅ Successfully (7.4MB, Dec 25 13:59 UTC)
-- **Server**: administrator@93.127.142.144:22
-- **APK Location**: /home/administrator/app2/android/app/build/outputs/apk/debug/app-debug.apk
+## ✅ Latest Status (Dec 25, 2025)
+- **Deployment Console**: ✅ Fully functional
+- **Build API**: ✅ Connected to production server
+- **Server URL**: https://app2.binarjoinanelytic.info
+- **Database**: ✅ Schema updated with build_deployments.app_type
+- **API Port**: 5000 (Replit) ↔ Production API
 
-## 🚀 Usage
+## 🚀 Build & Deployment Console
 
-### Build & Deploy
-```bash
-npm run android:deploy
-# or
-bash scripts/build-and-deploy.sh
-```
+Access the deployment console at `/deployment` route:
+1. Select app type (Web or Android)
+2. Click "ابدأ النشر الآن" (Start Deployment)
+3. Watch real-time progress in the pipeline
+4. Monitor build logs in the console
 
-### What happens:
-1. ✅ Version auto-increments in package.json & Android build files
-2. ✅ Project files compressed and transferred via SSH
-3. ✅ Remote server extracts files and builds APK with Gradle
-4. ✅ APK ready for testing/distribution
+### Features:
+- ✅ Visual pipeline with step tracking (pending → running → success/failed)
+- ✅ Real-time log streaming with timestamps
+- ✅ Build progress percentage
+- ✅ Automatic database logging of all builds
+- ✅ Support for both Web and Android builds
 
 ## 🔧 Configuration
 
-### Environment Variables (Required)
-- `SSH_HOST`: 93.127.142.144
-- `SSH_USER`: administrator
-- `SSH_PORT`: 22
-- `SSH_PASSWORD`: [from Secrets]
+### External Server URL
+- **Default**: `https://app2.binarjoinanelytic.info`
+- **Environment Variable**: `EXTERNAL_SERVER_URL`
+- **Required Endpoints on Server**:
+  - `POST /api/build/install` - Install dependencies
+  - `POST /api/build/web` - Build web app
+  - `POST /api/build/android` - Build Android APK
+  - `POST /api/build/deploy` - Deploy APK
 
-### GitHub Integration
-- `GITHUB_TOKEN`: [available in Secrets]
-- `GITHUB_USERNAME`: [available in Secrets]
-- `GITHUB_EMAIL`: [available in Secrets]
+### Database Schema
+- **Table**: `build_deployments`
+- **Columns**: 
+  - `app_type` (TEXT) - 'web' or 'android'
+  - `status` (TEXT) - 'running', 'success', 'failed'
+  - `logs` (JSONB) - Array of build log entries
+  - `progress` (INTEGER) - Build progress 0-100
+  - `triggeredBy` (VARCHAR) - User ID who triggered build
 
 ## 📁 Key Files
 

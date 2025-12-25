@@ -152,11 +152,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 3. الاتصال بالسيرفر الخارجي
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔗 الاتصال بالسيرفر الخارجي...", type: "info" });
       const externalServerUrl = process.env.EXTERNAL_SERVER_URL || 'https://app2.binarjoinanelytic.info';
+      const externalServerToken = process.env.EXTERNAL_SERVER_TOKEN || '';
+      
+      if (!externalServerToken) {
+        console.warn('[Deploy] تحذير: لم يتم تعيين EXTERNAL_SERVER_TOKEN - سيتم استخدام الوضع المحلي');
+        logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `⚠️ تنبيه: رمز المصادقة للسيرفر غير معرف - سيتم استخدام البناء المحلي`, type: "warning" });
+      }
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: `✅ تم الاتصال بـ: ${externalServerUrl}`, type: "success" });
 
       // 4. سحب التحديثات على السيرفر
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📥 سحب التحديثات على السيرفر...", type: "info" });
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "✅ تم سحب التحديثات على السيرفر", type: "success" });
+
+      // Helper function to build authenticated headers
+      const buildHeaders = () => {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (externalServerToken) {
+          headers['Authorization'] = `Bearer ${externalServerToken}`;
+        }
+        return headers;
+      };
 
       // 5. تثبيت الاعتمادات على السيرفر
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "📦 تثبيت الاعتمادات على السيرفر...", type: "info" });
@@ -166,7 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const installResponse = await fetch(`${externalServerUrl}/api/build/install`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: buildHeaders(),
           body: JSON.stringify({ appType }),
           signal: controller.signal
         });
@@ -194,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const buildResponse = await fetch(`${externalServerUrl}/api/build/web`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: buildHeaders(),
             body: JSON.stringify({ appType }),
             signal: controller.signal
           });
@@ -231,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const apkResponse = await fetch(`${externalServerUrl}/api/build/android`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: buildHeaders(),
             body: JSON.stringify({ appType }),
             signal: controller.signal
           });
@@ -260,7 +275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const deployResponse = await fetch(`${externalServerUrl}/api/build/deploy`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: buildHeaders(),
             body: JSON.stringify({ appType }),
             signal: controller.signal
           });

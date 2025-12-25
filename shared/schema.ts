@@ -406,6 +406,92 @@ export const projectFundTransfers = pgTable("project_fund_transfers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Security Policies (سياسات الأمان)
+export const securityPolicies = pgTable("security_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyId: varchar("policy_id").notNull().unique(),
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 100 }).notNull(),
+  severity: varchar("severity", { length: 50 }).notNull().default("medium"),
+  status: varchar("status", { length: 50 }).notNull().default("draft"),
+  complianceLevel: varchar("compliance_level", { length: 100 }),
+  requirements: jsonb("requirements"),
+  implementation: jsonb("implementation"),
+  checkCriteria: jsonb("check_criteria"),
+  checkInterval: integer("check_interval"),
+  nextCheck: timestamp("next_check"),
+  violationsCount: integer("violations_count").notNull().default(0),
+  lastViolation: timestamp("last_violation"),
+  createdBy: varchar("created_by"),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Security Policy Suggestions (اقتراحات سياسات الأمان)
+export const securityPolicySuggestions = pgTable("security_policy_suggestions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  suggestedPolicyId: varchar("suggested_policy_id").notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 100 }).notNull(),
+  priority: varchar("priority", { length: 50 }).notNull().default("medium"),
+  confidence: integer("confidence").notNull().default(50),
+  reasoning: text("reasoning"),
+  estimatedImpact: varchar("estimated_impact", { length: 500 }),
+  implementationEffort: varchar("implementation_effort", { length: 100 }),
+  prerequisites: jsonb("prerequisites"),
+  sourceType: varchar("source_type", { length: 100 }),
+  sourceData: jsonb("source_data"),
+  status: varchar("status", { length: 50 }).notNull().default("pending"),
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  implementedAs: varchar("implemented_as").references(() => securityPolicies.id, { onDelete: "set null" }),
+  implementedAt: timestamp("implemented_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Security Policy Implementations (تنفيذ سياسات الأمان)
+export const securityPolicyImplementations = pgTable("security_policy_implementations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyId: varchar("policy_id").notNull().references(() => securityPolicies.id, { onDelete: "cascade" }),
+  implementationId: varchar("implementation_id").notNull(),
+  implementationType: varchar("implementation_type", { length: 100 }).notNull(),
+  status: varchar("status", { length: 50 }).notNull().default("pending"),
+  configuration: jsonb("configuration"),
+  deploymentDetails: jsonb("deployment_details"),
+  successCriteria: jsonb("success_criteria"),
+  rollbackPlan: jsonb("rollback_plan"),
+  implementedBy: varchar("implemented_by"),
+  implementationDate: timestamp("implementation_date"),
+  verificationDate: timestamp("verification_date"),
+  nextReview: timestamp("next_review"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Security Policy Violations (انتهاكات سياسات الأمان)
+export const securityPolicyViolations = pgTable("security_policy_violations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyId: varchar("policy_id").notNull().references(() => securityPolicies.id, { onDelete: "cascade" }),
+  violationId: varchar("violation_id").notNull().unique(),
+  violatedRule: varchar("violated_rule", { length: 500 }).notNull(),
+  severity: varchar("severity", { length: 50 }).notNull().default("medium"),
+  status: varchar("status", { length: 50 }).notNull().default("open"),
+  violationDetails: jsonb("violation_details"),
+  affectedResources: jsonb("affected_resources"),
+  impactAssessment: text("impact_assessment"),
+  remediation_steps: jsonb("remediation_steps"),
+  detectedAt: timestamp("detected_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // User Project Permissions table (صلاحيات المستخدمين على المشاريع)
 export const userProjectPermissions = pgTable("user_project_permissions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

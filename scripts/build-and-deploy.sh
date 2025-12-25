@@ -87,7 +87,8 @@ cd $REMOTE_APP_DIR
 
 echo "📦 Extracting files..."
 if [ -f "/tmp/app-build-${VERSION}.tar.gz" ]; then
-    tar -xzf /tmp/app-build-${VERSION}.tar.gz
+    # Use --no-overwrite-dir and force overwrite for files
+    tar -xzf /tmp/app-build-${VERSION}.tar.gz --overwrite
     rm -f /tmp/app-build-${VERSION}.tar.gz
     echo "✅ Files extracted"
 fi

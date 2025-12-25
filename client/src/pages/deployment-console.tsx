@@ -27,7 +27,9 @@ import {
   Copy,
   RotateCcw,
   Activity,
-  Smartphone
+  Smartphone,
+  Database,
+  Layers
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -47,13 +49,20 @@ interface BuildStep {
   duration?: number;
 }
 
+interface SchemaPrompt {
+  show: boolean;
+  message: string;
+  action: string;
+}
+
 const INITIAL_STEPS: BuildStep[] = [
   { id: 1, name: 'تجهيز المشروع', status: 'pending', icon: GitBranch },
   { id: 2, name: 'رفع التحديثات لـ GitHub', status: 'pending', icon: GitBranch },
   { id: 3, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Server },
   { id: 4, name: 'تثبيت الاعتمادات', status: 'pending', icon: Package },
-  { id: 5, name: 'بناء التطبيق', status: 'pending', icon: Zap },
-  { id: 6, name: 'تشغيل الخدمات', status: 'pending', icon: Activity },
+  { id: 5, name: 'تطبيق المخطط على السيرفر', status: 'pending', icon: Database },
+  { id: 6, name: 'بناء التطبيق', status: 'pending', icon: Zap },
+  { id: 7, name: 'تشغيل الخدمات', status: 'pending', icon: Activity },
 ];
 
 type AppType = 'web' | 'android';
@@ -68,6 +77,7 @@ export default function DeploymentConsole() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
   const [selectedApp, setSelectedApp] = useState<AppType>('web');
+  const [schemaPrompt, setSchemaPrompt] = useState<SchemaPrompt>({ show: false, message: '', action: '' });
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const getStepsLogic = () => {
@@ -78,17 +88,21 @@ export default function DeploymentConsole() {
       { id: 4, name: 'تثبيت الاعتمادات', duration: 4000 },
     ];
 
+    const schemaStep = { id: 5, name: 'تطبيق المخطط على السيرفر', duration: 3000 };
+
     if (selectedApp === 'web') {
       return [
         ...baseSteps,
-        { id: 5, name: 'بناء تطبيق الويب', duration: 6000 },
-        { id: 6, name: 'تشغيل الخدمات (PM2)', duration: 2000 },
+        schemaStep,
+        { id: 6, name: 'بناء تطبيق الويب', duration: 6000 },
+        { id: 7, name: 'تشغيل الخدمات (PM2)', duration: 2000 },
       ];
     } else {
       return [
         ...baseSteps,
-        { id: 5, name: 'بناء تطبيق Android APK', duration: 60000 },
-        { id: 6, name: 'تحميل الملف على السيرفر', duration: 2000 },
+        schemaStep,
+        { id: 6, name: 'بناء تطبيق Android APK', duration: 60000 },
+        { id: 7, name: 'تحميل الملف على السيرفر', duration: 2000 },
       ];
     }
   };
@@ -161,10 +175,32 @@ export default function DeploymentConsole() {
       const stepStartTime = Date.now();
       
       try {
-        await simulateStep(stepConfig);
-        const duration = Math.floor((Date.now() - stepStartTime) / 1000);
-        updateStep(stepConfig.id, 'success', duration);
-        addLog(`✅ اكتملت مرحلة: ${stepConfig.name}`, 'success');
+        // معالجة خطوة تطبيق المخطط بشكل خاص
+        if (stepConfig.name === 'تطبيق المخطط على السيرفر') {
+          updateStep(stepConfig.id, 'running');
+          addLog('🔄 بدء عملية تطبيق المخطط...', 'info');
+          
+          // عرض نافذة التفاعل
+          setSchemaPrompt({
+            show: true,
+            message: 'هناك تغييرات في المخطط تحتاج تطبيقها على السيرفر الخارجي. هل تريد المتابعة؟',
+            action: 'apply_schema'
+          });
+          
+          // انتظار رد المستخدم (يتم معالجته بواسطة applySchema أو rejectSchema)
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          if (!schemaPrompt.show) {
+            const duration = Math.floor((Date.now() - stepStartTime) / 1000);
+            updateStep(stepConfig.id, 'success', duration);
+          }
+        } else {
+          await simulateStep(stepConfig);
+          const duration = Math.floor((Date.now() - stepStartTime) / 1000);
+          updateStep(stepConfig.id, 'success', duration);
+          addLog(`✅ اكتملت مرحلة: ${stepConfig.name}`, 'success');
+        }
+
         const newProgress = ((i + 1) / stepsLogic.length) * 100;
         setProgress(newProgress);
 
@@ -218,6 +254,26 @@ export default function DeploymentConsole() {
     const text = logs.map(l => `[${l.timestamp}] ${l.message}`).join('\n');
     navigator.clipboard.writeText(text);
     toast({ description: "تم نسخ السجلات إلى الحافظة" });
+  };
+
+  const applySchema = async () => {
+    setSchemaPrompt({ show: false, message: '', action: '' });
+    addLog('⏳ جاري تطبيق التحديثات على السيرفر الخارجي...', 'info');
+    
+    try {
+      await apiRequest('POST', '/api/schema/apply', {
+        appType: selectedApp,
+        timestamp: new Date().toISOString(),
+      });
+      addLog('✅ تم تطبيق المخطط بنجاح على السيرفر', 'success');
+    } catch (error: any) {
+      addLog(`❌ فشل تطبيق المخطط: ${error.message}`, 'error');
+    }
+  };
+
+  const rejectSchema = () => {
+    setSchemaPrompt({ show: false, message: '', action: '' });
+    addLog('⏭️ تم تخطي خطوة تطبيق المخطط', 'warning');
   };
 
   return (
@@ -448,6 +504,42 @@ export default function DeploymentConsole() {
                   <RotateCcw className="w-4 h-4 ml-2" />
                   إعادة محاولة البناء
                 </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Schema Application Prompt */}
+          {schemaPrompt.show && (
+            <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 animate-in fade-in slide-in-from-bottom-4">
+              <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4 text-blue-700 dark:text-blue-400">
+                  <div className="bg-blue-500 text-white p-3 rounded-full shadow-lg shadow-blue-500/20 animate-pulse">
+                    <Database className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">تطبيق المخطط</h3>
+                    <p className="text-sm opacity-90">{schemaPrompt.message}</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 w-full md:w-auto">
+                  <Button 
+                    onClick={applySchema}
+                    className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-lg shadow-blue-500/20"
+                    data-testid="button-apply-schema"
+                  >
+                    <Check className="w-4 h-4 ml-2" />
+                    تطبيق
+                  </Button>
+                  <Button 
+                    onClick={rejectSchema}
+                    variant="outline"
+                    className="flex-1 md:flex-none border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                    data-testid="button-reject-schema"
+                  >
+                    <AlertCircle className="w-4 h-4 ml-2" />
+                    تخطي
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}

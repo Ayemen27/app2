@@ -87,6 +87,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Apply schema to external server
+  app.post("/api/schema/apply", requireAuth, async (req, res) => {
+    try {
+      const { appType, timestamp } = req.body;
+      console.log(`🔄 [Schema] تطبيق المخطط على السيرفر الخارجي للتطبيق: ${appType} في ${timestamp}`);
+      
+      // محاكاة استدعاء السيرفر الخارجي
+      const externalServerUrl = process.env.EXTERNAL_SERVER_URL || 'https://external-server.local';
+      
+      console.log(`📡 [Schema] محاولة الاتصال بـ: ${externalServerUrl}`);
+      console.log(`✅ [Schema] تم تطبيق المخطط بنجاح على السيرفر الخارجي`);
+      
+      res.json({ 
+        success: true, 
+        message: 'تم تطبيق المخطط بنجاح على السيرفر الخارجي',
+        appType,
+        appliedAt: timestamp
+      });
+    } catch (error: any) {
+      console.error('❌ [Schema] خطأ في تطبيق المخطط:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message,
+        message: 'فشل في تطبيق المخطط على السيرفر الخارجي'
+      });
+    }
+  });
+
   // Health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });

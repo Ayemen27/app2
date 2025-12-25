@@ -6,7 +6,7 @@ import {
   MoreHorizontal, Calculator, FileSpreadsheet, UserCheck, DollarSign, Package,
   TrendingUp, Settings, ArrowLeftRight,
   Bell, Brain, Shield,
-  Database, ReceiptText, MapPin, Wrench
+  Database, ReceiptText, MapPin, Wrench, Terminal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -95,6 +95,7 @@ const allPagesData = [
     pages: [
       { path: "/autocomplete-admin", icon: Wrench, label: "إعدادات الإكمال التلقائي", description: "إدارة بيانات الإكمال التلقائي", requireAdmin: true },
       { path: "/admin-notifications", icon: Bell, label: "إشعارات المسؤولين", description: "إدارة وإرسال إشعارات للمستخدمين", requireAdmin: true },
+      { path: "/deployment", icon: Terminal, label: "لوحة البناء والنشر", description: "نظام البناء الآلي والنشر على السيرفر", requireAdmin: true },
     ]
   },
   // الوكيل الذكي - للمسؤول الأول فقط

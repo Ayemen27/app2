@@ -12,6 +12,7 @@ import EmailVerificationPage from "@/pages/EmailVerificationPage";
 import { useWebSocketSync } from "@/hooks/useWebSocketSync";
 
 import WorkerAttendance from "@/pages/worker-attendance";
+import DeploymentConsole from "@/pages/deployment-console";
 
 import MaterialPurchase from "@/pages/material-purchase";
 import ProjectTransfers from "@/pages/project-transfers";
@@ -65,6 +66,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/deployment" component={DeploymentConsole} />
       <Route path="/projects" component={ProjectsPage} />
       <Route path="/workers" component={WorkersPage} />
       <Route path="/worker-accounts">

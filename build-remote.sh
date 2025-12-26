@@ -61,10 +61,8 @@ echo "📤 جاري نقل الملفات..."
 
 # نقل المشروع
 sshpass -e scp -r -P $SSH_PORT \
-    --exclude=node_modules \
-    --exclude=dist \
-    --exclude=.git \
-    --exclude=android \
+    -o "UserKnownHostsFile=/dev/null" \
+    -o "StrictHostKeyChecking=no" \
     . $SSH_USER@$SSH_HOST:$REMOTE_PROJECT_DIR/
 
 echo "✅ تم نقل الملفات"
@@ -101,6 +99,8 @@ echo "📥 جاري تحميل الملفات المبنية..."
 # تحميل الملفات المبنية
 mkdir -p $BUILD_OUTPUT_DIR
 sshpass -e scp -r -P $SSH_PORT \
+    -o "UserKnownHostsFile=/dev/null" \
+    -o "StrictHostKeyChecking=no" \
     $SSH_USER@$SSH_HOST:$REMOTE_PROJECT_DIR/dist/* \
     $BUILD_OUTPUT_DIR/
 

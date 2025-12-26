@@ -5,7 +5,8 @@ import {
   MoreHorizontal, MapPin, BarChart, UserCheck, 
   Package, DollarSign, Settings, ArrowLeftRight, 
   FileText, CreditCard, FileSpreadsheet, Bell, 
-  Shield, Database, Wrench, Terminal, Brain
+  Shield, Database, Wrench, Terminal, Brain,
+  ReceiptText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";

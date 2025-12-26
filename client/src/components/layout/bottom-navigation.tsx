@@ -20,6 +20,7 @@ const navigationItems = [
   { path: "/projects", icon: Building2, label: "المشاريع", key: "projects" },
   { path: "/workers", icon: Users, label: "العمال", key: "workers" },
   { path: "/suppliers-pro", icon: Truck, label: "الموردين", key: "suppliers" },
+  { path: "/worker-attendance", icon: UserCheck, label: "حضور", key: "attendance" },
   { path: "/daily-expenses", icon: Calculator, label: "المصاريف", key: "expenses" },
 ];
 
@@ -116,7 +117,7 @@ export default function BottomNavigation() {
 
   return (
     <nav className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 shadow-[0_-8px_20px_rgba(0,0,0,0.08)] pointer-events-auto flex-shrink-0 h-[68px] relative z-[100] pb-[env(safe-area-inset-bottom)]">
-      <div className="flex justify-around items-center h-full w-full max-w-screen-xl mx-auto px-2 relative">
+      <div className="flex justify-around items-center h-full w-full max-w-screen-xl mx-auto px-1 relative">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.path;
@@ -125,7 +126,7 @@ export default function BottomNavigation() {
             <Button
               key={item.key}
               variant="ghost"
-              className={`flex flex-col items-center justify-center gap-1.5 h-full min-w-[64px] rounded-2xl transition-all duration-500 relative group no-default-hover-elevate no-default-active-elevate ${
+              className={`flex flex-col items-center justify-center gap-1 h-full min-w-[50px] px-1 rounded-xl transition-all duration-500 relative group no-default-hover-elevate no-default-active-elevate ${
                 isActive 
                   ? "text-blue-600 dark:text-blue-400" 
                   : "text-slate-400 dark:text-slate-500"
@@ -165,7 +166,7 @@ export default function BottomNavigation() {
           <SheetTrigger asChild>
             <Button
               variant="ghost"
-              className={`flex flex-col items-center justify-center gap-1.5 h-full min-w-[64px] rounded-2xl transition-all duration-500 relative group no-default-hover-elevate no-default-active-elevate ${
+              className={`flex flex-col items-center justify-center gap-1 h-full min-w-[50px] px-1 rounded-xl transition-all duration-500 relative group no-default-hover-elevate no-default-active-elevate ${
                 isMenuOpen 
                   ? "text-blue-600 dark:text-blue-400" 
                   : "text-slate-400 dark:text-slate-500"

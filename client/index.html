@@ -5,33 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>إدارة المشاريع الإنشائية</title>
     <style>
-      body, html { 
-        margin: 0; 
-        padding: 0; 
-        width: 100%; 
-        height: 100%; 
-        background-color: #ffffff;
-        font-family: system-ui, -apple-system, sans-serif;
-      }
-      #root { 
-        width: 100%;
-        height: 100%;
-        display: block !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-      }
+      body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #ffffff; }
+      #root { min-height: 100vh; width: 100%; }
     </style>
   </head>
   <body>
-    <div id="root">
-      <div style="display: flex; align-items: center; justify-content: center; height: 100vh;">
-        <div style="text-align: center;">
-          <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
-          <p style="color: #666;">جاري تشغيل النظام...</p>
-        </div>
-      </div>
-    </div>
-    <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

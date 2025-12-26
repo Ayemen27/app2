@@ -1,17 +1,18 @@
 import { useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { 
   Home, Users, Building2, Truck, Calculator, 
   MoreHorizontal, MapPin, BarChart, UserCheck, 
   Package, DollarSign, Settings, ArrowLeftRight, 
   FileText, CreditCard, FileSpreadsheet, Bell, 
   Shield, Database, Wrench, Terminal, Brain,
-  ReceiptText
+  ReceiptText, Search, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/components/AuthProvider";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -102,6 +103,7 @@ const allPagesData = [
 export default function BottomNavigation() {
   const [location, setLocation] = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
 
   const isAdmin = user?.role === 'admin';
@@ -110,10 +112,27 @@ export default function BottomNavigation() {
     pages: category.pages.filter(page => !page.requireAdmin || isAdmin)
   })).filter(category => category.pages.length > 0);
 
+  // تصفية الصفحات بناءً على البحث
+  const filteredPages = useMemo(() => {
+    if (!searchQuery.trim()) return allPages;
+    
+    const query = searchQuery.toLowerCase();
+    return allPages.map(category => ({
+      ...category,
+      pages: category.pages.filter(page => 
+        page.label.toLowerCase().includes(query) || 
+        page.description.toLowerCase().includes(query)
+      )
+    })).filter(category => category.pages.length > 0);
+  }, [searchQuery, allPages]);
+
   const handlePageNavigation = (path: string) => {
     setLocation(path);
     setIsMenuOpen(false);
+    setSearchQuery("");
   };
+
+  const totalPages = allPages.reduce((acc, cat) => acc + cat.pages.length, 0);
 
   return (
     <nav className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 shadow-[0_-8px_20px_rgba(0,0,0,0.08)] pointer-events-auto flex-shrink-0 h-[68px] relative z-[100] pb-[env(safe-area-inset-bottom)]">
@@ -126,6 +145,7 @@ export default function BottomNavigation() {
             <Button
               key={item.key}
               variant="ghost"
+              data-testid={`nav-item-${item.key}`}
               className={`flex flex-col items-center justify-center gap-1 h-full min-w-[50px] px-1 rounded-xl transition-all duration-500 relative group no-default-hover-elevate no-default-active-elevate ${
                 isActive 
                   ? "text-blue-600 dark:text-blue-400" 
@@ -166,6 +186,7 @@ export default function BottomNavigation() {
           <SheetTrigger asChild>
             <Button
               variant="ghost"
+              data-testid="nav-more-button"
               className={`flex flex-col items-center justify-center gap-1 h-full min-w-[50px] px-1 rounded-xl transition-all duration-500 relative group no-default-hover-elevate no-default-active-elevate ${
                 isMenuOpen 
                   ? "text-blue-600 dark:text-blue-400" 
@@ -183,56 +204,164 @@ export default function BottomNavigation() {
               </span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-[85vh] rounded-t-[32px] px-4 border-none shadow-[0_-10px_40px_rgba(0,0,0,0.2)] bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xl">
-            <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-6 mt-2" />
-            <SheetHeader className="mb-6">
-              <SheetTitle className="text-right text-xl font-bold text-slate-900 dark:text-white px-2">اكتشف التطبيق</SheetTitle>
-            </SheetHeader>
+          <SheetContent side="bottom" className="h-[90vh] rounded-t-[28px] px-0 border-none shadow-[0_-15px_50px_rgba(0,0,0,0.15)] bg-white dark:bg-slate-950 backdrop-blur-2xl">
+            {/* شريط السحب */}
+            <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto my-3" />
+            
+            {/* رأس المنطقة مع الإحصائيات */}
+            <div className="px-4 mb-4 space-y-3">
+              <SheetHeader>
+                <SheetTitle className="text-right text-2xl font-bold bg-gradient-to-l from-blue-600 to-blue-500 bg-clip-text text-transparent dark:from-blue-400 dark:to-blue-300">
+                  اكتشف التطبيق
+                </SheetTitle>
+              </SheetHeader>
+              
+              {/* شريط الإحصائيات */}
+              <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                  {filteredPages.reduce((acc, cat) => acc + cat.pages.length, 0)} من {totalPages}
+                </span>
+                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                  جميع الخدمات
+                </span>
+              </div>
 
-            <ScrollArea className="h-[calc(85vh-120px)] pb-12">
-              <div className="grid grid-cols-1 gap-6 px-1">
-                {allPages.map((category, categoryIndex) => (
-                  <div key={categoryIndex} className="space-y-3">
-                    <h3 className="font-bold text-sm text-slate-400 dark:text-slate-500 text-right px-3 uppercase tracking-wider">
-                      {category.category}
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {category.pages.map((page, pageIndex) => {
-                        const PageIcon = page.icon;
-                        const isPageActive = location === page.path;
+              {/* شريط البحث المحسّن */}
+              <div className="relative group">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500 z-10 pointer-events-none" />
+                <Input
+                  data-testid="input-menu-search"
+                  type="text"
+                  placeholder="ابحث عن صفحة..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-10 pr-10 pl-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 dark:focus-visible:ring-offset-0 transition-all duration-300"
+                />
+                {searchQuery && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 h-6 w-6 z-10 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                  </Button>
+                )}
+              </div>
+            </div>
 
-                        return (
-                          <Button
-                            key={pageIndex}
-                            variant="ghost"
-                            className={`w-full justify-start h-auto p-4 rounded-2xl border transition-all duration-300 ${
-                              isPageActive 
-                                ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200 dark:shadow-blue-900/20" 
-                                : "bg-white dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50/50 dark:hover:bg-blue-900/10"
-                            }`}
-                            onClick={() => handlePageNavigation(page.path)}
-                          >
-                            <div className="flex items-center gap-4 w-full text-right">
-                              <div className={`p-2.5 rounded-xl transition-colors ${
-                                isPageActive ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400"
-                              }`}>
-                                <PageIcon className="h-5 w-5" />
-                              </div>
-                              <div className="flex-1 min-w-0 text-right">
-                                <div className="font-bold text-sm leading-none mb-1 truncate">
-                                  {page.label}
-                                </div>
-                                <div className={`text-[11px] leading-tight truncate ${isPageActive ? "text-white/80" : "text-slate-500 dark:text-slate-400"}`}>
-                                  {page.description}
-                                </div>
-                              </div>
-                            </div>
-                          </Button>
-                        );
-                      })}
-                    </div>
+            {/* قائمة الصفحات */}
+            <ScrollArea className="h-[calc(90vh-180px)]">
+              <div className="px-4 pb-8">
+                {filteredPages.length > 0 ? (
+                  <div className="space-y-6">
+                    <AnimatePresence mode="wait">
+                      {filteredPages.map((category, categoryIndex) => (
+                        <motion.div
+                          key={categoryIndex}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ delay: categoryIndex * 0.05 }}
+                          className="space-y-3"
+                        >
+                          {/* عنوان الفئة */}
+                          <div className="flex items-center gap-3 px-2 mb-3">
+                            <div className="h-0.5 flex-1 bg-gradient-to-l from-slate-200 dark:from-slate-800 to-transparent" />
+                            <h3 className="font-bold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">
+                              {category.category}
+                            </h3>
+                            <div className="h-0.5 flex-1 bg-gradient-to-r from-slate-200 dark:from-slate-800 to-transparent" />
+                          </div>
+
+                          {/* شبكة الصفحات */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {category.pages.map((page, pageIndex) => {
+                              const PageIcon = page.icon;
+                              const isPageActive = location === page.path;
+
+                              return (
+                                <motion.div
+                                  key={pageIndex}
+                                  initial={{ opacity: 0, scale: 0.95 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ delay: pageIndex * 0.03 }}
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                >
+                                  <Button
+                                    variant="ghost"
+                                    data-testid={`menu-item-${page.path}`}
+                                    className={`w-full h-auto p-4 rounded-2xl border-2 transition-all duration-300 overflow-hidden relative group cursor-pointer ${
+                                      isPageActive 
+                                        ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white border-blue-600 shadow-lg shadow-blue-200 dark:shadow-blue-950 dark:from-blue-600 dark:to-blue-700" 
+                                        : "bg-white dark:bg-slate-900/40 border-slate-100 dark:border-slate-800/50 text-slate-900 dark:text-white hover:border-blue-300 dark:hover:border-blue-700/50 hover:bg-blue-50/50 dark:hover:bg-blue-900/10"
+                                    }`}
+                                    onClick={() => handlePageNavigation(page.path)}
+                                  >
+                                    {/* خلفية تأثير عند المرور */}
+                                    {!isPageActive && (
+                                      <motion.div
+                                        className="absolute inset-0 bg-gradient-to-br from-blue-400/0 to-blue-500/0 opacity-0 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity duration-300"
+                                        whileHover={{ opacity: 1 }}
+                                      />
+                                    )}
+
+                                    <div className="flex items-center gap-3 w-full relative z-10">
+                                      {/* أيقونة الصفحة */}
+                                      <motion.div
+                                        className={`p-2.5 rounded-2xl transition-all duration-300 flex-shrink-0 ${
+                                          isPageActive 
+                                            ? "bg-white/25 shadow-lg" 
+                                            : "bg-slate-100 dark:bg-slate-800/80 text-blue-600 dark:text-blue-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40"
+                                        }`}
+                                        whileHover={{ scale: 1.15, rotate: 5 }}
+                                        transition={{ type: "spring", stiffness: 400 }}
+                                      >
+                                        <PageIcon className="h-5 w-5" />
+                                      </motion.div>
+
+                                      {/* محتوى النص */}
+                                      <div className="flex-1 min-w-0 text-right">
+                                        <div className={`font-bold text-sm leading-tight mb-1 truncate transition-all duration-300 ${
+                                          isPageActive ? "text-white" : "text-slate-900 dark:text-slate-100"
+                                        }`}>
+                                          {page.label}
+                                        </div>
+                                        <div className={`text-[11px] leading-tight truncate transition-all duration-300 ${
+                                          isPageActive 
+                                            ? "text-white/85" 
+                                            : "text-slate-500 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300"
+                                        }`}>
+                                          {page.description}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </Button>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   </div>
-                ))}
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex flex-col items-center justify-center py-12 text-center"
+                  >
+                    <Search className="h-12 w-12 text-slate-300 dark:text-slate-700 mb-3" />
+                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">
+                      لا توجد نتائج
+                    </p>
+                    <p className="text-slate-400 dark:text-slate-500 text-xs">
+                      جرب كلمات بحث أخرى
+                    </p>
+                  </motion.div>
+                )}
               </div>
             </ScrollArea>
           </SheetContent>

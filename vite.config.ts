@@ -7,7 +7,7 @@ export default defineConfig({
   root: 'client',
   build: {
     outDir: '../dist/public',
-    emptyOutDir: false,
+    emptyOutDir: true,
     target: 'es2020',
     minify: false,
     cssMinify: false,
@@ -26,10 +26,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(process.cwd(), 'client/src'),
-      '@assets': path.resolve(process.cwd(), 'attached_assets'),
-      '@shared': path.resolve(process.cwd(), 'shared'),
-      '@lib': path.resolve(process.cwd(), 'client/src/lib'),
+      '@': path.resolve(__dirname, './client/src'),
+      '@assets': path.resolve(__dirname, './attached_assets'),
+      '@shared': path.resolve(__dirname, './shared'),
+      '@lib': path.resolve(__dirname, './client/src/lib'),
     },
   },
   server: {

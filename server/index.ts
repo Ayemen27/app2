@@ -152,7 +152,8 @@ app.use(cors({
 // Using '1' to trust the first proxy (Replit's proxy) instead of 'true'
 app.set("trust proxy", 1);
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "5mb" }));
+app.use(compression()); // Enable global compression middleware
 app.use(compressionMiddleware);
 app.use(performanceHeaders);
 

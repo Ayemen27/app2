@@ -34,10 +34,11 @@ export const cacheHeaders = (req: Request, res: Response, next: NextFunction) =>
   // إعداد cache headers للملفات الثابتة
   if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-  } else if (req.url.match(/\.(html|htm)$/)) {
+    res.setHeader('Vary', 'Accept-Encoding');
+  } else if (req.url.match(/\.(html|htm|manifest\.json|sw\.js)$/)) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   } else {
-    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('Cache-Control', 'public, max-age=600');
   }
   
   next();

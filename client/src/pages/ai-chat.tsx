@@ -48,6 +48,7 @@ export default function AIChatPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -94,8 +95,18 @@ export default function AIChatPage() {
     }
   };
 
+  // استخدام wrapper لإزالة header الموحد
   return (
-    <div className="flex flex-col h-screen bg-[#F5F5F7] dark:bg-slate-950 overflow-hidden relative">
+    <AIChatContainer messages={messages} input={input} isLoading={isLoading} setInput={setInput} 
+                      setMessages={setMessages} handleSend={handleSend} scrollAreaRef={scrollAreaRef} 
+                      setLocation={setLocation} user={user} />
+  );
+}
+
+// AI Chat Container with Full Width
+function AIChatContainer({ messages, input, isLoading, setInput, setMessages, handleSend, scrollAreaRef, setLocation, user }: any) {
+  return (
+    <div className="flex flex-col h-screen w-full bg-[#F5F5F7] dark:bg-slate-950 overflow-hidden relative" dir="rtl">
       {/* Custom Header for AI Chat */}
       <header className="bg-white dark:bg-slate-900 border-b px-4 h-14 flex items-center justify-between sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-3">

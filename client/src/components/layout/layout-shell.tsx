@@ -1,4 +1,5 @@
 import React from "react";
+import { useLocation } from "wouter";
 import Header from "./header";
 import BottomNavigation from "./bottom-navigation";
 import FloatingAddButton from "./floating-add-button";
@@ -16,27 +17,37 @@ export function LayoutShell({
   showNav = true,
   showFloatingButton = true 
 }: LayoutShellProps) {
+  const [location] = useLocation();
+  
+  // الصفحات التي تحتوي على شريط خاص بها وتحتاج إلى إخفاء الشريط العام
+  const pagesWithCustomHeader = ['/ai-chat'];
+  const isCustomHeaderPage = pagesWithCustomHeader.some(page => location === page);
+  
+  // الصفحات التي تحتاج إلى إخفاء شريط التنقل السفلي
+  const pagesWithoutNav = ['/ai-chat'];
+  const hideNav = pagesWithoutNav.some(page => location === page);
+
   return (
     <div className="layout-shell">
-      {showHeader && (
+      {showHeader && !isCustomHeaderPage && (
         <header className="layout-header">
           <Header />
         </header>
       )}
       
       <main className="layout-main">
-        <div className="layout-content pb-24">
+        <div className={isCustomHeaderPage ? "" : "layout-content pb-24"}>
           {children}
         </div>
       </main>
       
-      {showNav && (
+      {showNav && !hideNav && (
         <nav className="layout-nav">
           <BottomNavigation />
         </nav>
       )}
       
-      {showFloatingButton && <FloatingAddButton />}
+      {showFloatingButton && !isCustomHeaderPage && <FloatingAddButton />}
     </div>
   );
 }

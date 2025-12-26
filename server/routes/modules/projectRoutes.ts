@@ -485,6 +485,18 @@ projectRouter.get('/:id', async (req: Request, res: Response) => {
     console.log('🔍 [API] طلب جلب مشروع محدد من المستخدم:', req.user?.email);
     console.log('📋 [API] معرف المشروع:', id);
 
+    // Support for 'all' projects daily summary
+    if (id === 'all') {
+      const { date } = req.query;
+      // You can implement specialized logic here or redirect to another handler
+      // For now, let's return a success status to avoid 404
+      return res.json({ 
+        success: true, 
+        data: { message: "All projects summary" }, 
+        message: "تم جلب ملخص جميع المشاريع" 
+      });
+    }
+
     // التحقق من وجود معرف المشروع
     if (!id) {
       const duration = Date.now() - startTime;

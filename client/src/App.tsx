@@ -54,8 +54,14 @@ const AIChatPage = lazy(() => import("@/pages/ai-chat"));
 
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+    <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+      <div className="relative">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="h-2 w-2 bg-blue-600 rounded-full animate-pulse" />
+        </div>
+      </div>
+      <p className="text-sm font-medium text-slate-500 animate-pulse">جاري تحميل البيانات...</p>
     </div>
   );
 }

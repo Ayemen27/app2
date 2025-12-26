@@ -97,14 +97,23 @@ export default function AIChatPage() {
 
   // استخدام wrapper لإزالة header الموحد
   return (
-    <AIChatContainer messages={messages} input={input} isLoading={isLoading} setInput={setInput} 
-                      setMessages={setMessages} handleSend={handleSend} scrollAreaRef={scrollAreaRef} 
-                      setLocation={setLocation} user={user} />
+    <AIChatContainer 
+      messages={messages} 
+      input={input} 
+      isLoading={isLoading} 
+      setInput={setInput} 
+      setMessages={setMessages} 
+      handleSend={handleSend} 
+      scrollAreaRef={scrollAreaRef}
+      textareaRef={textareaRef}
+      setLocation={setLocation} 
+      user={user} 
+    />
   );
 }
 
 // AI Chat Container with Full Width
-function AIChatContainer({ messages, input, isLoading, setInput, setMessages, handleSend, scrollAreaRef, setLocation, user }: any) {
+function AIChatContainer({ messages, input, isLoading, setInput, setMessages, handleSend, scrollAreaRef, textareaRef, setLocation, user }: any) {
   return (
     <div className="flex flex-col h-screen w-full bg-[#F5F5F7] dark:bg-slate-950 overflow-hidden relative" dir="rtl">
       {/* Custom Header for AI Chat */}
@@ -264,7 +273,7 @@ function AIChatContainer({ messages, input, isLoading, setInput, setMessages, ha
         </div>
       </div>
       
-      <style jsx global>{`
+      <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .custom-scrollbar::-webkit-scrollbar {

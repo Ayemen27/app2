@@ -41,10 +41,14 @@ export async function setupVite(app: Express, server: Server) {
       return next();
     }
     
-    // Force JavaScript MIME type for .tsx and .ts files
-    if (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.includes('main.tsx')) {
+    // Logic to handle Vite assets specifically
+    const isViteAsset = req.path.includes('/src/') || 
+                        req.path.includes('/node_modules/') || 
+                        req.path.includes('@vite/') || 
+                        req.path.includes('@id/');
+
+    if (isViteAsset && (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.js') || req.path.endsWith('.jsx'))) {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      res.setHeader('X-Content-Type-Options', 'nosniff');
     }
 
     return vite.middlewares(req, res, next);
@@ -55,7 +59,8 @@ export async function setupVite(app: Express, server: Server) {
       return next();
     }
 
-    if (req.originalUrl.startsWith('/@') || /\.\w+(\?|$)/i.test(req.originalUrl)) {
+    // Skip Vite transform for static assets that might be requested
+    if (req.originalUrl.includes('.') && !req.originalUrl.endsWith('.html')) {
       return next();
     }
 
@@ -68,10 +73,9 @@ export async function setupVite(app: Express, server: Server) {
       );
 
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      // Disable any cache headers in dev
+      
+      // Force no-cache for index.html during development
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
       
       const page = await vite.transformIndexHtml(req.originalUrl, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);

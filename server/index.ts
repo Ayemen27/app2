@@ -262,19 +262,6 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// ✅ **Error Handler Middleware**
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  const status = err.status || err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
-
-  res.status(status).json({ message });
-  throw err;
-});
-
-// ⚠️ Setup static files EARLY - before all other routes!
-// This must be done before route registration
-serveStatic(app);
-
 // Setup vite dev server if in development
 if (process.env.NODE_ENV === "development") {
   import("./vite.js").then(({ setupVite }) => {
@@ -282,7 +269,19 @@ if (process.env.NODE_ENV === "development") {
   }).catch((err) => {
     console.error('❌ فشل تحميل خادم Vite:', err);
   });
+} else {
+  // Setup static files ONLY in production
+  serveStatic(app);
 }
+
+// ✅ **Error Handler Middleware** - Moved after static/vite
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+
+  res.status(status).json({ message });
+  // console.error(err); // Log the error but don't rethrow to avoid crashing
+});
 
 // ALWAYS serve the app on the port specified in the environment variable PORT
 // Other ports are firewalled. Default to 5000 if not specified.

@@ -3,14 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>إدارة المشاريع</title>
+    <title>إدارة المشاريع الإنشائية</title>
     <style>
-      body { margin: 0; background: #fff; }
-      #root { width: 100%; min-height: 100vh; display: block !important; }
+      body, html { margin: 0; padding: 0; background: #fff; }
+      #root { width: 100%; min-height: 100vh; }
     </style>
   </head>
   <body>
     <div id="root"></div>
+    <!-- استخدام مسار مباشر لـ Vite -->
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      console.log("HTML: LOADED");
+      window.onerror = function(msg, url, line) {
+        console.error("BROWSER_ERR:", msg, "@", url, ":", line);
+      };
+    </script>
   </body>
 </html>

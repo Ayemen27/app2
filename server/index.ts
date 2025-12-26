@@ -339,16 +339,17 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   throw err;
 });
 
-// Setup static files or vite dev server based on environment
+// ⚠️ Setup static files EARLY - before all other routes!
+// This must be done before route registration
+serveStatic(app);
+
+// Setup vite dev server if in development
 if (process.env.NODE_ENV === "development") {
   import("./vite.js").then(({ setupVite }) => {
     setupVite(app, server);
   }).catch((err) => {
     console.error('❌ فشل تحميل خادم Vite:', err);
-    serveStatic(app);
   });
-} else {
-  serveStatic(app);
 }
 
 // ALWAYS serve the app on the port specified in the environment variable PORT

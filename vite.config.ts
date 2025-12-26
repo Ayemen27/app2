@@ -9,8 +9,8 @@ export default defineConfig({
     outDir: '../dist/public',
     emptyOutDir: true,
     target: 'es2020',
-    minify: 'terser',
-    cssMinify: 'lightningcss',
+    minify: false,
+    cssMinify: false,
     terserOptions: {
       compress: {
         drop_console: false,
@@ -23,21 +23,9 @@ export default defineConfig({
     cssCodeSplit: true,
     rollupOptions: {
       maxParallelFileOps: 1,
+      cache: false,
       output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules')) {
-            if (id.includes('@radix-ui')) {
-              return 'vendor-radix';
-            }
-            if (id.includes('recharts')) {
-              return 'vendor-charts';
-            }
-            if (id.includes('exceljs')) {
-              return 'vendor-excel';
-            }
-            return 'vendor';
-          }
-        },
+        manualChunks: undefined,
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
           const name = assetInfo.name ?? 'asset';

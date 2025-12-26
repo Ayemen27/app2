@@ -125,8 +125,8 @@ export default function BottomNavigation() {
   };
 
   return (
-    <nav className="bg-primary/95 backdrop-blur-sm border-t-2 border-primary-foreground/20 shadow-lg pointer-events-auto flex-shrink-0 h-14">
-      <div className="grid grid-cols-6 h-14 w-full max-w-screen-xl mx-auto">
+    <nav className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] pointer-events-auto flex-shrink-0 h-16 md:h-16 relative z-[100] safe-area-inset-bottom">
+      <div className="grid grid-cols-6 h-full w-full max-w-screen-xl mx-auto px-1">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.path;
@@ -135,13 +135,27 @@ export default function BottomNavigation() {
             <Button
               key={item.key}
               variant="ghost"
-              className={`flex flex-col items-center justify-center space-y-0.5 h-full rounded-none ${
-                isActive ? "text-primary-foreground bg-primary-foreground/10" : "text-primary-foreground/70 hover:text-primary-foreground"
+              className={`flex flex-col items-center justify-center gap-1 h-full rounded-2xl transition-all duration-300 relative group overflow-visible ${
+                isActive 
+                  ? "text-blue-600 dark:text-blue-400 font-bold" 
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
               }`}
               onClick={() => setLocation(item.path)}
             >
-              <Icon className="h-5 w-5" />
-              <span className="text-[10px]">{item.label}</span>
+              <div className={`p-1 rounded-xl transition-all duration-300 ${
+                isActive ? "bg-blue-50 dark:bg-blue-900/20 scale-110" : "group-hover:bg-slate-50 dark:group-hover:bg-slate-800"
+              }`}>
+                <Icon className={`h-5 w-5 md:h-6 md:w-6 transition-transform ${isActive ? "scale-110" : "scale-100"}`} />
+              </div>
+              <span className={`text-[10px] md:text-xs transition-all ${isActive ? "opacity-100" : "opacity-80"}`}>
+                {item.label}
+              </span>
+              {isActive && (
+                <motion.div 
+                  layoutId="nav-indicator"
+                  className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-blue-600 dark:bg-blue-400 rounded-full"
+                />
+              )}
             </Button>
           );
         })}
@@ -151,10 +165,20 @@ export default function BottomNavigation() {
           <SheetTrigger asChild>
             <Button
               variant="ghost"
-              className="flex flex-col items-center justify-center space-y-0.5 h-full rounded-none text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+              className={`flex flex-col items-center justify-center gap-1 h-full rounded-2xl transition-all duration-300 relative group overflow-visible ${
+                isMenuOpen 
+                  ? "text-blue-600 dark:text-blue-400 font-bold" 
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+              }`}
             >
-              <MoreHorizontal className="h-5 w-5" />
-              <span className="text-[10px]">المزيد</span>
+              <div className={`p-1 rounded-xl transition-all duration-300 ${
+                isMenuOpen ? "bg-blue-50 dark:bg-blue-900/20 scale-110" : "group-hover:bg-slate-50 dark:group-hover:bg-slate-800"
+              }`}>
+                <MoreHorizontal className={`h-5 w-5 md:h-6 md:w-6 transition-transform ${isMenuOpen ? "scale-110" : "scale-100"}`} />
+              </div>
+              <span className={`text-[10px] md:text-xs transition-all ${isMenuOpen ? "opacity-100" : "opacity-80"}`}>
+                المزيد
+              </span>
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[85vh] max-w-full px-3">

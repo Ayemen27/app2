@@ -377,9 +377,9 @@ function AIChatContainer({
       </AnimatePresence>
 
       {/* Main Chat Area */}
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 relative">
         {/* Header */}
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 h-14 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 h-14 flex items-center justify-between fixed top-0 left-0 right-0 z-40 shadow-md" style={{ marginLeft: sidebarOpen ? '288px' : '0px' }}>
           <div className="flex items-center gap-3">
             <Button 
               variant="ghost" 
@@ -423,8 +423,8 @@ function AIChatContainer({
         </header>
 
         {/* Chat Area */}
-        <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 py-4">
-          <div className="max-w-3xl mx-auto space-y-4 pb-64">
+        <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 py-4 mt-14">
+          <div className="max-w-3xl mx-auto space-y-4 pb-72">
             <AnimatePresence initial={false}>
               {messages.map((msg, i) => (
                 <motion.div
@@ -473,7 +473,7 @@ function AIChatContainer({
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="fixed bottom-0 left-0 right-0 z-30 p-4 bg-gradient-to-t from-[#F5F5F7] dark:from-slate-950 via-[#F5F5F7]/90 dark:via-slate-950/90 to-transparent">
+        <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-gradient-to-t from-[#F5F5F7] dark:from-slate-950 via-[#F5F5F7]/90 dark:via-slate-950/90 to-transparent" style={{ width: sidebarOpen ? 'calc(100% - 288px)' : '100%' }}>
           <div className="max-w-3xl mx-auto">
             {/* Quick Prompts */}
             <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar px-1">

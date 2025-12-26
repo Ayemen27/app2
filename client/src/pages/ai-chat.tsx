@@ -199,7 +199,7 @@ function AIChatContainer({ messages, input, isLoading, setInput, setMessages, ha
       </ScrollArea>
 
       {/* Replit Style Input Box */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-gradient-to-t from-[#F5F5F7] dark:from-slate-950 via-[#F5F5F7]/90 dark:via-slate-950/90 to-transparent">
+      <div className="fixed bottom-12 left-0 right-0 z-40 p-4 bg-gradient-to-t from-[#F5F5F7] dark:from-slate-950 via-[#F5F5F7]/90 dark:via-slate-950/90 to-transparent">
         <div className="max-w-3xl mx-auto">
           {/* Horizontal Quick Prompts */}
           <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar px-1">

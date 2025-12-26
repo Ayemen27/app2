@@ -11,39 +11,17 @@ export default defineConfig({
     target: 'es2020',
     minify: false,
     cssMinify: false,
-    terserOptions: {
-      compress: {
-        drop_console: false,
-        drop_debugger: true,
-      },
-      format: {
-        comments: false,
-      },
-    },
-    cssCodeSplit: true,
     rollupOptions: {
       maxParallelFileOps: 1,
       cache: false,
       output: {
         manualChunks: undefined,
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: (assetInfo) => {
-          const name = assetInfo.name ?? 'asset';
-          const info = name.split('.');
-          const ext = info[info.length - 1];
-          if (/\.(png|jpe?g|gif|svg|ico|webp)$/i.test(name)) {
-            return `assets/img/[name]-[hash].${ext}`;
-          }
-          if (/\.(css)$/i.test(name)) {
-            return `assets/css/[name]-[hash].${ext}`;
-          }
-          return `assets/[name]-[hash].${ext}`;
-        }
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name].[ext]',
       }
     },
     chunkSizeWarningLimit: 2000,
     reportCompressedSize: false,
-    sourcemap: false,
     assetsInlineLimit: 4096, // Inline small assets to reduce requests
   },
   resolve: {

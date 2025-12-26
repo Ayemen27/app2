@@ -3416,9 +3416,9 @@ import helmet from "helmet";
 
 // server/static.ts
 import express from "express";
+import fs from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
-import fs from "fs";
 function log(message, source = "express") {
   const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -3438,13 +3438,17 @@ function serveStatic(app2) {
     path.resolve(__dirname, "dist", "public")
   ];
   let distPath = distPaths[0];
+  let indexExists = false;
   for (const p of distPaths) {
     if (fs.existsSync(path.join(p, "index.html"))) {
       distPath = p;
+      indexExists = true;
       break;
     }
   }
-  console.log(`[Static] Final distPath: ${distPath}`);
+  console.log(`[Static] NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`[Static] Selected distPath: ${distPath}`);
+  console.log(`[Static] Index exists: ${indexExists}`);
   app2.use(express.static(distPath));
   app2.get("*", (req, res, next) => {
     if (req.originalUrl.startsWith("/api/")) return next();
@@ -3454,12 +3458,18 @@ function serveStatic(app2) {
     } else {
       res.status(200).send(`
         <html>
-          <head><title>BinarJoin - System Initializing</title></head>
+          <head>
+            <title>BinarJoin - System Status</title>
+            <meta http-equiv="refresh" content="5">
+          </head>
           <body style="font-family: sans-serif; text-align: center; padding: 50px; background: #f4f4f9;">
             <h1>BinarJoin System</h1>
-            <p>The system is online. Frontend assets are being prepared.</p>
-            <p>Please refresh in a few seconds.</p>
-            <script>setTimeout(() => location.reload(), 5000);</script>
+            <p>The application is online, but frontend assets are being generated.</p>
+            <div style="margin: 20px; padding: 20px; background: #fff; border-radius: 8px; display: inline-block; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+              <strong>Status:</strong> Preparing Assets... <br/>
+              <strong>Dist Path:</strong> ${distPath}
+            </div>
+            <p>This page will refresh automatically every 5 seconds.</p>
           </body>
         </html>
       `);

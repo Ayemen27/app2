@@ -117,7 +117,7 @@ function AIChatContainer({ messages, input, isLoading, setInput, setMessages, ha
   return (
     <div className="flex flex-col h-screen w-full bg-[#F5F5F7] dark:bg-slate-950 overflow-hidden relative" dir="rtl">
       {/* Custom Header for AI Chat */}
-      <header className="bg-white dark:bg-slate-900 border-b px-4 h-14 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+      <header className="bg-white dark:bg-slate-900 border-b px-4 h-14 flex items-center justify-between fixed top-0 left-0 right-0 z-50 shadow-md">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -156,7 +156,7 @@ function AIChatContainer({ messages, input, isLoading, setInput, setMessages, ha
       </header>
 
       {/* Chat Area */}
-      <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 py-4">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 py-4 mt-14">
         <div className="max-w-3xl mx-auto space-y-6 pb-64">
           <AnimatePresence initial={false}>
             {messages.map((msg, i) => (

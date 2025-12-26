@@ -24,7 +24,7 @@ export function LayoutShell({
   const isCustomHeaderPage = pagesWithCustomHeader.some(page => location === page);
   
   // الصفحات التي تحتاج إلى إخفاء شريط التنقل السفلي
-  const pagesWithoutNav = ['/ai-chat'];
+  const pagesWithoutNav: string[] = [];
   const hideNav = pagesWithoutNav.some(page => location === page);
 
   return (

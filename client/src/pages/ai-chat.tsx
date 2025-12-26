@@ -16,13 +16,13 @@ import {
   Package,
   Activity,
   PlusCircle,
-  Paperclip,
-  Zap,
-  SlidersHorizontal,
-  Box,
   Menu,
   X,
-  MessageCircle
+  MessageCircle,
+  BarChart3,
+  Clock,
+  Search,
+  FileText
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,8 +48,18 @@ const QUICK_PROMPTS = [
   { text: "توقعات المصاريف القادمة", icon: <Activity className="h-4 w-4" /> },
 ];
 
+const ONBOARDING_ACTIONS = [
+  { text: "عرض العمال", icon: <Users className="h-5 w-5" />, color: "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400" },
+  { text: "عرض المشاريع", icon: <BarChart3 className="h-5 w-5" />, color: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" },
+  { text: "مصاريف اليوم", icon: <Clock className="h-5 w-5" />, color: "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" },
+  { text: "تصفية حساب", icon: <FileText className="h-5 w-5" />, color: "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" },
+  { text: "تقرير مشروع", icon: <FileText className="h-5 w-5" />, color: "bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400" },
+  { text: "بحث عام", icon: <Search className="h-5 w-5" />, color: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" },
+];
+
 const STORAGE_KEY = "ai_chat_sessions";
 const ACTIVE_CHAT_KEY = "active_chat_id";
+const ONBOARDING_VIEWED_KEY = "ai_chat_onboarding_viewed";
 
 // الدالات المساعدة للتخزين
 const loadSessions = (): ChatSession[] => {
@@ -81,6 +91,14 @@ const getActiveSessionId = (): string | null => {
 
 const setActiveSessionId = (id: string) => {
   localStorage.setItem(ACTIVE_CHAT_KEY, id);
+};
+
+const hasViewedOnboarding = (): boolean => {
+  return localStorage.getItem(ONBOARDING_VIEWED_KEY) === "true";
+};
+
+const markOnboardingViewed = () => {
+  localStorage.setItem(ONBOARDING_VIEWED_KEY, "true");
 };
 
 const generateSessionId = (): string => {
@@ -128,6 +146,7 @@ export default function AIChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(!hasViewedOnboarding());
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -226,6 +245,12 @@ export default function AIChatPage() {
     setSidebarOpen(false);
   };
 
+  const startOnboardingNewChat = () => {
+    markOnboardingViewed();
+    setShowOnboarding(false);
+    startNewChat();
+  };
+
   const deleteSession = (id: string) => {
     const newSessions = sessions.filter(s => s.id !== id);
     setSessions(newSessions);
@@ -241,6 +266,21 @@ export default function AIChatPage() {
     setActiveSessionId(id);
     setSidebarOpen(false);
   };
+
+  if (showOnboarding) {
+    return (
+      <OnboardingScreen
+        onStart={startOnboardingNewChat}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        switchSession={switchSession}
+        deleteSession={deleteSession}
+        startNewChat={startNewChat}
+      />
+    );
+  }
 
   return (
     <AIChatContainer 
@@ -262,6 +302,168 @@ export default function AIChatPage() {
       sidebarOpen={sidebarOpen}
       setSidebarOpen={setSidebarOpen}
     />
+  );
+}
+
+// Onboarding Screen
+function OnboardingScreen({ onStart, sidebarOpen, setSidebarOpen, sessions, currentSessionId, switchSession, deleteSession, startNewChat }: any) {
+  return (
+    <div className="flex h-screen w-full bg-[#F5F5F7] dark:bg-slate-950 overflow-hidden relative" dir="rtl">
+      {/* Sidebar */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ x: -280, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -280, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed left-0 top-0 bottom-0 w-72 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 z-40 flex flex-col shadow-lg"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5 text-blue-600" />
+                <h2 className="font-bold text-sm">المحادثات</h2>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="rounded-md">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-3 border-b border-slate-200 dark:border-slate-800">
+              <Button onClick={startNewChat} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2" size="sm">
+                <PlusCircle className="h-4 w-4" />
+                محادثة جديدة
+              </Button>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="p-3 space-y-2">
+                {sessions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <MessageCircle className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-xs text-slate-500">لا توجد محادثات سابقة</p>
+                  </div>
+                ) : (
+                  sessions.map((session: any) => (
+                    <motion.div
+                      key={session.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className={`p-3 rounded-lg cursor-pointer transition-all group ${
+                        currentSessionId === session.id
+                          ? "bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700"
+                          : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-transparent"
+                      }`}
+                      onClick={() => switchSession(session.id)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{session.title}</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">{formatTime(session.updatedAt)}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e: any) => {
+                            e.stopPropagation();
+                            deleteSession(session.id);
+                          }}
+                          className="h-6 w-6 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex flex-col flex-1 relative">
+        {/* Header */}
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 h-14 flex items-center justify-between fixed top-0 left-0 right-0 z-40 shadow-md" style={{ marginLeft: sidebarOpen ? '288px' : '0px' }}>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)} className="rounded-md">
+              <Menu className="h-5 w-5" />
+            </Button>
+            <div className="flex items-center gap-2">
+              <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-xl">
+                <Bot className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-sm font-bold">Agent</h1>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-[10px] text-muted-foreground font-medium">متصل الآن</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="rounded-md text-muted-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
+              <History className="h-5 w-5" />
+            </Button>
+          </div>
+        </header>
+
+        {/* Onboarding Content */}
+        <div className="flex-1 flex items-center justify-center px-4 mt-14">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center max-w-md"
+          >
+            {/* Icon */}
+            <motion.div
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="w-24 h-24 bg-gradient-to-br from-purple-500 to-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg"
+            >
+              <Bot className="h-12 w-12 text-white" />
+            </motion.div>
+
+            {/* Title */}
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3">مرحباً بك!</h1>
+
+            {/* Description */}
+            <p className="text-slate-600 dark:text-slate-400 mb-8 text-sm leading-relaxed">
+              أنا الوكيل الذكي، مساعدك في إدارة المشاريع والعمال والمصروفات وإنشاء التقارير
+            </p>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-3 mb-8">
+              {ONBOARDING_ACTIONS.map((action, i) => (
+                <motion.button
+                  key={i}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`p-4 rounded-2xl flex flex-col items-center gap-2 transition-all ${action.color} border border-current border-opacity-20`}
+                >
+                  {action.icon}
+                  <span className="text-xs font-medium">{action.text}</span>
+                </motion.button>
+              ))}
+            </div>
+
+            {/* Start Button */}
+            <Button
+              onClick={onStart}
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full py-6 mb-4 font-semibold"
+              size="lg"
+            >
+              <PlusCircle className="h-5 w-5 ml-2" />
+              ابدأ محادثة جديدة
+            </Button>
+          </motion.div>
+        </div>
+      </div>
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+    </div>
   );
 }
 
@@ -297,35 +499,23 @@ function AIChatContainer({
             transition={{ duration: 0.3 }}
             className="fixed left-0 top-0 bottom-0 w-72 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 z-40 flex flex-col shadow-lg"
           >
-            {/* Sidebar Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <History className="h-5 w-5 text-blue-600" />
                 <h2 className="font-bold text-sm">المحادثات</h2>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(false)}
-                className="rounded-md"
-              >
+              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="rounded-md">
                 <X className="h-4 w-4" />
               </Button>
             </div>
 
-            {/* New Chat Button */}
             <div className="p-3 border-b border-slate-200 dark:border-slate-800">
-              <Button
-                onClick={startNewChat}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2"
-                size="sm"
-              >
+              <Button onClick={startNewChat} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2" size="sm">
                 <PlusCircle className="h-4 w-4" />
                 محادثة جديدة
               </Button>
             </div>
 
-            {/* Sessions List */}
             <ScrollArea className="flex-1">
               <div className="p-3 space-y-2">
                 {sessions.length === 0 ? (
@@ -334,7 +524,7 @@ function AIChatContainer({
                     <p className="text-xs text-slate-500">لا توجد محادثات سابقة</p>
                   </div>
                 ) : (
-                  sessions.map((session) => (
+                  sessions.map((session: any) => (
                     <motion.div
                       key={session.id}
                       initial={{ opacity: 0, x: -10 }}
@@ -348,17 +538,13 @@ function AIChatContainer({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                            {session.title}
-                          </p>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                            {formatTime(session.updatedAt)}
-                          </p>
+                          <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{session.title}</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">{formatTime(session.updatedAt)}</p>
                         </div>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={(e) => {
+                          onClick={(e: any) => {
                             e.stopPropagation();
                             deleteSession(session.id);
                           }}
@@ -381,12 +567,7 @@ function AIChatContainer({
         {/* Header */}
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 h-14 flex items-center justify-between fixed top-0 left-0 right-0 z-40 shadow-md" style={{ marginLeft: sidebarOpen ? '288px' : '0px' }}>
           <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="rounded-md"
-            >
+            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)} className="rounded-md">
               <Menu className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2">
@@ -403,20 +584,10 @@ function AIChatContainer({
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="rounded-md text-muted-foreground"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
+            <Button variant="ghost" size="icon" className="rounded-md text-muted-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
               <History className="h-5 w-5" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="rounded-md text-red-500"
-              onClick={() => setMessages([messages[0]])}
-            >
+            <Button variant="ghost" size="icon" className="rounded-md text-red-500" onClick={() => setMessages([messages[0]])}>
               <Trash2 className="h-5 w-5" />
             </Button>
           </div>
@@ -473,7 +644,7 @@ function AIChatContainer({
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="fixed bottom-12 left-0 right-0 z-40 p-4 bg-gradient-to-t from-[#F5F5F7] dark:from-slate-950 via-[#F5F5F7]/90 dark:via-slate-950/90 to-transparent" style={{ width: sidebarOpen ? 'calc(100% - 288px)' : '100%' }}>
+        <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-gradient-to-t from-[#F5F5F7] dark:from-slate-950 via-[#F5F5F7]/90 dark:via-slate-950/90 to-transparent" style={{ width: sidebarOpen ? 'calc(100% - 288px)' : '100%' }}>
           <div className="max-w-3xl mx-auto">
             {/* Quick Prompts */}
             <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar px-1">
@@ -492,7 +663,7 @@ function AIChatContainer({
               ))}
             </div>
 
-            {/* Input Box */}
+            {/* Input Box - Simplified */}
             <div className="bg-white dark:bg-slate-900 border-2 border-blue-500/20 dark:border-blue-500/40 rounded-xl shadow-xl overflow-hidden ring-4 ring-blue-500/5">
               <div className="p-3">
                 <textarea
@@ -512,38 +683,19 @@ function AIChatContainer({
                 />
               </div>
 
-              {/* Toolbar */}
-              <div className="flex items-center justify-between px-3 py-2 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-1">
-                  <Button variant="outline" size="sm" className="h-8 gap-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs font-semibold rounded-md" data-testid="button-build-dropdown">
-                    <Box className="h-3.5 w-3.5" />
-                    Bui...
-                    <motion.span animate={{ rotate: 180 }} className="text-[10px]">v</motion.span>
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md text-slate-500" data-testid="button-attach-file">
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md bg-[#FFD700] hover:bg-[#FFD700]/90 text-slate-900" data-testid="button-magic">
-                    <Zap className="h-4 w-4 fill-current" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md text-slate-500" data-testid="button-settings">
-                    <SlidersHorizontal className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    size="icon" 
-                    className={`h-8 w-8 rounded-md transition-all duration-300 ${
-                      input.trim() ? "bg-[#9A85FF] hover:bg-[#9A85FF]/90 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-400"
-                    }`}
-                    onClick={() => handleSend()}
-                    disabled={!input.trim() || isLoading}
-                    data-testid="button-send-message"
-                  >
-                    <Send className="h-4 w-4 -rotate-45 relative left-0.5 bottom-0.5" />
-                  </Button>
-                </div>
+              {/* Send Button Only */}
+              <div className="flex items-center justify-end px-3 py-2 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
+                <Button 
+                  size="icon" 
+                  className={`h-8 w-8 rounded-md transition-all duration-300 ${
+                    input.trim() ? "bg-[#9A85FF] hover:bg-[#9A85FF]/90 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-400"
+                  }`}
+                  onClick={() => handleSend()}
+                  disabled={!input.trim() || isLoading}
+                  data-testid="button-send-message"
+                >
+                  <Send className="h-4 w-4 -rotate-45 relative left-0.5 bottom-0.5" />
+                </Button>
               </div>
             </div>
           </div>

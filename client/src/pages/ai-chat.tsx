@@ -385,22 +385,14 @@ function OnboardingScreen({ onStart, sidebarOpen, setSidebarOpen, sessions, curr
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)} className="rounded-md">
               <Menu className="h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-xl">
-                <Bot className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <h1 className="text-sm font-bold">Agent</h1>
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-[10px] text-muted-foreground font-medium">متصل الآن</span>
-                </div>
-              </div>
-            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="rounded-md text-muted-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
-              <History className="h-5 w-5" />
+          <div className="flex items-center gap-2">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-full px-4 py-1.5 h-8 font-medium flex items-center gap-1">
+              <span className="text-lg">+</span>
+              <span>اشترك في Plus</span>
+            </Button>
+            <Button variant="ghost" size="icon" className="rounded-md">
+              <Menu className="h-5 w-5" />
             </Button>
           </div>
         </header>
@@ -425,17 +417,17 @@ function OnboardingScreen({ onStart, sidebarOpen, setSidebarOpen, sessions, curr
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-6">كيف يمكنني المساعدة؟</h1>
 
             {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-3 mb-8">
+            <div className="grid grid-cols-2 gap-3 mb-8 w-full">
               {ONBOARDING_ACTIONS.map((action, i) => (
                 <motion.button
                   key={i}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={onStart}
-                  className={`p-4 rounded-xl flex flex-col items-center gap-2 transition-all ${action.color} border border-current border-opacity-20`}
+                  className={`p-3 rounded-lg flex flex-col items-center gap-1.5 transition-all ${action.color} border border-current border-opacity-20 text-center`}
                 >
                   {action.icon}
-                  <span className="text-xs font-medium">{action.text}</span>
+                  <span className="text-xs font-medium leading-tight">{action.text}</span>
                 </motion.button>
               ))}
             </div>
@@ -494,17 +486,19 @@ function AIChatContainer({
             </div>
 
             <div className="p-3 border-b border-slate-200 dark:border-slate-800 space-y-2">
-              <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2">
-                <Search className="h-4 w-4 text-slate-400" />
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-md px-2.5 py-1.5">
+                <Search className="h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
                   placeholder="بحث"
-                  className="ml-2 bg-transparent border-none outline-none text-sm w-full placeholder-slate-400 dark:placeholder-slate-500 dark:text-white"
+                  className="ml-2 bg-transparent border-none outline-none text-xs w-full placeholder-slate-400 dark:placeholder-slate-500 dark:text-white"
                 />
               </div>
+            </div>
+            <div className="p-3 border-b border-slate-200 dark:border-slate-800">
               <Button onClick={startNewChat} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2" size="sm">
                 <PlusCircle className="h-4 w-4" />
-                محادثة جديدة
+                درسة جديدة
               </Button>
             </div>
 
@@ -645,8 +639,8 @@ function AIChatContainer({
             </div>
 
             {/* Input Box - Simplified */}
-            <div className="bg-white dark:bg-slate-900 border-2 border-blue-500/20 dark:border-blue-500/40 rounded-xl shadow-xl overflow-hidden ring-4 ring-blue-500/5">
-              <div className="p-3">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl overflow-hidden flex items-center border border-slate-200 dark:border-slate-800">
+              <div className="p-3 flex-1">
                 <textarea
                   ref={textareaRef}
                   placeholder="Ask ChatGPT"
@@ -658,24 +652,24 @@ function AIChatContainer({
                       handleSend();
                     }
                   }}
-                  className="w-full bg-transparent border-none focus:ring-0 text-[15px] resize-none min-h-[40px] max-h-[150px] placeholder-slate-400 dark:placeholder-slate-500 overflow-y-auto custom-scrollbar"
+                  className="w-full bg-transparent border-none focus:ring-0 text-[15px] resize-none min-h-[40px] max-h-[150px] placeholder-slate-400 dark:placeholder-slate-500 overflow-y-auto custom-scrollbar text-slate-900 dark:text-white"
                   rows={1}
                   data-testid="input-chat-message"
                 />
               </div>
 
               {/* Send Button Only */}
-              <div className="flex items-center justify-end px-3 py-2 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-end px-4 py-2">
                 <Button 
                   size="icon" 
-                  className={`h-8 w-8 rounded-md transition-all duration-300 ${
-                    input.trim() ? "bg-[#9A85FF] hover:bg-[#9A85FF]/90 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-400"
+                  className={`h-8 w-8 rounded-lg transition-all duration-300 flex items-center justify-center ${
+                    input.trim() ? "bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300" : "bg-slate-100 dark:bg-slate-800 text-slate-400"
                   }`}
                   onClick={() => handleSend()}
                   disabled={!input.trim() || isLoading}
                   data-testid="button-send-message"
                 >
-                  <Send className="h-4 w-4 -rotate-45 relative left-0.5 bottom-0.5" />
+                  <Send className="h-3.5 w-3.5" style={{ transform: 'rotate(-45deg)' }} />
                 </Button>
               </div>
             </div>

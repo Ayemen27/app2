@@ -123,12 +123,9 @@ echo "🔨 بناء تطبيق الويب (Vite Build)..."
 npm run build
 
 echo "🚀 تحديث تشغيل التطبيق..."
-# استخدام pm2 reload لضمان عدم انقطاع الخدمة إذا كان يعمل
-if pm2 show construction-app > /dev/null; then
-    pm2 reload construction-app --env production
-else
-    pm2 start ecosystem.config.cjs --env production
-fi
+# إعادة التشغيل باستخدام ملف الإعداد لضمان تحميل كافة المتغيرات
+pm2 delete construction-app 2>/dev/null || true
+pm2 start ecosystem.config.cjs --env production
 pm2 save
 
 echo "📱 بناء تطبيق APK..."

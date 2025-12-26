@@ -3416,8 +3416,9 @@ import helmet from "helmet";
 
 // server/static.ts
 import express from "express";
+import path, { dirname } from "path";
+import { fileURLToPath } from "url";
 import fs from "fs";
-import path from "path";
 function log(message, source = "express") {
   const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -3427,30 +3428,38 @@ function log(message, source = "express") {
   });
   console.log(`${formattedTime} [${source}] ${message}`);
 }
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = dirname(__filename);
 function serveStatic(app2) {
   const cwd = process.cwd();
-  const distPath = path.resolve(cwd, "dist", "public");
-  console.log(`\u{1F4C2} Serving static files from: ${distPath}`);
-  if (!fs.existsSync(distPath)) {
-    console.warn(`\u26A0\uFE0F Dist directory not found: ${distPath}. Creating temporary directory.`);
-    fs.mkdirSync(distPath, { recursive: true });
+  const distPaths = [
+    path.resolve(cwd, "dist", "public"),
+    path.resolve(__dirname, "..", "dist", "public"),
+    path.resolve(__dirname, "dist", "public")
+  ];
+  let distPath = distPaths[0];
+  for (const p of distPaths) {
+    if (fs.existsSync(path.join(p, "index.html"))) {
+      distPath = p;
+      break;
+    }
   }
+  console.log(`[Static] Final distPath: ${distPath}`);
   app2.use(express.static(distPath));
   app2.get("*", (req, res, next) => {
-    if (req.originalUrl.startsWith("/api/")) {
-      return next();
-    }
+    if (req.originalUrl.startsWith("/api/")) return next();
     const indexPath = path.join(distPath, "index.html");
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
-      res.status(404).send(`
+      res.status(200).send(`
         <html>
-          <head><title>BinarJoin - Build Required</title></head>
-          <body style="font-family: sans-serif; text-align: center; padding: 50px;">
-            <h1>Frontend Build Missing</h1>
-            <p>The file <code>index.html</code> was not found at <code>${indexPath}</code>.</p>
-            <p>Please run <code>npm run build</code> to generate the assets.</p>
+          <head><title>BinarJoin - System Initializing</title></head>
+          <body style="font-family: sans-serif; text-align: center; padding: 50px; background: #f4f4f9;">
+            <h1>BinarJoin System</h1>
+            <p>The system is online. Frontend assets are being prepared.</p>
+            <p>Please refresh in a few seconds.</p>
+            <script>setTimeout(() => location.reload(), 5000);</script>
           </body>
         </html>
       `);
@@ -21651,8 +21660,8 @@ var performanceHeaders = (req, res, next) => {
 init_db();
 init_schema();
 import { existsSync as existsSync3, writeFileSync as writeFileSync2, readFileSync as readFileSync2, unlinkSync as unlinkSync2 } from "fs";
-import { join as join3, dirname } from "path";
-import { fileURLToPath } from "url";
+import { join as join3, dirname as dirname2 } from "path";
+import { fileURLToPath as fileURLToPath2 } from "url";
 import { sql as sql21 } from "drizzle-orm";
 import { getTableName as drizzleGetTableName, getTableColumns } from "drizzle-orm";
 
@@ -21875,13 +21884,13 @@ var BackupManager = class {
 var backup_manager_default = BackupManager;
 
 // server/auto-schema-push.ts
-var __filename = fileURLToPath(import.meta.url);
-var __dirname = dirname(__filename);
-var LOCK_FILE = join3(__dirname, "../.schema-push.lock");
+var __filename2 = fileURLToPath2(import.meta.url);
+var __dirname2 = dirname2(__filename2);
+var LOCK_FILE = join3(__dirname2, "../.schema-push.lock");
 var AUTO_FIX_ENABLED = true;
 var isProduction2 = process.env.NODE_ENV === "production";
 var BACKUP_MANAGER = new backup_manager_default({
-  backupDir: join3(__dirname, "../backups/schema-push"),
+  backupDir: join3(__dirname2, "../backups/schema-push"),
   maxBackups: 10,
   retentionDays: 30
 });

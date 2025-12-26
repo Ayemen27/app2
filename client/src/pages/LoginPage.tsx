@@ -447,49 +447,49 @@ export default function AuthPage() {
       {/* الخلفية المتحركة */}
       <AnimatedBackground />
       
-      {/* المحتوى الرئيسي - تخطيط محسن للهواتف */}
-      <div className="relative z-10 w-full min-h-screen flex flex-col py-4 px-3 sm:py-8 sm:px-6">
+      {/* المحتوى الرئيسي - تخطيط محسّن للهواتف والـ APK */}
+      <div className="relative z-10 w-full min-h-screen flex flex-col justify-between py-3 px-3 sm:py-6 sm:px-6 md:py-8">
         {/* الجزء العلوي - الشعار */}
-        <div className="flex-shrink-0 mb-4 sm:mb-6">
+        <div className="flex-shrink-0 mb-3 sm:mb-4 md:mb-5">
           <CompanyLogo />
         </div>
 
-        {/* الجزء الرئيسي - البطاقة */}
-        <div className="flex-1 flex items-start sm:items-center justify-center w-full">
-          <Card className="glass-morphism border-0 shadow-xl backdrop-blur-xl w-full max-w-md mx-auto">
-            <CardHeader className="space-y-2 text-center py-4 px-4 sm:px-6">
-              <CardTitle className="text-lg sm:text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+        {/* الجزء الرئيسي - البطاقة مركزة بكفاءة */}
+        <div className="flex-1 flex items-center justify-center w-full min-h-0 px-0">
+          <Card className="glass-morphism border-0 shadow-xl backdrop-blur-xl w-full max-w-md mx-auto max-h-[calc(100vh-200px)] overflow-y-auto">
+            <CardHeader className="space-y-1.5 text-center py-3 px-4 sm:py-4 sm:px-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                 مرحباً بك
               </CardTitle>
-              <CardDescription className="text-sm sm:text-base text-gray-600">
+              <CardDescription className="text-xs sm:text-sm text-gray-600">
                 اختر العملية المطلوبة
               </CardDescription>
             </CardHeader>
             
-            <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
+            <CardContent className="space-y-2 sm:space-y-3 px-4 sm:px-6 pb-3 sm:pb-4">
               {/* نظام التبويبات المضغوط */}
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 glass-tabs gap-1 h-10 sm:h-11">
+                <TabsList className="grid w-full grid-cols-2 glass-tabs gap-0.5 h-9 sm:h-10">
                   <TabsTrigger 
                     value="login" 
-                    className="flex items-center gap-1.5 tab-trigger px-3 py-2 text-sm sm:text-base"
+                    className="flex items-center gap-1 tab-trigger px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium"
                   >
-                    <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
-                    تسجيل الدخول
+                    <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    دخول
                   </TabsTrigger>
                   <TabsTrigger 
                     value="register" 
-                    className="flex items-center gap-1.5 tab-trigger px-3 py-2 text-sm sm:text-base"
+                    className="flex items-center gap-1 tab-trigger px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium"
                   >
-                    <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
-                    حساب جديد
+                    <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    تسجيل
                   </TabsTrigger>
                 </TabsList>
 
                 {/* محتوى تسجيل الدخول */}
-                <TabsContent value="login" className="space-y-3 sm:space-y-4 tab-content mt-3 sm:mt-4">
+                <TabsContent value="login" className="space-y-2 sm:space-y-2.5 tab-content mt-2 sm:mt-2.5">
                   <Form {...loginForm}>
-                    <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-3 sm:space-y-4">
+                    <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-2 sm:space-y-2.5">
                       
                       {loginStep === 'credentials' && (
                         <>
@@ -498,7 +498,7 @@ export default function AuthPage() {
                             name="email"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel className="text-sm sm:text-base text-gray-700 font-medium">البريد الإلكتروني</FormLabel>
+                                <FormLabel className="text-xs sm:text-sm text-gray-700 font-medium">البريد الإلكتروني</FormLabel>
                                 <FormControl>
                                   <Input 
                                     {...field} 
@@ -525,7 +525,7 @@ export default function AuthPage() {
                             name="password"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel className="text-sm sm:text-base text-gray-700 font-medium">كلمة المرور</FormLabel>
+                                <FormLabel className="text-xs sm:text-sm text-gray-700 font-medium">كلمة المرور</FormLabel>
                                 <FormControl>
                                   <Input
                                     {...field}
@@ -616,9 +616,9 @@ export default function AuthPage() {
                 </TabsContent>
 
                 {/* محتوى التسجيل */}
-                <TabsContent value="register" className="space-y-3 sm:space-y-4 tab-content mt-3 sm:mt-4">
+                <TabsContent value="register" className="space-y-2 sm:space-y-2.5 tab-content mt-2 sm:mt-2.5">
                   <Form {...registerForm}>
-                    <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-3 sm:space-y-4">
+                    <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-2 sm:space-y-2.5">
                       
                       <FormField
                         control={registerForm.control}
@@ -853,9 +853,9 @@ export default function AuthPage() {
           </Card>
         </div>
 
-        {/* التذييل */}
-        <div className="flex-shrink-0 mt-4 sm:mt-6 text-center pb-2">
-          <p className="text-xs sm:text-sm text-gray-500">© 2025 نظام إدارة المشاريع الإنشائية - جميع الحقوق محفوظة</p>
+        {/* التذييل المضغوط */}
+        <div className="flex-shrink-0 mt-2 sm:mt-3 text-center pb-1">
+          <p className="text-[10px] sm:text-xs text-gray-400">© 2025 جميع الحقوق محفوظة</p>
         </div>
       </div>
     </div>

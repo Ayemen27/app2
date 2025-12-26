@@ -8,19 +8,25 @@ async function throwIfResNotOk(res: Response) {
       const errorData = await res.json();
       errorMessage = errorData.message || errorMessage;
     } catch (jsonError) {
-      // إذا فشل تحليل JSON، استخدم رسائل افتراضية حسب status code
+      // معالجة خاصة لأخطاء الخادم
       if (res.status === 400) {
         errorMessage = "البيانات المدخلة غير صحيحة";
       } else if (res.status === 404) {
         errorMessage = "العنصر المطلوب غير موجود";
+      } else if (res.status === 502 || res.status === 503) {
+        errorMessage = "الخادم مشغول حالياً، سيتم إعادة المحاولة تلقائياً...";
       } else if (res.status === 500) {
         errorMessage = "حدث خطأ في الخادم";
+      } else if (res.status >= 500) {
+        errorMessage = "حدث خطأ في الخادم، يرجى المحاولة لاحقاً";
       } else {
         errorMessage = "حدث خطأ في الاتصال";
       }
     }
 
-    throw new Error(errorMessage);
+    const error = new Error(errorMessage) as any;
+    error.status = res.status;
+    throw error;
   }
 }
 

@@ -708,7 +708,7 @@ export default function AuthPage() {
                                   className="pl-10 enhanced-input"
                                   validator={passwordValidator}
                                   fieldType="password"
-                                  showValidation={true}
+                                  showValidation={false}
                                   strengthIndicator={true}
                                   data-testid="input-password"
                                 />

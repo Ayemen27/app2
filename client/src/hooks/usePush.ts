@@ -95,7 +95,9 @@ export const usePush = (): UsePushReturn => {
   // Request push notification permission
   const requestPushPermission = useCallback(async (): Promise<boolean> => {
     if (!isPushSupported) {
-      setError('Push notifications are not supported');
+      const msg = 'المتصفح الحالي لا يدعم الإشعارات';
+      setError(msg);
+      console.warn('[usePush]', msg);
       return false;
     }
 
@@ -105,7 +107,7 @@ export const usePush = (): UsePushReturn => {
 
       // Request notification permission
       if (typeof Notification === 'undefined') {
-        setError('Notification API not available');
+        setError('واجهة الإشعارات غير متاحة');
         return false;
       }
 

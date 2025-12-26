@@ -56,23 +56,54 @@ export const getFirebaseMessaging = (): Messaging | null => {
 /**
  * Get FCM token for push notifications
  * Requires valid VAPID key to be set in environment
+ * With retry logic for transient failures
  */
-export const getFirebaseToken = async (): Promise<string | null> => {
+export const getFirebaseToken = async (retryCount = 0): Promise<string | null> => {
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 1000 * (retryCount + 1); // Exponential backoff
+  
   try {
     const messaging = getFirebaseMessaging();
     if (!messaging) {
-      throw new Error('Firebase Messaging not initialized');
+      console.warn('[Firebase] Firebase Messaging not initialized - skipping token request');
+      return null;
     }
 
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
     if (!vapidKey) {
-      throw new Error('VAPID key not configured in environment');
+      console.warn('[Firebase] VAPID key not configured - push notifications disabled');
+      return null;
     }
 
-    const token = await getToken(messaging, { vapidKey });
-    return token || null;
+    try {
+      const token = await getToken(messaging, { vapidKey });
+      if (token) {
+        console.log('[Firebase] Successfully obtained FCM token');
+        return token;
+      }
+      return null;
+    } catch (error: any) {
+      // Check if this is a recoverable error
+      if (error?.code === 'messaging/failed-service-worker-registration' && retryCount < MAX_RETRIES) {
+        console.warn(`[Firebase] Service Worker registration failed, retrying in ${RETRY_DELAY}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+        return getFirebaseToken(retryCount + 1);
+      }
+      
+      // Log specific errors
+      if (error?.code === 'messaging/unsupported-browser') {
+        console.warn('[Firebase] Push notifications not supported in this browser');
+      } else if (error?.code === 'messaging/permission-blocked') {
+        console.warn('[Firebase] Push notification permission has been blocked');
+      } else if (error?.code === 'messaging/service-worker-registration-failed') {
+        console.warn('[Firebase] Service Worker registration failed');
+      } else {
+        console.error('[Firebase] Failed to get FCM token:', error?.message || error);
+      }
+      return null;
+    }
   } catch (error) {
-    console.error('[Firebase] Failed to get FCM token:', error);
+    console.error('[Firebase] Unexpected error in getFirebaseToken:', error);
     return null;
   }
 };

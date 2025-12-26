@@ -44,6 +44,7 @@ check_all_secrets() {
     [ -z "$SSH_PASSWORD" ] && MISSING="$MISSING SSH_PASSWORD"
     [ -z "$GITHUB_TOKEN" ] && MISSING="$MISSING GITHUB_TOKEN"
     [ -z "$GITHUB_USERNAME" ] && MISSING="$MISSING GITHUB_USERNAME"
+    [ -z "$DATABASE_URL" ] && MISSING="$MISSING DATABASE_URL"
     
     if [ -n "$MISSING" ]; then
         log_error "المتغيرات التالية غير موجودة في Secrets:"
@@ -83,10 +84,10 @@ step2_pull_and_build_on_server() {
     ENV_CONTENT="# Production Environment Variables - Auto Generated
 NODE_ENV=production
 PORT=6000
-DATABASE_URL=${DATABASE_URL}
-JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
-JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-SESSION_SECRET=${SESSION_SECRET}
+DATABASE_URL='${DATABASE_URL}'
+JWT_ACCESS_SECRET='${JWT_ACCESS_SECRET}'
+JWT_REFRESH_SECRET='${JWT_REFRESH_SECRET}'
+SESSION_SECRET='${SESSION_SECRET}'
 DOMAIN=https://app2.binarjoinanelytic.info"
 
     REMOTE_SCRIPT='
@@ -109,7 +110,7 @@ git fetch origin main
 git reset --hard origin/main
 
 echo "⚙️  تحديث ملفات الإعداد..."
-cat > .env.production << EOF
+cat > .env << EOF
 '"$ENV_CONTENT"'
 EOF
 
@@ -125,7 +126,7 @@ npm run build
 echo "🚀 تحديث تشغيل التطبيق..."
 # إعادة التشغيل باستخدام ملف الإعداد لضمان تحميل كافة المتغيرات
 pm2 delete construction-app 2>/dev/null || true
-pm2 start ecosystem.config.cjs --env production
+DATABASE_URL="${DATABASE_URL}" JWT_ACCESS_SECRET="${JWT_ACCESS_SECRET}" JWT_REFRESH_SECRET="${JWT_REFRESH_SECRET}" SESSION_SECRET="${SESSION_SECRET}" pm2 start ecosystem.config.cjs --env production --update-env
 pm2 save
 
 echo "📱 بناء تطبيق APK..."

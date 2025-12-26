@@ -1,7 +1,10 @@
 import express, { type Express } from "express";
-import fs from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -13,9 +16,6 @@ export function log(message: string, source = "express") {
 
   console.log(`${formattedTime} [${source}] ${message}`);
 }
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 export function serveStatic(app: Express) {
   const cwd = process.cwd();
@@ -61,8 +61,10 @@ export function serveStatic(app: Express) {
           <body style="font-family: sans-serif; text-align: center; padding: 50px; background: #f4f4f9;">
             <h1>BinarJoin System</h1>
             <p>The application is online, but frontend assets are being generated.</p>
-            <div style="margin: 20px; padding: 20px; background: #fff; border-radius: 8px; display: inline-block; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="margin: 20px; padding: 20px; background: #fff; border-radius: 8px; display: inline-block; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: left;">
               <strong>Status:</strong> Preparing Assets... <br/>
+              <strong>Database:</strong> ${process.env.DATABASE_URL ? "Connected ✅" : "Config Error ❌"} <br/>
+              <strong>Environment:</strong> ${process.env.NODE_ENV} <br/>
               <strong>Dist Path:</strong> ${distPath}
             </div>
             <p>This page will refresh automatically every 5 seconds.</p>
@@ -72,4 +74,3 @@ export function serveStatic(app: Express) {
     }
   });
 }
-

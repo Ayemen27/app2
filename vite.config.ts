@@ -26,10 +26,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './client/src'),
-      '@assets': path.resolve(__dirname, './attached_assets'),
-      '@shared': path.resolve(__dirname, './shared'),
-      '@lib': path.resolve(__dirname, './client/src/lib'),
+      '@': path.resolve(__dirname, 'src'),
+      '@assets': path.resolve(__dirname, '../attached_assets'),
+      '@shared': path.resolve(__dirname, '../shared'),
+      '@lib': path.resolve(__dirname, 'src/lib'),
     },
   },
   server: {

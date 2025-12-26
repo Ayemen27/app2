@@ -1,55 +1,55 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "./components/ui/toaster";
+import { TooltipProvider } from "./components/ui/tooltip";
 import React, { Suspense, lazy } from "react";
-import NotFound from "@/pages/not-found";
-import Dashboard from "@/pages/dashboard";
-import LoginPage from "@/pages/LoginPage";
-import ResetPasswordPage from "@/pages/ResetPasswordPage";
-import EmailVerificationPage from "@/pages/EmailVerificationPage";
-import { useWebSocketSync } from "@/hooks/useWebSocketSync";
+import NotFound from "./pages/not-found";
+import Dashboard from "./pages/dashboard";
+import LoginPage from "./pages/LoginPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+import EmailVerificationPage from "./pages/EmailVerificationPage";
+import { useWebSocketSync } from "./hooks/useWebSocketSync";
 
-import WorkerAttendance from "@/pages/worker-attendance";
-import DeploymentConsole from "@/pages/deployment-console";
+import WorkerAttendance from "./pages/worker-attendance";
+import DeploymentConsole from "./pages/deployment-console";
 
-import MaterialPurchase from "@/pages/material-purchase";
-import ProjectTransfers from "@/pages/project-transfers";
-import ProjectTransactionsPage from "@/pages/project-transactions-simple";
-import ProjectFundCustody from "@/pages/project-fund-custody";
+import MaterialPurchase from "./pages/material-purchase";
+import ProjectTransfers from "./pages/project-transfers";
+import ProjectTransactionsPage from "./pages/project-transactions-simple";
+import ProjectFundCustody from "./pages/project-fund-custody";
 
-import ProjectsPage from "@/pages/projects";
-import WorkersPage from "@/pages/workers";
-import NotificationsPage from "@/pages/notifications";
-import DailyExpenses from "@/pages/daily-expenses";
-import WellsPage from "@/pages/wells";
-import WellCostReport from "@/pages/well-cost-report";
-import WellAccounting from "@/pages/well-accounting";
+import ProjectsPage from "./pages/projects";
+import WorkersPage from "./pages/workers";
+import NotificationsPage from "./pages/notifications";
+import DailyExpenses from "./pages/daily-expenses";
+import WellsPage from "./pages/wells";
+import WellCostReport from "./pages/well-cost-report";
+import WellAccounting from "./pages/well-accounting";
 
-import { LayoutShell } from "@/components/layout/layout-shell";
-import { FloatingButtonProvider } from "@/components/layout/floating-button-context";
-import { AuthProvider } from "@/components/AuthProvider";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AdminRoute } from "@/components/AdminRoute";
-import EmailVerificationGuard from "@/components/EmailVerificationGuard";
-import { SelectedProjectProvider } from "@/contexts/SelectedProjectContext";
+import { LayoutShell } from "./components/layout/layout-shell";
+import { FloatingButtonProvider } from "./components/layout/floating-button-context";
+import { AuthProvider } from "./components/AuthProvider";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { AdminRoute } from "./components/AdminRoute";
+import EmailVerificationGuard from "./components/EmailVerificationGuard";
+import { SelectedProjectProvider } from "./contexts/SelectedProjectContext";
 import { Loader2 } from "lucide-react";
 
-const WorkerAccountsPage = lazy(() => import("@/pages/worker-accounts"));
-const SuppliersProPage = lazy(() => import("@/pages/suppliers-professional"));
-const SupplierAccountsPage = lazy(() => import("@/pages/supplier-accounts"));
-const AutocompleteAdminPage = lazy(() => import("@/pages/autocomplete-admin"));
-const EquipmentManagement = lazy(() => import("@/pages/equipment-management").then(m => ({ default: m.EquipmentManagement })));
-const AdminNotificationsPage = lazy(() => import("@/pages/admin-notifications"));
-const SmartErrorsPage = lazy(() => import("@/pages/SmartErrorsPage"));
-const SecurityPoliciesPage = lazy(() => import("@/pages/SecurityPoliciesPage").then(m => ({ default: m.SecurityPoliciesPage })));
-const Reports = lazy(() => import("@/pages/reports"));
-const RealReports = lazy(() => import("@/pages/real-reports"));
-const ProfessionalReports = lazy(() => import("@/pages/professional-reports"));
+const WorkerAccountsPage = lazy(() => import("./pages/worker-accounts"));
+const SuppliersProPage = lazy(() => import("./pages/suppliers-professional"));
+const SupplierAccountsPage = lazy(() => import("./pages/supplier-accounts"));
+const AutocompleteAdminPage = lazy(() => import("./pages/autocomplete-admin"));
+const EquipmentManagement = lazy(() => import("./pages/equipment-management").then(m => ({ default: m.EquipmentManagement })));
+const AdminNotificationsPage = lazy(() => import("./pages/admin-notifications"));
+const SmartErrorsPage = lazy(() => import("./pages/SmartErrorsPage"));
+const SecurityPoliciesPage = lazy(() => import("./pages/SecurityPoliciesPage").then(m => ({ default: m.SecurityPoliciesPage })));
+const Reports = lazy(() => import("./pages/reports"));
+const RealReports = lazy(() => import("./pages/real-reports"));
+const ProfessionalReports = lazy(() => import("./pages/professional-reports"));
 const UsersManagementPage = lazy(() => import("./pages/users-management"));
-const AIChatPage = lazy(() => import("@/pages/ai-chat"));
+const AIChatPage = lazy(() => import("./pages/ai-chat"));
 
 
 function PageLoader() {

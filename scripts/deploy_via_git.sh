@@ -113,22 +113,23 @@ cat > .env.production << EOF
 '"$ENV_CONTENT"'
 EOF
 
+# التأكد من وجود مجلد dist
+mkdir -p dist/public
+
 echo "📦 تثبيت الاعتمادات..."
 npm install --loglevel=error
 
 echo "🔨 بناء تطبيق الويب (Vite Build)..."
 npm run build
 
-echo "🚀 إعادة تشغيل التطبيق عبر PM2..."
-# التأكد من وجود ملف ecosystem.config.cjs
-if [ -f "ecosystem.config.cjs" ]; then
-    pm2 delete construction-app 2>/dev/null || true
-    pm2 start ecosystem.config.cjs --env production
-    pm2 save
+echo "🚀 تحديث تشغيل التطبيق..."
+# استخدام pm2 reload لضمان عدم انقطاع الخدمة إذا كان يعمل
+if pm2 show construction-app > /dev/null; then
+    pm2 reload construction-app --env production
 else
-    echo "❌ ecosystem.config.cjs غير موجود!"
-    exit 1
+    pm2 start ecosystem.config.cjs --env production
 fi
+pm2 save
 
 echo "📱 بناء تطبيق APK..."
 export SSH_HOST="'"$SSH_HOST"'"

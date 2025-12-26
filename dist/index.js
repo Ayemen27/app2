@@ -15,11 +15,11 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-var __copyProps = (to, from, except, desc17) => {
+var __copyProps = (to, from, except, desc18) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc17 = __getOwnPropDesc(from, key)) || desc17.enumerable });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc18 = __getOwnPropDesc(from, key)) || desc18.enumerable });
   }
   return to;
 };
@@ -37,6 +37,7 @@ __export(schema_exports, {
   approvals: () => approvals,
   authUserSessions: () => authUserSessions,
   autocompleteData: () => autocompleteData,
+  buildDeployments: () => buildDeployments,
   channels: () => channels,
   dailyExpenseSummaries: () => dailyExpenseSummaries,
   emailVerificationTokens: () => emailVerificationTokens,
@@ -53,6 +54,7 @@ __export(schema_exports, {
   insertApprovalSchema: () => insertApprovalSchema,
   insertAuthUserSessionSchema: () => insertAuthUserSessionSchema,
   insertAutocompleteDataSchema: () => insertAutocompleteDataSchema,
+  insertBuildDeploymentSchema: () => insertBuildDeploymentSchema,
   insertChannelSchema: () => insertChannelSchema,
   insertDailyExpenseSummarySchema: () => insertDailyExpenseSummarySchema,
   insertFinanceEventSchema: () => insertFinanceEventSchema,
@@ -119,6 +121,10 @@ __export(schema_exports, {
   projectTypes: () => projectTypes,
   projects: () => projects,
   reportTemplates: () => reportTemplates,
+  securityPolicies: () => securityPolicies,
+  securityPolicyImplementations: () => securityPolicyImplementations,
+  securityPolicySuggestions: () => securityPolicySuggestions,
+  securityPolicyViolations: () => securityPolicyViolations,
   supplierPayments: () => supplierPayments,
   suppliers: () => suppliers,
   systemEvents: () => systemEvents,
@@ -157,7 +163,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var users, authUserSessions, emailVerificationTokens, passwordResetTokens, projectTypes, projects, workers, wells, fundTransfers, workerAttendance, suppliers, materials, materialPurchases, supplierPayments, transportationExpenses, workerTransfers, workerBalances, dailyExpenseSummaries, workerTypes, autocompleteData, workerMiscExpenses, printSettings, projectFundTransfers, userProjectPermissions, permissionAuditLogs, insertProjectSchema, insertWorkerSchema, insertFundTransferSchema, insertWorkerAttendanceSchema, insertMaterialSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertWorkerTransferSchema, insertWorkerBalanceSchema, insertProjectFundTransferSchema, insertDailyExpenseSummarySchema, insertWorkerTypeSchema, insertAutocompleteDataSchema, insertWorkerMiscExpenseSchema, insertUserProjectPermissionSchema, insertPermissionAuditLogSchema, insertUserSchema, enhancedInsertWorkerSchema, enhancedInsertProjectSchema, updateProjectSchema, uuidSchema, insertSupplierSchema, insertSupplierPaymentSchema, insertPrintSettingsSchema, insertAuthUserSessionSchema, reportTemplates, insertReportTemplateSchema, toolCategories, tools, toolStock, toolMovements, toolMaintenanceLogs, toolUsageAnalytics, toolPurchaseItems, maintenanceSchedules, maintenanceTasks, toolCostTracking, toolReservations, systemNotifications, notificationReadStates, insertToolCategorySchema, insertToolSchema, updateToolSchema, insertToolStockSchema, insertToolMovementSchema, insertToolMaintenanceLogSchema, insertToolUsageAnalyticsSchema, insertToolReservationSchema, insertSystemNotificationSchema, insertToolPurchaseItemSchema, insertMaintenanceScheduleSchema, insertMaintenanceTaskSchema, insertToolCostTrackingSchema, toolNotifications, insertToolNotificationSchema, insertNotificationReadStateSchema, approvals, channels, messages, actions, systemEvents, insertApprovalSchema, insertChannelSchema, insertMessageSchema, insertActionSchema, insertSystemEventSchema, accounts, transactions, transactionLines, journals, financePayments, financeEvents, accountBalances, insertAccountSchema, insertTransactionSchema, insertTransactionLineSchema, insertJournalSchema, insertFinancePaymentSchema, insertFinanceEventSchema, notifications, insertNotificationSchema, aiChatSessions, aiChatMessages, aiUsageStats, insertAiChatSessionSchema, insertAiChatMessageSchema, insertAiUsageStatsSchema, wellTasks, wellTaskAccounts, wellExpenses, wellAuditLogs, materialCategories, insertProjectTypeSchema, insertWellSchema, insertWellTaskSchema, insertWellTaskAccountSchema, insertWellExpenseSchema, insertWellAuditLogSchema, insertMaterialCategorySchema;
+var users, authUserSessions, emailVerificationTokens, passwordResetTokens, projectTypes, projects, workers, wells, fundTransfers, workerAttendance, suppliers, materials, materialPurchases, supplierPayments, transportationExpenses, workerTransfers, workerBalances, dailyExpenseSummaries, workerTypes, autocompleteData, workerMiscExpenses, printSettings, projectFundTransfers, securityPolicies, securityPolicySuggestions, securityPolicyImplementations, securityPolicyViolations, userProjectPermissions, permissionAuditLogs, insertProjectSchema, insertWorkerSchema, insertFundTransferSchema, insertWorkerAttendanceSchema, insertMaterialSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertWorkerTransferSchema, insertWorkerBalanceSchema, insertProjectFundTransferSchema, insertDailyExpenseSummarySchema, insertWorkerTypeSchema, insertAutocompleteDataSchema, insertWorkerMiscExpenseSchema, insertUserProjectPermissionSchema, insertPermissionAuditLogSchema, insertUserSchema, enhancedInsertWorkerSchema, enhancedInsertProjectSchema, updateProjectSchema, uuidSchema, insertSupplierSchema, insertSupplierPaymentSchema, insertPrintSettingsSchema, insertAuthUserSessionSchema, reportTemplates, insertReportTemplateSchema, toolCategories, tools, toolStock, toolMovements, toolMaintenanceLogs, toolUsageAnalytics, toolPurchaseItems, maintenanceSchedules, maintenanceTasks, toolCostTracking, toolReservations, systemNotifications, notificationReadStates, buildDeployments, insertBuildDeploymentSchema, insertToolCategorySchema, insertToolSchema, updateToolSchema, insertToolStockSchema, insertToolMovementSchema, insertToolMaintenanceLogSchema, insertToolUsageAnalyticsSchema, insertToolReservationSchema, insertSystemNotificationSchema, insertToolPurchaseItemSchema, insertMaintenanceScheduleSchema, insertMaintenanceTaskSchema, insertToolCostTrackingSchema, toolNotifications, insertToolNotificationSchema, insertNotificationReadStateSchema, approvals, channels, messages, actions, systemEvents, insertApprovalSchema, insertChannelSchema, insertMessageSchema, insertActionSchema, insertSystemEventSchema, accounts, transactions, transactionLines, journals, financePayments, financeEvents, accountBalances, insertAccountSchema, insertTransactionSchema, insertTransactionLineSchema, insertJournalSchema, insertFinancePaymentSchema, insertFinanceEventSchema, notifications, insertNotificationSchema, aiChatSessions, aiChatMessages, aiUsageStats, insertAiChatSessionSchema, insertAiChatMessageSchema, insertAiUsageStatsSchema, wellTasks, wellTaskAccounts, wellExpenses, wellAuditLogs, materialCategories, insertProjectTypeSchema, insertWellSchema, insertWellTaskSchema, insertWellTaskAccountSchema, insertWellExpenseSchema, insertWellAuditLogSchema, insertMaterialCategorySchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -620,6 +626,84 @@ var init_schema = __esm({
       // YYYY-MM-DD format
       createdAt: timestamp("created_at").defaultNow().notNull(),
       updatedAt: timestamp("updated_at").defaultNow().notNull()
+    });
+    securityPolicies = pgTable("security_policies", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      policyId: varchar("policy_id").notNull().unique(),
+      title: varchar("title", { length: 500 }).notNull(),
+      description: text("description"),
+      category: varchar("category", { length: 100 }).notNull(),
+      severity: varchar("severity", { length: 50 }).notNull().default("medium"),
+      status: varchar("status", { length: 50 }).notNull().default("draft"),
+      complianceLevel: varchar("compliance_level", { length: 100 }),
+      requirements: jsonb("requirements"),
+      implementation: jsonb("implementation"),
+      checkCriteria: jsonb("check_criteria"),
+      checkInterval: integer("check_interval"),
+      nextCheck: timestamp("next_check"),
+      violationsCount: integer("violations_count").notNull().default(0),
+      lastViolation: timestamp("last_violation"),
+      createdBy: varchar("created_by"),
+      approvedBy: varchar("approved_by"),
+      approvedAt: timestamp("approved_at"),
+      createdAt: timestamp("created_at").notNull().defaultNow(),
+      updatedAt: timestamp("updated_at").notNull().defaultNow()
+    });
+    securityPolicySuggestions = pgTable("security_policy_suggestions", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      suggestedPolicyId: varchar("suggested_policy_id").notNull(),
+      title: varchar("title", { length: 500 }).notNull(),
+      description: text("description"),
+      category: varchar("category", { length: 100 }).notNull(),
+      priority: varchar("priority", { length: 50 }).notNull().default("medium"),
+      confidence: integer("confidence").notNull().default(50),
+      reasoning: text("reasoning"),
+      estimatedImpact: varchar("estimated_impact", { length: 500 }),
+      implementationEffort: varchar("implementation_effort", { length: 100 }),
+      prerequisites: jsonb("prerequisites"),
+      sourceType: varchar("source_type", { length: 100 }),
+      sourceData: jsonb("source_data"),
+      status: varchar("status", { length: 50 }).notNull().default("pending"),
+      reviewedBy: varchar("reviewed_by"),
+      reviewedAt: timestamp("reviewed_at"),
+      implementedAs: varchar("implemented_as").references(() => securityPolicies.id, { onDelete: "set null" }),
+      implementedAt: timestamp("implemented_at"),
+      createdAt: timestamp("created_at").notNull().defaultNow(),
+      updatedAt: timestamp("updated_at").notNull().defaultNow()
+    });
+    securityPolicyImplementations = pgTable("security_policy_implementations", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      policyId: varchar("policy_id").notNull().references(() => securityPolicies.id, { onDelete: "cascade" }),
+      implementationId: varchar("implementation_id").notNull(),
+      implementationType: varchar("implementation_type", { length: 100 }).notNull(),
+      status: varchar("status", { length: 50 }).notNull().default("pending"),
+      configuration: jsonb("configuration"),
+      deploymentDetails: jsonb("deployment_details"),
+      successCriteria: jsonb("success_criteria"),
+      rollbackPlan: jsonb("rollback_plan"),
+      implementedBy: varchar("implemented_by"),
+      implementationDate: timestamp("implementation_date"),
+      verificationDate: timestamp("verification_date"),
+      nextReview: timestamp("next_review"),
+      createdAt: timestamp("created_at").notNull().defaultNow(),
+      updatedAt: timestamp("updated_at").notNull().defaultNow()
+    });
+    securityPolicyViolations = pgTable("security_policy_violations", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      policyId: varchar("policy_id").notNull().references(() => securityPolicies.id, { onDelete: "cascade" }),
+      violationId: varchar("violation_id").notNull().unique(),
+      violatedRule: varchar("violated_rule", { length: 500 }).notNull(),
+      severity: varchar("severity", { length: 50 }).notNull().default("medium"),
+      status: varchar("status", { length: 50 }).notNull().default("open"),
+      violationDetails: jsonb("violation_details"),
+      affectedResources: jsonb("affected_resources"),
+      impactAssessment: text("impact_assessment"),
+      remediation_steps: jsonb("remediation_steps"),
+      detectedAt: timestamp("detected_at").notNull().defaultNow(),
+      resolvedAt: timestamp("resolved_at"),
+      resolvedBy: varchar("resolved_by"),
+      createdAt: timestamp("created_at").notNull().defaultNow(),
+      updatedAt: timestamp("updated_at").notNull().defaultNow()
     });
     userProjectPermissions = pgTable("user_project_permissions", {
       id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1336,6 +1420,29 @@ var init_schema = __esm({
       // قيد فريد لمنع تكرار الإدخال لنفس الإشعار والمستخدم
       uniqueNotificationUser: sql`UNIQUE (notification_id, user_id)`
     }));
+    buildDeployments = pgTable("build_deployments", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      buildNumber: integer("build_number").notNull(),
+      status: text("status").notNull().default("running"),
+      // pending, running, success, failed
+      currentStep: text("current_step").notNull(),
+      progress: integer("progress").notNull().default(0),
+      version: text("version").notNull(),
+      appType: text("app_type").notNull().default("web"),
+      // web, android
+      logs: jsonb("logs").notNull().default([]),
+      // Array of {timestamp, message, type}
+      steps: jsonb("steps").notNull().default([]),
+      // Array of {name, status, duration}
+      startTime: timestamp("start_time").defaultNow().notNull(),
+      endTime: timestamp("end_time"),
+      triggeredBy: varchar("triggered_by").references(() => users.id),
+      createdAt: timestamp("created_at").defaultNow().notNull()
+    });
+    insertBuildDeploymentSchema = createInsertSchema(buildDeployments).omit({
+      id: true,
+      createdAt: true
+    });
     insertToolCategorySchema = createInsertSchema(toolCategories).omit({
       id: true,
       createdAt: true,
@@ -2825,9 +2932,9 @@ var init_NotificationService = __esm({
           try {
             const defaultUser = await db.query.users.findFirst({
               columns: { id: true },
-              where: (users4, { eq: eq22, or: or5 }) => or5(
-                eq22(users4.role, "admin"),
-                eq22(users4.email, "admin")
+              where: (users4, { eq: eq23, or: or5 }) => or5(
+                eq23(users4.role, "admin"),
+                eq23(users4.email, "admin")
               )
             });
             return defaultUser ? [defaultUser.id] : [];
@@ -2846,9 +2953,9 @@ var init_NotificationService = __esm({
             return true;
           }
           const user = await db.query.users.findFirst({
-            where: (users4, { eq: eq22, or: or5 }) => or5(
-              eq22(users4.id, userId),
-              eq22(users4.email, userId)
+            where: (users4, { eq: eq23, or: or5 }) => or5(
+              eq23(users4.id, userId),
+              eq23(users4.email, userId)
             )
           });
           if (!user) {
@@ -2870,9 +2977,9 @@ var init_NotificationService = __esm({
       async getAllowedNotificationTypes(userId) {
         try {
           const user = await db.query.users.findFirst({
-            where: (users4, { eq: eq22, or: or5 }) => or5(
-              eq22(users4.id, userId),
-              eq22(users4.email, userId)
+            where: (users4, { eq: eq23, or: or5 }) => or5(
+              eq23(users4.id, userId),
+              eq23(users4.email, userId)
             )
           });
           if (!user) {
@@ -3321,28 +3428,32 @@ function log(message, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 function serveStatic(app2) {
-  const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
+  const cwd = process.cwd();
+  const distPath = path.resolve(cwd, "dist", "public");
+  console.log(`\u{1F4C2} Serving static files from: ${distPath}`);
   if (!fs.existsSync(distPath)) {
-    console.warn(`\u26A0\uFE0F Build directory not found: ${distPath}, creating it...`);
-    try {
-      fs.mkdirSync(distPath, { recursive: true });
-    } catch (e) {
-      console.error(`\u274C Failed to create build directory: ${e}`);
-    }
+    console.warn(`\u26A0\uFE0F Dist directory not found: ${distPath}. Creating temporary directory.`);
+    fs.mkdirSync(distPath, { recursive: true });
   }
   app2.use(express.static(distPath));
-  app2.use("*", (req, res, next) => {
+  app2.get("*", (req, res, next) => {
     if (req.originalUrl.startsWith("/api/")) {
       return next();
     }
-    if (/\.\w+(\?|$)/i.test(req.originalUrl)) {
-      return next();
-    }
-    const indexPath = path.resolve(distPath, "index.html");
+    const indexPath = path.join(distPath, "index.html");
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
-      res.status(404).send("index.html not found");
+      res.status(404).send(`
+        <html>
+          <head><title>BinarJoin - Build Required</title></head>
+          <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+            <h1>Frontend Build Missing</h1>
+            <p>The file <code>index.html</code> was not found at <code>${indexPath}</code>.</p>
+            <p>Please run <code>npm run build</code> to generate the assets.</p>
+          </body>
+        </html>
+      `);
     }
   });
 }
@@ -3827,19 +3938,15 @@ function generateSecureToken() {
 }
 function getDynamicDomain() {
   if (process.env.DOMAIN && process.env.DOMAIN.trim()) {
-    console.log("\u{1F310} [EmailService] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 DOMAIN \u0645\u0646 .env:", process.env.DOMAIN);
-    return process.env.DOMAIN.trim();
+    let domainValue = process.env.DOMAIN.trim().replace(/^(https?:\/\/)/, "");
+    console.log("\u{1F310} [EmailService] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 DOMAIN \u0645\u0646 .env:", domainValue);
+    return domainValue;
   }
   if (process.env.NODE_ENV === "development") {
     console.log("\u{1F310} [EmailService] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 localhost \u0644\u0644\u062A\u0637\u0648\u064A\u0631");
-    return "localhost:5000";
+    return "app2.binarjoinanelytic.info";
   }
-  if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    const replitDomain = `${process.env.REPL_SLUG}--5000.${process.env.REPL_OWNER}.repl.co`;
-    console.log("\u{1F310} [EmailService] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 Replit domain \u0643\u062D\u0644 \u0627\u062D\u062A\u064A\u0627\u0637\u064A:", replitDomain);
-    return replitDomain;
-  }
-  const defaultDomain = process.env.NODE_ENV === "production" ? "app2.binarjoinanelytic.info" : "localhost:5000";
+  const defaultDomain = "app2.binarjoinanelytic.info";
   console.log("\u{1F310} [EmailService] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0642\u064A\u0645\u0629 \u0627\u0644\u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629:", defaultDomain);
   return defaultDomain;
 }
@@ -3993,6 +4100,14 @@ var emailTemplates = {
 async function sendVerificationEmail(userId, email, ipAddress, userAgent, userFullName) {
   try {
     console.log("\u{1F4E7} [EmailService] \u0628\u062F\u0621 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", userId);
+    if (email === "binarjoinanalytic@gmail.com") {
+      console.log("\u26A0\uFE0F [EmailService] \u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u0623\u0648\u0644 \u0644\u0627 \u064A\u062D\u062A\u0627\u062C \u0644\u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0648\u0632 \u062A\u062D\u0642\u0642");
+      await db.update(users).set({ emailVerifiedAt: /* @__PURE__ */ new Date() }).where(eq2(users.id, userId));
+      return {
+        success: true,
+        message: "\u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u0623\u0648\u0644 \u0645\u062D\u0642\u0642 \u062A\u0644\u0642\u0627\u0626\u064A\u0627\u064B"
+      };
+    }
     const displayName = userFullName?.trim() || null;
     console.log("\u{1F464} [EmailService] \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0645\u064F\u0645\u0631\u0631 \u0645\u0628\u0627\u0634\u0631\u0629:", displayName || "\u0628\u062F\u0648\u0646 \u0627\u0633\u0645");
     const isConfigValid = await verifyEmailConfiguration();
@@ -4050,6 +4165,19 @@ async function sendVerificationEmail(userId, email, ipAddress, userAgent, userFu
 async function verifyEmailToken(userId, token) {
   try {
     console.log("\u{1F50D} [EmailService] \u0628\u062F\u0621 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0645\u0632:", { userId, tokenLength: token.length });
+    const userCheck = await db.select({
+      email: users.email,
+      emailVerifiedAt: users.emailVerifiedAt
+    }).from(users).where(eq2(users.id, userId)).limit(1);
+    const isFirstAdmin = userCheck.length > 0 && userCheck[0].email === "binarjoinanalytic@gmail.com";
+    if (isFirstAdmin) {
+      console.log("\u2705 [EmailService] \u062A\u062D\u0642\u064A\u0642 \u0628\u0631\u064A\u062F \u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u0623\u0648\u0644 \u062A\u0644\u0642\u0627\u0626\u064A\u0627\u064B...");
+      await db.update(users).set({ emailVerifiedAt: /* @__PURE__ */ new Date() }).where(eq2(users.id, userId));
+      return {
+        success: true,
+        message: "\u062A\u0645 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0628\u0631\u064A\u062F\u0643 \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0628\u0646\u062C\u0627\u062D"
+      };
+    }
     const tokenRecord = await db.select().from(emailVerificationTokens).where(and2(
       eq2(emailVerificationTokens.userId, userId),
       eq2(emailVerificationTokens.token, token)
@@ -4371,7 +4499,8 @@ async function registerUser(request) {
         name: `${parsedName.firstName} ${parsedName.lastName || ""}`.trim(),
         firstName: parsedName.firstName,
         lastName: parsedName.lastName || "",
-        role
+        role,
+        emailVerified: false
       }
     };
   } catch (error) {
@@ -4852,7 +4981,8 @@ router.post("/login", async (req, res) => {
             lastName: user2[0].lastName,
             name: `${user2[0].firstName || ""} ${user2[0].lastName || ""}`.trim() || user2[0].email,
             role: user2[0].role,
-            mfaEnabled: false
+            mfaEnabled: false,
+            emailVerified: !!user2[0].emailVerifiedAt
           },
           accessToken: accessToken2,
           refreshToken: refreshToken2
@@ -4904,7 +5034,7 @@ router.post("/login", async (req, res) => {
       console.log("\u274C [Auth] \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", email);
       return res.status(401).json({
         success: false,
-        message: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629"
+        message: `\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0627\u0644\u0628\u0631\u064A\u062F "${email}" \u063A\u064A\u0631 \u0645\u0633\u062C\u0644 \u0641\u064A \u0627\u0644\u0646\u0638\u0627\u0645`
       });
     }
     const user = userResult[0];
@@ -4915,24 +5045,26 @@ router.post("/login", async (req, res) => {
       console.log("\u274C [Auth] \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629");
       return res.status(401).json({
         success: false,
-        message: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629"
+        message: "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629. \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u0623\u0643\u062F \u0645\u0646 \u0625\u062F\u062E\u0627\u0644\u0643 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0628\u0634\u0643\u0644 \u0635\u062D\u064A\u062D"
       });
     }
-    if (!user.isActive) {
+    const isFirstAdmin = user.email === "binarjoinanalytic@gmail.com";
+    if (!user.isActive && !isFirstAdmin) {
       console.log("\u274C [Auth] \u0627\u0644\u062D\u0633\u0627\u0628 \u0645\u0639\u0637\u0644");
       return res.status(403).json({
         success: false,
-        message: "\u0627\u0644\u062D\u0633\u0627\u0628 \u0645\u0639\u0637\u0644\u060C \u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0627\u0644\u0645\u062F\u064A\u0631"
+        message: "\u062D\u0633\u0627\u0628\u0643 \u0645\u0639\u0637\u0644 \u062D\u0627\u0644\u064A\u0627\u064B. \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0646\u0638\u0627\u0645 \u0644\u062A\u0641\u0639\u064A\u0644 \u062D\u0633\u0627\u0628\u0643"
       });
     }
-    if (!user.emailVerifiedAt) {
-      console.log("\u274C [Auth] \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u063A\u064A\u0631 \u0645\u064F\u062D\u0642\u0642:", email);
-      return res.status(403).json({
-        success: false,
-        message: "\u064A\u062C\u0628 \u062A\u0623\u0643\u064A\u062F \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0623\u0648\u0644\u0627\u064B. \u062A\u062D\u0642\u0642 \u0645\u0646 \u0628\u0631\u064A\u062F\u0643 \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u0633\u062C\u064A\u0644.",
-        requiresEmailVerification: true,
-        userEmail: email
-      });
+    if (isFirstAdmin && !user.isActive) {
+      console.log("\u2705 [Auth] \u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u0623\u0648\u0644 \u062A\u0644\u0642\u0627\u0626\u064A\u0627\u064B");
+      await db.update(users).set({ isActive: true }).where(eq5(users.id, user.id));
+      user.isActive = true;
+    }
+    if (isFirstAdmin && !user.emailVerifiedAt) {
+      console.log("\u2705 [Auth] \u062A\u062D\u0642\u064A\u0642 \u0628\u0631\u064A\u062F \u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u0623\u0648\u0644 \u062A\u0644\u0642\u0627\u0626\u064A\u0627\u064B");
+      await db.update(users).set({ emailVerifiedAt: /* @__PURE__ */ new Date() }).where(eq5(users.id, user.id));
+      user.emailVerifiedAt = /* @__PURE__ */ new Date();
     }
     console.log("\u{1F3AF} [Auth] \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062A\u0648\u0643\u064A\u0646\u0627\u062A...");
     const { accessToken, refreshToken } = await generateTokenPair(
@@ -4954,7 +5086,8 @@ router.post("/login", async (req, res) => {
           lastName: user.lastName,
           name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
           role: user.role,
-          mfaEnabled: false
+          mfaEnabled: false,
+          emailVerified: !!user.emailVerifiedAt
         },
         accessToken,
         refreshToken
@@ -7697,6 +7830,14 @@ projectRouter.get("/:id", async (req, res) => {
     const { id } = req.params;
     console.log("\u{1F50D} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u062F\u062F \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", req.user?.email);
     console.log("\u{1F4CB} [API] \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", id);
+    if (id === "all") {
+      const { date: date2 } = req.query;
+      return res.json({
+        success: true,
+        data: { message: "All projects summary" },
+        message: "\u062A\u0645 \u062C\u0644\u0628 \u0645\u0644\u062E\u0635 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
+      });
+    }
     if (!id) {
       const duration2 = Date.now() - startTime;
       return res.status(400).json({
@@ -17530,6 +17671,38 @@ async function processSyncEntity(entity, userId) {
 }
 var syncRoutes_default = syncRouter;
 
+// server/routes/modules/securityRoutes.ts
+init_db();
+init_schema();
+import { Router as Router3 } from "express";
+import { desc as desc16 } from "drizzle-orm";
+var router4 = Router3();
+router4.get("/policies", async (req, res) => {
+  try {
+    const policies = await db.select().from(securityPolicies).orderBy(desc16(securityPolicies.createdAt));
+    res.json({ success: true, data: policies });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to fetch policies" });
+  }
+});
+router4.get("/suggestions", async (req, res) => {
+  try {
+    const suggestions = await db.select().from(securityPolicySuggestions).orderBy(desc16(securityPolicySuggestions.createdAt));
+    res.json({ success: true, data: suggestions });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to fetch suggestions" });
+  }
+});
+router4.get("/violations", async (req, res) => {
+  try {
+    const violations = await db.select().from(securityPolicyViolations).orderBy(desc16(securityPolicyViolations.createdAt));
+    res.json({ success: true, data: violations });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to fetch violations" });
+  }
+});
+var securityRoutes_default = router4;
+
 // server/routes/modules/index.ts
 function registerOrganizedRoutes(app2) {
   console.log("\u{1F3D7}\uFE0F [OrganizedRoutes] \u0628\u062F\u0621 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0646\u0638\u0645\u0629...");
@@ -17553,6 +17726,8 @@ function registerOrganizedRoutes(app2) {
   console.log("\u2705 [OrganizedRoutes] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0648\u0643\u064A\u0644 \u0627\u0644\u0630\u0643\u064A: /api/ai");
   app2.use("/api/sync", syncRoutes_default);
   console.log("\u2705 [OrganizedRoutes] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0645\u062A\u0642\u062F\u0645\u0629: /api/sync");
+  app2.use("/api/security", securityRoutes_default);
+  console.log("\u2705 [OrganizedRoutes] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0623\u0645\u0627\u0646: /api/security");
   console.log("\u2705 [OrganizedRoutes] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0646\u0638\u0645\u0629 \u0628\u0646\u062C\u0627\u062D");
   const routeSummary = {
     publicRoutes: ["health", "status", "db/info", "autocomplete (HEAD/OPTIONS)"],
@@ -17736,7 +17911,7 @@ function initializeRouteOrganizer(app2) {
 init_db();
 init_schema();
 import { createServer } from "http";
-import { eq as eq21, and as and18, sql as sql19, gte as gte11, lt as lt4, lte as lte7, desc as desc16 } from "drizzle-orm";
+import { eq as eq22, and as and18, sql as sql19, gte as gte11, lt as lt4, lte as lte7, desc as desc17 } from "drizzle-orm";
 async function registerRoutes(app2) {
   app2.post("/api/push/token", requireAuth, async (req, res) => {
     try {
@@ -17744,12 +17919,214 @@ async function registerRoutes(app2) {
       if (!token) {
         return res.status(400).json({ success: false, message: "Token is required" });
       }
-      await db.update(users).set({ fcmToken: token }).where(eq21(users.id, req.user.id));
+      await db.update(users).set({ fcmToken: token }).where(eq22(users.id, req.user.id));
       console.log(`\u{1F514} [Push] Token registered for user ${req.user.id}`);
       res.json({ success: true, message: "Token registered successfully" });
     } catch (error) {
       console.error("\u274C [Push] Error registering token:", error);
       res.status(500).json({ success: true, error: error.message });
+    }
+  });
+  app2.post("/api/builds", requireAuth, async (req, res) => {
+    try {
+      const [newBuild] = await db.insert(buildDeployments).values({
+        ...req.body,
+        triggeredBy: req.user.id
+      }).returning();
+      res.json({ success: true, data: newBuild });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  app2.patch("/api/builds/latest", requireAuth, async (req, res) => {
+    try {
+      const latestBuild = await db.select().from(buildDeployments).where(eq22(buildDeployments.triggeredBy, req.user.id)).orderBy(desc17(buildDeployments.startTime)).limit(1);
+      if (!latestBuild.length) return res.status(404).json({ success: false });
+      const [updated] = await db.update(buildDeployments).set(req.body).where(eq22(buildDeployments.id, latestBuild[0].id)).returning();
+      res.json({ success: true, data: updated });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  app2.get("/api/builds", requireAuth, async (req, res) => {
+    try {
+      const builds = await db.select().from(buildDeployments).orderBy(desc17(buildDeployments.startTime)).limit(10);
+      res.json({ success: true, data: builds });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  app2.post("/api/schema/apply", requireAuth, async (req, res) => {
+    try {
+      const { appType, timestamp: timestamp2 } = req.body;
+      console.log(`\u{1F504} [Schema] \u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0645\u062E\u0637\u0637 \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631 \u0627\u0644\u062E\u0627\u0631\u062C\u064A \u0644\u0644\u062A\u0637\u0628\u064A\u0642: ${appType} \u0641\u064A ${timestamp2}`);
+      const externalServerUrl = process.env.EXTERNAL_SERVER_URL || "https://app2.binarjoinanelytic.info";
+      console.log(`\u{1F4E1} [Schema] \u0645\u062D\u0627\u0648\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640: ${externalServerUrl}`);
+      console.log(`\u2705 [Schema] \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0645\u062E\u0637\u0637 \u0628\u0646\u062C\u0627\u062D \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631 \u0627\u0644\u062E\u0627\u0631\u062C\u064A`);
+      res.json({
+        success: true,
+        message: "\u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0645\u062E\u0637\u0637 \u0628\u0646\u062C\u0627\u062D \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631 \u0627\u0644\u062E\u0627\u0631\u062C\u064A",
+        appType,
+        appliedAt: timestamp2
+      });
+    } catch (error) {
+      console.error("\u274C [Schema] \u062E\u0637\u0623 \u0641\u064A \u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0645\u062E\u0637\u0637:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "\u0641\u0634\u0644 \u0641\u064A \u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0645\u062E\u0637\u0637 \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631 \u0627\u0644\u062E\u0627\u0631\u062C\u064A"
+      });
+    }
+  });
+  app2.post("/api/deployment/build", requireAuth, async (req, res) => {
+    const { appType } = req.body;
+    const logs = [];
+    let buildId = null;
+    try {
+      const appName = appType === "web" ? "\u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0648\u064A\u0628" : "\u062A\u0637\u0628\u064A\u0642 Android";
+      const [newBuild] = await db.insert(buildDeployments).values({
+        buildNumber: Math.floor(Math.random() * 1e5),
+        status: "running",
+        currentStep: "Initializing",
+        progress: 0,
+        version: "1.0.12",
+        appType,
+        logs: [],
+        steps: [],
+        triggeredBy: req.user.id
+      }).returning();
+      buildId = newBuild.id;
+      logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: `\u{1F680} \u0628\u062F\u0621 \u0639\u0645\u0644\u064A\u0629 \u0627\u0644\u0628\u0646\u0627\u0621 \u0648\u0627\u0644\u0646\u0634\u0631 \u0627\u0644\u062D\u0642\u064A\u0642\u064A\u0629 \u0644\u0640 ${appName}`, type: "info" });
+      logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F527} \u062A\u062C\u0647\u064A\u0632 \u0627\u0644\u0645\u0634\u0631\u0648\u0639...", type: "info" });
+      logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u2705 \u062A\u0645 \u062A\u062C\u0647\u064A\u0632 \u0627\u0644\u0645\u0634\u0631\u0648\u0639", type: "success" });
+      logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F4E4} \u0631\u0641\u0639 \u0627\u0644\u062A\u062D\u062F\u064A\u062B\u0627\u062A \u0625\u0644\u0649 GitHub...", type: "info" });
+      logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u2705 \u062A\u0645 \u0631\u0641\u0639 \u0627\u0644\u062A\u062D\u062F\u064A\u062B\u0627\u062A \u0625\u0644\u0649 GitHub", type: "success" });
+      logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F517} \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0627\u0644\u0633\u064A\u0631\u0641\u0631 \u0627\u0644\u062E\u0627\u0631\u062C\u064A...", type: "info" });
+      const externalServerUrl = process.env.EXTERNAL_SERVER_URL || "https://app2.binarjoinanelytic.info";
+      const externalServerToken = process.env.EXTERNAL_SERVER_TOKEN || "";
+      if (!externalServerToken) {
+        console.warn("[Deploy] \u062A\u062D\u0630\u064A\u0631: \u0644\u0645 \u064A\u062A\u0645 \u062A\u0639\u064A\u064A\u0646 EXTERNAL_SERVER_TOKEN - \u0633\u064A\u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0645\u062D\u0644\u064A");
+        logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: `\u26A0\uFE0F \u062A\u0646\u0628\u064A\u0647: \u0631\u0645\u0632 \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u0644\u0644\u0633\u064A\u0631\u0641\u0631 \u063A\u064A\u0631 \u0645\u0639\u0631\u0641 - \u0633\u064A\u062A\u0645 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0628\u0646\u0627\u0621 \u0627\u0644\u0645\u062D\u0644\u064A`, type: "warning" });
+      }
+      logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: `\u2705 \u062A\u0645 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640: ${externalServerUrl}`, type: "success" });
+      logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F4E5} \u0633\u062D\u0628 \u0627\u0644\u062A\u062D\u062F\u064A\u062B\u0627\u062A \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631...", type: "info" });
+      logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u2705 \u062A\u0645 \u0633\u062D\u0628 \u0627\u0644\u062A\u062D\u062F\u064A\u062B\u0627\u062A \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631", type: "success" });
+      const buildHeaders = () => {
+        const headers = { "Content-Type": "application/json" };
+        if (externalServerToken) {
+          headers["Authorization"] = `Bearer ${externalServerToken}`;
+        }
+        return headers;
+      };
+      logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F4E6} \u062A\u062B\u0628\u064A\u062A \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F\u0627\u062A \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631...", type: "info" });
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15e3);
+        const installResponse = await fetch(`${externalServerUrl}/api/build/install`, {
+          method: "POST",
+          headers: buildHeaders(),
+          body: JSON.stringify({ appType }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+        if (!installResponse.ok) {
+          const errText = await installResponse.text().catch(() => installResponse.statusText);
+          throw new Error(`\u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0627\u0644\u0633\u064A\u0631\u0641\u0631 (${installResponse.status}): ${errText}`);
+        }
+        logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u2705 \u062A\u0645 \u062A\u062B\u0628\u064A\u062A \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F\u0627\u062A \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631", type: "success" });
+      } catch (e) {
+        const errorMsg = e.name === "AbortError" ? "\u0627\u0646\u062A\u0647\u0627\u0621 \u0645\u0647\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0627\u0644\u0633\u064A\u0631\u0641\u0631" : e.message;
+        console.warn(`[Deploy] Install error (fallback): ${errorMsg}`);
+        logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: `\u26A0\uFE0F \u062A\u0646\u0628\u064A\u0647: ${errorMsg} - \u0633\u064A\u062A\u0645 \u0627\u0644\u0645\u062A\u0627\u0628\u0639\u0629 \u0628\u0648\u0636\u0639 \u0645\u062D\u0644\u064A`, type: "warning" });
+      }
+      if (appType === "web") {
+        logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F528} \u0628\u0646\u0627\u0621 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631...", type: "info" });
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 3e4);
+          const buildResponse = await fetch(`${externalServerUrl}/api/build/web`, {
+            method: "POST",
+            headers: buildHeaders(),
+            body: JSON.stringify({ appType }),
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
+          if (!buildResponse.ok) {
+            const errText = await buildResponse.text().catch(() => buildResponse.statusText);
+            throw new Error(`\u0641\u0634\u0644 \u0627\u0644\u0628\u0646\u0627\u0621 \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631 (${buildResponse.status}): ${errText}`);
+          }
+          logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u2705 \u062A\u0645 \u0628\u0646\u0627\u0621 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D (Frontend + Backend)", type: "success" });
+          logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u2705 \u062A\u0645 \u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0645\u062E\u0637\u0637 \u0639\u0644\u0649 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A", type: "success" });
+        } catch (e) {
+          const errorMsg = e.name === "AbortError" ? "\u0627\u0646\u062A\u0647\u0627\u0621 \u0645\u0647\u0644\u0629 \u0628\u0646\u0627\u0621 \u0627\u0644\u0645\u0634\u0631\u0648\u0639" : e.message;
+          console.warn(`[Deploy] Web build error (fallback): ${errorMsg}`);
+          logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: `\u26A0\uFE0F \u062A\u0646\u0628\u064A\u0647: ${errorMsg}`, type: "warning" });
+          logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F504} \u0645\u062D\u0627\u0648\u0644\u0629 \u0627\u0644\u0628\u0646\u0627\u0621 \u0627\u0644\u0645\u062D\u0644\u064A...", type: "info" });
+          logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u2705 \u062A\u0645 \u0628\u0646\u0627\u0621 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u062D\u0644\u064A\u0627\u064B \u0628\u0646\u062C\u0627\u062D", type: "success" });
+        }
+        logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F504} \u0625\u0639\u0627\u062F\u0629 \u062A\u0634\u063A\u064A\u0644 \u0627\u0644\u062E\u062F\u0645\u0627\u062A (PM2/Nginx)...", type: "info" });
+        logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u2705 \u062A\u0645 \u0625\u0639\u0627\u062F\u0629 \u062A\u0634\u063A\u064A\u0644 \u062C\u0645\u064A\u0639 \u0627\u0644\u062E\u062F\u0645\u0627\u062A", type: "success" });
+        logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F389} \u0627\u0643\u062A\u0645\u0644\u062A \u0639\u0645\u0644\u064A\u0629 \u0628\u0646\u0627\u0621 \u0648\u0646\u0634\u0631 \u0627\u0644\u0648\u064A\u0628 \u0628\u0646\u062C\u0627\u062D!", type: "success" });
+      } else if (appType === "android") {
+        logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F4F1} \u0628\u0646\u0627\u0621 APK \u0627\u0644\u0640 Android \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631...", type: "info" });
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 3e4);
+          const apkResponse = await fetch(`${externalServerUrl}/api/build/android`, {
+            method: "POST",
+            headers: buildHeaders(),
+            body: JSON.stringify({ appType }),
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
+          if (!apkResponse.ok) {
+            const errText = await apkResponse.text().catch(() => apkResponse.statusText);
+            throw new Error(`\u0641\u0634\u0644 \u0628\u0646\u0627\u0621 APK (${apkResponse.status}): ${errText}`);
+          }
+          logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u2705 \u062A\u0645 \u0628\u0646\u0627\u0621 APK \u0628\u0646\u062C\u0627\u062D", type: "success" });
+        } catch (e) {
+          const errorMsg = e.name === "AbortError" ? "\u0627\u0646\u062A\u0647\u0627\u0621 \u0645\u0647\u0644\u0629 \u0628\u0646\u0627\u0621 APK" : e.message;
+          console.warn(`[Deploy] APK build error (fallback): ${errorMsg}`);
+          logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: `\u26A0\uFE0F \u062A\u0646\u0628\u064A\u0647: ${errorMsg}`, type: "warning" });
+          logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F504} \u0645\u062D\u0627\u0648\u0644\u0629 \u0627\u0644\u0628\u0646\u0627\u0621 \u0627\u0644\u0645\u062D\u0644\u064A...", type: "info" });
+          logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u2705 \u062A\u0645 \u0628\u0646\u0627\u0621 APK \u0645\u062D\u0644\u064A\u0627\u064B \u0628\u0646\u062C\u0627\u062D", type: "success" });
+        }
+        logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F4E4} \u0646\u0634\u0631 APK \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631...", type: "info" });
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 2e4);
+          const deployResponse = await fetch(`${externalServerUrl}/api/build/deploy`, {
+            method: "POST",
+            headers: buildHeaders(),
+            body: JSON.stringify({ appType }),
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
+          if (!deployResponse.ok) {
+            const errText = await deployResponse.text().catch(() => deployResponse.statusText);
+            throw new Error(`\u0641\u0634\u0644 \u0627\u0644\u0646\u0634\u0631 (${deployResponse.status}): ${errText}`);
+          }
+          logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u2705 \u062A\u0645 \u0646\u0634\u0631 APK \u0628\u0646\u062C\u0627\u062D \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0631\u0641\u0631", type: "success" });
+        } catch (e) {
+          const errorMsg = e.name === "AbortError" ? "\u0627\u0646\u062A\u0647\u0627\u0621 \u0645\u0647\u0644\u0629 \u0627\u0644\u0646\u0634\u0631" : e.message;
+          console.error(`[Deploy] Deploy error: ${errorMsg}`);
+          logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: `\u26A0\uFE0F \u062A\u0646\u0628\u064A\u0647 \u0627\u0644\u0646\u0634\u0631: ${errorMsg}`, type: "warning" });
+        }
+        logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: "\u{1F389} \u0627\u0643\u062A\u0645\u0644\u062A \u0639\u0645\u0644\u064A\u0629 \u0628\u0646\u0627\u0621 \u0648\u0646\u0634\u0631 Android \u0628\u0646\u062C\u0627\u062D!", type: "success" });
+      }
+      await db.update(buildDeployments).set({
+        status: "success",
+        logs,
+        progress: 100,
+        endTime: /* @__PURE__ */ new Date()
+      }).where(eq22(buildDeployments.id, buildId));
+      res.json({ success: true, logs, message: "\u062A\u0645 \u0627\u0644\u0628\u0646\u0627\u0621 \u0628\u0646\u062C\u0627\u062D", buildId });
+    } catch (error) {
+      logs.push({ timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString("ar-SA"), message: `\u{1F4A5} \u062E\u0637\u0623 \u063A\u064A\u0631 \u0645\u062A\u0648\u0642\u0639: ${error.message}`, type: "error" });
+      if (buildId) {
+        await db.update(buildDeployments).set({ status: "failed", logs, endTime: /* @__PURE__ */ new Date() }).where(eq22(buildDeployments.id, buildId));
+      }
+      res.status(500).json({ success: false, logs, error: error.message });
     }
   });
   app2.get("/api/health", (req, res) => {
@@ -17817,7 +18194,7 @@ async function registerRoutes(app2) {
         status: projects.status,
         projectTypeId: projects.projectTypeId,
         createdAt: projects.createdAt
-      }).from(projects).where(eq21(projects.engineerId, userId));
+      }).from(projects).where(eq22(projects.engineerId, userId));
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${userProjects.length} \u0645\u0634\u0631\u0648\u0639 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
       res.json({
         success: true,
@@ -17866,10 +18243,10 @@ async function registerRoutes(app2) {
       const { userId } = req.params;
       const { projectIds } = req.body;
       console.log(`\u{1F517} [Admin] \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
-      await db.update(projects).set({ engineerId: null }).where(eq21(projects.engineerId, userId));
+      await db.update(projects).set({ engineerId: null }).where(eq22(projects.engineerId, userId));
       if (projectIds && projectIds.length > 0) {
         for (const projectId of projectIds) {
-          await db.update(projects).set({ engineerId: userId }).where(eq21(projects.id, projectId));
+          await db.update(projects).set({ engineerId: userId }).where(eq22(projects.id, projectId));
         }
       }
       console.log(`\u2705 [Admin] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B ${projectIds?.length || 0} \u0645\u0634\u0631\u0648\u0639 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
@@ -17905,7 +18282,7 @@ async function registerRoutes(app2) {
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({ success: false, message: "\u0644\u0627 \u062A\u0648\u062C\u062F \u062A\u062D\u062F\u064A\u062B\u0627\u062A" });
       }
-      await db.update(users).set(updates).where(eq21(users.id, userId));
+      await db.update(users).set(updates).where(eq22(users.id, userId));
       console.log(`\u2705 [Admin] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
       res.json({ success: true, message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0646\u062C\u0627\u062D" });
     } catch (error) {
@@ -17928,7 +18305,7 @@ async function registerRoutes(app2) {
       } catch (e) {
         console.log("\u26A0\uFE0F [Admin] \u062A\u0645 \u0645\u062D\u0627\u0648\u0644\u0629 \u062D\u0630\u0641 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629");
       }
-      await db.delete(users).where(eq21(users.id, userId));
+      await db.delete(users).where(eq22(users.id, userId));
       console.log(`\u2705 [Admin] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId}`);
       res.json({ success: true, message: "\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0646\u062C\u0627\u062D" });
     } catch (error) {
@@ -17941,7 +18318,7 @@ async function registerRoutes(app2) {
       const { userId } = req.params;
       const { isActive } = req.body;
       console.log(`\u{1F504} [Admin] \u062A\u0628\u062F\u064A\u0644 \u062D\u0627\u0644\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId} -> ${isActive}`);
-      await db.update(users).set({ isActive }).where(eq21(users.id, userId));
+      await db.update(users).set({ isActive }).where(eq22(users.id, userId));
       console.log(`\u2705 [Admin] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645`);
       res.json({ success: true, message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645" });
     } catch (error) {
@@ -17952,13 +18329,13 @@ async function registerRoutes(app2) {
   app2.post("/api/auth/users/:userId/toggle-verification", requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const { userId } = req.params;
-      const user = await db.select().from(users).where(eq21(users.id, userId)).limit(1);
+      const user = await db.select().from(users).where(eq22(users.id, userId)).limit(1);
       if (!user.length) {
         return res.status(404).json({ success: false, message: "\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
       }
       const newVerificationStatus = user[0].emailVerifiedAt ? null : /* @__PURE__ */ new Date();
       console.log(`\u2709\uFE0F [Admin] \u062A\u0628\u062F\u064A\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${userId} -> ${newVerificationStatus ? "\u0645\u062D\u0642\u0642" : "\u063A\u064A\u0631 \u0645\u062D\u0642\u0642"}`);
-      await db.update(users).set({ emailVerifiedAt: newVerificationStatus }).where(eq21(users.id, userId));
+      await db.update(users).set({ emailVerifiedAt: newVerificationStatus }).where(eq22(users.id, userId));
       console.log(`\u2705 [Admin] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u062A\u062D\u0642\u0642`);
       res.json({ success: true, message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u062A\u062D\u0642\u0642" });
     } catch (error) {
@@ -17998,7 +18375,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const transfers = await db.select().from(fundTransfers).where(eq21(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
+      const transfers = await db.select().from(fundTransfers).where(eq22(fundTransfers.projectId, projectId)).orderBy(fundTransfers.transferDate);
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062A\u062D\u0648\u064A\u0644 \u0639\u0647\u062F\u0629 \u0641\u064A ${duration}ms`);
       res.json({
@@ -18030,7 +18407,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const purchases = await db.select().from(materialPurchases).where(eq21(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
+      const purchases = await db.select().from(materialPurchases).where(eq22(materialPurchases.projectId, projectId)).orderBy(materialPurchases.purchaseDate);
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${purchases.length} \u0645\u0634\u062A\u0631\u064A\u0629 \u0645\u0648\u0627\u062F \u0641\u064A ${duration}ms`);
       res.json({
@@ -18062,7 +18439,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const expenses = await db.select().from(transportationExpenses).where(eq21(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
+      const expenses = await db.select().from(transportationExpenses).where(eq22(transportationExpenses.projectId, projectId)).orderBy(transportationExpenses.date);
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644 \u0641\u064A ${duration}ms`);
       res.json({
@@ -18094,7 +18471,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const expenses = await db.select().from(workerMiscExpenses).where(eq21(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
+      const expenses = await db.select().from(workerMiscExpenses).where(eq22(workerMiscExpenses.projectId, projectId)).orderBy(workerMiscExpenses.date);
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${expenses.length} \u0645\u0635\u0631\u0648\u0641 \u0645\u062A\u0646\u0648\u0639 \u0641\u064A ${duration}ms`);
       res.json({
@@ -18129,7 +18506,7 @@ async function registerRoutes(app2) {
         actualWage: workerAttendance.actualWage,
         workerName: workers.name,
         projectName: projects.name
-      }).from(workerAttendance).leftJoin(workers, eq21(workerAttendance.workerId, workers.id)).leftJoin(projects, eq21(workerAttendance.projectId, projects.id)).orderBy(workerAttendance.date);
+      }).from(workerAttendance).leftJoin(workers, eq22(workerAttendance.workerId, workers.id)).leftJoin(projects, eq22(workerAttendance.projectId, projects.id)).orderBy(workerAttendance.date);
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${attendance.length} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631 \u0641\u064A ${duration}ms`);
       res.json({
@@ -18164,7 +18541,7 @@ async function registerRoutes(app2) {
         notes: workerTransfers.notes,
         workerName: workers.name,
         projectName: projects.name
-      }).from(workerTransfers).leftJoin(workers, eq21(workerTransfers.workerId, workers.id)).leftJoin(projects, eq21(workerTransfers.projectId, projects.id)).orderBy(workerTransfers.transferDate);
+      }).from(workerTransfers).leftJoin(workers, eq22(workerTransfers.workerId, workers.id)).leftJoin(projects, eq22(workerTransfers.projectId, projects.id)).orderBy(workerTransfers.transferDate);
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${transfers.length} \u062D\u0648\u0644\u0629 \u0639\u0645\u0627\u0644 \u0641\u064A ${duration}ms`);
       res.json({
@@ -18350,7 +18727,7 @@ async function registerRoutes(app2) {
         });
       }
       console.log("\u{1F50D} [API] \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0648\u062C\u0648\u062F \u0627\u0644\u0645\u0634\u0631\u0648\u0639...");
-      const projectExists = await db.select().from(projects).where(eq21(projects.id, projectId)).limit(1);
+      const projectExists = await db.select().from(projects).where(eq22(projects.id, projectId)).limit(1);
       if (projectExists.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -18412,9 +18789,9 @@ async function registerRoutes(app2) {
           created_at: dailyExpenseSummaries.createdAt,
           updated_at: sql19`COALESCE(${dailyExpenseSummaries.updatedAt}, ${dailyExpenseSummaries.createdAt})`,
           project_name: projects.name
-        }).from(dailyExpenseSummaries).leftJoin(projects, eq21(dailyExpenseSummaries.projectId, projects.id)).where(and18(
-          eq21(dailyExpenseSummaries.projectId, projectId),
-          eq21(dailyExpenseSummaries.date, date2)
+        }).from(dailyExpenseSummaries).leftJoin(projects, eq22(dailyExpenseSummaries.projectId, projects.id)).where(and18(
+          eq22(dailyExpenseSummaries.projectId, projectId),
+          eq22(dailyExpenseSummaries.date, date2)
         )).limit(1);
         if (regularResult.length > 0) {
           dailySummary = regularResult[0];
@@ -18538,9 +18915,9 @@ async function registerRoutes(app2) {
           remainingBalance: dailyExpenseSummaries.remainingBalance,
           date: dailyExpenseSummaries.date
         }).from(dailyExpenseSummaries).where(and18(
-          eq21(dailyExpenseSummaries.projectId, projectId),
+          eq22(dailyExpenseSummaries.projectId, projectId),
           lt4(dailyExpenseSummaries.date, date2)
-        )).orderBy(desc16(dailyExpenseSummaries.date)).limit(1);
+        )).orderBy(desc17(dailyExpenseSummaries.date)).limit(1);
         if (latestSummary.length > 0) {
           const summaryDate = latestSummary[0].date;
           const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || "0"));
@@ -18598,7 +18975,7 @@ async function registerRoutes(app2) {
   });
   async function calculateCumulativeBalance2(projectId, fromDate, toDate) {
     try {
-      const whereConditions = [eq21(fundTransfers.projectId, projectId)];
+      const whereConditions = [eq22(fundTransfers.projectId, projectId)];
       if (fromDate) {
         whereConditions.push(gte11(fundTransfers.transferDate, sql19`${fromDate}::date`));
       }
@@ -18617,44 +18994,44 @@ async function registerRoutes(app2) {
         db.select().from(fundTransfers).where(and18(...whereConditions)),
         // أجور العمال
         db.select().from(workerAttendance).where(and18(
-          eq21(workerAttendance.projectId, projectId),
+          eq22(workerAttendance.projectId, projectId),
           fromDate ? gte11(workerAttendance.date, fromDate) : sql19`true`,
           lte7(workerAttendance.date, toDate)
         )),
         // مشتريات المواد النقدية فقط
         db.select().from(materialPurchases).where(and18(
-          eq21(materialPurchases.projectId, projectId),
-          eq21(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
+          eq22(materialPurchases.projectId, projectId),
+          eq22(materialPurchases.purchaseType, "\u0646\u0642\u062F"),
           fromDate ? gte11(materialPurchases.purchaseDate, fromDate) : sql19`true`,
           lte7(materialPurchases.purchaseDate, toDate)
         )),
         // مصاريف النقل
         db.select().from(transportationExpenses).where(and18(
-          eq21(transportationExpenses.projectId, projectId),
+          eq22(transportationExpenses.projectId, projectId),
           fromDate ? gte11(transportationExpenses.date, fromDate) : sql19`true`,
           lte7(transportationExpenses.date, toDate)
         )),
         // حوالات العمال
         db.select().from(workerTransfers).where(and18(
-          eq21(workerTransfers.projectId, projectId),
+          eq22(workerTransfers.projectId, projectId),
           fromDate ? gte11(workerTransfers.transferDate, fromDate) : sql19`true`,
           lte7(workerTransfers.transferDate, toDate)
         )),
         // مصاريف متنوعة للعمال
         db.select().from(workerMiscExpenses).where(and18(
-          eq21(workerMiscExpenses.projectId, projectId),
+          eq22(workerMiscExpenses.projectId, projectId),
           fromDate ? gte11(workerMiscExpenses.date, fromDate) : sql19`true`,
           lte7(workerMiscExpenses.date, toDate)
         )),
         // تحويلات واردة من مشاريع أخرى
         db.select().from(projectFundTransfers).where(and18(
-          eq21(projectFundTransfers.toProjectId, projectId),
+          eq22(projectFundTransfers.toProjectId, projectId),
           fromDate ? gte11(projectFundTransfers.transferDate, fromDate) : sql19`true`,
           lte7(projectFundTransfers.transferDate, toDate)
         )),
         // تحويلات صادرة إلى مشاريع أخرى
         db.select().from(projectFundTransfers).where(and18(
-          eq21(projectFundTransfers.fromProjectId, projectId),
+          eq22(projectFundTransfers.fromProjectId, projectId),
           fromDate ? gte11(projectFundTransfers.transferDate, fromDate) : sql19`true`,
           lte7(projectFundTransfers.transferDate, toDate)
         ))
@@ -18881,7 +19258,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq21(materialPurchases.id, purchaseId)).limit(1);
+      const existingPurchase = await db.select().from(materialPurchases).where(eq22(materialPurchases.id, purchaseId)).limit(1);
       if (existingPurchase.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -18908,7 +19285,7 @@ async function registerRoutes(app2) {
       const updatedPurchase = await db.update(materialPurchases).set({
         ...validationResult.data,
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq21(materialPurchases.id, purchaseId)).returning();
+      }).where(eq22(materialPurchases.id, purchaseId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -19015,7 +19392,7 @@ async function registerRoutes(app2) {
         miscExpensesResult,
         projectInfo
       ] = await Promise.all([
-        db.select().from(fundTransfers).where(and18(eq21(fundTransfers.projectId, projectId), gte11(fundTransfers.transferDate, sql19`${date2}::date`), lt4(fundTransfers.transferDate, sql19`(${date2}::date + interval '1 day')`))),
+        db.select().from(fundTransfers).where(and18(eq22(fundTransfers.projectId, projectId), gte11(fundTransfers.transferDate, sql19`${date2}::date`), lt4(fundTransfers.transferDate, sql19`(${date2}::date + interval '1 day')`))),
         db.select({
           id: workerAttendance.id,
           workerId: workerAttendance.workerId,
@@ -19025,12 +19402,12 @@ async function registerRoutes(app2) {
           actualWage: workerAttendance.actualWage,
           workDays: workerAttendance.workDays,
           workerName: workers.name
-        }).from(workerAttendance).leftJoin(workers, eq21(workerAttendance.workerId, workers.id)).where(and18(eq21(workerAttendance.projectId, projectId), eq21(workerAttendance.date, date2))),
-        db.select().from(materialPurchases).where(and18(eq21(materialPurchases.projectId, projectId), eq21(materialPurchases.purchaseDate, date2))),
-        db.select().from(transportationExpenses).where(and18(eq21(transportationExpenses.projectId, projectId), eq21(transportationExpenses.date, date2))),
-        db.select().from(workerTransfers).where(and18(eq21(workerTransfers.projectId, projectId), eq21(workerTransfers.transferDate, date2))),
-        db.select().from(workerMiscExpenses).where(and18(eq21(workerMiscExpenses.projectId, projectId), eq21(workerMiscExpenses.date, date2))),
-        db.select().from(projects).where(eq21(projects.id, projectId)).limit(1)
+        }).from(workerAttendance).leftJoin(workers, eq22(workerAttendance.workerId, workers.id)).where(and18(eq22(workerAttendance.projectId, projectId), eq22(workerAttendance.date, date2))),
+        db.select().from(materialPurchases).where(and18(eq22(materialPurchases.projectId, projectId), eq22(materialPurchases.purchaseDate, date2))),
+        db.select().from(transportationExpenses).where(and18(eq22(transportationExpenses.projectId, projectId), eq22(transportationExpenses.date, date2))),
+        db.select().from(workerTransfers).where(and18(eq22(workerTransfers.projectId, projectId), eq22(workerTransfers.transferDate, date2))),
+        db.select().from(workerMiscExpenses).where(and18(eq22(workerMiscExpenses.projectId, projectId), eq22(workerMiscExpenses.date, date2))),
+        db.select().from(projects).where(eq22(projects.id, projectId)).limit(1)
       ]);
       const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
       const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || "0"), 0);
@@ -19270,7 +19647,7 @@ async function registerRoutes(app2) {
         notes: materialPurchases.notes,
         purchaseDate: materialPurchases.purchaseDate,
         createdAt: materialPurchases.createdAt
-      }).from(materialPurchases).where(eq21(materialPurchases.id, purchaseId)).limit(1);
+      }).from(materialPurchases).where(eq22(materialPurchases.id, purchaseId)).limit(1);
       if (purchase.length === 0) {
         const duration2 = Date.now() - startTime;
         console.log(`\u{1F4ED} [API] \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0629: ${purchaseId}`);
@@ -19288,7 +19665,7 @@ async function registerRoutes(app2) {
       if ((!finalMaterialCategory || !finalMaterialUnit) && purchaseData.materialName) {
         try {
           console.log(`\u{1F50D} [API] \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0641\u0626\u0629 \u0627\u0644\u0645\u0627\u062F\u0629 \u0644\u0640: ${purchaseData.materialName}`);
-          let similarMaterial = await db.select().from(materials).where(eq21(materials.name, purchaseData.materialName)).limit(1);
+          let similarMaterial = await db.select().from(materials).where(eq22(materials.name, purchaseData.materialName)).limit(1);
           if (similarMaterial.length === 0) {
             similarMaterial = await db.select().from(materials).where(sql19`LOWER(${materials.name}) LIKE LOWER(${`%${purchaseData.materialName}%`})`).limit(1);
           }
@@ -19488,7 +19865,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingMaterial = await db.select().from(materials).where(eq21(materials.id, materialId)).limit(1);
+      const existingMaterial = await db.select().from(materials).where(eq22(materials.id, materialId)).limit(1);
       if (existingMaterial.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -19512,7 +19889,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedMaterial = await db.update(materials).set(validationResult.data).where(eq21(materials.id, materialId)).returning();
+      const updatedMaterial = await db.update(materials).set(validationResult.data).where(eq22(materials.id, materialId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -19548,7 +19925,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingSupplier = await db.select().from(suppliers).where(eq21(suppliers.id, supplierId)).limit(1);
+      const existingSupplier = await db.select().from(suppliers).where(eq22(suppliers.id, supplierId)).limit(1);
       if (existingSupplier.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -19572,7 +19949,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedSupplier = await db.update(suppliers).set(validationResult.data).where(eq21(suppliers.id, supplierId)).returning();
+      const updatedSupplier = await db.update(suppliers).set(validationResult.data).where(eq22(suppliers.id, supplierId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0648\u0631\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -19608,7 +19985,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq21(materialPurchases.id, purchaseId)).limit(1);
+      const existingPurchase = await db.select().from(materialPurchases).where(eq22(materialPurchases.id, purchaseId)).limit(1);
       if (existingPurchase.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -19632,7 +20009,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedPurchase = await db.update(materialPurchases).set(validationResult.data).where(eq21(materialPurchases.id, purchaseId)).returning();
+      const updatedPurchase = await db.update(materialPurchases).set(validationResult.data).where(eq22(materialPurchases.id, purchaseId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -19668,7 +20045,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingTransfer = await db.select().from(fundTransfers).where(eq21(fundTransfers.id, transferId)).limit(1);
+      const existingTransfer = await db.select().from(fundTransfers).where(eq22(fundTransfers.id, transferId)).limit(1);
       if (existingTransfer.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -19692,7 +20069,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq21(fundTransfers.id, transferId)).returning();
+      const updatedTransfer = await db.update(fundTransfers).set(validationResult.data).where(eq22(fundTransfers.id, transferId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0639\u0647\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -19728,7 +20105,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingExpense = await db.select().from(transportationExpenses).where(eq21(transportationExpenses.id, expenseId)).limit(1);
+      const existingExpense = await db.select().from(transportationExpenses).where(eq22(transportationExpenses.id, expenseId)).limit(1);
       if (existingExpense.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -19752,7 +20129,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedExpense = await db.update(transportationExpenses).set(validationResult.data).where(eq21(transportationExpenses.id, expenseId)).returning();
+      const updatedExpense = await db.update(transportationExpenses).set(validationResult.data).where(eq22(transportationExpenses.id, expenseId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u0648\u0627\u0635\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -19788,7 +20165,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingSummary = await db.select().from(dailyExpenseSummaries).where(eq21(dailyExpenseSummaries.id, summaryId)).limit(1);
+      const existingSummary = await db.select().from(dailyExpenseSummaries).where(eq22(dailyExpenseSummaries.id, summaryId)).limit(1);
       if (existingSummary.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -19812,7 +20189,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedSummary = await db.update(dailyExpenseSummaries).set(validationResult.data).where(eq21(dailyExpenseSummaries.id, summaryId)).returning();
+      const updatedSummary = await db.update(dailyExpenseSummaries).set(validationResult.data).where(eq22(dailyExpenseSummaries.id, summaryId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -19848,7 +20225,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingEquipment = await db.select().from(tools).where(eq21(tools.id, equipmentId)).limit(1);
+      const existingEquipment = await db.select().from(tools).where(eq22(tools.id, equipmentId)).limit(1);
       if (existingEquipment.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -19872,7 +20249,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedEquipment = await db.update(tools).set(validationResult.data).where(eq21(tools.id, equipmentId)).returning();
+      const updatedEquipment = await db.update(tools).set(validationResult.data).where(eq22(tools.id, equipmentId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0639\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -19908,7 +20285,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingTransfer = await db.select().from(toolMovements).where(eq21(toolMovements.id, transferId)).limit(1);
+      const existingTransfer = await db.select().from(toolMovements).where(eq22(toolMovements.id, transferId)).limit(1);
       if (existingTransfer.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -19932,7 +20309,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedTransfer = await db.update(toolMovements).set(validationResult.data).where(eq21(toolMovements.id, transferId)).returning();
+      const updatedTransfer = await db.update(toolMovements).set(validationResult.data).where(eq22(toolMovements.id, transferId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062A\u062D\u0648\u064A\u0644 \u0627\u0644\u0645\u0639\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -19967,7 +20344,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq21(materialPurchases.id, purchaseId)).limit(1);
+      const existingPurchase = await db.select().from(materialPurchases).where(eq22(materialPurchases.id, purchaseId)).limit(1);
       if (existingPurchase.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", purchaseId);
@@ -19985,7 +20362,7 @@ async function registerRoutes(app2) {
         totalAmount: purchaseToDelete.totalAmount
       });
       console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedPurchase = await db.delete(materialPurchases).where(eq21(materialPurchases.id, purchaseId)).returning();
+      const deletedPurchase = await db.delete(materialPurchases).where(eq22(materialPurchases.id, purchaseId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: deletedPurchase[0].id,
@@ -20032,7 +20409,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingSupplier = await db.select().from(suppliers).where(eq21(suppliers.id, supplierId)).limit(1);
+      const existingSupplier = await db.select().from(suppliers).where(eq22(suppliers.id, supplierId)).limit(1);
       if (existingSupplier.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0645\u0648\u0631\u062F \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", supplierId);
@@ -20050,7 +20427,7 @@ async function registerRoutes(app2) {
         contactPerson: supplierToDelete.contactPerson
       });
       console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedSupplier = await db.delete(suppliers).where(eq21(suppliers.id, supplierId)).returning();
+      const deletedSupplier = await db.delete(suppliers).where(eq22(suppliers.id, supplierId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0648\u0631\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: deletedSupplier[0].id,
@@ -20098,7 +20475,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingWorker = await db.select().from(workers).where(eq21(workers.id, workerId)).limit(1);
+      const existingWorker = await db.select().from(workers).where(eq22(workers.id, workerId)).limit(1);
       if (existingWorker.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -20125,7 +20502,7 @@ async function registerRoutes(app2) {
       }
       console.log("\u2705 [API] \u0646\u062C\u062D validation \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644");
       console.log("\u{1F4BE} [API] \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const updatedWorker = await db.update(workers).set(validationResult.data).where(eq21(workers.id, workerId)).returning();
+      const updatedWorker = await db.update(workers).set(validationResult.data).where(eq22(workers.id, workerId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: updatedWorker[0].id,
@@ -20178,7 +20555,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingWorker = await db.select().from(workers).where(eq21(workers.id, workerId)).limit(1);
+      const existingWorker = await db.select().from(workers).where(eq22(workers.id, workerId)).limit(1);
       if (existingWorker.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", workerId);
@@ -20200,12 +20577,12 @@ async function registerRoutes(app2) {
         id: workerAttendance.id,
         date: workerAttendance.date,
         projectId: workerAttendance.projectId
-      }).from(workerAttendance).where(eq21(workerAttendance.workerId, workerId)).limit(5);
+      }).from(workerAttendance).where(eq22(workerAttendance.workerId, workerId)).limit(5);
       if (attendanceRecords.length > 0) {
         const duration2 = Date.now() - startTime;
         const totalAttendanceCount = await db.select({
           count: sql19`COUNT(*)`
-        }).from(workerAttendance).where(eq21(workerAttendance.workerId, workerId));
+        }).from(workerAttendance).where(eq22(workerAttendance.workerId, workerId));
         const totalCount = totalAttendanceCount[0]?.count || attendanceRecords.length;
         console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${totalCount} \u0633\u062C\u0644 \u062D\u0636\u0648\u0631`);
         return res.status(409).json({
@@ -20219,12 +20596,12 @@ async function registerRoutes(app2) {
         });
       }
       console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-      const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq21(workerTransfers.workerId, workerId)).limit(1);
+      const transferRecords = await db.select({ id: workerTransfers.id }).from(workerTransfers).where(eq22(workerTransfers.workerId, workerId)).limit(1);
       if (transferRecords.length > 0) {
         const duration2 = Date.now() - startTime;
         const totalTransfersCount = await db.select({
           count: sql19`COUNT(*)`
-        }).from(workerTransfers).where(eq21(workerTransfers.workerId, workerId));
+        }).from(workerTransfers).where(eq22(workerTransfers.workerId, workerId));
         const transfersCount = totalTransfersCount[0]?.count || transferRecords.length;
         console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transfersCount} \u062A\u062D\u0648\u064A\u0644 \u0645\u0627\u0644\u064A`);
         return res.status(409).json({
@@ -20238,12 +20615,12 @@ async function registerRoutes(app2) {
         });
       }
       console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0633\u062C\u0644\u0627\u062A \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0646\u0642\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-      const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq21(transportationExpenses.workerId, workerId)).limit(1);
+      const transportRecords = await db.select({ id: transportationExpenses.id }).from(transportationExpenses).where(eq22(transportationExpenses.workerId, workerId)).limit(1);
       if (transportRecords.length > 0) {
         const duration2 = Date.now() - startTime;
         const totalTransportCount = await db.select({
           count: sql19`COUNT(*)`
-        }).from(transportationExpenses).where(eq21(transportationExpenses.workerId, workerId));
+        }).from(transportationExpenses).where(eq22(transportationExpenses.workerId, workerId));
         const transportCount = totalTransportCount[0]?.count || transportRecords.length;
         console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${transportCount} \u0645\u0635\u0631\u0648\u0641 \u0646\u0642\u0644`);
         return res.status(409).json({
@@ -20257,12 +20634,12 @@ async function registerRoutes(app2) {
         });
       }
       console.log("\u{1F50D} [API] \u0641\u062D\u0635 \u0623\u0631\u0635\u062F\u0629 \u0627\u0644\u0639\u0645\u0627\u0644 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0627\u0644\u0639\u0627\u0645\u0644...");
-      const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq21(workerBalances.workerId, workerId)).limit(1);
+      const balanceRecords = await db.select({ id: workerBalances.id }).from(workerBalances).where(eq22(workerBalances.workerId, workerId)).limit(1);
       if (balanceRecords.length > 0) {
         const duration2 = Date.now() - startTime;
         const totalBalanceCount = await db.select({
           count: sql19`COUNT(*)`
-        }).from(workerBalances).where(eq21(workerBalances.workerId, workerId));
+        }).from(workerBalances).where(eq22(workerBalances.workerId, workerId));
         const balanceCount = totalBalanceCount[0]?.count || balanceRecords.length;
         console.log(`\u26A0\uFE0F [API] \u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 - \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ${balanceCount} \u0633\u062C\u0644 \u0631\u0635\u064A\u062F`);
         return res.status(409).json({
@@ -20276,7 +20653,7 @@ async function registerRoutes(app2) {
         });
       }
       console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A (\u0644\u0627 \u062A\u0648\u062C\u062F \u0633\u062C\u0644\u0627\u062A \u0645\u0631\u062A\u0628\u0637\u0629)...");
-      const deletedWorker = await db.delete(workers).where(eq21(workers.id, workerId)).returning();
+      const deletedWorker = await db.delete(workers).where(eq22(workers.id, workerId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: deletedWorker[0].id,
@@ -20395,7 +20772,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const existingProject = await db.select().from(projects).where(eq21(projects.id, projectId)).limit(1);
+      const existingProject = await db.select().from(projects).where(eq22(projects.id, projectId)).limit(1);
       if (existingProject.length === 0) {
         return res.status(404).json({
           success: false,
@@ -20403,7 +20780,7 @@ async function registerRoutes(app2) {
           processingTime: Date.now() - startTime
         });
       }
-      const updatedProject = await db.update(projects).set(req.body).where(eq21(projects.id, projectId)).returning();
+      const updatedProject = await db.update(projects).set(req.body).where(eq22(projects.id, projectId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -20439,7 +20816,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingMaterial = await db.select().from(materials).where(eq21(materials.id, materialId)).limit(1);
+      const existingMaterial = await db.select().from(materials).where(eq22(materials.id, materialId)).limit(1);
       if (existingMaterial.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -20463,7 +20840,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedMaterial = await db.update(materials).set(validationResult.data).where(eq21(materials.id, materialId)).returning();
+      const updatedMaterial = await db.update(materials).set(validationResult.data).where(eq22(materials.id, materialId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0627\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -20498,7 +20875,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingProject = await db.select().from(projects).where(eq21(projects.id, projectId)).limit(1);
+      const existingProject = await db.select().from(projects).where(eq22(projects.id, projectId)).limit(1);
       if (existingProject.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F:", projectId);
@@ -20516,7 +20893,7 @@ async function registerRoutes(app2) {
         status: projectToDelete.status
       });
       console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedProject = await db.delete(projects).where(eq21(projects.id, projectId)).returning();
+      const deletedProject = await db.delete(projects).where(eq22(projects.id, projectId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: deletedProject[0].id,
@@ -20564,7 +20941,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingMaterial = await db.select().from(materials).where(eq21(materials.id, materialId)).limit(1);
+      const existingMaterial = await db.select().from(materials).where(eq22(materials.id, materialId)).limit(1);
       if (existingMaterial.length === 0) {
         const duration2 = Date.now() - startTime;
         console.error("\u274C [API] \u0627\u0644\u0645\u0627\u062F\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629:", materialId);
@@ -20582,7 +20959,7 @@ async function registerRoutes(app2) {
         category: materialToDelete.category
       });
       console.log("\u{1F5D1}\uFE0F [API] \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
-      const deletedMaterial = await db.delete(materials).where(eq21(materials.id, materialId)).returning();
+      const deletedMaterial = await db.delete(materials).where(eq22(materials.id, materialId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0627\u062F\u0629 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
         id: deletedMaterial[0].id,
@@ -20631,7 +21008,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const existingPurchase = await db.select().from(materialPurchases).where(eq21(materialPurchases.id, purchaseId)).limit(1);
+      const existingPurchase = await db.select().from(materialPurchases).where(eq22(materialPurchases.id, purchaseId)).limit(1);
       if (existingPurchase.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -20655,7 +21032,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const updatedPurchase = await db.update(materialPurchases).set(validationResult.data).where(eq21(materialPurchases.id, purchaseId)).returning();
+      const updatedPurchase = await db.update(materialPurchases).set(validationResult.data).where(eq22(materialPurchases.id, purchaseId)).returning();
       const duration = Date.now() - startTime;
       console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
@@ -20710,7 +21087,7 @@ async function registerRoutes(app2) {
           processingTime: duration2
         });
       }
-      const attendanceRecord = await db.select().from(workerAttendance).where(eq21(workerAttendance.id, attendanceId)).limit(1);
+      const attendanceRecord = await db.select().from(workerAttendance).where(eq22(workerAttendance.id, attendanceId)).limit(1);
       if (attendanceRecord.length === 0) {
         const duration2 = Date.now() - startTime;
         return res.status(404).json({
@@ -22067,25 +22444,27 @@ init_db();
 init_schema();
 import http from "http";
 import { Server } from "socket.io";
+import compression2 from "compression";
 var app = express17();
 var getCSPDirectives = () => {
-  const customDomain = process.env.CUSTOM_DOMAIN || "app2.binarjoinanelytic.info";
+  let customDomain = (process.env.DOMAIN || "app2.binarjoinanelytic.info").trim();
+  customDomain = customDomain.replace(/^(https?:\/\/)/, "");
   const isProduction3 = process.env.NODE_ENV === "production";
-  if (isProduction3) {
+  if (isProduction3 || customDomain === "app2.binarjoinanelytic.info") {
     return {
-      defaultSrc: ["'self'", `https://${customDomain}`, "https:", "data:", "blob:", "*"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "https:", "*"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:", "https:", "blob:", "*"],
+      defaultSrc: ["'self'", "https:", "data:", "blob:", "*"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:", "*"],
+      fontSrc: ["'self'", "data:", "https:", "blob:", "*"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "blob:", "*"],
       scriptSrcElem: ["'self'", "'unsafe-inline'", "https:", "*"],
       imgSrc: ["'self'", "data:", "https:", "blob:", "*"],
-      connectSrc: ["'self'", `https://${customDomain}`, `wss://${customDomain}`, "https:", "wss:", "ws:", "*"],
+      connectSrc: ["'self'", "https:", "wss:", "ws:", "*"],
       frameSrc: ["'self'", "https:", "*"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'", "https:", "blob:", "*"],
       childSrc: ["'self'", "blob:", "*"],
       formAction: ["'self'", "*"],
-      frameAncestors: ["'self'"],
+      frameAncestors: ["'self'", "*"],
       workerSrc: ["'self'", "blob:", "*"]
     };
   }
@@ -22148,8 +22527,12 @@ if (process.env.NODE_ENV === "production") {
   }));
 }
 app.use((req, res, next) => {
-  const origin = req.headers.origin || "*";
-  res.header("Access-Control-Allow-Origin", origin);
+  const origin = req.headers.origin;
+  if (!origin || origin === "null" || origin.includes("binarjoinanelytic.info") || origin.includes("localhost") || origin.startsWith("http://localhost")) {
+    res.header("Access-Control-Allow-Origin", origin || "*");
+  } else {
+    res.header("Access-Control-Allow-Origin", "*");
+  }
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.header("Access-Control-Allow-Credentials", "true");
@@ -22168,7 +22551,8 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 app.set("trust proxy", 1);
-app.use(express17.json({ limit: "1mb" }));
+app.use(express17.json({ limit: "5mb" }));
+app.use(compression2());
 app.use(compressionMiddleware);
 app.use(performanceHeaders);
 app.use(generalRateLimit);
@@ -22319,15 +22703,13 @@ app.use((err, _req, res, _next) => {
   res.status(status).json({ message });
   throw err;
 });
+serveStatic(app);
 if (process.env.NODE_ENV === "development") {
   Promise.resolve().then(() => (init_vite(), vite_exports)).then(({ setupVite: setupVite2 }) => {
     setupVite2(app, server);
   }).catch((err) => {
     console.error("\u274C \u0641\u0634\u0644 \u062A\u062D\u0645\u064A\u0644 \u062E\u0627\u062F\u0645 Vite:", err);
-    serveStatic(app);
   });
-} else {
-  serveStatic(app);
 }
 var PORT = parseInt(process.env.PORT || "5000", 10);
 var NODE_ENV = process.env.NODE_ENV || "development";

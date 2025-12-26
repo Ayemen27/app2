@@ -55,7 +55,8 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 2000,
     reportCompressedSize: false,
-    sourcemap: false
+    sourcemap: false,
+    assetsInlineLimit: 4096, // Inline small assets to reduce requests
   },
   resolve: {
     alias: {

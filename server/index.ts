@@ -32,7 +32,9 @@ const app = express();
 
 // 🛡️ **Security Headers - يحمي من XSS, clickjacking, MIME sniffing**
 const getCSPDirectives = () => {
-  const customDomain = process.env.DOMAIN || 'app2.binarjoinanelytic.info';
+  // إزالة البروتوكول من DOMAIN إن وجد (https:// أو http://)
+  let customDomain = (process.env.DOMAIN || 'app2.binarjoinanelytic.info').trim();
+  customDomain = customDomain.replace(/^(https?:\/\/)/, '');
   const isProduction = process.env.NODE_ENV === 'production';
   
   // في الإنتاج، نستخدم إعدادات متساهلة لتجنب مشاكل التحميل

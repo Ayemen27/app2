@@ -90,18 +90,20 @@ function generateSecureToken(): string {
 function getDynamicDomain(): string {
   // أولوية أولى: استخدام DOMAIN من ملف .env
   if (process.env.DOMAIN && process.env.DOMAIN.trim()) {
-    console.log('🌐 [EmailService] استخدام DOMAIN من .env:', process.env.DOMAIN);
-    return process.env.DOMAIN.trim();
+    // إزالة البروتوكول من DOMAIN إن وجد
+    let domainValue = process.env.DOMAIN.trim().replace(/^(https?:\/\/)/, '');
+    console.log('🌐 [EmailService] استخدام DOMAIN من .env:', domainValue);
+    return domainValue;
   }
   
   // في بيئة التطوير
   if (process.env.NODE_ENV === 'development') {
     console.log('🌐 [EmailService] استخدام localhost للتطوير');
-    return process.env.DOMAIN ? `${process.env.DOMAIN}` : 'app2.binarjoinanelytic.info';
+    return 'app2.binarjoinanelytic.info';
   }
   
   // القيم الافتراضية حسب البيئة
-  const defaultDomain = process.env.DOMAIN || 'app2.binarjoinanelytic.info';
+  const defaultDomain = 'app2.binarjoinanelytic.info';
   
   console.log('🌐 [EmailService] استخدام القيمة الافتراضية:', defaultDomain);
   return defaultDomain;

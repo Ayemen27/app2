@@ -6,5 +6,12 @@
     "androidScheme": "https",
     "url": "https://app2.binarjoinanelytic.info",
     "cleartext": true
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#3b82f6",
+      "overlaysWebView": false
+    }
   }
 }

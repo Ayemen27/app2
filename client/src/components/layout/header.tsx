@@ -97,12 +97,17 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-primary text-primary-foreground shadow-lg h-14 md:h-16 flex-shrink-0 border-b-2 border-primary-foreground/10">
-      <div className="px-3 md:px-4 py-2 md:py-3 h-full">
+    <header className="bg-primary text-primary-foreground shadow-sm h-14 md:h-16 flex-shrink-0 sticky top-0 z-[100] safe-area-inset-top">
+      <div className="px-4 h-full">
         <div className="flex items-center justify-between h-full">
-          <div className="flex items-center space-x-reverse space-x-2 md:space-x-3">
-            <PageIcon className="h-5 w-5 md:h-6 md:w-6" />
-            <h1 className="text-base md:text-lg font-bold truncate">{currentPage.title}</h1>
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 p-1.5 rounded-lg">
+              <PageIcon className="h-5 w-5 md:h-6 md:w-6" />
+            </div>
+            <div className="flex flex-col justify-center">
+              <h1 className="text-sm md:text-base font-bold leading-tight">{currentPage.title}</h1>
+              <p className="text-[10px] opacity-80 font-medium">مشروعي - إدارة المشاريع</p>
+            </div>
           </div>
           <div className="flex items-center space-x-reverse space-x-1 md:space-x-2">
             

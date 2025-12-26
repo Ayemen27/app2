@@ -71,6 +71,13 @@
   --success: hsl(142, 76%, 36%);
   --success-foreground: hsl(355, 7%, 97%);
   --ring: hsl(240, 4.9%, 83.9%);
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .shadow-sm {
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
 }
 
 @layer base {

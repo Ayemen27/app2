@@ -7,7 +7,7 @@ export default defineConfig({
   root: 'client',
   build: {
     outDir: '../dist/public',
-    emptyOutDir: true,
+    emptyOutDir: false,
     target: 'es2020',
     minify: false,
     cssMinify: false,

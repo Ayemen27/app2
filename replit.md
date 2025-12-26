@@ -1,143 +1,198 @@
-# BinarJoin Build & Deployment Console
+# BinarJoin - نظام الإدارة الإنشائية
 
-## 📋 Project Overview
-Advanced deployment and build management system for BinarJoin with:
-- Web and Android app building
-- Real-time deployment console with progress tracking
-- Visual build pipeline with step-by-step execution
-- Production server integration (https://app2.binarjoinanelytic.info)
-- Database logging of all build operations
+## 📋 نظرة عامة على المشروع
 
-## ✅ Latest Status (Dec 26, 2025)
-- **Deployment Console**: ✅ Fully functional
-- **Build API**: ✅ Connected to production server
-- **Splash Screen**: ✅ Configured in capacitor.config.json and styles.xml
-- **MainActivity**: ✅ Updated with onCreate override for better splash handling
-- **Server URL**: https://app2.binarjoinanelytic.info
-- **Database**: ✅ Schema updated with build_deployments.app_type
-- **API Port**: 5000 (Replit) ↔ Production API
+تطبيق ويب متقدم لإدارة المشاريع الإنشائية مع:
+- نظام إدارة المشاريع والعمال
+- إدارة المواد والموردين
+- نظام الموارد البشرية المتقدم
+- قاعدة بيانات PostgreSQL متكاملة
+- واجهة مستخدم حديثة بـ React وTailwindCSS
 
-## 🚀 Build & Deployment Console
+## ✅ آخر تحديث (26 ديسمبر 2025)
 
-Access the deployment console at `/deployment` route:
-1. Select app type (Web or Android)
-2. Click "ابدأ النشر الآن" (Start Deployment)
-3. Watch real-time progress in the pipeline
-4. Monitor build logs in the console
+- ✅ **إصلاح مشكلة CSP**: تم إزالة البروتوكول المكرر من متغيرات الدومين
+- ✅ **نظام النشر المبسط**: استخدام GitHub كوسيط مع سحب التحديثات على السيرفر
+- ✅ **حذف السكريبتات المكررة**: الاحتفاظ فقط بـ 4 سكريبتات أساسية
+- ✅ **الخادم**: يعمل على https://app2.binarjoinanelytic.info
 
-### Features:
-- ✅ Visual pipeline with step tracking (pending → running → success/failed)
-- ✅ Real-time log streaming with timestamps
-- ✅ Build progress percentage
-- ✅ Automatic database logging of all builds
-- ✅ Support for both Web and Android builds
+## 🚀 نظام النشر المتكامل
 
-## 🔧 Configuration
+### السكريبتات المتاحة:
 
-### External Server URL
-- **Default**: `https://app2.binarjoinanelytic.info`
-- **Environment Variable**: `EXTERNAL_SERVER_URL`
-- **Required Endpoints on Server**:
-  - `POST /api/build/install` - Install dependencies
-  - `POST /api/build/web` - Build web app
-  - `POST /api/build/android` - Build Android APK
-  - `POST /api/build/deploy` - Deploy APK
+#### 1. **نشر تطبيق الويب** (`scripts/deploy_via_git.sh`)
+```bash
+cd /home/runner/workspace
+./scripts/deploy_via_git.sh "رسالة التحديث"
+```
 
-### Database Schema
-- **Table**: `build_deployments`
-- **Columns**: 
-  - `app_type` (TEXT) - 'web' or 'android'
-  - `status` (TEXT) - 'running', 'success', 'failed'
-  - `logs` (JSONB) - Array of build log entries
-  - `progress` (INTEGER) - Build progress 0-100
-  - `triggeredBy` (VARCHAR) - User ID who triggered build
+**المراحل:**
+- ✅ دفع التحديثات إلى GitHub
+- ✅ سحب التحديثات على السيرفر
+- ✅ بناء التطبيق (npm install + npm run build)
+- ✅ إعادة تشغيل التطبيق بـ PM2
 
-## 📁 Key Files
+#### 2. **بناء تطبيق APK** (`scripts/build-and-deploy.sh`)
+```bash
+cd /home/runner/workspace
+bash scripts/build-and-deploy.sh
+```
 
-### Build System
-- **scripts/build-and-deploy.sh** - Main deployment script
-  - Auto-version updates (package.json + Android build.gradle)
-  - SSH file transfer & remote build execution
-  - Error handling & clean logging
+**المراحل:**
+- ✅ نقل الملفات إلى السيرفر عبر SSH
+- ✅ بناء تطبيق Android
+- ✅ توليد APK
+- ✅ نشر على السيرفر
 
-### Android Configuration
-- **android/app/build.gradle**
-  - minSdkVersion: 24
-  - targetSdkVersion: 34
-  - versionCode: auto-generated (1.0.8 = 10008)
-  - versionName: auto-incremented
-  - Gradle 8.11.1
+### متغيرات البيئة المطلوبة (Secrets):
 
-- **capacitor.config.json**
-  - Server URL: https://app2.binarjoinanelytic.info
-  - App name: BinarJoin
-  - Package: com.binarjoin.mobile
+```env
+# بيانات الاتصال بالسيرفر
+SSH_USER=administrator
+SSH_HOST=93.127.142.144
+SSH_PORT=22
+SSH_PASSWORD=your_password
 
-### Development Files
-- **package.json** - npm scripts & dependencies
-- **android/gradle.properties** - Gradle memory config
-- **android/app/capacitor.build.gradle** - Capacitor setup
+# بيانات GitHub
+GITHUB_USERNAME=Ayemen27
+GITHUB_TOKEN=your_token
+GITHUB_EMAIL=your_email
 
-## 🔨 Build Details
+# متغيرات الإنتاج
+DATABASE_URL=your_db_url
+JWT_ACCESS_SECRET=your_secret
+JWT_REFRESH_SECRET=your_refresh
+SESSION_SECRET=your_session
+```
 
-### Server Setup
-- OS: Ubuntu 24.04.3 LTS
-- Java: OpenJDK 21 (binary target: 17)
-- Android SDK: /opt/android-sdk
-- Gradle: 8.11.1 (no daemon mode for stability)
+## 🔧 البنية المعمارية
 
-### Build Time
-- ~56 seconds (clean build with all dependencies)
-- File extraction to APK generation
-- No internet required after initial setup
+### الواجهة الأمامية (Frontend)
+- **Framework**: React 18.3
+- **Styling**: Tailwind CSS 3.4
+- **الحالة**: TanStack React Query v5
+- **التوجيه**: Wouter 3.7
+- **الحوار**: Radix UI components
 
-## ✨ Features
+### الخادم (Backend)
+- **Framework**: Express.js 4.21
+- **قاعدة البيانات**: PostgreSQL 15
+- **ORM**: Drizzle ORM 0.39
+- **المصادقة**: JWT + bcrypt
+- **الأمان**: Helmet، CORS، Rate Limiting
 
-✅ **Auto Version Management**
-- Reads current version
-- Increments PATCH number
-- Updates: package.json, versionCode, versionName
+### قاعدة البيانات
+- 66 جدول متكامل
+- مخطط شامل لجميع العمليات
+- دعم النسخ الاحتياطي التلقائي
 
-✅ **Secure SSH Transfer**
-- SSHPASS for authentication (no interactive prompts)
-- Compressed tar.gz archives (exclude build artifacts)
-- Remote extraction & cleanup
+## 📁 هيكل المشروع
 
-✅ **Remote Build Automation**
-- Gradle daemon management
-- Clean builds for consistency
-- Error detection & reporting
+```
+/home/runner/workspace/
+├── client/                 # التطبيق الأمامي
+│   └── src/
+│       ├── pages/         # صفحات التطبيق
+│       └── components/    # المكونات المعاد استخدامها
+├── server/                # الخادم الخلفي
+│   ├── routes/            # المسارات والـ APIs
+│   ├── services/          # الخدمات المتقدمة
+│   └── middleware/        # البرامج الوسيطة
+├── shared/                # المشروع المشترك
+│   └── schema.ts          # تعريفات قاعدة البيانات
+├── scripts/               # السكريبتات
+│   ├── deploy_via_git.sh  # نشر الويب
+│   ├── build-and-deploy.sh # بناء APK
+│   ├── push_repo.sh       # مساعد GitHub
+│   └── db-init.sh         # تهيئة قاعدة البيانات
+└── package.json           # المتطلبات
+```
 
-✅ **Production Server Integration**
-- Mobile app connects to: https://app2.binarjoinanelytic.info
-- HTTPS/SSL enabled
-- Mobile API endpoints configured
+## 🌐 المسارات الرئيسية
 
-## 📝 Notes
+### المسارات العامة (بدون مصادقة)
+- `POST /api/auth/login` - تسجيل الدخول
+- `POST /api/auth/register` - التسجيل
+- `GET /api/health` - حالة الخادم
 
-### Why This Approach?
-- Replit blocks direct Git operations (.git folder)
-- SSH transfer avoids Git restrictions
-- Remote building ensures proper Java/Gradle environment
-- Version auto-increment eliminates manual tracking
+### المسارات المحمية (تتطلب مصادقة)
+- `GET /api/projects` - جميع المشاريع
+- `GET /api/workers` - قائمة العمال
+- `GET /api/materials` - قائمة المواد
+- `GET /api/suppliers` - قائمة الموردين
+- وأكثر من 50 مسار آخر
 
-### Troubleshooting
+## 🛡️ الأمان
 
-**Build fails with kotlinOptions error:**
-- ✅ Fixed: Removed kotlinOptions() from build.gradle (not needed without Kotlin plugin)
+### معالجة الأمان
+- ✅ جميع كلمات المرور مشفرة بـ bcrypt
+- ✅ التوكينات JWT محمية
+- ✅ حماية من CSRF و XSS
+- ✅ Rate limiting على المسارات العامة
+- ✅ CORS محدد للنطاقات الموثوقة
+- ✅ HTTPS/SSL مفعل على السيرفر
 
-**SSH connection timeout:**
-- Check SSH credentials in Secrets
-- Verify server IP: 93.127.142.144
-- Confirm port: 22
+### Content Security Policy (CSP)
+- ✅ تم إصلاح مشكلة البروتوكول المكرر (`https://https://`)
+- ✅ إعدادات CSP متساهلة للإنتاج
+- ✅ دعم Firebase و External APIs
 
-**Archive extraction fails:**
-- Remote server may lack space
-- Check /home/administrator/app2 permissions
-- Verify tar.gz integrity
+## 📊 إحصائيات المشروع
 
-## 🎯 Next Steps
-1. Test APK on Android devices
-2. Configure production signing certificate
-3. Set up continuous integration (optional)
-4. Monitor build logs for any issues
+- **عدد المسارات**: 59 مسار
+- **عدد جداول قاعدة البيانات**: 66 جدول
+- **عدد المكتبات**: 1050 حزمة npm
+- **حجم الكود**: ~2.5 MB (بدون node_modules)
+
+## 🔍 استكشاف الأخطاء
+
+### مشكلة: CSP يحجب Firebase
+**الحل**: تم إضافة Firebase domains إلى قائمة السماح في CSP
+
+### مشكلة: البروتوكول المكرر
+**الحل**: تم إزالة البروتوكول من متغير DOMAIN قبل استخدامه
+
+### مشكلة: الخادم يستغرق وقتاً طويلاً للبناء
+**الحل**: 
+- استخدم `NODE_OPTIONS='--max-old-space-size=4096'`
+- استخدم `npm install --legacy-peer-deps`
+
+## 📝 ملاحظات مهمة
+
+### لماذا استخدام GitHub كوسيط؟
+- تجنب قيود Replit على مجلد `.git`
+- سهولة التتبع والنسخ الاحتياطية
+- سهولة الرجوع إلى إصدارات سابقة
+
+### بيانات الدومين
+- **الدومين الإنتاجي**: `app2.binarjoinanelytic.info`
+- **يتم حفظ الدومين بدون بروتوكول**: `app2.binarjoinanelytic.info`
+- **النظام يضيف البروتوكول تلقائياً**: `https://app2.binarjoinanelytic.info`
+
+## ✨ الميزات المتقدمة
+
+✅ **نظام الإشعارات المتكامل**
+- إشعارات فورية
+- تتبع حالة القراءة
+
+✅ **النسخ الاحتياطي التلقائي**
+- كل 30 دقيقة
+- الحفاظ على آخر 20 نسخة
+
+✅ **نظام المشاريع المتقدم**
+- إدارة العمال والمواد
+- تتبع الموارد والتكاليف
+
+✅ **واجهة مستخدم حديثة**
+- ديزاين متجاوب
+- دعم الوضع الليلي
+
+## 🎯 الخطوات التالية
+
+1. **اختبار التطبيق**: تأكد من عمل جميع المسارات
+2. **مراقبة السيرفر**: تابع الأداء على النطاق الإنتاجي
+3. **تحسينات الأداء**: قم بتحسينات إضافية حسب الحاجة
+
+---
+
+**تاريخ آخر تحديث**: 26 ديسمبر 2025

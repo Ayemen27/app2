@@ -49,12 +49,10 @@ const QUICK_PROMPTS = [
 ];
 
 const ONBOARDING_ACTIONS = [
-  { text: "عرض العمال", icon: <Users className="h-5 w-5" />, color: "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400" },
-  { text: "عرض المشاريع", icon: <BarChart3 className="h-5 w-5" />, color: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" },
-  { text: "مصاريف اليوم", icon: <Clock className="h-5 w-5" />, color: "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" },
-  { text: "تصفية حساب", icon: <FileText className="h-5 w-5" />, color: "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" },
-  { text: "تقرير مشروع", icon: <FileText className="h-5 w-5" />, color: "bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400" },
-  { text: "بحث عام", icon: <Search className="h-5 w-5" />, color: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" },
+  { text: "خصص النص", icon: <FileText className="h-5 w-5" />, color: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400" },
+  { text: "إنشاء صورة", icon: <BarChart3 className="h-5 w-5" />, color: "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" },
+  { text: "اطرح أفكاراً", icon: <Clock className="h-5 w-5" />, color: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400" },
+  { text: "التعليمات البرمجية", icon: <FileText className="h-5 w-5" />, color: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" },
 ];
 
 const STORAGE_KEY = "ai_chat_sessions";
@@ -424,12 +422,7 @@ function OnboardingScreen({ onStart, sidebarOpen, setSidebarOpen, sessions, curr
             </motion.div>
 
             {/* Title */}
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3">مرحباً بك!</h1>
-
-            {/* Description */}
-            <p className="text-slate-600 dark:text-slate-400 mb-8 text-sm leading-relaxed">
-              أنا الوكيل الذكي، مساعدك في إدارة المشاريع والعمال والمصروفات وإنشاء التقارير
-            </p>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-6">كيف يمكنني المساعدة؟</h1>
 
             {/* Action Buttons */}
             <div className="grid grid-cols-2 gap-3 mb-8">
@@ -438,23 +431,14 @@ function OnboardingScreen({ onStart, sidebarOpen, setSidebarOpen, sessions, curr
                   key={i}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className={`p-4 rounded-2xl flex flex-col items-center gap-2 transition-all ${action.color} border border-current border-opacity-20`}
+                  onClick={onStart}
+                  className={`p-4 rounded-xl flex flex-col items-center gap-2 transition-all ${action.color} border border-current border-opacity-20`}
                 >
                   {action.icon}
                   <span className="text-xs font-medium">{action.text}</span>
                 </motion.button>
               ))}
             </div>
-
-            {/* Start Button */}
-            <Button
-              onClick={onStart}
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full py-6 mb-4 font-semibold"
-              size="lg"
-            >
-              <PlusCircle className="h-5 w-5 ml-2" />
-              ابدأ محادثة جديدة
-            </Button>
           </motion.div>
         </div>
       </div>
@@ -509,7 +493,15 @@ function AIChatContainer({
               </Button>
             </div>
 
-            <div className="p-3 border-b border-slate-200 dark:border-slate-800">
+            <div className="p-3 border-b border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="بحث"
+                  className="ml-2 bg-transparent border-none outline-none text-sm w-full placeholder-slate-400 dark:placeholder-slate-500 dark:text-white"
+                />
+              </div>
               <Button onClick={startNewChat} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2" size="sm">
                 <PlusCircle className="h-4 w-4" />
                 محادثة جديدة
@@ -570,25 +562,14 @@ function AIChatContainer({
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)} className="rounded-md">
               <Menu className="h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-xl">
-                <Bot className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <h1 className="text-sm font-bold">Agent</h1>
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-[10px] text-muted-foreground font-medium">متصل الآن</span>
-                </div>
-              </div>
-            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="rounded-md text-muted-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
-              <History className="h-5 w-5" />
+          <div className="flex items-center gap-2">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-full px-4 py-1.5 h-8 font-medium flex items-center gap-1">
+              <span className="text-lg">+</span>
+              <span>اشترك في Plus</span>
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-md text-red-500" onClick={() => setMessages([messages[0]])}>
-              <Trash2 className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="rounded-md">
+              <Menu className="h-5 w-5" />
             </Button>
           </div>
         </header>
@@ -668,7 +649,7 @@ function AIChatContainer({
               <div className="p-3">
                 <textarea
                   ref={textareaRef}
-                  placeholder="What can I help you build?"
+                  placeholder="Ask ChatGPT"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {

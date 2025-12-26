@@ -108,9 +108,7 @@ function getDynamicDomain(): string {
   }
   
   // القيم الافتراضية حسب البيئة
-  const defaultDomain = process.env.NODE_ENV === 'production' 
-    ? 'app2.binarjoinanelytic.info' 
-    : 'localhost:5000';
+  const defaultDomain = process.env.DOMAIN || 'app2.binarjoinanelytic.info';
   
   console.log('🌐 [EmailService] استخدام القيمة الافتراضية:', defaultDomain);
   return defaultDomain;

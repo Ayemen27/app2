@@ -48,7 +48,7 @@ class EnvironmentManager {
       key: 'DATABASE_URL',
       description: 'رابط قاعدة البيانات',
       required: true,
-      defaultValue: 'postgresql://user:password@host:5432/newdb'
+      defaultValue: process.env.DATABASE_URL || 'postgresql://user:password@host:5432/newdb'
     },
     {
       key: 'NODE_ENV',

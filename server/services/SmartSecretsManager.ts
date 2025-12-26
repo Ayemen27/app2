@@ -44,7 +44,7 @@ export class SmartSecretsManager {
       name: 'DATABASE_URL',
       description: 'رابط قاعدة البيانات',
       generateSecure: false,
-      defaultValue: 'postgresql://user:pass@host:5432/newdb'
+      defaultValue: process.env.DATABASE_URL || 'postgresql://user:pass@host:5432/newdb'
     }
   ];
 

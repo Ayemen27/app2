@@ -356,20 +356,12 @@ export class SmartSecretsManager {
     try {
       console.log('🔄 تهيئة نظام المفاتيح السرية عند بدء التشغيل...');
       
-      // تحقق من البيئة (Production/Development/Replit/External Server)
-      const isProd = process.env.NODE_ENV === 'production' || 
-                     process.env.VERCEL === '1' || 
-                     process.env.REPL_ID; // Replit environment detection
+      // تحقق من البيئة (Production/Development/External Server)
+      const isProd = process.env.NODE_ENV === 'production';
       
       if (isProd) {
         console.log('🌐 بيئة الإنتاج - سيتم استخدام متغيرات البيئة من النظام');
-        if (process.env.REPL_ID) {
-          console.log('🚀 تم اكتشاف بيئة Replit - استخدام Replit Secrets');
-        } else if (process.env.VERCEL) {
-          console.log('▲ تم اكتشاف بيئة Vercel - استخدام Vercel Environment Variables');
-        } else {
-          console.log('🖥️ تم اكتشاف سيرفر خارجي - استخدام متغيرات البيئة من النظام');
-        }
+        console.log('🖥️ تم اكتشاف سيرفر خارجي - استخدام متغيرات البيئة من النظام');
         return this.validateProductionEnvironment();
       }
       
@@ -404,29 +396,20 @@ export class SmartSecretsManager {
       }
     }
     
-    const platform = process.env.REPL_ID ? 'Replit' : 
-                    process.env.VERCEL ? 'Vercel' : 'السيرفر الخارجي';
+    const platform = 'السيرفر الخارجي';
     
     if (missing.length === 0) {
       console.log(`✅ جميع المتغيرات البيئية متاحة في بيئة ${platform}`);
       return true;
     } else {
       console.error(`❌ متغيرات مفقودة في بيئة ${platform}: ${missing.join(', ')}`);
-      if (process.env.REPL_ID) {
-        console.error('💡 تأكد من إضافة المتغيرات في Replit Secrets');
-        console.error('🔧 اذهب إلى Secrets في Replit وأضف المتغيرات المطلوبة');
-      } else if (process.env.VERCEL) {
-        console.error('💡 تأكد من إضافة المتغيرات في Vercel Environment Variables');
-        console.error('🔧 اذهب إلى Project Settings -> Environment Variables في Vercel');
-      } else {
-        console.error('💡 تأكد من إعداد متغيرات البيئة في السيرفر الخارجي');
-        console.error('🔧 أضف المتغيرات المطلوبة في ملف البيئة أو النظام:');
-        console.error('   • DATABASE_URL');
-        console.error('   • JWT_ACCESS_SECRET');  
-        console.error('   • JWT_REFRESH_SECRET');
-        console.error('   • ENCRYPTION_KEY');
-        console.error('📋 يمكنك نسخ القيم من ملف .env في مشروعك');
-      }
+      console.error('💡 تأكد من إعداد متغيرات البيئة في السيرفر الخارجي');
+      console.error('🔧 أضف المتغيرات المطلوبة في ملف البيئة أو النظام:');
+      console.error('   • DATABASE_URL');
+      console.error('   • JWT_ACCESS_SECRET');  
+      console.error('   • JWT_REFRESH_SECRET');
+      console.error('   • ENCRYPTION_KEY');
+      console.error('📋 يمكنك نسخ القيم من ملف .env في مشروعك');
       return false;
     }
   }

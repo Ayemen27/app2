@@ -95,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🔄 [Schema] تطبيق المخطط على السيرفر الخارجي للتطبيق: ${appType} في ${timestamp}`);
       
       // محاكاة استدعاء السيرفر الخارجي
-      const externalServerUrl = process.env.EXTERNAL_SERVER_URL || 'https://external-server.local';
+      const externalServerUrl = process.env.EXTERNAL_SERVER_URL || 'https://app2.binarjoinanelytic.info';
       
       console.log(`📡 [Schema] محاولة الاتصال بـ: ${externalServerUrl}`);
       console.log(`✅ [Schema] تم تطبيق المخطط بنجاح على السيرفر الخارجي`);

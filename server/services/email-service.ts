@@ -100,13 +100,6 @@ function getDynamicDomain(): string {
     return 'localhost:5000';
   }
   
-  // إذا كان على Replit (كحل احتياطي فقط)
-  if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    const replitDomain = `${process.env.REPL_SLUG}--5000.${process.env.REPL_OWNER}.repl.co`;
-    console.log('🌐 [EmailService] استخدام Replit domain كحل احتياطي:', replitDomain);
-    return replitDomain;
-  }
-  
   // القيم الافتراضية حسب البيئة
   const defaultDomain = process.env.DOMAIN || 'app2.binarjoinanelytic.info';
   

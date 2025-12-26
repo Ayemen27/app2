@@ -6,25 +6,5 @@
     "androidScheme": "https",
     "url": "https://app2.binarjoinanelytic.info",
     "cleartext": true
-  },
-  "plugins": {
-    "SplashScreen": {
-      "launchShowDuration": 3000,
-      "launchAutoHide": true,
-      "androidSplashResourceName": "splash",
-      "androidScaleType": "CENTER_CROP",
-      "showSpinner": false,
-      "splashFullScreen": true,
-      "splashImmersive": true,
-      "backgroundColor": "#ffffff"
-    },
-    "StatusBar": {
-      "style": "dark",
-      "backgroundColor": "#3b82f6"
-    },
-    "Keyboard": {
-      "resize": "body",
-      "resizeOnFullScreen": true
-    }
   }
 }

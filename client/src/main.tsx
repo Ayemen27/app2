@@ -3,13 +3,22 @@ import { initializeDB } from "./offline/db";
 import App from "./App";
 import "./index.css";
 
-// تهيئة IndexedDB عند تحميل التطبيق
-initializeDB()
-  .then(() => {
-    console.log("[App] ✅ IndexedDB initialized successfully");
-  })
-  .catch((err) => {
-    console.error("[App] ❌ Failed to initialize IndexedDB:", err);
-  });
+console.log("%c🚀 [Main] Bootstrap Start", "color: blue; font-weight: bold;");
 
-createRoot(document.getElementById("root")!).render(<App />);
+const rootElement = document.getElementById("root");
+
+if (rootElement) {
+  const root = createRoot(rootElement);
+  
+  initializeDB()
+    .then(() => {
+      console.log("✅ [Main] DB Ready");
+      root.render(<App />);
+    })
+    .catch((err) => {
+      console.error("⚠️ [Main] DB Error:", err);
+      root.render(<App />);
+    });
+} else {
+  console.error("❌ [Main] No #root");
+}

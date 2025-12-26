@@ -30,94 +30,19 @@ const setupSession = (app: express.Express) => {
 
 const app = express();
 
-// 🛡️ **Security Headers - يحمي من XSS, clickjacking, MIME sniffing**
-const getCSPDirectives = () => {
-  // إزالة البروتوكول من DOMAIN إن وجد (https:// أو http://)
-  let customDomain = (process.env.DOMAIN || 'app2.binarjoinanelytic.info').trim();
-  customDomain = customDomain.replace(/^(https?:\/\/)/, '');
-  const isProduction = process.env.NODE_ENV === 'production';
-  
-  // في الإنتاج، نستخدم إعدادات متساهلة لتجنب مشاكل التحميل
-  if (isProduction || customDomain === 'app2.binarjoinanelytic.info') {
-    return {
-      defaultSrc: ["'self'", "https:", "data:", "blob:", "*"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https:", "*"],
-      fontSrc: ["'self'", "data:", "https:", "blob:", "*"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "blob:", "*"],
-      scriptSrcElem: ["'self'", "'unsafe-inline'", "https:", "*"],
-      imgSrc: ["'self'", "data:", "https:", "blob:", "*"],
-      connectSrc: ["'self'", "https:", "wss:", "ws:", "*"],
-      frameSrc: ["'self'", "https:", "*"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'", "https:", "blob:", "*"],
-      childSrc: ["'self'", "blob:", "*"],
-      formAction: ["'self'", "*"],
-      frameAncestors: ["'self'", "*"],
-      workerSrc: ["'self'", "blob:", "*"]
-    };
-  }
-  
-  // في التطوير، نستخدم القيود الأصلية
-  return {
-    defaultSrc: ["'self'", `https://${customDomain}`, "https://*.cloudflare.com"],
-    styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
-    fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com", "data:", "https:"],
-    scriptSrc: [
-      "'self'", 
-      "'unsafe-inline'", 
-      "'unsafe-eval'",
-      `https://${customDomain}`,
-      "https://static.cloudflareinsights.com",
-      "https://challenges.cloudflare.com",
-      "https://*.cloudflare.com",
-      "https://cdn.jsdelivr.net"
-    ],
-    scriptSrcElem: [
-      "'self'",
-      "'unsafe-inline'",
-      `https://${customDomain}`,
-      "https://static.cloudflareinsights.com",
-      "https://challenges.cloudflare.com",
-      "https://*.cloudflare.com"
-    ],
-    imgSrc: ["'self'", "data:", "https:", "blob:"],
-    connectSrc: [
-      "'self'", 
-      `https://${customDomain}`,
-      `wss://${customDomain}`,
-      "https://fonts.googleapis.com", 
-      "https://fonts.gstatic.com", 
-      "ws:", 
-      "wss:", 
-      "https:"
-    ],
-    frameSrc: ["'self'", "https://challenges.cloudflare.com"],
-    objectSrc: ["'none'"],
-    mediaSrc: ["'self'"],
-    childSrc: ["'self'"],
-    formAction: ["'self'"],
-    frameAncestors: ["'self'"],
-    workerSrc: ["'self'", "blob:"]
-  };
-};
+// 🛡️ تعميم إعدادات الأمان لمنع أي حجب للموارد
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false
+}));
 
-// في الإنتاج، نعطل CSP مؤقتاً لتجنب المشاكل
-if (process.env.NODE_ENV === 'production') {
-  app.use(helmet({
-    contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" }
-  }));
-} else {
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: getCSPDirectives(),
-      reportOnly: false
-    },
-    crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" }
-  }));
-}
+// إعدادات CORS شديدة المرونة
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 
 // 🌐 **CORS Configuration - Enhanced for mobile and web apps**
 app.use((req, res, next) => {

@@ -97,7 +97,7 @@ function getDynamicDomain(): string {
   // في بيئة التطوير
   if (process.env.NODE_ENV === 'development') {
     console.log('🌐 [EmailService] استخدام localhost للتطوير');
-    return 'localhost:5000';
+    return process.env.DOMAIN ? `${process.env.DOMAIN}` : 'app2.binarjoinanelytic.info';
   }
   
   // القيم الافتراضية حسب البيئة

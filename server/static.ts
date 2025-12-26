@@ -15,45 +15,22 @@ export function log(message: string, source = "express") {
 }
 
 export function serveStatic(app: Express) {
-  // حساب المسار الصحيح من موقع الملف الفعلي
-  let distPath = null;
+  // في بيئة الإنتاج (esbuild)، import.meta.url قد لا تعطي المسار الصحيح
+  // استخدم مسار working directory المطلق
+  const cwd = process.cwd();
+  const distPath = path.join(cwd, "dist", "public");
   
-  try {
-    // استخدام __dirname بطريقة صحيحة في ESM
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    
-    // جرب المسارات المحتملة بالترتيب
-    const possiblePaths = [
-      path.resolve(__dirname, "..", "dist", "public"), // المسار النسبي من server/static.ts
-      path.resolve(process.cwd(), "dist", "public"), // مسار working directory
-      "/home/administrator/app/dist/public", // المسار المطلق على الخادم
-      path.join(process.cwd(), "dist/public"), // بديل آخر
-    ];
-    
-    console.log(`📂 Server directory: ${__dirname}`);
-    console.log(`📂 Working directory: ${process.cwd()}`);
-    
-    for (const tryPath of possiblePaths) {
-      console.log(`🔍 Checking: ${tryPath}`);
-      if (fs.existsSync(tryPath)) {
-        distPath = tryPath;
-        console.log(`✅ Found dist path: ${distPath}`);
-        break;
-      }
-    }
-  } catch (e) {
-    console.error(`❌ Error calculating path: ${e}`);
-  }
+  console.log(`📂 CWD: ${cwd}`);
+  console.log(`📂 Dist path: ${distPath}`);
+  console.log(`✅ Index.html exists: ${fs.existsSync(path.join(distPath, 'index.html'))}`);
   
-  if (!distPath) {
-    console.warn(`⚠️ Build directory not found in any expected location, using default path`);
-    distPath = path.resolve(process.cwd(), "dist", "public");
+  // تأكد من وجود المجلد
+  if (!fs.existsSync(distPath)) {
+    console.warn(`⚠️ Dist directory not found: ${distPath}`);
     try {
       fs.mkdirSync(distPath, { recursive: true });
-      console.log(`✅ Created build directory: ${distPath}`);
     } catch (e) {
-      console.error(`❌ Failed to create build directory: ${e}`);
+      console.error(`❌ Failed to create dist directory: ${e}`);
     }
   }
 

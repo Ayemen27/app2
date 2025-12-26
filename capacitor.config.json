@@ -1,6 +1,6 @@
 {
-  "appId": "com.binarjoin.analytics",
-  "appName": "BinarJoin",
+  "appId": "com.binarjoin.construction.manager",
+  "appName": "إدارة المشاريع الإنشائية",
   "webDir": "dist",
   "server": {
     "androidScheme": "https",

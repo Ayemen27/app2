@@ -1,4 +1,4 @@
-// client/src/hooks/useWorkersSettlementValidation.ts
+// client@/hooks/useWorkersSettlementValidation.ts
 import { useState, useCallback } from "react";
 
 export type ValidationError = {

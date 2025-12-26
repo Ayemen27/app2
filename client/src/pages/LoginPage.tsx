@@ -10,14 +10,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/components/AuthProvider";
+import { useAuth } from "../components/AuthProvider";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "../components/ui/card";
 import {
   Form,
   FormControl,
@@ -25,14 +25,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input, useFormMemory } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import ProfessionalLoader from "@/components/ui/professional-loader";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { showToast } from "@/utils/toast";
+} from "../components/ui/form";
+import { Input, useFormMemory } from "../components/ui/input";
+import { Button } from "../components/ui/button";
+import ProfessionalLoader from "../components/ui/professional-loader";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { useToast } from "../hooks/use-toast";
+import { showToast } from "../utils/toast";
 import { 
   Eye, 
   EyeOff, 

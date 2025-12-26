@@ -1,4 +1,4 @@
-// client/src/types/components.ts
+// client@/types/components.ts
 export type ProjectId = string;
 
 export interface Project {

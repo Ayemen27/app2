@@ -42,7 +42,13 @@ export function serveStatic(app: Express) {
   console.log(`[Static] Selected distPath: ${distPath}`);
   console.log(`[Static] Index exists: ${indexExists}`);
 
-  app.use(express.static(distPath));
+  app.use(express.static(distPath, {
+    setHeaders: (res) => {
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.set("Pragma", "no-cache");
+      res.set("Expires", "0");
+    }
+  }));
 
   app.get("*", (req, res, next) => {
     if (req.originalUrl.startsWith("/api/")) return next();

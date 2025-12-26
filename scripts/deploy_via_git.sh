@@ -95,16 +95,13 @@ mkdir -p '"$REMOTE_APP_DIR"'
 cd '"$REMOTE_APP_DIR"'
 
 echo "🔄 جاري سحب التحديثات من GitHub..."
-# تهيئة المستودع إذا لم يكن موجوداً
 if [ ! -d ".git" ]; then
     git init
     git remote add origin '"$GITHUB_REPO"'
 else
-    # تحديث الرابط للتأكد من استخدام التوكن الصحيح والمستودع الصحيح
     git remote set-url origin '"$GITHUB_REPO"'
 fi
 
-# التأكد من تكوين Git على السيرفر
 git config user.email "server@binarjoin.info"
 git config user.name "Build Server"
 
@@ -116,13 +113,24 @@ cat > .env.production << EOF
 '"$ENV_CONTENT"'
 EOF
 
-echo "📦 تحديث واعتماد تطبيق الويب..."
+echo "📦 تثبيت الاعتمادات..."
 npm install --loglevel=error
-npm run build
-pm2 restart ecosystem.config.cjs || pm2 start ecosystem.config.cjs
 
-echo "📱 بناء تطبيق APK الجديد..."
-# تمرير بيانات SSH لسكربت البناء
+echo "🔨 بناء تطبيق الويب (Vite Build)..."
+npm run build
+
+echo "🚀 إعادة تشغيل التطبيق عبر PM2..."
+# التأكد من وجود ملف ecosystem.config.cjs
+if [ -f "ecosystem.config.cjs" ]; then
+    pm2 delete construction-app 2>/dev/null || true
+    pm2 start ecosystem.config.cjs --env production
+    pm2 save
+else
+    echo "❌ ecosystem.config.cjs غير موجود!"
+    exit 1
+fi
+
+echo "📱 بناء تطبيق APK..."
 export SSH_HOST="'"$SSH_HOST"'"
 export SSH_USER="'"$SSH_USER"'"
 export SSH_PASSWORD="'"$SSH_PASSWORD"'"

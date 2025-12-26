@@ -40,6 +40,13 @@ export async function setupVite(app: Express, server: Server) {
     if (req.path.startsWith('/api/')) {
       return next();
     }
+    
+    // Force JavaScript MIME type for .tsx and .ts files
+    if (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.includes('main.tsx')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+    }
+
     return vite.middlewares(req, res, next);
   });
   
@@ -61,10 +68,11 @@ export async function setupVite(app: Express, server: Server) {
       );
 
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
+      // Disable any cache headers in dev
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      
       const page = await vite.transformIndexHtml(req.originalUrl, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {

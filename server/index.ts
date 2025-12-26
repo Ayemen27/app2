@@ -30,18 +30,25 @@ const setupSession = (app: express.Express) => {
 
 const app = express();
 
-// 🛡️ تعميم إعدادات الأمان لمنع أي حجب للموارد
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: false,
-  crossOriginOpenerPolicy: false
-}));
+// 🛡️ Disable security headers completely
+app.use((req, res, next) => {
+  res.removeHeader('Content-Security-Policy');
+  res.removeHeader('X-Frame-Options');
+  res.removeHeader('X-Content-Type-Options');
+  next();
+});
 
-// إعدادات CORS شديدة المرونة
+// Skip helmet for now
+// app.use(helmet());
+
+
+
+// إعدادات CORS مفتوحة تماماً
 app.use(cors({
   origin: true,
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // 🌐 **CORS Configuration - Enhanced for mobile and web apps**

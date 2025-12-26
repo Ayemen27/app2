@@ -1,40 +1,81 @@
-importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.4.1/workbox-sw.js');
+const CACHE_NAME = 'binarjoin-v1';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/favicon.ico',
+  '/icon-192.png',
+  '/icon-512.png'
+];
 
-if (workbox) {
-  console.log('Workbox is loaded');
-  
-  workbox.core.skipWaiting();
-  workbox.core.clientsClaim();
-
-  // Cache Pages
-  workbox.routing.registerRoute(
-    ({request}) => request.mode === 'navigate',
-    new workbox.strategies.NetworkFirst({
-      cacheName: 'pages-cache',
+// Install Event
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE);
     })
   );
+  self.skipWaiting();
+});
 
-  // Cache API Requests
-  workbox.routing.registerRoute(
-    ({url}) => url.pathname.startsWith('/api/'),
-    new workbox.strategies.NetworkFirst({
-      cacheName: 'api-cache',
-      plugins: [
-        new workbox.expiration.ExpirationPlugin({
-          maxEntries: 50,
-          maxAgeSeconds: 24 * 60 * 60, // 24 Hours
-        }),
-      ],
+// Activate Event
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            return caches.delete(cache);
+          }
+        })
+      );
     })
   );
+  self.clientsClaim();
+});
 
-  // Cache Static Assets
-  workbox.routing.registerRoute(
-    ({request}) => request.destination === 'style' || request.destination === 'script' || request.destination === 'image',
-    new workbox.strategies.StaleWhileRevalidate({
-      cacheName: 'assets-cache',
+// Fetch Event
+self.addEventListener('fetch', (event) => {
+  // Skip cross-origin requests and non-GET requests
+  if (!event.request.url.startsWith(self.location.origin) || event.request.method !== 'GET') {
+    return;
+  }
+
+  // API Requests: Network First
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clonedResponse = response.clone();
+          caches.open('api-data-v1').then((cache) => {
+            cache.put(event.request, clonedResponse);
+          });
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+
+  // Static Assets: Cache First, then Network
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request).then((response) => {
+        // Don't cache if not a valid response
+        if (!response || response.status !== 200 || response.type !== 'basic') {
+          return response;
+        }
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseToCache);
+        });
+        return response;
+      });
     })
   );
-} else {
-  console.log('Workbox failed to load');
-}
+});

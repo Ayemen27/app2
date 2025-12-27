@@ -56,6 +56,7 @@ export function serveStatic(app: Express) {
   });
 
   app.use(express.static(distPath, {
+    maxAge: '1d', // Cache static assets for a day
     setHeaders: (res, filePath) => {
       // Force correct MIME type for JS and source files
       if (filePath.endsWith('.js') || filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
@@ -64,12 +65,9 @@ export function serveStatic(app: Express) {
       
       // Critical: Cloudflare and Browser MIME/CSP fixes
       res.setHeader('X-Content-Type-Options', 'nosniff');
-      // Added data: and blob: for better compatibility
       res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.cloudflareinsights.com https://*.cloudflare.com;");
 
-      res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-      res.set("Pragma", "no-cache");
-      res.set("Expires", "0");
+      res.set("Cache-Control", "public, max-age=86400");
     }
   }));
 

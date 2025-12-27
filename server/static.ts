@@ -42,9 +42,19 @@ export function serveStatic(app: Express) {
   console.log(`[Static] Selected distPath: ${distPath}`);
   console.log(`[Static] Index exists: ${indexExists}`);
 
+  // Middleware to handle Vite production assets and avoid MIME type errors
+  app.use((req, res, next) => {
+    // If it's a request for a source file like .tsx or .ts in production, it's likely a misconfiguration or a missing build step
+    // But we'll try to serve it as JS if it's being requested as a module
+    if (req.path.startsWith('/src/') || req.path.endsWith('.tsx') || req.path.endsWith('.ts')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    }
+    next();
+  });
+
   app.use(express.static(distPath, {
     setHeaders: (res, filePath) => {
-      // Force correct MIME type for JS and source files to prevent loading issues in production
+      // Force correct MIME type for JS and source files
       if (filePath.endsWith('.js') || filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       }

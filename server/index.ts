@@ -39,6 +39,12 @@ app.use((req, res, next) => {
   res.removeHeader('X-Frame-Options');
   // Strict MIME type checking fix & Cloudflare Insights support
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  
+  // Force JS MIME type for any source file requests in production to prevent "text/html" fallback
+  if (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.jsx')) {
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  }
+
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.binarjoinanelytic.info https://*.cloudflareinsights.com https://*.cloudflare.com;");
   next();
 });

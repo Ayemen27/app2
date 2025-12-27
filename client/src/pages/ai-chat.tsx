@@ -86,7 +86,7 @@ export default function AIChatPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -240,6 +240,27 @@ export default function AIChatPage() {
     ]);
   };
 
+  const handleSessionClick = async (sessionId: string) => {
+    setCurrentSessionId(sessionId);
+    try {
+      const res = await apiRequest(`/api/ai/sessions/${sessionId}/messages`, "GET");
+      if (Array.isArray(res)) {
+        setMessages(res.map(m => ({
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(m.createdAt),
+          steps: m.steps
+        })));
+      }
+    } catch (error) {
+      toast({
+        title: "خطأ",
+        description: "تعذر تحميل رسائل الجلسة",
+        variant: "destructive",
+      });
+    }
+  };
+
   const copyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
     toast({
@@ -353,19 +374,7 @@ export default function AIChatPage() {
             ) : filteredSessions.map((session: any) => (
               <div
                 key={session.id}
-                onClick={() => {
-                  setCurrentSessionId(session.id);
-                  // Fetch messages for this session
-                  apiRequest(`/api/ai/sessions/${session.id}/messages`, "GET").then(res => {
-                    if (Array.isArray(res)) {
-                      setMessages(res.map(m => ({
-                        role: m.role,
-                        content: m.content,
-                        timestamp: new Date(m.createdAt)
-                      })));
-                    }
-                  });
-                }}
+                onClick={() => handleSessionClick(session.id)}
                 className={`group relative p-3 rounded-xl cursor-pointer transition-all border ${
                   currentSessionId === session.id
                     ? "bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-800"
@@ -455,11 +464,11 @@ export default function AIChatPage() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 rounded-lg border-slate-200 dark:border-slate-800 text-xs gap-2">
-                  <BrainCircuit className="h-3.5 w-3.5" />
-                  تحليل معمق
+                  <Activity className="h-3.5 w-3.5" />
+                  تحليل العمليات
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>تحليل البيانات باستخدام تقنيات متقدمة</TooltipContent>
+              <TooltipContent>عرض وتحليل العمليات الجارية</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <ThemeToggle />
@@ -478,24 +487,28 @@ export default function AIChatPage() {
                 <div className="w-16 h-16 bg-blue-600/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <Sparkles className="h-8 w-8 text-blue-600" />
                 </div>
-                <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">كيف يمكنني خدمتك اليوم؟</h2>
-                <p className="text-slate-500 max-w-md mx-auto leading-relaxed">أنا شريكك الذكي في اتخاذ القرارات وإدارة البيانات المعقدة. اطرح سؤالاً أو اطلب تقريراً.</p>
+                <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">مساعدك الذكي لإدارة المشاريع</h2>
+                <p className="text-slate-500 max-w-md mx-auto leading-relaxed">أنا شريكك في اتخاذ القرارات وإدارة البيانات. اطرح سؤالاً أو اطلب تقريراً مفصلاً.</p>
                 
-                <div className="grid grid-cols-2 gap-3 mt-12 max-w-xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-12 max-w-xl mx-auto">
                   {[
-                    { title: "ملخص المشاريع", icon: History, prompt: "أعطني ملخصاً لحالة كافة المشاريع النشطة" },
+                    { title: "ملخص المشاريع", icon: FileSpreadsheet, prompt: "أعطني ملخصاً لحالة كافة المشاريع النشطة" },
                     { title: "تحليل المصاريف", icon: Zap, prompt: "حلل مصاريف الأسبوع الماضي وقارنها بالميزانية" },
-                    { title: "كشوفات العمال", icon: Command, prompt: "استخرج كشف حساب للعاملين في مشروع بئر 12" },
-                    { title: "تقارير تقنية", icon: ShieldCheck, prompt: "هل هناك أي ثغرات أو أخطاء برمجية مسجلة؟" }
+                    { title: "كشوفات العمال", icon: MessageSquare, prompt: "استخرج كشف حساب للعاملين في مشروع محدد" },
+                    { title: "التدقيق المالي", icon: ShieldCheck, prompt: "هل هناك أي تضارب في القيود المالية الأخيرة؟" }
                   ].map((item, i) => (
                     <button
                       key={i}
                       onClick={() => setInput(item.prompt)}
-                      className="p-4 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 text-right transition-all group"
+                      className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 text-right transition-all group flex items-start gap-3"
                     >
-                      <item.icon className="h-5 w-5 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
-                      <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">{item.title}</p>
-                      <p className="text-[10px] text-slate-500 line-clamp-1">{item.prompt}</p>
+                      <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        <item.icon className="h-5 w-5 text-blue-600 group-hover:text-inherit" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">{item.title}</p>
+                        <p className="text-[10px] text-slate-500 line-clamp-1">{item.prompt}</p>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -512,7 +525,7 @@ export default function AIChatPage() {
                 >
                   <div className={`w-8 h-8 rounded-lg shrink-0 flex items-center justify-center shadow-sm ${
                     msg.role === "user" 
-                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900" 
+                      ? "bg-blue-700 text-white" 
                       : "bg-blue-600 text-white"
                   }`}>
                     {msg.role === "user" ? <Command className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
@@ -537,11 +550,11 @@ export default function AIChatPage() {
                     )}
                     <div className={`rounded-2xl p-4 shadow-sm relative overflow-hidden ${
                       msg.role === "user"
-                        ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-medium"
-                        : "bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-800 dark:text-slate-200"
+                        ? "bg-blue-600 text-white font-medium"
+                        : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200"
                     }`}>
                       {msg.role === "assistant" && (
-                        <div className="absolute top-0 right-0 w-1 h-full bg-blue-600/20" />
+                        <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-600" />
                       )}
                       <div className="text-sm leading-relaxed whitespace-pre-wrap selection:bg-blue-100 selection:text-blue-900">
                         {msg.content}
@@ -629,7 +642,7 @@ export default function AIChatPage() {
         {/* Action Bar */}
         <div className="sticky bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 z-[100]">
           <div className="max-w-4xl mx-auto">
-            <div className="relative group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
+            <div className="relative group bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-2xl shadow-2xl transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -641,7 +654,7 @@ export default function AIChatPage() {
                   }
                 }}
                 placeholder="اسأل أي شيء... (Shift+Enter لسطر جديد)"
-                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-200 placeholder:text-slate-400 p-5 pr-14 pl-20 min-h-[60px] max-h-[200px] resize-none focus:ring-0 text-sm leading-relaxed transition-all"
+                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 placeholder:text-slate-500 p-5 pr-14 pl-20 min-h-[60px] max-h-[200px] resize-none focus:ring-0 text-base leading-relaxed transition-all"
                 rows={1}
                 onInput={(e) => {
                   const target = e.target as HTMLTextAreaElement;

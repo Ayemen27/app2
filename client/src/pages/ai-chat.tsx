@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useAuth } from "@/components/AuthProvider";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -34,11 +34,15 @@ import {
   ShieldCheck,
   BrainCircuit,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  FileSpreadsheet,
+  Activity,
+  CheckCircle,
+  AlertTriangle
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   DropdownMenu, 
@@ -51,6 +55,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
 
+// Mock ThemeToggle to prevent crash
+const ThemeToggle = () => (
+  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400">
+    <Zap className="h-4 w-4" />
+  </Button>
+);
+
 interface Message {
   id?: string;
   role: "user" | "assistant";
@@ -59,6 +70,7 @@ interface Message {
   pending?: boolean;
   error?: string;
   feedback?: "thumbs_up" | "thumbs_down";
+  steps?: { title: string; status: 'completed' | 'in_progress' | 'pending'; description?: string }[];
 }
 
 interface ChatSession {
@@ -127,10 +139,11 @@ export default function AIChatPage() {
     },
     onSuccess: (data) => {
       setCurrentSessionId(data.sessionId);
+      queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
       setMessages([
         {
           role: "assistant",
-          content: "بدأنا جلسة جديدة. أنا جاهز لمعالجة طلباتك.",
+          content: "بدأنا جلسة جديدة. أنا جاهز لمعالجة طلباتك واستخراج البيانات المطلوبة.",
           timestamp: new Date(),
         },
       ]);
@@ -158,10 +171,12 @@ export default function AIChatPage() {
       });
     },
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
       const assistantMessage: Message = {
         role: "assistant",
         content: data.message || "عذراً، لم أتمكن من معالجة الطلب حالياً.",
         timestamp: new Date(),
+        steps: data.steps,
       };
       setMessages((prev) => [...prev, assistantMessage]);
     },
@@ -181,9 +196,16 @@ export default function AIChatPage() {
       return await apiRequest(`/api/ai/sessions/${sessionId}`, "DELETE");
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
       if (currentSessionId) {
         setCurrentSessionId(null);
-        setMessages([]);
+        setMessages([
+          {
+            role: "assistant",
+            content: "تم حذف الجلسة بنجاح. كيف يمكنني مساعدتك في جلسة جديدة؟",
+            timestamp: new Date(),
+          },
+        ]);
       }
     },
   });
@@ -316,44 +338,60 @@ export default function AIChatPage() {
               </div>
 
               <ScrollArea className="flex-1 -mx-2 px-2">
-                <div className="space-y-1 pb-4">
-                  {filteredSessions.map((session: any) => (
-                    <div
-                      key={session.id}
-                      onClick={() => setCurrentSessionId(session.id)}
-                      className={`group relative p-3 rounded-xl cursor-pointer transition-all border ${
-                        currentSessionId === session.id
-                          ? "bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-800"
-                          : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                          currentSessionId === session.id ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600"
-                        }`}>
-                          <MessageSquare className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium truncate ${currentSessionId === session.id ? "text-blue-900 dark:text-blue-100" : "text-slate-700 dark:text-slate-300"}`}>
-                            {session.title}
-                          </p>
-                          <span className="text-[10px] text-slate-400 block mt-0.5">{session.messagesCount} تفاعل</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteSessionMutation.mutate(session.id);
-                          }}
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+          <div className="space-y-1 pb-4">
+            {filteredSessions.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-xs text-slate-400">لا توجد محادثات سابقة</p>
+              </div>
+            ) : filteredSessions.map((session: any) => (
+              <div
+                key={session.id}
+                onClick={() => {
+                  setCurrentSessionId(session.id);
+                  // Fetch messages for this session
+                  apiRequest(`/api/ai/sessions/${session.id}/messages`, "GET").then(res => {
+                    if (Array.isArray(res)) {
+                      setMessages(res.map(m => ({
+                        role: m.role,
+                        content: m.content,
+                        timestamp: new Date(m.createdAt)
+                      })));
+                    }
+                  });
+                }}
+                className={`group relative p-3 rounded-xl cursor-pointer transition-all border ${
+                  currentSessionId === session.id
+                    ? "bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-800"
+                    : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                    currentSessionId === session.id ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600"
+                  }`}>
+                    <MessageSquare className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${currentSessionId === session.id ? "text-blue-900 dark:text-blue-100" : "text-slate-700 dark:text-slate-300"}`}>
+                      {session.title}
+                    </p>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">{session.messagesCount} تفاعل</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteSessionMutation.mutate(session.id);
+                    }}
+                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
+              </div>
+            ))}
+          </div>
               </ScrollArea>
 
               <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3">
@@ -375,40 +413,51 @@ export default function AIChatPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col relative bg-white dark:bg-slate-950 min-w-0">
-        {/* Top Header */}
-        <header className="h-16 border-b border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-[100]">
-          <div className="flex items-center gap-4">
-            {!sidebarOpen && (
-              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
-                <PanelLeftOpen className="h-5 w-5" />
-              </Button>
-            )}
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900 text-blue-600 dark:text-blue-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                Enterprise AI v2.5
-              </Badge>
-              <Separator orientation="vertical" className="h-4" />
-              <div className="flex items-center gap-1 text-slate-400 text-xs">
-                <Zap className="h-3 w-3 fill-current text-yellow-500" />
-                <span>Turbo Performance</span>
-              </div>
+      {/* Top Header */}
+      <header className="h-16 border-b border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-[100]">
+        <div className="flex items-center gap-4">
+          {!sidebarOpen && (
+            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+              <PanelLeftOpen className="h-5 w-5" />
+            </Button>
+          )}
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900 text-blue-600 dark:text-blue-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+              Enterprise AI v2.5
+            </Badge>
+            <Separator orientation="vertical" className="h-4" />
+            <div className="flex items-center gap-1 text-slate-400 text-xs">
+              <Zap className="h-3 w-3 fill-current text-yellow-500" />
+              <span>Turbo Performance</span>
             </div>
           </div>
-          
-          <div className="flex items-center gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 rounded-lg border-slate-200 dark:border-slate-800 text-xs gap-2">
-                    <BrainCircuit className="h-3.5 w-3.5" />
-                    تحليل معمق
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>تحليل البيانات باستخدام تقنيات متقدمة</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </header>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={startNewChat}
+            disabled={createSessionMutation.isPending}
+            className="h-9 rounded-lg border-slate-200 dark:border-slate-800 text-xs gap-2 hover-elevate"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            محادثة جديدة
+          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 rounded-lg border-slate-200 dark:border-slate-800 text-xs gap-2">
+                  <BrainCircuit className="h-3.5 w-3.5" />
+                  تحليل معمق
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>تحليل البيانات باستخدام تقنيات متقدمة</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <ThemeToggle />
+        </div>
+      </header>
 
         {/* Chat Stream */}
         <ScrollArea ref={scrollAreaRef} className="flex-1">

@@ -27,7 +27,14 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  Zap,
+  Command,
+  ArrowUpRight,
+  ShieldCheck,
+  BrainCircuit,
+  PanelLeftClose,
+  PanelLeftOpen
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,6 +46,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
 
 interface Message {
   id?: string;
@@ -68,7 +78,7 @@ export default function AIChatPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "مرحباً! أنا مساعدك الذكي في إدارة مشاريع الإنشاء. يمكنني مساعدتك في:\n\n📊 **عرض البيانات**: استعلمات عن المشاريع والعمال والمصاريف\n✅ **تنفيذ العمليات**: إضافة بيانات جديدة بعد موافقتك\n📈 **التقارير**: توليد تقارير شاملة\n\nكيف يمكنني مساعدتك اليوم؟",
+      content: "مرحباً بك في مركز القيادة الذكي. أنا الوكيل المتقدم لمساعدتك في إدارة العمليات والبيانات.\n\nبإمكاني تحليل المشاريع، إنشاء التقارير، وأتمتة المهام الروتينية بدقة عالية. كيف يمكنني دعم أهدافك اليوم؟",
       timestamp: new Date(),
     },
   ]);
@@ -102,41 +112,13 @@ export default function AIChatPage() {
         return res;
       } catch (error) {
         console.error("خطأ في التحقق من الوصول:", error);
-        return { hasAccess: true }; // السماح كافتراضي والاعتماد على حماية الخادم
+        return { hasAccess: true };
       }
     },
     retry: 1
   });
 
-  // ✅ السماح للمسؤولين بالدخول فوراً بناءً على الحالة المحلية
   const hasAccess = user?.role === 'admin' || accessData?.hasAccess;
-
-  if (isAccessLoading && !user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
-
-  if (!hasAccess && !isAccessLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
-        <div className="text-center p-8 max-w-md">
-          <AlertCircle className="h-16 w-16 text-orange-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">الوصول محدود</h1>
-          <p className="text-slate-600 dark:text-slate-400">هذه الميزة متاحة فقط للمسؤولين</p>
-          <Button 
-            className="mt-6" 
-            variant="outline" 
-            onClick={() => setLocation('/')}
-          >
-            العودة للرئيسية
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   const createSessionMutation = useMutation({
     mutationFn: async (title: string) => {
@@ -147,7 +129,7 @@ export default function AIChatPage() {
       setMessages([
         {
           role: "assistant",
-          content: "محادثة جديدة جاهزة! كيف يمكنني مساعدتك؟",
+          content: "بدأنا جلسة جديدة. أنا جاهز لمعالجة طلباتك.",
           timestamp: new Date(),
         },
       ]);
@@ -177,15 +159,15 @@ export default function AIChatPage() {
     onSuccess: (data) => {
       const assistantMessage: Message = {
         role: "assistant",
-        content: data.message || "عذراً، حدث خطأ في المعالجة.",
+        content: data.message || "عذراً، لم أتمكن من معالجة الطلب حالياً.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
     },
     onError: (error: any) => {
-      const errorMsg = error.response?.data?.error || "حدث خطأ في الاتصال";
+      const errorMsg = error.response?.data?.error || "انقطع الاتصال بالخادم الذكي";
       toast({
-        title: "خطأ",
+        title: "خطأ في المعالجة",
         description: errorMsg,
         variant: "destructive",
       });
@@ -224,14 +206,14 @@ export default function AIChatPage() {
   };
 
   const startNewChat = () => {
-    createSessionMutation.mutate("محادثة جديدة");
+    createSessionMutation.mutate("محادثة استراتيجية جديدة");
   };
 
   const copyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
     toast({
       title: "تم النسخ",
-      description: "تم نسخ الرسالة إلى الحافظة",
+      description: "النص جاهز في الحافظة",
     });
   };
 
@@ -241,100 +223,119 @@ export default function AIChatPage() {
       if (scrollContainer) {
         setTimeout(() => {
           scrollContainer.scrollTop = scrollContainer.scrollHeight;
-        }, 0);
+        }, 100);
       }
     }
   }, [messages]);
 
   const filteredSessions = sessions.filter((s: any) =>
-    s.title.includes(searchQuery)
+    s.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  if (isAccessLoading && !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-white dark:bg-slate-950">
+        <motion.div 
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-full mb-4"
+        >
+          <BrainCircuit className="h-10 w-10 text-blue-600" />
+        </motion.div>
+        <p className="text-slate-500 font-medium animate-pulse">جاري تهيئة الوكيل الذكي...</p>
+      </div>
+    );
+  }
+
+  if (!hasAccess && !isAccessLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
+        <Card className="max-w-md w-full p-8 text-center border-none shadow-2xl bg-white/50 backdrop-blur-xl dark:bg-slate-900/50">
+          <ShieldCheck className="h-16 w-16 text-red-500 mx-auto mb-6 opacity-80" />
+          <h1 className="text-2xl font-bold mb-3 tracking-tight">منطقة محمية</h1>
+          <p className="text-slate-500 mb-8 leading-relaxed">يتطلب الوصول إلى الوكيل الذكي صلاحيات إدارية عليا. يرجى التواصل مع مسؤول النظام.</p>
+          <Button 
+            className="w-full h-11 bg-slate-900 dark:bg-white dark:text-slate-900 hover-elevate active-elevate-2" 
+            onClick={() => setLocation('/')}
+          >
+            العودة للوحة التحكم
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-white dark:bg-slate-950 overflow-hidden" dir="rtl">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans" dir="rtl">
       {/* Sidebar */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
-            initial={{ x: "100%", opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: "100%", opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="w-64 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 300, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            className="h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col relative z-40 shadow-xl"
           >
-            {/* Header */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-blue-600 rounded-lg">
-                    <Bot className="h-4 w-4 text-white" />
+            <div className="p-6 flex flex-col gap-6 h-full">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <Sparkles className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <h1 className="font-bold text-sm">الوكيل الذكي</h1>
-                    <p className="text-xs text-slate-500">AI Assistant</p>
+                    <h2 className="font-bold text-slate-900 dark:text-white tracking-tight">الوكيل الذكي</h2>
+                    <div className="flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Active Engine</span>
+                    </div>
                   </div>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setSidebarOpen(false)}
-                  className="h-8 w-8"
-                >
-                  <X className="h-4 w-4" />
+                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+                  <PanelLeftClose className="h-4 w-4" />
                 </Button>
               </div>
+
               <Button 
                 onClick={startNewChat}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2"
-                size="sm"
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-lg shadow-blue-500/25 border-none transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Plus className="h-4 w-4" />
-                محادثة جديدة
+                محادثة استراتيجية
               </Button>
-            </div>
 
-            {/* Search */}
-            <div className="p-3 border-b border-slate-200 dark:border-slate-800">
-              <div className="relative">
-                <Search className="absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              <div className="relative group">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                 <Input
-                  placeholder="بحث..."
+                  placeholder="البحث في الأرشيف..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pr-8 h-8 text-sm bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+                  className="pr-10 h-10 bg-slate-50 dark:bg-slate-800 border-none focus-visible:ring-1 focus-visible:ring-blue-500 transition-all rounded-lg"
                 />
               </div>
-            </div>
 
-            {/* Sessions List */}
-            <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1">
-                {filteredSessions.length === 0 ? (
-                  <div className="text-center py-8">
-                    <MessageSquare className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-xs text-slate-500">لا توجد محادثات</p>
-                  </div>
-                ) : (
-                  filteredSessions.map((session: any) => (
-                    <motion.div
+              <ScrollArea className="flex-1 -mx-2 px-2">
+                <div className="space-y-1 pb-4">
+                  {filteredSessions.map((session: any) => (
+                    <div
                       key={session.id}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className={`p-2.5 rounded-lg cursor-pointer transition-all group ${
-                        currentSessionId === session.id
-                          ? "bg-blue-100 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700"
-                          : "hover:bg-slate-200 dark:hover:bg-slate-800 border border-transparent"
-                      }`}
                       onClick={() => setCurrentSessionId(session.id)}
+                      className={`group relative p-3 rounded-xl cursor-pointer transition-all border ${
+                        currentSessionId === session.id
+                          ? "bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-800"
+                          : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                          currentSessionId === session.id ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600"
+                        }`}>
+                          <MessageSquare className="h-4 w-4" />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-slate-900 dark:text-white truncate">
+                          <p className={`text-sm font-medium truncate ${currentSessionId === session.id ? "text-blue-900 dark:text-blue-100" : "text-slate-700 dark:text-slate-300"}`}>
                             {session.title}
                           </p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">
-                            {session.messagesCount} رسالة
-                          </p>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">{session.messagesCount} تفاعل</span>
                         </div>
                         <Button
                           variant="ghost"
@@ -343,170 +344,261 @@ export default function AIChatPage() {
                             e.stopPropagation();
                             deleteSessionMutation.mutate(session.id);
                           }}
-                          className="h-6 w-6 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                    </motion.div>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
 
-            {/* Footer */}
-            <div className="p-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
-              <Button variant="ghost" className="w-full justify-start gap-2 text-sm" size="sm">
-                <Settings className="h-4 w-4" />
-                الإعدادات
-              </Button>
-              <p className="text-xs text-slate-500 px-2">النسخة 1.0</p>
+              <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                  <span className="text-sm font-bold text-slate-600">{user?.firstName?.[0]}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.firstName} {user?.lastName}</p>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest">{user?.role}</p>
+                </div>
+                <Button variant="ghost" size="icon" className="text-slate-400">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main Chat Area */}
-      <div className="flex flex-col flex-1">
-        {/* Header */}
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 h-16 flex items-center justify-between sticky top-0 z-30">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col relative bg-white dark:bg-slate-950 min-w-0">
+        {/* Top Header */}
+        <header className="h-16 border-b border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-30">
           <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="h-9 w-9"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="font-bold text-sm flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-blue-600" />
-                الوكيل الذكي
-              </h1>
+            {!sidebarOpen && (
+              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+                <PanelLeftOpen className="h-5 w-5" />
+              </Button>
+            )}
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900 text-blue-600 dark:text-blue-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                Enterprise AI v2.5
+              </Badge>
+              <Separator orientation="vertical" className="h-4" />
+              <div className="flex items-center gap-1 text-slate-400 text-xs">
+                <Zap className="h-3 w-3 fill-current text-yellow-500" />
+                <span>Turbo Performance</span>
+              </div>
             </div>
           </div>
+          
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="text-xs">
-              <ChevronDown className="h-3 w-3 mr-1" />
-              النموذج الافتراضي
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 rounded-lg border-slate-200 dark:border-slate-800 text-xs gap-2">
+                    <BrainCircuit className="h-3.5 w-3.5" />
+                    تحليل معمق
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>تحليل البيانات باستخدام تقنيات متقدمة</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </header>
 
-        {/* Messages Area */}
+        {/* Chat Stream */}
         <ScrollArea ref={scrollAreaRef} className="flex-1">
-          <div className="max-w-4xl mx-auto w-full px-6 py-6 space-y-4 pb-96">
+          <div className="max-w-4xl mx-auto px-6 py-12 space-y-10 pb-40">
+            {messages.length === 1 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center py-20"
+              >
+                <div className="w-16 h-16 bg-blue-600/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Sparkles className="h-8 w-8 text-blue-600" />
+                </div>
+                <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">كيف يمكنني خدمتك اليوم؟</h2>
+                <p className="text-slate-500 max-w-md mx-auto leading-relaxed">أنا شريكك الذكي في اتخاذ القرارات وإدارة البيانات المعقدة. اطرح سؤالاً أو اطلب تقريراً.</p>
+                
+                <div className="grid grid-cols-2 gap-3 mt-12 max-w-xl mx-auto">
+                  {[
+                    { title: "ملخص المشاريع", icon: History, prompt: "أعطني ملخصاً لحالة كافة المشاريع النشطة" },
+                    { title: "تحليل المصاريف", icon: Zap, prompt: "حلل مصاريف الأسبوع الماضي وقارنها بالميزانية" },
+                    { title: "كشوفات العمال", icon: Command, prompt: "استخرج كشف حساب للعاملين في مشروع بئر 12" },
+                    { title: "تقارير تقنية", icon: ShieldCheck, prompt: "هل هناك أي ثغرات أو أخطاء برمجية مسجلة؟" }
+                  ].map((item, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setInput(item.prompt)}
+                      className="p-4 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 text-right transition-all group"
+                    >
+                      <item.icon className="h-5 w-5 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
+                      <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">{item.title}</p>
+                      <p className="text-[10px] text-slate-500 line-clamp-1">{item.prompt}</p>
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
             <AnimatePresence mode="popLayout">
               {messages.map((msg, idx) => (
                 <motion.div
                   key={idx}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
                 >
-                  <div
-                    className={`max-w-xl rounded-lg p-4 ${
+                  <div className={`w-8 h-8 rounded-lg shrink-0 flex items-center justify-center shadow-sm ${
+                    msg.role === "user" 
+                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900" 
+                      : "bg-blue-600 text-white"
+                  }`}>
+                    {msg.role === "user" ? <Command className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                  </div>
+
+                  <div className={`flex flex-col gap-2 max-w-[85%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                    <div className={`rounded-2xl p-4 shadow-sm relative overflow-hidden ${
                       msg.role === "user"
-                        ? "bg-blue-600 text-white rounded-br-none"
-                        : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-bl-none border border-slate-200 dark:border-slate-700"
-                    }`}
-                  >
-                    <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {msg.content}
-                    </div>
-                    {msg.error && (
-                      <div className="text-xs text-red-400 mt-2 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {msg.error}
+                        ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-medium"
+                        : "bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-800 dark:text-slate-200"
+                    }`}>
+                      {msg.role === "assistant" && (
+                        <div className="absolute top-0 right-0 w-1 h-full bg-blue-600/20" />
+                      )}
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap selection:bg-blue-100 selection:text-blue-900">
+                        {msg.content}
                       </div>
-                    )}
-                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-current border-opacity-20">
-                      <span className="text-xs opacity-70">
-                        {msg.timestamp.toLocaleTimeString("ar-SA", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                      
+                      {msg.error && (
+                        <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-100 dark:border-red-900/30 flex items-start gap-3">
+                          <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                          <p className="text-xs text-red-600 dark:text-red-400 font-medium">{msg.error}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-4 px-1">
+                      <span className="text-[10px] text-slate-400 font-medium tabular-nums">
+                        {msg.timestamp.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
                       </span>
-                      {msg.pending && <Loader className="h-3 w-3 animate-spin" />}
+                      
                       {msg.role === "assistant" && !msg.error && (
-                        <div className="flex items-center gap-1 ml-auto">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => copyMessage(msg.content)}
-                          >
-                            <Copy className="h-3 w-3" />
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600" onClick={() => copyMessage(msg.content)}>
+                            <Copy className="h-3.5 w-3.5" />
                           </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-6 w-6">
-                                <MoreVertical className="h-3 w-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Share2 className="h-3 w-3 ml-2" />
-                                مشاركة
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <ThumbsUp className="h-3 w-3 ml-2" />
-                                مفيد
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <ThumbsDown className="h-3 w-3 ml-2" />
-                                غير مفيد
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-green-600">
+                            <ThumbsUp className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-600">
+                            <ThumbsDown className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600">
+                            <Share2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       )}
                     </div>
                   </div>
                 </motion.div>
               ))}
+              {isLoading && (
+                <motion.div 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  className="flex gap-4"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+                    <Sparkles className="h-4 w-4 animate-pulse" />
+                  </div>
+                  <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-2xl flex items-center gap-3">
+                    <div className="flex gap-1">
+                      <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0 }} className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                      <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                      <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                    </div>
+                    <span className="text-xs font-bold text-blue-600 uppercase tracking-widest animate-pulse">Processing...</span>
+                  </div>
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         </ScrollArea>
 
-        {/* Input Area */}
-        <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-6">
+        {/* Action Bar */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 z-40">
           <div className="max-w-4xl mx-auto">
-            <div className="flex gap-3">
-              <div className="flex-1 flex gap-2">
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  placeholder="اكتب رسالتك... (Shift+Enter للأسطر الجديدة)"
-                  className="flex-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none max-h-32"
-                  rows={3}
-                />
+            <div className="relative group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder="اسأل أي شيء... (Shift+Enter لسطر جديد)"
+                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-200 placeholder:text-slate-400 p-5 pr-14 pl-20 min-h-[60px] max-h-[200px] resize-none focus:ring-0 text-sm leading-relaxed transition-all"
+                rows={1}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = `${target.scrollHeight}px`;
+                }}
+              />
+              
+              <div className="absolute right-4 top-4">
+                <div className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <ArrowUpRight className="h-3 w-3 text-slate-400" />
+                </div>
               </div>
-              <Button
-                onClick={handleSend}
-                disabled={!input.trim() || isLoading}
-                size="lg"
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isLoading ? (
-                  <Loader className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
+
+              <div className="absolute left-3 bottom-3 flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-9 w-9 text-slate-400 hover:text-blue-600 rounded-xl"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Separator orientation="vertical" className="h-4 mx-1" />
+                <Button
+                  onClick={handleSend}
+                  disabled={!input.trim() || isLoading}
+                  size="icon"
+                  className={`h-10 w-10 rounded-xl transition-all shadow-lg ${
+                    input.trim() 
+                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30 scale-110" 
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-2">
-              يمكنك طلب عرض البيانات، التقارير، أو تنفيذ العمليات. الوكيل الذكي يطلب موافقتك قبل تنفيذ أي تعديلات.
-            </p>
+            
+            <div className="mt-4 flex items-center justify-center gap-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              <div className="flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3" />
+                Safe Execution
+              </div>
+              <Separator orientation="vertical" className="h-2" />
+              <div className="flex items-center gap-1">
+                <BrainCircuit className="h-3 w-3" />
+                Context Aware
+              </div>
+              <Separator orientation="vertical" className="h-2" />
+              <div className="flex items-center gap-1">
+                <Zap className="h-3 w-3" />
+                Real-time Sync
+              </div>
+            </div>
           </div>
         </div>
       </div>

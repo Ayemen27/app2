@@ -241,23 +241,47 @@ export default function AIChatPage() {
   };
 
   const handleSessionClick = async (sessionId: string) => {
+    if (currentSessionId === sessionId) return;
+    
     setCurrentSessionId(sessionId);
+    setMessages([{ 
+      role: "assistant", 
+      content: "جاري تحميل محادثتك الاستراتيجية...", 
+      timestamp: new Date(),
+      pending: true 
+    }]);
+
     try {
       const res = await apiRequest(`/api/ai/sessions/${sessionId}/messages`, "GET");
       if (Array.isArray(res)) {
-        setMessages(res.map(m => ({
-          role: m.role,
-          content: m.content,
-          timestamp: new Date(m.createdAt),
-          steps: m.steps
-        })));
+        if (res.length === 0) {
+          setMessages([{
+            role: "assistant",
+            content: "هذه المحادثة فارغة حالياً. كيف يمكنني مساعدتك؟",
+            timestamp: new Date(),
+          }]);
+        } else {
+          setMessages(res.map(m => ({
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.createdAt),
+            steps: m.steps
+          })));
+        }
       }
     } catch (error) {
+      console.error("Failed to load session messages:", error);
       toast({
-        title: "خطأ",
-        description: "تعذر تحميل رسائل الجلسة",
+        title: "خطأ في الاتصال",
+        description: "تعذر تحميل رسائل الجلسة من قاعدة البيانات",
         variant: "destructive",
       });
+      setMessages([{
+        role: "assistant",
+        content: "عذراً، حدث خطأ أثناء جلب تاريخ المحادثة. يرجى المحاولة مرة أخرى.",
+        timestamp: new Date(),
+        error: "فشل تحميل البيانات"
+      }]);
     }
   };
 
@@ -466,10 +490,9 @@ export default function AIChatPage() {
         </header>
       </div>
 
-        {/* Chat Stream */}
-        <ScrollArea ref={scrollAreaRef} className="flex-1">
-          <div className="max-w-4xl mx-auto px-6 py-12 space-y-10 pb-48">
-            {messages.length === 1 && (
+        <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 sm:px-6">
+          <div className="max-w-4xl mx-auto py-24 space-y-8 pb-40">
+            {messages.length <= 1 && !currentSessionId && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -478,27 +501,27 @@ export default function AIChatPage() {
                 <div className="w-16 h-16 bg-blue-600/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <Sparkles className="h-8 w-8 text-blue-600" />
                 </div>
-                <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">مساعدك الذكي لإدارة المشاريع</h2>
-                <p className="text-slate-500 max-w-md mx-auto leading-relaxed">أنا شريكك في اتخاذ القرارات وإدارة البيانات. اطرح سؤالاً أو اطلب تقريراً مفصلاً.</p>
+                <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">مركز العمليات الذكي</h2>
+                <p className="text-slate-500 max-w-md mx-auto leading-relaxed">مرحباً بك في وحدة التحكم المتقدمة. اختر أحد الاختصارات أدناه أو ابدأ محادثة جديدة للتحليل المعمق.</p>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-12 max-w-xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12 max-w-2xl mx-auto">
                   {[
-                    { title: "ملخص المشاريع", icon: FileSpreadsheet, prompt: "أعطني ملخصاً لحالة كافة المشاريع النشطة" },
-                    { title: "تحليل المصاريف", icon: Zap, prompt: "حلل مصاريف الأسبوع الماضي وقارنها بالميزانية" },
-                    { title: "كشوفات العمال", icon: MessageSquare, prompt: "استخرج كشف حساب للعاملين في مشروع محدد" },
-                    { title: "التدقيق المالي", icon: ShieldCheck, prompt: "هل هناك أي تضارب في القيود المالية الأخيرة؟" }
+                    { title: "ملخص المشاريع الرقمي", icon: FileSpreadsheet, prompt: "أعطني ملخصاً لحالة كافة المشاريع النشطة", color: "text-blue-600" },
+                    { title: "تحليل المصاريف والتدفقات", icon: Zap, prompt: "حلل مصاريف الأسبوع الماضي وقارنها بالميزانية", color: "text-yellow-500" },
+                    { title: "كشوفات المستحقات والعمال", icon: MessageSquare, prompt: "استخرج كشف حساب للعاملين في مشروع محدد", color: "text-green-600" },
+                    { title: "التدقيق الأمني والمالي", icon: ShieldCheck, prompt: "هل هناك أي تضارب في القيود المالية الأخيرة؟", color: "text-red-500" }
                   ].map((item, i) => (
                     <button
                       key={i}
                       onClick={() => setInput(item.prompt)}
-                      className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 text-right transition-all group flex items-start gap-3"
+                      className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-white dark:hover:bg-slate-900 hover:shadow-xl hover:shadow-blue-500/5 text-right transition-all group flex items-start gap-4"
                     >
-                      <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                        <item.icon className="h-5 w-5 text-blue-600 group-hover:text-inherit" />
+                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-600 transition-colors shadow-sm">
+                        <item.icon className={`h-6 w-6 ${item.color} group-hover:text-white transition-colors`} />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">{item.title}</p>
-                        <p className="text-[10px] text-slate-500 line-clamp-1">{item.prompt}</p>
+                        <p className="text-base font-bold text-slate-900 dark:text-white mb-1">{item.title}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">{item.prompt}</p>
                       </div>
                     </button>
                   ))}
@@ -539,13 +562,13 @@ export default function AIChatPage() {
                         ))}
                       </div>
                     )}
-                    <div className={`rounded-2xl p-4 shadow-sm relative overflow-hidden ${
+                    <div className={`rounded-2xl p-5 shadow-sm relative overflow-hidden transition-all hover:shadow-md ${
                       msg.role === "user"
-                        ? "bg-blue-600 text-white font-medium"
+                        ? "bg-blue-600 text-white font-medium shadow-blue-500/10"
                         : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200"
                     }`}>
                       {msg.role === "assistant" && (
-                        <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-600" />
+                        <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-600 opacity-80" />
                       )}
                       <div className="text-sm leading-relaxed whitespace-pre-wrap selection:bg-blue-100 selection:text-blue-900">
                         {msg.content}

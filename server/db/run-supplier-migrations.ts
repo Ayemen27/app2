@@ -78,8 +78,12 @@ async function runSupplierMigrations() {
     
     console.log('✅ تم تطبيق جميع migrations الموردين بنجاح!');
     
-    // إضافة بعض الموردين التجريبيين
+    // إضافة الموردين التجريبيين
     console.log('📝 إضافة موردين تجريبيين...');
+    
+    // Use dynamic port for migrations if needed, but here it's just data insertion
+    // If there was a fetch to localhost:5000, it would be replaced. 
+    // Checking the file content again to be sure.
     
     const sampleSuppliers = [
       {

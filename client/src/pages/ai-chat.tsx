@@ -230,7 +230,14 @@ export default function AIChatPage() {
   };
 
   const startNewChat = () => {
-    createSessionMutation.mutate("محادثة استراتيجية جديدة");
+    setCurrentSessionId(null);
+    setMessages([
+      {
+        role: "assistant",
+        content: "مرحباً بك في مركز القيادة الذكي. أنا الوكيل المتقدم لمساعدتك في إدارة العمليات والبيانات.\n\nبإمكاني تحليل المشاريع، إنشاء التقارير، وأتمتة المهام الروتينية بدقة عالية. كيف يمكنني دعم أهدافك اليوم؟",
+        timestamp: new Date(),
+      },
+    ]);
   };
 
   const copyMessage = (content: string) => {
@@ -530,7 +537,7 @@ export default function AIChatPage() {
                     )}
                     <div className={`rounded-2xl p-4 shadow-sm relative overflow-hidden ${
                       msg.role === "user"
-                        ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-medium"
+                        ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-medium"
                         : "bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-800 dark:text-slate-200"
                     }`}>
                       {msg.role === "assistant" && (
@@ -596,6 +603,29 @@ export default function AIChatPage() {
           </div>
         </ScrollArea>
 
+        {/* Quick Actions Bar */}
+        <div className="absolute bottom-[110px] left-0 right-0 px-6 z-[90]">
+          <div className="max-w-4xl mx-auto flex gap-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth">
+            {[
+              { label: "تصدير كشف عامل", icon: FileSpreadsheet, prompt: "أريد تصدير كشف حساب اكسل للعامل: " },
+              { label: "تقرير المصروفات", icon: Activity, prompt: "استخرج تقرير مصروفات شامل لمشروع: " },
+              { label: "فحص الأخطاء", icon: AlertTriangle, prompt: "هل توجد أخطاء في بيانات مشروع: " },
+              { label: "ملخص يومي", icon: Clock, prompt: "أعطني ملخص العمليات لليوم" }
+            ].map((item, i) => (
+              <Button
+                key={i}
+                variant="outline"
+                size="sm"
+                onClick={() => setInput(item.prompt)}
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200 dark:border-slate-800 text-[10px] h-8 rounded-full gap-2 whitespace-nowrap hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 transition-all shadow-sm shrink-0"
+              >
+                <item.icon className="h-3 w-3 text-blue-500" />
+                {item.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         {/* Action Bar */}
         <div className="sticky bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 z-[100]">
           <div className="max-w-4xl mx-auto">
@@ -647,23 +677,6 @@ export default function AIChatPage() {
                 >
                   {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
-              </div>
-            </div>
-            
-            <div className="mt-4 flex items-center justify-center gap-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              <div className="flex items-center gap-1">
-                <ShieldCheck className="h-3 w-3" />
-                Safe Execution
-              </div>
-              <Separator orientation="vertical" className="h-2" />
-              <div className="flex items-center gap-1">
-                <BrainCircuit className="h-3 w-3" />
-                Context Aware
-              </div>
-              <Separator orientation="vertical" className="h-2" />
-              <div className="flex items-center gap-1">
-                <Zap className="h-3 w-3" />
-                Real-time Sync
               </div>
             </div>
           </div>

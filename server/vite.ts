@@ -47,8 +47,10 @@ export async function setupVite(app: Express, server: Server) {
                         req.path.includes('@vite/') || 
                         req.path.includes('@id/');
 
-    if (isViteAsset && (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.js') || req.path.endsWith('.jsx'))) {
-      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    if (isViteAsset) {
+      if (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.js') || req.path.endsWith('.jsx')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      }
     }
 
     return vite.middlewares(req, res, next);

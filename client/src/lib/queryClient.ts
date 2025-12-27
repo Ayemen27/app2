@@ -224,6 +224,9 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
 
+    const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || window.location.origin;
+    const url = endpoint.startsWith("http") ? endpoint : `${apiBase}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+    
     async function makeQueryRequest(retryCount = 0): Promise<any> {
       // إعداد timeout للطلب
       const controller = new AbortController();
@@ -237,11 +240,11 @@ export const getQueryFn: <T>(options: {
           headers["Authorization"] = `Bearer ${accessToken}`;
         }
 
-        console.log(`🔍 [QueryClient] إرسال طلب: ${queryKey.join("/")}`, {
+        console.log(`🔍 [QueryClient] إرسال طلب: ${url}`, {
           hasToken: !!accessToken
         });
 
-        const res = await fetch(queryKey.join("/") as string, {
+        const res = await fetch(url, {
           headers,
           credentials: "include",
           signal: controller.signal,

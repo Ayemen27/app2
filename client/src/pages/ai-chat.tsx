@@ -374,7 +374,7 @@ export default function AIChatPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col relative bg-white dark:bg-slate-950 min-w-0">
         {/* Top Header */}
-        <header className="h-16 border-b border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-30">
+        <header className="h-16 border-b border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-[100]">
           <div className="flex items-center gap-4">
             {!sidebarOpen && (
               <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
@@ -410,7 +410,7 @@ export default function AIChatPage() {
 
         {/* Chat Stream */}
         <ScrollArea ref={scrollAreaRef} className="flex-1">
-          <div className="max-w-4xl mx-auto px-6 py-12 space-y-10 pb-40">
+          <div className="max-w-4xl mx-auto px-6 py-12 space-y-10 pb-48">
             {messages.length === 1 && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
@@ -530,7 +530,7 @@ export default function AIChatPage() {
         </ScrollArea>
 
         {/* Action Bar */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 z-40">
+        <div className="sticky bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 z-[100]">
           <div className="max-w-4xl mx-auto">
             <div className="relative group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
               <textarea

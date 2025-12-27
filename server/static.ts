@@ -44,10 +44,10 @@ export function serveStatic(app: Express) {
 
   // Middleware to handle Vite production assets and avoid MIME type errors
   app.use((req, res, next) => {
-    // If it's a request for a source file like .tsx or .ts in production, it's likely a misconfiguration or a missing build step
-    // But we'll try to serve it as JS if it's being requested as a module
+    // If it's a request for a source file like .tsx or .ts in production
     if (req.path.startsWith('/src/') || req.path.endsWith('.tsx') || req.path.endsWith('.ts')) {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
     }
     next();
   });
@@ -61,7 +61,8 @@ export function serveStatic(app: Express) {
       
       // Critical: Cloudflare and Browser MIME/CSP fixes
       res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.cloudflareinsights.com https://*.cloudflare.com;");
+      // Added data: and blob: for better compatibility
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.cloudflareinsights.com https://*.cloudflare.com;");
 
       res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.set("Pragma", "no-cache");

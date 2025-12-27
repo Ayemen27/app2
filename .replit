@@ -9,7 +9,7 @@ packages = ["unzipNLS", "nano", "openssh", "lsof", "jq", "postgresql_13", "sshpa
 [deployment]
 deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+run = ["npm", "start"]
 
 
 [env]
@@ -78,6 +78,9 @@ PORT = "5000"
 HEALTH_CHECK_PORT = "5000"
 HEALTH_CHECK_URL = "http://localhost:5000/api/health"
 DOMAIN = "https://app2.binarjoinanelytic.info"
+
+[userenv.production]
+PORT = "6000"
 
 [[ports]]
 localPort = 3000

@@ -49,6 +49,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
+import { Card } from "@/components/ui/card";
 
 interface Message {
   id?: string;
@@ -356,10 +357,10 @@ export default function AIChatPage() {
 
               <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
-                  <span className="text-sm font-bold text-slate-600">{user?.firstName?.[0]}</span>
+                  <span className="text-sm font-bold text-slate-600">{user?.email?.[0]}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.firstName} {user?.lastName}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.email?.split('@')[0]}</p>
                   <p className="text-[10px] text-slate-400 uppercase tracking-widest">{user?.role}</p>
                 </div>
                 <Button variant="ghost" size="icon" className="text-slate-400">

@@ -92,14 +92,6 @@ export const projectTypes = pgTable("project_types", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Material Categories table
-export const materialCategories = pgTable("material_categories", {
-  id: serial("id").primaryKey(),
-  name: varchar("name", { length: 100 }).notNull().unique(),
-  description: text("description"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 // Projects table
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1973,12 +1965,16 @@ export const wellTasks = pgTable("well_tasks", {
   id: serial("id").primaryKey(),
   wellId: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
   taskType: varchar("task_type", { length: 50 }).notNull(), // نجارة، حفر، صبة، تركيب_ألواح، تركيب_مضخة، تمديدات، اختبار
+  description: text("description"), // استرجاع الوصف
+  estimatedCost: decimal("estimated_cost", { precision: 12, scale: 2 }), // استرجاع التكلفة التقديرية
+  actualCost: decimal("actual_cost", { precision: 12, scale: 2 }), // استرجاع التكلفة الفعلية
   taskOrder: integer("task_order").notNull(), // ترتيب المهمة
   status: text("status").notNull().default("pending"), // pending, in_progress, completed
   assignedWorkerId: varchar("assigned_worker_id").references(() => workers.id, { onDelete: "set null" }),
   startDate: date("start_date"),
   completionDate: date("completion_date"),
   completedBy: varchar("completed_by").references(() => users.id, { onDelete: "set null" }),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }), // استرجاع المنشئ
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

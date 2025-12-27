@@ -27,10 +27,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (isLoading) {
     console.log('⏳ [ProtectedRoute] جاري التحميل...');
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">جاري التحقق من الجلسة...</p>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center p-8 bg-card rounded-lg border shadow-sm">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground text-sm animate-pulse">جاري التحقق من الجلسة...</p>
         </div>
       </div>
     );

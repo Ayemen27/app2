@@ -44,11 +44,9 @@ export function serveStatic(app: Express) {
 
   // Middleware to handle Vite production assets and avoid MIME type errors
   app.use((req, res, next) => {
-    // If it's a request for a source file like .tsx or .ts in production
-    const isSourceFile = req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.jsx');
-    const isModuleRequest = req.path.startsWith('/src/') || req.path.includes('main.tsx');
-
-    if (isSourceFile || isModuleRequest) {
+    // If it's a request for a source file like .tsx or .ts in production, it should be redirected to the compiled version
+    // But since we are using esbuild for the server, we need to ensure assets are served correctly
+    if (req.path.endsWith('.js') || req.path.endsWith('.mjs')) {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       res.setHeader('X-Content-Type-Options', 'nosniff');
     }
@@ -56,17 +54,13 @@ export function serveStatic(app: Express) {
   });
 
   app.use(express.static(distPath, {
-    maxAge: '1d', // Cache static assets for a day
+    maxAge: '1d',
     setHeaders: (res, filePath) => {
-      // Force correct MIME type for JS and source files
-      if (filePath.endsWith('.js') || filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
+      if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       }
-      
-      // Critical: Cloudflare and Browser MIME/CSP fixes
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.cloudflareinsights.com https://*.cloudflare.com;");
-
       res.set("Cache-Control", "public, max-age=86400");
     }
   }));

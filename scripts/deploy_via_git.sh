@@ -90,6 +90,13 @@ JWT_REFRESH_SECRET='${JWT_REFRESH_SECRET}'
 SESSION_SECRET='${SESSION_SECRET}'
 DOMAIN=https://app2.binarjoinanelytic.info"
 
+    # التحقق من المنفذ المطلوب للسيرفر الخارجي
+    if [[ "$ENV_CONTENT" == *"PORT=6000"* ]]; then
+        log_info "✅ تم التأكد من ضبط المنفذ على 6000 للسيرفر الخارجي"
+    else
+        log_warning "⚠️ تنبيه: المنفذ في ENV_CONTENT لا يبدو أنه 6000"
+    fi
+
     REMOTE_SCRIPT='
 set -e
 mkdir -p '"$REMOTE_APP_DIR"'
@@ -126,7 +133,8 @@ npm run build
 echo "🚀 تحديث تشغيل التطبيق..."
 # إعادة التشغيل باستخدام ملف الإعداد لضمان تحميل كافة المتغيرات
 pm2 delete construction-app 2>/dev/null || true
-DATABASE_URL="${DATABASE_URL}" JWT_ACCESS_SECRET="${JWT_ACCESS_SECRET}" JWT_REFRESH_SECRET="${JWT_REFRESH_SECRET}" SESSION_SECRET="${SESSION_SECRET}" pm2 start ecosystem.config.cjs --env production --update-env
+pm2 delete binarjoin 2>/dev/null || true
+DATABASE_URL="${DATABASE_URL}" JWT_ACCESS_SECRET="${JWT_ACCESS_SECRET}" JWT_REFRESH_SECRET="${JWT_REFRESH_SECRET}" SESSION_SECRET="${SESSION_SECRET}" PORT=6000 pm2 start ecosystem.config.cjs --name binarjoin --env production --update-env
 pm2 save
 
 echo "📱 بناء تطبيق APK..."

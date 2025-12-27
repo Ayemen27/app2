@@ -289,8 +289,8 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 // It is the only port that is not firewalled.
 
 // قراءة المنفذ بنفس أولوية قراءة متغيرات البيئة
-const PORT = parseInt(process.env.PORT || '5000', 10);
-const NODE_ENV = process.env.NODE_ENV || 'development';
+const PORT = parseInt(process.env.PORT || '6000', 10);
+const NODE_ENV = process.env.NODE_ENV || 'production';
 
 console.log('🚀 بدء تشغيل الخادم...');
 console.log('📂 مجلد العمل:', process.cwd());

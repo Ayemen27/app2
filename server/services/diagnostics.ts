@@ -71,7 +71,7 @@ export class DiagnosticsService {
   private async checkServerConnection(): Promise<{ status: DiagnosticCheck['status'], message: string }> {
     try {
       // In production, this would check actual server endpoints
-      const port = process.env.PORT || '5000';
+      const port = process.env.PORT || '6000';
       const healthCheckUrl = process.env.HEALTH_CHECK_URL || `http://localhost:${port}/api/health`;
       const response = await fetch(healthCheckUrl)
         .catch(() => null);

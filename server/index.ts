@@ -34,11 +34,11 @@ const setupSession = (app: express.Express) => {
 
 const app = express();
 
-// 🛡️ Disable security headers completely
+// 🛡️ Relax security headers for production/deployment stability
 app.use((req, res, next) => {
-  res.removeHeader('Content-Security-Policy');
   res.removeHeader('X-Frame-Options');
-  res.removeHeader('X-Content-Type-Options');
+  // Allow all hosts and scripts to be loaded properly
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.binarjoinanelytic.info;");
   next();
 });
 

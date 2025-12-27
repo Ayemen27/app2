@@ -44,10 +44,14 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath, {
     setHeaders: (res, filePath) => {
-      // Force correct MIME type for JS files to prevent loading issues
-      if (filePath.endsWith('.js')) {
+      // Force correct MIME type for JS and TSX/TS files to prevent loading issues in production
+      if (filePath.endsWith('.js') || filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       }
+      
+      // Relax CSP for production to allow scripts and styles
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com;");
+
       res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.set("Pragma", "no-cache");
       res.set("Expires", "0");

@@ -107,6 +107,8 @@ export async function apiRequest(
     try {
       const user = JSON.parse(userStr);
       headers["X-User-Id"] = user.id;
+      headers["user-id"] = user.id;
+      headers["x-user-id"] = user.id;
     } catch (e) {}
   }
 

@@ -45,7 +45,10 @@ export function serveStatic(app: Express) {
   // Middleware to handle Vite production assets and avoid MIME type errors
   app.use((req, res, next) => {
     // If it's a request for a source file like .tsx or .ts in production
-    if (req.path.startsWith('/src/') || req.path.endsWith('.tsx') || req.path.endsWith('.ts')) {
+    const isSourceFile = req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.jsx');
+    const isModuleRequest = req.path.startsWith('/src/') || req.path.includes('main.tsx');
+
+    if (isSourceFile || isModuleRequest) {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       res.setHeader('X-Content-Type-Options', 'nosniff');
     }

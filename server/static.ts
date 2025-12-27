@@ -43,7 +43,11 @@ export function serveStatic(app: Express) {
   console.log(`[Static] Index exists: ${indexExists}`);
 
   app.use(express.static(distPath, {
-    setHeaders: (res) => {
+    setHeaders: (res, filePath) => {
+      // Force correct MIME type for JS files to prevent loading issues
+      if (filePath.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      }
       res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.set("Pragma", "no-cache");
       res.set("Expires", "0");

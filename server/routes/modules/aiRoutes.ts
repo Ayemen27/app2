@@ -35,10 +35,17 @@ async function isAdmin(userId: string): Promise<boolean> {
  * Middleware للتحقق من صلاحية المسؤول
  */
 async function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  // ✅ التحقق أولاً من التوكن المفكك في middleware المصادقة
   if (!req.user || !req.user.userId) {
     return res.status(401).json({ error: "غير مصرح" });
   }
 
+  // ✅ السماح للمسؤولين بناءً على الدور الموجود في التوكن أولاً لسرعة الأداء
+  if (req.user.role === 'admin') {
+    return next();
+  }
+
+  // Fallback: التحقق من قاعدة البيانات إذا لم يكن الدور واضحاً
   const isAdminUser = await isAdmin(req.user.userId);
   if (!isAdminUser) {
     return res.status(403).json({ error: "هذه الميزة متاحة فقط للمسؤولين" });
@@ -76,10 +83,12 @@ router.get("/access", async (req: AuthenticatedRequest, res: Response) => {
       return res.json({ hasAccess: false, reason: "غير مسجل الدخول" });
     }
 
-    const isAdminUser = await isAdmin(req.user.userId);
+    // ✅ التحقق من الدور في التوكن أولاً
+    const hasAccess = req.user.role === 'admin' || await isAdmin(req.user.userId);
+    
     res.json({ 
-      hasAccess: isAdminUser, 
-      reason: isAdminUser ? "مسموح" : "هذه الميزة متاحة فقط للمسؤولين" 
+      hasAccess, 
+      reason: hasAccess ? "مسموح" : "هذه الميزة متاحة فقط للمسؤولين" 
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

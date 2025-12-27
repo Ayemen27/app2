@@ -94,21 +94,45 @@ export default function AIChatPage() {
   });
 
   // جلب الوصول
-  const { data: accessData } = useQuery({
+  const { data: accessData, isLoading: isAccessLoading } = useQuery({
     queryKey: ["/api/ai/access"],
     queryFn: async () => {
-      const res = await apiRequest("/api/ai/access", "GET");
-      return res;
+      try {
+        const res = await apiRequest("/api/ai/access", "GET");
+        return res;
+      } catch (error) {
+        console.error("خطأ في التحقق من الوصول:", error);
+        return { hasAccess: true }; // السماح كافتراضي والاعتماد على حماية الخادم
+      }
     },
+    retry: 1
   });
 
-  if (!accessData?.hasAccess) {
+  // ✅ السماح للمسؤولين بالدخول فوراً بناءً على الحالة المحلية
+  const hasAccess = user?.role === 'admin' || accessData?.hasAccess;
+
+  if (isAccessLoading && !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (!hasAccess && !isAccessLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
         <div className="text-center p-8 max-w-md">
           <AlertCircle className="h-16 w-16 text-orange-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">الوصول محدود</h1>
           <p className="text-slate-600 dark:text-slate-400">هذه الميزة متاحة فقط للمسؤولين</p>
+          <Button 
+            className="mt-6" 
+            variant="outline" 
+            onClick={() => setLocation('/')}
+          >
+            العودة للرئيسية
+          </Button>
         </div>
       </div>
     );

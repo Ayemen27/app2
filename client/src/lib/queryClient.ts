@@ -175,12 +175,17 @@ export async function apiRequest(
       }
 
       // إذا فشل التجديد، حذف البيانات وإعادة التوجيه
-      console.log('🚪 [apiRequest] فشل تجديد الـ token، إعادة التوجيه لتسجيل الدخول...');
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("user");
-      window.location.href = '/login';
-      throw new Error('انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى');
+      if (retryCount > 0) {
+        console.log('門 [apiRequest] فشل تجديد الـ token، إعادة التوجيه لتسجيل الدخول...');
+        // ✅ منع حلقة إعادة التوجيه اللانهائية إذا كنا بالفعل في صفحة تسجيل الدخول
+        if (!window.location.pathname.includes('/login')) {
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          localStorage.removeItem("user");
+          window.location.href = '/login';
+        }
+        throw new Error('انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى');
+      }
     }
 
     if (!response.ok) {

@@ -201,6 +201,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initAuth();
   }, [authFailureCount]); // إعادة تشغيل عند تغير عداد الفشل
 
+  // ✅ تأثير لمراقبة التغييرات في localStorage من تبويبات أخرى
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'accessToken' && !e.newValue) {
+        console.log('🚫 [AuthProvider] تم اكتشاف مسح التوكن من مصدر خارجي');
+        setUser(null);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   // تسجيل الدخول
   const login = async (email: string, password: string) => {
     console.log('🔑 [AuthProvider.login] بدء تسجيل الدخول:', email, new Date().toISOString());
@@ -366,6 +378,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         tokenSaved: !!savedToken,
         userInState: !!user
       });
+
+      // ✅ تأخير بسيط لضمان استقرار الحالة والتخزين قبل أي عمليات أخرى
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       console.log('🔄 [AuthProvider.login] تحديث cache queries');
 
       // ⚡ تحميل البيانات الأساسية مسبقاً لتسريع الأداء

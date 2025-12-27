@@ -68,12 +68,17 @@ export async function apiRequest(
   data?: any,
   retryCount: number = 0
 ): Promise<any> {
-  const apiBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+  let apiBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
   
+  if (apiBase && !apiBase.startsWith('http')) {
+    apiBase = `https://${apiBase}`;
+  }
+
   let url = endpoint;
   if (!endpoint.startsWith("http")) {
     if (apiBase) {
-      url = `${apiBase}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+      const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+      url = `${apiBase}${cleanEndpoint}`;
     } else if (!endpoint.startsWith('/')) {
       url = `/${endpoint}`;
     }
@@ -230,16 +235,22 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
 
-    // Ensure apiBase is a clean prefix without double slashes
-    const apiBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+    // Ensure apiBase is a clean prefix with protocol
+    let apiBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
     
-    // If we have an apiBase, we use it. Otherwise, we rely on relative paths (starting with /)
+    // If apiBase doesn't start with http, it might be just a domain, so we add protocol
+    if (apiBase && !apiBase.startsWith('http')) {
+      apiBase = `https://${apiBase}`;
+    }
+
     const endpoint = queryKey.join("/");
     let url = endpoint;
     
     if (!endpoint.startsWith("http")) {
       if (apiBase) {
-        url = `${apiBase}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+        // Ensure we don't double the domain if endpoint already includes it incorrectly
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        url = `${apiBase}${cleanEndpoint}`;
       } else if (!endpoint.startsWith('/')) {
         url = `/${endpoint}`;
       }

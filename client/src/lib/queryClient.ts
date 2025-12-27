@@ -225,7 +225,9 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
 
     const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || window.location.origin;
-    const url = endpoint.startsWith("http") ? endpoint : `${apiBase}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+    const url = typeof queryKey[0] === 'string' && queryKey[0].startsWith("http") 
+      ? queryKey[0] 
+      : `${apiBase}${String(queryKey[0]).startsWith('/') ? '' : '/'}${queryKey.join("/")}`;
     
     async function makeQueryRequest(retryCount = 0): Promise<any> {
       // إعداد timeout للطلب

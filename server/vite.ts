@@ -62,7 +62,7 @@ export async function setupVite(app: Express, server: Server) {
     }
 
     // Skip Vite transform for static assets that might be requested
-    if (req.originalUrl.includes('.') && !req.originalUrl.endsWith('.html')) {
+    if (req.originalUrl.includes('.') && !req.originalUrl.endsWith('.html') && !req.originalUrl.startsWith('/src/')) {
       return next();
     }
 

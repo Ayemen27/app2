@@ -33,19 +33,13 @@ async function setupVite(app, server) {
     if (req.path.startsWith("/api/")) {
       return next();
     }
-    const isViteAsset = req.path.includes("/src/") || req.path.includes("/node_modules/") || req.path.includes("@vite/") || req.path.includes("@id/");
-    if (isViteAsset) {
-      if (req.path.endsWith(".tsx") || req.path.endsWith(".ts") || req.path.endsWith(".js") || req.path.endsWith(".jsx")) {
-        res.setHeader("Content-Type", "application/javascript; charset=utf-8");
-      }
-    }
     return vite.middlewares(req, res, next);
   });
   app.use("*", async (req, res, next) => {
     if (req.originalUrl.startsWith("/api/")) {
       return next();
     }
-    if (req.originalUrl.includes(".") && !req.originalUrl.endsWith(".html") && !req.originalUrl.startsWith("/src/")) {
+    if (req.originalUrl.startsWith("/@") || /\.\w+(\?|$)/i.test(req.originalUrl)) {
       return next();
     }
     try {
@@ -56,7 +50,10 @@ async function setupVite(app, server) {
         "index.html"
       );
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      template = template.replace(
+        `src="/src/main.tsx"`,
+        `src="/src/main.tsx?v=${nanoid()}"`
+      );
       const page = await vite.transformIndexHtml(req.originalUrl, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {

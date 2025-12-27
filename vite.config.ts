@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig({
+  base: '/',
   plugins: [react()],
   root: 'client',
   build: {
@@ -15,18 +16,18 @@ export default defineConfig({
     target: 'es2020',
     minify: false,
     cssMinify: false,
+    sourcemap: false,
+    assetsDir: 'assets',
     rollupOptions: {
-      maxParallelFileOps: 1,
-      cache: false,
       output: {
         manualChunks: undefined,
         chunkFileNames: 'assets/[name].js',
         assetFileNames: 'assets/[name].[ext]',
-      }
+      },
     },
     chunkSizeWarningLimit: 2000,
     reportCompressedSize: false,
-    assetsInlineLimit: 4096, // Inline small assets to reduce requests
+    assetsInlineLimit: 4096,
   },
   resolve: {
     alias: {
@@ -35,23 +36,5 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, 'shared'),
       '@lib': path.resolve(__dirname, 'client', 'src', 'lib'),
     },
-  },
-  server: {
-    allowedHosts: true,
-    hmr: {
-      host: undefined,
-      port: undefined,
-      protocol: 'ws',
-    },
-    fs: {
-      allow: ['..'],
-    },
-  },
-  optimizeDeps: {
-    include: ['react', 'react-dom'],
-    exclude: ['@replit/vite-plugin-cartographer']
-  },
-  esbuild: {
-    logOverride: { 'this-is-undefined-in-esm': 'silent' }
   },
 });

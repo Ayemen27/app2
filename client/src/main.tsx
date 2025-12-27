@@ -9,6 +9,15 @@ const startApp = async () => {
   if (!rootElement) return;
 
   try {
+    // محاولة تنظيف الكاش إذا كان هناك تحديث جديد
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (let registration of registrations) {
+          registration.update();
+        }
+      });
+    }
+
     // تهيئة قاعدة البيانات في الخلفية لتجنب حجب الواجهة
     initializeDB().catch(console.error);
 

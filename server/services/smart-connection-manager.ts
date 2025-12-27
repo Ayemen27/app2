@@ -59,7 +59,8 @@ export class SmartConnectionManager {
     
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        const databaseUrl = process.env.DATABASE_URL;
+        // محاولة جلب المتغير مباشرة من الـ loader لضمان التحديث
+        const databaseUrl = process.env.DATABASE_URL || (global as any).envLoader?.get('DATABASE_URL');
         
         if (!databaseUrl) {
           console.warn('⚠️ [Local DB] DATABASE_URL غير موجود');

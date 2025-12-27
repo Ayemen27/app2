@@ -8,6 +8,14 @@ import { smartConnectionManager } from './services/smart-connection-manager';
 // تهيئة متغيرات البيئة عند تحميل الموديول
 initializeEnvironment();
 
+// تأكيد توفر متغيرات البيئة
+if (!process.env.DATABASE_URL) {
+  const envVars = envLoader.getAll();
+  if (envVars.DATABASE_URL) {
+    process.env.DATABASE_URL = envVars.DATABASE_URL;
+  }
+}
+
 // التحقق من بيئة الإنتاج
 const isProduction = process.env.NODE_ENV === 'production';
 

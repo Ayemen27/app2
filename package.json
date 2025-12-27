@@ -12,6 +12,7 @@
     "check": "tsc",
     "clean": "rm -rf dist node_modules/.vite",
     "db:push": "drizzle-kit push",
+    "migrate": "drizzle-kit push",
     "android:deploy": "bash scripts/build-and-deploy.sh",
     "android:build": "cd android && chmod +x gradlew && ./gradlew assembleDebug",
     "android:clean": "cd android && ./gradlew clean"

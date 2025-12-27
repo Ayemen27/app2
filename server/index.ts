@@ -1,4 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { initializeEnvironment } from './utils/env-loader';
+// تهيئة البيئة فوراً قبل أي استيراد آخر
+initializeEnvironment();
+
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";

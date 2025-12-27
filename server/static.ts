@@ -44,13 +44,14 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath, {
     setHeaders: (res, filePath) => {
-      // Force correct MIME type for JS and TSX/TS files to prevent loading issues in production
+      // Force correct MIME type for JS and source files to prevent loading issues in production
       if (filePath.endsWith('.js') || filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       }
       
-      // Relax CSP for production to allow scripts and styles
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com;");
+      // Critical: Cloudflare and Browser MIME/CSP fixes
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.cloudflareinsights.com https://*.cloudflare.com;");
 
       res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.set("Pragma", "no-cache");

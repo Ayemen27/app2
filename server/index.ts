@@ -34,11 +34,12 @@ const setupSession = (app: express.Express) => {
 
 const app = express();
 
-// 🛡️ Relax security headers for production/deployment stability
+// 🛡️ Relax security headers for production/deployment stability (Cloudflare Compatible)
 app.use((req, res, next) => {
   res.removeHeader('X-Frame-Options');
-  // Allow all hosts and scripts to be loaded properly
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.binarjoinanelytic.info;");
+  // Strict MIME type checking fix & Cloudflare Insights support
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.binarjoinanelytic.info https://*.cloudflareinsights.com https://*.cloudflare.com;");
   next();
 });
 

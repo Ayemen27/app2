@@ -92,6 +92,14 @@ export const projectTypes = pgTable("project_types", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Material Categories table
+export const materialCategories = pgTable("material_categories", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Projects table
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

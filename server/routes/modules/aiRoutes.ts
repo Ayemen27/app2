@@ -79,6 +79,7 @@ router.get("/status", async (req: AuthenticatedRequest, res: Response) => {
  */
 router.get("/access", async (req: AuthenticatedRequest, res: Response) => {
   try {
+    console.log(`🔍 [AI/Access] Checking access for user: ${req.user?.userId} (Role: ${req.user?.role})`);
     if (!req.user || !req.user.userId) {
       return res.json({ hasAccess: false, reason: "غير مسجل الدخول" });
     }
@@ -86,11 +87,13 @@ router.get("/access", async (req: AuthenticatedRequest, res: Response) => {
     // ✅ التحقق من الدور في التوكن أولاً
     const hasAccess = req.user.role === 'admin' || await isAdmin(req.user.userId);
     
+    console.log(`✅ [AI/Access] Result: ${hasAccess}`);
     res.json({ 
       hasAccess, 
       reason: hasAccess ? "مسموح" : "هذه الميزة متاحة فقط للمسؤولين" 
     });
   } catch (error: any) {
+    console.error(`❌ [AI/Access] Error: ${error.message}`);
     res.status(500).json({ error: error.message });
   }
 });
@@ -103,12 +106,19 @@ router.post("/sessions", requireAdmin, async (req: AuthenticatedRequest, res: Re
   try {
     const { title } = req.body;
     const aiService = getAIAgentService();
-    const sessionId = await aiService.createSession(req.user!.userId, title);
+    
+    if (!req.user || !req.user.userId) {
+      console.error("❌ [AI/Sessions] User ID missing in request");
+      return res.status(401).json({ error: "غير مصرح - معرف المستخدم مفقود" });
+    }
+
+    console.log(`🚀 [AI/Sessions] POST /sessions - User: ${req.user.userId}, Title: ${title}`);
+    const sessionId = await aiService.createSession(req.user.userId, title);
 
     res.json({ sessionId });
   } catch (error: any) {
-    console.error("Error creating session:", error);
-    res.status(500).json({ error: error.message });
+    console.error("❌ [AI/Sessions] Error creating session:", error);
+    res.status(500).json({ error: error.message || "حدث خطأ داخلي أثناء إنشاء الجلسة" });
   }
 });
 

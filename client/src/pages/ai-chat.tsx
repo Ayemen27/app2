@@ -166,7 +166,8 @@ export default function AIChatPage() {
       setMessages((prev) => [...prev, assistantMessage]);
     },
     onError: (error: any) => {
-      const errorMsg = error.response?.data?.error || "انقطع الاتصال بالخادم الذكي";
+      console.error("AI Chat Error:", error);
+      const errorMsg = error.response?.data?.error || error.message || "انقطع الاتصال بالخادم الذكي";
       toast({
         title: "خطأ في المعالجة",
         description: errorMsg,

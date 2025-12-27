@@ -101,14 +101,21 @@ export class AIAgentService {
    * إنشاء جلسة محادثة جديدة
    */
   async createSession(userId: string, title?: string): Promise<string> {
-    const [session] = await db.insert(aiChatSessions).values({
-      userId,
-      title: title || "محادثة جديدة",
-      isActive: true,
-      messagesCount: 0,
-    }).returning({ id: aiChatSessions.id });
+    try {
+      console.log(`📝 [AIAgentService] Creating session for user: ${userId}, title: ${title}`);
+      const [session] = await db.insert(aiChatSessions).values({
+        userId,
+        title: title || "محادثة جديدة",
+        isActive: true,
+        messagesCount: 0,
+      }).returning({ id: aiChatSessions.id });
 
-    return session.id;
+      console.log(`✅ [AIAgentService] Session created with ID: ${session.id}`);
+      return session.id;
+    } catch (error: any) {
+      console.error(`❌ [AIAgentService] Error creating session: ${error.message}`);
+      throw error;
+    }
   }
 
   /**

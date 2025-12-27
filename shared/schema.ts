@@ -2036,6 +2036,7 @@ export const materialCategories = pgTable("material_categories", {
   unit: varchar("unit", { length: 20 }).notNull(),
   description: text("description"),
   isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(), // استخدام الاسم الموحد
 });
 
 // Insert Schemas for Wells Tracking System

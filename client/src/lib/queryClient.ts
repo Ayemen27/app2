@@ -68,10 +68,16 @@ export async function apiRequest(
   data?: any,
   retryCount: number = 0
 ): Promise<any> {
-  // استخدام API_BASE_URL من متغيرات البيئة الآمنة (Secrets)
-  // أولاً نحاول VITE_API_BASE_URL (للـ production)، ثم VITE_API_URL، ثم window.location.origin
-  const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || window.location.origin;
-  const url = `${endpoint.startsWith("http") ? "" : apiBase}${endpoint}`;
+  const apiBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+  
+  let url = endpoint;
+  if (!endpoint.startsWith("http")) {
+    if (apiBase) {
+      url = `${apiBase}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+    } else if (!endpoint.startsWith('/')) {
+      url = `/${endpoint}`;
+    }
+  }
 
   // ✅ جلب التوكن من localStorage بشكل مباشر - لا تعتمد على authProviderHelpers
   const token = localStorage.getItem('accessToken');
@@ -224,10 +230,20 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
 
-    const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || window.location.origin;
-    const url = typeof queryKey[0] === 'string' && queryKey[0].startsWith("http") 
-      ? queryKey[0] 
-      : `${apiBase}${String(queryKey[0]).startsWith('/') ? '' : '/'}${queryKey.join("/")}`;
+    // Ensure apiBase is a clean prefix without double slashes
+    const apiBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+    
+    // If we have an apiBase, we use it. Otherwise, we rely on relative paths (starting with /)
+    const endpoint = queryKey.join("/");
+    let url = endpoint;
+    
+    if (!endpoint.startsWith("http")) {
+      if (apiBase) {
+        url = `${apiBase}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+      } else if (!endpoint.startsWith('/')) {
+        url = `/${endpoint}`;
+      }
+    }
     
     async function makeQueryRequest(retryCount = 0): Promise<any> {
       // إعداد timeout للطلب

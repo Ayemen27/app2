@@ -86,26 +86,28 @@ export async function apiRequest(
 
   // ✅ جلب التوكن من localStorage بشكل مباشر - لا تعتمد على authProviderHelpers
   const token = localStorage.getItem('accessToken');
+  const userStr = localStorage.getItem('user');
   
   // ✅ تسجيل شامل لحالة التوكن
   if (!token) {
     console.error(`❌ [apiRequest] لا يوجد توكن في localStorage للطلب: ${method} ${endpoint}`);
-    console.error(`❌ [apiRequest] localStorage contents:`, Object.keys(localStorage));
-  } else {
-    console.log(`🔐 [apiRequest] ✅ تم إضافة التوكن للطلب: ${method} ${endpoint}`);
-    console.log(`🔐 [apiRequest] التوكن الأول 20 حرف: ${token.substring(0, 20)}...`);
   }
-  
+
   const headers: HeadersInit = {
     "Content-Type": "application/json",
   };
 
-  // ✅ يجب إضافة التوكن حتماً إذا كان موجوداً
+  // ✅ إضافة التوكن إذا كان موجوداً
   if (token) {
     headers.Authorization = `Bearer ${token}`;
-    console.log(`🔐 [apiRequest] تم إضافة رأس Authorization:`, Object.keys(headers));
-  } else {
-    console.error(`❌ [apiRequest] تحذير: إرسال طلب بدون توكن!`);
+  }
+  
+  // إضافة معلومات المستخدم للطلب إذا لزم الأمر
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      headers["X-User-Id"] = user.id;
+    } catch (e) {}
   }
 
   const config: RequestInit = {

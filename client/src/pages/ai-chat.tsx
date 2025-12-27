@@ -512,6 +512,22 @@ export default function AIChatPage() {
                   </div>
 
                   <div className={`flex flex-col gap-2 max-w-[85%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                    {msg.role === "assistant" && msg.steps && msg.steps.length > 0 && (
+                      <div className="w-full mb-2 space-y-2">
+                        {msg.steps.map((step, sIdx) => (
+                          <div key={sIdx} className="flex items-center gap-2 text-[10px] text-slate-500 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                            {step.status === 'completed' ? (
+                              <CheckCircle2 className="h-3 w-3 text-green-500" />
+                            ) : step.status === 'in_progress' ? (
+                              <Loader className="h-3 w-3 text-blue-500 animate-spin" />
+                            ) : (
+                              <Clock className="h-3 w-3 text-slate-300" />
+                            )}
+                            <span className="font-medium">{step.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className={`rounded-2xl p-4 shadow-sm relative overflow-hidden ${
                       msg.role === "user"
                         ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-medium"

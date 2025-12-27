@@ -10,6 +10,11 @@ import { db } from "../../db";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { aiChatSessions, aiChatMessages, aiUsageStats } from "@shared/schema";
 
+export interface AgentStep {
+  title: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+}
+
 export interface AgentResponse {
   message: string;
   data?: any;
@@ -18,6 +23,7 @@ export interface AgentResponse {
   model?: string;
   provider?: string;
   sessionId?: string;
+  steps?: AgentStep[];
 }
 
 export interface ConversationMessage {
@@ -26,6 +32,7 @@ export interface ConversationMessage {
   timestamp: Date;
   action?: string;
   data?: any;
+  steps?: AgentStep[];
 }
 
 const SYSTEM_PROMPT = `أنت مساعد ذكي متخصص في إدارة مشاريع الإنشاءات.
@@ -162,6 +169,12 @@ export class AIAgentService {
     userMessage: string,
     userId: string
   ): Promise<AgentResponse> {
+    const steps: AgentStep[] = [
+      { title: "تحليل طلبك", status: "in_progress" },
+      { title: "استخراج البيانات المطلوبة", status: "pending" },
+      { title: "معالجة النتائج وتنسيق الرد", status: "pending" }
+    ];
+
     // حفظ رسالة المستخدم
     await db.insert(aiChatMessages).values({
       sessionId,
@@ -188,14 +201,27 @@ export class AIAgentService {
 
       // إرسال للنموذج
       const aiResponse = await this.modelManager.chat(messages, SYSTEM_PROMPT);
+      
+      steps[0].status = "completed";
+      steps[1].status = "in_progress";
 
       // تحليل الرد للبحث عن أوامر
       const { processedResponse, action, actionData } = await this.parseAndExecuteActions(
         aiResponse.content,
         sessionId
       );
+      
+      steps[1].status = "completed";
+      steps[2].status = "in_progress";
 
-      // حفظ رد الوكيل
+      // إضافة خطوات إضافية إذا كان هناك تصدير
+      if (action === "EXPORT_EXCEL") {
+        steps.push({ title: "توليد ملف Excel الاحترافي", status: "completed" });
+      }
+
+      steps[2].status = "completed";
+
+      // حفظ رد الوكيل مع الخطوات
       await db.insert(aiChatMessages).values({
         sessionId,
         role: "assistant",
@@ -205,7 +231,8 @@ export class AIAgentService {
         tokensUsed: aiResponse.tokensUsed,
         action,
         actionData,
-      });
+        steps, // تخزين الخطوات في قاعدة البيانات إذا كان الحقل موجوداً، أو تجاهله
+      } as any);
 
       // تحديث عدد الرسائل
       await db.update(aiChatSessions)
@@ -226,6 +253,7 @@ export class AIAgentService {
         model: aiResponse.model,
         provider: aiResponse.provider,
         sessionId,
+        steps,
       };
     } catch (error: any) {
       console.error("❌ [AIAgentService] Error:", error.message);
@@ -366,6 +394,8 @@ export class AIAgentService {
           case "EXPORT_EXCEL":
             if (actionParams[0] === "WORKER_STATEMENT") {
               result = await this.reportGenerator.generateWorkerStatementExcel(actionParams[1]);
+            } else if (actionParams[0] === "PROJECT_FULL") {
+              result = await this.reportGenerator.generateProjectFullExcel(actionParams[1]);
             } else {
               result = { success: false, message: "نوع التقرير غير مدعوم حالياً" };
             }

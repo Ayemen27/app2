@@ -91,6 +91,62 @@ export class ReportGenerator {
   }
 
   /**
+   * إنشاء تقرير شامل للمشروع (مصروفات، عمال، مواد)
+   */
+  async generateProjectFullExcel(projectId: string): Promise<ReportResult> {
+    try {
+      const result = await this.dbActions.getProjectExpensesSummary(projectId);
+      if (!result.success) return { success: false, message: result.message };
+
+      const data = result.data;
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('تقرير المشروع الشامل');
+
+      worksheet.views = [{ rightToLeft: true }];
+
+      // تنسيق العناوين
+      worksheet.mergeCells('A1:F1');
+      const titleCell = worksheet.getCell('A1');
+      titleCell.value = `تقرير مصروفات مشروع: ${data.project?.name || projectId}`;
+      titleCell.font = { size: 16, bold: true };
+      titleCell.alignment = { horizontal: 'center' };
+
+      worksheet.addRow(['التاريخ', new Date().toLocaleDateString('ar-SA')]);
+      worksheet.addRow([]);
+
+      // جدول المصروفات
+      const headerRow = worksheet.addRow(['البند', 'القيمة الإجمالية']);
+      headerRow.font = { bold: true };
+
+      const summary = data.summary;
+      worksheet.addRow(['إجمالي العهدة المستلمة', summary.totalFunds]);
+      worksheet.addRow(['أجور العمال', summary.totalWages]);
+      worksheet.addRow(['المواد والمشتريات', summary.totalMaterials]);
+      worksheet.addRow(['النقل والشحن', summary.totalTransport]);
+      worksheet.addRow(['النثريات', summary.totalMisc]);
+      worksheet.addRow(['إجمالي المصروفات', summary.totalExpenses]);
+      
+      const balanceRow = worksheet.addRow(['الرصيد المتبقي', summary.balance]);
+      balanceRow.font = { bold: true };
+      if (summary.balance < 0) {
+        balanceRow.getCell(2).font = { color: { argb: 'FFFF0000' } };
+      }
+
+      const fileName = `project_full_${projectId}_${Date.now()}.xlsx`;
+      const filePath = path.join(this.reportsDir, fileName);
+      await workbook.xlsx.writeFile(filePath);
+
+      return {
+        success: true,
+        filePath: `/reports/${fileName}`,
+        message: "تم إنشاء تقرير المشروع الشامل بنجاح",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ في إنشاء Excel: ${error.message}` };
+    }
+  }
+
+  /**
    * إنشاء تقرير تصفية حساب عامل
    */
   async generateWorkerStatement(

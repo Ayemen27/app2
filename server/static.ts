@@ -72,6 +72,15 @@ export function serveStatic(app: Express) {
   app.get("*", (req, res, next) => {
     if (req.originalUrl.startsWith("/api/")) return next();
     
+    // Explicitly handle source files in production if requested
+    if (req.path.startsWith('/src/') || req.path.endsWith('.tsx') || req.path.endsWith('.ts')) {
+      const sourcePath = path.join(cwd, req.path);
+      if (fs.existsSync(sourcePath)) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        return res.sendFile(sourcePath);
+      }
+    }
+
     const indexPath = path.join(distPath, "index.html");
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);

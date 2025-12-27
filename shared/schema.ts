@@ -96,11 +96,22 @@ export const projectTypes = pgTable("project_types", {
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  description: text("description"), // إعادة إضافة الوصف
+  location: text("location"), // إعادة إضافة الموقع
+  clientName: text("client_name"), // إعادة إضافة اسم العميل
+  budget: decimal("budget", { precision: 15, scale: 2 }), // إعادة إضافة الميزانية
+  startDate: date("start_date"), // إعادة إضافة تاريخ البدء
+  endDate: date("end_date"), // إعادة إضافة تاريخ الانتهاء
   status: text("status").notNull().default("active"), // active, completed, paused
   engineerId: varchar("engineer_id"), // معرف المهندس/المشرف من جدول المستخدمين
+  managerName: text("manager_name"), // إعادة إضافة اسم المدير
+  contactPhone: text("contact_phone"), // إعادة إضافة رقم الهاتف
+  notes: text("notes"), // إعادة إضافة الملاحظات
   imageUrl: text("image_url"), // صورة المشروع (اختيارية)
   projectTypeId: integer("project_type_id").references(() => projectTypes.id, { onDelete: "set null" }), // نوع المشروع
+  isActive: boolean("is_active").default(true).notNull(), // إعادة إضافة الحالة النشطة
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(), // إعادة إضافة تحديث الوقت
 });
 
 // Workers table
@@ -123,10 +134,13 @@ export const wells = pgTable("wells", {
   ownerName: text("owner_name").notNull(), // اسم المالك
   region: varchar("region", { length: 100 }).notNull(), // المنطقة
   numberOfBases: integer("number_of_bases").notNull(), // عدد القواعد
+  baseCount: integer("base_count"), // إعادة إضافة base_count للتوافق
   numberOfPanels: integer("number_of_panels").notNull(), // عدد الألواح
+  panelCount: integer("panel_count"), // إعادة إضافة panel_count للتوافق
   wellDepth: integer("well_depth").notNull(), // عمق البئر بالمتر
   waterLevel: integer("water_level"), // منسوب الماء (nullable)
   numberOfPipes: integer("number_of_pipes").notNull(), // عدد المواسير
+  pipeCount: integer("pipe_count"), // إعادة إضافة pipe_count للتوافق
   fanType: varchar("fan_type", { length: 100 }), // نوع المراوح (nullable)
   pumpPower: integer("pump_power"), // قدرة الغطاس kw (nullable)
   status: text("status").notNull().default("pending"), // pending, in_progress, completed
@@ -211,6 +225,7 @@ export const materialPurchases = pgTable("material_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   supplierId: varchar("supplier_id").references(() => suppliers.id, { onDelete: "set null" }), // ربط بالمورد
+  materialId: varchar("material_id").references(() => materials.id, { onDelete: "set null" }), // إعادة إضافة المادة للتوافق
   materialName: text("material_name").notNull(), // اسم المادة بدلاً من materialId
   materialCategory: text("material_category"), // فئة المادة (حديد، أسمنت، إلخ)
   materialUnit: text("material_unit"), // وحدة المادة الأساسية

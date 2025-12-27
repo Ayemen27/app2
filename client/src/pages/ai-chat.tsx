@@ -430,50 +430,41 @@ export default function AIChatPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col relative bg-white dark:bg-slate-950 min-w-0">
       {/* Top Header */}
-      <header className="h-16 border-b border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-[100]">
-        <div className="flex items-center gap-4">
-          {!sidebarOpen && (
-            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
-              <PanelLeftOpen className="h-5 w-5" />
-            </Button>
-          )}
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900 text-blue-600 dark:text-blue-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-              Enterprise AI v2.5
-            </Badge>
-            <Separator orientation="vertical" className="h-4" />
-            <div className="flex items-center gap-1 text-slate-400 text-xs">
-              <Zap className="h-3 w-3 fill-current text-yellow-500" />
-              <span>Turbo Performance</span>
+      <div className="sticky top-0 z-[100] w-full p-4 bg-transparent pointer-events-none">
+        <header className="h-16 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 px-6 flex items-center justify-between bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl shadow-2xl shadow-slate-200/20 dark:shadow-none pointer-events-auto max-w-5xl mx-auto">
+          <div className="flex items-center gap-4">
+            {!sidebarOpen && (
+              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+                <PanelLeftOpen className="h-5 w-5" />
+              </Button>
+            )}
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900 text-blue-600 dark:text-blue-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                Enterprise AI v2.5
+              </Badge>
+              <Separator orientation="vertical" className="h-4 hidden sm:block" />
+              <div className="hidden sm:flex items-center gap-1 text-slate-400 text-xs">
+                <Zap className="h-3 w-3 fill-current text-yellow-500" />
+                <span>Turbo Performance</span>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={startNewChat}
-            disabled={createSessionMutation.isPending}
-            className="h-9 rounded-lg border-slate-200 dark:border-slate-800 text-xs gap-2 hover-elevate"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            محادثة جديدة
-          </Button>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 rounded-lg border-slate-200 dark:border-slate-800 text-xs gap-2">
-                  <Activity className="h-3.5 w-3.5" />
-                  تحليل العمليات
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>عرض وتحليل العمليات الجارية</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <ThemeToggle />
-        </div>
-      </header>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={startNewChat}
+              disabled={createSessionMutation.isPending}
+              className="h-9 rounded-lg border-slate-200 dark:border-slate-800 text-xs gap-2 hover-elevate hidden sm:flex"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              محادثة جديدة
+            </Button>
+            <ThemeToggle />
+          </div>
+        </header>
+      </div>
 
         {/* Chat Stream */}
         <ScrollArea ref={scrollAreaRef} className="flex-1">
@@ -640,9 +631,9 @@ export default function AIChatPage() {
         </div>
 
         {/* Action Bar */}
-        <div className="sticky bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 z-[100]">
+        <div className="sticky bottom-0 left-0 right-0 p-6 bg-transparent z-[100]">
           <div className="max-w-4xl mx-auto">
-            <div className="relative group bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-2xl shadow-2xl transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
+            <div className="relative group bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-slate-300/50 dark:border-slate-700/50 rounded-2xl shadow-2xl transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -664,7 +655,7 @@ export default function AIChatPage() {
               />
               
               <div className="absolute right-4 top-4">
-                <div className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                <div className="w-6 h-6 rounded-md bg-slate-100/50 dark:bg-slate-800/50 flex items-center justify-center">
                   <ArrowUpRight className="h-3 w-3 text-slate-400" />
                 </div>
               </div>
@@ -684,7 +675,7 @@ export default function AIChatPage() {
                   size="icon"
                   className={`h-10 w-10 rounded-xl transition-all shadow-lg ${
                     input.trim() 
-                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30 scale-110" 
+                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30 scale-105" 
                       : "bg-slate-100 dark:bg-slate-800 text-slate-400"
                   }`}
                 >

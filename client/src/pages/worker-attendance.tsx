@@ -1012,10 +1012,14 @@ export default function WorkerAttendance() {
               </div>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="p-4 pt-0">
-                {/* الإعدادات المشتركة */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-3">
+              <div className="p-4 bg-muted/30 border-b space-y-3">
+                <WellSelector
+                  projectId={selectedProjectId}
+                  value={selectedWellId}
+                  onChange={setSelectedWellId}
+                  optional={true}
+                />
+                <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-reverse space-x-2">
                                             <Button
                         variant="ghost"

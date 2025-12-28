@@ -72,6 +72,7 @@ function DailyExpensesContent() {
   const [fundTransferWellId, setFundTransferWellId] = useState<number | undefined>();
 
   // Transportation expense form
+  const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
   const [transportDescription, setTransportDescription] = useState<string>("");
   const [transportAmount, setTransportAmount] = useState<string>("");
   const [transportNotes, setTransportNotes] = useState<string>("");
@@ -1038,6 +1039,7 @@ function DailyExpensesContent() {
       description: transportDescription,
       date: selectedDate || new Date().toISOString().split('T')[0],
       notes: transportNotes,
+      wellId: selectedWellId || null,
     };
 
     if (editingTransportationId) {
@@ -2028,6 +2030,13 @@ function DailyExpensesContent() {
                       placeholder="ملاحظات"
                       className="flex-1"
                     />
+                  <WellSelector
+                    projectId={selectedProjectId}
+                    value={selectedWellId}
+                    onChange={setSelectedWellId}
+                    optional={true}
+                  />
+                  <div className="flex items-center gap-2 mt-2">
                     <Button 
                       onClick={handleAddTransportation} 
                       size="sm" 

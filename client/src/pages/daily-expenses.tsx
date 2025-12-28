@@ -69,10 +69,8 @@ function DailyExpensesContent() {
   const [transferNumber, setTransferNumber] = useState<string>("");
   const [transferType, setTransferType] = useState<string>("");
   const [editingFundTransferId, setEditingFundTransferId] = useState<string | null>(null);
-  const [fundTransferWellId, setFundTransferWellId] = useState<number | undefined>();
-
-  // Transportation expense form
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
+  const [fundTransferWellId, setFundTransferWellId] = useState<number | undefined>();
   const [transportDescription, setTransportDescription] = useState<string>("");
   const [transportAmount, setTransportAmount] = useState<string>("");
   const [transportNotes, setTransportNotes] = useState<string>("");
@@ -951,7 +949,7 @@ function DailyExpensesContent() {
       return;
     }
 
-    const transferData = {
+    const fundTransferData = {
       projectId: selectedProjectId,
       amount: fundAmount.toString(),
       senderName: senderName.trim() || "غير محدد",
@@ -959,6 +957,7 @@ function DailyExpensesContent() {
       transferType: transferType,
       transferDate: new Date(selectedDate + 'T12:00:00.000Z'),
       notes: "",
+      wellId: fundTransferWellId || null,
     };
 
     if (editingFundTransferId) {

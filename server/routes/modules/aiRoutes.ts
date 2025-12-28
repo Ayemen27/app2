@@ -28,7 +28,7 @@ router.use((req, res, next) => {
 });
 
 // ✅ إضافة middleware المصادقة العام قبل التحقق من الأدوار
-import { authenticate } from "../../middleware/auth.js";
+import authenticate from "../../middleware/auth.js";
 router.use(authenticate);
 
 /**

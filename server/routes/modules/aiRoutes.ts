@@ -31,19 +31,6 @@ router.use((req, res, next) => {
 import authenticate from "../../middleware/auth.js";
 router.use(authenticate);
 
-// ✅ مسار فحص المصادقة (لأغراض التصحيح)
-router.get("/test-auth", (req: any, res: Response) => {
-  res.json({ 
-    success: true, 
-    message: "المصادقة تعمل بنجاح", 
-    user: req.user ? {
-      id: req.user.id,
-      email: req.user.email,
-      role: req.user.role
-    } : null
-  });
-});
-
 /**
  * التحقق من أن المستخدم مسؤول (admin)
  */

@@ -100,8 +100,6 @@ export async function apiRequest(
   // ✅ إضافة التوكن إذا كان موجوداً
   if (token) {
     headers.Authorization = `Bearer ${token}`;
-    // إضافة توكن في هيدرز إضافية لزيادة التوافق مع الراوتر
-    headers["x-auth-token"] = token;
   }
   
   // ✅ لا نرسل user-id headers - الخادم يستخدم Authorization Bearer للمصادقة فقط
@@ -270,7 +268,6 @@ export const getQueryFn: <T>(options: {
         const accessToken = getStoredAccessToken();
         if (accessToken) {
           headers["Authorization"] = `Bearer ${accessToken}`;
-          headers["x-auth-token"] = accessToken; // Fallback header
         }
 
         console.log(`🔍 [QueryClient] إرسال طلب: ${url}`, {

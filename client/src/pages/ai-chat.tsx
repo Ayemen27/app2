@@ -117,21 +117,28 @@ export default function AIChatPage() {
   });
 
   // جلب الوصول
-  const { data: accessData, isLoading: isAccessLoading } = useQuery({
+  const { data: accessData, isLoading: isAccessLoading, error: accessError } = useQuery({
     queryKey: ["/api/ai/access"],
     queryFn: async () => {
       try {
+        console.log("🔄 [AI/Client] Checking access status...");
         const res = await apiRequest("/api/ai/access", "GET");
+        console.log("✅ [AI/Client] Access result:", res);
         return res;
-      } catch (error) {
-        console.error("خطأ في التحقق من الوصول:", error);
-        return { hasAccess: true };
+      } catch (error: any) {
+        console.error("❌ [AI/Client] Access check error:", error);
+        // التحقق من حالة المستخدم كحل بديل إذا فشل الطلب
+        if (user?.role === 'admin' || user?.role === 'super_admin') {
+          return { hasAccess: true };
+        }
+        throw error;
       }
     },
-    retry: 1
+    retry: 1,
+    staleTime: 30000
   });
 
-  const hasAccess = user?.role === 'admin' || accessData?.hasAccess;
+  const hasAccess = user?.role === 'admin' || user?.role === 'super_admin' || accessData?.hasAccess;
 
   const createSessionMutation = useMutation({
     mutationFn: async (title: string) => {
@@ -162,33 +169,40 @@ export default function AIChatPage() {
     mutationFn: async (message: string) => {
       setIsLoading(true);
       try {
-        if (!currentSessionId) {
-          console.log("🔄 [AI/Client] No session, creating one first...");
-          const sessionRes = await apiRequest("/api/ai/sessions", "POST", { 
-            title: message.substring(0, 50) + (message.length > 50 ? "..." : "") 
-          });
-          
-          if (!sessionRes || !sessionRes.sessionId) {
-            throw new Error("فشل إنشاء جلسة جديدة");
+        let activeSessionId = currentSessionId;
+
+        if (!activeSessionId) {
+          console.log("🔄 [AI/Client] No active session, creating one...");
+          try {
+            const sessionRes = await apiRequest("/api/ai/sessions", "POST", { 
+              title: message.substring(0, 50) + (message.length > 50 ? "..." : "") 
+            });
+            
+            if (!sessionRes || !sessionRes.sessionId) {
+              throw new Error("فشل إنشاء جلسة جديدة - استجابة غير صالحة");
+            }
+            
+            activeSessionId = sessionRes.sessionId;
+            setCurrentSessionId(activeSessionId);
+            console.log("✅ [AI/Client] New session created:", activeSessionId);
+            
+            // تحديث قائمة الجلسات في الخلفية
+            queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
+          } catch (sessionErr: any) {
+            console.error("❌ [AI/Client] Failed to create session:", sessionErr);
+            throw new Error(`فشل بدء المحادثة: ${sessionErr.message || 'خطأ في المصادقة'}`);
           }
-          
-          setCurrentSessionId(sessionRes.sessionId);
-          console.log("✅ [AI/Client] New session created:", sessionRes.sessionId);
-          
-          const chatRes = await apiRequest("/api/ai/chat", "POST", {
-            sessionId: sessionRes.sessionId,
-            message,
-          });
-          return { ...chatRes, sessionId: sessionRes.sessionId };
         }
 
-        console.log("📤 [AI/Client] Sending message to session:", currentSessionId);
-        return await apiRequest("/api/ai/chat", "POST", {
-          sessionId: currentSessionId,
+        console.log("📤 [AI/Client] Sending message to session:", activeSessionId);
+        const chatRes = await apiRequest("/api/ai/chat", "POST", {
+          sessionId: activeSessionId,
           message,
         });
-      } catch (err) {
-        console.error("❌ [AI/Client] Send message error:", err);
+        
+        return { ...chatRes, sessionId: activeSessionId };
+      } catch (err: any) {
+        console.error("❌ [AI/Client] Chat processing error:", err);
         throw err;
       } finally {
         setIsLoading(false);

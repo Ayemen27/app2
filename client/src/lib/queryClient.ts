@@ -88,8 +88,8 @@ export async function apiRequest(
   const token = localStorage.getItem('accessToken');
   const userStr = localStorage.getItem('user');
   
-  // ✅ تسجيل شامل لحالة التوكن
-  if (!token) {
+  // ✅ تسجيل شامل لحالة التوكن في بيئة التطوير
+  if (!token && process.env.NODE_ENV === 'development') {
     console.error(`❌ [apiRequest] لا يوجد توكن في localStorage للطلب: ${method} ${endpoint}`);
   }
 
@@ -100,6 +100,8 @@ export async function apiRequest(
   // ✅ إضافة التوكن إذا كان موجوداً
   if (token) {
     headers.Authorization = `Bearer ${token}`;
+    // إضافة توكن في هيدرز إضافية لزيادة التوافق مع الراوتر
+    headers["x-auth-token"] = token;
   }
   
   // إضافة معلومات المستخدم للطلب إذا لزم الأمر

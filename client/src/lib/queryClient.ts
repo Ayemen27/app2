@@ -293,35 +293,28 @@ export const getQueryFn: <T>(options: {
 
         clearTimeout(timeoutId);
 
-      // التعامل مع خطأ 401 - إظهار السبب الحقيقي
-        if (res.status === 401) {
-          console.error(`🚫 [QueryClient] خطأ 401 غير مصرح لـ ${queryKey.join("/")}`, { 
-            retryCount,
-            hasToken: !!localStorage.getItem('accessToken'),
-            queryKey: queryKey.join("/")
-          });
-
-          // ❌ إزالة returnNull التي تُخفي الأخطاء الحقيقية
-          // if (unauthorizedBehavior === "returnNull") {
-          //   return null as any;
-          // }
-
-          // محاولة تجديد التوكن إذا كانت المحاولة الأولى
-          if (retryCount === 0) {
-            console.log('🔄 محاولة تجديد التوكن في query...');
-            const refreshed = await refreshAuthToken();
-            if (refreshed) {
-              console.log('✅ تم تجديد التوكن، إعادة تشغيل query...');
-              return makeQueryRequest(1);
+      // التعامل مع جميع الأخطاء أولاً
+        if (!res.ok) {
+          // معالجة خطأ 401 خاصة
+          if (res.status === 401) {
+            if (retryCount === 0) {
+              console.log('🔄 محاولة تجديد التوكن في query...');
+              const refreshed = await refreshAuthToken();
+              if (refreshed) {
+                console.log('✅ تم تجديد التوكن، إعادة تشغيل query...');
+                return makeQueryRequest(1);
+              }
             }
+            console.error('❌ فشل المصادقة - تسجيل الخروج');
+            throw new Error(`خطأ في المصادقة (401)`);
           }
-
-          // إذا فشل التجديد - إظهار الخطأ الحقيقي بدلاً من إخفاءه
-          console.error('❌ فشل المصادقة - إظهار الخطأ الحقيقي');
-          throw new Error(`خطأ في المصادقة (401): ${queryKey.join("/")} - يرجى تسجيل الدخول مرة أخرى`);
+          
+          // معالجة الأخطاء الأخرى
+          const errorData = await res.json().catch(() => ({ message: `خطأ ${res.status}` }));
+          console.error(`❌ API Error: ${res.status} ${queryKey.join("/")}`, errorData);
+          throw new Error(errorData?.message || `خطأ ${res.status}`);
         }
-
-        await throwIfResNotOk(res);
+        
         const data = await res.json();
 
         console.log(`✅ [QueryClient] استجابة ناجحة لـ ${queryKey.join("/")}:`, {

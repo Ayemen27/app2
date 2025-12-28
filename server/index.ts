@@ -50,7 +50,8 @@ app.use((req, res, next) => {
 // ✅ UNIFIED CORS Configuration - Single, clean setup
 const allowedOrigins = [
   'https://app2.binarjoinanelytic.info',
-  'https://be132031-6870-4cc9-a9de-c6503e6a2aed-00-pxzg0scazi9o.sisko.replit.dev',
+  'https://app2.binarjoinanelytic.info:6000',
+  'https://be152051-6870-4cc9-a9de-c6503e6a2aed-00-pxzg0scazi9o.sisko.replit.dev',
   'http://localhost:5000',
   'http://localhost:3000',
   'http://127.0.0.1:5000'

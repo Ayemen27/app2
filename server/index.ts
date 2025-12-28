@@ -49,32 +49,24 @@ app.use((req, res, next) => {
 
 // ✅ UNIFIED CORS Configuration - Single, clean setup
 app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || origin === 'null') {
-      return callback(null, true);
-    }
-    // Allow all origins for now
-    callback(null, true);
-  },
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type', 
     'Authorization', 
     'X-Requested-With', 
-    'X-User-Id', 
-    'user-id', 
-    'x-user-id', 
-    'x-requested-with',
-    'x-auth-token'
+    'X-Auth-Token',
+    'x-auth-token',
+    'Accept',
+    'Origin'
   ],
   exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
   optionsSuccessStatus: 200,
   maxAge: 86400
 }));
 
-// ✅ Handle preflight requests explicitly
+// ✅ Handle preflight requests explicitly for all routes
 app.options('*', cors());
 
 // 🔧 **Fix trust proxy for rate limiting** - هام لأمان rate limiting

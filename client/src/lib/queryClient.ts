@@ -102,7 +102,8 @@ export async function apiRequest(
     headers.Authorization = `Bearer ${token}`;
   }
   
-  // ✅ لا نرسل user-id headers - الخادم يستخدم Authorization Bearer للمصادقة فقط
+  // ✅ لا نرسل x-auth-token أو user-id headers لضمان توافق CORS
+  // الخادم يستخدم Authorization Bearer للمصادقة فقط
 
   const config: RequestInit = {
     method,

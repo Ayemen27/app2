@@ -930,9 +930,17 @@ router.post('/logout', requireAuth, async (req: AuthenticatedRequest, res) => {
 router.get('/me', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     // استخراج معلومات المستخدم من التوكن
-    const userId = req.user?.userId || '';
+    const userId = req.user?.userId || req.user?.id || '';
     const email = req.user?.email || '';
     const role = req.user?.role || 'user';
+    
+    if (!userId || !email) {
+      console.error('❌ [API/me] معلومات المستخدم غير مكتملة في الطلب');
+      return res.status(401).json({
+        success: false,
+        message: 'معلومات المستخدم غير صالحة'
+      });
+    }
     
     // محاولة جلب بيانات المستخدم الكاملة من قاعدة البيانات
     let userData = null;
@@ -955,16 +963,15 @@ router.get('/me', requireAuth, async (req: AuthenticatedRequest, res) => {
         `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || email : 
         email,
       role: role,
-      mfaEnabled: false, // حقل mfaEnabled غير موجود في schema الحالي
-      emailVerified: userData?.emailVerifiedAt !== null && userData?.emailVerifiedAt !== undefined // التحقق من البريد
+      mfaEnabled: false,
+      emailVerified: userData?.emailVerifiedAt !== null && userData?.emailVerifiedAt !== undefined
     };
 
     console.log('✅ [API/me] إرسال بيانات المستخدم:', {
       userId: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
-      emailVerified: user.emailVerified
+      role: user.role
     });
 
     res.json({

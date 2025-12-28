@@ -270,7 +270,7 @@ export const getQueryFn: <T>(options: {
     async function makeQueryRequest(retryCount = 0): Promise<any> {
       // إعداد timeout للطلب
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased to 30s
 
       try {
         // إعداد headers مع Authorization
@@ -278,6 +278,7 @@ export const getQueryFn: <T>(options: {
         const accessToken = getStoredAccessToken();
         if (accessToken) {
           headers["Authorization"] = `Bearer ${accessToken}`;
+          headers["x-auth-token"] = accessToken; // Fallback header
         }
 
         console.log(`🔍 [QueryClient] إرسال طلب: ${url}`, {

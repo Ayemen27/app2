@@ -129,13 +129,23 @@ export const trackSuspiciousActivity = (req: Request, res: Response, next: NextF
 export const authenticate = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const startTime = Date.now();
-    const authHeader = req.headers.authorization;
+    let token: string | null = null;
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
 
     console.log(`🔍 [AUTH] فحص متقدم - المسار: ${req.method} ${req.originalUrl} | IP: ${ip}`);
 
+    // محاولة استخراج التوكن من مصادر متعددة
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else if (req.headers['x-auth-token']) {
+      token = req.headers['x-auth-token'] as string;
+    } else if (req.query?.token) {
+      token = req.query.token as string;
+    }
+
     // التحقق من وجود الـ token
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!token) {
       console.log('❌ [AUTH] لا يوجد token في الطلب');
       return res.status(401).json({
         success: false,
@@ -143,8 +153,6 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
         code: 'NO_TOKEN'
       });
     }
-
-    const token = authHeader.substring(7);
 
     // التحقق من صحة الـ token
     let decoded;

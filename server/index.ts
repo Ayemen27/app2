@@ -37,10 +37,8 @@ const app = express();
 // 🛡️ Relax security headers for production/deployment stability (Cloudflare Compatible)
 app.use((req, res, next) => {
   res.removeHeader('X-Frame-Options');
-  // Strict MIME type checking fix & Cloudflare Insights support
   res.setHeader('X-Content-Type-Options', 'nosniff');
   
-  // Force JS MIME type for any source file requests in production to prevent "text/html" fallback
   if (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.jsx')) {
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   }
@@ -49,49 +47,35 @@ app.use((req, res, next) => {
   next();
 });
 
-// Skip helmet for now
-// app.use(helmet());
-
-
-
-// إعدادات CORS مفتوحة تماماً مع دعم الهيدرز المخصصة
+// ✅ UNIFIED CORS Configuration - Single, clean setup
 app.use(cors({
-  origin: true,
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || origin === 'null') {
+      return callback(null, true);
+    }
+    // Allow all origins for now
+    callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-User-Id', 'user-id', 'x-user-id', 'x-requested-with']
-}));
-
-// 🌐 **CORS Configuration - Enhanced for mobile and web apps**
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // السماح بجميع الـ origins التي تحتوي على النطاق الخاص بنا أو الموبايل
-  if (!origin || origin === 'null' || origin.includes('binarjoinanelytic.info') || origin.includes('localhost') || origin.startsWith('http://localhost')) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-User-Id, user-id, x-user-id, x-requested-with');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-  
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
-app.use(cors({
-  origin: true,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-User-Id', 'user-id', 'x-user-id', 'x-requested-with'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'X-User-Id', 
+    'user-id', 
+    'x-user-id', 
+    'x-requested-with',
+    'x-auth-token'
+  ],
   exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  maxAge: 86400
 }));
+
+// ✅ Handle preflight requests explicitly
+app.options('*', cors());
 
 // 🔧 **Fix trust proxy for rate limiting** - هام لأمان rate limiting
 // Using '1' to trust the first proxy (Replit's proxy) instead of 'true'

@@ -177,6 +177,10 @@ export class AIAgentService {
       .where(eq(aiChatSessions.id, sessionId));
 
     try {
+      // تضمين تاريخ اليوم الفعلي في التوجيه لضمان معرفة الوكيل بالوقت الحالي
+      const todayDate = new Date().toISOString().split("T")[0];
+      const dynamicSystemPrompt = `${SYSTEM_PROMPT}\n\nتاريخ اليوم الفعلي هو: ${todayDate}. عند السؤال عن "البارحة"، اقصد دائماً تاريخ: ${new Date(Date.now() - 86400000).toISOString().split("T")[0]}.`;
+
       // الحصول على تاريخ المحادثة من قاعدة البيانات
       const history = await this.getSessionMessages(sessionId);
       const messages: ChatMessage[] = history.map((m) => ({
@@ -184,8 +188,8 @@ export class AIAgentService {
         content: m.content,
       }));
 
-      // إرسال للنموذج
-      const aiResponse = await this.modelManager.chat(messages, SYSTEM_PROMPT);
+      // إرسال للنموذج مع التوجيه المحدث
+      const aiResponse = await this.modelManager.chat(messages, dynamicSystemPrompt);
       
       steps[0].status = "completed";
       steps[1].status = "in_progress";

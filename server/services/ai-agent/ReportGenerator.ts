@@ -332,27 +332,41 @@ export class ReportGenerator {
    * تنسيق البيانات كنص للعرض
    */
   formatAsText(data: any, title: string): string {
-    let text = `📊 ${title}\n`;
-    text += "═".repeat(50) + "\n\n";
+    if (!data) return "لا توجد بيانات متاحة لهذا التقرير.";
 
-    if (data.worker) {
-      text += `👷 العامل: ${data.worker.name}\n`;
-      text += `💰 الأجر اليومي: ${data.worker.dailyWage} ريال\n\n`;
-    }
+    let text = `📊 **${title}**\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
 
-    if (data.statement) {
-      text += "📈 ملخص الحساب:\n";
-      text += `   إجمالي المكتسب: ${data.statement.totalEarned.toLocaleString()} ريال\n`;
-      text += `   إجمالي المدفوع: ${data.statement.totalPaid.toLocaleString()} ريال\n`;
-      text += `   إجمالي المحول: ${data.statement.totalTransferred.toLocaleString()} ريال\n`;
-      text += `   الرصيد النهائي: ${data.statement.finalBalance.toLocaleString()} ريال\n`;
-    }
-
-    if (data.summary && !data.statement) {
-      text += "📈 الإجماليات:\n";
-      for (const [key, value] of Object.entries(data.summary)) {
-        const label = this.translateKey(key);
-        text += `   ${label}: ${typeof value === 'number' ? value.toLocaleString() : value}\n`;
+    if (title === "تصفية حساب العامل" || data.worker) {
+      const w = data.worker || {};
+      const s = data.statement || {};
+      text += `👤 **العامل:** ${w.name || "غير معروف"}\n`;
+      text += `💰 **الإجمالي المستحق:** ${s.totalEarned || 0} ريال\n`;
+      text += `💸 **إجمالي المدفوع:** ${s.totalPaid || 0} ريال\n`;
+      text += `🏦 **إجمالي المحول:** ${s.totalTransferred || 0} ريال\n`;
+      text += `📉 **الرصيد المتبقي:** ${s.finalBalance || 0} ريال\n`;
+    } else if (title === "ملخص مصروفات المشروع" || data.totalExpenses !== undefined) {
+      const summary = data.summary || data;
+      text += `🏗️ **إجمالي العهد المستلمة:** ${summary.totalFunds || 0} ريال\n`;
+      text += `👷 **إجمالي الأجور:** ${summary.totalWages || 0} ريال\n`;
+      text += `📦 **إجمالي المواد:** ${summary.totalMaterials || 0} ريال\n`;
+      text += `🚚 **إجمالي النقل:** ${summary.totalTransport || 0} ريال\n`;
+      text += `📝 **إجمالي متنوعة:** ${summary.totalMisc || 0} ريال\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `📉 **إجمالي المصروفات:** ${summary.totalExpenses || 0} ريال\n`;
+      text += `💰 **الرصيد المتبقي:** ${summary.balance || 0} ريال\n`;
+    } else if (title === "تقرير المصروفات اليومية" || data.date) {
+      text += `📅 **التاريخ:** ${data.date}\n`;
+      const s = data.summary || {};
+      text += `👷 **الأجور اليومية:** ${s.totalWages || 0} ريال\n`;
+      text += `📦 **المشتريات:** ${s.totalPurchases || 0} ريال\n`;
+      text += `🚚 **النقل:** ${s.totalTransport || 0} ريال\n`;
+      text += `📝 **متنوعة:** ${s.totalMisc || 0} ريال\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `💰 **الإجمالي اليومي:** ${s.grandTotal || 0} ريال\n`;
+      
+      if ((s.grandTotal || 0) === 0) {
+        text += `\n⚠️ لا توجد أي مصروفات مسجلة في هذا التاريخ.`;
       }
     }
 

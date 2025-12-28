@@ -285,12 +285,14 @@ export class DatabaseActions {
 
   async getDailyExpenses(projectId: string, date: string): Promise<ActionResult> {
     try {
+      console.log(`🗄️ [DatabaseActions] Fetching expenses for Project: ${projectId}, Date: ${date}`);
+      
       const wages = await db
         .select()
         .from(workerAttendance)
         .where(and(
           eq(workerAttendance.projectId, projectId),
-          eq(workerAttendance.attendanceDate, date)
+          sql`CAST(attendance_date AS DATE) = ${date}`
         ));
 
       const purchases = await db
@@ -298,7 +300,7 @@ export class DatabaseActions {
         .from(materialPurchases)
         .where(and(
           eq(materialPurchases.projectId, projectId),
-          eq(materialPurchases.purchaseDate, date)
+          sql`CAST(purchase_date AS DATE) = ${date}`
         ));
 
       const transport = await db
@@ -306,7 +308,7 @@ export class DatabaseActions {
         .from(transportationExpenses)
         .where(and(
           eq(transportationExpenses.projectId, projectId),
-          eq(transportationExpenses.date, date)
+          sql`CAST(date AS DATE) = ${date}`
         ));
 
       const misc = await db
@@ -314,16 +316,20 @@ export class DatabaseActions {
         .from(workerMiscExpenses)
         .where(and(
           eq(workerMiscExpenses.projectId, projectId),
-          eq(workerMiscExpenses.date, date)
+          sql`CAST(date AS DATE) = ${date}`
         ));
+
+      const totalItems = (wages.length || 0) + (purchases.length || 0) + (transport.length || 0) + (misc.length || 0);
+      console.log(`📊 [DatabaseActions] Found ${totalItems} items for date ${date}`);
 
       return {
         success: true,
         data: { date, wages, purchases, transport, misc },
-        message: "تم جلب مصروفات اليوم",
+        message: totalItems > 0 ? "تم جلب مصروفات اليوم" : `لا توجد أي مصروفات مسجلة بتاريخ ${date}`,
         action: "get_daily_expenses",
       };
     } catch (error: any) {
+      console.error(`❌ [DatabaseActions] Error in getDailyExpenses:`, error);
       return {
         success: false,
         message: `خطأ: ${error.message}`,

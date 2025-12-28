@@ -43,7 +43,7 @@ app.use((req, res, next) => {
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   }
 
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.binarjoinanelytic.info https://*.cloudflareinsights.com https://*.cloudflare.com;");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' wss://*.replit.dev https://*.googleapis.com https://*.binarjoinanelytic.info https://*.cloudflareinsights.com https://*.cloudflare.com;");
   next();
 });
 
@@ -52,7 +52,8 @@ const allowedOrigins = [
   'https://app2.binarjoinanelytic.info',
   'https://be132031-6870-4cc9-a9de-c6503e6a2aed-00-pxzg0scazi9o.sisko.replit.dev',
   'http://localhost:5000',
-  'http://localhost:3000'
+  'http://localhost:3000',
+  'http://127.0.0.1:5000'
 ];
 
 app.use(cors({

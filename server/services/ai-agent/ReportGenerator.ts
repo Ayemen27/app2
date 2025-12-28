@@ -237,31 +237,41 @@ export class ReportGenerator {
     try {
       const result = await this.dbActions.getDailyExpenses(projectId, date);
 
-      if (!result.success) {
+      if (!result.success || !result.data) {
         return {
           success: false,
-          message: result.message,
+          message: result.message || "لا توجد بيانات لهذا التاريخ",
         };
       }
 
       // حساب الإجماليات
       const data = result.data;
-      const totalWages = data.wages.reduce(
+      const totalWages = (data.wages || []).reduce(
         (sum: number, r: any) => sum + parseFloat(r.paidAmount || "0"),
         0
       );
-      const totalPurchases = data.purchases.reduce(
+      const totalPurchases = (data.purchases || []).reduce(
         (sum: number, r: any) => sum + parseFloat(r.paidAmount || "0"),
         0
       );
-      const totalTransport = data.transport.reduce(
+      const totalTransport = (data.transport || []).reduce(
         (sum: number, r: any) => sum + parseFloat(r.amount || "0"),
         0
       );
-      const totalMisc = data.misc.reduce(
+      const totalMisc = (data.misc || []).reduce(
         (sum: number, r: any) => sum + parseFloat(r.amount || "0"),
         0
       );
+
+      const grandTotal = totalWages + totalPurchases + totalTransport + totalMisc;
+
+      if (grandTotal === 0 && (!data.wages?.length && !data.purchases?.length && !data.transport?.length && !data.misc?.length)) {
+        return {
+          success: true,
+          data: { ...data, summary: { totalWages: 0, totalPurchases: 0, totalTransport: 0, totalMisc: 0, grandTotal: 0 } },
+          message: `لا توجد أي مصروفات مسجلة بتاريخ ${date}`,
+        };
+      }
 
       const report = {
         date,

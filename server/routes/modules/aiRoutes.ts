@@ -17,7 +17,7 @@ router.use((req, res, next) => {
   const origin = req.headers.origin;
   res.header('Access-Control-Allow-Origin', origin || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-User-Id, user-id, x-user-id, x-requested-with');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-User-Id, user-id, x-user-id, x-requested-with, x-auth-token');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', '86400');
   
@@ -31,6 +31,7 @@ router.use((req, res, next) => {
  * التحقق من أن المستخدم مسؤول (admin)
  */
 async function isAdmin(userId: string): Promise<boolean> {
+  if (!userId) return false;
   try {
     const user = await db
       .select({ id: users.id, role: users.role })
@@ -52,7 +53,8 @@ async function isAdmin(userId: string): Promise<boolean> {
 async function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   // ✅ التحقق أولاً من التوكن المفكك في middleware المصادقة
   if (!req.user || !req.user.userId) {
-    return res.status(401).json({ error: "غير مصرح" });
+    console.error("❌ [AI/Auth] No user or userId in request");
+    return res.status(401).json({ error: "غير مصرح - يرجى تسجيل الدخول" });
   }
 
   // ✅ السماح للمسؤولين بناءً على الدور الموجود في التوكن أولاً لسرعة الأداء
@@ -61,12 +63,17 @@ async function requireAdmin(req: AuthenticatedRequest, res: Response, next: Next
   }
 
   // Fallback: التحقق من قاعدة البيانات إذا لم يكن الدور واضحاً
-  const isAdminUser = await isAdmin(req.user.userId);
-  if (!isAdminUser) {
-    return res.status(403).json({ error: "هذه الميزة متاحة فقط للمسؤولين" });
+  try {
+    const isAdminUser = await isAdmin(req.user.userId);
+    if (!isAdminUser) {
+      console.warn(`⚠️ [AI/Auth] Access denied for user: ${req.user.userId}`);
+      return res.status(403).json({ error: "هذه الميزة متاحة فقط للمسؤولين" });
+    }
+    next();
+  } catch (err) {
+    console.error("❌ [AI/Auth] Middleware error:", err);
+    res.status(500).json({ error: "خطأ داخلي في التحقق من الصلاحيات" });
   }
-
-  next();
 }
 
 /**

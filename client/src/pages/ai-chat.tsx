@@ -135,9 +135,17 @@ export default function AIChatPage() {
 
   const createSessionMutation = useMutation({
     mutationFn: async (title: string) => {
-      return await apiRequest("/api/ai/sessions", "POST", { title });
+      console.log("🚀 [AI/Client] Creating session with title:", title);
+      try {
+        const res = await apiRequest("/api/ai/sessions", "POST", { title });
+        return res;
+      } catch (err: any) {
+        console.error("❌ [AI/Client] Session creation failed:", err);
+        throw err;
+      }
     },
     onSuccess: (data) => {
+      console.log("✅ [AI/Client] Session created:", data.sessionId);
       setCurrentSessionId(data.sessionId);
       queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
       setMessages([
@@ -152,23 +160,39 @@ export default function AIChatPage() {
 
   const sendMessageMutation = useMutation({
     mutationFn: async (message: string) => {
-      if (!currentSessionId) {
-        const sessionRes = await apiRequest("/api/ai/sessions", "POST", { 
-          title: message.substring(0, 50) + (message.length > 50 ? "..." : "") 
-        });
-        setCurrentSessionId(sessionRes.sessionId);
-        
-        const chatRes = await apiRequest("/api/ai/chat", "POST", {
-          sessionId: sessionRes.sessionId,
+      setIsLoading(true);
+      try {
+        if (!currentSessionId) {
+          console.log("🔄 [AI/Client] No session, creating one first...");
+          const sessionRes = await apiRequest("/api/ai/sessions", "POST", { 
+            title: message.substring(0, 50) + (message.length > 50 ? "..." : "") 
+          });
+          
+          if (!sessionRes || !sessionRes.sessionId) {
+            throw new Error("فشل إنشاء جلسة جديدة");
+          }
+          
+          setCurrentSessionId(sessionRes.sessionId);
+          console.log("✅ [AI/Client] New session created:", sessionRes.sessionId);
+          
+          const chatRes = await apiRequest("/api/ai/chat", "POST", {
+            sessionId: sessionRes.sessionId,
+            message,
+          });
+          return { ...chatRes, sessionId: sessionRes.sessionId };
+        }
+
+        console.log("📤 [AI/Client] Sending message to session:", currentSessionId);
+        return await apiRequest("/api/ai/chat", "POST", {
+          sessionId: currentSessionId,
           message,
         });
-        return { ...chatRes, sessionId: sessionRes.sessionId };
+      } catch (err) {
+        console.error("❌ [AI/Client] Send message error:", err);
+        throw err;
+      } finally {
+        setIsLoading(false);
       }
-
-      return await apiRequest("/api/ai/chat", "POST", {
-        sessionId: currentSessionId,
-        message,
-      });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });

@@ -31,8 +31,12 @@ export function WellSelector({
     queryFn: async () => {
       if (!projectId) return [];
       try {
-        const response = await apiRequest(`/wells?projectId=${projectId}`);
-        return response.data || [];
+        const response = await apiRequest(`/api/wells?projectId=${projectId}`);
+        // Handle both possible response structures
+        if (response && response.success && Array.isArray(response.data)) {
+          return response.data;
+        }
+        return Array.isArray(response) ? response : (response.data || []);
       } catch (error) {
         console.error('Error fetching wells:', error);
         return [];

@@ -27,6 +27,10 @@ router.use((req, res, next) => {
   next();
 });
 
+// ✅ إضافة middleware المصادقة العام قبل التحقق من الأدوار
+import { authenticate } from "../../middleware/auth";
+router.use(authenticate);
+
 /**
  * التحقق من أن المستخدم مسؤول (admin)
  */
@@ -56,6 +60,8 @@ async function requireAdmin(req: AuthenticatedRequest, res: Response, next: Next
     console.error("❌ [AI/Auth] No user or userId in request");
     return res.status(401).json({ error: "غير مصرح - يرجى تسجيل الدخول" });
   }
+
+  console.log(`🔍 [AI/Auth] Verifying admin for user: ${req.user.userId} (Role in token: ${req.user.role})`);
 
   // ✅ السماح للمسؤولين بناءً على الدور الموجود في التوكن أولاً لسرعة الأداء
   if (req.user.role === 'admin') {

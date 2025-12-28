@@ -77,7 +77,7 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات الإشعارات
   app.use('/api/notifications', notificationRouter);
 
-  // مسارات الوكيل الذكي (للمسؤول الأول فقط)
+  // مسارات الوكيل الذكي
   app.use('/api/ai', aiRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الوكيل الذكي: /api/ai');
 

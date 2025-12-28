@@ -69,7 +69,6 @@ function DailyExpensesContent() {
   const [transferNumber, setTransferNumber] = useState<string>("");
   const [transferType, setTransferType] = useState<string>("");
   const [editingFundTransferId, setEditingFundTransferId] = useState<string | null>(null);
-  const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
   const [fundTransferWellId, setFundTransferWellId] = useState<number | undefined>();
   const [transportDescription, setTransportDescription] = useState<string>("");
   const [transportAmount, setTransportAmount] = useState<string>("");
@@ -2029,12 +2028,13 @@ function DailyExpensesContent() {
                       placeholder="ملاحظات"
                       className="flex-1"
                     />
-                  <WellSelector
-                    projectId={selectedProjectId}
-                    value={selectedWellId}
-                    onChange={setSelectedWellId}
-                    optional={true}
-                  />
+                    <WellSelector
+                      projectId={selectedProjectId}
+                      value={selectedWellId}
+                      onChange={setSelectedWellId}
+                      optional={true}
+                    />
+                  </div>
                   <div className="flex items-center gap-2 mt-2">
                     <Button 
                       onClick={handleAddTransportation} 
@@ -2420,9 +2420,8 @@ function DailyExpensesContent() {
                   {saveDailySummaryMutation.isPending ? "جاري الحفظ..." : "حفظ المصروفات"}
                 </Button>
               </div>
-
-          </CardContent>
-        </CollapsibleContent>
+            </CardContent>
+          </CollapsibleContent>
       </Card>
     </Collapsible>
     </div>

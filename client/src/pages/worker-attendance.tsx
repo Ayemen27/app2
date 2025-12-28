@@ -1063,155 +1063,154 @@ export default function WorkerAttendance() {
                   {showSharedSettings && (
                     <div className="space-y-1">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground">وقت البدء</Label>
-                <Input
-                  type="time"
-                  value={bulkSettings.startTime}
-                  onChange={(e) => setBulkSettings(prev => ({ ...prev, startTime: e.target.value }))}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">وقت الانتهاء</Label>
-                <Input
-                  type="time"
-                  value={bulkSettings.endTime}
-                  onChange={(e) => setBulkSettings(prev => ({ ...prev, endTime: e.target.value }))}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">عدد الأيام</Label>
-                <div className="relative mt-1">
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.1"
-                    min="0"
-                    max="2.0"
-                    value={bulkSettings.workDays || ""}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setBulkSettings(prev => ({ 
-                        ...prev, 
-                        workDays: value === "" ? 0 : parseFloat(value) || 0 
-                      }));
-                    }}
-                    placeholder="0"
-                    className="mt-1 english-numbers"
-                    style={{ direction: 'ltr', unicodeBidi: 'embed' }}
-                  />
-                  {bulkSettings.workDays !== 0 && (
-                    <button
-                      onClick={() => setBulkSettings(prev => ({ ...prev, workDays: 0 }))}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      title="مسح"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">نوع الدفع</Label>
-                <Select
-                  value={bulkSettings.paymentType}
-                  onValueChange={(value) => setBulkSettings(prev => ({ ...prev, paymentType: value }))}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="full">دفع كامل</SelectItem>
-                    <SelectItem value="partial">دفع جزئي</SelectItem>
-                    <SelectItem value="credit">على الحساب</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">وقت البدء</Label>
+                          <Input
+                            type="time"
+                            value={bulkSettings.startTime}
+                            onChange={(e) => setBulkSettings(prev => ({ ...prev, startTime: e.target.value }))}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">وقت الانتهاء</Label>
+                          <Input
+                            type="time"
+                            value={bulkSettings.endTime}
+                            onChange={(e) => setBulkSettings(prev => ({ ...prev, endTime: e.target.value }))}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">عدد الأيام</Label>
+                          <div className="relative mt-1">
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              step="0.1"
+                              min="0"
+                              max="2.0"
+                              value={bulkSettings.workDays || ""}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setBulkSettings(prev => ({ 
+                                  ...prev, 
+                                  workDays: value === "" ? 0 : parseFloat(value) || 0 
+                                }));
+                              }}
+                              placeholder="0"
+                              className="mt-1 english-numbers"
+                              style={{ direction: 'ltr', unicodeBidi: 'embed' }}
+                            />
+                            {bulkSettings.workDays !== 0 && (
+                              <button
+                                onClick={() => setBulkSettings(prev => ({ ...prev, workDays: 0 }))}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                title="مسح"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">نوع الدفع</Label>
+                          <Select
+                            value={bulkSettings.paymentType}
+                            onValueChange={(value) => setBulkSettings(prev => ({ ...prev, paymentType: value }))}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="full">دفع كامل</SelectItem>
+                              <SelectItem value="partial">دفع جزئي</SelectItem>
+                              <SelectItem value="credit">على الحساب</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {bulkSettings.paymentType !== "credit" && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">المبلغ المدفوع</Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    placeholder="0"
-                    value={bulkSettings.paidAmount}
-                    onChange={(e) => setBulkSettings(prev => ({ ...prev, paidAmount: e.target.value }))}
-                    className="mt-1 english-numbers"
-                    style={{ direction: 'ltr', unicodeBidi: 'embed' }}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {bulkSettings.paymentType !== "credit" && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">المبلغ المدفوع</Label>
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              placeholder="0"
+                              value={bulkSettings.paidAmount}
+                              onChange={(e) => setBulkSettings(prev => ({ ...prev, paidAmount: e.target.value }))}
+                              className="mt-1 english-numbers"
+                              style={{ direction: 'ltr', unicodeBidi: 'embed' }}
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <Label className="text-xs text-muted-foreground">وصف العمل</Label>
+                          <AutocompleteInput
+                            value={bulkSettings.workDescription}
+                            onChange={(value) => setBulkSettings(prev => ({ ...prev, workDescription: value }))}
+                            placeholder="اكتب وصف العمل..."
+                            category="workDescriptions"
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                {/* Well Selector */}
+                <div className="mt-4 pt-4 border-t">
+                  <WellSelector
+                    projectId={selectedProjectId}
+                    value={selectedWellId}
+                    onChange={setSelectedWellId}
+                    optional={true}
                   />
                 </div>
-              )}
-              <div>
-                <Label className="text-xs text-muted-foreground">وصف العمل</Label>
-                <AutocompleteInput
-                  value={bulkSettings.workDescription}
-                  onChange={(value) => setBulkSettings(prev => ({ ...prev, workDescription: value }))}
-                  placeholder="اكتب وصف العمل..."
-                  category="workDescriptions"
-                  className="mt-1"
-                />
-              </div>
-                </div>
+
+                {/* Worker List */}
+                {workersLoading ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">جاري تحميل العمال...</p>
+                  </div>
+                ) : workers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">لا توجد عمال مسجلين</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredWorkers.length === 0 && searchValue ? (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground">لا توجد نتائج للبحث "{searchValue}"</p>
+                      </div>
+                    ) : (
+                      filteredWorkers.map((worker) => (
+                        <EnhancedWorkerCard
+                          key={worker.id}
+                          worker={worker}
+                          attendance={attendanceData[worker.id] || { isPresent: false }}
+                          onAttendanceChange={(attendance) => handleAttendanceChange(worker.id, attendance)}
+                          selectedDate={selectedDate ?? undefined}
+                        />
+                      ))
+                    )}
                   </div>
                 )}
-              </div>
 
-              {/* Well Selector */}
-              <div className="mt-4 pt-4 border-t">
-                <WellSelector
-                  projectId={selectedProjectId}
-                  value={selectedWellId}
-                  onChange={setSelectedWellId}
-                  optional={true}
-                />
+                {/* Save Button */}
+                <div className="mt-6">
+                  <Button
+                    onClick={handleSaveAttendance}
+                    disabled={saveAttendanceMutation.isPending}
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                  >
+                    <Save className="ml-2 h-4 w-4" />
+                    {saveAttendanceMutation.isPending ? "جاري الحفظ..." : "حفظ الحضور"}
+                  </Button>
+                </div>
               </div>
-
-              {/* Worker List */}
-              {workersLoading ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">جاري تحميل العمال...</p>
-                </div>
-              ) : workers.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">لا توجد عمال مسجلين</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredWorkers.length === 0 && searchValue ? (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">لا توجد نتائج للبحث "{searchValue}"</p>
-                    </div>
-                  ) : (
-                    filteredWorkers.map((worker) => (
-                      <EnhancedWorkerCard
-                        key={worker.id}
-                        worker={worker}
-                        attendance={attendanceData[worker.id] || { isPresent: false }}
-                        onAttendanceChange={(attendance) => handleAttendanceChange(worker.id, attendance)}
-                        selectedDate={selectedDate ?? undefined}
-                      />
-                    ))
-                  )}
-                </div>
-              )}
-
-              {/* Save Button */}
-              <div className="mt-6">
-                <Button
-                  onClick={handleSaveAttendance}
-                  disabled={saveAttendanceMutation.isPending}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                >
-                  <Save className="ml-2 h-4 w-4" />
-                  {saveAttendanceMutation.isPending ? "جاري الحفظ..." : "حفظ الحضور"}
-                </Button>
-              </div>
-            </CardContent>
           </CollapsibleContent>
         </Card>
       </Collapsible>

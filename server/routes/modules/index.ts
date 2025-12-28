@@ -46,6 +46,11 @@ export function registerOrganizedRoutes(app: Express) {
 
   // ===== المسارات المحمية - تحتاج مصادقة =====
 
+  // 🤖 مسارات الوكيل الذكي (AI Agent)
+  // تم نقلها للأعلى لضمان الأولوية القصوى
+  app.use('/api/ai', aiRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الوكيل الذكي: /api/ai');
+
   // مسارات المشاريع
   app.use('/api/projects', projectRouter);
 
@@ -76,10 +81,6 @@ export function registerOrganizedRoutes(app: Express) {
 
   // مسارات الإشعارات
   app.use('/api/notifications', notificationRouter);
-
-  // مسارات الوكيل الذكي
-  app.use('/api/ai', aiRouter);
-  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الوكيل الذكي: /api/ai');
 
   // مسارات المزامنة المتقدمة
   app.use('/api/sync', syncRouter);

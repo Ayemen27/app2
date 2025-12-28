@@ -43,28 +43,64 @@ app.use((req, res, next) => {
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   }
 
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' wss://*.replit.dev https://*.googleapis.com https://*.binarjoinanelytic.info https://*.cloudflareinsights.com https://*.cloudflare.com;");
+  const cspConfig = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info https://static.cloudflareinsights.com https://*.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "img-src 'self' data: https:",
+    "connect-src 'self' wss://*.replit.dev https://*.googleapis.com https://*.binarjoinanelytic.info https://*.cloudflareinsights.com https://*.cloudflare.com"
+  ];
+
+  // Add dynamic domain to connect-src if in production
+  if (process.env.DOMAIN) {
+    const domain = process.env.DOMAIN.replace(/\/$/, '');
+    cspConfig[5] = `${cspConfig[5]} ${domain} ${domain}:6000`;
+  }
+
+  res.setHeader('Content-Security-Policy', cspConfig.join('; ') + ';');
   next();
 });
 
-// ✅ UNIFIED CORS Configuration - Single, clean setup
-const allowedOrigins = [
-  'https://app2.binarjoinanelytic.info',
-  'https://app2.binarjoinanelytic.info:6000',
-  'https://be152051-6870-4cc9-a9de-c6503e6a2aed-00-pxzg0scazi9o.sisko.replit.dev',
-  'http://localhost:5000',
-  'http://localhost:3000',
-  'http://127.0.0.1:5000'
-];
+// ✅ DYNAMIC CORS Configuration
+const getAllowedOrigins = () => {
+  const origins = [
+    'http://localhost:5000',
+    'http://localhost:3000',
+    'http://127.0.0.1:5000'
+  ];
+
+  // Add DOMAIN from env if exists
+  if (process.env.DOMAIN) {
+    origins.push(process.env.DOMAIN);
+    // Also allow the same domain with port 6000 for production if not already specified
+    if (!process.env.DOMAIN.includes(':6000')) {
+      origins.push(`${process.env.DOMAIN}:6000`);
+    }
+  }
+
+  // Add REPLIT_DEV_DOMAIN if in development
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    origins.push(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+  }
+
+  return origins;
+};
 
 app.use(cors({
   origin: function(origin, callback) {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('replit.dev')) {
+    
+    const allowedOrigins = getAllowedOrigins();
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      origin.endsWith('.replit.dev') || 
+                      origin.includes('binarjoinanelytic.info');
+
+    if (isAllowed) {
       callback(null, true);
     } else {
       console.log('🚫 [CORS] Origin not allowed:', origin);
-      callback(null, true); // Allow all for now but log
+      callback(null, true); // Fallback to allow but log
     }
   },
   credentials: true,

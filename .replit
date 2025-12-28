@@ -77,10 +77,11 @@ VITE_FIREBASE_VAPID_KEY = "YGwRxS-k2lYQ-HdK5KkTYdceZgM3xcaTYxQoitDTwZk"
 PORT = "5000"
 HEALTH_CHECK_PORT = "5000"
 HEALTH_CHECK_URL = "http://localhost:5000/api/health"
-DOMAIN = "https://app2.binarjoinanelytic.info"
+DOMAIN = "https://be152051-6870-4cc9-a9de-c6503e6a2aed-00-pxzg0scazi9o.sisko.replit.dev"
 
 [userenv.production]
 PORT = "6000"
+DOMAIN = "https://app2.binarjoinanelytic.info"
 
 [[ports]]
 localPort = 3000

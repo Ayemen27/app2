@@ -68,11 +68,8 @@ export async function apiRequest(
   data?: any,
   retryCount: number = 0
 ): Promise<any> {
-  let apiBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-  
-  if (apiBase && !apiBase.startsWith('http')) {
-    apiBase = `https://${apiBase}`;
-  }
+  // في بيئة التطوير على Replit، استخدم window.location.origin دائماً
+  let apiBase = window.location.origin;
 
   let url = endpoint;
   if (!endpoint.startsWith("http")) {
@@ -131,7 +128,15 @@ export async function apiRequest(
       const refreshToken = localStorage.getItem("refreshToken");
       if (refreshToken) {
         try {
-          const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || window.location.origin;
+          let apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || window.location.origin;
+          
+          // في بيئة التطوير على Replit، استخدم window.location.origin كـ API base
+          if (!apiBase || apiBase === "" || (apiBase && apiBase !== window.location.origin && !apiBase.startsWith('http'))) {
+            apiBase = window.location.origin;
+          } else if (apiBase && !apiBase.startsWith('http')) {
+            apiBase = `https://${apiBase}`;
+          }
+          
           const refreshUrl = apiBase.endsWith('/') ? `${apiBase}api/auth/refresh` : `${apiBase}/api/auth/refresh`;
           
           console.log(`🔄 [apiRequest] Calling refresh at: ${refreshUrl}`);
@@ -241,13 +246,8 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
 
-    // Ensure apiBase is a clean prefix with protocol
-    let apiBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-    
-    // If apiBase doesn't start with http, it might be just a domain, so we add protocol
-    if (apiBase && !apiBase.startsWith('http')) {
-      apiBase = `https://${apiBase}`;
-    }
+    // في بيئة التطوير على Replit، استخدم window.location.origin دائماً
+    let apiBase = window.location.origin;
 
     const endpoint = queryKey.join("/");
     let url = endpoint;

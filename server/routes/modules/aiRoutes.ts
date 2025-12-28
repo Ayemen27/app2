@@ -31,6 +31,19 @@ router.use((req, res, next) => {
 import authenticate from "../../middleware/auth.js";
 router.use(authenticate);
 
+// ✅ مسار فحص المصادقة (لأغراض التصحيح)
+router.get("/test-auth", (req: any, res: Response) => {
+  res.json({ 
+    success: true, 
+    message: "المصادقة تعمل بنجاح", 
+    user: req.user ? {
+      id: req.user.id,
+      email: req.user.email,
+      role: req.user.role
+    } : null
+  });
+});
+
 /**
  * التحقق من أن المستخدم مسؤول (admin)
  */
@@ -44,7 +57,7 @@ async function isAdmin(userId: string): Promise<boolean> {
       .limit(1);
 
     if (user.length === 0) return false;
-    return user[0].role === "admin";
+    return user[0].role === "admin" || user[0].role === "super_admin";
   } catch (error) {
     console.error("Error checking admin:", error);
     return false;
@@ -54,25 +67,28 @@ async function isAdmin(userId: string): Promise<boolean> {
 /**
  * Middleware للتحقق من صلاحية المسؤول
  */
-async function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  // ✅ التحقق أولاً من التوكن المفكك في middleware المصادقة
+async function requireAdmin(req: any, res: Response, next: NextFunction) {
+  // ✅ التحقق أولاً من وجود المستخدم في الطلب (تم تعيينه بواسطة authenticate middleware)
   if (!req.user || !req.user.userId) {
-    console.error("❌ [AI/Auth] No user or userId in request");
+    console.error("❌ [AI/Auth] User not found in request. Authentication failed.");
     return res.status(401).json({ error: "غير مصرح - يرجى تسجيل الدخول" });
   }
 
-  console.log(`🔍 [AI/Auth] Verifying admin for user: ${req.user.userId} (Role in token: ${req.user.role})`);
+  const userId = req.user.userId;
+  const userRole = req.user.role;
 
-  // ✅ السماح للمسؤولين بناءً على الدور الموجود في التوكن أولاً لسرعة الأداء
-  if (req.user.role === 'admin') {
+  console.log(`🔍 [AI/Auth] Verifying admin for user: ${userId} (Role in token: ${userRole})`);
+
+  // ✅ السماح للمسؤولين بناءً على الدور الموجود في التوكن (أسرع)
+  if (userRole === 'admin' || userRole === 'super_admin') {
     return next();
   }
 
-  // Fallback: التحقق من قاعدة البيانات إذا لم يكن الدور واضحاً
+  // Fallback: التحقق من قاعدة البيانات إذا لم يكن الدور واضحاً في التوكن
   try {
-    const isAdminUser = await isAdmin(req.user.userId);
+    const isAdminUser = await isAdmin(userId);
     if (!isAdminUser) {
-      console.warn(`⚠️ [AI/Auth] Access denied for user: ${req.user.userId}`);
+      console.warn(`⚠️ [AI/Auth] Access denied for user: ${userId}`);
       return res.status(403).json({ error: "هذه الميزة متاحة فقط للمسؤولين" });
     }
     next();

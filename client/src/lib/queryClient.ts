@@ -132,7 +132,11 @@ export async function apiRequest(
       if (refreshToken) {
         try {
           const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || window.location.origin;
-          const refreshResponse = await fetch(`${apiBase}/api/auth/refresh`, {
+          const refreshUrl = apiBase.endsWith('/') ? `${apiBase}api/auth/refresh` : `${apiBase}/api/auth/refresh`;
+          
+          console.log(`🔄 [apiRequest] Calling refresh at: ${refreshUrl}`);
+          
+          const refreshResponse = await fetch(refreshUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -48,8 +48,23 @@ app.use((req, res, next) => {
 });
 
 // ✅ UNIFIED CORS Configuration - Single, clean setup
+const allowedOrigins = [
+  'https://app2.binarjoinanelytic.info',
+  'https://be132031-6870-4cc9-a9de-c6503e6a2aed-00-pxzg0scazi9o.sisko.replit.dev',
+  'http://localhost:5000',
+  'http://localhost:3000'
+];
+
 app.use(cors({
-  origin: true,
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('replit.dev')) {
+      callback(null, true);
+    } else {
+      console.log('🚫 [CORS] Origin not allowed:', origin);
+      callback(null, true); // Allow all for now but log
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
@@ -59,7 +74,9 @@ app.use(cors({
     'X-Auth-Token',
     'x-auth-token',
     'Accept',
-    'Origin'
+    'Origin',
+    'x-device-type',
+    'x-device-name'
   ],
   exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
   optionsSuccessStatus: 200,

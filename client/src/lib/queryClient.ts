@@ -104,15 +104,7 @@ export async function apiRequest(
     headers["x-auth-token"] = token;
   }
   
-  // إضافة معلومات المستخدم للطلب إذا لزم الأمر
-  if (userStr) {
-    try {
-      const user = JSON.parse(userStr);
-      headers["X-User-Id"] = user.id;
-      headers["user-id"] = user.id;
-      headers["x-user-id"] = user.id;
-    } catch (e) {}
-  }
+  // ✅ لا نرسل user-id headers - الخادم يستخدم Authorization Bearer للمصادقة فقط
 
   const config: RequestInit = {
     method,

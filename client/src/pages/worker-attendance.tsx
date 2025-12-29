@@ -547,6 +547,15 @@ export default function WorkerAttendance() {
 
 
   const handleAttendanceChange = (workerId: string, attendance: AttendanceData[string]) => {
+    const worker = workers.find(w => w.id === workerId);
+    if (worker && attendance.isPresent && attendance.workDays === undefined) {
+      attendance.workDays = 1; // Default to 1 day if not set
+      const dailyWage = parseFloat(worker.dailyWage || "0");
+      attendance.actualWage = dailyWage * (attendance.workDays || 0);
+      attendance.totalPay = attendance.actualWage;
+      attendance.remainingAmount = attendance.totalPay - parseFloat(attendance.paidAmount || "0");
+    }
+    
     setAttendanceData(prev => ({
       ...prev,
       [workerId]: attendance,

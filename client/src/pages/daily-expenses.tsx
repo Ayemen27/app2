@@ -293,22 +293,25 @@ function DailyExpensesContent() {
       return;
     }
 
-    const dailyWage = worker.dailyWage ? worker.dailyWage.toString() : "0";
-    
+    const dailyWageNum = parseFloat(String(worker.dailyWage || "0"));
+    const workDaysNum = parseFloat(workerDays || "0");
+    const paidAmountNum = parseFloat(workerAmount || "0");
+    const actualWage = dailyWageNum * workDaysNum;
+
     const attendanceData = {
       workerId: selectedWorkerId,
       projectId: selectedProjectId,
       attendanceDate: selectedDate || getCurrentDate(),
-      workDays: parseFloat(workerDays),
-      dailyWage: dailyWage,
-      actualWage: (parseFloat(dailyWage) * parseFloat(workerDays)).toString(),
-      totalPay: (parseFloat(dailyWage) * parseFloat(workerDays)).toString(),
+      workDays: workDaysNum,
+      dailyWage: dailyWageNum.toString(),
+      actualWage: actualWage.toString(),
+      totalPay: actualWage.toString(),
       paidAmount: workerAmount,
-      remainingAmount: (parseFloat(dailyWage) * parseFloat(workerDays) - parseFloat(workerAmount)).toString(),
+      remainingAmount: (actualWage - paidAmountNum).toString(),
       workDescription: workerNotes || "أجر يومي (إضافة سريعة)",
       notes: workerNotes,
       wellId: selectedWellId || null,
-      paymentType: parseFloat(workerAmount) >= (parseFloat(dailyWage) * parseFloat(workerDays)) ? "full" : "partial",
+      paymentType: paidAmountNum >= actualWage ? "full" : "partial",
     };
 
     console.log('📝 [DailyExpenses] إرسال بيانات الحضور:', attendanceData);

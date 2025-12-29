@@ -137,7 +137,8 @@ export default function EnhancedWorkerCard({
     if (!localAttendance.isPresent) return 0;
     if (recordType === "advance") return 0;
     const workDays = localAttendance.workDays || 0;
-    const dailyWage = parseFloat(worker.dailyWage || "0");
+    // Ensure we handle both numeric and string dailyWage values correctly
+    const dailyWage = parseFloat(String(worker.dailyWage || "0"));
     return Math.max(0, dailyWage * workDays);
   };
 

@@ -77,9 +77,13 @@ export function SearchableSelect({
 
   useEffect(() => {
     if (open && showSearch && searchInputRef.current) {
-      setTimeout(() => {
+      // استخدام تركيز فوري بدلاً من setTimeout لضمان ظهور لوحة المفاتيح بسرعة
+      searchInputRef.current.focus();
+      // إبقاء setTimeout كخيار احتياطي لبعض المتصفحات
+      const timer = setTimeout(() => {
         searchInputRef.current?.focus();
-      }, 100);
+      }, 50);
+      return () => clearTimeout(timer);
     }
     if (!open) {
       setSearchTerm('');

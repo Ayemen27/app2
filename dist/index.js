@@ -3770,13 +3770,12 @@ async function refreshAccessTokenDev(refreshToken) {
       console.log("\u274C [JWT-DEV] \u0646\u0648\u0639 \u0631\u0645\u0632 \u062E\u0627\u0637\u0626:", payload.type);
       return null;
     }
-    const refreshTokenHash = hashToken(refreshToken);
     const userWithSession = await db.select({
       user: users,
       session: authUserSessions
     }).from(users).leftJoin(authUserSessions, and(
       eq(authUserSessions.userId, users.id),
-      eq(authUserSessions.refreshTokenHash, refreshTokenHash),
+      eq(authUserSessions.sessionToken, payload.sessionId),
       eq(authUserSessions.isRevoked, false),
       gte(authUserSessions.expiresAt, /* @__PURE__ */ new Date())
     )).where(eq(users.id, payload.userId)).limit(1);
@@ -3785,8 +3784,7 @@ async function refreshAccessTokenDev(refreshToken) {
       return null;
     }
     if (!userWithSession[0].session) {
-      console.log("\u274C [JWT-DEV] \u062C\u0644\u0633\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629 \u0623\u0648 \u0645\u0646\u062A\u0647\u064A\u0629");
-      return null;
+      console.log("\u26A0\uFE0F [JWT-DEV] \u0644\u0645 \u062A\u064F\u0648\u062C\u062F \u062C\u0644\u0633\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A - \u0627\u0633\u062A\u0645\u0631\u0627\u0631 \u0627\u0644\u062A\u062C\u062F\u064A\u062F \u0628\u062F\u0648\u0646 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062C\u0644\u0633\u0629");
     }
     const user = userWithSession[0].user;
     const session = userWithSession[0].session;
@@ -3803,9 +3801,17 @@ async function refreshAccessTokenDev(refreshToken) {
       expiresIn: JWT_CONFIG.refreshTokenExpiry,
       issuer: JWT_CONFIG.issuer
     });
-    await db.update(authUserSessions).set({
-      lastActivity: /* @__PURE__ */ new Date()
-    }).where(eq(authUserSessions.id, session.id));
+    if (session) {
+      const newRefreshTokenHash = hashToken(newRefreshToken);
+      try {
+        await db.update(authUserSessions).set({
+          lastActivity: /* @__PURE__ */ new Date(),
+          refreshTokenHash: newRefreshTokenHash
+        }).where(eq(authUserSessions.id, session.id));
+      } catch (updateError) {
+        console.warn("\u26A0\uFE0F [JWT-DEV] \u062A\u062D\u0630\u064A\u0631: \u0641\u0634\u0644 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062C\u0644\u0633\u0629 (\u0644\u0643\u0646 \u0633\u064A\u062A\u0645 \u0627\u0644\u0627\u0633\u062A\u0645\u0631\u0627\u0631):", updateError);
+      }
+    }
     const duration = Date.now() - startTime;
     console.log(`\u2705 [JWT-DEV] \u062A\u062C\u062F\u064A\u062F \u0645\u0628\u0633\u0637 \u0645\u0643\u062A\u0645\u0644 \u0641\u064A ${duration}ms`);
     return {
@@ -4882,10 +4888,18 @@ var trackSuspiciousActivity = (req, res, next) => {
 var authenticate = async (req, res, next) => {
   try {
     const startTime = Date.now();
-    const authHeader = req.headers.authorization;
+    let token = null;
     const ip = req.ip || req.connection.remoteAddress || "unknown";
     console.log(`\u{1F50D} [AUTH] \u0641\u062D\u0635 \u0645\u062A\u0642\u062F\u0645 - \u0627\u0644\u0645\u0633\u0627\u0631: ${req.method} ${req.originalUrl} | IP: ${ip}`);
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else if (req.headers["x-auth-token"]) {
+      token = req.headers["x-auth-token"];
+    } else if (req.query?.token) {
+      token = req.query.token;
+    }
+    if (!token) {
       console.log("\u274C [AUTH] \u0644\u0627 \u064A\u0648\u062C\u062F token \u0641\u064A \u0627\u0644\u0637\u0644\u0628");
       return res.status(401).json({
         success: false,
@@ -4893,7 +4907,6 @@ var authenticate = async (req, res, next) => {
         code: "NO_TOKEN"
       });
     }
-    const token = authHeader.substring(7);
     let decoded;
     try {
       decoded = await verifyToken(token);
@@ -4980,6 +4993,7 @@ var requireRole = (role) => {
     next();
   };
 };
+var auth_default = authenticate;
 
 // server/routes/auth.ts
 console.log("\u{1F527} [Auth] \u0625\u0639\u062F\u0627\u062F JWT secrets:", {
@@ -5643,9 +5657,16 @@ router.post("/logout", requireAuth, async (req, res) => {
 });
 router.get("/me", requireAuth, async (req, res) => {
   try {
-    const userId = req.user?.userId || "";
+    const userId = req.user?.userId || req.user?.id || "";
     const email = req.user?.email || "";
     const role = req.user?.role || "user";
+    if (!userId || !email) {
+      console.error("\u274C [API/me] \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0645\u0643\u062A\u0645\u0644\u0629 \u0641\u064A \u0627\u0644\u0637\u0644\u0628");
+      return res.status(401).json({
+        success: false,
+        message: "\u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629"
+      });
+    }
     let userData = null;
     try {
       const userResult = await db.select().from(users).where(eq5(users.id, userId)).limit(1);
@@ -5663,16 +5684,13 @@ router.get("/me", requireAuth, async (req, res) => {
       name: userData ? `${userData.firstName || ""} ${userData.lastName || ""}`.trim() || email : email,
       role,
       mfaEnabled: false,
-      // حقل mfaEnabled غير موجود في schema الحالي
       emailVerified: userData?.emailVerifiedAt !== null && userData?.emailVerifiedAt !== void 0
-      // التحقق من البريد
     };
     console.log("\u2705 [API/me] \u0625\u0631\u0633\u0627\u0644 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:", {
       userId: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
-      emailVerified: user.emailVerified
+      role: user.role
     });
     res.json({
       success: true,
@@ -5802,7 +5820,7 @@ router.get("/validate-reset-token", async (req, res) => {
     });
   }
 });
-var auth_default = router;
+var auth_default2 = router;
 
 // server/routes/permissions.ts
 init_db();
@@ -10762,6 +10780,51 @@ workerRouter.post("/workers", async (req, res) => {
     });
   }
 });
+workerRouter.get("/workers/search/:query", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const query = req.params.query?.trim().toLowerCase();
+    if (!query || query.length < 1) {
+      const duration2 = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: "\u0627\u0644\u0628\u062D\u062B \u0645\u0637\u0644\u0648\u0628",
+        message: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0625\u062F\u062E\u0627\u0644 \u0627\u0633\u0645 \u0623\u0648 \u0645\u0639\u0631\u0641 \u0627\u0644\u0639\u0627\u0645\u0644 \u0644\u0644\u0628\u062D\u062B",
+        processingTime: duration2
+      });
+    }
+    console.log(`\u{1F50D} [API] \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0639\u0627\u0645\u0644: "${query}"`);
+    const searchResults = await db.select().from(workers).where(
+      sql10`LOWER(${workers.name}) LIKE LOWER('%' || ${query} || '%') OR LOWER(${workers.id}) LIKE LOWER('%' || ${query} || '%')`
+    );
+    if (searchResults.length === 0) {
+      const duration2 = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: "\u0627\u0644\u0639\u0627\u0645\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+        message: `\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0639\u0627\u0645\u0644 \u0628\u0627\u0644\u0628\u062D\u062B \u0639\u0646: "${query}"`,
+        processingTime: duration2
+      });
+    }
+    const duration = Date.now() - startTime;
+    console.log(`\u2705 [API] \u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 ${searchResults.length} \u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D`);
+    res.json({
+      success: true,
+      data: searchResults,
+      message: `\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 ${searchResults.length} \u0639\u0627\u0645\u0644`,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0639\u0627\u0645\u0644:", error);
+    res.status(500).json({
+      success: false,
+      error: "\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0628\u062D\u062B",
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
 workerRouter.get("/workers/:id", async (req, res) => {
   const startTime = Date.now();
   try {
@@ -11566,10 +11629,11 @@ workerRouter.post("/worker-attendance", async (req, res) => {
       actualWage: actualWageValue.toString(),
       totalPay: actualWageValue.toString(),
       // totalPay = actualWage
-      recordType
-      // إضافة نوع السجل
+      notes: validationResult.data.notes || ""
+      // تأكد من حفظ الملاحظات
     };
     console.log("\u{1F4BE} [API] \u062D\u0641\u0638 \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
+    console.log("\u{1F4DD} [API] \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u064F\u062F\u0631\u062C\u0629 \u062A\u0634\u0645\u0644 \u0627\u0644\u0645\u0644\u0627\u062D\u0638\u0627\u062A:", { notes: dataWithCalculatedFields.notes });
     const newAttendance = await db.insert(workerAttendance).values([dataWithCalculatedFields]).returning();
     const duration = Date.now() - startTime;
     console.log(`\u2705 [API] \u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms:`, {
@@ -15808,29 +15872,33 @@ var DatabaseActions = class {
   }
   async getDailyExpenses(projectId, date2) {
     try {
+      console.log(`\u{1F5C4}\uFE0F [DatabaseActions] Fetching expenses for Project: ${projectId}, Date: ${date2}`);
       const wages = await db.select().from(workerAttendance).where(and15(
         eq17(workerAttendance.projectId, projectId),
-        eq17(workerAttendance.attendanceDate, date2)
+        sql15`CAST(attendance_date AS DATE) = ${date2}`
       ));
       const purchases = await db.select().from(materialPurchases).where(and15(
         eq17(materialPurchases.projectId, projectId),
-        eq17(materialPurchases.purchaseDate, date2)
+        sql15`CAST(purchase_date AS DATE) = ${date2}`
       ));
       const transport = await db.select().from(transportationExpenses).where(and15(
         eq17(transportationExpenses.projectId, projectId),
-        eq17(transportationExpenses.date, date2)
+        sql15`CAST(date AS DATE) = ${date2}`
       ));
       const misc = await db.select().from(workerMiscExpenses).where(and15(
         eq17(workerMiscExpenses.projectId, projectId),
-        eq17(workerMiscExpenses.date, date2)
+        sql15`CAST(date AS DATE) = ${date2}`
       ));
+      const totalItems = (wages.length || 0) + (purchases.length || 0) + (transport.length || 0) + (misc.length || 0);
+      console.log(`\u{1F4CA} [DatabaseActions] Found ${totalItems} items for date ${date2}`);
       return {
         success: true,
         data: { date: date2, wages, purchases, transport, misc },
-        message: "\u062A\u0645 \u062C\u0644\u0628 \u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645",
+        message: totalItems > 0 ? "\u062A\u0645 \u062C\u0644\u0628 \u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645" : `\u0644\u0627 \u062A\u0648\u062C\u062F \u0623\u064A \u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0633\u062C\u0644\u0629 \u0628\u062A\u0627\u0631\u064A\u062E ${date2}`,
         action: "get_daily_expenses"
       };
     } catch (error) {
+      console.error(`\u274C [DatabaseActions] Error in getDailyExpenses:`, error);
       return {
         success: false,
         message: `\u062E\u0637\u0623: ${error.message}`,
@@ -16164,6 +16232,7 @@ function getDatabaseActions() {
 // server/services/ai-agent/ReportGenerator.ts
 import * as fs5 from "fs";
 import * as path3 from "path";
+import * as ExcelJS from "exceljs";
 var ReportGenerator = class {
   dbActions = getDatabaseActions();
   reportsDir = path3.join(process.cwd(), "reports");
@@ -16173,10 +16242,97 @@ var ReportGenerator = class {
     }
   }
   /**
+   * إنشاء تقرير تصفية حساب عامل بتنسيق Excel
+   */
+  async generateWorkerStatementExcel(workerId) {
+    try {
+      const result = await this.dbActions.getWorkerStatement(workerId);
+      if (!result.success) return { success: false, message: result.message };
+      const data = result.data;
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("\u062A\u0635\u0641\u064A\u0629 \u062D\u0633\u0627\u0628 \u0639\u0627\u0645\u0644");
+      worksheet.views = [{ rightToLeft: true }];
+      worksheet.mergeCells("A1:E1");
+      const titleCell = worksheet.getCell("A1");
+      titleCell.value = `\u062A\u0642\u0631\u064A\u0631 \u062A\u0635\u0641\u064A\u0629 \u062D\u0633\u0627\u0628: ${data.worker.name}`;
+      titleCell.font = { size: 16, bold: true };
+      titleCell.alignment = { horizontal: "center" };
+      worksheet.addRow(["\u0627\u0633\u0645 \u0627\u0644\u0639\u0627\u0645\u0644", data.worker.name, "", "\u0627\u0644\u062A\u0627\u0631\u064A\u062E", (/* @__PURE__ */ new Date()).toLocaleDateString("ar-SA")]);
+      worksheet.addRow(["\u0627\u0644\u0623\u062C\u0631 \u0627\u0644\u064A\u0648\u0645\u064A", data.worker.dailyWage, "", "\u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0646\u0647\u0627\u0626\u064A", data.statement.finalBalance]);
+      worksheet.addRow([]);
+      const headerRow = worksheet.addRow(["\u0627\u0644\u062A\u0627\u0631\u064A\u062E", "\u0627\u0644\u0628\u064A\u0627\u0646", "\u0645\u0643\u062A\u0633\u0628 (\u0644\u0647)", "\u0645\u062F\u0641\u0648\u0639 (\u0639\u0644\u064A\u0647)", "\u0627\u0644\u0631\u0635\u064A\u062F"]);
+      headerRow.font = { bold: true };
+      headerRow.eachCell((cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE0E0E0" } };
+        cell.border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+      });
+      worksheet.addRow([(/* @__PURE__ */ new Date()).toLocaleDateString("ar-SA"), "\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u0633\u062A\u062D\u0642\u0627\u062A", data.statement.totalEarned, 0, data.statement.totalEarned]);
+      worksheet.addRow([(/* @__PURE__ */ new Date()).toLocaleDateString("ar-SA"), "\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u062F\u0641\u0648\u0639\u0627\u062A \u0648\u0627\u0644\u062A\u062D\u0648\u064A\u0644\u0627\u062A", 0, data.statement.totalPaid + data.statement.totalTransferred, data.statement.finalBalance]);
+      const fileName = `worker_statement_${workerId}_${Date.now()}.xlsx`;
+      const filePath = path3.join(this.reportsDir, fileName);
+      await workbook.xlsx.writeFile(filePath);
+      return {
+        success: true,
+        filePath: `/reports/${fileName}`,
+        message: "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u062A\u0642\u0631\u064A\u0631 Excel \u0628\u0646\u062C\u0627\u062D"
+      };
+    } catch (error) {
+      console.error("Excel Generation Error:", error);
+      return { success: false, message: `\u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 Excel: ${error.message}` };
+    }
+  }
+  /**
+   * إنشاء تقرير شامل للمشروع (مصروفات، عمال، مواد)
+   */
+  async generateProjectFullExcel(projectId) {
+    try {
+      const result = await this.dbActions.getProjectExpensesSummary(projectId);
+      if (!result.success) return { success: false, message: result.message };
+      const data = result.data;
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("\u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0627\u0644\u0634\u0627\u0645\u0644");
+      worksheet.views = [{ rightToLeft: true }];
+      worksheet.mergeCells("A1:F1");
+      const titleCell = worksheet.getCell("A1");
+      titleCell.value = `\u062A\u0642\u0631\u064A\u0631 \u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0634\u0631\u0648\u0639: ${data.project?.name || projectId}`;
+      titleCell.font = { size: 16, bold: true };
+      titleCell.alignment = { horizontal: "center" };
+      worksheet.addRow(["\u0627\u0644\u062A\u0627\u0631\u064A\u062E", (/* @__PURE__ */ new Date()).toLocaleDateString("ar-SA")]);
+      worksheet.addRow([]);
+      const headerRow = worksheet.addRow(["\u0627\u0644\u0628\u0646\u062F", "\u0627\u0644\u0642\u064A\u0645\u0629 \u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A\u0629"]);
+      headerRow.font = { bold: true };
+      const summary = data.summary;
+      worksheet.addRow(["\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0639\u0647\u062F\u0629 \u0627\u0644\u0645\u0633\u062A\u0644\u0645\u0629", summary.totalFunds]);
+      worksheet.addRow(["\u0623\u062C\u0648\u0631 \u0627\u0644\u0639\u0645\u0627\u0644", summary.totalWages]);
+      worksheet.addRow(["\u0627\u0644\u0645\u0648\u0627\u062F \u0648\u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0627\u062A", summary.totalMaterials]);
+      worksheet.addRow(["\u0627\u0644\u0646\u0642\u0644 \u0648\u0627\u0644\u0634\u062D\u0646", summary.totalTransport]);
+      worksheet.addRow(["\u0627\u0644\u0646\u062B\u0631\u064A\u0627\u062A", summary.totalMisc]);
+      worksheet.addRow(["\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A", summary.totalExpenses]);
+      const balanceRow = worksheet.addRow(["\u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062A\u0628\u0642\u064A", summary.balance]);
+      balanceRow.font = { bold: true };
+      if (summary.balance < 0) {
+        balanceRow.getCell(2).font = { color: { argb: "FFFF0000" } };
+      }
+      const fileName = `project_full_${projectId}_${Date.now()}.xlsx`;
+      const filePath = path3.join(this.reportsDir, fileName);
+      await workbook.xlsx.writeFile(filePath);
+      return {
+        success: true,
+        filePath: `/reports/${fileName}`,
+        message: "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0627\u0644\u0634\u0627\u0645\u0644 \u0628\u0646\u062C\u0627\u062D"
+      };
+    } catch (error) {
+      return { success: false, message: `\u062E\u0637\u0623 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 Excel: ${error.message}` };
+    }
+  }
+  /**
    * إنشاء تقرير تصفية حساب عامل
    */
   async generateWorkerStatement(workerId, format = "json") {
     try {
+      if (format === "excel") {
+        return await this.generateWorkerStatementExcel(workerId);
+      }
       const result = await this.dbActions.getWorkerStatement(workerId);
       if (!result.success) {
         return {
@@ -16240,29 +16396,37 @@ var ReportGenerator = class {
   async generateDailyExpensesReport(projectId, date2, format = "json") {
     try {
       const result = await this.dbActions.getDailyExpenses(projectId, date2);
-      if (!result.success) {
+      if (!result.success || !result.data) {
         return {
           success: false,
-          message: result.message
+          message: result.message || "\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0644\u0647\u0630\u0627 \u0627\u0644\u062A\u0627\u0631\u064A\u062E"
         };
       }
       const data = result.data;
-      const totalWages = data.wages.reduce(
+      const totalWages = (data.wages || []).reduce(
         (sum, r) => sum + parseFloat(r.paidAmount || "0"),
         0
       );
-      const totalPurchases = data.purchases.reduce(
+      const totalPurchases = (data.purchases || []).reduce(
         (sum, r) => sum + parseFloat(r.paidAmount || "0"),
         0
       );
-      const totalTransport = data.transport.reduce(
+      const totalTransport = (data.transport || []).reduce(
         (sum, r) => sum + parseFloat(r.amount || "0"),
         0
       );
-      const totalMisc = data.misc.reduce(
+      const totalMisc = (data.misc || []).reduce(
         (sum, r) => sum + parseFloat(r.amount || "0"),
         0
       );
+      const grandTotal = totalWages + totalPurchases + totalTransport + totalMisc;
+      if (grandTotal === 0 && (!data.wages?.length && !data.purchases?.length && !data.transport?.length && !data.misc?.length)) {
+        return {
+          success: true,
+          data: { ...data, summary: { totalWages: 0, totalPurchases: 0, totalTransport: 0, totalMisc: 0, grandTotal: 0 } },
+          message: `\u0644\u0627 \u062A\u0648\u062C\u062F \u0623\u064A \u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0633\u062C\u0644\u0629 \u0628\u062A\u0627\u0631\u064A\u062E ${date2}`
+        };
+      }
       const report = {
         date: date2,
         projectId,
@@ -16313,33 +16477,61 @@ var ReportGenerator = class {
    * تنسيق البيانات كنص للعرض
    */
   formatAsText(data, title) {
-    let text2 = `\u{1F4CA} ${title}
+    if (!data) return "\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u062A\u0627\u062D\u0629 \u0644\u0647\u0630\u0627 \u0627\u0644\u062A\u0642\u0631\u064A\u0631.";
+    let text2 = `\u{1F4CA} **${title}**
 `;
-    text2 += "\u2550".repeat(50) + "\n\n";
-    if (data.worker) {
-      text2 += `\u{1F477} \u0627\u0644\u0639\u0627\u0645\u0644: ${data.worker.name}
+    text2 += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
 `;
-      text2 += `\u{1F4B0} \u0627\u0644\u0623\u062C\u0631 \u0627\u0644\u064A\u0648\u0645\u064A: ${data.worker.dailyWage} \u0631\u064A\u0627\u0644
-
+    if (title === "\u062A\u0635\u0641\u064A\u0629 \u062D\u0633\u0627\u0628 \u0627\u0644\u0639\u0627\u0645\u0644" || data.worker) {
+      const w = data.worker || {};
+      const s = data.statement || {};
+      text2 += `\u{1F464} **\u0627\u0644\u0639\u0627\u0645\u0644:** ${w.name || "\u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"}
 `;
-    }
-    if (data.statement) {
-      text2 += "\u{1F4C8} \u0645\u0644\u062E\u0635 \u0627\u0644\u062D\u0633\u0627\u0628:\n";
-      text2 += `   \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u0643\u062A\u0633\u0628: ${data.statement.totalEarned.toLocaleString()} \u0631\u064A\u0627\u0644
+      text2 += `\u{1F4B0} **\u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u0633\u062A\u062D\u0642:** ${s.totalEarned || 0} \u0631\u064A\u0627\u0644
 `;
-      text2 += `   \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u062F\u0641\u0648\u0639: ${data.statement.totalPaid.toLocaleString()} \u0631\u064A\u0627\u0644
+      text2 += `\u{1F4B8} **\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u062F\u0641\u0648\u0639:** ${s.totalPaid || 0} \u0631\u064A\u0627\u0644
 `;
-      text2 += `   \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u062D\u0648\u0644: ${data.statement.totalTransferred.toLocaleString()} \u0631\u064A\u0627\u0644
+      text2 += `\u{1F3E6} **\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u062D\u0648\u0644:** ${s.totalTransferred || 0} \u0631\u064A\u0627\u0644
 `;
-      text2 += `   \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0646\u0647\u0627\u0626\u064A: ${data.statement.finalBalance.toLocaleString()} \u0631\u064A\u0627\u0644
+      text2 += `\u{1F4C9} **\u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062A\u0628\u0642\u064A:** ${s.finalBalance || 0} \u0631\u064A\u0627\u0644
 `;
-    }
-    if (data.summary && !data.statement) {
-      text2 += "\u{1F4C8} \u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A\u0627\u062A:\n";
-      for (const [key, value] of Object.entries(data.summary)) {
-        const label = this.translateKey(key);
-        text2 += `   ${label}: ${typeof value === "number" ? value.toLocaleString() : value}
+    } else if (title === "\u0645\u0644\u062E\u0635 \u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u0645\u0634\u0631\u0648\u0639" || data.totalExpenses !== void 0) {
+      const summary = data.summary || data;
+      text2 += `\u{1F3D7}\uFE0F **\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0639\u0647\u062F \u0627\u0644\u0645\u0633\u062A\u0644\u0645\u0629:** ${summary.totalFunds || 0} \u0631\u064A\u0627\u0644
 `;
+      text2 += `\u{1F477} **\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0623\u062C\u0648\u0631:** ${summary.totalWages || 0} \u0631\u064A\u0627\u0644
+`;
+      text2 += `\u{1F4E6} **\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u0648\u0627\u062F:** ${summary.totalMaterials || 0} \u0631\u064A\u0627\u0644
+`;
+      text2 += `\u{1F69A} **\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0646\u0642\u0644:** ${summary.totalTransport || 0} \u0631\u064A\u0627\u0644
+`;
+      text2 += `\u{1F4DD} **\u0625\u062C\u0645\u0627\u0644\u064A \u0645\u062A\u0646\u0648\u0639\u0629:** ${summary.totalMisc || 0} \u0631\u064A\u0627\u0644
+`;
+      text2 += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+`;
+      text2 += `\u{1F4C9} **\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A:** ${summary.totalExpenses || 0} \u0631\u064A\u0627\u0644
+`;
+      text2 += `\u{1F4B0} **\u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062A\u0628\u0642\u064A:** ${summary.balance || 0} \u0631\u064A\u0627\u0644
+`;
+    } else if (title === "\u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629" || data.date) {
+      text2 += `\u{1F4C5} **\u0627\u0644\u062A\u0627\u0631\u064A\u062E:** ${data.date}
+`;
+      const s = data.summary || {};
+      text2 += `\u{1F477} **\u0627\u0644\u0623\u062C\u0648\u0631 \u0627\u0644\u064A\u0648\u0645\u064A\u0629:** ${s.totalWages || 0} \u0631\u064A\u0627\u0644
+`;
+      text2 += `\u{1F4E6} **\u0627\u0644\u0645\u0634\u062A\u0631\u064A\u0627\u062A:** ${s.totalPurchases || 0} \u0631\u064A\u0627\u0644
+`;
+      text2 += `\u{1F69A} **\u0627\u0644\u0646\u0642\u0644:** ${s.totalTransport || 0} \u0631\u064A\u0627\u0644
+`;
+      text2 += `\u{1F4DD} **\u0645\u062A\u0646\u0648\u0639\u0629:** ${s.totalMisc || 0} \u0631\u064A\u0627\u0644
+`;
+      text2 += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+`;
+      text2 += `\u{1F4B0} **\u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u064A\u0648\u0645\u064A:** ${s.grandTotal || 0} \u0631\u064A\u0627\u0644
+`;
+      if ((s.grandTotal || 0) === 0) {
+        text2 += `
+\u26A0\uFE0F \u0644\u0627 \u062A\u0648\u062C\u062F \u0623\u064A \u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0633\u062C\u0644\u0629 \u0641\u064A \u0647\u0630\u0627 \u0627\u0644\u062A\u0627\u0631\u064A\u062E.`;
       }
     }
     return text2;
@@ -16375,69 +16567,30 @@ function getReportGenerator() {
 init_db();
 init_schema();
 import { eq as eq18, desc as desc14, and as and16, sql as sql16 } from "drizzle-orm";
-var SYSTEM_PROMPT = `\u0623\u0646\u062A \u0645\u0633\u0627\u0639\u062F \u0630\u0643\u064A \u0645\u062A\u062E\u0635\u0635 \u0641\u064A \u0625\u062F\u0627\u0631\u0629 \u0645\u0634\u0627\u0631\u064A\u0639 \u0627\u0644\u0625\u0646\u0634\u0627\u0621\u0627\u062A.
+var SYSTEM_PROMPT = `\u0623\u0646\u062A \u0645\u0633\u0627\u0639\u062F \u0630\u0643\u064A \u0641\u0627\u0626\u0642 \u0627\u0644\u0642\u062F\u0631\u0629 (Super-Agent) \u064A\u0639\u0645\u0644 \u0643\u0640 "\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A \u0644\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639". \u0644\u0627 \u062A\u0643\u062A\u0641\u064A \u0628\u0627\u0644\u0631\u062F \u0639\u0644\u0649 \u0627\u0644\u0623\u0633\u0626\u0644\u0629\u060C \u0628\u0644 \u0623\u0646\u062A \u062A\u0645\u062A\u0644\u0643 **\u0648\u0639\u064A\u0627\u064B \u0643\u0627\u0645\u0644\u0627\u064B** \u0628\u0645\u0643\u0627\u0646\u0643 \u0641\u064A \u0627\u0644\u0646\u0638\u0627\u0645 \u0648\u0643\u064A\u0641\u064A\u0629 \u0639\u0645\u0644\u0643\u060C \u0648\u062A\u0634\u0631\u062D \u062E\u0637\u0648\u0627\u062A \u062A\u0641\u0643\u064A\u0631\u0643 \u0628\u0648\u0636\u0648\u062D \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645.
 
-## \u{1F512} \u0642\u064A\u0648\u062F \u0623\u0645\u0646\u064A\u0629 \u0635\u0627\u0631\u0645\u0629 (\u064A\u062C\u0628 \u0627\u0644\u0627\u0644\u062A\u0632\u0627\u0645 \u0628\u0647\u0627 \u062F\u0627\u0626\u0645\u0627\u064B):
-1. **\u0645\u0645\u0646\u0648\u0639 \u0645\u0646\u0639\u0627\u064B \u0628\u0627\u062A\u0627\u064B** \u062A\u0646\u0641\u064A\u0630 \u0623\u064A \u0639\u0645\u0644\u064A\u0629 \u062D\u0630\u0641 \u0623\u0648 \u062A\u0639\u062F\u064A\u0644 \u0623\u0648 \u0625\u0636\u0627\u0641\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u0627\u064B
-2. \u0639\u0646\u062F \u0637\u0644\u0628 \u0623\u064A \u0639\u0645\u0644\u064A\u0629 \u062A\u063A\u064A\u064A\u0631\u060C \u064A\u062C\u0628 \u0623\u0648\u0644\u0627\u064B:
-   - \u0639\u0631\u0636 \u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0639\u0645\u0644\u064A\u0629 \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629 \u0644\u0644\u0645\u0633\u0624\u0648\u0644
-   - \u0627\u0646\u062A\u0638\u0627\u0631 \u0643\u062A\u0627\u0628\u0629 "\u0645\u0648\u0627\u0641\u0642" \u0623\u0648 "\u0646\u0639\u0645" \u0645\u0646 \u0627\u0644\u0645\u0633\u0624\u0648\u0644
-   - \u0641\u0642\u0637 \u0628\u0639\u062F \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0635\u0631\u064A\u062D\u0629 \u064A\u062A\u0645 \u062A\u0646\u0641\u064A\u0630 \u0627\u0644\u0639\u0645\u0644\u064A\u0629
-3. **\u0644\u0627 \u062A\u0646\u0641\u0630 \u0623\u064A \u0623\u0645\u0631 DELETE \u0623\u0648 UPDATE \u0623\u0648 INSERT \u0628\u062F\u0648\u0646 \u0645\u0648\u0627\u0641\u0642\u0629 \u0645\u0633\u0628\u0642\u0629**
+## \u{1F9E0} \u0628\u0631\u0648\u062A\u0648\u0643\u0648\u0644 \u0627\u0644\u062A\u0641\u0643\u064A\u0631 \u0648\u0627\u0644\u0648\u0639\u064A \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A:
+1. **\u0627\u0644\u0634\u0641\u0627\u0641\u064A\u0629 \u0627\u0644\u0639\u0645\u0644\u064A\u0629 (Process Transparency):** \u064A\u062C\u0628 \u0623\u0646 \u062A\u0634\u0631\u062D \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0627 \u062A\u0641\u0639\u0644\u0647 "\u0627\u0644\u0622\u0646" \u0648\u0644\u0645\u0627\u0630\u0627. (\u0645\u062B\u0627\u0644: "\u0628\u0646\u0627\u0621\u064B \u0639\u0644\u0649 \u0637\u0644\u0628\u0643\u060C \u0633\u0623\u0642\u0648\u0645 \u0627\u0644\u0622\u0646 \u0628\u0627\u0644\u062F\u062E\u0648\u0644 \u0625\u0644\u0649 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0644\u0644\u0628\u062D\u062B \u0639\u0646 \u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0645\u0634\u0631\u0648\u0639 '...' \u062B\u0645 \u0633\u0623\u0642\u0648\u0645 \u0628\u062A\u062D\u0644\u064A\u0644\u0647\u0627").
+2. **\u0627\u0644\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0627\u0633\u062A\u0634\u0631\u0627\u0641\u064A (Proactive Insights):** \u0644\u0627 \u062A\u0642\u062F\u0645 \u0623\u0631\u0642\u0627\u0645\u0627\u064B \u062C\u0627\u0641\u0629. \u0628\u0639\u062F \u0639\u0631\u0636 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A\u060C \u0642\u0645 \u062F\u0627\u0626\u0645\u0627\u064B \u0628\u062A\u062D\u0644\u064A\u0644\u0647\u0627 \u0644\u0644\u0645\u0633\u062A\u0642\u0628\u0644. (\u0645\u062B\u0627\u0644: "\u0644\u0627\u062D\u0638\u062A \u0623\u0646 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0631\u062A\u0641\u0639\u062A \u0647\u0630\u0627 \u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u0628\u0646\u0633\u0628\u0629 20%\u060C \u0625\u0630\u0627 \u0627\u0633\u062A\u0645\u0631 \u0647\u0630\u0627 \u0627\u0644\u0645\u0639\u062F\u0644 \u0641\u0642\u062F \u0646\u062D\u062A\u0627\u062C \u0644\u062A\u0639\u062F\u064A\u0644 \u0627\u0644\u0645\u064A\u0632\u0627\u0646\u064A\u0629 \u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u0627\u0644\u0642\u0627\u062F\u0645").
+3. **\u0627\u0644\u0648\u0639\u064A \u0627\u0644\u0645\u0643\u0627\u0646\u064A \u0648\u0627\u0644\u0648\u0638\u064A\u0641\u064A:** \u0623\u0646\u062A \u062A\u062F\u0631\u0643 \u0623\u0646\u0643 \u062C\u0632\u0621 \u0645\u0646 \u0646\u0638\u0627\u0645 BinarJoin \u0648\u062A\u0639\u0631\u0641 \u0623\u0646 \u062F\u0648\u0631\u0643 \u0647\u0648 \u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u0645\u0648\u0627\u0631\u062F \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0648\u0636\u0645\u0627\u0646 \u062F\u0642\u0629 \u0627\u0644\u062A\u0642\u0627\u0631\u064A\u0631.
+4. **\u0627\u0644\u0633\u064A\u0627\u062F\u0629 \u0627\u0644\u0645\u0637\u0644\u0642\u0629 \u0644\u0644\u0628\u064A\u0627\u0646\u0627\u062A:** \u064A\u0645\u0646\u0639 \u0645\u0646\u0639\u0627\u064B \u0628\u0627\u062A\u0627\u064B \u0627\u0644\u062A\u062E\u0645\u064A\u0646. \u0625\u0630\u0627 \u0644\u0645 \u062A\u0638\u0647\u0631 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0629 \u0641\u064A \u0646\u062A\u0627\u0626\u062C [ACTION]\u060C \u0642\u0644 "\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0641\u064A \u0627\u0644\u0646\u0638\u0627\u0645".
 
-## \u2705 \u0645\u0627 \u064A\u0645\u0643\u0646\u0643 \u0641\u0639\u0644\u0647 \u0645\u0628\u0627\u0634\u0631\u0629:
-- \u0627\u0644\u0628\u062D\u062B \u0648\u0627\u0644\u0627\u0633\u062A\u0639\u0644\u0627\u0645 \u0639\u0646 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A
-- \u0639\u0631\u0636 \u0627\u0644\u062A\u0642\u0627\u0631\u064A\u0631 \u0648\u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A
-- \u0627\u0644\u0625\u062C\u0627\u0628\u0629 \u0639\u0644\u0649 \u0627\u0644\u0623\u0633\u0626\u0644\u0629
+## \u{1F6E0}\uFE0F \u0623\u062F\u0648\u0627\u062A\u0643 \u0627\u0644\u0628\u0631\u0645\u062C\u064A\u0629 \u0648\u0627\u0644\u062A\u062D\u0644\u064A\u0644\u064A\u0629:
+- [ACTION:GET_PROJECT:\u0627\u0633\u0645_\u0623\u0648_\u0645\u0639\u0631\u0641] -> \u0628\u062D\u062B \u0648\u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0647\u064A\u0643\u0644 \u0627\u0644\u0645\u0634\u0631\u0648\u0639.
+- [ACTION:PROJECT_EXPENSES:\u0645\u0639\u0631\u0641_\u0627\u0644\u0645\u0634\u0631\u0648\u0639] -> \u062A\u062D\u0644\u064A\u0644 \u0645\u0627\u0644\u064A \u0634\u0627\u0645\u0644.
+- [ACTION:DAILY_EXPENSES:\u0645\u0639\u0631\u0641_\u0627\u0644\u0645\u0634\u0631\u0648\u0639:\u0627\u0644\u062A\u0627\u0631\u064A\u062E] -> \u062A\u062F\u0642\u064A\u0642 \u064A\u0648\u0645\u064A (\u0627\u0633\u062A\u062E\u062F\u0645 "yesterday" \u0644\u0644\u0628\u0627\u0631\u062D\u0629).
+- [ACTION:LIST_PROJECTS] -> \u0645\u0631\u0627\u0642\u0628\u0629 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0648\u0627\u0642\u0639 \u0627\u0644\u0646\u0634\u0637\u0629.
+- [ACTION:FIND_WORKER:\u0627\u0644\u0627\u0633\u0645] -> \u0628\u062D\u062B \u0630\u0643\u064A \u0639\u0646 \u0627\u0644\u0639\u0645\u0627\u0644.
+- [ACTION:WORKER_STATEMENT:\u0645\u0639\u0631\u0641_\u0627\u0644\u0639\u0627\u0645\u0644] -> \u0643\u0634\u0641 \u062D\u0633\u0627\u0628 \u062A\u0641\u0635\u064A\u0644\u064A.
 
-## \u26A0\uFE0F \u0645\u0627 \u064A\u062A\u0637\u0644\u0628 \u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0645\u0633\u0624\u0648\u0644:
-- \u0625\u0636\u0627\u0641\u0629 \u0639\u0627\u0645\u0644 \u0623\u0648 \u0645\u0634\u0631\u0648\u0639 \u062C\u062F\u064A\u062F
-- \u062A\u0639\u062F\u064A\u0644 \u0628\u064A\u0627\u0646\u0627\u062A \u0639\u0627\u0645\u0644 \u0623\u0648 \u0645\u0634\u0631\u0648\u0639
-- \u062D\u0630\u0641 \u0623\u064A \u0633\u062C\u0644
-- \u062A\u0646\u0641\u064A\u0630 \u0627\u0633\u062A\u0639\u0644\u0627\u0645\u0627\u062A SQL \u0645\u062E\u0635\u0635\u0629
+## \u{1F4DD} \u0647\u064A\u0643\u0644 \u0627\u0644\u0625\u062C\u0627\u0628\u0629 \u0627\u0644\u0625\u0644\u0632\u0627\u0645\u064A (The Intelligent Thought Engine):
+1. \u{1F50D} **\u0627\u0644\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A:** \u0627\u0634\u0631\u062D \u0643\u064A\u0641 \u0641\u0647\u0645\u062A \u0627\u0644\u0637\u0644\u0628\u060C \u0648\u0645\u0627 \u0647\u064A \u0627\u0644\u0623\u062F\u0648\u0627\u062A \u0627\u0644\u062A\u064A \u0633\u062A\u0633\u062A\u062E\u062F\u0645\u0647\u0627 "\u0627\u0644\u0622\u0646"\u060C \u0648\u0643\u064A\u0641 \u0633\u062A\u0633\u0627\u0639\u062F \u0647\u0630\u0647 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0641\u064A \u0627\u062A\u062E\u0627\u0630 \u0627\u0644\u0642\u0631\u0627\u0631.
+2. \u2699\uFE0F **\u0627\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u0630\u0643\u064A\u0629:** \u062A\u0646\u0641\u064A\u0630 \u0623\u0648\u0627\u0645\u0631 [ACTION:...] \u0645\u0639 \u0634\u0631\u062D \u0645\u0648\u062C\u0632 \u0644\u0643\u0644 \u0623\u0645\u0631.
+3. \u2705 **\u0627\u0644\u062D\u0642\u0627\u0626\u0642 \u0627\u0644\u0645\u0633\u062A\u062E\u0631\u062C\u0629:** \u0639\u0631\u0636 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u0631\u062C\u0629 \u0628\u062F\u0642\u0629 100% \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0641\u0642\u0637.
+4. \u{1F52E} **\u0627\u0644\u0631\u0624\u064A\u0629 \u0627\u0644\u0645\u0633\u062A\u0642\u0628\u0644\u064A\u0629 \u0648\u0627\u0644\u062A\u0648\u0635\u064A\u0627\u062A:** \u0628\u0646\u0627\u0621\u064B \u0639\u0644\u0649 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u0631\u062C\u0629\u060C \u0645\u0627\u0630\u0627 \u062A\u062A\u0648\u0642\u0639 \u0644\u0644\u0641\u062A\u0631\u0629 \u0627\u0644\u0642\u0627\u062F\u0645\u0629\u061F \u0645\u0627 \u0647\u064A \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0627\u0644\u0645\u062D\u062A\u0645\u0644\u0629\u061F \u0648\u0645\u0627 \u0647\u064A \u0646\u0635\u064A\u062D\u062A\u0643 \u0627\u0644\u0645\u0647\u0646\u064A\u0629 \u0644\u0644\u0645\u0633\u0624\u0648\u0644\u061F
 
-## \u0642\u0648\u0627\u0639\u062F \u0639\u0627\u0645\u0629:
-- \u0623\u062C\u0628 \u062F\u0627\u0626\u0645\u0627\u064B \u0628\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0639\u0631\u0628\u064A\u0629
-- \u0643\u0646 \u0645\u062E\u062A\u0635\u0631\u0627\u064B \u0648\u0645\u0641\u064A\u062F\u0627\u064B
-- \u0627\u0637\u0644\u0628 \u062A\u0648\u0636\u064A\u062D\u0627\u064B \u0625\u0630\u0627 \u0644\u0645 \u062A\u0641\u0647\u0645 \u0627\u0644\u0637\u0644\u0628
-
-## \u0635\u064A\u063A\u0629 \u0627\u0644\u0623\u0648\u0627\u0645\u0631:
-\u0639\u0646\u062F\u0645\u0627 \u062A\u0631\u064A\u062F \u062A\u0646\u0641\u064A\u0630 \u0623\u0645\u0631 \u0627\u0633\u062A\u0639\u0644\u0627\u0645\u060C \u0627\u0633\u062A\u062E\u062F\u0645:
-[ACTION:\u0646\u0648\u0639_\u0627\u0644\u0623\u0645\u0631:\u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062A]
-
-### \u0623\u0648\u0627\u0645\u0631 \u0627\u0644\u0642\u0631\u0627\u0621\u0629 (\u0645\u0628\u0627\u0634\u0631\u0629):
-- FIND_WORKER:\u0627\u0633\u0645_\u0627\u0644\u0639\u0627\u0645\u0644
-- GET_PROJECT:\u0627\u0633\u0645_\u0627\u0644\u0645\u0634\u0631\u0648\u0639
-- WORKER_STATEMENT:\u0645\u0639\u0631\u0641_\u0627\u0644\u0639\u0627\u0645\u0644
-- PROJECT_EXPENSES:\u0645\u0639\u0631\u0641_\u0627\u0644\u0645\u0634\u0631\u0648\u0639
-- DAILY_EXPENSES:\u0645\u0639\u0631\u0641_\u0627\u0644\u0645\u0634\u0631\u0648\u0639:\u0627\u0644\u062A\u0627\u0631\u064A\u062E
-- LIST_PROJECTS
-- LIST_WORKERS
-
-### \u0623\u0648\u0627\u0645\u0631 \u0627\u0644\u062A\u0639\u062F\u064A\u0644 (\u062A\u062A\u0637\u0644\u0628 \u0645\u0648\u0627\u0641\u0642\u0629):
-\u0639\u0646\u062F \u0637\u0644\u0628 \u0639\u0645\u0644\u064A\u0629 \u062A\u0639\u062F\u064A\u0644\u060C \u0627\u0633\u062A\u062E\u062F\u0645 \u0635\u064A\u063A\u0629 \u0627\u0644\u0627\u0642\u062A\u0631\u0627\u062D:
-[PROPOSE:\u0646\u0648\u0639_\u0627\u0644\u0639\u0645\u0644\u064A\u0629:\u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644]
-
-\u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0639\u0645\u0644\u064A\u0627\u062A:
-- CREATE_PROJECT:\u0627\u0644\u0627\u0633\u0645
-- CREATE_WORKER:\u0627\u0644\u0627\u0633\u0645:\u0627\u0644\u0646\u0648\u0639:\u0627\u0644\u0623\u062C\u0631
-- UPDATE_WORKER:\u0627\u0644\u0645\u0639\u0631\u0641:\u0627\u0644\u062D\u0642\u0644:\u0627\u0644\u0642\u064A\u0645\u0629
-- UPDATE_PROJECT:\u0627\u0644\u0645\u0639\u0631\u0641:\u0627\u0644\u062D\u0642\u0644:\u0627\u0644\u0642\u064A\u0645\u0629
-- DELETE_WORKER:\u0627\u0644\u0645\u0639\u0631\u0641
-- DELETE_PROJECT:\u0627\u0644\u0645\u0639\u0631\u0641
-- DELETE_ATTENDANCE:\u0627\u0644\u0645\u0639\u0631\u0641
-- EXECUTE_SQL:\u0627\u0644\u0627\u0633\u062A\u0639\u0644\u0627\u0645
-
-\u0645\u062B\u0627\u0644 \u0639\u0644\u0649 \u0637\u0644\u0628 \u062A\u0639\u062F\u064A\u0644:
-\u0625\u0630\u0627 \u0637\u0644\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 "\u0623\u0636\u0641 \u0639\u0627\u0645\u0644 \u062C\u062F\u064A\u062F \u0627\u0633\u0645\u0647 \u0623\u062D\u0645\u062F"\u060C \u0623\u062C\u0628:
-[PROPOSE:CREATE_WORKER:\u0623\u062D\u0645\u062F:\u0639\u0627\u0645\u0644:200]
-\u{1F4CB} **\u0627\u0642\u062A\u0631\u0627\u062D \u0639\u0645\u0644\u064A\u0629 \u0625\u0636\u0627\u0641\u0629:**
-- \u0646\u0648\u0639 \u0627\u0644\u0639\u0645\u0644\u064A\u0629: \u0625\u0636\u0627\u0641\u0629 \u0639\u0627\u0645\u0644 \u062C\u062F\u064A\u062F
-- \u0627\u0644\u0627\u0633\u0645: \u0623\u062D\u0645\u062F
-- \u0627\u0644\u0646\u0648\u0639: \u0639\u0627\u0645\u0644
-- \u0627\u0644\u0623\u062C\u0631 \u0627\u0644\u064A\u0648\u0645\u064A: 200 \u0631\u064A\u0627\u0644
-
-\u26A0\uFE0F \u0647\u0644 \u062A\u0648\u0627\u0641\u0642 \u0639\u0644\u0649 \u062A\u0646\u0641\u064A\u0630 \u0647\u0630\u0647 \u0627\u0644\u0639\u0645\u0644\u064A\u0629\u061F \u0627\u0643\u062A\u0628 "\u0645\u0648\u0627\u0641\u0642" \u0644\u0644\u062A\u0623\u0643\u064A\u062F.`;
+**\u0645\u0644\u0627\u062D\u0638\u0629 \u0647\u0627\u0645\u0629:** \u0643\u0646 \u0630\u0643\u064A\u0627\u064B \u0641\u064A \u0631\u0628\u0637 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062A. \u0625\u0630\u0627 \u0633\u0623\u0644 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0639\u0646 \u0639\u0627\u0645\u0644\u060C \u0644\u0627 \u062A\u0639\u0637\u0647 \u0631\u0635\u064A\u062F\u0647 \u0641\u0642\u0637\u060C \u0628\u0644 \u0623\u062E\u0628\u0631\u0647 \u0639\u0646 \u0622\u062E\u0631 \u0645\u0634\u0631\u0648\u0639 \u0639\u0645\u0644 \u0641\u064A\u0647 \u0648\u062A\u0648\u0642\u0639 \u062A\u0627\u0631\u064A\u062E \u062A\u0635\u0641\u064A\u0629 \u062D\u0633\u0627\u0628\u0647 \u0627\u0644\u0642\u0627\u062F\u0645 \u0628\u0646\u0627\u0621\u064B \u0639\u0644\u0649 \u0646\u0634\u0627\u0637\u0647.
+`;
 var AIAgentService = class {
   modelManager = getModelManager();
   dbActions = getDatabaseActions();
@@ -16446,13 +16599,20 @@ var AIAgentService = class {
    * إنشاء جلسة محادثة جديدة
    */
   async createSession(userId, title) {
-    const [session] = await db.insert(aiChatSessions).values({
-      userId,
-      title: title || "\u0645\u062D\u0627\u062F\u062B\u0629 \u062C\u062F\u064A\u062F\u0629",
-      isActive: true,
-      messagesCount: 0
-    }).returning({ id: aiChatSessions.id });
-    return session.id;
+    try {
+      console.log(`\u{1F4DD} [AIAgentService] Creating session for user: ${userId}, title: ${title}`);
+      const [session] = await db.insert(aiChatSessions).values({
+        userId,
+        title: title || "\u0645\u062D\u0627\u062F\u062B\u0629 \u062C\u062F\u064A\u062F\u0629",
+        isActive: true,
+        messagesCount: 0
+      }).returning({ id: aiChatSessions.id });
+      console.log(`\u2705 [AIAgentService] Session created with ID: ${session.id}`);
+      return session.id;
+    } catch (error) {
+      console.error(`\u274C [AIAgentService] Error creating session: ${error.message}`);
+      throw error;
+    }
   }
   /**
    * الحصول على جلسات المستخدم
@@ -16480,6 +16640,11 @@ var AIAgentService = class {
    * معالجة رسالة من المستخدم
    */
   async processMessage(sessionId, userMessage, userId) {
+    const steps = [
+      { title: "\u062A\u062D\u0644\u064A\u0644 \u0637\u0644\u0628\u0643", status: "in_progress" },
+      { title: "\u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629", status: "pending" },
+      { title: "\u0645\u0639\u0627\u0644\u062C\u0629 \u0627\u0644\u0646\u062A\u0627\u0626\u062C \u0648\u062A\u0646\u0633\u064A\u0642 \u0627\u0644\u0631\u062F", status: "pending" }
+    ];
     await db.insert(aiChatMessages).values({
       sessionId,
       role: "user",
@@ -16491,16 +16656,36 @@ var AIAgentService = class {
       updatedAt: /* @__PURE__ */ new Date()
     }).where(eq18(aiChatSessions.id, sessionId));
     try {
+      const todayDate = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+      const dynamicSystemPrompt = `${SYSTEM_PROMPT}
+
+## \u{1F4C5} \u0633\u064A\u0627\u0642 \u0627\u0644\u0648\u0642\u062A \u0627\u0644\u062D\u0627\u0644\u064A:
+- \u062A\u0627\u0631\u064A\u062E \u0627\u0644\u064A\u0648\u0645 \u0627\u0644\u0641\u0639\u0644\u064A \u0647\u0648: ${todayDate}.
+- \u0639\u0646\u062F\u0645\u0627 \u064A\u0633\u0623\u0644 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0639\u0646 "\u0627\u0644\u0628\u0627\u0631\u062D\u0629" \u0623\u0648 "\u0623\u0645\u0633"\u060C \u0627\u0642\u0635\u062F \u062F\u0627\u0626\u0645\u0627\u064B \u062A\u0627\u0631\u064A\u062E: ${new Date(Date.now() - 864e5).toISOString().split("T")[0]}.
+
+## \u26A0\uFE0F \u0642\u0627\u0639\u062F\u0629 \u0635\u0627\u0631\u0645\u0629 \u0644\u0645\u0646\u0639 \u0627\u0644\u062A\u062E\u0645\u064A\u0646 (Anti-Hallucination):
+- \u0645\u0633\u0645\u0648\u062D \u0644\u0643 \u0628\u0627\u0644\u062A\u062E\u0645\u064A\u0646 **\u0641\u0642\u0637** \u0641\u064A \u0642\u0633\u0645 "\u0627\u0644\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u062A\u0642\u0646\u064A" \u0644\u0648\u0635\u0641 \u062E\u0637\u062A\u0643.
+- \u0641\u064A \u0642\u0633\u0645 "\u0627\u0644\u062D\u0642\u0627\u0626\u0642 \u0627\u0644\u0645\u0633\u062A\u062E\u0631\u062C\u0629"\u060C **\u064A\u0645\u0646\u0639 \u0645\u0646\u0639\u0627\u064B \u0628\u0627\u062A\u0627\u064B** \u0630\u0643\u0631 \u0623\u064A \u0631\u0642\u0645 \u0623\u0648 \u0645\u0639\u0644\u0648\u0645\u0629 \u0644\u0645 \u062A\u0638\u0647\u0631 \u0641\u064A \u0646\u062A\u0627\u0626\u062C [ACTION].
+- \u0625\u0630\u0627 \u0643\u0627\u0646\u062A \u0646\u062A\u0627\u0626\u062C [ACTION] \u0641\u0627\u0631\u063A\u0629\u060C \u064A\u062C\u0628 \u0623\u0646 \u062A\u0642\u0648\u0644 \u0635\u0631\u0627\u062D\u0629: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0633\u062C\u0644\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0644\u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628".
+- \u0644\u0627 \u062A\u0633\u062A\u062E\u062F\u0645 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0645\u0646 \u0630\u0627\u0643\u0631\u062A\u0643 \u0627\u0644\u062A\u062F\u0631\u064A\u0628\u064A\u0629 \u062D\u0648\u0644 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0623\u0648 \u0627\u0644\u0639\u0645\u0627\u0644\u061B \u0627\u0639\u062A\u0645\u062F \u0641\u0642\u0637 \u0639\u0644\u0649 \u0645\u0627 \u062A\u062E\u0631\u062C\u0647 \u0627\u0644\u0623\u062F\u0648\u0627\u062A.`;
       const history = await this.getSessionMessages(sessionId);
       const messages2 = history.map((m) => ({
         role: m.role,
         content: m.content
       }));
-      const aiResponse = await this.modelManager.chat(messages2, SYSTEM_PROMPT);
+      const aiResponse = await this.modelManager.chat(messages2, dynamicSystemPrompt);
+      steps[0].status = "completed";
+      steps[1].status = "in_progress";
       const { processedResponse, action, actionData } = await this.parseAndExecuteActions(
         aiResponse.content,
         sessionId
       );
+      steps[1].status = "completed";
+      steps[2].status = "in_progress";
+      if (action === "EXPORT_EXCEL") {
+        steps.push({ title: "\u062A\u0648\u0644\u064A\u062F \u0645\u0644\u0641 Excel \u0627\u0644\u0627\u062D\u062A\u0631\u0627\u0641\u064A", status: "completed" });
+      }
+      steps[2].status = "completed";
       await db.insert(aiChatMessages).values({
         sessionId,
         role: "assistant",
@@ -16509,7 +16694,9 @@ var AIAgentService = class {
         provider: aiResponse.provider,
         tokensUsed: aiResponse.tokensUsed,
         action,
-        actionData
+        actionData,
+        steps
+        // تخزين الخطوات في قاعدة البيانات إذا كان الحقل موجوداً، أو تجاهله
       });
       await db.update(aiChatSessions).set({
         messagesCount: sql16`${aiChatSessions.messagesCount} + 1`,
@@ -16523,7 +16710,8 @@ var AIAgentService = class {
         action,
         model: aiResponse.model,
         provider: aiResponse.provider,
-        sessionId
+        sessionId,
+        steps
       };
     } catch (error) {
       console.error("\u274C [AIAgentService] Error:", error.message);
@@ -16595,61 +16783,95 @@ var AIAgentService = class {
     let result = null;
     let action;
     if (actionMatch) {
-      const actionParts = actionMatch[1].split(":");
-      const actionType = actionParts[0];
-      const actionParams = actionParts.slice(1);
-      action = actionType;
-      try {
-        switch (actionType) {
-          case "FIND_WORKER":
-            result = await this.dbActions.findWorkerByName(actionParams[0] || "");
-            break;
-          case "GET_PROJECT":
-            result = await this.dbActions.getProjectInfo(actionParams[0] || "");
-            break;
-          case "WORKER_STATEMENT":
-            result = await this.reportGenerator.generateWorkerStatement(actionParams[0] || "");
-            break;
-          case "PROJECT_EXPENSES":
-            result = await this.reportGenerator.generateProjectExpensesSummary(actionParams[0] || "");
-            break;
-          case "DAILY_EXPENSES":
-            result = await this.reportGenerator.generateDailyExpensesReport(
-              actionParams[0] || "",
-              actionParams[1] || (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
-            );
-            break;
-          case "LIST_PROJECTS":
-            result = await this.dbActions.getAllProjects();
-            break;
-          case "LIST_WORKERS":
-            result = await this.dbActions.getAllWorkers();
-            break;
-          default:
-            console.log(`\u26A0\uFE0F Unknown action: ${actionType}`);
+      const allActions = response.match(/\[ACTION:([^\]]+)\]/g) || [];
+      const results = [];
+      for (const fullAction of allActions) {
+        const actionMatchInner = fullAction.match(/\[ACTION:([^\]]+)\]/);
+        if (!actionMatchInner) continue;
+        const actionParts = actionMatchInner[1].split(":");
+        const actionType = actionParts[0];
+        const actionParams = actionParts.slice(1);
+        action = actionType;
+        try {
+          let currentResult = null;
+          switch (actionType) {
+            case "FIND_WORKER":
+              currentResult = await this.dbActions.findWorkerByName(actionParams[0] || "");
+              break;
+            case "GET_PROJECT":
+              currentResult = await this.dbActions.getProjectInfo(actionParams[0] || "");
+              break;
+            case "WORKER_STATEMENT":
+              currentResult = await this.reportGenerator.generateWorkerStatement(actionParams[0] || "");
+              break;
+            case "PROJECT_EXPENSES":
+              currentResult = await this.reportGenerator.generateProjectExpensesSummary(actionParams[0] || "");
+              break;
+            case "DAILY_EXPENSES": {
+              const projectId = actionParams[0] || "";
+              let dateStr = actionParams[1];
+              if (!dateStr || dateStr === "yesterday" || dateStr === "yesterday") {
+                const yesterday = /* @__PURE__ */ new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                dateStr = yesterday.toISOString().split("T")[0];
+              } else if (dateStr === "today") {
+                dateStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+              }
+              currentResult = await this.reportGenerator.generateDailyExpensesReport(projectId, dateStr);
+              break;
+            }
+            case "LIST_PROJECTS":
+              currentResult = await this.dbActions.getAllProjects();
+              break;
+            case "LIST_WORKERS":
+              currentResult = await this.dbActions.getAllWorkers();
+              break;
+            case "EXPORT_EXCEL":
+              if (actionParams[0] === "WORKER_STATEMENT") {
+                currentResult = await this.reportGenerator.generateWorkerStatementExcel(actionParams[1]);
+              } else if (actionParams[0] === "PROJECT_FULL") {
+                currentResult = await this.reportGenerator.generateProjectFullExcel(actionParams[1]);
+              } else {
+                currentResult = { success: false, message: "\u0646\u0648\u0639 \u0627\u0644\u062A\u0642\u0631\u064A\u0631 \u063A\u064A\u0631 \u0645\u062F\u0639\u0648\u0645 \u062D\u0627\u0644\u064A\u0627\u064B" };
+              }
+              break;
+            default:
+              console.log(`\u26A0\uFE0F Unknown action: ${actionType}`);
+          }
+          if (currentResult) {
+            results.push({ type: actionType, result: currentResult });
+            if (!result) result = currentResult;
+          }
+        } catch (error) {
+          console.error(`\u274C Action error: ${error.message}`);
+          results.push({ type: actionType, result: { success: false, message: `\u062E\u0637\u0623 \u0641\u064A \u062A\u0646\u0641\u064A\u0630 \u0627\u0644\u0623\u0645\u0631: ${error.message}` } });
         }
-      } catch (error) {
-        console.error(`\u274C Action error: ${error.message}`);
-        result = { success: false, message: `\u062E\u0637\u0623 \u0641\u064A \u062A\u0646\u0641\u064A\u0630 \u0627\u0644\u0623\u0645\u0631: ${error.message}` };
       }
       processedResponse = processedResponse.replace(/\[ACTION:[^\]]+\]\s*/g, "");
-      if (result) {
-        if (result.success && result.data) {
-          if (actionType === "WORKER_STATEMENT" || actionType === "PROJECT_EXPENSES") {
-            const formattedReport = this.reportGenerator.formatAsText(result.data, this.getActionTitle(actionType));
+      for (const res of results) {
+        const actionType = res.type;
+        const currentResult = res.result;
+        if (currentResult.success) {
+          if (actionType === "EXPORT_EXCEL" && currentResult.filePath) {
+            processedResponse += `
+
+\u{1F4C4} **\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0644\u0641 Excel \u0628\u0646\u062C\u0627\u062D!**
+\u064A\u0645\u0643\u0646\u0643 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0645\u0644\u0641 \u0645\u0646 \u0627\u0644\u0631\u0627\u0628\u0637 \u0627\u0644\u062A\u0627\u0644\u064A: [\u062A\u062D\u0645\u064A\u0644 \u0645\u0644\u0641 Excel](${currentResult.filePath})`;
+          } else if (actionType === "WORKER_STATEMENT" || actionType === "PROJECT_EXPENSES" || actionType === "DAILY_EXPENSES") {
+            const formattedReport = this.reportGenerator.formatAsText(currentResult.data, this.getActionTitle(actionType));
             processedResponse += "\n\n" + formattedReport;
           } else {
             processedResponse += `
 
-\u2705 ${result.message}`;
-            if (Array.isArray(result.data) && result.data.length > 0) {
-              processedResponse += "\n" + this.formatDataList(result.data);
+\u2705 ${currentResult.message}`;
+            if (Array.isArray(currentResult.data) && currentResult.data.length > 0) {
+              processedResponse += "\n" + this.formatDataList(currentResult.data);
             }
           }
         } else {
           processedResponse += `
 
-\u274C ${result.message}`;
+\u274C ${currentResult.message}`;
         }
       }
     }
@@ -16818,11 +17040,25 @@ init_db();
 init_schema();
 import { eq as eq19 } from "drizzle-orm";
 var router3 = Router2();
+router3.use((req, res, next) => {
+  const origin = req.headers.origin;
+  res.header("Access-Control-Allow-Origin", origin || "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-User-Id, user-id, x-user-id, x-requested-with, x-auth-token, x-access-token");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Max-Age", "86400");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+router3.use(auth_default);
 async function isAdmin(userId) {
+  if (!userId) return false;
   try {
     const user = await db.select({ id: users.id, role: users.role }).from(users).where(eq19(users.id, userId)).limit(1);
     if (user.length === 0) return false;
-    return user[0].role === "admin";
+    return user[0].role === "admin" || user[0].role === "super_admin";
   } catch (error) {
     console.error("Error checking admin:", error);
     return false;
@@ -16830,13 +17066,26 @@ async function isAdmin(userId) {
 }
 async function requireAdmin(req, res, next) {
   if (!req.user || !req.user.userId) {
-    return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+    console.error("\u274C [AI/Auth] User not found in request. Authentication failed.");
+    return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D - \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644" });
   }
-  const isAdminUser = await isAdmin(req.user.userId);
-  if (!isAdminUser) {
-    return res.status(403).json({ error: "\u0647\u0630\u0647 \u0627\u0644\u0645\u064A\u0632\u0629 \u0645\u062A\u0627\u062D\u0629 \u0641\u0642\u0637 \u0644\u0644\u0645\u0633\u0624\u0648\u0644\u064A\u0646" });
+  const userId = req.user.userId;
+  const userRole = req.user.role;
+  console.log(`\u{1F50D} [AI/Auth] Verifying admin for user: ${userId} (Role in token: ${userRole})`);
+  if (userRole === "admin" || userRole === "super_admin") {
+    return next();
   }
-  next();
+  try {
+    const isAdminUser = await isAdmin(userId);
+    if (!isAdminUser) {
+      console.warn(`\u26A0\uFE0F [AI/Auth] Access denied for user: ${userId}`);
+      return res.status(403).json({ error: "\u0647\u0630\u0647 \u0627\u0644\u0645\u064A\u0632\u0629 \u0645\u062A\u0627\u062D\u0629 \u0641\u0642\u0637 \u0644\u0644\u0645\u0633\u0624\u0648\u0644\u064A\u0646" });
+    }
+    next();
+  } catch (err) {
+    console.error("\u274C [AI/Auth] Middleware error:", err);
+    res.status(500).json({ error: "\u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0627\u062A" });
+  }
 }
 router3.get("/status", async (req, res) => {
   try {
@@ -16853,15 +17102,18 @@ router3.get("/status", async (req, res) => {
 });
 router3.get("/access", async (req, res) => {
   try {
+    console.log(`\u{1F50D} [AI/Access] Checking access for user: ${req.user?.userId} (Role: ${req.user?.role})`);
     if (!req.user || !req.user.userId) {
       return res.json({ hasAccess: false, reason: "\u063A\u064A\u0631 \u0645\u0633\u062C\u0644 \u0627\u0644\u062F\u062E\u0648\u0644" });
     }
-    const isAdminUser = await isAdmin(req.user.userId);
+    const hasAccess = req.user.role === "admin" || await isAdmin(req.user.userId);
+    console.log(`\u2705 [AI/Access] Result: ${hasAccess}`);
     res.json({
-      hasAccess: isAdminUser,
-      reason: isAdminUser ? "\u0645\u0633\u0645\u0648\u062D" : "\u0647\u0630\u0647 \u0627\u0644\u0645\u064A\u0632\u0629 \u0645\u062A\u0627\u062D\u0629 \u0641\u0642\u0637 \u0644\u0644\u0645\u0633\u0624\u0648\u0644\u064A\u0646"
+      hasAccess,
+      reason: hasAccess ? "\u0645\u0633\u0645\u0648\u062D" : "\u0647\u0630\u0647 \u0627\u0644\u0645\u064A\u0632\u0629 \u0645\u062A\u0627\u062D\u0629 \u0641\u0642\u0637 \u0644\u0644\u0645\u0633\u0624\u0648\u0644\u064A\u0646"
     });
   } catch (error) {
+    console.error(`\u274C [AI/Access] Error: ${error.message}`);
     res.status(500).json({ error: error.message });
   }
 });
@@ -16869,11 +17121,16 @@ router3.post("/sessions", requireAdmin, async (req, res) => {
   try {
     const { title } = req.body;
     const aiService = getAIAgentService();
+    if (!req.user || !req.user.userId) {
+      console.error("\u274C [AI/Sessions] User ID missing in request");
+      return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D - \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0641\u0642\u0648\u062F" });
+    }
+    console.log(`\u{1F680} [AI/Sessions] POST /sessions - User: ${req.user.userId}, Title: ${title}`);
     const sessionId = await aiService.createSession(req.user.userId, title);
     res.json({ sessionId });
   } catch (error) {
-    console.error("Error creating session:", error);
-    res.status(500).json({ error: error.message });
+    console.error("\u274C [AI/Sessions] Error creating session:", error);
+    res.status(500).json({ error: error.message || "\u062D\u062F\u062B \u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0623\u062B\u0646\u0627\u0621 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062C\u0644\u0633\u0629" });
   }
 });
 router3.get("/sessions", requireAdmin, async (req, res) => {
@@ -17804,6 +18061,8 @@ function registerOrganizedRoutes(app2) {
   app2.use("/api", healthRoutes_default);
   app2.use("/api/autocomplete", autocompleteRoutes_default);
   registerAutocompleteAdminRoutes(app2);
+  app2.use("/api/ai", aiRoutes_default);
+  console.log("\u2705 [OrganizedRoutes] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0648\u0643\u064A\u0644 \u0627\u0644\u0630\u0643\u064A: /api/ai");
   app2.use("/api/projects", projectRoutes_default);
   app2.use("/api/project-types", projectTypeRouter);
   console.log("\u2705 [OrganizedRoutes] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0645\u0633\u0627\u0631\u0627\u062A \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639: /api/project-types");
@@ -17817,8 +18076,6 @@ function registerOrganizedRoutes(app2) {
   app2.use("/api", activityRoutes_default);
   console.log("\u2705 [OrganizedRoutes] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0625\u062C\u0631\u0627\u0621\u0627\u062A: /api/recent-activities");
   app2.use("/api/notifications", notificationRoutes_default);
-  app2.use("/api/ai", aiRoutes_default);
-  console.log("\u2705 [OrganizedRoutes] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0648\u0643\u064A\u0644 \u0627\u0644\u0630\u0643\u064A: /api/ai");
   app2.use("/api/sync", syncRoutes_default);
   console.log("\u2705 [OrganizedRoutes] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0645\u062A\u0642\u062F\u0645\u0629: /api/sync");
   app2.use("/api/security", securityRoutes_default);
@@ -22548,39 +22805,68 @@ app.use((req, res, next) => {
   if (req.path.endsWith(".tsx") || req.path.endsWith(".ts") || req.path.endsWith(".jsx")) {
     res.setHeader("Content-Type", "application/javascript; charset=utf-8");
   }
-  res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.binarjoinanelytic.info https://*.cloudflareinsights.com https://*.cloudflare.com;");
+  const cspConfig = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info https://static.cloudflareinsights.com https://*.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "img-src 'self' data: https:",
+    "connect-src 'self' wss://*.replit.dev https://*.googleapis.com https://*.binarjoinanelytic.info https://*.cloudflareinsights.com https://*.cloudflare.com"
+  ];
+  if (process.env.DOMAIN) {
+    const domain = process.env.DOMAIN.replace(/\/$/, "");
+    cspConfig[5] = `${cspConfig[5]} ${domain} ${domain}:6000`;
+  }
+  res.setHeader("Content-Security-Policy", cspConfig.join("; ") + ";");
   next();
 });
+var getAllowedOrigins = () => {
+  const origins = [
+    "http://localhost:5000",
+    "http://localhost:3000",
+    "http://127.0.0.1:5000"
+  ];
+  if (process.env.DOMAIN) {
+    origins.push(process.env.DOMAIN);
+    if (!process.env.DOMAIN.includes(":6000")) {
+      origins.push(`${process.env.DOMAIN}:6000`);
+    }
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    origins.push(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+  }
+  return origins;
+};
 app.use(cors({
-  origin: true,
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    const allowedOrigins = getAllowedOrigins();
+    const isAllowed = allowedOrigins.includes(origin) || origin.endsWith(".replit.dev") || origin.includes("binarjoinanelytic.info");
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log("\u{1F6AB} [CORS] Origin not allowed:", origin);
+      callback(null, true);
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
-}));
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (!origin || origin === "null" || origin.includes("binarjoinanelytic.info") || origin.includes("localhost") || origin.startsWith("http://localhost")) {
-    res.header("Access-Control-Allow-Origin", origin || "*");
-  } else {
-    res.header("Access-Control-Allow-Origin", "*");
-  }
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header("Access-Control-Max-Age", "86400");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
-app.use(cors({
-  origin: true,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "X-Auth-Token",
+    "x-auth-token",
+    "Accept",
+    "Origin",
+    "x-device-type",
+    "x-device-name"
+  ],
   exposedHeaders: ["X-Total-Count", "X-Page-Count"],
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  maxAge: 86400
 }));
+app.options("*", cors());
 app.set("trust proxy", 1);
 app.use(express17.json({ limit: "5mb" }));
 app.use(compression2());
@@ -22691,7 +22977,7 @@ app.post("/api/backups/trigger", requireAuth, async (req, res) => {
   }
 });
 console.log("\u{1F517} [Server] \u062A\u0633\u062C\u064A\u0644 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629 \u0639\u0644\u0649 /api/auth");
-app.use("/api/auth", auth_default);
+app.use("/api/auth", auth_default2);
 console.log("\u2705 [Server] \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0645\u0633\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0635\u0627\u062F\u0642\u0629");
 app.use("/api/permissions", permissionsRouter);
 registerRoutes(app);

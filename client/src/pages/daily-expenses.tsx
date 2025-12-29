@@ -75,6 +75,12 @@ function DailyExpensesContent() {
   const [transportNotes, setTransportNotes] = useState<string>("");
   const [editingTransportationId, setEditingTransportationId] = useState<string | null>(null);
 
+  // Worker attendance form
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string>("");
+  const [workerDays, setWorkerDays] = useState<string>("");
+  const [workerAmount, setWorkerAmount] = useState<string>("");
+  const [workerNotes, setWorkerNotes] = useState<string>("");
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
@@ -2121,12 +2127,95 @@ function DailyExpensesContent() {
                 )}
               </div>
 
-              {/* أجور العمال - يظهر فقط عند وجود بيانات */}
+              {/* إضافة أجور العمال - حقول الإدخال السريعة */}
+              <div className="border-t pt-3 mt-3">
+                <h4 className="font-medium text-foreground flex items-center mb-3">
+                  <Users className="text-primary ml-2 h-5 w-5" />
+                  إضافة أجور عامل جديد
+                </h4>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="block text-sm font-medium text-foreground mb-1">العامل *</Label>
+                      <Select value={selectedWorkerId || ""} onValueChange={setSelectedWorkerId}>
+                        <SelectTrigger data-testid="select-worker">
+                          <SelectValue placeholder="اختر العامل" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {workers && workers.length > 0 ? (
+                            workers.map((worker) => (
+                              <SelectItem key={worker.id} value={worker.id || ""}>
+                                {worker.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="empty" disabled>لا توجد عمال متاحة</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="block text-sm font-medium text-foreground mb-1">عدد الأيام *</Label>
+                      <Input
+                        type="number"
+                        value={workerDays}
+                        onChange={(e) => setWorkerDays(e.target.value)}
+                        placeholder="0"
+                        className="text-center"
+                        min="0"
+                        step="0.5"
+                        data-testid="input-worker-days"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="block text-sm font-medium text-foreground mb-1">المبلغ المصروف *</Label>
+                      <Input
+                        type="number"
+                        value={workerAmount}
+                        onChange={(e) => setWorkerAmount(e.target.value)}
+                        placeholder="0"
+                        className="text-center arabic-numbers"
+                        min="0"
+                        step="0.01"
+                        data-testid="input-worker-amount"
+                      />
+                    </div>
+                    <div>
+                      <Label className="block text-sm font-medium text-foreground mb-1">الملاحظات</Label>
+                      <Input
+                        type="text"
+                        value={workerNotes}
+                        onChange={(e) => setWorkerNotes(e.target.value)}
+                        placeholder="ملاحظات إضافية"
+                        data-testid="input-worker-notes"
+                      />
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      if (!selectedWorkerId || !workerDays || !workerAmount) {
+                        toast({ title: "خطأ", description: "يرجى ملء الحقول المطلوبة", variant: "destructive" });
+                        return;
+                      }
+                      setLocation(`/worker-attendance?newWorker=${selectedWorkerId}&days=${workerDays}&amount=${workerAmount}&notes=${workerNotes}&date=${selectedDate}`);
+                    }}
+                    className="w-full bg-primary"
+                    data-testid="button-add-worker-attendance"
+                  >
+                    <Plus className="h-4 w-4 ml-2" />
+                    إضافة أجر العامل
+                  </Button>
+                </div>
+              </div>
+
+              {/* أجور العمال - عرض البطاقات */}
               {safeAttendance.length > 0 && (
                 <div className="border-t pt-3 mt-3">
                   <h4 className="font-medium text-foreground flex items-center">
                     <Users className="text-primary ml-2 h-5 w-5" />
-                    أجور العمال
+                    أجور العمال المضافة
                   </h4>
                   <div className="space-y-2 mt-2">
                     {safeAttendance.map((attendance: any, index) => {

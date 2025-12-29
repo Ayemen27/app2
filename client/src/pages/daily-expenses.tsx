@@ -2137,19 +2137,19 @@ function DailyExpensesContent() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="block text-sm font-medium text-foreground mb-1">العامل *</Label>
-                      <Select value={selectedWorkerId} onValueChange={setSelectedWorkerId}>
+                      <Select value={selectedWorkerId || undefined} onValueChange={setSelectedWorkerId}>
                         <SelectTrigger data-testid="select-worker">
                           <SelectValue placeholder="اختر العامل" />
                         </SelectTrigger>
                         <SelectContent>
                           {workers && workers.length > 0 ? (
                             workers.map((worker) => (
-                              <SelectItem key={worker.id} value={String(worker.id)}>
+                              <SelectItem key={worker.id} value={worker.id.toString()}>
                                 {worker.name}
                               </SelectItem>
                             ))
                           ) : (
-                            <SelectItem value="no-workers" disabled>
+                            <SelectItem value="none" disabled>
                               لا يوجد عمال متاحون
                             </SelectItem>
                           )}

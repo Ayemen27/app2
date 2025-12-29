@@ -38,38 +38,6 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
 
-  // تحديث حالة التوسع عند تغير البيانات
-  useEffect(() => {
-    setIsExpanded(todayMiscExpenses.length > 0);
-  }, [todayMiscExpenses]);
-
-  // تعيين إجراء الزر العائم لإضافة مصروف جديد
-  useEffect(() => {
-    const handleAddExpense = () => {
-      const addButton = document.querySelector('[aria-label="إضافة نثريات جديدة"]') as HTMLButtonElement;
-      if (addButton) {
-        addButton.click();
-      }
-    };
-    
-    setFloatingAction(handleAddExpense, "إضافة مصروف جديد");
-    return () => setFloatingAction(null);
-  }, [setFloatingAction]);
-
-  // دالة مساعدة لحفظ قيم الإكمال التلقائي
-  const saveAutocompleteValue = async (field: string, value: string) => {
-    if (!value || value.trim().length < 2) return;
-    
-    try {
-      await apiRequest('/api/autocomplete', 'POST', {
-        category: field,
-        value: value.trim()
-      });
-    } catch (error) {
-      console.error(`Error saving autocomplete value for ${field}:`, error);
-    }
-  };
-
   const { data: todayMiscExpenses = [] } = useQuery<WorkerMiscExpense[]>({
     queryKey: ["/api/worker-misc-expenses", projectId, selectedDate],
     queryFn: async () => {
@@ -87,6 +55,11 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
     },
     enabled: !!projectId,
   });
+
+  // تحديث حالة التوسع عند تغير البيانات
+  useEffect(() => {
+    setIsExpanded(todayMiscExpenses.length > 0);
+  }, [todayMiscExpenses]);
 
   const createMiscExpenseMutation = useMutation({
     mutationFn: (data: { amount: string; description: string; projectId: string; date: string }) =>

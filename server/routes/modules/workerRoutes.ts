@@ -1327,7 +1327,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       workDays: validationResult.data.workDays.toString(), // تحويل إلى string للتوافق مع decimal
       actualWage: actualWageValue.toString(),
       totalPay: actualWageValue.toString(), // totalPay = actualWage
-      notes: validationResult.data.notes || "" // تأكد من حفظ الملاحظات
+      notes: req.body.notes || validationResult.data.notes || "" // تأكد من جلب الملاحظات من جسم الطلب
     };
 
     // إدراج حضور العامل الجديد في قاعدة البيانات

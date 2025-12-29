@@ -306,6 +306,7 @@ function DailyExpensesContent() {
       paymentType: parseFloat(workerAmount) >= (parseFloat(worker.dailyWage.toString()) * parseFloat(workerDays)) ? "full" : "partial",
     };
 
+    console.log('📝 [DailyExpenses] إرسال بيانات الحضور:', attendanceData);
     addWorkerAttendanceMutation.mutate(attendanceData);
   };
 
@@ -2508,9 +2509,14 @@ function DailyExpensesContent() {
                             {attendance.workDescription && (
                               <p className="text-xs text-muted-foreground">النوع: {attendance.workDescription}</p>
                             )}
-                            {attendance.notes && (
-                              <p className="text-xs text-muted-foreground">ملاحظة: {attendance.notes}</p>
-                            )}
+                            <div className="flex flex-col gap-1">
+                              {attendance.notes && (
+                                <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 p-2 rounded-md border border-amber-200 dark:border-amber-900/50 mt-1">
+                                  <span className="font-bold text-amber-700 dark:text-amber-400">الملاحظات: </span>
+                                  {attendance.notes}
+                                </p>
+                              )}
+                            </div>
                             {isAllProjects && attendance.projectName && (
                               <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {attendance.projectName}</div>
                             )}

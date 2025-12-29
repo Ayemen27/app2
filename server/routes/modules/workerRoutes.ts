@@ -1325,11 +1325,12 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       workDays: validationResult.data.workDays.toString(), // تحويل إلى string للتوافق مع decimal
       actualWage: actualWageValue.toString(),
       totalPay: actualWageValue.toString(), // totalPay = actualWage
-      recordType: recordType // إضافة نوع السجل
+      notes: validationResult.data.notes || "" // تأكد من حفظ الملاحظات
     };
 
     // إدراج حضور العامل الجديد في قاعدة البيانات
     console.log('💾 [API] حفظ حضور العامل في قاعدة البيانات...');
+    console.log('📝 [API] البيانات المُدرجة تشمل الملاحظات:', { notes: dataWithCalculatedFields.notes });
     const newAttendance = await db.insert(workerAttendance).values([dataWithCalculatedFields]).returning();
 
     const duration = Date.now() - startTime;

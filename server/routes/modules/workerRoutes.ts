@@ -1443,23 +1443,29 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     const updateData: any = { ...validationResult.data };
 
     // تحويل workDays إلى string إذا كان موجوداً
-    if (updateData.workDays !== undefined) {
+    if (updateData.workDays !== undefined && updateData.workDays !== null) {
       updateData.workDays = updateData.workDays.toString();
     }
 
+    // تأكد من أن الملاحظات ووصف العمل يتم تضمينهما إذا تم إرسالهما
+    if (req.body.notes !== undefined) updateData.notes = req.body.notes;
+    if (req.body.workDescription !== undefined) updateData.workDescription = req.body.workDescription;
+
     // حساب actualWage
-    if (updateData.dailyWage && updateData.workDays) {
-      const actualWageValue = parseFloat(updateData.dailyWage) * parseFloat(updateData.workDays);
+    const dailyWage = updateData.dailyWage || existingAttendance[0].dailyWage;
+    const workDays = updateData.workDays || existingAttendance[0].workDays;
+
+    if (dailyWage && workDays) {
+      const actualWageValue = parseFloat(dailyWage) * parseFloat(workDays);
       updateData.actualWage = actualWageValue.toString();
       updateData.totalPay = actualWageValue.toString();
-    } else if (updateData.dailyWage && existingAttendance[0].workDays) {
-      const actualWageValue = parseFloat(updateData.dailyWage) * parseFloat(existingAttendance[0].workDays);
-      updateData.actualWage = actualWageValue.toString();
-      updateData.totalPay = actualWageValue.toString();
-    } else if (updateData.workDays && existingAttendance[0].dailyWage) {
-      const actualWageValue = parseFloat(existingAttendance[0].dailyWage) * parseFloat(updateData.workDays);
-      updateData.actualWage = actualWageValue.toString();
-      updateData.totalPay = actualWageValue.toString();
+      
+      // تحديث المتبقي إذا تم تحديث المدفوع أو الأيام
+      const paidAmount = updateData.paidAmount !== undefined ? updateData.paidAmount : existingAttendance[0].paidAmount;
+      if (paidAmount !== undefined) {
+        updateData.remainingAmount = (actualWageValue - parseFloat(paidAmount)).toString();
+        updateData.paymentType = parseFloat(paidAmount) >= actualWageValue ? "full" : "partial";
+      }
     }
 
     // تحديث حضور العامل

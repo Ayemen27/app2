@@ -2505,7 +2505,27 @@ function DailyExpensesContent() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <h4 className="font-semibold text-foreground text-sm">{attendance.workerName || worker?.name || `عامل ${index + 1}`}</h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-foreground text-sm">{attendance.workerName || worker?.name || `عامل ${index + 1}`}</h4>
+                                {worker?.type && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className={`text-[10px] px-1.5 h-4 flex items-center border-none ${
+                                      worker.type.includes("معلم") ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                                      worker.type.includes("حداد") ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" :
+                                      worker.type.includes("بلاط") ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+                                      worker.type.includes("دهان") ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" :
+                                      worker.type.includes("عامل") ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                                      worker.type.includes("نجار") ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                                      worker.type.includes("كهربائي") ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                                      worker.type.includes("سباك") ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400" :
+                                      "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                                    }`}
+                                  >
+                                    {worker.type}
+                                  </Badge>
+                                )}
+                              </div>
                               <span className="font-bold text-primary arabic-numbers text-base">{formatCurrency(paidAmount)}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -2515,7 +2535,7 @@ function DailyExpensesContent() {
                               </div>
                               <div className="text-muted-foreground">
                                 <span>الأجر اليومي: </span>
-                                <span className="font-medium text-foreground">{formatCurrency(cleanNumber(attendance.dailyWage))}</span>
+                                <span className="font-medium text-foreground">{formatCurrency(cleanNumber(attendance.dailyWage || worker?.dailyWage))}</span>
                               </div>
                             </div>
                             {deferredAmount > 0 && (

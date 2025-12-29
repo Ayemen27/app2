@@ -418,32 +418,32 @@ export default function EnhancedWorkerCard({
                 <h5 className="font-medium text-slate-800 dark:text-slate-200 text-sm" data-testid={`work-time-section-${worker.id}`}>تفاصيل العمل والدفع</h5>
               </div>
 
-              {/* الصف الأول: أوقات العمل - 3 حقول */}
-              <div className="grid grid-cols-3 gap-2 mb-3">
+              {/* الصف الأول: أوقات العمل والدفع - 4 حقول في صف واحد */}
+              <div className="grid grid-cols-4 gap-2 mb-3">
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">من</Label>
+                  <Label className="text-[10px] font-medium text-slate-600 dark:text-slate-400">من</Label>
                   <Input
                     type="time"
                     value={localAttendance.startTime || "07:00"}
                     onChange={(e) => updateAttendance({ startTime: e.target.value })}
-                    className="text-center font-mono text-sm h-8"
+                    className="text-center font-mono text-xs h-8 px-1"
                     data-testid={`start-time-input-${worker.id}`}
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">إلى</Label>
+                  <Label className="text-[10px] font-medium text-slate-600 dark:text-slate-400">إلى</Label>
                   <Input
                     type="time"
                     value={localAttendance.endTime || "15:00"}
                     onChange={(e) => updateAttendance({ endTime: e.target.value })}
-                    className="text-center font-mono text-sm h-8"
+                    className="text-center font-mono text-xs h-8 px-1"
                     data-testid={`end-time-input-${worker.id}`}
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">أيام</Label>
+                  <Label className="text-[10px] font-medium text-slate-600 dark:text-slate-400">أيام</Label>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -456,9 +456,22 @@ export default function EnhancedWorkerCard({
                       updateAttendance({ workDays: value === "" ? 0 : parseFloat(value) || 0 });
                     }}
                     placeholder="0"
-                    className="text-center font-mono english-numbers text-sm h-8"
+                    className="text-center font-mono english-numbers text-xs h-8"
                     style={{ direction: 'ltr', unicodeBidi: 'embed' }}
                     data-testid={`work-days-input-${worker.id}`}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-medium text-slate-600 dark:text-slate-400">المدفوع</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={localAttendance.paidAmount || ""}
+                    onChange={(e) => updateAttendance({ paidAmount: e.target.value })}
+                    className="text-center arabic-numbers text-xs h-8"
+                    data-testid={`paid-amount-input-${worker.id}`}
                   />
                 </div>
               </div>
@@ -525,90 +538,20 @@ export default function EnhancedWorkerCard({
                 />
               </div>
 
-              {/* الصف الثالث: معلومات الدفع */}
-              <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
-                <div className="flex items-center space-x-reverse space-x-2 mb-2">
-                  <Banknote className="h-4 w-4 text-slate-600" />
-                  <h6 className="font-medium text-slate-800 dark:text-slate-200 text-sm" data-testid={`payment-section-${worker.id}`}>معلومات الدفع</h6>
+              {/* الصف الثالث: ملاحظات */}
+              <div className="grid grid-cols-1 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">الملاحظات</Label>
+                  <Input
+                    type="text"
+                    value={localAttendance.notes || ""}
+                    onChange={(e) => updateAttendance({ notes: e.target.value })}
+                    placeholder="أضف ملاحظات..."
+                    className="text-sm h-8"
+                    data-testid={`notes-input-${worker.id}`}
+                  />
                 </div>
-
-                {/* الصف الأول: معلومات أساسية - 3 حقول */}
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">نوع الدفع</Label>
-                    <Select
-                      value={localAttendance.paymentType || "partial"}
-                      onValueChange={(value) => updateAttendance({ paymentType: value })}
-                    >
-                      <SelectTrigger className="h-8 text-sm" data-testid={`payment-type-select-${worker.id}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="full">دفع كامل</SelectItem>
-                        <SelectItem value="partial">دفع جزئي</SelectItem>
-                        <SelectItem value="credit">على الحساب</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">الأجر الفعلي</Label>
-                    <div className="h-8 px-2 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-md flex items-center justify-center">
-                      <span className="font-bold text-slate-700 dark:text-slate-300 arabic-numbers text-sm" data-testid={`actual-wage-display-${worker.id}`}>
-                        {formatCurrency(calculateBaseWage())}
-                      </span>
-                    </div>
-                  </div>
-
-                  {localAttendance.paymentType !== "credit" ? (
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">المبلغ المدفوع</Label>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        placeholder="0"
-                        value={localAttendance.paidAmount || ""}
-                        onChange={(e) => updateAttendance({ paidAmount: e.target.value })}
-                        className="text-center english-numbers text-sm h-8"
-                        style={{ direction: 'ltr', unicodeBidi: 'embed' }}
-                        data-testid={`paid-amount-input-${worker.id}`}
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">المبلغ المدفوع</Label>
-                      <div className="h-8 px-2 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-md flex items-center justify-center">
-                        <span className="text-xs text-slate-500">على الحساب</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* الصف الثاني: المبلغ المتبقي وإجمالي الدفع - 3 حقول */}
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">إجمالي الدفع</Label>
-                    <div className="h-8 px-2 py-1 bg-slate-200/50 dark:bg-slate-700/50 rounded-md flex items-center justify-center">
-                      <span className="font-bold text-slate-800 dark:text-slate-200 arabic-numbers text-sm" data-testid={`total-pay-display-${worker.id}`}>
-                        {formatCurrency(calculateTotalPay())}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">المبلغ المتبقي</Label>
-                    <div className="h-8 px-2 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-md flex items-center justify-center">
-                      <span className={`font-bold arabic-numbers text-sm ${
-                        calculateRemainingAmount() > 0 ? 'text-red-600' : calculateRemainingAmount() < 0 ? 'text-green-600' : 'text-slate-700 dark:text-slate-300'
-                      }`} data-testid={`remaining-amount-display-${worker.id}`}>
-                        {formatCurrency(Math.abs(calculateRemainingAmount()))}
-                        {calculateRemainingAmount() > 0 && ' (مستحق)'}
-                        {calculateRemainingAmount() < 0 && ' (فائض)'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
+              </div>
                     <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">الوقت الإضافي</Label>
                     <div className="h-8 px-2 py-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-md flex items-center justify-center">
                       <span className="font-bold text-slate-700 dark:text-slate-300 arabic-numbers text-sm">

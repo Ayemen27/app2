@@ -266,9 +266,14 @@ export default function ProjectTransactionsSimple() {
     queryFn: async () => {
       try {
         console.log(`🔄 جلب مصاريف النقل - جميع المشاريع: ${isAllProjects}, المشروع: ${selectedProject}`);
-        const data = await apiRequest('/api/transportation-expenses');
-        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} مصروف نقل`);
-        return Array.isArray(data?.data) ? data.data : [];
+        let endpoint = '/api/transportation-expenses';
+        if (!isAllProjects && selectedProject) {
+          endpoint = `/api/transportation-expenses?projectId=${selectedProject}`;
+        }
+        const data = await apiRequest(endpoint);
+        const expensesData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+        console.log(`✅ تم جلب ${expensesData.length} مصروف نقل`);
+        return expensesData;
       } catch (error) {
         console.error('❌ خطأ في جلب مصاريف النقل:', error);
         return [];
@@ -285,9 +290,14 @@ export default function ProjectTransactionsSimple() {
     queryFn: async () => {
       try {
         console.log(`🔄 جلب المصاريف المتنوعة - جميع المشاريع: ${isAllProjects}, المشروع: ${selectedProject}`);
-        const data = await apiRequest('/api/worker-misc-expenses');
-        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} مصروف متنوع`);
-        return Array.isArray(data?.data) ? data.data : [];
+        let endpoint = '/api/worker-misc-expenses';
+        if (!isAllProjects && selectedProject) {
+          endpoint = `/api/worker-misc-expenses?projectId=${selectedProject}`;
+        }
+        const data = await apiRequest(endpoint);
+        const expensesData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+        console.log(`✅ تم جلب ${expensesData.length} مصروف متنوع`);
+        return expensesData;
       } catch (error) {
         console.error('❌ خطأ في جلب المصاريف المتنوعة:', error);
         return [];
@@ -515,8 +525,9 @@ export default function ProjectTransactionsSimple() {
     });
 
     // ✅ إضافة مشتريات المواد (مصروف أو آجل)
-    console.log('🛒 إضافة مشتريات المواد:', materialPurchasesArray.length);
-    materialPurchasesArray.forEach((purchase: any) => {
+    const filteredMaterialPurchases = materialPurchasesArray.filter(filterByProject);
+    console.log('🛒 إضافة مشتريات المواد:', filteredMaterialPurchases.length);
+    filteredMaterialPurchases.forEach((purchase: any) => {
       const date = purchase.purchaseDate || purchase.date;
       let amount = 0;
 
@@ -679,22 +690,26 @@ export default function ProjectTransactionsSimple() {
 
   // حساب الإجماليات مع تشخيص مفصل
     const totals = useMemo(() => {
-    const income = filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (t.amount || 0), 0);
-    const transferFromProject = filteredTransactions.filter(t => t.type === 'transfer_from_project').reduce((sum, t) => sum + (t.amount || 0), 0);
-    const expenses = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (t.amount || 0), 0);
+    // استخدم transactions الكاملة (غير المفلترة بالبحث) لحساب الإجماليات للمشروع
+    const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const transferFromProject = transactions.filter(t => t.type === 'transfer_from_project').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const expenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const deferredExpenses = transactions.filter(t => t.type === 'deferred').reduce((sum, t) => sum + (t.amount || 0), 0);
 
     // التحويلات الصادرة إلى مشاريع أخرى تُحسب كمصروفات
-    const transferToProjectExpenses = filteredTransactions.filter(t => t.category === '🔄 ترحيل صادر إلى مشروع').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const transferToProjectExpenses = transactions.filter(t => t.category === '🔄 ترحيل صادر إلى مشروع').reduce((sum, t) => sum + (t.amount || 0), 0);
 
     // المصروفات الأخرى (بدون التحويلات)
     const otherExpenses = expenses - transferToProjectExpenses;
 
     const totalIncome = income + transferFromProject;
-    const totalExpenses = expenses;
+    const totalExpenses = expenses + deferredExpenses;
 
     console.log('💰 تفاصيل الحسابات:', {
       income,
       transferFromProject,
+      expenses,
+      deferredExpenses,
       otherExpenses,
       transferToProjectExpenses,
       totalIncome,
@@ -707,12 +722,13 @@ export default function ProjectTransactionsSimple() {
       transferFromProject,
       otherExpenses,
       transferToProjectExpenses,
+      deferredExpenses,
       totalIncome,
       expenses: totalExpenses,
       totalExpenses,
       balance: totalIncome - totalExpenses
     };
-  }, [filteredTransactions]);
+  }, [transactions]);
 
   const selectedProjectName = Array.isArray(projects) ? projects.find(p => p.id === selectedProject)?.name || '' : '';
 
@@ -802,7 +818,7 @@ export default function ProjectTransactionsSimple() {
         {
           key: 'deferred',
           label: "المشتريات الآجلة",
-          value: filteredTransactions.filter(t => t.type === 'deferred').reduce((sum, t) => sum + t.amount, 0),
+          value: totals.deferredExpenses,
           icon: UnifiedAlertCircle,
           color: "orange",
           formatter: formatCurrencyUnified

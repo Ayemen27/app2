@@ -256,16 +256,30 @@ function DailyExpensesContent() {
       return;
     }
 
+    const worker = workers.find(w => w.id === selectedWorkerId);
+    if (!worker) {
+      toast({
+        title: "خطأ",
+        description: "لم يتم العثور على بيانات العامل",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const attendanceData = {
       workerId: selectedWorkerId,
       projectId: selectedProjectId,
       attendanceDate: selectedDate || getCurrentDate(),
       workDays: parseFloat(workerDays),
-      paidAmount: parseFloat(workerAmount),
-      payableAmount: parseFloat(workerAmount), // الحقل السريع يفترض الدفع الكامل
+      dailyWage: worker.dailyWage.toString(),
+      actualWage: (parseFloat(worker.dailyWage.toString()) * parseFloat(workerDays)).toString(),
+      totalPay: (parseFloat(worker.dailyWage.toString()) * parseFloat(workerDays)).toString(),
+      paidAmount: workerAmount,
+      remainingAmount: (parseFloat(worker.dailyWage.toString()) * parseFloat(workerDays) - parseFloat(workerAmount)).toString(),
       workDescription: "أجر يومي (إضافة سريعة)",
       notes: workerNotes,
       wellId: selectedWellId || null,
+      paymentType: parseFloat(workerAmount) >= (parseFloat(worker.dailyWage.toString()) * parseFloat(workerDays)) ? "full" : "partial",
     };
 
     addWorkerAttendanceMutation.mutate(attendanceData);

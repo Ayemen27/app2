@@ -1948,7 +1948,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           paidAmount: workerAttendance.paidAmount,
           actualWage: workerAttendance.actualWage,
           workDays: workerAttendance.workDays,
-          workerName: workers.name
+          dailyWage: workerAttendance.dailyWage,
+          payableAmount: workerAttendance.actualWage,
+          workDescription: workerAttendance.workDescription,
+          workerName: workers.name,
+          projectName: sql<string>`''`
         })
         .from(workerAttendance)
         .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
@@ -4243,13 +4247,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     try {
       const attendanceId = req.params.id;
-      console.log('🔄 [API] طلب تحديث الحضور:', attendanceId);
+      const { workDays, paidAmount, notes } = req.body;
       
-      // مؤقتاً نرجع رسالة نجاح حتى يتم إنشاء جدول worker_attendance
+      console.log('🔄 [API] طلب تحديث الحضور:', attendanceId, { workDays, paidAmount, notes });
+      
+      if (!attendanceId) {
+        const duration = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: 'معرف الحضور مطلوب',
+          processingTime: duration
+        });
+      }
+
+      // تحديث السجل
+      const updatedRecord = await db
+        .update(workerAttendance)
+        .set({
+          workDays: workDays ? parseFloat(workDays) : undefined,
+          paidAmount: paidAmount ? parseFloat(paidAmount) : undefined,
+          notes: notes || undefined
+        })
+        .where(eq(workerAttendance.id, attendanceId))
+        .returning();
+
+      if (!updatedRecord.length) {
+        const duration = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: 'سجل الحضور غير موجود',
+          processingTime: duration
+        });
+      }
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم تحديث الحضور بنجاح في ${duration}ms`);
+      
       res.json({
         success: true,
-        message: 'endpoint جاهز - سيتم تفعيله عند إنشاء جدول الحضور',
-        processingTime: Date.now() - startTime
+        data: updatedRecord[0],
+        message: 'تم تحديث الحضور بنجاح',
+        processingTime: duration
       });
       
     } catch (error: any) {

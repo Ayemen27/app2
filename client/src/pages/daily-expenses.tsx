@@ -81,6 +81,10 @@ function DailyExpensesContent() {
   const [workerDays, setWorkerDays] = useState<string>("");
   const [workerAmount, setWorkerAmount] = useState<string>("");
   const [workerNotes, setWorkerNotes] = useState<string>("");
+  const [editingAttendanceId, setEditingAttendanceId] = useState<string | null>(null);
+  const [editWorkerDays, setEditWorkerDays] = useState<string>("");
+  const [editWorkerAmount, setEditWorkerAmount] = useState<string>("");
+  const [editWorkerNotes, setEditWorkerNotes] = useState<string>("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -233,6 +237,25 @@ function DailyExpensesContent() {
       toast({ 
         title: "خطأ", 
         description: error?.message || "حدث خطأ أثناء إضافة الحضور", 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const updateWorkerAttendanceMutation = useMutation({
+    mutationFn: (data: any) => apiRequest(`/api/worker-attendance/${data.id}`, "PATCH", data),
+    onSuccess: () => {
+      refreshAllData();
+      setEditingAttendanceId(null);
+      setEditWorkerDays("");
+      setEditWorkerAmount("");
+      setEditWorkerNotes("");
+      toast({ title: "تم التحديث", description: "تم تحديث بيانات الحضور بنجاح" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "خطأ", 
+        description: error?.message || "حدث خطأ أثناء تحديث الحضور", 
         variant: "destructive" 
       });
     }
@@ -2373,6 +2396,86 @@ function DailyExpensesContent() {
               </Button>
             </div>
 
+            {/* نموذج تعديل أجور العمال */}
+            {editingAttendanceId && (
+              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-lg">
+                <h5 className="font-medium text-foreground mb-3">تعديل بيانات الحضور</h5>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <Label className="text-xs font-bold text-foreground mb-1">الأيام</Label>
+                    <Input
+                      type="number"
+                      value={editWorkerDays}
+                      onChange={(e) => setEditWorkerDays(e.target.value)}
+                      className="text-center h-9"
+                      min="0"
+                      step="0.5"
+                      data-testid="input-edit-worker-days"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold text-foreground mb-1">المبلغ</Label>
+                    <Input
+                      type="number"
+                      value={editWorkerAmount}
+                      onChange={(e) => setEditWorkerAmount(e.target.value)}
+                      className="text-center h-9"
+                      min="0"
+                      step="0.01"
+                      data-testid="input-edit-worker-amount"
+                    />
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <Label className="text-xs font-bold text-foreground mb-1">الملاحظات</Label>
+                  <Input
+                    type="text"
+                    value={editWorkerNotes}
+                    onChange={(e) => setEditWorkerNotes(e.target.value)}
+                    placeholder="ملاحظات إضافية"
+                    className="h-9"
+                    data-testid="input-edit-worker-notes"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      updateWorkerAttendanceMutation.mutate({
+                        id: editingAttendanceId,
+                        workDays: editWorkerDays,
+                        paidAmount: editWorkerAmount,
+                        notes: editWorkerNotes
+                      });
+                    }}
+                    className="bg-primary h-9 flex-1"
+                    disabled={updateWorkerAttendanceMutation.isPending}
+                    data-testid="button-save-edit-worker-attendance"
+                  >
+                    {updateWorkerAttendanceMutation.isPending ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 ml-1" />
+                        حفظ التعديلات
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setEditingAttendanceId(null);
+                      setEditWorkerDays("");
+                      setEditWorkerAmount("");
+                      setEditWorkerNotes("");
+                    }}
+                    variant="outline"
+                    className="h-9"
+                  >
+                    إلغاء
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* أجور العمال - عرض البطاقات */}
             {safeAttendance.length > 0 && (
               <div className="mt-3">
@@ -2417,7 +2520,10 @@ function DailyExpensesContent() {
                               variant="ghost" 
                               className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
                               onClick={() => {
-                                setLocation(`/worker-attendance?edit=${attendance.id}&worker=${attendance.workerId}&date=${selectedDate}`);
+                                setEditingAttendanceId(attendance.id);
+                                setEditWorkerDays(cleanNumber(attendance.workDays).toString());
+                                setEditWorkerAmount(cleanNumber(attendance.paidAmount).toString());
+                                setEditWorkerNotes(attendance.notes || "");
                               }}
                             >
                               <Edit2 className="h-4 w-4" />

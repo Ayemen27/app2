@@ -2237,8 +2237,8 @@ function DailyExpensesContent() {
                   <Users className="text-primary ml-2 h-5 w-5" />
                   إضافة أجور عامل جديد
                 </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                    <div className="sm:col-span-2 lg:col-span-1">
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
                       <Label className="text-xs font-bold text-foreground mb-1">العامل *</Label>
                       <Select 
                         value={selectedWorkerId || "none"} 
@@ -2280,16 +2280,7 @@ function DailyExpensesContent() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {selectedProjectId && !isAllProjects && (
-                      <div className="flex flex-col">
-                        <WellSelector
-                          projectId={selectedProjectId}
-                          value={selectedWellId}
-                          onChange={setSelectedWellId}
-                          optional={true}
-                        />
-                      </div>
-                    )}
+
                     <div>
                       <Label className="text-xs font-bold text-foreground mb-1">الأيام *</Label>
                       <Input
@@ -2303,6 +2294,9 @@ function DailyExpensesContent() {
                         data-testid="input-worker-days"
                       />
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-3">
                     <div>
                       <Label className="text-xs font-bold text-foreground mb-1">المبلغ *</Label>
                       <Input
@@ -2316,9 +2310,8 @@ function DailyExpensesContent() {
                         data-testid="input-worker-amount"
                       />
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
+
+                    <div>
                       <Label className="text-xs font-bold text-foreground mb-1">الملاحظات</Label>
                       <Input
                         type="text"
@@ -2329,23 +2322,24 @@ function DailyExpensesContent() {
                         data-testid="input-worker-notes"
                       />
                     </div>
-                    <div className="flex items-end">
-                      <Button 
-                        onClick={handleQuickAddAttendance}
-                        className="bg-primary h-9 px-4"
-                        disabled={addWorkerAttendanceMutation.isPending}
-                        data-testid="button-add-worker-attendance"
-                      >
-                        {addWorkerAttendanceMutation.isPending ? (
-                          <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
-                        ) : (
-                          <>
-                            <Plus className="h-4 w-4 ml-1" />
-                            إضافة
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={handleQuickAddAttendance}
+                      className="bg-primary h-9 flex-1"
+                      disabled={addWorkerAttendanceMutation.isPending}
+                      data-testid="button-add-worker-attendance"
+                    >
+                      {addWorkerAttendanceMutation.isPending ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 ml-1" />
+                          إضافة الحضور السريع
+                        </>
+                      )}
+                    </Button>
                   </div>
               </div>
 

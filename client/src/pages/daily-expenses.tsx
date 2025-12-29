@@ -2177,6 +2177,16 @@ function DailyExpensesContent() {
                         </SelectContent>
                       </Select>
                     </div>
+                    {selectedProjectId && !isAllProjects && (
+                      <div className="col-span-2">
+                        <WellSelector
+                          projectId={selectedProjectId}
+                          value={selectedWellId}
+                          onChange={setSelectedWellId}
+                          optional={true}
+                        />
+                      </div>
+                    )}
                     <div>
                       <Label className="block text-sm font-medium text-foreground mb-1">عدد الأيام *</Label>
                       <Input

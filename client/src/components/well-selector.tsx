@@ -58,15 +58,15 @@ export function WellSelector({
         </Label>
       )}
       <Select
-        value={value ? String(value) : ''}
-        onValueChange={(val) => onChange(val ? parseInt(val) : undefined)}
+        value={value ? String(value) : "none"}
+        onValueChange={(val) => onChange(val === "none" ? undefined : parseInt(val))}
         disabled={disabled || isLoading}
       >
         <SelectTrigger className="w-full">
           <SelectValue placeholder="اختر البئر" />
         </SelectTrigger>
         <SelectContent>
-          {optional && <SelectItem value="">بدون بئر</SelectItem>}
+          {optional && <SelectItem value="none">بدون بئر</SelectItem>}
           {wells.map((well: any) => (
             <SelectItem key={well.id} value={String(well.id)}>
               بئر #{well.wellNumber} - {well.ownerName}

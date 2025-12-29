@@ -2142,11 +2142,17 @@ function DailyExpensesContent() {
                           <SelectValue placeholder="اختر العامل" />
                         </SelectTrigger>
                         <SelectContent>
-                          {workers && workers.length > 0 && workers.map((worker) => (
-                            <SelectItem key={worker.id} value={String(worker.id || "")}>
-                              {worker.name}
+                          {workers && workers.length > 0 ? (
+                            workers.map((worker) => (
+                              <SelectItem key={worker.id} value={String(worker.id)}>
+                                {worker.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="no-workers" disabled>
+                              لا يوجد عمال متاحون
                             </SelectItem>
-                          ))}
+                          )}
                         </SelectContent>
                       </Select>
                     </div>

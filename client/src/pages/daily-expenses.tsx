@@ -490,7 +490,7 @@ function DailyExpensesContent() {
     );
   }, [safeMiscExpenses, searchValue]);
 
-  // جلب الرصيد المتبقي من اليوم السابق
+  // جلب الرصيد المتبقي من اليوم السابق - فقط للمشاريع المحددة
   const { data: previousBalance } = useQuery({
     queryKey: ["/api/projects", selectedProjectId, "previous-balance", selectedDate],
     queryFn: async () => {
@@ -506,7 +506,7 @@ function DailyExpensesContent() {
         return "0";
       }
     },
-    enabled: !!selectedProjectId && !!selectedDate,
+    enabled: !!selectedProjectId && !!selectedDate && !isAllProjects,
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: 'always',

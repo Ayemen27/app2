@@ -1941,256 +1941,473 @@ function DailyExpensesContent() {
 
               {/* Fund Transfer Section */}
               <div className="border-t pt-3">
-            <h4 className="font-medium text-foreground">تحويل عهدة جديدة</h4>
-            {dailyExpensesError && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-700 text-sm">
-                  خطأ في جلب البيانات: {dailyExpensesError.message}
-                </p>
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  value={fundAmount}
-                  onChange={(e) => setFundAmount(e.target.value)}
-                  placeholder="المبلغ *"
-                  className="text-center arabic-numbers"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div>
-                <Label className="block text-sm font-medium text-foreground mb-1">اسم المرسل</Label>
-                <AutocompleteInput
-                  value={senderName}
-                  onChange={setSenderName}
-                  category="senderNames"
-                  placeholder="اسم المرسل"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <Label className="block text-sm font-medium text-foreground mb-1">رقم الحولة</Label>
-                <AutocompleteInput
-                  type="number"
-                  inputMode="numeric"
-                  value={transferNumber}
-                  onChange={setTransferNumber}
-                  category="transferNumbers"
-                  placeholder="رقم الحولة"
-                  className="w-full arabic-numbers"
-                />
-              </div>
-              <div>
-                <Label className="block text-sm font-medium text-foreground mb-1">نوع التحويل *</Label>
-                <AutocompleteInput
-                  value={transferType}
-                  onChange={setTransferType}
-                  category="transferTypes"
-                  placeholder="نوع التحويل *"
-                  className="flex-1"
-                />
-              </div>
-            </div>
-            {selectedProjectId && !isAllProjects && (
-              <div className="mb-3">
-                <WellSelector
-                  projectId={selectedProjectId}
-                  value={fundTransferWellId}
-                  onChange={setFundTransferWellId}
-                  optional={true}
-                />
-              </div>
-            )}
-            <div className="flex gap-2">
-              <Button 
-                onClick={handleAddFundTransfer} 
-                size="sm" 
-                className="flex-1 bg-primary"
-                disabled={addFundTransferMutation.isPending || updateFundTransferMutation.isPending}
-                data-testid="button-add-fund-transfer"
-              >
-                {addFundTransferMutation.isPending || updateFundTransferMutation.isPending ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : editingFundTransferId ? (
-                  <><Save className="h-4 w-4 ml-2" /> حفظ التعديل</>
-                ) : (
-                  <><Plus className="h-4 w-4 ml-2" /> إضافة العهدة</>
-                )}
-              </Button>
-              {editingFundTransferId && (
-                <Button onClick={resetFundTransferForm} size="sm" variant="outline">
-                  إلغاء
-                </Button>
-              )}
-            </div>
-
-            {/* عرض العهد المضافة لهذا اليوم */}
-            <div className="mt-3 pt-3 border-t">
-              <h5 className="text-sm font-medium text-muted-foreground">العهد المضافة اليوم:</h5>
-
-              {dailyExpensesLoading ? (
-                <div className="text-center text-muted-foreground">جاري التحميل...</div>
-              ) : Array.isArray(todayFundTransfers) && todayFundTransfers.length > 0 ? (
-                <div className="space-y-2">
-                  {safeFundTransfers.map((transfer: any, index) => (
-                    <div key={transfer.id || index} className="flex justify-between items-center p-2 bg-muted rounded">
-                      <div className="text-sm flex-1">
-                        <div>{transfer.senderName || 'غير محدد'}</div>
-                        <div className="text-xs text-muted-foreground">{transfer.transferType}</div>
-                        {isAllProjects && transfer.projectName && (
-                          <div className="text-xs font-medium text-blue-600 mt-1">📁 {transfer.projectName}</div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium arabic-numbers">{formatCurrency(transfer.amount)}</span>
-                        <div className="flex gap-1">
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            onClick={() => handleEditFundTransfer(transfer)}
-                            data-testid="button-edit-fund-transfer"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => deleteFundTransferMutation.mutate(transfer.id)}
-                            disabled={deleteFundTransferMutation.isPending}
-                            data-testid="button-delete-fund-transfer"
-                          >
-                            {deleteFundTransferMutation.isPending ? (
-                              <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
-                            ) : (
-                              <Trash2 className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
+                <Collapsible defaultOpen={safeFundTransfers.length > 0}>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
+                      <h4 className="font-medium text-foreground">تحويل عهدة جديدة</h4>
+                      <div className="flex items-center gap-1">
+                        {safeFundTransfers.length > 0 && <Badge variant="outline" className="h-5 text-[10px]">{safeFundTransfers.length}</Badge>}
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       </div>
                     </div>
-                  ))}
-                  <div className="text-left pt-2 border-t">
-                    <span className="text-sm text-muted-foreground">إجمالي العهد: </span>
-                    <span className="font-bold text-primary arabic-numbers">
-                      {formatCurrency(totals.totalFundTransfers)}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                  <DollarSign className="mx-auto h-8 w-8 text-gray-400" />
-                  <p className="text-sm text-gray-600">
-                    لا توجد تحويلات عهد للتاريخ {selectedDate}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    يمكنك إضافة تحويل جديد أو اختيار تاريخ آخر
-                  </p>
-
-                </div>
-              )}
-              </div>
-            </div>
-
-              {/* Transportation Input Section + Display */}
-              <div className="border-t pt-3 mt-3">
-                <h4 className="font-medium text-foreground flex items-center mb-2">
-                  <Car className="text-secondary ml-2 h-5 w-5" />
-                  إضافة مواصلات جديدة
-                </h4>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col">
-                      <Label className="block text-sm font-medium text-foreground mb-1">الوصف *</Label>
-                      <AutocompleteInput
-                        value={transportDescription}
-                        onChange={setTransportDescription}
-                        category="transportDescriptions"
-                        placeholder="الوصف"
-                      />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-2">
+                    {dailyExpensesError && (
+                      <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-red-700 text-sm">
+                          خطأ في جلب البيانات: {dailyExpensesError.message}
+                        </p>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          value={fundAmount}
+                          onChange={(e) => setFundAmount(e.target.value)}
+                          placeholder="المبلغ *"
+                          className="text-center arabic-numbers"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                      <div>
+                        <Label className="block text-sm font-medium text-foreground mb-1">اسم المرسل</Label>
+                        <AutocompleteInput
+                          value={senderName}
+                          onChange={setSenderName}
+                          category="senderNames"
+                          placeholder="اسم المرسل"
+                        />
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        value={transportAmount}
-                        onChange={(e) => setTransportAmount(e.target.value)}
-                        placeholder="المبلغ"
-                        className="text-center arabic-numbers"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col">
-                      <Label className="block text-sm font-medium text-foreground mb-1">الملاحظات</Label>
-                      <AutocompleteInput
-                        value={transportNotes}
-                        onChange={setTransportNotes}
-                        category="notes"
-                        placeholder="ملاحظات"
-                        className="flex-1"
-                      />
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <Label className="block text-sm font-medium text-foreground mb-1">رقم الحولة</Label>
+                        <AutocompleteInput
+                          type="number"
+                          inputMode="numeric"
+                          value={transferNumber}
+                          onChange={setTransferNumber}
+                          category="transferNumbers"
+                          placeholder="رقم الحولة"
+                          className="w-full arabic-numbers"
+                        />
+                      </div>
+                      <div>
+                        <Label className="block text-sm font-medium text-foreground mb-1">نوع التحويل *</Label>
+                        <AutocompleteInput
+                          value={transferType}
+                          onChange={setTransferType}
+                          category="transferTypes"
+                          placeholder="نوع التحويل *"
+                          className="flex-1"
+                        />
+                      </div>
                     </div>
                     {selectedProjectId && !isAllProjects && (
-                      <div className="flex flex-col">
+                      <div className="mb-3">
                         <WellSelector
                           projectId={selectedProjectId}
-                          value={selectedWellId}
-                          onChange={setSelectedWellId}
+                          value={fundTransferWellId}
+                          onChange={setFundTransferWellId}
                           optional={true}
                         />
                       </div>
                     )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Button 
-                      onClick={handleAddTransportation} 
-                      size="sm" 
-                      className="w-full bg-secondary"
-                      disabled={addTransportationMutation.isPending || updateTransportationMutation.isPending}
-                      data-testid="button-add-transportation"
-                    >
-                      {addTransportationMutation.isPending || updateTransportationMutation.isPending ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
-                      ) : (
-                        editingTransportationId ? <><Save className="h-4 w-4 ml-2" /> حفظ التعديل</> : <><Plus className="h-4 w-4 ml-2" /> إضافة المواصلات</>
-                      )}
-                    </Button>
-                    {editingTransportationId && (
-                      <Button onClick={resetTransportationForm} size="sm" variant="outline">
-                        إلغاء
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={handleAddFundTransfer} 
+                        size="sm" 
+                        className="flex-1 bg-primary"
+                        disabled={addFundTransferMutation.isPending || updateFundTransferMutation.isPending}
+                        data-testid="button-add-fund-transfer"
+                      >
+                        {addFundTransferMutation.isPending || updateFundTransferMutation.isPending ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : editingFundTransferId ? (
+                          <><Save className="h-4 w-4 ml-2" /> حفظ التعديل</>
+                        ) : (
+                          <><Plus className="h-4 w-4 ml-2" /> إضافة العهدة</>
+                        )}
                       </Button>
-                    )}
-                  </div>
+                      {editingFundTransferId && (
+                        <Button onClick={resetFundTransferForm} size="sm" variant="outline">
+                          إلغاء
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* عرض العهد المضافة لهذا اليوم */}
+                    <div className="mt-3 pt-3 border-t">
+                      <h5 className="text-sm font-medium text-muted-foreground">العهد المضافة اليوم:</h5>
+
+                      {dailyExpensesLoading ? (
+                        <div className="text-center text-muted-foreground">جاري التحميل...</div>
+                      ) : safeFundTransfers.length > 0 ? (
+                        <div className="space-y-2">
+                          {safeFundTransfers.map((transfer: any, index) => (
+                            <div key={transfer.id || index} className="flex justify-between items-center p-2 bg-muted rounded">
+                              <div className="text-sm flex-1">
+                                <div>{transfer.senderName || 'غير محدد'}</div>
+                                <div className="text-xs text-muted-foreground">{transfer.transferType}</div>
+                                {isAllProjects && transfer.projectName && (
+                                  <div className="text-xs font-medium text-blue-600 mt-1">📁 {transfer.projectName}</div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium arabic-numbers">{formatCurrency(transfer.amount)}</span>
+                                <div className="flex gap-1">
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    onClick={() => handleEditFundTransfer(transfer)}
+                                    data-testid="button-edit-fund-transfer"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => deleteFundTransferMutation.mutate(transfer.id)}
+                                    disabled={deleteFundTransferMutation.isPending}
+                                    data-testid="button-delete-fund-transfer"
+                                  >
+                                    {deleteFundTransferMutation.isPending ? (
+                                      <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          <div className="text-left pt-2 border-t">
+                            <span className="text-sm text-muted-foreground">إجمالي العهد: </span>
+                            <span className="font-bold text-primary arabic-numbers">
+                              {formatCurrency(totals.totalFundTransfers)}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                          <DollarSign className="mx-auto h-8 w-8 text-gray-400" />
+                          <p className="text-sm text-gray-600">
+                            لا توجد تحويلات عهد للتاريخ {selectedDate}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+
+      {/* Transportation Input Section + Display */}
+      <div className="border-t pt-3 mt-3">
+        <Collapsible defaultOpen={safeTransportation.length > 0}>
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
+              <h4 className="font-medium text-foreground flex items-center">
+                <Car className="text-secondary ml-2 h-5 w-5" />
+                إضافة مواصلات جديدة
+              </h4>
+              <div className="flex items-center gap-1">
+                {safeTransportation.length > 0 && <Badge variant="outline" className="h-5 text-[10px]">{safeTransportation.length}</Badge>}
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col">
+                  <Label className="block text-sm font-medium text-foreground mb-1">الوصف *</Label>
+                  <AutocompleteInput
+                    value={transportDescription}
+                    onChange={setTransportDescription}
+                    category="transportDescriptions"
+                    placeholder="الوصف"
+                  />
                 </div>
-                
-                {/* Transportation Display - يظهر فقط عند وجود بيانات */}
-                {safeTransportation.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {safeTransportation.map((expense: any, index) => (
-                      <div key={index} className="p-3 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex flex-col">
+                  <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={transportAmount}
+                    onChange={(e) => setTransportAmount(e.target.value)}
+                    placeholder="المبلغ"
+                    className="text-center arabic-numbers"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col">
+                  <Label className="block text-sm font-medium text-foreground mb-1">الملاحظات</Label>
+                  <AutocompleteInput
+                    value={transportNotes}
+                    onChange={setTransportNotes}
+                    category="notes"
+                    placeholder="ملاحظات"
+                    className="flex-1"
+                  />
+                </div>
+                {selectedProjectId && !isAllProjects && (
+                  <div className="flex flex-col">
+                    <WellSelector
+                      projectId={selectedProjectId}
+                      value={selectedWellId}
+                      onChange={setSelectedWellId}
+                      optional={true}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Button 
+                  onClick={handleAddTransportation} 
+                  size="sm" 
+                  className="w-full bg-secondary"
+                  disabled={addTransportationMutation.isPending || updateTransportationMutation.isPending}
+                  data-testid="button-add-transportation"
+                >
+                  {addTransportationMutation.isPending || updateTransportationMutation.isPending ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
+                  ) : (
+                    editingTransportationId ? <><Save className="h-4 w-4 ml-2" /> حفظ التعديل</> : <><Plus className="h-4 w-4 ml-2" /> إضافة المواصلات</>
+                  )}
+                </Button>
+                {editingTransportationId && (
+                  <Button onClick={resetTransportationForm} size="sm" variant="outline">
+                    إلغاء
+                  </Button>
+                )}
+              </div>
+            </div>
+            
+            {/* Transportation Display - يظهر فقط عند وجود بيانات */}
+            {safeTransportation.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {safeTransportation.map((expense: any, index) => (
+                  <div key={index} className="p-3 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-foreground text-sm">{expense.description}</h4>
+                          <span className="font-bold text-secondary arabic-numbers text-base">{formatCurrency(expense.amount)}</span>
+                        </div>
+                        {expense.notes && (
+                          <p className="text-xs text-muted-foreground">الملاحظات: {expense.notes}</p>
+                        )}
+                        {expense.wellName && (
+                          <p className="text-xs text-muted-foreground">البئر: {expense.wellName}</p>
+                        )}
+                        {isAllProjects && expense.projectName && (
+                          <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {expense.projectName}</div>
+                        )}
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                          onClick={() => handleEditTransportation(expense)}
+                          data-testid="button-edit-transportation"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          onClick={() => deleteTransportationMutation.mutate(expense.id)}
+                          disabled={deleteTransportationMutation.isPending}
+                          data-testid="button-delete-transportation"
+                        >
+                          {deleteTransportationMutation.isPending ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="text-left mt-3 pt-3 border-t bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
+                  <span className="text-sm font-medium text-foreground">إجمالي المواصلات: </span>
+                  <span className="font-bold text-secondary arabic-numbers">
+                    {formatCurrency(totals.totalTransportation)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+
+      {/* إضافة أجور العمال - حقول الإدخال السريعة */}
+      <div className="border-t pt-3 mt-3">
+        <Collapsible defaultOpen={safeAttendance.length > 0}>
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
+              <h4 className="font-medium text-foreground flex items-center">
+                <Users className="text-primary ml-2 h-5 w-5" />
+                إضافة أجور عامل جديد
+              </h4>
+              <div className="flex items-center gap-1">
+                {safeAttendance.length > 0 && <Badge variant="outline" className="h-5 text-[10px]">{safeAttendance.length}</Badge>}
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <Label className="text-xs font-bold text-foreground mb-1">العامل *</Label>
+                <Select 
+                  value={selectedWorkerId || "none"} 
+                  onValueChange={(val) => setSelectedWorkerId(val === "none" ? "" : val)}
+                >
+                  <SelectTrigger className="h-9" data-testid="select-worker">
+                    <SelectValue placeholder="اختر العامل" />
+                  </SelectTrigger>
+                  <SelectContent className="p-0 overflow-hidden">
+                    <div className="p-2 border-b sticky top-0 bg-popover z-50">
+                      <Input
+                        placeholder="بحث عن عامل..."
+                        className="h-8 w-full"
+                        onChange={(e) => setSearchValue(e.target.value)}
+                        value={searchValue}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === ' ') {
+                            e.stopPropagation();
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto p-1">
+                      <SelectItem value="none">اختر العامل</SelectItem>
+                      {workers && workers.length > 0 ? (
+                        workers
+                          .filter(w => !searchValue || (w.name && w.name.toLowerCase().includes(searchValue.toLowerCase())))
+                          .map((worker) => (
+                            <SelectItem key={`worker-select-${worker.id}`} value={worker.id.toString()}>
+                              {worker.name}
+                            </SelectItem>
+                          ))
+                      ) : null}
+                    </div>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-foreground mb-1">الأيام *</Label>
+                <Input
+                  type="number"
+                  value={workerDays}
+                  onChange={(e) => setWorkerDays(e.target.value)}
+                  placeholder="0"
+                  className="text-center h-9"
+                  min="0"
+                  step="0.5"
+                  data-testid="input-worker-days"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <Label className="text-xs font-bold text-foreground mb-1">المبلغ *</Label>
+                <Input
+                  type="number"
+                  value={workerAmount}
+                  onChange={(e) => setWorkerAmount(e.target.value)}
+                  placeholder="0"
+                  className="text-center arabic-numbers h-9"
+                  min="0"
+                  step="0.01"
+                  data-testid="input-worker-amount"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-foreground mb-1">الملاحظات</Label>
+                <Input
+                  type="text"
+                  value={workerNotes}
+                  onChange={(e) => setWorkerNotes(e.target.value)}
+                  placeholder="ملاحظات إضافية"
+                  className="h-9"
+                  data-testid="input-worker-notes"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleQuickAddAttendance}
+                className="bg-primary h-9 flex-1"
+                disabled={addWorkerAttendanceMutation.isPending}
+                data-testid="button-add-worker-attendance"
+              >
+                {addWorkerAttendanceMutation.isPending ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 ml-1" />
+                    إضافة الحضور السريع
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* أجور العمال - عرض البطاقات */}
+            {safeAttendance.length > 0 && (
+              <div className="mt-3">
+                <h5 className="text-sm font-medium text-muted-foreground mb-2">أجور العمال المضافة اليوم:</h5>
+                <div className="space-y-2">
+                  {safeAttendance.map((attendance: any, index) => {
+                    const worker = workers.find(w => w.id === attendance.workerId);
+                    const payableAmount = cleanNumber(attendance.payableAmount);
+                    const paidAmount = cleanNumber(attendance.paidAmount);
+                    const deferredAmount = payableAmount - paidAmount;
+                    return (
+                      <div key={index} className="p-3 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-900/30 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <h4 className="font-semibold text-foreground text-sm">{expense.description}</h4>
-                              <span className="font-bold text-secondary arabic-numbers text-base">{formatCurrency(expense.amount)}</span>
+                              <h4 className="font-semibold text-foreground text-sm">{attendance.workerName || worker?.name || `عامل ${index + 1}`}</h4>
+                              <span className="font-bold text-primary arabic-numbers text-base">{formatCurrency(paidAmount)}</span>
                             </div>
-                            {expense.notes && (
-                              <p className="text-xs text-muted-foreground">الملاحظات: {expense.notes}</p>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="text-muted-foreground">
+                                <span>الأيام: </span>
+                                <span className="font-medium text-foreground">{cleanNumber(attendance.workDays) || 0}</span>
+                              </div>
+                              <div className="text-muted-foreground">
+                                <span>الأجر اليومي: </span>
+                                <span className="font-medium text-foreground">{formatCurrency(cleanNumber(attendance.dailyWage))}</span>
+                              </div>
+                            </div>
+                            {deferredAmount > 0 && (
+                              <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">مؤجل: {formatCurrency(deferredAmount)}</p>
                             )}
-                            {expense.wellName && (
-                              <p className="text-xs text-muted-foreground">البئر: {expense.wellName}</p>
+                            {attendance.workDescription && (
+                              <p className="text-xs text-muted-foreground">النوع: {attendance.workDescription}</p>
                             )}
-                            {isAllProjects && expense.projectName && (
-                              <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {expense.projectName}</div>
+                            {isAllProjects && attendance.projectName && (
+                              <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {attendance.projectName}</div>
                             )}
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
@@ -2198,8 +2415,9 @@ function DailyExpensesContent() {
                               size="sm" 
                               variant="ghost" 
                               className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                              onClick={() => handleEditTransportation(expense)}
-                              data-testid="button-edit-transportation"
+                              onClick={() => {
+                                setLocation(`/worker-attendance?edit=${attendance.id}&worker=${attendance.workerId}&date=${selectedDate}`);
+                              }}
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
@@ -2207,11 +2425,11 @@ function DailyExpensesContent() {
                               size="sm" 
                               variant="ghost" 
                               className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                              onClick={() => deleteTransportationMutation.mutate(expense.id)}
-                              disabled={deleteTransportationMutation.isPending}
-                              data-testid="button-delete-transportation"
+                              onClick={() => deleteWorkerAttendanceMutation.mutate(attendance.id)}
+                              disabled={deleteWorkerAttendanceMutation.isPending}
+                              data-testid="button-delete-worker-attendance"
                             >
-                              {deleteTransportationMutation.isPending ? (
+                              {deleteWorkerAttendanceMutation.isPending ? (
                                 <div className="h-4 w-4 animate-spin rounded-full border border-red-600 border-t-transparent" />
                               ) : (
                                 <Trash2 className="h-4 w-4" />
@@ -2220,128 +2438,20 @@ function DailyExpensesContent() {
                           </div>
                         </div>
                       </div>
-                    ))}
-                    <div className="text-left mt-3 pt-3 border-t bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
-                      <span className="text-sm font-medium text-foreground">إجمالي المواصلات: </span>
-                      <span className="font-bold text-secondary arabic-numbers">
-                        {formatCurrency(totals.totalTransportation)}
-                      </span>
-                    </div>
+                    );
+                  })}
+                  <div className="text-left mt-3 pt-3 border-t bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
+                    <span className="text-sm font-medium text-foreground">إجمالي أجور العمال: </span>
+                    <span className="font-bold text-primary arabic-numbers">
+                      {formatCurrency(totals.totalWorkerWages)}
+                    </span>
                   </div>
-                )}
+                </div>
               </div>
-
-              {/* إضافة أجور العمال - حقول الإدخال السريعة */}
-              <div className="border-t pt-3 mt-3">
-                <h4 className="font-medium text-foreground flex items-center mb-3">
-                  <Users className="text-primary ml-2 h-5 w-5" />
-                  إضافة أجور عامل جديد
-                </h4>
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div>
-                      <Label className="text-xs font-bold text-foreground mb-1">العامل *</Label>
-                      <Select 
-                        value={selectedWorkerId || "none"} 
-                        onValueChange={(val) => setSelectedWorkerId(val === "none" ? "" : val)}
-                      >
-                        <SelectTrigger className="h-9" data-testid="select-worker">
-                          <SelectValue placeholder="اختر العامل" />
-                        </SelectTrigger>
-                        <SelectContent className="p-0 overflow-hidden">
-                          <div className="p-2 border-b sticky top-0 bg-popover z-50">
-                            <Input
-                              placeholder="بحث عن عامل..."
-                              className="h-8 w-full"
-                              onChange={(e) => setSearchValue(e.target.value)}
-                              value={searchValue}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === ' ') {
-                                  e.stopPropagation();
-                                }
-                              }}
-                            />
-                          </div>
-                          <div className="max-h-[200px] overflow-y-auto p-1">
-                            <SelectItem value="none">اختر العامل</SelectItem>
-                            {workers && workers.length > 0 ? (
-                              workers
-                                .filter(w => !searchValue || (w.name && w.name.toLowerCase().includes(searchValue.toLowerCase())))
-                                .map((worker) => (
-                                  <SelectItem key={`worker-select-${worker.id}`} value={worker.id.toString()}>
-                                    {worker.name}
-                                  </SelectItem>
-                                ))
-                            ) : null}
-                          </div>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label className="text-xs font-bold text-foreground mb-1">الأيام *</Label>
-                      <Input
-                        type="number"
-                        value={workerDays}
-                        onChange={(e) => setWorkerDays(e.target.value)}
-                        placeholder="0"
-                        className="text-center h-9"
-                        min="0"
-                        step="0.5"
-                        data-testid="input-worker-days"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div>
-                      <Label className="text-xs font-bold text-foreground mb-1">المبلغ *</Label>
-                      <Input
-                        type="number"
-                        value={workerAmount}
-                        onChange={(e) => setWorkerAmount(e.target.value)}
-                        placeholder="0"
-                        className="text-center arabic-numbers h-9"
-                        min="0"
-                        step="0.01"
-                        data-testid="input-worker-amount"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-xs font-bold text-foreground mb-1">الملاحظات</Label>
-                      <Input
-                        type="text"
-                        value={workerNotes}
-                        onChange={(e) => setWorkerNotes(e.target.value)}
-                        placeholder="ملاحظات إضافية"
-                        className="h-9"
-                        data-testid="input-worker-notes"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button 
-                      onClick={handleQuickAddAttendance}
-                      className="bg-primary h-9 flex-1"
-                      disabled={addWorkerAttendanceMutation.isPending}
-                      data-testid="button-add-worker-attendance"
-                    >
-                      {addWorkerAttendanceMutation.isPending ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
-                      ) : (
-                        <>
-                          <Plus className="h-4 w-4 ml-1" />
-                          إضافة الحضور السريع
-                        </>
-                      )}
-                    </Button>
-                  </div>
-              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
 
               {/* أجور العمال - عرض البطاقات */}
               {safeAttendance.length > 0 && (

@@ -282,7 +282,7 @@ export default function EnhancedWorkerCard({
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground font-medium">الأجر اليومي</span>
-                  <span className="font-bold text-foreground arabic-numbers">{formatCurrency(worker.dailyWage)}</span>
+                  <span className="font-bold text-foreground arabic-numbers">{formatCurrency(worker.dailyWage || "0")}</span>
                 </div>
                 <div className="flex justify-between items-center pt-1 border-t border-blue-200 dark:border-blue-700">
                   <span className="text-muted-foreground font-medium">المستحق</span>

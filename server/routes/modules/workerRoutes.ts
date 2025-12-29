@@ -147,6 +147,63 @@ workerRouter.post('/workers', async (req: Request, res: Response) => {
 });
 
 /**
+ * 🔍 البحث عن عامل بالاسم أو معرف
+ * GET /api/workers/search/:query
+ */
+workerRouter.get('/workers/search/:query', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const query = req.params.query?.trim().toLowerCase();
+    if (!query || query.length < 1) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'البحث مطلوب',
+        message: 'الرجاء إدخال اسم أو معرف العامل للبحث',
+        processingTime: duration
+      });
+    }
+
+    console.log(`🔍 [API] البحث عن عامل: "${query}"`);
+
+    // البحث في الاسم أو المعرف
+    const searchResults = await db.select().from(workers).where(
+      sql`LOWER(${workers.name}) LIKE LOWER('%' || ${query} || '%') OR LOWER(${workers.id}) LIKE LOWER('%' || ${query} || '%')`
+    );
+
+    if (searchResults.length === 0) {
+      const duration = Date.now() - startTime;
+      return res.status(404).json({
+        success: false,
+        error: 'العامل غير موجود',
+        message: `لم يتم العثور على عامل بالبحث عن: "${query}"`,
+        processingTime: duration
+      });
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم العثور على ${searchResults.length} عامل بنجاح`);
+
+    res.json({
+      success: true,
+      data: searchResults,
+      message: `تم العثور على ${searchResults.length} عامل`,
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في البحث عن عامل:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في البحث',
+      message: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
  * 🔍 جلب عامل محدد
  * GET /api/workers/:id
  */

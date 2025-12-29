@@ -2069,48 +2069,62 @@ function DailyExpensesContent() {
                 </h4>
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <AutocompleteInput
-                      value={transportDescription}
-                      onChange={setTransportDescription}
-                      category="transportDescriptions"
-                      placeholder="الوصف"
-                    />
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      value={transportAmount}
-                      onChange={(e) => setTransportAmount(e.target.value)}
-                      placeholder="المبلغ"
-                      className="text-center arabic-numbers"
-                    />
+                    <div className="flex flex-col">
+                      <Label className="block text-sm font-medium text-foreground mb-1">الوصف *</Label>
+                      <AutocompleteInput
+                        value={transportDescription}
+                        onChange={setTransportDescription}
+                        category="transportDescriptions"
+                        placeholder="الوصف"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        value={transportAmount}
+                        onChange={(e) => setTransportAmount(e.target.value)}
+                        placeholder="المبلغ"
+                        className="text-center arabic-numbers"
+                      />
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <AutocompleteInput
-                      value={transportNotes}
-                      onChange={setTransportNotes}
-                      category="notes"
-                      placeholder="ملاحظات"
-                      className="flex-1"
-                    />
-                    <WellSelector
-                      projectId={selectedProjectId}
-                      value={selectedWellId}
-                      onChange={setSelectedWellId}
-                      optional={true}
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col">
+                      <Label className="block text-sm font-medium text-foreground mb-1">الملاحظات</Label>
+                      <AutocompleteInput
+                        value={transportNotes}
+                        onChange={setTransportNotes}
+                        category="notes"
+                        placeholder="ملاحظات"
+                        className="flex-1"
+                      />
+                    </div>
+                    {selectedProjectId && !isAllProjects && (
+                      <div className="flex flex-col">
+                        <Label className="block text-sm font-medium text-foreground mb-1">البئر</Label>
+                        <WellSelector
+                          projectId={selectedProjectId}
+                          value={selectedWellId}
+                          onChange={setSelectedWellId}
+                          optional={true}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <Button 
                       onClick={handleAddTransportation} 
                       size="sm" 
-                      className="bg-secondary"
+                      className="w-full bg-secondary"
                       disabled={addTransportationMutation.isPending || updateTransportationMutation.isPending}
                       data-testid="button-add-transportation"
                     >
                       {addTransportationMutation.isPending || updateTransportationMutation.isPending ? (
                         <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
                       ) : (
-                        editingTransportationId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />
+                        editingTransportationId ? <><Save className="h-4 w-4 ml-2" /> حفظ التعديل</> : <><Plus className="h-4 w-4 ml-2" /> إضافة المواصلات</>
                       )}
                     </Button>
                     {editingTransportationId && (
@@ -2187,7 +2201,7 @@ function DailyExpensesContent() {
                   إضافة أجور عامل جديد
                 </h4>
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <Label className="block text-sm font-medium text-foreground mb-1">العامل *</Label>
                       <Select 
@@ -2231,7 +2245,8 @@ function DailyExpensesContent() {
                       </Select>
                     </div>
                     {selectedProjectId && !isAllProjects && (
-                      <div className="col-span-2">
+                      <div className="flex flex-col">
+                        <Label className="block text-sm font-medium text-foreground mb-1">البئر</Label>
                         <WellSelector
                           projectId={selectedProjectId}
                           value={selectedWellId}
@@ -2240,6 +2255,8 @@ function DailyExpensesContent() {
                         />
                       </div>
                     )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="block text-sm font-medium text-foreground mb-1">عدد الأيام *</Label>
                       <Input
@@ -2253,8 +2270,6 @@ function DailyExpensesContent() {
                         data-testid="input-worker-days"
                       />
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="block text-sm font-medium text-foreground mb-1">المبلغ المصروف *</Label>
                       <Input
@@ -2268,16 +2283,16 @@ function DailyExpensesContent() {
                         data-testid="input-worker-amount"
                       />
                     </div>
-                    <div>
-                      <Label className="block text-sm font-medium text-foreground mb-1">الملاحظات</Label>
-                      <Input
-                        type="text"
-                        value={workerNotes}
-                        onChange={(e) => setWorkerNotes(e.target.value)}
-                        placeholder="ملاحظات إضافية"
-                        data-testid="input-worker-notes"
-                      />
-                    </div>
+                  </div>
+                  <div>
+                    <Label className="block text-sm font-medium text-foreground mb-1">الملاحظات</Label>
+                    <Input
+                      type="text"
+                      value={workerNotes}
+                      onChange={(e) => setWorkerNotes(e.target.value)}
+                      placeholder="ملاحظات إضافية"
+                      data-testid="input-worker-notes"
+                    />
                   </div>
                   <Button 
                     onClick={handleQuickAddAttendance}

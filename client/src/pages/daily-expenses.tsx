@@ -95,6 +95,11 @@ function DailyExpensesContent() {
     }
   };
 
+  // تعيين تاريخ اليوم تلقائياً عند فتح الصفحة
+  useEffect(() => {
+    setSelectedDate(getCurrentDate());
+  }, []);
+
   // تعيين إجراء الزر العائم لحفظ المصاريف
   useEffect(() => {
     const handleSaveExpenses = () => {

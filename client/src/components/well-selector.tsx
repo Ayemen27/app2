@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface WellSelectorProps {
   projectId?: string;
@@ -46,6 +46,18 @@ export function WellSelector({
     staleTime: 5 * 60 * 1000
   });
 
+  const options = useMemo(() => {
+    const wellOptions = wells.map((well: any) => ({
+      value: String(well.id),
+      label: `بئر #${well.wellNumber} - ${well.ownerName}`
+    }));
+
+    if (optional) {
+      return [{ value: "none", label: "بدون بئر" }, ...wellOptions];
+    }
+    return wellOptions;
+  }, [wells, optional]);
+
   if (!projectId || wells.length === 0) {
     return null;
   }
@@ -57,23 +69,15 @@ export function WellSelector({
           البئر {!optional && <span className="text-red-500">*</span>}
         </Label>
       )}
-      <Select
+      <SearchableSelect
+        options={options}
         value={value ? String(value) : "none"}
         onValueChange={(val) => onChange(val === "none" ? undefined : parseInt(val))}
+        placeholder="اختر البئر"
+        searchPlaceholder="بحث عن بئر..."
+        noResultsMessage="لا توجد آبار مطابقة"
         disabled={disabled || isLoading}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="اختر البئر" />
-        </SelectTrigger>
-        <SelectContent>
-          {optional && <SelectItem value="none">بدون بئر</SelectItem>}
-          {wells.map((well: any) => (
-            <SelectItem key={well.id} value={String(well.id)}>
-              بئر #{well.wellNumber} - {well.ownerName}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      />
     </div>
   );
 }

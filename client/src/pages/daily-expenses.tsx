@@ -300,7 +300,7 @@ function DailyExpensesContent() {
       totalPay: (parseFloat(worker.dailyWage.toString()) * parseFloat(workerDays)).toString(),
       paidAmount: workerAmount,
       remainingAmount: (parseFloat(worker.dailyWage.toString()) * parseFloat(workerDays) - parseFloat(workerAmount)).toString(),
-      workDescription: "أجر يومي (إضافة سريعة)",
+      workDescription: workerNotes || "أجر يومي (إضافة سريعة)",
       notes: workerNotes,
       wellId: selectedWellId || null,
       paymentType: parseFloat(workerAmount) >= (parseFloat(worker.dailyWage.toString()) * parseFloat(workerDays)) ? "full" : "partial",

@@ -1935,54 +1935,79 @@ function DailyExpensesContent() {
                 </p>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                type="number"
-                inputMode="decimal"
-                value={fundAmount}
-                onChange={(e) => setFundAmount(e.target.value)}
-                placeholder="المبلغ *"
-                className="text-center"
-                min="0"
-                step="0.01"
-              />
-              <AutocompleteInput
-                value={senderName}
-                onChange={setSenderName}
-                category="senderNames"
-                placeholder="اسم المرسل"
-              />
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  value={fundAmount}
+                  onChange={(e) => setFundAmount(e.target.value)}
+                  placeholder="المبلغ *"
+                  className="text-center arabic-numbers"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <Label className="block text-sm font-medium text-foreground mb-1">اسم المرسل</Label>
+                <AutocompleteInput
+                  value={senderName}
+                  onChange={setSenderName}
+                  category="senderNames"
+                  placeholder="اسم المرسل"
+                />
+              </div>
             </div>
-            <AutocompleteInput
-              type="number"
-              inputMode="numeric"
-              value={transferNumber}
-              onChange={setTransferNumber}
-              category="transferNumbers"
-              placeholder="رقم الحولة"
-              className="w-full arabic-numbers"
-            />
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <Label className="block text-sm font-medium text-foreground mb-1">رقم الحولة</Label>
+                <AutocompleteInput
+                  type="number"
+                  inputMode="numeric"
+                  value={transferNumber}
+                  onChange={setTransferNumber}
+                  category="transferNumbers"
+                  placeholder="رقم الحولة"
+                  className="w-full arabic-numbers"
+                />
+              </div>
+              <div>
+                <Label className="block text-sm font-medium text-foreground mb-1">نوع التحويل *</Label>
+                <AutocompleteInput
+                  value={transferType}
+                  onChange={setTransferType}
+                  category="transferTypes"
+                  placeholder="نوع التحويل *"
+                  className="flex-1"
+                />
+              </div>
+            </div>
+            {selectedProjectId && !isAllProjects && (
+              <div className="mb-3">
+                <Label className="block text-sm font-medium text-foreground mb-1">البئر</Label>
+                <WellSelector
+                  projectId={selectedProjectId}
+                  value={fundTransferWellId}
+                  onChange={setFundTransferWellId}
+                  optional={true}
+                />
+              </div>
+            )}
             <div className="flex gap-2">
-              <AutocompleteInput
-                value={transferType}
-                onChange={setTransferType}
-                category="transferTypes"
-                placeholder="نوع التحويل *"
-                className="flex-1"
-              />
               <Button 
                 onClick={handleAddFundTransfer} 
                 size="sm" 
-                className="bg-primary"
+                className="flex-1 bg-primary"
                 disabled={addFundTransferMutation.isPending || updateFundTransferMutation.isPending}
                 data-testid="button-add-fund-transfer"
               >
                 {addFundTransferMutation.isPending || updateFundTransferMutation.isPending ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 ) : editingFundTransferId ? (
-                  <Save className="h-4 w-4" />
+                  <><Save className="h-4 w-4 ml-2" /> حفظ التعديل</>
                 ) : (
-                  <Plus className="h-4 w-4" />
+                  <><Plus className="h-4 w-4 ml-2" /> إضافة العهدة</>
                 )}
               </Button>
               {editingFundTransferId && (

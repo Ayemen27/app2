@@ -2291,21 +2291,21 @@ function DailyExpensesContent() {
             </div>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-2">
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <Label className="text-xs font-bold text-foreground mb-1">العامل *</Label>
+            <div className="grid grid-cols-12 gap-2 mb-3 items-end">
+              <div className="col-span-6">
+                <Label className="text-[10px] font-bold text-foreground mb-1 block">العامل *</Label>
                 <Select 
                   value={selectedWorkerId || "none"} 
                   onValueChange={(val) => setSelectedWorkerId(val === "none" ? "" : val)}
                 >
-                  <SelectTrigger className="h-9" data-testid="select-worker">
+                  <SelectTrigger className="h-9 text-xs" data-testid="select-worker">
                     <SelectValue placeholder="اختر العامل" />
                   </SelectTrigger>
                   <SelectContent className="p-0 overflow-hidden">
                     <div className="p-2 border-b sticky top-0 bg-popover z-50">
                       <Input
                         placeholder="بحث عن عامل..."
-                        className="h-8 w-full"
+                        className="h-8 w-full text-xs"
                         onChange={(e) => setSearchValue(e.target.value)}
                         value={searchValue}
                         onClick={(e) => {
@@ -2320,12 +2320,12 @@ function DailyExpensesContent() {
                       />
                     </div>
                     <div className="max-h-[200px] overflow-y-auto p-1">
-                      <SelectItem value="none">اختر العامل</SelectItem>
+                      <SelectItem value="none" className="text-xs">اختر العامل</SelectItem>
                       {workers && workers.length > 0 ? (
                         workers
                           .filter(w => !searchValue || (w.name && w.name.toLowerCase().includes(searchValue.toLowerCase())))
                           .map((worker) => (
-                            <SelectItem key={`worker-select-${worker.id}`} value={worker.id.toString()}>
+                            <SelectItem key={`worker-select-${worker.id}`} value={worker.id.toString()} className="text-xs">
                               {worker.name}
                             </SelectItem>
                           ))
@@ -2335,47 +2335,45 @@ function DailyExpensesContent() {
                 </Select>
               </div>
 
-              <div>
-                <Label className="text-xs font-bold text-foreground mb-1">الأيام *</Label>
+              <div className="col-span-3">
+                <Label className="text-[10px] font-bold text-foreground mb-1 block">الأيام *</Label>
                 <Input
                   type="number"
                   value={workerDays}
                   onChange={(e) => setWorkerDays(e.target.value)}
                   placeholder="0"
-                  className="text-center h-9"
+                  className="text-center h-9 text-xs"
                   min="0"
                   step="0.5"
                   data-testid="input-worker-days"
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <Label className="text-xs font-bold text-foreground mb-1">المبلغ *</Label>
+              <div className="col-span-3">
+                <Label className="text-[10px] font-bold text-foreground mb-1 block">المبلغ *</Label>
                 <Input
                   type="number"
                   value={workerAmount}
                   onChange={(e) => setWorkerAmount(e.target.value)}
                   placeholder="0"
-                  className="text-center arabic-numbers h-9"
+                  className="text-center arabic-numbers h-9 text-xs"
                   min="0"
                   step="0.01"
                   data-testid="input-worker-amount"
                 />
               </div>
+            </div>
 
-              <div>
-                <Label className="text-xs font-bold text-foreground mb-1">الملاحظات</Label>
-                <Input
-                  type="text"
-                  value={workerNotes}
-                  onChange={(e) => setWorkerNotes(e.target.value)}
-                  placeholder="ملاحظات إضافية"
-                  className="h-9"
-                  data-testid="input-worker-notes"
-                />
-              </div>
+            <div className="mb-3">
+              <Label className="text-xs font-bold text-foreground mb-1">الملاحظات</Label>
+              <Input
+                type="text"
+                value={workerNotes}
+                onChange={(e) => setWorkerNotes(e.target.value)}
+                placeholder="ملاحظات إضافية"
+                className="h-9"
+                data-testid="input-worker-notes"
+              />
             </div>
 
             <div className="flex gap-2">

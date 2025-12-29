@@ -257,12 +257,12 @@ function DailyExpensesContent() {
     }
 
     const attendanceData = {
-      workerId: parseInt(selectedWorkerId),
+      workerId: selectedWorkerId,
       projectId: selectedProjectId,
-      date: selectedDate || getCurrentDate(),
-      workDays: workerDays,
-      paidAmount: workerAmount,
-      payableAmount: workerAmount, // الحقل السريع يفترض الدفع الكامل
+      attendanceDate: selectedDate || getCurrentDate(),
+      workDays: parseFloat(workerDays),
+      paidAmount: parseFloat(workerAmount),
+      payableAmount: parseFloat(workerAmount), // الحقل السريع يفترض الدفع الكامل
       workDescription: "أجر يومي (إضافة سريعة)",
       notes: workerNotes,
       wellId: selectedWellId || null,
@@ -1985,7 +1985,6 @@ function DailyExpensesContent() {
             </div>
             {selectedProjectId && !isAllProjects && (
               <div className="mb-3">
-                <Label className="block text-sm font-medium text-foreground mb-1">البئر</Label>
                 <WellSelector
                   projectId={selectedProjectId}
                   value={fundTransferWellId}
@@ -2128,7 +2127,6 @@ function DailyExpensesContent() {
                     </div>
                     {selectedProjectId && !isAllProjects && (
                       <div className="flex flex-col">
-                        <Label className="block text-sm font-medium text-foreground mb-1">البئر</Label>
                         <WellSelector
                           projectId={selectedProjectId}
                           value={selectedWellId}
@@ -2225,15 +2223,14 @@ function DailyExpensesContent() {
                   <Users className="text-primary ml-2 h-5 w-5" />
                   إضافة أجور عامل جديد
                 </h4>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label className="block text-sm font-medium text-foreground mb-1">العامل *</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    <div className="sm:col-span-2 lg:col-span-1">
+                      <Label className="text-xs font-bold text-foreground mb-1">العامل *</Label>
                       <Select 
                         value={selectedWorkerId || "none"} 
                         onValueChange={(val) => setSelectedWorkerId(val === "none" ? "" : val)}
                       >
-                        <SelectTrigger data-testid="select-worker">
+                        <SelectTrigger className="h-9" data-testid="select-worker">
                           <SelectValue placeholder="اختر العامل" />
                         </SelectTrigger>
                         <SelectContent className="p-0 overflow-hidden">
@@ -2271,7 +2268,6 @@ function DailyExpensesContent() {
                     </div>
                     {selectedProjectId && !isAllProjects && (
                       <div className="flex flex-col">
-                        <Label className="block text-sm font-medium text-foreground mb-1">البئر</Label>
                         <WellSelector
                           projectId={selectedProjectId}
                           value={selectedWellId}
@@ -2280,61 +2276,63 @@ function DailyExpensesContent() {
                         />
                       </div>
                     )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="block text-sm font-medium text-foreground mb-1">عدد الأيام *</Label>
+                      <Label className="text-xs font-bold text-foreground mb-1">الأيام *</Label>
                       <Input
                         type="number"
                         value={workerDays}
                         onChange={(e) => setWorkerDays(e.target.value)}
                         placeholder="0"
-                        className="text-center"
+                        className="text-center h-9"
                         min="0"
                         step="0.5"
                         data-testid="input-worker-days"
                       />
                     </div>
                     <div>
-                      <Label className="block text-sm font-medium text-foreground mb-1">المبلغ المصروف *</Label>
+                      <Label className="text-xs font-bold text-foreground mb-1">المبلغ *</Label>
                       <Input
                         type="number"
                         value={workerAmount}
                         onChange={(e) => setWorkerAmount(e.target.value)}
                         placeholder="0"
-                        className="text-center arabic-numbers"
+                        className="text-center arabic-numbers h-9"
                         min="0"
                         step="0.01"
                         data-testid="input-worker-amount"
                       />
                     </div>
                   </div>
-                  <div>
-                    <Label className="block text-sm font-medium text-foreground mb-1">الملاحظات</Label>
-                    <Input
-                      type="text"
-                      value={workerNotes}
-                      onChange={(e) => setWorkerNotes(e.target.value)}
-                      placeholder="ملاحظات إضافية"
-                      data-testid="input-worker-notes"
-                    />
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Label className="text-xs font-bold text-foreground mb-1">الملاحظات</Label>
+                      <Input
+                        type="text"
+                        value={workerNotes}
+                        onChange={(e) => setWorkerNotes(e.target.value)}
+                        placeholder="ملاحظات إضافية"
+                        className="h-9"
+                        data-testid="input-worker-notes"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button 
+                        onClick={handleQuickAddAttendance}
+                        className="bg-primary h-9 px-4"
+                        disabled={addWorkerAttendanceMutation.isPending}
+                        data-testid="button-add-worker-attendance"
+                      >
+                        {addWorkerAttendanceMutation.isPending ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4 ml-1" />
+                            إضافة
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                  <Button 
-                    onClick={handleQuickAddAttendance}
-                    className="w-full bg-primary"
-                    disabled={addWorkerAttendanceMutation.isPending}
-                    data-testid="button-add-worker-attendance"
-                  >
-                    {addWorkerAttendanceMutation.isPending ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4 ml-2" />
-                        إضافة أجر العامل مباشره
-                      </>
-                    )}
-                  </Button>
-                </div>
               </div>
 
               {/* أجور العمال - عرض البطاقات */}

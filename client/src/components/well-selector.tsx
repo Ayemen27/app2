@@ -63,9 +63,9 @@ export function WellSelector({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {showLabel && (
-        <Label className="text-sm font-medium">
+        <Label className="text-xs font-bold text-foreground mb-1">
           البئر {!optional && <span className="text-red-500">*</span>}
         </Label>
       )}

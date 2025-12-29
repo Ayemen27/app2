@@ -75,7 +75,7 @@ export function WellSelector({
         onValueChange={(val) => onChange(val === "none" ? undefined : parseInt(val))}
         placeholder="اختر البئر"
         searchPlaceholder="بحث عن بئر..."
-        noResultsMessage="لا توجد آبار مطابقة"
+        emptyText="لا توجد آبار مطابقة"
         disabled={disabled || isLoading}
       />
     </div>

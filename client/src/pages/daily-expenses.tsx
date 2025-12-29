@@ -2144,15 +2144,11 @@ function DailyExpensesContent() {
                         <SelectContent>
                           {workers && workers.length > 0 ? (
                             workers.map((worker) => (
-                              <SelectItem key={worker.id} value={worker.id.toString()}>
+                              <SelectItem key={`worker-${worker.id}`} value={worker.id.toString()}>
                                 {worker.name}
                               </SelectItem>
                             ))
-                          ) : (
-                            <SelectItem value="none" disabled>
-                              لا يوجد عمال متاحون
-                            </SelectItem>
-                          )}
+                          ) : null}
                         </SelectContent>
                       </Select>
                     </div>

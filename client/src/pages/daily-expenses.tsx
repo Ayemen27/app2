@@ -1040,10 +1040,10 @@ function DailyExpensesContent() {
     if (editingFundTransferId) {
       updateFundTransferMutation.mutate({
         id: editingFundTransferId,
-        data: transferData
+        data: fundTransferData
       });
     } else {
-      addFundTransferMutation.mutate(transferData);
+      addFundTransferMutation.mutate(fundTransferData);
     }
   };
 

@@ -751,7 +751,6 @@ export default function WorkerAttendance() {
           isPresent: true,
           workDays: workDays,
           dailyWage: worker?.dailyWage || "0",
-          // الحقول الجديدة المطلوبة
           hoursWorked: calculateWorkingHours().toString(),
           overtime: overtime.toString(),
           overtimeRate: overtimeRate.toString(),
@@ -761,7 +760,6 @@ export default function WorkerAttendance() {
           remainingAmount: remainingAmount.toString(),
           paymentType: data.paymentType || "partial",
           notes: data.notes || "",
-          recordType: data.recordType || "work",
           wellId: selectedWellId || null,
         };
 

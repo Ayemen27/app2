@@ -105,25 +105,20 @@ export default function EnhancedWorkerCard({
       setShowDetails(false);
     }
 
-    const baseUpdate = {
-      isPresent: isPresent,
-      recordType: isPresent ? recordType : undefined,
-    };
-
     if (isPresent && recordType === "work") {
       updateAttendance({
-        ...baseUpdate,
+        isPresent: isPresent,
         startTime: localAttendance.startTime || "07:00",
         endTime: localAttendance.endTime || "15:00",
         workDescription: localAttendance.workDescription,
-        workDays: localAttendance.workDays === undefined ? 0 : localAttendance.workDays, // Ensure workDays is initialized
+        workDays: localAttendance.workDays === undefined ? 0 : localAttendance.workDays,
         paidAmount: localAttendance.paidAmount,
         paymentType: localAttendance.paymentType || "partial",
       });
     } else if (isPresent && recordType === "advance") {
       // سحب مقدم: workDays = 0، المبلغ يصير دين
       updateAttendance({
-        ...baseUpdate,
+        isPresent: isPresent,
         workDays: 0,
         paidAmount: localAttendance.paidAmount || "0",
         paymentType: "advance",
@@ -131,7 +126,7 @@ export default function EnhancedWorkerCard({
         endTime: undefined,
       });
     } else {
-      updateAttendance(baseUpdate);
+      updateAttendance({ isPresent: isPresent });
     }
   };
 
@@ -289,7 +284,6 @@ export default function EnhancedWorkerCard({
                   size="sm"
                   onClick={() => {
                     setRecordType("work");
-                    updateAttendance({ recordType: "work" });
                   }}
                   className="px-2 py-1 h-8 text-xs"
                   data-testid={`record-type-work-${worker.id}`}
@@ -301,7 +295,6 @@ export default function EnhancedWorkerCard({
                   size="sm"
                   onClick={() => {
                     setRecordType("advance");
-                    updateAttendance({ recordType: "advance" });
                   }}
                   className="px-2 py-1 h-8 text-xs"
                   data-testid={`record-type-advance-${worker.id}`}

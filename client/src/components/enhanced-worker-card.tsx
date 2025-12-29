@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";

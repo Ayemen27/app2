@@ -2510,6 +2510,9 @@ function DailyExpensesContent() {
                             {attendance.workDescription && (
                               <p className="text-xs text-muted-foreground">النوع: {attendance.workDescription}</p>
                             )}
+                            {attendance.notes && (
+                              <p className="text-xs text-muted-foreground">ملاحظة: {attendance.notes}</p>
+                            )}
                             {isAllProjects && attendance.projectName && (
                               <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {attendance.projectName}</div>
                             )}

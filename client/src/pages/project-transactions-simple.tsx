@@ -77,18 +77,32 @@ export default function ProjectTransactionsSimple() {
     queryFn: async () => {
       try {
         console.log(`🔄 جلب تحويلات العهدة للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
-        const endpoint = isAllProjects 
-          ? '/api/projects/all/fund-transfers'
-          : `/api/projects/${selectedProject}/fund-transfers`;
-        const data = await apiRequest(endpoint);
-        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} تحويل عهدة`);
-        return Array.isArray(data?.data) ? data.data : [];
+        
+        if (isAllProjects) {
+          // جلب من جميع المشاريع
+          const allRecords: any[] = [];
+          for (const project of projects) {
+            try {
+              const data = await apiRequest(`/api/projects/${project.id}/fund-transfers`);
+              const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+              allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+            } catch (e) {
+              console.error(`❌ خطأ في جلب تحويلات عهدة المشروع ${project.id}:`, e);
+            }
+          }
+          console.log(`✅ تم جلب ${allRecords.length} تحويل عهدة من جميع المشاريع`);
+          return allRecords;
+        } else {
+          const data = await apiRequest(`/api/projects/${selectedProject}/fund-transfers`);
+          console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} تحويل عهدة`);
+          return Array.isArray(data?.data) ? data.data : [];
+        }
       } catch (error) {
         console.error('❌ خطأ في جلب تحويلات العهدة:', error);
         return [];
       }
     },
-    enabled: true,
+    enabled: (!!selectedProject || isAllProjects) && projects.length > 0,
     retry: 1,
     staleTime: 30000,
   });
@@ -230,32 +244,55 @@ export default function ProjectTransactionsSimple() {
     queryFn: async () => {
       try {
         console.log(`🔄 جلب مشتريات المواد للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
-        const endpoint = isAllProjects
-          ? '/api/projects/all/material-purchases'
-          : `/api/projects/${selectedProject}/material-purchases`;
-        const response = await fetch(endpoint, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-            'Content-Type': 'application/json',
+        
+        if (isAllProjects) {
+          // جلب من جميع المشاريع
+          const allRecords: any[] = [];
+          for (const project of projects) {
+            try {
+              const response = await fetch(`/api/projects/${project.id}/material-purchases`, {
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+                  'Content-Type': 'application/json',
+                }
+              });
+              if (response.ok) {
+                const data = await response.json();
+                const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+                allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+              }
+            } catch (e) {
+              console.error(`❌ خطأ في جلب مشتريات المشروع ${project.id}:`, e);
+            }
           }
-        });
-        if (!response.ok) {
-          if (response.status === 401) {
-            console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
+          console.log(`✅ تم جلب ${allRecords.length} مشترية مواد من جميع المشاريع`);
+          return allRecords;
+        } else {
+          const response = await fetch(`/api/projects/${selectedProject}/material-purchases`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+              'Content-Type': 'application/json',
+            }
+          });
+          if (!response.ok) {
+            if (response.status === 401) {
+              console.error('❌ غير مصرح - يرجى تسجيل الدخول مرة أخرى');
+              return [];
+            }
+            console.error(`❌ خطأ في جلب مشتريات المواد: ${response.status}`);
             return [];
           }
-          console.error(`❌ خطأ في جلب مشتريات المواد: ${response.status}`);
-          return [];
+          const data = await response.json();
+          const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+          console.log(`✅ تم جلب ${records.length} مشترية مواد`);
+          return records;
         }
-        const data = await response.json();
-        console.log(`✅ تم جلب ${Array.isArray(data?.data) ? data.data.length : 0} مشترية مواد`);
-        return Array.isArray(data?.data) ? data.data : [];
       } catch (error) {
         console.error('❌ خطأ في جلب مشتريات المواد:', error);
         return [];
       }
     },
-    enabled: true, // Always enabled, logic inside handles empty selection
+    enabled: (!!selectedProject || isAllProjects) && projects.length > 0,
     retry: 1,
     staleTime: 30000,
   });
@@ -266,20 +303,37 @@ export default function ProjectTransactionsSimple() {
     queryFn: async () => {
       try {
         console.log(`🔄 جلب مصاريف النقل - جميع المشاريع: ${isAllProjects}, المشروع: ${selectedProject}`);
-        let endpoint = '/api/transportation-expenses';
-        if (!isAllProjects && selectedProject) {
-          endpoint = `/api/transportation-expenses?projectId=${selectedProject}`;
+        
+        if (isAllProjects) {
+          // جلب من جميع المشاريع
+          const allRecords: any[] = [];
+          for (const project of projects) {
+            try {
+              const data = await apiRequest(`/api/transportation-expenses?projectId=${project.id}`);
+              const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+              allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+            } catch (e) {
+              console.error(`❌ خطأ في جلب مصاريف نقل المشروع ${project.id}:`, e);
+            }
+          }
+          console.log(`✅ تم جلب ${allRecords.length} مصروف نقل من جميع المشاريع`);
+          return allRecords;
+        } else {
+          let endpoint = '/api/transportation-expenses';
+          if (selectedProject) {
+            endpoint = `/api/transportation-expenses?projectId=${selectedProject}`;
+          }
+          const data = await apiRequest(endpoint);
+          const expensesData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+          console.log(`✅ تم جلب ${expensesData.length} مصروف نقل`);
+          return expensesData;
         }
-        const data = await apiRequest(endpoint);
-        const expensesData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-        console.log(`✅ تم جلب ${expensesData.length} مصروف نقل`);
-        return expensesData;
       } catch (error) {
         console.error('❌ خطأ في جلب مصاريف النقل:', error);
         return [];
       }
     },
-    enabled: true,
+    enabled: (!!selectedProject || isAllProjects) && projects.length > 0,
     retry: 1,
     staleTime: 30000,
   });
@@ -290,20 +344,37 @@ export default function ProjectTransactionsSimple() {
     queryFn: async () => {
       try {
         console.log(`🔄 جلب المصاريف المتنوعة - جميع المشاريع: ${isAllProjects}, المشروع: ${selectedProject}`);
-        let endpoint = '/api/worker-misc-expenses';
-        if (!isAllProjects && selectedProject) {
-          endpoint = `/api/worker-misc-expenses?projectId=${selectedProject}`;
+        
+        if (isAllProjects) {
+          // جلب من جميع المشاريع
+          const allRecords: any[] = [];
+          for (const project of projects) {
+            try {
+              const data = await apiRequest(`/api/worker-misc-expenses?projectId=${project.id}`);
+              const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+              allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+            } catch (e) {
+              console.error(`❌ خطأ في جلب مصاريف المشروع ${project.id}:`, e);
+            }
+          }
+          console.log(`✅ تم جلب ${allRecords.length} مصروف متنوع من جميع المشاريع`);
+          return allRecords;
+        } else {
+          let endpoint = '/api/worker-misc-expenses';
+          if (selectedProject) {
+            endpoint = `/api/worker-misc-expenses?projectId=${selectedProject}`;
+          }
+          const data = await apiRequest(endpoint);
+          const expensesData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+          console.log(`✅ تم جلب ${expensesData.length} مصروف متنوع`);
+          return expensesData;
         }
-        const data = await apiRequest(endpoint);
-        const expensesData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-        console.log(`✅ تم جلب ${expensesData.length} مصروف متنوع`);
-        return expensesData;
       } catch (error) {
         console.error('❌ خطأ في جلب المصاريف المتنوعة:', error);
         return [];
       }
     },
-    enabled: true,
+    enabled: (!!selectedProject || isAllProjects) && projects.length > 0,
     retry: 1,
     staleTime: 30000,
   });

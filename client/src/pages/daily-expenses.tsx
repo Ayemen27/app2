@@ -1557,6 +1557,20 @@ function DailyExpensesContent() {
         miscExpenses: filteredMiscExpenses.length
       });
       
+      // إضافة الرصيد المتبقي السابق (دخل)
+      const carriedAmount = cleanNumber(carriedForward);
+      if (carriedAmount !== 0) {
+        transactions.push({
+          id: 'previous-balance',
+          date: selectedDate || new Date().toISOString().split('T')[0],
+          type: 'income',
+          category: 'رصيد سابق',
+          amount: Math.abs(carriedAmount),
+          description: carriedAmount > 0 ? 'رصيد مرحل (موجب)' : 'عجز مرحل (سالب)',
+          projectName: projects.find(p => p.id === selectedProjectId)?.name || 'غير محدد',
+        });
+      }
+
       // إضافة تحويلات العهدة (دخل)
       filteredFundTransfers.forEach((transfer: any) => {
         transactions.push({
@@ -1683,18 +1697,12 @@ function DailyExpensesContent() {
         });
       });
 
-      // حساب الإجماليات (مطابقة لمنطق الصفحة)
-      const totalIncome = transactions
-        .filter(t => t.type === 'income' || t.type === 'transfer_from_project')
-        .reduce((sum, t) => sum + t.amount, 0);
-      const totalExpenses = transactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
+      const totals = calculateTotals();
       
       const exportTotals = {
-        totalIncome,
-        totalExpenses,
-        balance: totalIncome - totalExpenses
+        totalIncome: totals.totalIncome,
+        totalExpenses: totals.totalExpenses,
+        balance: totals.remainingBalance
       };
 
       // الحصول على اسم المشروع

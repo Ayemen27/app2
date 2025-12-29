@@ -2137,13 +2137,36 @@ function DailyExpensesContent() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="block text-sm font-medium text-foreground mb-1">العامل *</Label>
-                      <AutocompleteInput
-                        data={workers.map(w => ({ id: w.id, name: w.name }))}
-                        value={selectedWorkerId}
-                        onSelect={(id) => setSelectedWorkerId(id)}
-                        placeholder="ابحث عن عامل..."
-                        className="w-full"
-                      />
+                      <Select 
+                        value={selectedWorkerId || "__EMPTY__"} 
+                        onValueChange={(val) => setSelectedWorkerId(val === "__EMPTY__" ? "" : val)}
+                      >
+                        <SelectTrigger data-testid="select-worker">
+                          <SelectValue placeholder="اختر العامل" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <div className="p-2 border-b">
+                            <Input
+                              placeholder="بحث عن عامل..."
+                              className="h-8 w-full"
+                              onChange={(e) => setSearchValue(e.target.value)}
+                              value={searchValue}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <SelectItem value="__EMPTY__">اختر العامل</SelectItem>
+                          <div className="max-h-[200px] overflow-y-auto">
+                            {workers
+                              .filter(w => !searchValue || w.name.includes(searchValue))
+                              .map((worker) => (
+                                <SelectItem key={`worker-select-${worker.id}`} value={worker.id.toString()}>
+                                  {worker.name}
+                                </SelectItem>
+                              ))}
+                          </div>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label className="block text-sm font-medium text-foreground mb-1">عدد الأيام *</Label>

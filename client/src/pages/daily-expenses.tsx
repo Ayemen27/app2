@@ -63,6 +63,9 @@ function DailyExpensesContent() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
+  const [isFundTransfersExpanded, setIsFundTransfersExpanded] = useState(false);
+  const [isTransportationExpanded, setIsTransportationExpanded] = useState(false);
+  const [isAttendanceExpanded, setIsAttendanceExpanded] = useState(false);
 
   // Fund transfer form
   const [fundAmount, setFundAmount] = useState<string>("");
@@ -441,6 +444,13 @@ function DailyExpensesContent() {
   const safeWorkerTransfers = Array.isArray(todayWorkerTransfers) ? todayWorkerTransfers : [];
   const safeMiscExpenses = Array.isArray(todayMiscExpenses) ? todayMiscExpenses : [];
   const safeFundTransfers = Array.isArray(todayFundTransfers) ? todayFundTransfers : [];
+
+  // تحديث حالة توسع الفئات عند تغير البيانات
+  useEffect(() => {
+    setIsFundTransfersExpanded(safeFundTransfers.length > 0);
+    setIsTransportationExpanded(safeTransportation.length > 0);
+    setIsAttendanceExpanded(safeAttendance.length > 0);
+  }, [safeFundTransfers.length, safeTransportation.length, safeAttendance.length]);
 
   // فلترة البيانات حسب نص البحث
   const filteredFundTransfers = useMemo(() => {
@@ -1966,7 +1976,7 @@ function DailyExpensesContent() {
 
               {/* Fund Transfer Section - الطي الذكية */}
               <div className="border-t pt-3">
-                <Collapsible defaultOpen={safeFundTransfers.length > 0}>
+                <Collapsible open={isFundTransfersExpanded} onOpenChange={setIsFundTransfersExpanded}>
                   <CollapsibleTrigger asChild>
                     <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
                       <h4 className="font-medium text-foreground">تحويل عهدة جديدة</h4>
@@ -2134,7 +2144,7 @@ function DailyExpensesContent() {
 
       {/* Transportation Input Section + Display */}
       <div className="border-t pt-3 mt-3">
-        <Collapsible defaultOpen={safeTransportation.length > 0}>
+        <Collapsible open={isTransportationExpanded} onOpenChange={setIsTransportationExpanded}>
           <CollapsibleTrigger asChild>
             <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
               <h4 className="font-medium text-foreground flex items-center">
@@ -2278,7 +2288,7 @@ function DailyExpensesContent() {
 
       {/* إضافة أجور العمال - حقول الإدخال السريعة */}
       <div className="border-t pt-3 mt-3">
-        <Collapsible defaultOpen={safeAttendance.length > 0}>
+        <Collapsible open={isAttendanceExpanded} onOpenChange={setIsAttendanceExpanded}>
           <CollapsibleTrigger asChild>
             <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
               <h4 className="font-medium text-foreground flex items-center">

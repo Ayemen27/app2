@@ -33,9 +33,15 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   const [miscAmount, setMiscAmount] = useState("");
   const [editingMiscId, setEditingMiscId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState({});
+  const [isExpanded, setIsExpanded] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
+
+  // تحديث حالة التوسع عند تغير البيانات
+  useEffect(() => {
+    setIsExpanded(todayMiscExpenses.length > 0);
+  }, [todayMiscExpenses]);
 
   // تعيين إجراء الزر العائم لإضافة مصروف جديد
   useEffect(() => {
@@ -198,7 +204,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
     : 0;
 
   return (
-    <Collapsible defaultOpen={todayMiscExpenses.length > 0}>
+    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
       <Card className="mb-3">
         <CollapsibleTrigger asChild>
           <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">

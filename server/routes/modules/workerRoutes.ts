@@ -1319,9 +1319,11 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     console.log('✅ [API] نجح validation حضور العامل');
 
     // حساب actualWage و totalPay = dailyWage * workDays وتحويل workDays إلى string
+    const attendanceDate = req.body.attendanceDate || req.body.date;
     const actualWageValue = parseFloat(validationResult.data.dailyWage) * validationResult.data.workDays;
     const dataWithCalculatedFields = {
       ...validationResult.data,
+      date: attendanceDate, // التأكد من تعيين التاريخ
       workDays: validationResult.data.workDays.toString(), // تحويل إلى string للتوافق مع decimal
       actualWage: actualWageValue.toString(),
       totalPay: actualWageValue.toString(), // totalPay = actualWage

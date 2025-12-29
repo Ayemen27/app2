@@ -60,6 +60,7 @@ export default function WorkerAttendance() {
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({});
   const [showSharedSettings, setShowSharedSettings] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showDateFilter, setShowDateFilter] = useState(true);
 
   // إعدادات مشتركة لجميع العمال
   const [bulkSettings, setBulkSettings] = useState({
@@ -82,11 +83,14 @@ export default function WorkerAttendance() {
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
     setFilterValues({});
+    if (showDateFilter) {
+      setSelectedDate(getCurrentDate());
+    }
     toast({
       title: "تم إعادة التعيين",
-      description: "تم مسح جميع الفلاتر",
+      description: "تم مسح جميع الفلاتر وتعيين تاريخ اليوم",
     });
-  }, [toast]);
+  }, [toast, showDateFilter]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -108,6 +112,13 @@ export default function WorkerAttendance() {
       setIsRefreshing(false);
     }
   }, [queryClient, selectedProjectId, toast]);
+
+  // تعيين تاريخ اليوم تلقائياً عند الفتح
+  useEffect(() => {
+    if (!selectedDate && showDateFilter) {
+      setSelectedDate(getCurrentDate());
+    }
+  }, []);
 
   // تعيين إجراء الزر العائم لحفظ الحضور
   useEffect(() => {

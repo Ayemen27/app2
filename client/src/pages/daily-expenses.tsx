@@ -1895,7 +1895,7 @@ function DailyExpensesContent() {
         />
       )}
 
-      {/* نموذج الإضافة القابل للطي */}
+      {/* نموذج الإضافة القابل للطي - مع الطي الذكية */}
       <Collapsible open={isAddFormOpen} onOpenChange={setIsAddFormOpen}>
         <Card className="mb-4">
           <CollapsibleTrigger asChild>
@@ -1940,7 +1940,7 @@ function DailyExpensesContent() {
                 </div>
               </div>
 
-              {/* Fund Transfer Section */}
+              {/* Fund Transfer Section - الطي الذكية */}
               <div className="border-t pt-3">
                 <Collapsible defaultOpen={safeFundTransfers.length > 0}>
                   <CollapsibleTrigger asChild>

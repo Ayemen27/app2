@@ -3,13 +3,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, Edit2, Save, X, DollarSign } from "lucide-react";
+import { Plus, Trash2, Edit2, Save, X, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { formatCurrency } from "@/lib/utils";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { useEffect, useState as useStateAlias } from "react";
 
 interface WorkerMiscExpense {
@@ -197,13 +198,27 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
     : 0;
 
   return (
-    <Card className="mb-3">
-      <CardContent className="p-4">
-        <h4 className="font-medium text-foreground flex items-center">
-          <DollarSign className="text-purple-600 ml-2 h-5 w-5" />
-          نثريات العمال
-        </h4>
-        <div className="space-y-3">
+    <Collapsible defaultOpen={todayMiscExpenses.length > 0}>
+      <Card className="mb-3">
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="flex items-center gap-2">
+              <DollarSign className="text-purple-600 h-5 w-5" />
+              <span className="font-medium text-foreground">نثريات العمال</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {todayMiscExpenses.length > 0 && (
+                <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded">
+                  {todayMiscExpenses.length}
+                </span>
+              )}
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform" />
+            </div>
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="p-4 pt-0">
+            <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <AutocompleteInput
               value={miscDescription}
@@ -269,7 +284,9 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }

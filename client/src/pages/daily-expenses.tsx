@@ -2138,32 +2138,41 @@ function DailyExpensesContent() {
                     <div>
                       <Label className="block text-sm font-medium text-foreground mb-1">العامل *</Label>
                       <Select 
-                        value={selectedWorkerId || "__EMPTY__"} 
-                        onValueChange={(val) => setSelectedWorkerId(val === "__EMPTY__" ? "" : val)}
+                        value={selectedWorkerId || "none"} 
+                        onValueChange={(val) => setSelectedWorkerId(val === "none" ? "" : val)}
                       >
                         <SelectTrigger data-testid="select-worker">
                           <SelectValue placeholder="اختر العامل" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <div className="p-2 border-b">
+                        <SelectContent className="p-0 overflow-hidden">
+                          <div className="p-2 border-b sticky top-0 bg-popover z-50">
                             <Input
                               placeholder="بحث عن عامل..."
                               className="h-8 w-full"
                               onChange={(e) => setSearchValue(e.target.value)}
                               value={searchValue}
-                              onClick={(e) => e.stopPropagation()}
-                              onKeyDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === ' ') {
+                                  e.stopPropagation();
+                                }
+                              }}
                             />
                           </div>
-                          <SelectItem value="__EMPTY__">اختر العامل</SelectItem>
-                          <div className="max-h-[200px] overflow-y-auto">
-                            {workers
-                              .filter(w => !searchValue || w.name.includes(searchValue))
-                              .map((worker) => (
-                                <SelectItem key={`worker-select-${worker.id}`} value={worker.id.toString()}>
-                                  {worker.name}
-                                </SelectItem>
-                              ))}
+                          <div className="max-h-[200px] overflow-y-auto p-1">
+                            <SelectItem value="none">اختر العامل</SelectItem>
+                            {workers && workers.length > 0 ? (
+                              workers
+                                .filter(w => !searchValue || (w.name && w.name.toLowerCase().includes(searchValue.toLowerCase())))
+                                .map((worker) => (
+                                  <SelectItem key={`worker-select-${worker.id}`} value={worker.id.toString()}>
+                                    {worker.name}
+                                  </SelectItem>
+                                ))
+                            ) : null}
                           </div>
                         </SelectContent>
                       </Select>

@@ -175,14 +175,16 @@ export default function EnhancedWorkerCard({
   };
 
   const getProfessionColor = (profession: string) => {
-    switch (profession) {
-      case "معلم": return "bg-gradient-to-br from-primary to-primary/80";
-      case "حداد": return "bg-gradient-to-br from-orange-500 to-orange-600";
-      case "بلاط": return "bg-gradient-to-br from-blue-500 to-blue-600";
-      case "دهان": return "bg-gradient-to-br from-green-500 to-green-600";
-      case "عامل": return "bg-gradient-to-br from-purple-500 to-purple-600";
-      default: return "bg-gradient-to-br from-gray-500 to-gray-600";
-    }
+    const p = profession.toLowerCase();
+    if (p.includes("معلم") || p.includes("master")) return "bg-gradient-to-br from-primary to-primary/80";
+    if (p.includes("حداد") || p.includes("smith")) return "bg-gradient-to-br from-orange-500 to-orange-600";
+    if (p.includes("بلاط") || p.includes("tile")) return "bg-gradient-to-br from-blue-500 to-blue-600";
+    if (p.includes("دهان") || p.includes("paint")) return "bg-gradient-to-br from-green-500 to-green-600";
+    if (p.includes("عامل") || p.includes("labor")) return "bg-gradient-to-br from-purple-500 to-purple-600";
+    if (p.includes("نجار") || p.includes("carpenter")) return "bg-gradient-to-br from-amber-600 to-amber-700";
+    if (p.includes("كهربائي") || p.includes("electric")) return "bg-gradient-to-br from-yellow-500 to-yellow-600";
+    if (p.includes("سباك") || p.includes("plumb")) return "bg-gradient-to-br from-cyan-500 to-cyan-600";
+    return "bg-gradient-to-br from-gray-500 to-gray-600";
   };
 
   return (
@@ -208,7 +210,9 @@ export default function EnhancedWorkerCard({
               </div>
               <div className="flex items-center space-x-reverse space-x-4 text-xs text-muted-foreground">
                 <span className="flex items-center space-x-reverse space-x-1">
-                  <span className="font-medium">{worker.type}</span>
+                  <Badge variant="secondary" className={`${getProfessionColor(worker.type)} text-white border-none shadow-sm text-[10px] px-2 py-0 h-5`}>
+                    {worker.type}
+                  </Badge>
                 </span>
                 <span className="flex items-center space-x-reverse space-x-1">
                   <DollarSign className="h-3 w-3" />

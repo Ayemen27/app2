@@ -218,6 +218,59 @@ function DailyExpensesContent() {
 
   // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData
 
+  const addWorkerAttendanceMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("/api/worker-attendance", "POST", data),
+    onSuccess: () => {
+      refreshAllData();
+      setWorkerDays("");
+      setWorkerAmount("");
+      setWorkerNotes("");
+      setSelectedWorkerId("");
+      toast({ title: "تم إضافة الحضور", description: "تم تسجيل أجر العامل بنجاح" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "خطأ", 
+        description: error?.message || "حدث خطأ أثناء إضافة الحضور", 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const handleQuickAddAttendance = () => {
+    if (!selectedProjectId || isAllProjects) {
+      toast({
+        title: "يرجى تحديد مشروع",
+        description: "يرجى اختيار مشروع محدد أولاً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedWorkerId || !workerDays || !workerAmount) {
+      toast({
+        title: "بيانات ناقصة",
+        description: "يرجى اختيار العامل وتحديد الأيام والمبلغ",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const attendanceData = {
+      workerId: parseInt(selectedWorkerId),
+      projectId: selectedProjectId,
+      date: selectedDate || getCurrentDate(),
+      workDays: workerDays,
+      paidAmount: workerAmount,
+      payableAmount: workerAmount, // الحقل السريع يفترض الدفع الكامل
+      workDescription: "أجر يومي (إضافة سريعة)",
+      notes: workerNotes,
+      wellId: selectedWellId || null,
+    };
+
+    addWorkerAttendanceMutation.mutate(attendanceData);
+  };
+
   // جلب معلومات المواد مع معالجة آمنة للأخطاء
   const { data: materials = [] } = useQuery({
     queryKey: ["/api/materials"],
@@ -2227,18 +2280,19 @@ function DailyExpensesContent() {
                     </div>
                   </div>
                   <Button 
-                    onClick={() => {
-                      if (!selectedWorkerId || !workerDays || !workerAmount) {
-                        toast({ title: "خطأ", description: "يرجى ملء الحقول المطلوبة", variant: "destructive" });
-                        return;
-                      }
-                      setLocation(`/worker-attendance?newWorker=${selectedWorkerId}&days=${workerDays}&amount=${workerAmount}&notes=${workerNotes}&date=${selectedDate}`);
-                    }}
+                    onClick={handleQuickAddAttendance}
                     className="w-full bg-primary"
+                    disabled={addWorkerAttendanceMutation.isPending}
                     data-testid="button-add-worker-attendance"
                   >
-                    <Plus className="h-4 w-4 ml-2" />
-                    إضافة أجر العامل
+                    {addWorkerAttendanceMutation.isPending ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border border-white border-t-transparent" />
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 ml-2" />
+                        إضافة أجر العامل مباشره
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

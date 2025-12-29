@@ -170,11 +170,11 @@ function DailyExpensesContent() {
         return [] as Worker[];
       }
     },
-    staleTime: 1000 * 60 * 10, // 10 دقائق
-    gcTime: 1000 * 60 * 30, // 30 دقيقة
-    retry: 1,
-    refetchOnWindowFocus: false, // تعطيل الجلب عند التركيز
-    refetchOnMount: false, // تعطيل الجلب عند التحميل
+    staleTime: 1000 * 60 * 30, // 30 دقيقة - بيانات العمال لا تتغير كثيراً
+    gcTime: 1000 * 60 * 60, // ساعة كاملة
+    retry: 2,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     refetchInterval: false,
   });
 
@@ -208,9 +208,9 @@ function DailyExpensesContent() {
         return [] as Project[];
       }
     },
-    staleTime: 1000 * 60 * 10, // 10 دقائق
-    gcTime: 1000 * 60 * 30, // 30 دقيقة
-    retry: 1,
+    staleTime: 1000 * 60 * 30, // 30 دقيقة
+    gcTime: 1000 * 60 * 60, // ساعة كاملة
+    retry: 2,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchInterval: false,
@@ -233,8 +233,8 @@ function DailyExpensesContent() {
         return [];
       }
     },
-    staleTime: 1000 * 60 * 15, // 15 دقيقة
-    gcTime: 1000 * 60 * 30, // 30 دقيقة
+    staleTime: 1000 * 60 * 30, // 30 دقيقة
+    gcTime: 1000 * 60 * 60, // ساعة كاملة
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchInterval: false,
@@ -325,12 +325,12 @@ function DailyExpensesContent() {
       }
     },
     enabled: isAllProjects || !!selectedProjectId,
-    retry: 1,
-    staleTime: 1000 * 60 * 5, // 5 دقائق بدلاً من 30 ثانية
-    gcTime: 1000 * 60 * 10, // 10 دقائق
-    refetchOnMount: false,
+    retry: 2,
+    staleTime: 1000 * 60 * 10, // 10 دقائق كاش بدلاً من 5
+    gcTime: 1000 * 60 * 20, // 20 دقيقة
+    refetchOnMount: true, // الجلب عند التحميل فقط إذا انتهى الكاش
     refetchOnWindowFocus: false,
-    refetchInterval: false, // منع الجلب التلقائي
+    refetchInterval: false,
     placeholderData: (previousData: any) => previousData,
   });
 

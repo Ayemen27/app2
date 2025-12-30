@@ -52,6 +52,7 @@ import type {
 // إزالة تعريف ErrorBoundary المحلي لتجنب التكرار - يتم استيراده من components/ErrorBoundary
 
 function DailyExpensesContent() {
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject, isAllProjects } = useSelectedProject();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -120,7 +121,6 @@ function DailyExpensesContent() {
   const [editWorkerAmount, setEditWorkerAmount] = useState<string>("");
   const [editWorkerNotes, setEditWorkerNotes] = useState<string>("");
 
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
 

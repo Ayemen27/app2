@@ -4472,12 +4472,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/daily-expenses", requireAuth, (req, res) => {
-    res.json({ success: true, data: [], message: "Daily expenses endpoint working - NOW SECURED ✅" });
+  app.get("/api/daily-expenses", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { date, projectId } = req.query;
+      
+      const query = db.select().from(dailyExpenses);
+      
+      if (date) {
+        query.where(eq(dailyExpenses.date, date as string));
+      }
+      
+      if (projectId && projectId !== 'all') {
+        query.where(eq(dailyExpenses.projectId, projectId as string));
+      }
+      
+      const results = await query.orderBy(desc(dailyExpenses.date));
+      
+      const duration = Date.now() - startTime;
+      res.json({
+        success: true,
+        data: results,
+        message: `تم جلب ${results.length} من المصروفات اليومية`,
+        processingTime: duration
+      });
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب المصروفات اليومية:', error);
+      res.status(500).json({
+        success: false,
+        error: 'فشل في جلب المصروفات اليومية',
+        message: error.message,
+        processingTime: duration
+      });
+    }
   });
 
-  app.get("/api/material-purchases", requireAuth, (req, res) => {
-    res.json({ success: true, data: [], message: "Material purchases endpoint working - NOW SECURED ✅" });
+  app.get("/api/material-purchases", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId } = req.query;
+      
+      const query = db.select().from(materialPurchases);
+      
+      if (projectId && projectId !== 'all') {
+        query.where(eq(materialPurchases.projectId, projectId as string));
+      }
+      
+      const results = await query.orderBy(desc(materialPurchases.purchaseDate));
+      
+      const duration = Date.now() - startTime;
+      res.json({
+        success: true,
+        data: results,
+        message: `تم جلب ${results.length} من مشتريات المواد`,
+        processingTime: duration
+      });
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب مشتريات المواد:', error);
+      res.status(500).json({
+        success: false,
+        error: 'فشل في جلب مشتريات المواد',
+        message: error.message,
+        processingTime: duration
+      });
+    }
   });
 
   // جلب الإشعارات - استخدام NotificationService الحقيقي

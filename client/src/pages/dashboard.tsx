@@ -318,8 +318,8 @@ export default function Dashboard() {
     if (financialProject) {
       return {
         totalIncome: financialProject.income?.totalIncome || 0,
-        totalExpenses: financialProject.expenses?.totalCashExpenses || 0,
-        currentBalance: financialProject.cashBalance || 0,
+        totalExpenses: financialProject.expenses?.totalAllExpenses || 0,
+        currentBalance: financialProject.totalBalance || 0,
         activeWorkers: financialProject.workers?.activeWorkers || 0,
         completedDays: financialProject.workers?.completedDays || 0,
         materialPurchases: financialProject.counts?.materialPurchases || 0
@@ -333,8 +333,8 @@ export default function Dashboard() {
     if (financialData?.totals) {
       return {
         totalIncome: financialData.totals.totalIncome || 0,
-        totalExpenses: financialData.totals.totalCashExpenses || 0,
-        currentBalance: financialData.totals.cashBalance || 0,
+        totalExpenses: financialData.totals.totalAllExpenses || 0,
+        currentBalance: financialData.totals.totalBalance || 0,
         activeWorkers: financialData.totals.activeWorkers || 0,
         completedDays: 0,
         materialPurchases: 0,

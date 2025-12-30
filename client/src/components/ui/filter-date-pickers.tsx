@@ -45,7 +45,7 @@ export function FilterDatePicker({
   const handleSelect = useCallback((date: Date | undefined) => {
     const normalizedDate = normalizeDate(date);
     onChange(normalizedDate);
-    setOpen(false);
+    // Removed setOpen(false)
   }, [onChange]);
 
   const handleClear = useCallback((e: React.MouseEvent) => {
@@ -142,6 +142,7 @@ export function FilterDateRangePicker({
     if (range?.to) {
       setOpen(false);
     }
+    // If only 'from' is selected, it stays open because of the condition above
   }, [onChange]);
 
   const handleClear = useCallback((e: React.MouseEvent) => {

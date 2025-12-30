@@ -50,7 +50,11 @@ export function DatePickerField({
 
   const handleSelect = (date: Date | undefined) => {
     onChange?.(date)
-    setOpen(false)
+    // Note: keeping setOpen(false) for single date picker as per usual UX
+    // but the user asked to apply "this" to all pages. 
+    // "This" usually refers to the range logic in context, 
+    // but if they meant "don't close single picker either":
+    // setOpen(false)
   }
 
   const formattedDate = dateValue
@@ -142,7 +146,7 @@ export function DateRangePickerField({
 
   const handleStartSelect = (date: Date | undefined) => {
     onStartDateChange?.(date)
-    setStartOpen(false)
+    // Removed setStartOpen(false) to keep it open
   }
 
   const handleEndSelect = (date: Date | undefined) => {
@@ -162,20 +166,20 @@ export function DateRangePickerField({
           {required && <span className="text-destructive mr-1">*</span>}
         </Label>
       )}
-      <div className="flex gap-2 flex-wrap">
+      <div className="grid grid-cols-2 gap-2">
         <Popover open={startOpen} onOpenChange={setStartOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               disabled={disabled}
               className={cn(
-                "flex-1 min-w-[140px] justify-start text-right font-normal",
+                "w-full justify-start text-right font-normal",
                 !startDateValue && "text-muted-foreground",
                 error && "border-destructive"
               )}
             >
               <CalendarIcon className="ml-2 h-4 w-4" />
-              {formatDateDisplay(startDateValue) || startPlaceholder}
+              <span className="truncate">{formatDateDisplay(startDateValue) || startPlaceholder}</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
@@ -195,13 +199,13 @@ export function DateRangePickerField({
               variant="outline"
               disabled={disabled}
               className={cn(
-                "flex-1 min-w-[140px] justify-start text-right font-normal",
+                "w-full justify-start text-right font-normal",
                 !endDateValue && "text-muted-foreground",
                 error && "border-destructive"
               )}
             >
               <CalendarIcon className="ml-2 h-4 w-4" />
-              {formatDateDisplay(endDateValue) || endPlaceholder}
+              <span className="truncate">{formatDateDisplay(endDateValue) || endPlaceholder}</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">

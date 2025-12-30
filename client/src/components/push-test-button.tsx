@@ -37,8 +37,8 @@ export function PushTestButton() {
   }
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-80 z-[200] animate-in fade-in slide-in-from-bottom-5">
-      <Card className="border-primary/20 shadow-lg bg-white dark:bg-slate-900 overflow-hidden">
+    <div className="fixed inset-0 flex items-center justify-center p-4 z-[9999] bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+      <Card className="w-full max-w-sm border-primary/20 shadow-2xl bg-white dark:bg-slate-900 overflow-hidden animate-in zoom-in-95 duration-300">
         <div className="bg-primary/10 p-2 flex justify-between items-center border-b border-primary/10">
           <div className="flex items-center gap-2">
             <Bell className="h-4 w-4 text-primary" />

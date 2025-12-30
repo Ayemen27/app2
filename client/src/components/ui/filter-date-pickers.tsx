@@ -130,7 +130,7 @@ export function FilterDateRangePicker({
   disabled = false,
   className,
   showClearButton = true,
-  numberOfMonths = 2,
+  numberOfMonths = 1,
   minDate,
   maxDate,
 }: FilterDateRangePickerProps) {
@@ -147,23 +147,12 @@ export function FilterDateRangePicker({
     if (range?.to) {
       setOpen(false);
     }
-    // If only 'from' is selected, it stays open because of the condition above
   }, [onChange]);
 
   const handleClear = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onChange({ from: undefined, to: undefined });
   }, [onChange]);
-
-  const formatRangeDisplay = () => {
-    if (!value?.from) return placeholder;
-    
-    if (value.to) {
-      return `${format(value.from, "dd MMM", { locale: ar })} - ${format(value.to, "dd MMM", { locale: ar })}`;
-    }
-    
-    return format(value.from, "dd MMMM yyyy", { locale: ar });
-  };
 
   const disabledDays = React.useMemo(() => {
     const matchers: Array<{ before: Date } | { after: Date }> = [];
@@ -173,42 +162,61 @@ export function FilterDateRangePicker({
   }, [minDate, maxDate]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          disabled={disabled}
-          className={cn(
-            "w-full justify-between text-right h-9 font-normal group",
-            !value?.from && "text-muted-foreground",
-            className
-          )}
-        >
-          <span className="flex items-center gap-2 flex-1 text-right">
-            <CalendarIcon className="h-4 w-4 opacity-50 shrink-0" />
-            <span className="truncate">{formatRangeDisplay()}</span>
-          </span>
-          {showClearButton && (value?.from || value?.to) && (
-            <X 
-              className="h-4 w-4 opacity-50 hover:opacity-100 shrink-0 transition-opacity" 
-              onClick={handleClear}
-            />
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start" dir="rtl">
-        <Calendar
-          mode="range"
-          selected={value?.from ? { from: value.from, to: value.to } : undefined}
-          onSelect={handleSelect as any}
-          numberOfMonths={numberOfMonths}
-          disabled={disabledDays}
-          locale={ar}
-          dir="rtl"
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
+    <div className={cn("grid gap-2", className)}>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <Button
+              variant="outline"
+              disabled={disabled}
+              className={cn(
+                "w-full justify-start text-right h-11 rounded-xl border-border/40 bg-background/50 backdrop-blur-sm hover:bg-accent/50 transition-all",
+                !value?.from && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+              <span className="truncate flex-1">
+                {value?.from ? format(value.from, "yyyy/MM/dd", { locale: ar }) : "من"}
+              </span>
+            </Button>
+            <Button
+              variant="outline"
+              disabled={disabled}
+              className={cn(
+                "w-full justify-start text-right h-11 rounded-xl border-border/40 bg-background/50 backdrop-blur-sm hover:bg-accent/50 transition-all relative group",
+                !value?.to && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+              <span className="truncate flex-1">
+                {value?.to ? format(value.to, "yyyy/MM/dd", { locale: ar }) : "إلى"}
+              </span>
+              {showClearButton && (value?.from || value?.to) && (
+                <div 
+                  className="absolute left-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                  onClick={handleClear}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </div>
+              )}
+            </Button>
+          </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0 rounded-2xl shadow-2xl border-border/40" align="center" dir="rtl">
+          <Calendar
+            mode="range"
+            selected={value?.from ? { from: value.from, to: value.to } : undefined}
+            onSelect={handleSelect as any}
+            numberOfMonths={numberOfMonths}
+            disabled={disabledDays}
+            locale={ar}
+            dir="rtl"
+            initialFocus
+            className="rounded-2xl"
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
 

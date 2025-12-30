@@ -13,6 +13,7 @@ import {
   SheetTitle,
   SheetTrigger,
   SheetFooter,
+  SheetClose,
 } from '@/components/ui/sheet';
 import { 
   Search, 
@@ -462,57 +463,66 @@ export function FilterStatsBar({
                 </SheetTrigger>
                 <SheetContent 
                   side="bottom"
-                  className="h-[85vh] sm:h-[80vh] sm:max-w-xl rounded-t-[2rem] p-0 overflow-hidden border-t-0 bg-background/95 backdrop-blur-xl"
+                  className="h-[85vh] sm:h-[80vh] sm:max-w-xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-background/95 backdrop-blur-2xl"
                   dir="rtl"
+                  onPointerDownOutside={(e) => e.preventDefault()}
+                  onInteractOutside={(e) => e.preventDefault()}
                 >
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted/30 rounded-full mb-4" />
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-muted/40 rounded-full z-50" />
                   
-                  <SheetHeader className="px-6 pt-8 pb-4 text-right border-b bg-card/50">
-                    <div className="flex items-center justify-between">
-                      <SheetTitle className="text-xl font-bold flex items-center gap-2">
-                        <div className="p-2 bg-primary/10 rounded-xl">
-                          <Filter className="h-5 w-5 text-primary" />
-                        </div>
-                        <span>خيارات التصفية</span>
-                      </SheetTitle>
-                    </div>
-                  </SheetHeader>
-                  
-                  <div className="px-6 py-4 space-y-8 overflow-y-auto max-h-[calc(85vh-160px)] custom-scrollbar">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      {filters.map((filter) => (
-                        <div key={filter.key} className="space-y-3 group">
-                          <label className="text-sm font-bold text-foreground/80 group-hover:text-primary transition-colors flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-primary/40" />
-                            {filter.label}
-                          </label>
-                          <div className="pt-1 relative">
-                            {renderFilterControl(filter)}
+                  <div className="flex flex-col h-full relative">
+                    <SheetHeader className="px-8 pt-10 pb-6 text-right border-b bg-card/30 backdrop-blur-md sticky top-0 z-40">
+                      <div className="flex items-center justify-between">
+                        <SheetTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
+                          <div className="p-2.5 bg-primary/15 rounded-2xl shadow-inner">
+                            <Filter className="h-6 w-6 text-primary" />
                           </div>
-                        </div>
-                      ))}
+                          <span>تصفية متقدمة</span>
+                        </SheetTitle>
+                        <SheetClose asChild>
+                          <Button variant="secondary" size="icon" className="rounded-full h-10 w-10 shadow-sm hover:scale-110 active:scale-95 transition-all">
+                            <X className="h-5 w-5" />
+                          </Button>
+                        </SheetClose>
+                      </div>
+                    </SheetHeader>
+                    
+                    <div className="flex-1 px-8 py-8 space-y-10 overflow-y-auto custom-scrollbar pb-32">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-10">
+                        {filters.map((filter) => (
+                          <div key={filter.key} className="space-y-4 group">
+                            <label className="text-sm font-bold text-foreground/70 group-hover:text-primary transition-colors flex items-center gap-2.5 px-1">
+                              <span className="w-2 h-2 rounded-full bg-primary/30 group-hover:bg-primary group-hover:scale-125 transition-all shadow-sm" />
+                              {filter.label}
+                            </label>
+                            <div className="pt-1 relative transform transition-all focus-within:scale-[1.01]">
+                              {renderFilterControl(filter)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent pt-10">
-                    <div className="flex items-center gap-3">
-                      <Button 
-                        className="flex-[2] h-12 text-base font-bold rounded-2xl shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] transition-all"
-                        onClick={() => setIsFilterPanelOpen(false)}
-                      >
-                        تطبيق الفلاتر
-                      </Button>
-                      
-                      {hasActiveFilters && (
+                    <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-background via-background/98 to-transparent pt-16 z-40 border-t border-border/10">
+                      <div className="flex items-center gap-4 max-w-2xl mx-auto">
                         <Button 
-                          variant="outline" 
-                          onClick={onReset}
-                          className="flex-1 h-12 rounded-2xl border-destructive/20 text-destructive hover:bg-destructive/5 hover:border-destructive/30 transition-all"
+                          className="flex-[2] h-14 text-lg font-black rounded-2xl shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all bg-primary text-primary-foreground"
+                          onClick={() => setIsFilterPanelOpen(false)}
                         >
-                          <RotateCcw className="h-4 w-4 ml-2" />
-                          إعادة تعيين
+                          تطبيق الفلاتر
                         </Button>
-                      )}
+                        
+                        {hasActiveFilters && (
+                          <Button 
+                            variant="outline" 
+                            onClick={onReset}
+                            className="flex-1 h-14 rounded-2xl border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/40 transition-all font-bold text-base bg-destructive/5"
+                          >
+                            <RotateCcw className="h-5 w-5 ml-2" />
+                            إعادة ضبط
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </SheetContent>

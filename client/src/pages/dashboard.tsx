@@ -585,6 +585,13 @@ export default function Dashboard() {
               value: currentStats.materialPurchases,
               icon: Package,
               color: "indigo"
+            },
+            {
+              title: "النقل",
+              value: financialProjectsMap.get(selectedProjectId)?.expenses?.transportExpenses || 0,
+              icon: Truck,
+              color: "orange",
+              formatter: formatCurrency
             }
           ]}
           columns={3}

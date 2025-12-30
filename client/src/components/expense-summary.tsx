@@ -9,15 +9,21 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { TrendingUp, TrendingDown, DollarSign, Gauge } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Gauge, Users, Package, Truck, AlertCircle } from "lucide-react";
 
 interface ExpenseSummaryProps {
   totalIncome?: number | string;
   totalExpenses?: number | string;
   remainingBalance?: number | string;
+  details?: {
+    workerWages?: number;
+    materialCosts?: number;
+    transportation?: number;
+    miscExpenses?: number;
+  };
 }
 
-export default function ExpenseSummary({ totalIncome, totalExpenses, remainingBalance }: ExpenseSummaryProps) {
+export default function ExpenseSummary({ totalIncome, totalExpenses, remainingBalance, details }: ExpenseSummaryProps) {
   // معالجة آمنة للقيم - تحويل إلى أرقام والتعامل مع القيم المفقودة
   const safeIncome = typeof totalIncome === 'number' ? totalIncome : parseFloat(String(totalIncome || '0')) || 0;
   const safeExpenses = typeof totalExpenses === 'number' ? totalExpenses : parseFloat(String(totalExpenses || '0')) || 0;
@@ -80,6 +86,40 @@ export default function ExpenseSummary({ totalIncome, totalExpenses, remainingBa
             )}
           </div>
         </div>
+
+        {/* تفاصيل المنصرفات الإضافية */}
+        {details && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+            <div className="bg-white/50 dark:bg-black/20 p-2 rounded border border-border/50">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">
+                <Users className="h-3 w-3" />
+                أجور
+              </div>
+              <div className="text-xs font-bold">{formatCurrency(details.workerWages || 0)}</div>
+            </div>
+            <div className="bg-white/50 dark:bg-black/20 p-2 rounded border border-border/50">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">
+                <Package className="h-3 w-3" />
+                مواد
+              </div>
+              <div className="text-xs font-bold">{formatCurrency(details.materialCosts || 0)}</div>
+            </div>
+            <div className="bg-white/50 dark:bg-black/20 p-2 rounded border border-border/50">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">
+                <Truck className="h-3 w-3" />
+                نقل
+              </div>
+              <div className="text-xs font-bold">{formatCurrency(details.transportation || 0)}</div>
+            </div>
+            <div className="bg-white/50 dark:bg-black/20 p-2 rounded border border-border/50">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">
+                <AlertCircle className="h-3 w-3" />
+                متنوع
+              </div>
+              <div className="text-xs font-bold">{formatCurrency(details.miscExpenses || 0)}</div>
+            </div>
+          </div>
+        )}
 
         {/* شريط التوزيع */}
         {totalAmount > 0 && (

@@ -26,6 +26,7 @@ import { useSelectedProject } from "@/hooks/use-selected-project";
 import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import "@/styles/excel-print-styles.css";
+import ExpenseSummary from "@/components/expense-summary";
 import { downloadExcelFile } from "@/utils/webview-download";
 
 interface DailyExpenseData {
@@ -109,41 +110,28 @@ export default function Reports() {
     },
   });
 
-  // جلب بيانات المصاريف اليومية
-  const { data: expenseData, isLoading: expenseLoading, refetch: refetchExpenses } = useQuery<DailyExpenseData>({
-    queryKey: ["/api/daily-expenses-excel", projectIdForApi, selectedDate],
-    queryFn: async () => {
-      if (!projectIdForApi)
-        return {
-          date: selectedDate,
-          workerWages: 0,
-          workDays: 0,
-          materialCosts: 0,
-          transportation: 0,
-          miscExpenses: 0,
-          total: 0,
-        };
-      try {
-        const response = await apiRequest(
-          `/api/daily-expenses-excel?projectId=${projectIdForApi}&date=${selectedDate}`,
-          "GET"
-        );
-        return (response?.data || response) as DailyExpenseData;
-      } catch (error) {
-        console.error("❌ خطأ في جلب بيانات المصاريف:", error);
-        return {
-          date: selectedDate,
-          workerWages: 0,
-          workDays: 0,
-          materialCosts: 0,
-          transportation: 0,
-          miscExpenses: 0,
-          total: 0,
-        };
-      }
-    },
-    enabled: !!projectIdForApi,
+  // جلب بيانات المصاريف اليومية من الملخص الموحد
+  const { summary: expenseSummary, isLoading: summaryLoading } = useFinancialSummary({
+    projectId: projectIdForApi,
+    date: selectedDate,
+    enabled: activeTab === "daily-expenses" && !!projectIdForApi
   });
+
+  const expenseData = useMemo(() => {
+    if (!expenseSummary) return null;
+    return {
+      date: selectedDate,
+      workerWages: expenseSummary.expenses.workerWages || 0,
+      workDays: expenseSummary.workers.completedDays || 0,
+      materialCosts: expenseSummary.expenses.materialExpenses || 0,
+      transportation: expenseSummary.expenses.transportExpenses || 0,
+      miscExpenses: expenseSummary.expenses.miscExpenses || 0,
+      total: expenseSummary.expenses.totalAllExpenses || 0,
+    };
+  }, [expenseSummary, selectedDate]);
+
+  const expenseLoading = summaryLoading;
+  const refetchExpenses = () => {}; // يتم التعامل معه بواسطة react-query تلقائياً عند تغيير التاريخ
 
   // جلب تفاصيل سجلات الحضور اليومية
   const { data: attendanceDetails = [], isLoading: attendanceLoading } = useQuery({
@@ -474,12 +462,25 @@ export default function Reports() {
                     </CardContent>
                   </Card>
                 ) : expenseData ? (
-                  <Card className="border-gray-300 shadow-md">
-                    <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 border-b border-gray-200">
-                      <CardTitle className="text-lg text-gray-900">ملخص المصاريف</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="space-y-4">
+                    <ExpenseSummary 
+                      totalIncome={expenseSummary?.income.totalIncome || 0}
+                      totalExpenses={expenseData.total}
+                      remainingBalance={expenseSummary?.totalBalance || 0}
+                      details={{
+                        workerWages: expenseData.workerWages,
+                        materialCosts: expenseData.materialCosts,
+                        transportation: expenseData.transportation,
+                        miscExpenses: expenseData.miscExpenses
+                      }}
+                    />
+                    
+                    <Card className="border-gray-300 shadow-md">
+                      <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 border-b border-gray-200">
+                        <CardTitle className="text-lg text-gray-900">تفاصيل المصاريف</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
                           <div className="flex items-center justify-between mb-2">
                             <p className="text-xs font-medium text-gray-600">أجور العمال</p>
@@ -521,6 +522,7 @@ export default function Reports() {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
                 ) : null}
 
                 {/* جدول تسجيل الحضور */}

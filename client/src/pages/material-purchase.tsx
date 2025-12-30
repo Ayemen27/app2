@@ -672,31 +672,25 @@ export default function MaterialPurchase() {
     }
   };
 
-  // Fetch Material Purchases - جلب جميع المشتريات
+  // Fetch Material Purchases - جلب جميع المشتريات مع تحسين الكاش
   const { data: allMaterialPurchases = [], isLoading: materialPurchasesLoading, refetch: refetchMaterialPurchases } = useQuery<any[]>({
     queryKey: ["/api/projects", getProjectIdForApi() ?? 'all', "material-purchases", selectedDate],
     queryFn: async () => {
-      // استخدام getProjectIdForApi للحصول على ID صحيح
       const projectIdForApi = getProjectIdForApi();
       const baseUrl = projectIdForApi
         ? `/api/projects/${projectIdForApi}/material-purchases`
         : `/api/projects/all/material-purchases`;
       
       const endpoint = selectedDate ? `${baseUrl}?date=${selectedDate}` : baseUrl;
-
-      console.log('🔍 جلب المشتريات من:', endpoint, { projectIdForApi, isAllProjects, selectedDate });
       const response = await apiRequest(endpoint, "GET");
-      
-      // Handle response structure correctly based on common project patterns
       const data = response.data || response;
-      console.log('📊 عدد المشتريات المستلمة:', Array.isArray(data) ? data.length : 0);
-      
       return Array.isArray(data) ? data : [];
     },
-    enabled: isAllProjects || !!selectedProjectId, // التفعيل عند جميع المشاريع أو مشروع محدد
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    staleTime: 0, // Always fetch fresh data
+    enabled: isAllProjects || !!selectedProjectId,
+    staleTime: 1000 * 60 * 5, // 5 دقائق بيانات صالحة
+    gcTime: 1000 * 60 * 30, // 30 دقيقة في الذاكرة
+    refetchOnWindowFocus: false, // منع إعادة الجلب عند تغيير النافذة
+    refetchOnMount: false, // استخدام الكاش عند العودة للصفحة
   });
 
   // Filter purchases - عرض جميع المشتريات افتراضياً
@@ -764,12 +758,12 @@ export default function MaterialPurchase() {
     }
   }, [refetchMaterialPurchases]);
 
-  // Auto-refresh when page loads or project changes
+  // Auto-refresh when page loads or project changes - محسّن
   useEffect(() => {
-    if (isAllProjects || selectedProjectId) {
+    if ((isAllProjects || selectedProjectId) && !allMaterialPurchases.length) {
       refetchMaterialPurchases();
     }
-  }, [selectedProjectId, isAllProjects, refetchMaterialPurchases]);
+  }, [selectedProjectId, isAllProjects, refetchMaterialPurchases, allMaterialPurchases.length]);
 
   // Edit Function
   const handleEdit = (purchase: any) => {

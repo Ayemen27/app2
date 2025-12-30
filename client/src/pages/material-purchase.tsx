@@ -25,6 +25,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
+import { exportMaterialPurchasesToExcel } from "@/components/ui/export-material-purchases-excel";
 import type { Material, InsertMaterialPurchase, InsertMaterial, Supplier, InsertSupplier } from "@shared/schema";
 
 export default function MaterialPurchase() {
@@ -33,6 +34,7 @@ export default function MaterialPurchase() {
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({ paymentType: 'all', dateRange: undefined });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
@@ -892,6 +894,48 @@ export default function MaterialPurchase() {
     },
   ], []);
 
+  // Export to Excel function
+  const handleExportExcel = useCallback(async () => {
+    if (filteredPurchases.length === 0) {
+      toast({
+        title: "لا توجد بيانات",
+        description: "لا توجد مشتريات لتصديرها بناءً على الفلاتر الحالية",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      await exportMaterialPurchasesToExcel(filteredPurchases);
+      toast({
+        title: "تم التصدير بنجاح",
+        description: `تم تصدير ${filteredPurchases.length} سجل إلى ملف Excel`,
+      });
+    } catch (error) {
+      console.error("Export error:", error);
+      toast({
+        title: "خطأ في التصدير",
+        description: "حدث خطأ أثناء محاولة تصدير البيانات",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [filteredPurchases, toast]);
+
+  // تكوين الأزرار الإضافية - زر التصدير
+  const actions = useMemo(() => [
+    {
+      key: 'export',
+      label: isExporting ? 'جاري التصدير...' : 'تصدير إكسل',
+      icon: FileSpreadsheet,
+      onClick: handleExportExcel,
+      variant: 'outline' as const,
+      disabled: isExporting || filteredPurchases.length === 0,
+    }
+  ], [handleExportExcel, isExporting, filteredPurchases.length]);
+
   return (
     <div className="p-4 slide-in">
       {/* لوحة الإحصائيات والفلترة الموحدة - شبكة 3×2 */}
@@ -908,6 +952,7 @@ export default function MaterialPurchase() {
           onReset={handleResetFilters}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
+          actions={actions}
         />
       )}
 

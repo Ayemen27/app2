@@ -1433,10 +1433,30 @@ financialRouter.get('/material-purchases', async (req: Request, res: Response) =
       conditions.push(lte(materialPurchases.purchaseDate, dateTo as string));
     }
     
-    // بناء الـ query
-    let query: any = db.select().from(materialPurchases);
+    // جلب المشتريات مع الانضمام لجدول المشاريع للحصول على اسم المشروع
+    let query = db
+      .select({
+        id: materialPurchases.id,
+        projectId: materialPurchases.projectId,
+        materialName: materialPurchases.materialName,
+        materialCategory: materialPurchases.materialCategory,
+        materialUnit: materialPurchases.materialUnit,
+        quantity: materialPurchases.quantity,
+        unitPrice: materialPurchases.unitPrice,
+        totalAmount: materialPurchases.totalAmount,
+        purchaseType: materialPurchases.purchaseType,
+        supplierName: materialPurchases.supplierName,
+        invoiceNumber: materialPurchases.invoiceNumber,
+        invoiceDate: materialPurchases.invoiceDate,
+        purchaseDate: materialPurchases.purchaseDate,
+        notes: materialPurchases.notes,
+        projectName: projects.name
+      })
+      .from(materialPurchases)
+      .leftJoin(projects, eq(materialPurchases.projectId, projects.id));
+
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      query = query.where(and(...conditions)) as any;
     }
     
     const purchases = await query.orderBy(desc(materialPurchases.purchaseDate));

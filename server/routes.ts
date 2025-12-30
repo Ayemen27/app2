@@ -986,9 +986,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.warn(`⚠️ [API] عدد عمال غير منطقي للمشروع ${project.name}: ${totalWorkers}`);
           }
           
-          // حساب إجمالي المصروفات والرصيد الحالي
-          const totalExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses;
-          const currentBalance = totalIncome - totalExpenses;
+          // استخدام ExpenseLedgerService للحصول على البيانات الموحدة الصحيحة
+          const { ExpenseLedgerService } = await import('./services/ExpenseLedgerService');
+          const financialSummary = await ExpenseLedgerService.getProjectFinancialSummary(projectId);
+          
+          const totalExpenses = financialSummary.expenses.totalAllExpenses;
+          const currentBalance = financialSummary.totalBalance;
           
           // تسجيل مفصل في بيئة التطوير
           if (process.env.NODE_ENV === 'development') {
@@ -1976,9 +1979,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
       const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
 
-      const totalIncome = totalFundTransfers;
-      const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
-      const remainingBalance = totalIncome - totalExpenses;
+      // استخدام ExpenseLedgerService للحصول على البيانات الموحدة الصحيحة
+      const { ExpenseLedgerService } = await import('./services/ExpenseLedgerService');
+      const dailyFinancial = await ExpenseLedgerService.getDailyFinancialSummary(projectId, date);
+      
+      const totalIncome = dailyFinancial.income.totalIncome;
+      const totalExpenses = dailyFinancial.expenses.totalAllExpenses;
+      const remainingBalance = dailyFinancial.totalBalance;
 
       const responseData = {
         date,

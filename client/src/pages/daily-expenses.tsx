@@ -96,6 +96,7 @@ function DailyExpensesContent() {
     });
   }, [toast]);
   const [isExporting, setIsExporting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
   const [isFundTransfersExpanded, setIsFundTransfersExpanded] = useState(false);
   const [isTransportationExpanded, setIsTransportationExpanded] = useState(false);

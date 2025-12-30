@@ -2212,6 +2212,16 @@ function DailyExpensesContent() {
                     className="flex-1"
                   />
                 </div>
+                {selectedProjectId && !isAllProjects && (
+                  <div className="flex flex-col">
+                    <WellSelector
+                      projectId={selectedProjectId}
+                      value={selectedWellId}
+                      onChange={setSelectedWellId}
+                      optional={true}
+                    />
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 mt-2">
                 <Button 
@@ -2396,6 +2406,17 @@ function DailyExpensesContent() {
                 data-testid="input-worker-notes"
               />
             </div>
+
+            {selectedProjectId && !isAllProjects && (
+              <div className="mb-3">
+                <WellSelector
+                  projectId={selectedProjectId}
+                  value={selectedWellId}
+                  onChange={setSelectedWellId}
+                  optional={true}
+                />
+              </div>
+            )}
 
             <div className="flex gap-2">
               <Button 

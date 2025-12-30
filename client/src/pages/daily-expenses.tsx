@@ -2097,47 +2097,64 @@ function DailyExpensesContent() {
                       ) : safeFundTransfers.length > 0 ? (
                         <div className="space-y-2">
                           {safeFundTransfers.map((transfer: any, index) => (
-                            <div key={transfer.id || index} className="flex justify-between items-center p-2 bg-muted rounded">
-                              <div className="text-sm flex-1">
-                                <div>{transfer.senderName || 'غير محدد'}</div>
-                                <div className="text-xs text-muted-foreground">{transfer.transferType}</div>
-                                {isAllProjects && transfer.projectName && (
-                                  <div className="text-xs font-medium text-blue-600 mt-1">📁 {transfer.projectName}</div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium arabic-numbers">{formatCurrency(transfer.amount)}</span>
-                                <div className="flex gap-1">
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                    onClick={() => handleEditFundTransfer(transfer)}
-                                    data-testid="button-edit-fund-transfer"
-                                  >
-                                    <Edit2 className="h-3 w-3" />
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    onClick={() => deleteFundTransferMutation.mutate(transfer.id)}
-                                    disabled={deleteFundTransferMutation.isPending}
-                                    data-testid="button-delete-fund-transfer"
-                                  >
-                                    {deleteFundTransferMutation.isPending ? (
-                                      <div className="h-3 w-3 animate-spin rounded-full border border-red-600 border-t-transparent" />
-                                    ) : (
-                                      <Trash2 className="h-3 w-3" />
+                            <div key={transfer.id || index} className="p-3 bg-white dark:bg-slate-800 border border-blue-100 dark:border-blue-900/20 rounded-lg shadow-sm hover:shadow-md transition-all">
+                              <div className="flex justify-between items-start gap-3">
+                                <div className="flex-1 space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-semibold text-foreground text-sm">{transfer.senderName || 'غير محدد'}</h4>
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 h-4 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border-none">
+                                      {transfer.transferType}
+                                    </Badge>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
+                                    {transfer.transferNumber && (
+                                      <div className="flex items-center gap-1">
+                                        <span className="opacity-70">رقم الحولة:</span>
+                                        <span className="font-medium text-foreground">{transfer.transferNumber}</span>
+                                      </div>
                                     )}
-                                  </Button>
+                                    {isAllProjects && transfer.projectName && (
+                                      <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                                        <span>📁</span>
+                                        <span className="font-medium">{transfer.projectName}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-2">
+                                  <span className="font-bold text-primary arabic-numbers text-sm">{formatCurrency(transfer.amount)}</span>
+                                  <div className="flex gap-1">
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost" 
+                                      className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                      onClick={() => handleEditFundTransfer(transfer)}
+                                      data-testid="button-edit-fund-transfer"
+                                    >
+                                      <Edit2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost" 
+                                      className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                      onClick={() => deleteFundTransferMutation.mutate(transfer.id)}
+                                      disabled={deleteFundTransferMutation.isPending}
+                                      data-testid="button-delete-fund-transfer"
+                                    >
+                                      {deleteFundTransferMutation.isPending ? (
+                                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                                      ) : (
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      )}
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           ))}
-                          <div className="text-left pt-2 border-t">
-                            <span className="text-sm text-muted-foreground">إجمالي العهد: </span>
-                            <span className="font-bold text-primary arabic-numbers">
+                          <div className="text-left pt-2 border-t mt-2">
+                            <span className="text-sm font-medium text-muted-foreground">إجمالي العهد: </span>
+                            <span className="font-bold text-primary arabic-numbers text-base">
                               {formatCurrency(totals.totalFundTransfers)}
                             </span>
                           </div>

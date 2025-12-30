@@ -95,7 +95,8 @@ export async function saveUserDataLocal(
  */
 export async function getUserDataLocal(type: string) {
   const db = await getDB();
-  const index = db.transaction('userData').objectStore('userData').index('type');
+  const tx = db.transaction('userData');
+  const index = tx.objectStore('userData').index('type');
   return await index.getAll(type);
 }
 
@@ -213,7 +214,7 @@ export async function deleteItemLocal(
  */
 export async function clearAllOfflineData(): Promise<void> {
   const db = await getDB();
-  const stores = ['syncQueue', 'userData', 'projects', 'workers', 'materials', 'suppliers', 'expenses'];
+  const stores = ['syncQueue', 'userData', 'projects', 'workers', 'materials', 'suppliers', 'expenses'] as const;
 
   for (const store of stores) {
     const tx = db.transaction(store, 'readwrite');

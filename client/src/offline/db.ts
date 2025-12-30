@@ -73,8 +73,8 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
       }
 
       // Object Stores للبيانات الرئيسية
-      const stores = ['projects', 'workers', 'materials', 'suppliers', 'expenses'];
-      stores.forEach((storeName) => {
+      const mainStores = ['projects', 'workers', 'materials', 'suppliers', 'expenses'] as const;
+      mainStores.forEach((storeName) => {
         if (!db.objectStoreNames.contains(storeName)) {
           const store = db.createObjectStore(storeName, { keyPath: 'id' });
           store.createIndex('timestamp', 'createdAt');

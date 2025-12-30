@@ -183,23 +183,25 @@ export function UnifiedSearchFilter({
     switch (filter.type) {
       case 'date':
         return (
-          <div onClick={(e) => e.stopPropagation()}>
+          <div onClick={(e) => e.stopPropagation()} className="relative">
             <FilterDatePicker
               value={value}
               onChange={(date) => handleFilterChange(filter.key, date)}
               placeholder={filter.placeholder}
               showClearButton={true}
+              className="h-14 border-0 focus:ring-0 shadow-none bg-transparent pr-12 text-right font-medium"
             />
           </div>
         );
       
       case 'date-range':
         return (
-          <div onClick={(e) => e.stopPropagation()}>
+          <div onClick={(e) => e.stopPropagation()} className="relative">
             <FilterDateRangePicker
               value={value}
               onChange={(range) => handleFilterChange(filter.key, range)}
               showClearButton={true}
+              className="h-14 border-0 focus:ring-0 shadow-none bg-transparent pr-12 text-right font-medium"
             />
           </div>
         );
@@ -222,12 +224,12 @@ export function UnifiedSearchFilter({
               value={String(value || filter.defaultValue || 'all')}
               onValueChange={(val) => handleFilterChange(filter.key, val)}
             >
-              <SelectTrigger className="h-10 border-0 focus:ring-0 shadow-none bg-transparent">
+              <SelectTrigger className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium">
                 <SelectValue placeholder={filter.placeholder || `اختر ${filter.label}`} />
               </SelectTrigger>
-              <SelectContent className="rounded-xl shadow-xl">
+              <SelectContent className="rounded-2xl shadow-2xl border-2">
                 {filter.options?.map((option) => (
-                  <SelectItem key={option.value} value={String(option.value)} className="rounded-lg my-0.5">
+                  <SelectItem key={option.value} value={String(option.value)} className="rounded-xl my-1 py-3 text-right">
                     {option.label}
                   </SelectItem>
                 ))}
@@ -289,53 +291,40 @@ export function UnifiedSearchFilter({
             </SheetTrigger>
             <SheetContent 
               side="bottom"
-              className="h-[85vh] sm:h-[75vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-background shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.15)]"
+              className="h-[80vh] sm:h-[75vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-white dark:bg-gray-950 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)]"
               dir="rtl"
               onPointerDownOutside={(e) => e.preventDefault()}
               onInteractOutside={(e) => e.preventDefault()}
             >
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted/40 rounded-full z-50" />
-              
-              <div className="flex flex-col h-full relative">
-                <SheetHeader className="px-8 pt-8 pb-4 text-right border-b bg-card/50 backdrop-blur-sm sticky top-0 z-40">
-                  <div className="flex items-center justify-between">
-                    <Button 
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleReset}
-                      className="text-sm font-bold text-destructive hover:bg-destructive/10 transition-all rounded-lg px-4"
-                    >
-                      إعادة ضبط
+              <div className="flex flex-col h-full relative p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <SheetClose asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 hover:bg-muted transition-all">
+                      <X className="h-4 w-4" />
                     </Button>
-                    <SheetTitle className="text-xl font-black tracking-tight text-foreground">
-                      خيارات الفلترة
-                    </SheetTitle>
-                    <SheetClose asChild>
-                      <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-muted transition-all">
-                        <X className="h-5 w-5" />
-                      </Button>
-                    </SheetClose>
-                  </div>
-                </SheetHeader>
+                  </SheetClose>
+                  <SheetTitle className="text-lg font-bold text-center flex-1 mr-8">
+                    اختر الفلتر
+                  </SheetTitle>
+                </div>
                 
-                <div className="flex-1 px-8 py-6 space-y-8 overflow-y-auto custom-scrollbar pb-32 bg-background">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8">
+                <div className="flex-1 space-y-6 overflow-y-auto custom-scrollbar pb-32">
+                  <div className="space-y-6 max-w-xl mx-auto">
                     {filters.map((filter) => (
-                      <div key={filter.key} className="space-y-3 group">
-                        <Label htmlFor={filter.key} className="text-sm font-bold text-foreground/80 group-hover:text-primary transition-colors flex items-center gap-3 px-1">
-                          <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
-                            <Filter className="w-3.5 h-3.5" />
-                          </div>
+                      <div key={filter.key} className="relative group">
+                        <Label 
+                          htmlFor={filter.key} 
+                          className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-xs font-medium text-muted-foreground z-10 transition-colors group-focus-within:text-primary"
+                        >
                           {filter.label}
                         </Label>
-                        <div className="relative transform transition-all duration-200 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl overflow-hidden shadow-sm border border-border/50 bg-card">
+                        <div className="relative border-2 border-muted/50 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5">
                           {renderFilterInput(filter)}
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Empty state if no filters */}
                   {filters.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                       <SlidersHorizontal className="w-12 h-12 mb-4 opacity-20" />
@@ -344,21 +333,13 @@ export function UnifiedSearchFilter({
                   )}
                 </div>
 
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-background/80 backdrop-blur-md border-t border-border/50 z-40">
-                  <div className="max-w-lg mx-auto flex items-center gap-4">
-                    <SheetClose asChild>
-                      <Button 
-                        variant="outline"
-                        className="flex-1 h-12 text-base font-bold rounded-2xl border-2"
-                      >
-                        إلغاء
-                      </Button>
-                    </SheetClose>
+                <div className="absolute bottom-6 left-6 right-6 z-40">
+                  <div className="max-w-xl mx-auto">
                     <Button 
-                      className="flex-[2] h-12 text-base font-bold rounded-2xl shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all active:scale-[0.98]"
+                      className="w-full h-14 text-lg font-bold rounded-2xl shadow-xl shadow-red-500/20 bg-[#e31e33] hover:bg-[#c41a2c] text-white transition-all active:scale-[0.98]"
                       onClick={() => setIsFilterOpen(false)}
                     >
-                      تطبيق الفلاتر ({activeFiltersCount})
+                      استمرار
                     </Button>
                   </div>
                 </div>

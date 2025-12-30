@@ -56,16 +56,6 @@ export default function SettingsPage() {
 
   return (
     <div className="container mx-auto p-4 max-w-4xl animate-in fade-in duration-500">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="bg-primary/10 p-2 rounded-xl">
-          <SettingsIcon className="h-6 w-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">إعدادات النظام</h1>
-          <p className="text-sm text-muted-foreground">تخصيص التطبيق وتفضيلات المستخدم</p>
-        </div>
-      </div>
-
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList className="bg-muted/50 p-1 rounded-xl w-full justify-start overflow-x-auto h-auto">
           <TabsTrigger value="general" className="rounded-lg gap-2">

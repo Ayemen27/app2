@@ -51,7 +51,7 @@ import { AdminRoute } from "./components/AdminRoute";
 import EmailVerificationGuard from "./components/EmailVerificationGuard";
 import { SelectedProjectProvider } from "./contexts/SelectedProjectContext";
 import { Loader2 } from "lucide-react";
-import { initSyncListener } from "./offline/sync";
+import { initSyncListener, subscribeSyncState } from "./offline/sync";
 import { initializeDB } from "./offline/db";
 
 const WorkerAccountsPage = lazy(() => import("./pages/worker-accounts"));
@@ -98,6 +98,18 @@ function Router() {
         // تفعيل مراقب الاتصال والمزامنة التلقائية
         initSyncListener();
         console.log('✅ تم تفعيل نظام المزامنة الذكي');
+
+        // الاستماع لتغييرات حالة المزامنة
+        const unsubscribe = subscribeSyncState((state) => {
+          if (!state.isSyncing && state.lastSync > 0 && state.pendingCount === 0) {
+            // عندما تنتهي المزامنة بنجاح، أعد تحميل البيانات
+            console.log('🔄 [Sync] انتهت المزامنة بنجاح - إعادة تحميل البيانات...');
+            // تحديث جميع الكاش لإعادة تحميل البيانات
+            queryClient.invalidateQueries();
+          }
+        });
+
+        return () => unsubscribe();
       } catch (error) {
         console.error('❌ خطأ في تهيئة نظام المزامنة:', error);
       }

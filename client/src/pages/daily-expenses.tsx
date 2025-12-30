@@ -59,7 +59,9 @@ function DailyExpensesContent() {
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     dateRange: undefined,
-    type: 'all'
+    type: 'all',
+    transportCategory: 'all',
+    miscCategory: 'all'
   });
 
   // دوال معالجة الفلاتر
@@ -1536,6 +1538,12 @@ function DailyExpensesContent() {
     }
   ], [totals]);
 
+  // فئات المواصلات (يمكن جعلها من قاعدة البيانات لاحقاً)
+  const transportCategories = ["عام", "خاص", "بترول", "ديزل", "صيانة", "إيجار"];
+  
+  // فئات النثريات (يمكن جعلها من قاعدة البيانات لاحقاً)
+  const miscCategories = ["قرطاسية", "ضيافة", "اتصالات", "صيانة مكتب", "أخرى"];
+
   // تكوين الفلاتر للوحة الإحصائيات
   const filtersConfig: FilterConfig[] = useMemo(() => [
     {
@@ -1562,6 +1570,26 @@ function DailyExpensesContent() {
         { value: 'materials', label: 'مواد' },
         { value: 'misc', label: 'نثريات' },
         { value: 'fund', label: 'عهد' }
+      ]
+    },
+    {
+      key: 'transportCategory',
+      label: 'فئة المواصلات',
+      type: 'select',
+      placeholder: 'جميع الفئات',
+      options: [
+        { value: 'all', label: 'جميع الفئات' },
+        ...transportCategories.map(cat => ({ value: cat, label: cat }))
+      ]
+    },
+    {
+      key: 'miscCategory',
+      label: 'فئة النثريات',
+      type: 'select',
+      placeholder: 'جميع الفئات',
+      options: [
+        { value: 'all', label: 'جميع الفئات' },
+        ...miscCategories.map(cat => ({ value: cat, label: cat }))
       ]
     }
   ], []);

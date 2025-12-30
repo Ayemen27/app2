@@ -48,7 +48,8 @@ export default function WorkerAttendance() {
   const { selectedProjectId, selectProject, isAllProjects, projects } = useSelectedProject();
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
-    dateRange: undefined
+    dateRange: undefined,
+    type: 'all'
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
@@ -85,7 +86,8 @@ export default function WorkerAttendance() {
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
     setFilterValues({
-      dateRange: undefined
+      dateRange: undefined,
+      type: 'all'
     });
     if (showDateFilter) {
       setSelectedDate(getCurrentDate());
@@ -855,8 +857,15 @@ export default function WorkerAttendance() {
       });
     }
 
+    if (filterValues.type && filterValues.type !== 'all') {
+      result = result.filter(record => {
+        const worker = workers.find(w => w.id === record.workerId);
+        return worker?.type === filterValues.type;
+      });
+    }
+
     return result;
-  }, [todayRecords, workers, searchValue, filterValues.dateRange]);
+  }, [todayRecords, workers, searchValue, filterValues.dateRange, filterValues.type]);
 
   const stats = useMemo(() => {
     const presentWorkers = filteredAttendance.length;
@@ -966,7 +975,20 @@ export default function WorkerAttendance() {
       type: 'date-range',
       placeholder: 'اختر نطاق التاريخ',
     },
-  ], []);
+    {
+      key: 'type',
+      label: 'المهنة',
+      type: 'select',
+      placeholder: 'جميع المهن',
+      options: [
+        { value: 'all', label: 'جميع المهن' },
+        ...Array.from(new Set(workers.map(w => w.type))).filter(Boolean).map(type => ({
+          value: type,
+          label: type
+        }))
+      ]
+    },
+  ], [workers]);
 
   return (
     <div className="p-4 space-y-4">

@@ -124,13 +124,23 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
 
   if (isAllProjects && data) {
     const allProjectsData = data as AllProjectsSummary;
+    const totals = allProjectsData.totals || {
+      totalIncome: 0,
+      totalCashExpenses: 0,
+      totalAllExpenses: 0,
+      cashBalance: 0,
+      totalBalance: 0,
+      totalWorkers: 0,
+      activeWorkers: 0,
+      materialExpensesCredit: 0
+    };
     return {
       summary: null as ProjectFinancialSummary | null,
       allProjects: allProjectsData,
       totals: {
-        ...allProjectsData.totals,
-        totalExpenses: allProjectsData.totals.totalCashExpenses,
-        currentBalance: allProjectsData.totals.cashBalance
+        ...totals,
+        totalExpenses: totals.totalCashExpenses || 0,
+        currentBalance: totals.cashBalance || 0
       },
       isLoading,
       error,

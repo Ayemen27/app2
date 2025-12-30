@@ -65,7 +65,7 @@ export async function syncOfflineData(): Promise<void> {
           method: item.action === 'delete' ? 'DELETE' : item.action === 'create' ? 'POST' : 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`
+            'Authorization': localStorage.getItem('accessToken') ? `Bearer ${localStorage.getItem('accessToken')}` : ''
           },
           body: item.action === 'delete' ? undefined : JSON.stringify(item.payload)
         });

@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Project } from "@shared/schema";
+import { SyncStatusHeader } from "@/components/SyncStatusHeader";
 
 const pageInfo: Record<string, { title: string; icon: any }> = {
   '/': { title: 'لوحة التحكم', icon: Home },
@@ -233,6 +234,7 @@ export default function Header() {
               <Settings className="h-4 w-4" />
             </Button>
             <NotificationCenter />
+            <SyncStatusHeader />
             
             {isAuthenticated ? (
               <DropdownMenu>

@@ -58,6 +58,7 @@ function DailyExpensesContent() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [carriedForward, setCarriedForward] = useState<string>("0");
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
+  const [searchValue, setSearchValue] = useState<string>("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     dateRange: undefined,
     type: 'all',

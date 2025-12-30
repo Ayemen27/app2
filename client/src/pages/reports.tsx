@@ -27,6 +27,7 @@ import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import "@/styles/excel-print-styles.css";
 import ExpenseSummary from "@/components/expense-summary";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 import { 
   PieChart, 
   Pie, 

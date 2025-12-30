@@ -327,10 +327,10 @@ function DailyExpensesContent() {
       return;
     }
 
-    if (!selectedWorkerId || !workerDays || !workerAmount) {
+    if (!selectedWorkerId || (!workerDays && !workerAmount)) {
       toast({
         title: "بيانات ناقصة",
-        description: "يرجى اختيار العامل وتحديد الأيام والمبلغ",
+        description: "يرجى اختيار العامل وتحديد الأيام أو المبلغ على الأقل",
         variant: "destructive",
       });
       return;
@@ -359,12 +359,12 @@ function DailyExpensesContent() {
       dailyWage: dailyWageNum.toString(),
       actualWage: actualWage.toString(),
       totalPay: actualWage.toString(),
-      paidAmount: workerAmount,
+      paidAmount: workerAmount || "0",
       remainingAmount: (actualWage - paidAmountNum).toString(),
-      workDescription: workerNotes || "أجر يومي (إضافة سريعة)",
+      workDescription: workerNotes || (workDaysNum > 0 ? "أيام عمل" : "مصروف بدون عمل"),
       notes: workerNotes,
       wellId: selectedWellId || null,
-      paymentType: paidAmountNum >= actualWage ? "full" : "partial",
+      paymentType: paidAmountNum > 0 ? (paidAmountNum >= actualWage && actualWage > 0 ? "full" : "partial") : "credit",
     };
 
     console.log('📝 [DailyExpenses] إرسال بيانات الحضور:', attendanceData);

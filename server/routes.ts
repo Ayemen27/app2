@@ -4398,6 +4398,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 📖 GET endpoint لمشتريات المواد - جلب جميع المشتريات لمشروع محدد أو لجميع المشاريع
+  app.get("/api/projects/:projectId/material-purchases", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId } = req.params;
+      const { date } = req.query;
+      
+      console.log(`📖 [API] طلب جلب مشتريات المواد للمشروع: ${projectId}, التاريخ: ${date || 'اليوم'}`);
+      
+      let query = db.select({
+        id: materialPurchases.id,
+        projectId: materialPurchases.projectId,
+        materialName: materialPurchases.materialName,
+        materialId: materialPurchases.materialId,
+        quantity: materialPurchases.quantity,
+        unit: materialPurchases.unit,
+        materialUnit: materialPurchases.materialUnit,
+        unitPrice: materialPurchases.unitPrice,
+        totalAmount: materialPurchases.totalAmount,
+        purchaseDate: materialPurchases.purchaseDate,
+        purchaseType: materialPurchases.purchaseType,
+        supplierName: materialPurchases.supplierName,
+        invoiceNumber: materialPurchases.invoiceNumber,
+        invoiceDate: materialPurchases.invoiceDate,
+        wellId: materialPurchases.wellId,
+        notes: materialPurchases.notes,
+        projectName: projects.name,
+      })
+      .from(materialPurchases)
+      .leftJoin(projects, eq(materialPurchases.projectId, projects.id));
+
+      const conditions = [];
+      
+      if (projectId !== 'all') {
+        conditions.push(eq(materialPurchases.projectId, projectId));
+      }
+
+      // فلترة حسب التاريخ - إذا لم يتم توفير تاريخ، نستخدم تاريخ اليوم بشكل افتراضي
+      const filterDate = date ? (date as string) : format(new Date(), 'yyyy-MM-dd');
+      conditions.push(eq(materialPurchases.purchaseDate, filterDate));
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
+      }
+
+      const results = await query.orderBy(desc(materialPurchases.purchaseDate));
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [API] تم جلب ${results.length} من مشتريات المواد في ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: results,
+        message: `تم جلب ${results.length} من مشتريات المواد بنجاح`,
+        processingTime: duration
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب مشتريات المواد:', error);
+      res.status(500).json({
+        success: false,
+        error: 'فشل في جلب مشتريات المواد',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
   app.get("/api/daily-expenses", requireAuth, (req, res) => {
     res.json({ success: true, data: [], message: "Daily expenses endpoint working - NOW SECURED ✅" });
   });

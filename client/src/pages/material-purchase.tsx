@@ -684,12 +684,12 @@ export default function MaterialPurchase() {
 
       console.log('🔍 جلب المشتريات من:', endpoint, { projectIdForApi, isAllProjects, selectedDate });
       const response = await apiRequest(endpoint, "GET");
-      console.log('📊 عدد المشتريات المستلمة:', Array.isArray(response) ? response.length : response?.data?.length || 0);
       
-      // Handle both array and object responses
-      if (Array.isArray(response)) return response;
-      if (response?.data && Array.isArray(response.data)) return response.data;
-      return [];
+      // Handle response structure correctly based on common project patterns
+      const data = response.data || response;
+      console.log('📊 عدد المشتريات المستلمة:', Array.isArray(data) ? data.length : 0);
+      
+      return Array.isArray(data) ? data : [];
     },
     enabled: isAllProjects || !!selectedProjectId, // التفعيل عند جميع المشاريع أو مشروع محدد
     refetchOnMount: true,

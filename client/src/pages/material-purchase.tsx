@@ -32,7 +32,13 @@ export default function MaterialPurchase() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject, isAllProjects, getProjectIdForApi } = useSelectedProject();
   const [searchValue, setSearchValue] = useState("");
-  const [filterValues, setFilterValues] = useState<Record<string, any>>({ paymentType: 'all', dateRange: undefined });
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({ 
+    paymentType: 'all', 
+    dateRange: undefined,
+    dateFrom: '',
+    dateTo: '',
+    specificDate: ''
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -83,7 +89,11 @@ export default function MaterialPurchase() {
     if (showDateFilter) {
       setSelectedDate(""); // تعيين فارغ لعرض الكل
     }
-    setFilterValues({ paymentType: 'all', dateRange: undefined });
+    setFilterValues({ 
+      paymentType: 'all', 
+      dateRange: undefined,
+      specificDate: '' 
+    });
     toast({
       title: "تم إعادة التعيين",
       description: "تم مسح جميع الفلاتر وعرض جميع المشتريات",
@@ -720,23 +730,32 @@ export default function MaterialPurchase() {
 
       // فلترة حسب نطاق التاريخ من الفلتر المتقدم
       let matchesDateRange = true;
-      if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
-        const purchaseDate = new Date(purchase.purchaseDate);
-        if (filterValues.dateRange.from) {
-          const fromDate = new Date(filterValues.dateRange.from);
-          fromDate.setHours(0, 0, 0, 0);
-          matchesDateRange = matchesDateRange && purchaseDate >= fromDate;
-        }
-        if (filterValues.dateRange.to) {
-          const toDate = new Date(filterValues.dateRange.to);
-          toDate.setHours(23, 59, 59, 999);
-          matchesDateRange = matchesDateRange && purchaseDate <= toDate;
-        }
+    if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
+      const purchaseDate = new Date(purchase.purchaseDate);
+      if (filterValues.dateRange.from) {
+        const fromDate = new Date(filterValues.dateRange.from);
+        fromDate.setHours(0, 0, 0, 0);
+        matchesDateRange = matchesDateRange && purchaseDate >= fromDate;
       }
+      if (filterValues.dateRange.to) {
+        const toDate = new Date(filterValues.dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+        matchesDateRange = matchesDateRange && purchaseDate <= toDate;
+      }
+    }
 
-      return matchesProject && matchesSearch && matchesPaymentType && matchesDateRange && matchesSelectedDate;
-    });
-  }, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.dateRange, selectedDate]);
+    let matchesSpecificDate = true;
+    if (filterValues.specificDate) {
+      const pDate = new Date(purchase.purchaseDate);
+      const sDate = new Date(filterValues.specificDate);
+      matchesSpecificDate = pDate.getFullYear() === sDate.getFullYear() &&
+                           pDate.getMonth() === sDate.getMonth() &&
+                           pDate.getDate() === sDate.getDate();
+    }
+
+    return matchesProject && matchesSearch && matchesPaymentType && matchesDateRange && matchesSelectedDate && matchesSpecificDate;
+  });
+}, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.dateRange, filterValues.specificDate, selectedDate]);
 
 
   // Calculate stats
@@ -892,6 +911,12 @@ export default function MaterialPurchase() {
       label: 'نطاق التاريخ',
       type: 'date-range',
       placeholder: 'اختر نطاق التاريخ',
+    },
+    {
+      key: 'specificDate',
+      label: 'تاريخ يوم محدد',
+      type: 'date',
+      placeholder: 'تاريخ يوم محدد',
     },
   ], []);
 

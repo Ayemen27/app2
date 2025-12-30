@@ -280,8 +280,8 @@ export default function ProjectsPage() {
     if (financialProject) {
       return {
         totalIncome: financialProject.income?.totalIncome || 0,
-        totalExpenses: financialProject.expenses?.totalCashExpenses || 0,
-        currentBalance: financialProject.cashBalance || 0,
+        totalExpenses: financialProject.expenses?.totalAllExpenses || 0,
+        currentBalance: financialProject.totalBalance || 0,
         totalWorkers: financialProject.workers?.totalWorkers || 0,
         activeWorkers: financialProject.workers?.activeWorkers || 0,
         completedDays: financialProject.workers?.completedDays || 0,
@@ -686,7 +686,7 @@ export default function ProjectsPage() {
         totalProjects: projects.length,
         activeProjects,
         totalIncome: financialTotals.totalIncome || 0,
-        totalExpenses: financialTotals.totalCashExpenses || financialTotals.totalExpenses || 0,
+        totalExpenses: financialTotals.totalAllExpenses || financialTotals.totalExpenses || 0,
         totalWorkers: financialTotals.totalWorkers || 0,
         materialPurchases: 0, // سيتم حسابه من counts إذا لزم
       };
@@ -703,7 +703,7 @@ export default function ProjectsPage() {
     };
   }, [financialTotals, projects]);
 
-  const currentBalance = financialTotals?.currentBalance ?? (overallStats.totalIncome - overallStats.totalExpenses);
+  const currentBalance = financialTotals?.totalBalance ?? (overallStats.totalIncome - overallStats.totalExpenses);
 
   // استخدام دالة formatCurrency من utils.ts لضمان التوحيد
   const formatCurrencyLocal = formatCurrency;

@@ -2,7 +2,15 @@ import { useState, useCallback, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetFooter,
+  SheetClose,
+} from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { Search, Filter, X, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -147,11 +155,9 @@ export function UnifiedSearchFilter({
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     onFilterChange?.(key, value);
-    const filter = filters.find(f => f.key === key);
-    if (filter?.type !== 'date-range') {
-      setIsFilterOpen(false);
-    }
-  }, [onFilterChange, filters]);
+    // Keep the drawer open for better multi-selection experience in the popup
+    // Users can close it using the "Apply" button or clicking outside
+  }, [onFilterChange]);
 
   const handleReset = useCallback(() => {
     onReset?.();
@@ -250,8 +256,8 @@ export function UnifiedSearchFilter({
         )}
 
         {filters.length > 0 && (
-          <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-            <PopoverTrigger asChild>
+          <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <SheetTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
@@ -259,6 +265,7 @@ export function UnifiedSearchFilter({
                   'h-9 gap-1.5 px-3 relative',
                   activeFiltersCount > 0 && 'border-primary text-primary'
                 )}
+                data-testid="button-open-filters"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 <span className="hidden sm:inline">فلترة</span>
@@ -271,50 +278,53 @@ export function UnifiedSearchFilter({
                   </Badge>
                 )}
               </Button>
-            </PopoverTrigger>
-            <PopoverContent 
-              className="w-80 p-4" 
-              align="end"
-              sideOffset={8}
+            </SheetTrigger>
+            <SheetContent 
+              side="bottom"
+              className="h-[80vh] sm:h-auto sm:max-w-md rounded-t-xl"
+              dir="rtl"
             >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-sm flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    خيارات الفلترة
-                  </h4>
-                  {activeFiltersCount > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      {activeFiltersCount} نشط
-                    </Badge>
-                  )}
-                </div>
-                
-                <div className="space-y-3">
-                  {filters.map((filter) => (
-                    <div key={filter.key} className="space-y-1.5">
-                      <Label htmlFor={filter.key} className="text-sm text-muted-foreground">
-                        {filter.label}
-                      </Label>
+              <SheetHeader className="text-right">
+                <SheetTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5 text-primary" />
+                  خيارات الفلترة
+                </SheetTitle>
+              </SheetHeader>
+              
+              <div className="py-6 space-y-6 overflow-y-auto max-h-[60vh] px-1">
+                {filters.map((filter) => (
+                  <div key={filter.key} className="space-y-2">
+                    <Label htmlFor={filter.key} className="text-sm font-semibold text-foreground">
+                      {filter.label}
+                    </Label>
+                    <div className="pt-1">
                       {renderFilterInput(filter)}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
+              </div>
 
+              <SheetFooter className="flex-col sm:flex-row gap-2 pt-4 border-t mt-auto">
+                <Button 
+                  className="flex-1 gap-2"
+                  onClick={() => setIsFilterOpen(false)}
+                >
+                  تطبيق الفلاتر
+                </Button>
+                
                 {activeFiltersCount > 0 && (
                   <Button 
                     variant="outline" 
-                    size="sm"
                     onClick={handleReset}
-                    className="w-full gap-2 text-destructive hover:text-destructive"
+                    className="flex-1 gap-2 text-destructive hover:bg-destructive/10"
                   >
                     <X className="h-4 w-4" />
-                    مسح جميع الفلاتر
+                    مسح الكل
                   </Button>
                 )}
-              </div>
-            </PopoverContent>
-          </Popover>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
         )}
 
         {showResetButton && hasActiveFilters && (

@@ -693,7 +693,7 @@ export default function MaterialPurchase() {
       const data = response.data || response;
       return Array.isArray(data) ? data : [];
     },
-    enabled: isAllProjects || !!selectedProjectId,
+    enabled: true,
     staleTime: 1000 * 60 * 5, // 5 دقائق بيانات صالحة
     gcTime: 1000 * 60 * 30, // 30 دقيقة في الذاكرة
     refetchOnWindowFocus: false, // منع إعادة الجلب عند تغيير النافذة
@@ -940,22 +940,20 @@ export default function MaterialPurchase() {
   return (
     <div className="p-4 slide-in">
       {/* لوحة الإحصائيات والفلترة الموحدة - شبكة 3×2 */}
-      {selectedProjectId && (
-        <UnifiedFilterDashboard
-          statsRows={statsRowsConfig}
-          searchValue={searchValue}
-          onSearchChange={setSearchValue}
-          searchPlaceholder="ابحث عن مادة أو مورد..."
-          showSearch={true}
-          filters={filtersConfig}
-          filterValues={filterValues}
-          onFilterChange={handleFilterChange}
-          onReset={handleResetFilters}
-          onRefresh={handleRefresh}
-          isRefreshing={isRefreshing}
-          actions={actions}
-        />
-      )}
+      <UnifiedFilterDashboard
+        statsRows={statsRowsConfig}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        searchPlaceholder="ابحث عن مادة أو مورد..."
+        showSearch={true}
+        filters={filtersConfig}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
+        onReset={handleResetFilters}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+        actions={actions}
+      />
 
       {/* مؤشر التحميل لبيانات التعديل */}
       {isLoadingEdit && editId && (
@@ -1380,12 +1378,12 @@ export default function MaterialPurchase() {
                     }
                   ]}
                   fields={[
-                    {
+                    ...(isAllProjects || !selectedProjectId ? [{
                       label: "المشروع",
                       value: purchase.projectName || purchase.project?.name || 'غير محدد',
                       icon: Building2,
-                      color: "info",
-                    },
+                      color: "info" as const,
+                    }] : []),
                     {
                       label: "المورد",
                       value: purchase.supplierName || 'غير محدد',

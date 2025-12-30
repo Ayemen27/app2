@@ -2776,8 +2776,33 @@ function DailyExpensesContent() {
                                   <span className="font-medium text-foreground">{methodLabel}</span>
                                 </div>
                               </div>
-                              {transfer.recipientPhone && (
-                                <p className="text-xs text-muted-foreground">الهاتف: {transfer.recipientPhone}</p>
+                              {transfer.transferNumber && (
+                                <p className="text-xs text-muted-foreground">
+                                  <span className="opacity-70">رقم الحوالة: </span>
+                                  <span className="font-medium text-foreground">{transfer.transferNumber}</span>
+                                </p>
+                              )}
+                              {(transfer.senderName || transfer.recipientPhone) && (
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  {transfer.senderName && (
+                                    <div className="text-muted-foreground">
+                                      <span className="opacity-70">المرسل: </span>
+                                      <span className="font-medium text-foreground">{transfer.senderName}</span>
+                                    </div>
+                                  )}
+                                  {transfer.recipientPhone && (
+                                    <div className="text-muted-foreground">
+                                      <span className="opacity-70">الهاتف: </span>
+                                      <span className="font-medium text-foreground">{transfer.recipientPhone}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {transfer.notes && (
+                                <p className="text-xs text-muted-foreground bg-yellow-50 dark:bg-yellow-950/30 p-2 rounded-md border border-yellow-100 dark:border-yellow-900/50 mt-1">
+                                  <span className="font-bold text-yellow-700 dark:text-yellow-400">الملاحظات: </span>
+                                  {transfer.notes}
+                                </p>
                               )}
                             </div>
                             <div className="flex gap-1 flex-shrink-0">

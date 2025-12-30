@@ -6,6 +6,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetFooter,
+} from '@/components/ui/sheet';
 import { 
   Search, 
   Filter, 
@@ -434,8 +442,8 @@ export function FilterStatsBar({
 
             {/* زر عرض الفلاتر */}
             {filters.length > 0 && (
-              <Popover open={isFilterPanelOpen} onOpenChange={setIsFilterPanelOpen}>
-                <PopoverTrigger asChild>
+              <Sheet open={isFilterPanelOpen} onOpenChange={setIsFilterPanelOpen}>
+                <SheetTrigger asChild>
                   <Button variant="outline" className="h-10 gap-2 flex-shrink-0">
                     <Filter className="h-4 w-4" />
                     <span>الفلاتر</span>
@@ -445,36 +453,53 @@ export function FilterStatsBar({
                       </Badge>
                     )}
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 p-4" align="end">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium">الفلاتر</h4>
-                      {hasActiveFilters && showResetButton && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={onReset}
-                          className="h-8 text-xs text-muted-foreground"
-                        >
-                          <RotateCcw className="h-3 w-3 ml-1" />
-                          إعادة تعيين
-                        </Button>
-                      )}
-                    </div>
-                    <div className="space-y-3">
-                      {filters.map((filter) => (
-                        <div key={filter.key} className="space-y-1.5">
-                          <label className="text-sm font-medium text-muted-foreground">
-                            {filter.label}
-                          </label>
+                </SheetTrigger>
+                <SheetContent 
+                  side="bottom"
+                  className="h-[80vh] sm:h-auto sm:max-w-md rounded-t-xl"
+                  dir="rtl"
+                >
+                  <SheetHeader className="text-right">
+                    <SheetTitle className="flex items-center gap-2">
+                      <Filter className="h-5 w-5 text-primary" />
+                      خيارات الفلترة
+                    </SheetTitle>
+                  </SheetHeader>
+                  
+                  <div className="py-6 space-y-6 overflow-y-auto max-h-[60vh] px-1">
+                    {filters.map((filter) => (
+                      <div key={filter.key} className="space-y-2">
+                        <label className="text-sm font-semibold text-foreground">
+                          {filter.label}
+                        </label>
+                        <div className="pt-1">
                           {renderFilterControl(filter)}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                </PopoverContent>
-              </Popover>
+
+                  <SheetFooter className="flex-col sm:flex-row gap-2 pt-4 border-t mt-auto">
+                    <Button 
+                      className="flex-1 gap-2"
+                      onClick={() => setIsFilterPanelOpen(false)}
+                    >
+                      تطبيق الفلاتر
+                    </Button>
+                    
+                    {hasActiveFilters && (
+                      <Button 
+                        variant="outline" 
+                        onClick={onReset}
+                        className="flex-1 gap-2 text-destructive hover:bg-destructive/10"
+                      >
+                        <X className="h-4 w-4" />
+                        مسح الكل
+                      </Button>
+                    )}
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
             )}
 
             {/* أزرار الإجراءات */}

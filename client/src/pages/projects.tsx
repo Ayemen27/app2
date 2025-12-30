@@ -213,9 +213,7 @@ export default function ProjectsPage() {
       try {
         console.log('📊 [Projects] جلب المشاريع مع الإحصائيات...');
         const response = await apiRequest("/api/projects/with-stats", "GET");
-        console.log('📊 [Projects] استجابة المشاريع:', response);
-
-        // معالجة هيكل الاستجابة المتعددة
+        
         let projects = [];
         if (response && typeof response === 'object') {
           if (response.success !== undefined && response.data !== undefined) {
@@ -228,37 +226,17 @@ export default function ProjectsPage() {
             projects = Array.isArray(response.data) ? response.data : [];
           }
         }
-
-        if (!Array.isArray(projects)) {
-          console.warn('⚠️ [Projects] البيانات ليست مصفوفة، تحويل إلى مصفوفة فارغة');
-          projects = [];
-        }
-
-        console.log(`✅ [Projects] تم جلب ${projects.length} مشروع مع الإحصائيات`);
         return projects as ProjectWithStats[];
       } catch (error) {
         console.error('❌ [Projects] خطأ في جلب المشاريع:', error);
-        // في حالة الخطأ، لا نرمي الخطأ لتجنب كسر الصفحة
         return [] as ProjectWithStats[];
       }
     },
-    refetchInterval: 60000, // إعادة التحديث كل دقيقة
-    staleTime: 30000, // البيانات طازجة لـ 30 ثانية
-    refetchOnWindowFocus: true,
-    retry: (failureCount, error) => {
-      // إذا كان خطأ 401 (غير مصرح)، لا نعيد المحاولة
-      if ((error as any)?.status === 401) {
-        return false;
-      }
-      return failureCount < 2;
-    },
+    refetchInterval: 60000,
   });
 
-  // ✅ معالجة البيانات بعد الحصول عليها مع تنظيف إضافي
-  const projects = Array.isArray(projectsData) ? projectsData.filter(project => project && typeof project === 'object') : [];
-
   // استخدام الملخص المالي الموحد من ExpenseLedgerService للإجماليات والمشاريع الفردية
-  const { totals: financialTotals, allProjects: financialData, isLoading: financialLoading } = useFinancialSummary({
+  const { totals: financialTotals, allProjects: financialData, isLoading: financialLoading, refetch: refetchFinancial } = useFinancialSummary({
     projectId: 'all',
     enabled: true
   });
@@ -295,7 +273,10 @@ export default function ProjectsPage() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await refetchProjects();
+      await Promise.all([
+        refetchProjects(),
+        refetchFinancial()
+      ]);
       toast({
         title: "تم التحديث",
         description: "تم تحديث البيانات بنجاح",

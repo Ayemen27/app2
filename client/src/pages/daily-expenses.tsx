@@ -436,15 +436,20 @@ function DailyExpensesContent() {
   // معالجة آمنة لترحيل المشاريع
   const safeProjectTransfers = Array.isArray(projectTransfers) ? projectTransfers : [];
 
-  // استخدام useFinancialSummary الموحد لتحسين الأداء
-  const { summary: financialSummary, isLoading: summaryLoading } = useFinancialSummary({
+  // استخدام useFinancialSummary الموحد لتحسين الأداء وتجنب اختلاف البيانات
+  const { summary: financialSummary, isLoading: summaryLoading, refetch: refetchFinancial } = useFinancialSummary({
     projectId: selectedProjectId,
     date: selectedDate || undefined,
     enabled: !!selectedProjectId && !isAllProjects
   });
 
-  // جلب البيانات التفصيلية فقط عند الحاجة - محسّن للأداء
-  const { data: dailyExpensesData, isLoading: dailyExpensesLoading, error: dailyExpensesError, refetch: refetchDailyExpenses } = useQuery({
+  // تحديث البيانات عند الحفظ أو الحذف
+  const refreshAllData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+    refetchDailyExpenses();
+    refetchProjectTransfers();
+    refetchFinancial();
+  }, [queryClient, refetchDailyExpenses, refetchProjectTransfers, refetchFinancial]);
     queryKey: ["/api/projects", isAllProjects ? "all-projects" : selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],
     queryFn: async () => {
       try {

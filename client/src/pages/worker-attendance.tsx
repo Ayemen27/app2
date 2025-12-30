@@ -1107,7 +1107,7 @@ export default function WorkerAttendance() {
                               inputMode="decimal"
                               step="0.1"
                               min="0"
-                              max="2.0"
+                              max="10.0"
                               value={bulkSettings.workDays || ""}
                               onChange={(e) => {
                                 const value = e.target.value;

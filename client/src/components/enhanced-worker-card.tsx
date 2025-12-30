@@ -308,7 +308,7 @@ export default function EnhancedWorkerCard({
                         inputMode="decimal"
                         step="0.1"
                         min="0"
-                        max="2.0"
+                        max="10.0"
                         value={localAttendance.workDays || ""}
                         onChange={(e) => {
                           const value = e.target.value;

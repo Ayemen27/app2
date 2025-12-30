@@ -22,6 +22,75 @@ export const syncRouter = express.Router();
 syncRouter.use(requireAuth);
 
 /**
+ * 🔄 تحميل النسخة الاحتياطية الكاملة (Full Backup Download)
+ * POST /api/sync/full-backup
+ * 
+ * تحميل جميع البيانات من الخادم لـ IndexedDB المحلي
+ * للمزامنة الكاملة والعمل بدون إنترنت
+ */
+syncRouter.post('/full-backup', async (req: Request, res: Response) => {
+  try {
+    const startTime = Date.now();
+    console.log('🔄 [Sync] طلب تحميل النسخة الاحتياطية الكاملة');
+    
+    // جمع جميع البيانات من قاعدة البيانات
+    const [
+      projectsList, workersList, materialsList, suppliersList,
+      attendanceList, purchasesList, expensesList, transfersList,
+      wellsList, typesList
+    ] = await Promise.all([
+      db.select().from(projects).limit(10000),
+      db.select().from(workers).limit(10000),
+      db.query('SELECT * FROM materials LIMIT 10000'),
+      db.query('SELECT * FROM suppliers LIMIT 10000'),
+      db.select().from(workerAttendance).limit(50000),
+      db.query('SELECT * FROM material_purchases LIMIT 50000'),
+      db.query('SELECT * FROM transportation_expenses LIMIT 50000'),
+      db.select().from(fundTransfers).limit(50000),
+      db.query('SELECT * FROM wells LIMIT 10000'),
+      db.query('SELECT * FROM project_types LIMIT 100')
+    ]);
+    
+    const duration = Date.now() - startTime;
+    
+    res.json({
+      success: true,
+      data: {
+        projects: projectsList,
+        workers: workersList,
+        materials: materialsList,
+        suppliers: suppliersList,
+        workerAttendance: attendanceList,
+        materialPurchases: purchasesList,
+        transportationExpenses: expensesList,
+        fundTransfers: transfersList,
+        wells: wellsList,
+        projectTypes: typesList
+      },
+      metadata: {
+        timestamp: Date.now(),
+        version: '1.0',
+        duration,
+        recordCounts: {
+          projects: (projectsList as any[]).length,
+          workers: (workersList as any[]).length,
+          materials: (materialsList as any[]).length,
+          workerAttendance: (attendanceList as any[]).length
+        }
+      }
+    });
+    
+    console.log(`✅ [Sync] تم تحميل البيانات في ${duration}ms`);
+  } catch (error: any) {
+    console.error('❌ [Sync] خطأ في تحميل النسخة الاحتياطية:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'فشل تحميل البيانات'
+    });
+  }
+});
+
+/**
  * 🔄 فحص حالة المزامنة
  * GET /api/sync/status
  * 
@@ -39,7 +108,8 @@ syncRouter.get('/status', (req: Request, res: Response) => {
         conflictResolution: true,
         offlineMode: true,
         compression: true,
-        incrementalSync: true
+        incrementalSync: true,
+        fullBackup: true
       }
     });
   } catch (error: any) {

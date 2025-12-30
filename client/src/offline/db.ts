@@ -40,9 +40,46 @@ export interface BinarJoinDB extends DBSchema {
     key: string;
     value: Record<string, any>;
   };
-  expenses: {
+  workerAttendance: {
     key: string;
     value: Record<string, any>;
+  };
+  materialPurchases: {
+    key: string;
+    value: Record<string, any>;
+  };
+  transportationExpenses: {
+    key: string;
+    value: Record<string, any>;
+  };
+  fundTransfers: {
+    key: string;
+    value: Record<string, any>;
+  };
+  workerTransfers: {
+    key: string;
+    value: Record<string, any>;
+  };
+  workerMiscExpenses: {
+    key: string;
+    value: Record<string, any>;
+  };
+  wells: {
+    key: string;
+    value: Record<string, any>;
+  };
+  projectTypes: {
+    key: string;
+    value: Record<string, any>;
+  };
+  syncMetadata: {
+    key: string;
+    value: {
+      key: string;
+      timestamp: number;
+      version: string;
+      recordCount: number;
+    };
   };
 }
 
@@ -73,12 +110,23 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
       }
 
       // Object Stores للبيانات الرئيسية
-      const mainStores = ['projects', 'workers', 'materials', 'suppliers', 'expenses'] as const;
+      const mainStores = [
+        'projects', 'workers', 'materials', 'suppliers',
+        'workerAttendance', 'materialPurchases', 'transportationExpenses',
+        'fundTransfers', 'workerTransfers', 'workerMiscExpenses',
+        'wells', 'projectTypes'
+      ] as const;
+      
       for (const storeName of mainStores) {
         if (!db.objectStoreNames.contains(storeName)) {
           const store = db.createObjectStore(storeName, { keyPath: 'id' });
           store.createIndex('timestamp', 'createdAt');
         }
+      }
+      
+      // Store لحفظ metadata المزامنة
+      if (!db.objectStoreNames.contains('syncMetadata')) {
+        db.createObjectStore('syncMetadata', { keyPath: 'key' });
       }
     }
   });

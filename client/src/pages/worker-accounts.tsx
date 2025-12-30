@@ -529,6 +529,18 @@ export default function WorkerAccountsPage() {
         { value: 'bank', label: 'تحويل بنكي' },
         { value: 'hawaleh', label: 'حولة' }
       ],
+    },
+    {
+      key: 'dateFrom',
+      label: 'من تاريخ',
+      type: 'date',
+      placeholder: 'من تاريخ',
+    },
+    {
+      key: 'dateTo',
+      label: 'إلى تاريخ',
+      type: 'date',
+      placeholder: 'إلى تاريخ',
     }
   ], [workers]);
 
@@ -537,6 +549,10 @@ export default function WorkerAccountsPage() {
       setSelectedWorkerId(value);
     } else if (key === 'transferMethod') {
       setTransferMethodFilter(value);
+    } else if (key === 'dateFrom') {
+      setDateFrom(value);
+    } else if (key === 'dateTo') {
+      setDateTo(value);
     }
   }, []);
 

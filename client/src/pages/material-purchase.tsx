@@ -79,12 +79,12 @@ export default function MaterialPurchase() {
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
     if (showDateFilter) {
-      setSelectedDate(getCurrentDate());
+      setSelectedDate(""); // تعيين فارغ لعرض الكل
     }
     setFilterValues({ paymentType: 'all', dateRange: undefined });
     toast({
       title: "تم إعادة التعيين",
-      description: "تم مسح جميع الفلاتر وتعيين تاريخ اليوم",
+      description: "تم مسح جميع الفلاتر وعرض جميع المشتريات",
     });
   }, [showDateFilter, toast]);
 
@@ -672,15 +672,17 @@ export default function MaterialPurchase() {
 
   // Fetch Material Purchases - جلب جميع المشتريات
   const { data: allMaterialPurchases = [], isLoading: materialPurchasesLoading, refetch: refetchMaterialPurchases } = useQuery<any[]>({
-    queryKey: ["/api/projects", getProjectIdForApi() ?? 'all', "material-purchases"],
+    queryKey: ["/api/projects", getProjectIdForApi() ?? 'all', "material-purchases", selectedDate],
     queryFn: async () => {
       // استخدام getProjectIdForApi للحصول على ID صحيح
       const projectIdForApi = getProjectIdForApi();
-      const endpoint = projectIdForApi
+      const baseUrl = projectIdForApi
         ? `/api/projects/${projectIdForApi}/material-purchases`
         : `/api/projects/all/material-purchases`;
+      
+      const endpoint = selectedDate ? `${baseUrl}?date=${selectedDate}` : baseUrl;
 
-      console.log('🔍 جلب المشتريات من:', endpoint, { projectIdForApi, isAllProjects });
+      console.log('🔍 جلب المشتريات من:', endpoint, { projectIdForApi, isAllProjects, selectedDate });
       const response = await apiRequest(endpoint, "GET");
       console.log('📊 عدد المشتريات المستلمة:', Array.isArray(response) ? response.length : response?.data?.length || 0);
       

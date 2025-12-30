@@ -4435,9 +4435,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conditions.push(eq(materialPurchases.projectId, projectId));
       }
 
-      // فلترة حسب التاريخ - إذا لم يتم توفير تاريخ، نستخدم تاريخ اليوم بشكل افتراضي
-      const filterDate = date ? (date as string) : format(new Date(), 'yyyy-MM-dd');
-      conditions.push(eq(materialPurchases.purchaseDate, filterDate));
+      // فلترة حسب التاريخ - إذا لم يتم توفير تاريخ، لا نقوم بالفلترة لعرض الكل
+      if (date) {
+        conditions.push(eq(materialPurchases.purchaseDate, date as string));
+      }
 
       if (conditions.length > 0) {
         query = query.where(and(...conditions)) as any;

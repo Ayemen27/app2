@@ -353,36 +353,42 @@ export function FilterStatsBar({
     switch (filter.type) {
       case 'date':
         return (
-          <DatePickerFilter
-            value={value}
-            onChange={(date) => onFilterChange?.(filter.key, date)}
-            placeholder={filter.placeholder}
-          />
+          <div onClick={(e) => e.stopPropagation()}>
+            <DatePickerFilter
+              value={value}
+              onChange={(date) => onFilterChange?.(filter.key, date)}
+              placeholder={filter.placeholder}
+            />
+          </div>
         );
       case 'date-range':
         return (
-          <DateRangeFilter
-            value={value}
-            onChange={(range) => onFilterChange?.(filter.key, range)}
-          />
+          <div onClick={(e) => e.stopPropagation()}>
+            <DateRangeFilter
+              value={value}
+              onChange={(range) => onFilterChange?.(filter.key, range)}
+            />
+          </div>
         );
       default:
         return (
-          <Select 
-            value={value || filter.defaultValue || 'all'} 
-            onValueChange={(v) => onFilterChange?.(filter.key, v)}
-          >
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder={filter.placeholder || filter.label} />
-            </SelectTrigger>
-            <SelectContent>
-              {filter.options?.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div onClick={(e) => e.stopPropagation()}>
+            <Select 
+              value={value || filter.defaultValue || 'all'} 
+              onValueChange={(v) => onFilterChange?.(filter.key, v)}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder={filter.placeholder || filter.label} />
+              </SelectTrigger>
+              <SelectContent>
+                {filter.options?.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         );
     }
   };
@@ -456,48 +462,59 @@ export function FilterStatsBar({
                 </SheetTrigger>
                 <SheetContent 
                   side="bottom"
-                  className="h-[80vh] sm:h-auto sm:max-w-md rounded-t-xl"
+                  className="h-[85vh] sm:h-[80vh] sm:max-w-xl rounded-t-[2rem] p-0 overflow-hidden border-t-0 bg-background/95 backdrop-blur-xl"
                   dir="rtl"
                 >
-                  <SheetHeader className="text-right">
-                    <SheetTitle className="flex items-center gap-2">
-                      <Filter className="h-5 w-5 text-primary" />
-                      خيارات الفلترة
-                    </SheetTitle>
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted/30 rounded-full mb-4" />
+                  
+                  <SheetHeader className="px-6 pt-8 pb-4 text-right border-b bg-card/50">
+                    <div className="flex items-center justify-between">
+                      <SheetTitle className="text-xl font-bold flex items-center gap-2">
+                        <div className="p-2 bg-primary/10 rounded-xl">
+                          <Filter className="h-5 w-5 text-primary" />
+                        </div>
+                        <span>خيارات التصفية</span>
+                      </SheetTitle>
+                    </div>
                   </SheetHeader>
                   
-                  <div className="py-6 space-y-6 overflow-y-auto max-h-[60vh] px-1">
-                    {filters.map((filter) => (
-                      <div key={filter.key} className="space-y-2">
-                        <label className="text-sm font-semibold text-foreground">
-                          {filter.label}
-                        </label>
-                        <div className="pt-1">
-                          {renderFilterControl(filter)}
+                  <div className="px-6 py-4 space-y-8 overflow-y-auto max-h-[calc(85vh-160px)] custom-scrollbar">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {filters.map((filter) => (
+                        <div key={filter.key} className="space-y-3 group">
+                          <label className="text-sm font-bold text-foreground/80 group-hover:text-primary transition-colors flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+                            {filter.label}
+                          </label>
+                          <div className="pt-1 relative">
+                            {renderFilterControl(filter)}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
 
-                  <SheetFooter className="flex-col sm:flex-row gap-2 pt-4 border-t mt-auto">
-                    <Button 
-                      className="flex-1 gap-2"
-                      onClick={() => setIsFilterPanelOpen(false)}
-                    >
-                      تطبيق الفلاتر
-                    </Button>
-                    
-                    {hasActiveFilters && (
+                  <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent pt-10">
+                    <div className="flex items-center gap-3">
                       <Button 
-                        variant="outline" 
-                        onClick={onReset}
-                        className="flex-1 gap-2 text-destructive hover:bg-destructive/10"
+                        className="flex-[2] h-12 text-base font-bold rounded-2xl shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] transition-all"
+                        onClick={() => setIsFilterPanelOpen(false)}
                       >
-                        <X className="h-4 w-4" />
-                        مسح الكل
+                        تطبيق الفلاتر
                       </Button>
-                    )}
-                  </SheetFooter>
+                      
+                      {hasActiveFilters && (
+                        <Button 
+                          variant="outline" 
+                          onClick={onReset}
+                          className="flex-1 h-12 rounded-2xl border-destructive/20 text-destructive hover:bg-destructive/5 hover:border-destructive/30 transition-all"
+                        >
+                          <RotateCcw className="h-4 w-4 ml-2" />
+                          إعادة تعيين
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </SheetContent>
               </Sheet>
             )}

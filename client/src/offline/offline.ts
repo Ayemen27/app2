@@ -33,7 +33,9 @@ export async function queueForSync(
  */
 export async function getPendingSyncQueue() {
   const db = await getDB();
-  const allItems = await db.getAll('syncQueue');
+  const tx = db.transaction('syncQueue', 'readonly');
+  const store = tx.objectStore('syncQueue');
+  const allItems = await store.getAll();
   return allItems.sort((a, b) => a.timestamp - b.timestamp);
 }
 
@@ -95,8 +97,9 @@ export async function saveUserDataLocal(
  */
 export async function getUserDataLocal(type: string) {
   const db = await getDB();
-  const tx = db.transaction('userData');
-  const index = tx.objectStore('userData').index('type');
+  const tx = db.transaction('userData', 'readonly');
+  const store = tx.objectStore('userData');
+  const index = store.index('type');
   return await index.getAll(type);
 }
 
@@ -138,7 +141,9 @@ export async function getListLocal(
   storeName: 'projects' | 'workers' | 'materials' | 'suppliers' | 'expenses'
 ) {
   const db = await getDB();
-  return await db.getAll(storeName);
+  const tx = db.transaction(storeName, 'readonly');
+  const store = tx.objectStore(storeName);
+  return await store.getAll();
 }
 
 /**

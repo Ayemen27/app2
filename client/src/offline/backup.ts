@@ -9,7 +9,9 @@ export async function exportLocalData(): Promise<string> {
   const exportData: Record<string, any> = {};
 
   for (const store of stores) {
-    exportData[store] = await db.getAll(store as any);
+    const tx = db.transaction(store as any, 'readonly');
+    const objectStore = tx.objectStore(store as any);
+    exportData[store] = await objectStore.getAll();
   }
 
   const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });

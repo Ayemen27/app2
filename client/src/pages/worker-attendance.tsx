@@ -47,7 +47,9 @@ export default function WorkerAttendance() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject, isAllProjects, projects } = useSelectedProject();
   const [searchValue, setSearchValue] = useState("");
-  const [filterValues, setFilterValues] = useState<Record<string, any>>({});
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({
+    dateRange: undefined
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
 
@@ -82,7 +84,9 @@ export default function WorkerAttendance() {
 
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
-    setFilterValues({});
+    setFilterValues({
+      dateRange: undefined
+    });
     if (showDateFilter) {
       setSelectedDate(getCurrentDate());
     }
@@ -818,19 +822,41 @@ export default function WorkerAttendance() {
     );
   }, [workers, searchValue]);
 
-  // فلترة سجلات الحضور حسب نص البحث
+  // فلترة سجلات الحضور حسب نص البحث ونطاق التاريخ
   const filteredAttendance = useMemo(() => {
-    if (!searchValue.trim()) return todayRecords;
-    const searchLower = searchValue.toLowerCase().trim();
-    return todayRecords.filter(record => {
-      const worker = workers.find(w => w.id === record.workerId);
-      return (
-        worker?.name?.toLowerCase().includes(searchLower) ||
-        record.workDescription?.toLowerCase().includes(searchLower) ||
-        record.notes?.toLowerCase().includes(searchLower)
-      );
-    });
-  }, [todayRecords, workers, searchValue]);
+    let result = todayRecords;
+    
+    if (searchValue.trim()) {
+      const searchLower = searchValue.toLowerCase().trim();
+      result = result.filter(record => {
+        const worker = workers.find(w => w.id === record.workerId);
+        return (
+          worker?.name?.toLowerCase().includes(searchLower) ||
+          record.workDescription?.toLowerCase().includes(searchLower) ||
+          record.notes?.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+
+    if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
+      result = result.filter(record => {
+        const recordDate = new Date(record.attendanceDate || record.date);
+        if (filterValues.dateRange.from) {
+          const fromDate = new Date(filterValues.dateRange.from);
+          fromDate.setHours(0, 0, 0, 0);
+          if (recordDate < fromDate) return false;
+        }
+        if (filterValues.dateRange.to) {
+          const toDate = new Date(filterValues.dateRange.to);
+          toDate.setHours(23, 59, 59, 999);
+          if (recordDate > toDate) return false;
+        }
+        return true;
+      });
+    }
+
+    return result;
+  }, [todayRecords, workers, searchValue, filterValues.dateRange]);
 
   const stats = useMemo(() => {
     const presentWorkers = filteredAttendance.length;
@@ -933,6 +959,12 @@ export default function WorkerAttendance() {
       label: 'التاريخ',
       type: 'date',
       placeholder: 'اختر التاريخ',
+    },
+    {
+      key: 'dateRange',
+      label: 'نطاق التاريخ',
+      type: 'date-range',
+      placeholder: 'اختر نطاق التاريخ',
     },
   ], []);
 

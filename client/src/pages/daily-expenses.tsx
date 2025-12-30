@@ -57,10 +57,39 @@ function DailyExpensesContent() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [carriedForward, setCarriedForward] = useState<string>("0");
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
-  const [activeFilters, setActiveFilters] = useState({});
-  const [isAddFormOpen, setIsAddFormOpen] = useState<boolean>(false);
-  const [searchValue, setSearchValue] = useState("");
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({
+    dateRange: undefined,
+    type: 'all'
+  });
+
+  // دوال معالجة الفلاتر
+  const handleFilterChange = useCallback((key: string, value: any) => {
+    if (key === 'date') {
+      if (value instanceof Date) {
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        setSelectedDate(`${year}-${month}-${day}`);
+      } else {
+        setSelectedDate(null);
+      }
+    } else {
+      setFilterValues(prev => ({ ...prev, [key]: value }));
+    }
+  }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setSearchValue("");
+    setFilterValues({
+      dateRange: undefined,
+      type: 'all'
+    });
+    setSelectedDate(getCurrentDate());
+    toast({
+      title: "تم إعادة التعيين",
+      description: "تم مسح جميع الفلاتر وتعيين تاريخ اليوم",
+    });
+  }, [toast]);
   const [isExporting, setIsExporting] = useState(false);
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
   const [isFundTransfersExpanded, setIsFundTransfersExpanded] = useState(false);
@@ -1514,6 +1543,12 @@ function DailyExpensesContent() {
       label: 'التاريخ',
       type: 'date',
       placeholder: 'اختر التاريخ',
+    },
+    {
+      key: 'dateRange',
+      label: 'نطاق التاريخ',
+      type: 'date-range',
+      placeholder: 'اختر نطاق التاريخ',
     },
     {
       key: 'type',

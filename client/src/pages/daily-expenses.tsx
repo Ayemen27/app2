@@ -98,6 +98,7 @@ function DailyExpensesContent() {
   const [isExporting, setIsExporting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [isFundTransfersExpanded, setIsFundTransfersExpanded] = useState(false);
   const [isTransportationExpanded, setIsTransportationExpanded] = useState(false);
   const [isAttendanceExpanded, setIsAttendanceExpanded] = useState(false);

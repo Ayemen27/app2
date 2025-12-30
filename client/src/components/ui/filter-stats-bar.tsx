@@ -480,7 +480,7 @@ export function FilterStatsBar({
                           <span>تصفية متقدمة</span>
                         </SheetTitle>
                         <SheetClose asChild>
-                          <Button variant="secondary" size="icon" className="rounded-full h-10 w-10 shadow-sm hover:scale-110 active:scale-95 transition-all">
+                          <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 bg-muted/50 hover:bg-muted transition-all">
                             <X className="h-5 w-5" />
                           </Button>
                         </SheetClose>
@@ -504,23 +504,21 @@ export function FilterStatsBar({
                     </div>
 
                     <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-background via-background/98 to-transparent pt-16 z-40 border-t border-border/10">
-                      <div className="flex items-center gap-4 max-w-2xl mx-auto">
+                      <div className="max-w-2xl mx-auto">
                         <Button 
-                          className="flex-[2] h-14 text-lg font-black rounded-2xl shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all bg-primary text-primary-foreground"
+                          className="w-full h-14 text-lg font-black rounded-2xl shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all bg-primary text-primary-foreground"
                           onClick={() => setIsFilterPanelOpen(false)}
                         >
                           تطبيق الفلاتر
                         </Button>
                         
                         {hasActiveFilters && (
-                          <Button 
-                            variant="outline" 
+                          <button 
                             onClick={onReset}
-                            className="flex-1 h-14 rounded-2xl border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/40 transition-all font-bold text-base bg-destructive/5"
+                            className="w-full mt-4 text-sm font-bold text-destructive hover:underline transition-all"
                           >
-                            <RotateCcw className="h-5 w-5 ml-2" />
-                            إعادة ضبط
-                          </Button>
+                            إعادة ضبط الكل
+                          </button>
                         )}
                       </div>
                     </div>

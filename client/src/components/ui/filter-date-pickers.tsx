@@ -66,13 +66,13 @@ export function FilterDatePicker({
   }, [minDate, maxDate]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-full justify-between text-right h-9 font-normal group",
+            "w-full justify-between text-right h-9 font-normal group bg-white dark:bg-gray-950 border-gray-200 shadow-sm",
             !value && "text-muted-foreground",
             className
           )}
@@ -91,7 +91,7 @@ export function FilterDatePicker({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start" dir="rtl">
+      <PopoverContent className="w-auto p-0 pointer-events-auto overflow-visible shadow-2xl border-border/40" align="start" dir="rtl">
         <Calendar
           mode="single"
           selected={value}
@@ -163,19 +163,19 @@ export function FilterDateRangePicker({
 
   return (
     <div className={cn("grid gap-2", className)}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen} modal={true}>
         <PopoverTrigger asChild>
           <div className="grid grid-cols-2 gap-2 w-full">
             <Button
               variant="outline"
               disabled={disabled}
               className={cn(
-                "w-full justify-start text-right h-11 rounded-xl border-border/40 bg-background/50 backdrop-blur-sm hover:bg-accent/50 transition-all",
+                "w-full justify-start text-right h-12 rounded-xl border-border/60 bg-white dark:bg-gray-950 shadow-sm hover:border-primary transition-all",
                 !value?.from && "text-muted-foreground"
               )}
             >
               <CalendarIcon className="ml-2 h-4 w-4 opacity-50 shrink-0" />
-              <span className="truncate flex-1">
+              <span className="truncate flex-1 font-bold">
                 {value?.from ? format(value.from, "yyyy/MM/dd", { locale: ar }) : "من"}
               </span>
             </Button>
@@ -183,12 +183,12 @@ export function FilterDateRangePicker({
               variant="outline"
               disabled={disabled}
               className={cn(
-                "w-full justify-start text-right h-11 rounded-xl border-border/40 bg-background/50 backdrop-blur-sm hover:bg-accent/50 transition-all relative group",
+                "w-full justify-start text-right h-12 rounded-xl border-border/60 bg-white dark:bg-gray-950 shadow-sm hover:border-primary transition-all relative group",
                 !value?.to && "text-muted-foreground"
               )}
             >
               <CalendarIcon className="ml-2 h-4 w-4 opacity-50 shrink-0" />
-              <span className="truncate flex-1">
+              <span className="truncate flex-1 font-bold">
                 {value?.to ? format(value.to, "yyyy/MM/dd", { locale: ar }) : "إلى"}
               </span>
               {showClearButton && (value?.from || value?.to) && (
@@ -202,7 +202,7 @@ export function FilterDateRangePicker({
             </Button>
           </div>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 rounded-2xl shadow-2xl border-border/40" align="center" dir="rtl">
+        <PopoverContent className="w-auto p-0 rounded-2xl shadow-2xl border-border/40 pointer-events-auto overflow-visible" align="center" dir="rtl">
           <Calendar
             mode="range"
             selected={value?.from ? { from: value.from, to: value.to } : undefined}

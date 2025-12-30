@@ -50,7 +50,7 @@ export function FilterDatePicker({
   const handleSelect = useCallback((date: Date | undefined) => {
     const normalizedDate = normalizeDate(date);
     onChange(normalizedDate);
-    // Removed setOpen(false)
+    setOpen(false);
   }, [onChange]);
 
   const handleClear = useCallback((e: React.MouseEvent) => {

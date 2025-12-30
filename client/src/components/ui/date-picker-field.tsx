@@ -50,7 +50,7 @@ export function DatePickerField({
 
   const handleSelect = (date: Date | undefined) => {
     onChange?.(date)
-    // Removed setOpen(false) as per user request to apply this logic to all date fields
+    setOpen(false)
   }
 
   const formattedDate = dateValue
@@ -142,7 +142,7 @@ export function DateRangePickerField({
 
   const handleStartSelect = (date: Date | undefined) => {
     onStartDateChange?.(date)
-    // Removed setStartOpen(false) to keep it open
+    setStartOpen(false)
   }
 
   const handleEndSelect = (date: Date | undefined) => {

@@ -91,7 +91,7 @@ export function FilterDatePicker({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 pointer-events-auto overflow-visible shadow-2xl border-border/40 z-[700]" align="start" dir="rtl">
+      <PopoverContent className="w-auto p-0 pointer-events-auto overflow-visible shadow-2xl border-border/40 z-[1000]" align="start" dir="rtl">
         <Calendar
           mode="single"
           selected={value}
@@ -202,7 +202,7 @@ export function FilterDateRangePicker({
             </Button>
           </div>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 rounded-2xl shadow-2xl border-border/40 pointer-events-auto overflow-visible z-[700]" align="center" dir="rtl">
+        <PopoverContent className="w-auto p-0 rounded-2xl shadow-2xl border-border/40 pointer-events-auto overflow-visible z-[1000]" align="center" dir="rtl">
           <Calendar
             mode="range"
             selected={value?.from ? { from: value.from, to: value.to } : undefined}

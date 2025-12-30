@@ -1369,10 +1369,15 @@ function DailyExpensesContent() {
         calculation: `${carriedAmount} + ${totalFundTransfers} + ${incomingProjectTransfers}`,
       });
       
-      const totalIncome = carriedAmount + totalFundTransfers + incomingProjectTransfers;
-      const totalExpenses = totalWorkerWages + totalTransportation + totalMaterialCosts + 
-                            totalWorkerTransfers + totalMiscExpenses + outgoingProjectTransfers;
-      const remainingBalance = totalIncome - totalExpenses;
+      // استخدام البيانات الموحدة من financialSummary إذا كانت متاحة
+      const totalExpenses = financialSummary?.expenses?.totalAllExpenses || 
+                           (totalWorkerWages + totalTransportation + totalMaterialCosts + 
+                            totalWorkerTransfers + totalMiscExpenses + outgoingProjectTransfers);
+      
+      const totalIncome = financialSummary?.income?.totalIncome || 
+                         (carriedAmount + totalFundTransfers + incomingProjectTransfers);
+      
+      const remainingBalance = financialSummary?.totalBalance ?? (totalIncome - totalExpenses);
       
       console.log('✅ [calculateTotals] النتيجة النهائية:', {
         totalIncome,

@@ -139,8 +139,8 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       allProjects: allProjectsData,
       totals: {
         ...totals,
-        totalExpenses: totals.totalCashExpenses || 0,
-        currentBalance: totals.cashBalance || 0
+        totalExpenses: totals.totalAllExpenses || 0,
+        currentBalance: totals.totalBalance || 0
       },
       isLoading,
       error,
@@ -159,10 +159,10 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       totalIncome: projectData!.income.totalIncome || 0,
       totalCashExpenses: projectData!.expenses.totalCashExpenses || 0,
       totalAllExpenses: projectData!.expenses.totalAllExpenses || 0,
-      totalExpenses: projectData!.expenses.totalCashExpenses || 0,
+      totalExpenses: projectData!.expenses.totalAllExpenses || 0,
       cashBalance: projectData!.cashBalance || 0,
       totalBalance: projectData!.totalBalance || 0,
-      currentBalance: projectData!.cashBalance || 0,
+      currentBalance: projectData!.totalBalance || 0,
       totalWorkers: projectData!.workers.totalWorkers || 0,
       activeWorkers: projectData!.workers.activeWorkers || 0,
       materialExpensesCredit: projectData!.expenses.materialExpensesCredit || 0

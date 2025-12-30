@@ -63,6 +63,7 @@ const AdminNotificationsPage = lazy(() => import("./pages/admin-notifications"))
 const SmartErrorsPage = lazy(() => import("./pages/SmartErrorsPage"));
 const SecurityPoliciesPage = lazy(() => import("./pages/SecurityPoliciesPage").then(m => ({ default: m.SecurityPoliciesPage })));
 const Reports = lazy(() => import("./pages/reports"));
+const SettingsPage = lazy(() => import("./pages/settings"));
 const RealReports = lazy(() => import("./pages/real-reports"));
 const ProfessionalReports = lazy(() => import("./pages/professional-reports"));
 const UsersManagementPage = lazy(() => import("./pages/users-management"));
@@ -183,6 +184,11 @@ function Router() {
       </Route>
       <Route path="/daily-expenses" component={DailyExpenses} />
       <Route path="/wells" component={WellsPage} />
+      <Route path="/settings">
+        <Suspense fallback={<PageLoader />}>
+          <SettingsPage />
+        </Suspense>
+      </Route>
       <Route path="/well-cost-report" component={WellCostReport} />
       <Route path="/well-accounting" component={WellAccounting} />
       <Route path="/reports">

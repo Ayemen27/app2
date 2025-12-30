@@ -35,6 +35,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/wells': { title: 'إدارة الآبار', icon: Layers },
   '/daily-expenses': { title: 'المصاريف اليومية', icon: DollarSign },
   '/deployment': { title: 'لوحة البناء والنشر التلقائي', icon: Activity },
+  '/settings': { title: 'إعدادات النظام', icon: Settings },
   '/project-fund-custody': { title: 'عهدة صندوق المشروع', icon: Wallet },
   '/admin-notifications': { title: 'إشعارات الإدارة', icon: Shield },
   '/ai-chat': { title: 'المساعد الذكي', icon: MessageSquare },
@@ -226,8 +227,8 @@ export default function Header() {
               variant="ghost" 
               size="sm" 
               className="p-2 rounded-full hover:bg-primary/80"
-              onClick={() => setLocation('/print-control')}
-              title="التحكم في الطباعة"
+              onClick={() => setLocation('/settings')}
+              title="إعدادات النظام"
             >
               <Settings className="h-4 w-4" />
             </Button>

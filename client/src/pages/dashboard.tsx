@@ -32,7 +32,7 @@ import type {
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { UnifiedSearchFilter, useUnifiedFilter, PROJECT_STATUS_OPTIONS } from "@/components/ui/unified-search-filter";
-import { useFinancialSummary } from "@/hooks/useFinancialSummary";
+import { useFinancialSummary, type ProjectFinancialSummary } from "@/hooks/useFinancialSummary";
 
 interface ProjectStats {
   totalWorkers: string;
@@ -314,7 +314,7 @@ export default function Dashboard() {
 
   // دالة للحصول على إحصائيات المشروع من ExpenseLedgerService
   const getProjectStats = useCallback((projectId: string) => {
-    const financialProject = financialProjectsMap.get(projectId);
+    const financialProject = financialProjectsMap.get(projectId) as ProjectFinancialSummary | undefined;
     if (financialProject) {
       return {
         totalIncome: financialProject.income?.totalIncome || 0,
@@ -322,7 +322,8 @@ export default function Dashboard() {
         currentBalance: financialProject.totalBalance || 0,
         activeWorkers: financialProject.workers?.activeWorkers || 0,
         completedDays: financialProject.workers?.completedDays || 0,
-        materialPurchases: financialProject.counts?.materialPurchases || 0
+        materialPurchases: financialProject.counts?.materialPurchases || 0,
+        transportExpenses: financialProject.expenses?.transportExpenses || 0
       };
     }
     return null;
@@ -425,7 +426,8 @@ export default function Dashboard() {
           currentBalance: projectStats.currentBalance,
           activeWorkers: String(projectStats.activeWorkers),
           completedDays: String(projectStats.completedDays),
-          materialPurchases: String(projectStats.materialPurchases)
+          materialPurchases: String(projectStats.materialPurchases),
+          transportExpenses: projectStats.transportExpenses
         };
       }
     }
@@ -435,7 +437,8 @@ export default function Dashboard() {
       currentBalance: totalStats.currentBalance,
       activeWorkers: String(totalStats.activeWorkers),
       completedDays: String(totalStats.completedDays),
-      materialPurchases: String(totalStats.materialPurchases)
+      materialPurchases: String(totalStats.materialPurchases),
+      transportExpenses: 0
     };
   }, [selectedProject, selectedProjectId, getProjectStats, totalStats]);
 
@@ -588,7 +591,7 @@ export default function Dashboard() {
             },
             {
               title: "النقل",
-              value: financialProjectsMap.get(selectedProjectId)?.expenses?.transportExpenses || 0,
+              value: currentStats.transportExpenses,
               icon: Truck,
               color: "orange",
               formatter: formatCurrency

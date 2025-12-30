@@ -27,6 +27,14 @@ import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import "@/styles/excel-print-styles.css";
 import ExpenseSummary from "@/components/expense-summary";
+import { 
+  PieChart, 
+  Pie, 
+  Cell, 
+  ResponsiveContainer, 
+  Tooltip as RechartsTooltip, 
+  Legend 
+} from "recharts";
 import { downloadExcelFile } from "@/utils/webview-download";
 
 interface DailyExpenseData {
@@ -474,6 +482,45 @@ export default function Reports() {
                         miscExpenses: expenseData.miscExpenses
                       }}
                     />
+
+                    {expenseData.total > 0 && (
+                      <Card className="border-gray-300 shadow-md">
+                        <CardHeader>
+                          <CardTitle className="text-sm font-medium">توزيع المصاريف</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[200px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={[
+                                    { name: "أجور", value: expenseData.workerWages },
+                                    { name: "مواد", value: expenseData.materialCosts },
+                                    { name: "نقل", value: expenseData.transportation },
+                                    { name: "متنوع", value: expenseData.miscExpenses },
+                                  ].filter(d => d.value > 0)}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={60}
+                                  outerRadius={80}
+                                  paddingAngle={5}
+                                  dataKey="value"
+                                >
+                                  <Cell fill="#3b82f6" />
+                                  <Cell fill="#22c55e" />
+                                  <Cell fill="#f59e0b" />
+                                  <Cell fill="#ef4444" />
+                                </Pie>
+                                <RechartsTooltip 
+                                  formatter={(value: number) => formatCurrency(value.toString())}
+                                />
+                                <Legend verticalAlign="bottom" height={36}/>
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                     
                     <Card className="border-gray-300 shadow-md">
                       <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 border-b border-gray-200">

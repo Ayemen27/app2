@@ -54,6 +54,7 @@ export function FilterDatePicker({
   }, [onChange]);
 
   const handleClear = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     onChange(undefined);
   }, [onChange]);
@@ -66,28 +67,30 @@ export function FilterDatePicker({
   }, [minDate, maxDate]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={true}>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-full justify-between text-right h-9 font-normal group bg-white dark:bg-gray-950 border-gray-200 shadow-sm",
+            "w-full justify-between text-right h-12 rounded-xl group bg-white dark:bg-gray-950 border-border/60 shadow-sm hover:border-primary transition-all relative",
             !value && "text-muted-foreground",
             className
           )}
         >
           <span className="flex items-center gap-2 flex-1 text-right">
             <CalendarIcon className="h-4 w-4 opacity-50 shrink-0" />
-            <span className="truncate">
+            <span className="truncate font-bold">
               {value ? format(value, dateFormat, { locale: ar }) : placeholder}
             </span>
           </span>
           {showClearButton && value && (
-            <X 
-              className="h-4 w-4 opacity-50 hover:opacity-100 shrink-0 transition-opacity" 
+            <div 
+              className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors z-[100]"
               onClick={handleClear}
-            />
+            >
+              <X className="h-4 w-4" />
+            </div>
           )}
         </Button>
       </PopoverTrigger>
@@ -165,14 +168,14 @@ export function FilterDateRangePicker({
 
   return (
     <div className={cn("grid gap-2", className)}>
-      <Popover open={open} onOpenChange={setOpen} modal={true}>
+      <Popover open={open} onOpenChange={setOpen} modal={false}>
         <PopoverTrigger asChild>
-          <div className="grid grid-cols-2 gap-2 w-full">
+          <div className="flex items-center gap-2 w-full">
             <Button
               variant="outline"
               disabled={disabled}
               className={cn(
-                "w-full justify-start text-right h-12 rounded-xl border-border/60 bg-white dark:bg-gray-950 shadow-sm hover:border-primary transition-all relative group",
+                "flex-1 justify-start text-right h-12 rounded-xl border-border/60 bg-white dark:bg-gray-950 shadow-sm hover:border-primary transition-all relative group",
                 !value?.from && "text-muted-foreground"
               )}
             >
@@ -197,7 +200,7 @@ export function FilterDateRangePicker({
               variant="outline"
               disabled={disabled}
               className={cn(
-                "w-full justify-start text-right h-12 rounded-xl border-border/60 bg-white dark:bg-gray-950 shadow-sm hover:border-primary transition-all relative group",
+                "flex-1 justify-start text-right h-12 rounded-xl border-border/60 bg-white dark:bg-gray-950 shadow-sm hover:border-primary transition-all relative group",
                 !value?.to && "text-muted-foreground"
               )}
             >

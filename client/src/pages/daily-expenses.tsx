@@ -78,6 +78,11 @@ function DailyExpensesContent() {
       } else {
         setSelectedDate(null);
       }
+    } else if (key === 'dateRange') {
+      setFilterValues(prev => ({ ...prev, [key]: value }));
+      if (value?.from) {
+        setSelectedDate(null);
+      }
     } else {
       setFilterValues(prev => ({ ...prev, [key]: value }));
     }
@@ -400,7 +405,7 @@ function DailyExpensesContent() {
     queryKey: ["/api/daily-project-transfers", selectedProjectId, selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/daily-project-transfers?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
+        const response = await apiRequest(`/api/daily-project-transfers?projectId=${selectedProjectId}&date=${selectedDate || ""}`, "GET");
         console.log('📊 [ProjectTransfers] استجابة API للصفحة اليومية:', response);
 
         let transferData = [];
@@ -444,7 +449,7 @@ function DailyExpensesContent() {
     queryFn: async () => {
       try {
         if (isAllProjects) {
-          const url = selectedDate 
+          const url = selectedDate && selectedDate !== "null"
             ? `/api/projects/all-projects-expenses?date=${selectedDate}`
             : `/api/projects/all-projects-expenses`;
           const response = await apiRequest(url, "GET");
@@ -458,7 +463,7 @@ function DailyExpensesContent() {
           return null;
         }
 
-        if (!selectedDate) {
+        if (!selectedDate || selectedDate === "null") {
           const response = await apiRequest(`/api/projects/${selectedProjectId}/all-expenses`, "GET");
           if (response && response.success && response.data) {
             return response.data;

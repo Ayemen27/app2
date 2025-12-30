@@ -35,6 +35,7 @@ import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui
 import { exportTransactionsToExcel } from "@/components/ui/export-transactions-excel";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
+import { queueForSync } from "@/offline/offline";
 import type { 
   WorkerAttendance, 
   TransportationExpense, 
@@ -268,12 +269,30 @@ function DailyExpensesContent() {
       setSelectedWorkerId("");
       toast({ title: "تم إضافة الحضور", description: "تم تسجيل أجر العامل بنجاح" });
     },
-    onError: (error: any) => {
-      toast({ 
-        title: "خطأ", 
-        description: error?.message || "حدث خطأ أثناء إضافة الحضور", 
-        variant: "destructive" 
-      });
+    onError: async (error: any) => {
+      // ✅ حفظ محلي في قائمة الانتظار عند الفشل
+      try {
+        const attendanceData = {
+          workerId: selectedWorkerId,
+          days: workerDays ? parseFloat(workerDays) : 0,
+          amount: workerAmount ? parseFloat(workerAmount) : 0,
+          notes: workerNotes,
+          selectedDate,
+          projectId: selectedProjectId
+        };
+        await queueForSync('create', '/api/worker-attendance', attendanceData);
+        toast({
+          title: "تم الحفظ محليًا",
+          description: "خطأ في الاتصال - سيتم المزامنة عند الاتصال",
+          variant: "default",
+        });
+      } catch (queueError) {
+        toast({ 
+          title: "خطأ", 
+          description: error?.message || "حدث خطأ أثناء إضافة الحضور", 
+          variant: "destructive" 
+        });
+      }
     }
   });
 
@@ -694,11 +713,30 @@ function DailyExpensesContent() {
         errorMessage = error;
       }
 
-      toast({
-        title: "فشل في إضافة الحولة",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      // ✅ حفظ محلي في قائمة الانتظار عند الفشل
+      try {
+        const dataWithWell = { 
+          fundAmount: fundAmount ? parseFloat(fundAmount) : 0, 
+          senderName,
+          transferNumber,
+          transferType,
+          selectedDate,
+          projectId: selectedProjectId,
+          wellId: fundTransferWellId || null 
+        };
+        await queueForSync('create', '/api/fund-transfers', dataWithWell);
+        toast({
+          title: "تم الحفظ محليًا",
+          description: `${errorMessage} - سيتم المزامنة عند الاتصال`,
+          variant: "default",
+        });
+      } catch (queueError) {
+        toast({
+          title: "فشل في إضافة الحولة",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -732,11 +770,29 @@ function DailyExpensesContent() {
       ]);
       queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
 
-      toast({
-        title: "خطأ في إضافة المواصلات",
-        description: error?.message || "حدث خطأ أثناء إضافة مصروف المواصلات",
-        variant: "destructive",
-      });
+      // ✅ حفظ محلي في قائمة الانتظار عند الفشل
+      try {
+        const dataWithWell = {
+          description: transportDescription,
+          amount: transportAmount ? parseFloat(transportAmount) : 0,
+          notes: transportNotes,
+          selectedDate,
+          projectId: selectedProjectId,
+          wellId: selectedWellId || null
+        };
+        await queueForSync('create', '/api/transportation-expenses', dataWithWell);
+        toast({
+          title: "تم الحفظ محليًا",
+          description: "خطأ في الاتصال - سيتم المزامنة عند الاتصال",
+          variant: "default",
+        });
+      } catch (queueError) {
+        toast({
+          title: "خطأ في إضافة المواصلات",
+          description: error?.message || "حدث خطأ أثناء إضافة مصروف المواصلات",
+          variant: "destructive",
+        });
+      }
     },
   });
 

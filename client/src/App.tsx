@@ -51,6 +51,8 @@ import { AdminRoute } from "./components/AdminRoute";
 import EmailVerificationGuard from "./components/EmailVerificationGuard";
 import { SelectedProjectProvider } from "./contexts/SelectedProjectContext";
 import { Loader2 } from "lucide-react";
+import { initSyncListener } from "./offline/sync";
+import { initializeDB } from "./offline/db";
 
 const WorkerAccountsPage = lazy(() => import("./pages/worker-accounts"));
 const SuppliersProPage = lazy(() => import("./pages/suppliers-professional"));
@@ -83,6 +85,25 @@ function PageLoader() {
 
 function Router() {
   useWebSocketSync();
+
+  // ✅ تفعيل نظام المزامنة الذكي عند تحميل التطبيق
+  useEffect(() => {
+    const initSync = async () => {
+      try {
+        // تهيئة قاعدة البيانات المحلية
+        await initializeDB();
+        console.log('✅ تم تهيئة قاعدة البيانات المحلية');
+
+        // تفعيل مراقب الاتصال والمزامنة التلقائية
+        initSyncListener();
+        console.log('✅ تم تفعيل نظام المزامنة الذكي');
+      } catch (error) {
+        console.error('❌ خطأ في تهيئة نظام المزامنة:', error);
+      }
+    };
+    
+    initSync();
+  }, []);
 
   return (
     <Switch>

@@ -1031,6 +1031,12 @@ export default function WorkerAttendance() {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="p-4 bg-muted/30 border-b space-y-3">
+                <WellSelector
+                  projectId={selectedProjectId}
+                  value={selectedWellId}
+                  onChange={setSelectedWellId}
+                  optional={true}
+                />
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-reverse space-x-2">
                                             <Button

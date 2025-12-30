@@ -2201,7 +2201,7 @@ function DailyExpensesContent() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="flex flex-col">
                   <Label className="block text-sm font-medium text-foreground mb-1">الملاحظات</Label>
                   <AutocompleteInput
@@ -2212,16 +2212,6 @@ function DailyExpensesContent() {
                     className="flex-1"
                   />
                 </div>
-                {selectedProjectId && !isAllProjects && (
-                  <div className="flex flex-col">
-                    <WellSelector
-                      projectId={selectedProjectId}
-                      value={selectedWellId}
-                      onChange={setSelectedWellId}
-                      optional={true}
-                    />
-                  </div>
-                )}
               </div>
               <div className="flex items-center gap-2 mt-2">
                 <Button 

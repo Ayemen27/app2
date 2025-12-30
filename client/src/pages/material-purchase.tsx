@@ -712,7 +712,10 @@ export default function MaterialPurchase() {
       const matchesPaymentType = filterValues.paymentType === 'all' || 
         purchase.purchaseType === filterValues.paymentType;
 
-      // فلترة حسب نطاق التاريخ
+      // فلترة حسب التاريخ المختار من القائمة العلوية (إذا لم يكن "all")
+      const matchesSelectedDate = !selectedDate || purchase.purchaseDate === selectedDate;
+
+      // فلترة حسب نطاق التاريخ من الفلتر المتقدم
       let matchesDateRange = true;
       if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
         const purchaseDate = new Date(purchase.purchaseDate);
@@ -728,9 +731,9 @@ export default function MaterialPurchase() {
         }
       }
 
-      return matchesProject && matchesSearch && matchesPaymentType && matchesDateRange;
+      return matchesProject && matchesSearch && matchesPaymentType && matchesDateRange && matchesSelectedDate;
     });
-  }, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.dateRange]);
+  }, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.dateRange, selectedDate]);
 
 
   // Calculate stats

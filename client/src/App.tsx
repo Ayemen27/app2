@@ -53,6 +53,7 @@ import { SelectedProjectProvider } from "./contexts/SelectedProjectContext";
 import { Loader2 } from "lucide-react";
 import { initSyncListener, subscribeSyncState } from "./offline/sync";
 import { initializeDB } from "./offline/db";
+import { SyncStatusIndicator } from "./components/sync-status";
 
 const WorkerAccountsPage = lazy(() => import("./pages/worker-accounts"));
 const SuppliersProPage = lazy(() => import("./pages/suppliers-professional"));

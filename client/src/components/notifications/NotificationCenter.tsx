@@ -54,6 +54,8 @@ const priorityLabels = {
   5: { label: "معلومة", color: "bg-gradient-to-r from-gray-500 to-gray-600" },
 };
 
+import { PushTestButton } from "@/components/push-test-button";
+
 export function NotificationCenter({ className }: NotificationCenterProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -231,7 +233,9 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <>
+      <PushTestButton />
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -408,5 +412,6 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         )}
       </PopoverContent>
     </Popover>
+    </>
   );
 }

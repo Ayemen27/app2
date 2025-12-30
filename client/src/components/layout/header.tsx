@@ -232,7 +232,6 @@ export default function Header() {
               <Settings className="h-4 w-4" />
             </Button>
             <NotificationCenter />
-            <PushTestButton />
             
             {isAuthenticated ? (
               <DropdownMenu>

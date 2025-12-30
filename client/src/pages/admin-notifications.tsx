@@ -8,7 +8,8 @@ import { CreateNotificationDialog } from '@/components/notifications/CreateNotif
 import { 
   Bell, Users, Zap, BarChart3, AlertCircle, CheckCircle2,
   RefreshCw, MoreVertical, Download, Upload, Settings,
-  AlertTriangle, MessageSquare, ShieldCheck, Mail, Smartphone
+  AlertTriangle, MessageSquare, ShieldCheck, Mail, Smartphone,
+  TrendingUp, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -195,7 +196,7 @@ export default function AdminNotificationsPage() {
               <RefreshCw className={cn("h-4 w-4 ml-2", isLoadingNotifications && "animate-spin")} />
               تحديث
             </Button>
-            <CreateNotificationDialog onRefetch={refetch} />
+            <CreateNotificationDialog onUpdate={() => refetch()} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">

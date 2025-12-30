@@ -13,7 +13,12 @@ import {
   Lock,
   Eye,
   Volume2,
-  Cloud
+  Cloud,
+  Download,
+  Upload,
+  Trash2,
+  RefreshCw,
+  AlertTriangle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -23,14 +28,63 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { exportLocalData, importLocalData } from "@/offline/backup";
+import { clearAllOfflineData, getSyncStats } from "@/offline/offline";
+import { useSyncData } from "@/hooks/useSyncData";
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const [isDarkMode, setIsDarkMode] = useState(false);
-  
+  const { manualSync, isSyncing, isOnline } = useSyncData();
+  const [stats, setStats] = useState<{ pendingSync: number; localUserData: number } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const loadStats = async () => {
+    const s = await getSyncStats();
+    setStats(s);
+  };
+
   useEffect(() => {
     setIsDarkMode(document.documentElement.classList.contains("dark"));
+    loadStats();
   }, []);
+
+  const handleExport = async () => {
+    try {
+      await exportLocalData();
+      toast({ title: "تم التصدير بنجاح", description: "تم حفظ نسخة احتياطية من بياناتك المحلية" });
+    } catch (error) {
+      toast({ title: "خطأ في التصدير", variant: "destructive" });
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        await importLocalData(event.target?.result as string);
+        await loadStats();
+        toast({ title: "تم الاستيراد بنجاح", description: "تم تحديث البيانات المحلية من النسخة الاحتياطية" });
+      } catch (error) {
+        toast({ title: "خطأ في الاستيراد", description: "تأكد من صحة ملف النسخة الاحتياطية", variant: "destructive" });
+      } finally {
+        setIsImporting(false);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleClear = async () => {
+    if (confirm("هل أنت متأكد من مسح جميع البيانات المحلية؟ سيتم حذف جميع العمليات غير المتزامنة.")) {
+      await clearAllOfflineData();
+      await loadStats();
+      toast({ title: "تم مسح البيانات", description: "تم تنظيف قاعدة البيانات المحلية بنجاح" });
+    }
+  };
 
   const toggleDarkMode = (checked: boolean) => {
     setIsDarkMode(checked);
@@ -55,12 +109,16 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl animate-in fade-in duration-500">
+    <div className="container mx-auto p-4 max-w-4xl animate-in fade-in duration-500 pb-20">
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList className="bg-muted/50 p-1 rounded-xl w-full justify-start overflow-x-auto h-auto">
           <TabsTrigger value="general" className="rounded-lg gap-2">
             <SettingsIcon className="h-4 w-4" />
             عام
+          </TabsTrigger>
+          <TabsTrigger value="offline" className="rounded-lg gap-2">
+            <Database className="h-4 w-4" />
+            البيانات (Offline)
           </TabsTrigger>
           <TabsTrigger value="appearance" className="rounded-lg gap-2">
             <Palette className="h-4 w-4" />
@@ -109,13 +167,73 @@ export default function SettingsPage() {
                 </div>
                 <Switch defaultChecked />
               </div>
-              <Separator className="opacity-50" />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">تخزين محلي (Offline)</Label>
-                  <p className="text-sm text-muted-foreground">السماح بحفظ البيانات محلياً عند انقطاع الإنترنت</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="offline" className="space-y-4">
+          <Card className="border-border/40 shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Database className="h-5 w-5 text-blue-500" />
+                إدارة البيانات المحلية (Offline)
+              </CardTitle>
+              <CardDescription>تحكم في البيانات المخزنة على جهازك والمزامنة مع السيرفر</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-border/50">
+                  <p className="text-xs text-muted-foreground mb-1">عمليات معلقة للمزامنة</p>
+                  <p className="text-xl font-bold text-orange-600">{stats?.pendingSync || 0}</p>
                 </div>
-                <Switch defaultChecked />
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-border/50">
+                  <p className="text-xs text-muted-foreground mb-1">بيانات محلية محفوظة</p>
+                  <p className="text-xl font-bold text-blue-600">{stats?.localUserData || 0}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-2">
+                <Button variant="outline" size="sm" className="gap-2 rounded-xl" onClick={handleExport}>
+                  <Download className="h-3.5 w-3.5" />
+                  تصدير نسخة
+                </Button>
+                
+                <div className="relative">
+                  <Button variant="outline" size="sm" className="gap-2 rounded-xl" disabled={isImporting}>
+                    <Upload className="h-3.5 w-3.5" />
+                    استيراد نسخة
+                  </Button>
+                  <input 
+                    type="file" 
+                    accept=".json" 
+                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                    onChange={handleImport}
+                    disabled={isImporting}
+                  />
+                </div>
+
+                <Button 
+                  variant="secondary" 
+                  size="sm"
+                  className="gap-2 rounded-xl" 
+                  onClick={() => manualSync()} 
+                  disabled={!isOnline || isSyncing || stats?.pendingSync === 0}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                  مزامنة الآن
+                </Button>
+
+                <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-destructive hover:bg-destructive/10" onClick={handleClear}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  مسح البيانات
+                </Button>
+              </div>
+
+              <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/30 rounded-xl flex gap-3 items-start">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-yellow-800 dark:text-yellow-200 leading-relaxed">
+                  يتم تخزين بياناتك محلياً لتمكينك من العمل بدون إنترنت. عند مسح البيانات المحلية، ستفقد أي عمليات لم يتم مزامنتها مع السيرفر بعد.
+                </p>
               </div>
             </CardContent>
           </Card>

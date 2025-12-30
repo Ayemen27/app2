@@ -112,18 +112,18 @@ export function SearchToolbar({
         return (
           <div onClick={(e) => e.stopPropagation()}>
             <Select
-              value={value || filter.defaultValue || 'all'}
+              value={String(value || filter.defaultValue || 'all')}
               onValueChange={(v) => {
                 onFilterChange?.(filter.key, v);
                 // Keep open for better UX in drawer
               }}
             >
-              <SelectTrigger className="h-9">
+              <SelectTrigger className="h-10 border-0 focus:ring-0 shadow-none bg-transparent">
                 <SelectValue placeholder={filter.placeholder || filter.label} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-xl shadow-xl">
                 {filter.options?.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem key={option.value} value={String(option.value)} className="rounded-lg my-0.5">
                     {option.label}
                   </SelectItem>
                 ))}
@@ -233,56 +233,75 @@ export function SearchToolbar({
           </SheetTrigger>
           <SheetContent 
             side="bottom"
-            className="h-[50vh] sm:h-[45vh] sm:max-w-xl rounded-t-[2rem] p-0 overflow-hidden border-t-0 bg-white dark:bg-gray-950 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)]"
+            className="h-[85vh] sm:h-[75vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-background shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.15)]"
             dir="rtl"
             onPointerDownOutside={(e) => e.preventDefault()}
             onInteractOutside={(e) => e.preventDefault()}
           >
-            <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 bg-muted/30 rounded-full z-50" />
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted/40 rounded-full z-50" />
             
             <div className="flex flex-col h-full relative">
-              <SheetHeader className="px-6 pt-6 pb-3 text-right border-b bg-white dark:bg-gray-900 sticky top-0 z-40">
+              <SheetHeader className="px-8 pt-8 pb-4 text-right border-b bg-card/50 backdrop-blur-sm sticky top-0 z-40">
                 <div className="flex items-center justify-between">
-                  <button 
+                  <Button 
+                    variant="ghost"
+                    size="sm"
                     onClick={onReset}
-                    className="text-sm font-medium text-destructive hover:underline transition-all"
+                    className="text-sm font-bold text-destructive hover:bg-destructive/10 transition-all rounded-lg px-4"
                   >
                     إعادة ضبط
-                  </button>
-                  <SheetTitle className="text-lg font-bold tracking-tight">
-                    الفلاتر
+                  </Button>
+                  <SheetTitle className="text-xl font-black tracking-tight text-foreground">
+                    خيارات الفلترة
                   </SheetTitle>
                   <SheetClose asChild>
-                    <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 hover:bg-muted transition-all">
-                      <X className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-muted transition-all">
+                      <X className="h-5 w-5" />
                     </Button>
                   </SheetClose>
                 </div>
               </SheetHeader>
               
-              <div className="flex-1 px-6 py-4 space-y-5 overflow-y-auto custom-scrollbar pb-24 bg-white dark:bg-gray-950">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
+              <div className="flex-1 px-8 py-6 space-y-8 overflow-y-auto custom-scrollbar pb-32 bg-background">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8">
                   {filters.map((filter) => (
-                    <div key={filter.key} className="space-y-4 group">
-                      <Label className="text-sm font-bold text-foreground/70 group-hover:text-primary transition-colors flex items-center gap-2.5 px-1">
-                        <span className="w-2 h-2 rounded-full bg-primary/30 group-hover:bg-primary group-hover:scale-125 transition-all shadow-sm" />
+                    <div key={filter.key} className="space-y-3 group">
+                      <Label className="text-sm font-bold text-foreground/80 group-hover:text-primary transition-colors flex items-center gap-3 px-1">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
+                          <Filter className="w-3.5 h-3.5" />
+                        </div>
                         {filter.label}
                       </Label>
-                      <div className="pt-1 relative transform transition-all focus-within:scale-[1.01]">
+                      <div className="pt-1 relative transform transition-all duration-200 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl overflow-hidden shadow-sm border border-border/50 bg-card">
                         {renderFilterInput(filter)}
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {filters.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                    <Filter className="w-12 h-12 mb-4 opacity-20" />
+                    <p>لا توجد فلاتر متاحة حالياً</p>
+                  </div>
+                )}
               </div>
 
-              <div className="absolute bottom-0 left-0 right-0 p-5 bg-white dark:bg-gray-950 border-t border-border/50 z-40">
-                <div className="max-w-2xl mx-auto">
+              <div className="absolute bottom-0 left-0 right-0 p-6 bg-background/80 backdrop-blur-md border-t border-border/50 z-40">
+                <div className="max-w-lg mx-auto flex items-center gap-4">
+                  <SheetClose asChild>
+                    <Button 
+                      variant="outline"
+                      className="flex-1 h-12 text-base font-bold rounded-2xl border-2"
+                    >
+                      إلغاء
+                    </Button>
+                  </SheetClose>
                   <Button 
-                    className="w-full h-11 text-base font-bold rounded-xl shadow-md bg-primary text-primary-foreground"
+                    className="flex-[2] h-12 text-base font-bold rounded-2xl shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground transition-all active:scale-[0.98]"
                     onClick={() => setIsFilterOpen(false)}
                   >
-                    تطبيق ({activeFiltersCount})
+                    تطبيق الفلاتر ({activeFiltersCount})
                   </Button>
                 </div>
               </div>

@@ -47,9 +47,9 @@ interface ProjectStats {
 
 interface ProjectWithStats extends Project {
   stats: ProjectStats;
-  id?: string;
-  name?: string;
-  status?: string;
+  id: string;
+  name: string;
+  status: string;
 }
 
 export default function Dashboard() {

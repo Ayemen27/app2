@@ -144,12 +144,14 @@ export function FilterDateRangePicker({
     
     onChange(normalizedRange);
     
-    if (range?.to) {
+    // Auto close only if BOTH from and to are selected OR if it's a reset
+    if ((normalizedRange.from && normalizedRange.to) || (!normalizedRange.from && !normalizedRange.to)) {
       setOpen(false);
     }
   }, [onChange]);
 
   const handleClear = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     onChange({ from: undefined, to: undefined });
   }, [onChange]);
@@ -170,7 +172,7 @@ export function FilterDateRangePicker({
               variant="outline"
               disabled={disabled}
               className={cn(
-                "w-full justify-start text-right h-12 rounded-xl border-border/60 bg-white dark:bg-gray-950 shadow-sm hover:border-primary transition-all",
+                "w-full justify-start text-right h-12 rounded-xl border-border/60 bg-white dark:bg-gray-950 shadow-sm hover:border-primary transition-all relative group",
                 !value?.from && "text-muted-foreground"
               )}
             >
@@ -178,6 +180,18 @@ export function FilterDateRangePicker({
               <span className="truncate flex-1 font-bold">
                 {value?.from ? format(value.from, "yyyy/MM/dd", { locale: ar }) : "من"}
               </span>
+              {showClearButton && value?.from && (
+                <div 
+                  className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors z-[100]"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onChange({ ...value, from: undefined });
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </div>
+              )}
             </Button>
             <Button
               variant="outline"
@@ -191,12 +205,16 @@ export function FilterDateRangePicker({
               <span className="truncate flex-1 font-bold">
                 {value?.to ? format(value.to, "yyyy/MM/dd", { locale: ar }) : "إلى"}
               </span>
-              {showClearButton && (value?.from || value?.to) && (
+              {showClearButton && value?.to && (
                 <div 
-                  className="absolute left-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                  onClick={handleClear}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors z-[100]"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onChange({ ...value, to: undefined });
+                  }}
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4" />
                 </div>
               )}
             </Button>

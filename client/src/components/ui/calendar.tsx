@@ -75,6 +75,11 @@ function Calendar({
             )
           ),
         }}
+        onSelect={(range: any, selectedDay: any, activeModifiers: any, e: any) => {
+          if (props.onSelect) {
+            props.onSelect(range, selectedDay, activeModifiers, e);
+          }
+        }}
         {...props}
       />
     </div>

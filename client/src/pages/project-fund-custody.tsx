@@ -286,7 +286,7 @@ export default function ProjectFundCustody() {
       items: [
         {
           key: 'total',
-          label: "إجمالي الوارد",
+          label: "إجمالي الدخل",
           value: stats.total,
           icon: DollarSign,
           color: "blue"

@@ -1532,7 +1532,7 @@ function DailyExpensesContent() {
         },
         {
           key: 'fundTransfers',
-          label: 'العهد',
+          label: 'تحويلات العهدة',
           value: formatCurrency(totals.totalFundTransfers),
           icon: Banknote,
           color: 'green',
@@ -1953,7 +1953,7 @@ function DailyExpensesContent() {
               ]}
               fields={[
                 { 
-                  label: "الوارد", 
+                  label: "إجمالي الدخل", 
                   value: formatCurrency(cardData.totalIncome || 0), 
                   icon: TrendingUp, 
                   color: "success",
@@ -2022,8 +2022,8 @@ function DailyExpensesContent() {
           ]}
           fields={[
             { 
-              label: "الوارد", 
-              value: formatCurrency(totals.totalFundTransfers), 
+              label: "إجمالي الدخل", 
+              value: formatCurrency(totals.totalIncome), 
               icon: TrendingUp, 
               color: "success",
               emphasis: true

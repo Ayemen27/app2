@@ -95,6 +95,7 @@ export default function WorkerAccountsPage() {
   const [transferMethodFilter, setTransferMethodFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [specificDate, setSpecificDate] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const { toast } = useToast();
@@ -426,9 +427,19 @@ export default function WorkerAccountsPage() {
     if (dateTo) {
       result = result.filter(t => new Date(t.transferDate) <= new Date(dateTo));
     }
+
+    if (specificDate) {
+      result = result.filter(t => {
+        const tDate = new Date(t.transferDate);
+        const sDate = new Date(specificDate);
+        return tDate.getFullYear() === sDate.getFullYear() &&
+               tDate.getMonth() === sDate.getMonth() &&
+               tDate.getDate() === sDate.getDate();
+      });
+    }
     
     return result;
-  }, [transfers, selectedProject, selectedWorkerId, transferMethodFilter, searchTerm, dateFrom, dateTo, workers]);
+  }, [transfers, selectedProject, selectedWorkerId, transferMethodFilter, searchTerm, dateFrom, dateTo, specificDate, workers]);
 
   const stats = useMemo(() => {
     const totalAmount = filteredTransfers.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
@@ -541,6 +552,12 @@ export default function WorkerAccountsPage() {
       label: 'إلى تاريخ',
       type: 'date',
       placeholder: 'إلى تاريخ',
+    },
+    {
+      key: 'specificDate',
+      label: 'تاريخ يوم محدد',
+      type: 'date',
+      placeholder: 'تاريخ يوم محدد',
     }
   ], [workers]);
 
@@ -553,6 +570,8 @@ export default function WorkerAccountsPage() {
       setDateFrom(value);
     } else if (key === 'dateTo') {
       setDateTo(value);
+    } else if (key === 'specificDate') {
+      setSpecificDate(value);
     }
   }, []);
 
@@ -562,6 +581,7 @@ export default function WorkerAccountsPage() {
     setSearchTerm('');
     setDateFrom('');
     setDateTo('');
+    setSpecificDate('');
   }, []);
 
   const handleRefresh = useCallback(async () => {

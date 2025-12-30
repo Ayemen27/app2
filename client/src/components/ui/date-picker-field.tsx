@@ -50,11 +50,7 @@ export function DatePickerField({
 
   const handleSelect = (date: Date | undefined) => {
     onChange?.(date)
-    // Note: keeping setOpen(false) for single date picker as per usual UX
-    // but the user asked to apply "this" to all pages. 
-    // "This" usually refers to the range logic in context, 
-    // but if they meant "don't close single picker either":
-    // setOpen(false)
+    // Removed setOpen(false) as per user request to apply this logic to all date fields
   }
 
   const formattedDate = dateValue

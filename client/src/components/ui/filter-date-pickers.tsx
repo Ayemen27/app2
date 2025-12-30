@@ -17,6 +17,11 @@ function normalizeDate(date: Date | undefined): Date | undefined {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0);
 }
 
+export function dateToISOString(date: Date | undefined): string | undefined {
+  if (!date) return undefined;
+  return format(date, "yyyy-MM-dd");
+}
+
 export interface FilterDatePickerProps {
   value?: Date;
   onChange: (date: Date | undefined) => void;
@@ -226,9 +231,4 @@ export function parseDateString(dateString: string | undefined): Date | undefine
   if (!dateString) return undefined;
   const parsed = new Date(dateString);
   return isNaN(parsed.getTime()) ? undefined : normalizeDate(parsed);
-}
-
-export function dateToISOString(date: Date | undefined): string | undefined {
-  if (!date) return undefined;
-  return format(date, "yyyy-MM-dd");
 }

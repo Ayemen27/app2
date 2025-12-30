@@ -38,18 +38,6 @@ export default function MaterialPurchase() {
     setFilterValues(prev => ({ ...prev, [key]: value }));
   }, []);
 
-  const handleResetFilters = useCallback(() => {
-    setSearchValue("");
-    if (showDateFilter) {
-      setSelectedDate(getCurrentDate());
-    }
-    setFilterValues({ paymentType: 'all', dateRange: undefined });
-    toast({
-      title: "تم إعادة التعيين",
-      description: "تم مسح جميع الفلاتر وتعيين تاريخ اليوم",
-    });
-  }, [showDateFilter, toast]);
-
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);
   const editId = urlParams.get('edit');
@@ -87,6 +75,18 @@ export default function MaterialPurchase() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
+
+  const handleResetFilters = useCallback(() => {
+    setSearchValue("");
+    if (showDateFilter) {
+      setSelectedDate(getCurrentDate());
+    }
+    setFilterValues({ paymentType: 'all', dateRange: undefined });
+    toast({
+      title: "تم إعادة التعيين",
+      description: "تم مسح جميع الفلاتر وتعيين تاريخ اليوم",
+    });
+  }, [showDateFilter, toast]);
 
   // تعيين تاريخ اليوم تلقائياً عند الفتح
   useEffect(() => {

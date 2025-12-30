@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { isOnline } from "@/offline/offline-queries";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -182,7 +183,7 @@ export async function apiRequest(
 
       // إذا فشل التجديد، حذف البيانات وإعادة التوجيه
       if (retryCount > 0) {
-        console.log('門 [apiRequest] فشل تجديد الـ token، إعادة التوجيه لتسجيل الدخول...');
+        console.log('门 [apiRequest] فشل تجديد الـ token، إعادة التوجيه لتسجيل الدخول...');
         // ✅ منع حلقة إعادة التوجيه اللانهائية إذا كنا بالفعل في صفحة تسجيل الدخول
         if (!window.location.pathname.includes('/login')) {
           localStorage.removeItem("accessToken");
@@ -240,10 +241,15 @@ export async function apiRequest(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
+
+/**
+ * QueryFunction محسّن يفحص الاتصال تلقائياً
+ */
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
+  useLocalFallback?: boolean;
 }) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
+  ({ on401: unauthorizedBehavior, useLocalFallback = true }) =>
   async ({ queryKey }) => {
 
     // في بيئة التطوير على Replit، استخدم window.location.origin دائماً
@@ -268,6 +274,14 @@ export const getQueryFn: <T>(options: {
       const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased to 30s
 
       try {
+        // ✅ فحص الاتصال قبل البدء
+        const online = isOnline();
+        console.log(`🌐 [QueryClient] حالة الاتصال: ${online ? 'متصل' : 'غير متصل'}`);
+
+        if (!online && useLocalFallback) {
+          console.log(`📡 [QueryClient] بدون إنترنت - قد لا تكون البيانات محدثة`);
+        }
+
         // إعداد headers مع Authorization
         const headers: Record<string, string> = {};
         const accessToken = getStoredAccessToken();
@@ -276,7 +290,8 @@ export const getQueryFn: <T>(options: {
         }
 
         console.log(`🔍 [QueryClient] إرسال طلب: ${url}`, {
-          hasToken: !!accessToken
+          hasToken: !!accessToken,
+          online: isOnline()
         });
 
         const res = await fetch(url, {
@@ -414,7 +429,7 @@ const CACHE_TIMES = {
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
+      queryFn: getQueryFn({ on401: "throw", useLocalFallback: true }),
       refetchInterval: false,
       // ⚡ تعطيل إعادة الجلب عند التركيز لتحسين الأداء
       refetchOnWindowFocus: false,

@@ -1,7 +1,7 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
 // تعريف schema قاعدة البيانات
-interface BinarJoinDB extends DBSchema {
+export interface BinarJoinDB extends DBSchema {
   syncQueue: {
     key: string;
     value: {

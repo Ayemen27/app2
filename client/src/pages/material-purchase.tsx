@@ -674,14 +674,21 @@ export default function MaterialPurchase() {
 
   // Fetch Material Purchases - جلب جميع المشتريات مع تحسين الكاش
   const { data: allMaterialPurchases = [], isLoading: materialPurchasesLoading, refetch: refetchMaterialPurchases } = useQuery<any[]>({
-    queryKey: ["/api/projects", getProjectIdForApi() ?? 'all', "material-purchases", selectedDate],
+    queryKey: ["/api/material-purchases", getProjectIdForApi() ?? 'all', selectedDate],
     queryFn: async () => {
       const projectIdForApi = getProjectIdForApi();
-      const baseUrl = projectIdForApi
-        ? `/api/projects/${projectIdForApi}/material-purchases`
-        : `/api/projects/all/material-purchases`;
+      const baseUrl = `/api/material-purchases`;
       
-      const endpoint = selectedDate ? `${baseUrl}?date=${selectedDate}` : baseUrl;
+      const queryParams = new URLSearchParams();
+      if (projectIdForApi && projectIdForApi !== 'all') {
+        queryParams.append('projectId', projectIdForApi);
+      }
+      if (selectedDate) {
+        queryParams.append('date', selectedDate);
+      }
+      
+      const queryString = queryParams.toString();
+      const endpoint = queryString ? `${baseUrl}?${queryString}` : baseUrl;
       const response = await apiRequest(endpoint, "GET");
       const data = response.data || response;
       return Array.isArray(data) ? data : [];

@@ -488,11 +488,24 @@ projectRouter.get('/:id', async (req: Request, res: Response) => {
     // Support for 'all' projects daily summary
     if (id === 'all') {
       const { date } = req.query;
-      // You can implement specialized logic here or redirect to another handler
-      // For now, let's return a success status to avoid 404
+      
+      // جلب إحصائيات جميع المشاريع لهذا اليوم
+      const projectsList = await db.select().from(projects);
+      const summaries = await Promise.all(projectsList.map(async (p) => {
+        try {
+          return await ExpenseLedgerService.getProjectFinancialSummary(p.id, date as string);
+        } catch (e) {
+          return null;
+        }
+      }));
+
       return res.json({ 
         success: true, 
-        data: { message: "All projects summary" }, 
+        data: { 
+          message: "All projects summary",
+          date,
+          summaries: summaries.filter(s => s !== null)
+        }, 
         message: "تم جلب ملخص جميع المشاريع" 
       });
     }

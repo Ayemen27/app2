@@ -544,4 +544,104 @@ autocompleteRouter.get('/materialTypes', requireAuth, async (req: Request, res: 
   }
 });
 
+/**
+ * GET /api/autocomplete/materialCategories - فئات المواد
+ */
+autocompleteRouter.get('/materialCategories', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const data = await db
+      .select()
+      .from(autocompleteData)
+      .where(eq(autocompleteData.category, 'materialCategories'))
+      .orderBy(desc(autocompleteData.usageCount));
+    
+    res.json({
+      success: true,
+      data: data,
+      message: 'تم جلب فئات المواد بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب فئات المواد'
+    });
+  }
+});
+
+/**
+ * GET /api/autocomplete/materialNames - أسماء المواد
+ */
+autocompleteRouter.get('/materialNames', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const data = await db
+      .select()
+      .from(autocompleteData)
+      .where(eq(autocompleteData.category, 'materialNames'))
+      .orderBy(desc(autocompleteData.usageCount));
+    
+    res.json({
+      success: true,
+      data: data,
+      message: 'تم جلب أسماء المواد بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب أسماء المواد'
+    });
+  }
+});
+
+/**
+ * GET /api/autocomplete/materialUnits - وحدات المواد
+ */
+autocompleteRouter.get('/materialUnits', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const data = await db
+      .select()
+      .from(autocompleteData)
+      .where(eq(autocompleteData.category, 'materialUnits'))
+      .orderBy(desc(autocompleteData.usageCount));
+    
+    res.json({
+      success: true,
+      data: data,
+      message: 'تم جلب وحدات المواد بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب وحدات المواد'
+    });
+  }
+});
+
+/**
+ * GET /api/autocomplete/invoiceNumbers - أرقام الفواتير
+ */
+autocompleteRouter.get('/invoiceNumbers', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const data = await db
+      .select()
+      .from(autocompleteData)
+      .where(eq(autocompleteData.category, 'invoiceNumbers'))
+      .orderBy(desc(autocompleteData.usageCount));
+    
+    res.json({
+      success: true,
+      data: data,
+      message: 'تم جلب أرقام الفواتير بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب أرقام الفواتير'
+    });
+  }
+});
+
 export default autocompleteRouter;

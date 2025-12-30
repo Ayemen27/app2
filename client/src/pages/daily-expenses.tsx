@@ -1515,6 +1515,20 @@ function DailyExpensesContent() {
       type: 'date',
       placeholder: 'اختر التاريخ',
     },
+    {
+      key: 'type',
+      label: 'نوع العملية',
+      type: 'select',
+      placeholder: 'جميع العمليات',
+      options: [
+        { value: 'all', label: 'جميع العمليات' },
+        { value: 'wages', label: 'أجور عمال' },
+        { value: 'transport', label: 'مواصلات' },
+        { value: 'materials', label: 'مواد' },
+        { value: 'misc', label: 'نثريات' },
+        { value: 'fund', label: 'عهد' }
+      ]
+    }
   ], []);
 
   // دوال معالجة الفلاتر

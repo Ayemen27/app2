@@ -34,6 +34,7 @@ export default function MaterialPurchase() {
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({ 
     paymentType: 'all', 
+    category: 'all',
     dateRange: undefined,
     dateFrom: '',
     dateTo: '',
@@ -725,6 +726,9 @@ export default function MaterialPurchase() {
       const matchesPaymentType = filterValues.paymentType === 'all' || 
         purchase.purchaseType === filterValues.paymentType;
 
+      const matchesCategory = !filterValues.category || filterValues.category === 'all' ||
+        purchase.materialCategory === filterValues.category;
+
       // فلترة حسب التاريخ المختار من القائمة العلوية (إذا لم يكن "all")
       const matchesSelectedDate = !selectedDate || purchase.purchaseDate === selectedDate;
 
@@ -753,9 +757,9 @@ export default function MaterialPurchase() {
                            pDate.getDate() === sDate.getDate();
     }
 
-    return matchesProject && matchesSearch && matchesPaymentType && matchesDateRange && matchesSelectedDate && matchesSpecificDate;
+    return matchesProject && matchesSearch && matchesPaymentType && matchesCategory && matchesDateRange && matchesSelectedDate && matchesSpecificDate;
   });
-}, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.dateRange, filterValues.specificDate, selectedDate]);
+}, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.category, filterValues.dateRange, filterValues.specificDate, selectedDate]);
 
 
   // Calculate stats
@@ -895,6 +899,16 @@ export default function MaterialPurchase() {
   // تكوين الفلاتر
   const filtersConfig: FilterConfig[] = useMemo(() => [
     {
+      key: 'category',
+      label: 'الفئة',
+      type: 'select',
+      placeholder: 'جميع الفئات',
+      options: [
+        { value: 'all', label: 'جميع الفئات' },
+        ...(materialCategories || []).map(cat => ({ value: cat, label: cat }))
+      ],
+    },
+    {
       key: 'paymentType',
       label: 'نوع الدفع',
       type: 'select',
@@ -918,7 +932,7 @@ export default function MaterialPurchase() {
       type: 'date',
       placeholder: 'تاريخ يوم محدد',
     },
-  ], []);
+  ], [materialCategories]);
 
   // Export to Excel function
   const handleExportExcel = useCallback(async () => {

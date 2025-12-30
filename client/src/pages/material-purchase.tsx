@@ -1333,7 +1333,7 @@ export default function MaterialPurchase() {
                   fields={[
                     {
                       label: "المشروع",
-                      value: purchase.projectName || 'غير محدد',
+                      value: purchase.projectName || purchase.project?.name || 'غير محدد',
                       icon: Building2,
                       color: "info",
                     },

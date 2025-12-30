@@ -4425,6 +4425,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         wellId: materialPurchases.wellId,
         notes: materialPurchases.notes,
         projectName: projects.name,
+        project: {
+          id: projects.id,
+          name: projects.name,
+        }
       })
       .from(materialPurchases)
       .leftJoin(projects, eq(materialPurchases.projectId, projects.id));

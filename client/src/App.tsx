@@ -3,7 +3,22 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useEffect } from "react";
+
+// Add ResizeObserver polyfill/fix to prevent loop errors
+if (typeof window !== 'undefined') {
+  const RO = window.ResizeObserver;
+  window.ResizeObserver = class ResizeObserver extends RO {
+    constructor(callback: ResizeObserverCallback) {
+      super((entries, observer) => {
+        window.requestAnimationFrame(() => {
+          if (!Array.isArray(entries) || !entries.length) return;
+          callback(entries, observer);
+        });
+      });
+    }
+  };
+}
 import NotFound from "./pages/not-found";
 import Dashboard from "./pages/dashboard";
 import LoginPage from "./pages/LoginPage";

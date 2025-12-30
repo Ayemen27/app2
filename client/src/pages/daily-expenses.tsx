@@ -450,6 +450,12 @@ function DailyExpensesContent() {
   const safeMiscExpenses = Array.isArray(todayMiscExpenses) ? todayMiscExpenses : [];
   const safeFundTransfers = Array.isArray(todayFundTransfers) ? todayFundTransfers : [];
 
+  // تصفير البئر عند تغيير المشروع
+  useEffect(() => {
+    setSelectedWellId(undefined);
+    setFundTransferWellId(undefined);
+  }, [selectedProjectId]);
+
   // تحديث حالة توسع الفئات عند تغير البيانات
   useEffect(() => {
     setIsFundTransfersExpanded(safeFundTransfers.length > 0);

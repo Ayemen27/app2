@@ -232,10 +232,11 @@ export default function WorkerAttendance() {
     enabled: !!editId,
   });
 
-  // تصفير بيانات الحضور عند تغيير التاريخ
+  // تصفير بيانات الحضور والبئر عند تغيير المشروع أو التاريخ
   useEffect(() => {
     setAttendanceData({});
-  }, [selectedDate]);
+    setSelectedWellId(undefined);
+  }, [selectedDate, selectedProjectId]);
 
   // Effect to populate form when editing
   useEffect(() => {

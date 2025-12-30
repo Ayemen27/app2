@@ -2055,16 +2055,6 @@ function DailyExpensesContent() {
                         />
                       </div>
                     </div>
-                    {selectedProjectId && !isAllProjects && (
-                      <div className="mb-3">
-                        <WellSelector
-                          projectId={selectedProjectId}
-                          value={fundTransferWellId}
-                          onChange={setFundTransferWellId}
-                          optional={true}
-                        />
-                      </div>
-                    )}
                     <div className="flex gap-2">
                       <Button 
                         onClick={handleAddFundTransfer} 

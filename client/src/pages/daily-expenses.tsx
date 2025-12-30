@@ -1595,24 +1595,6 @@ function DailyExpensesContent() {
   ], []);
 
   // دوال معالجة الفلاتر
-  const handleFilterChange = (key: string, value: any) => {
-    if (key === 'date') {
-      if (value instanceof Date) {
-        const year = value.getFullYear();
-        const month = String(value.getMonth() + 1).padStart(2, '0');
-        const day = String(value.getDate()).padStart(2, '0');
-        setSelectedDate(`${year}-${month}-${day}`);
-      } else {
-        setSelectedDate(null);
-      }
-    }
-  };
-
-  const handleResetFilters = () => {
-    setSelectedDate(null);
-    setSearchValue("");
-  };
-
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {

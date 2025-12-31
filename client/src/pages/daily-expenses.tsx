@@ -417,8 +417,21 @@ function DailyExpensesContent() {
   }, [financialSummary]);
 
   const displayExpenses = useMemo(() => {
-    // إجمالي المصروفات النقدية للفترة المختارة الشامل لجميع الأنواع
-    return financialSummary?.expenses?.totalAllExpenses || financialSummary?.expenses?.totalCashExpenses || 0;
+    // نفضل استخدام القيمة المحسوبة بدقة من الـ backend
+    if (financialSummary?.expenses?.totalAllExpenses !== undefined) {
+      return financialSummary.expenses.totalAllExpenses;
+    }
+    
+    // Fallback في حالة عدم وجود البيانات من الـ backend (لضمان استمرارية العمل)
+    const total = (
+      (financialSummary?.expenses?.workerWages || 0) +
+      (financialSummary?.expenses?.materialExpenses || 0) +
+      (financialSummary?.expenses?.transportExpenses || 0) +
+      (financialSummary?.expenses?.miscExpenses || 0) +
+      (financialSummary?.expenses?.workerTransfers || 0) +
+      (financialSummary?.expenses?.outgoingProjectTransfers || 0)
+    );
+    return total;
   }, [financialSummary]);
 
   const displayBalance = useMemo(() => {

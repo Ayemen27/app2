@@ -158,6 +158,17 @@ export class ExpenseLedgerService {
       const totalAllExpenses = totalCashExpenses; // توحيد المتغيرات لضمان العرض الصحيح
       const totalBalance = totalIncomeWithCarried - (totalCashExpenses + materialExpensesCredit);
 
+      // إضافة سجل تفصيلي للحسابات في الـ console
+      console.log(`📊 [ExpenseLedger] تفاصيل المصروفات لليوم ${date || 'تراكمي'}:`, {
+        materialCash: materialExpenses,
+        wages: workerWages,
+        transport: transportExpenses,
+        workerTransfers: workerTransfers,
+        misc: miscExpenses,
+        projectTransfers: outgoingProjectTransfers,
+        total: totalCashExpenses
+      });
+
       console.log(`📊 [ExpenseLedger] حسابات اليوم ${date || 'تراكمي'} لـ ${projectName}:`, {
         projectId, date: date || 'تراكمي', carriedForward: carriedForwardBalance, incomeToday: totalIncome, expensesToday: totalCashExpenses, totalAllExpenses
       });

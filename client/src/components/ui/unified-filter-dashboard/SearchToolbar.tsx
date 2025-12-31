@@ -82,25 +82,25 @@ export function SearchToolbar({
       case 'date':
         return (
           <div onClick={(e) => e.stopPropagation()} className="relative">
-              <FilterDatePicker
-                value={value}
-                onChange={(date) => {
-                  onFilterChange?.(filter.key, date);
-                  if (date) {
-                    // الغاء حقل تاريخ من/إلى عند تحديد تاريخ يوم محدد
-                    onFilterChange?.('dateRange', undefined);
-                  }
-                }}
-                placeholder={filter.placeholder}
-                showClearButton={true}
-                className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
-              />
+            <FilterDatePicker
+              value={value ? new Date(value) : undefined}
+              onChange={(date) => {
+                onFilterChange?.(filter.key, date);
+                if (date) {
+                  // الغاء حقل تاريخ من/إلى عند تحديد تاريخ يوم محدد
+                  onFilterChange?.('dateRange', undefined);
+                }
+              }}
+              placeholder={filter.placeholder}
+              showClearButton={true}
+              className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
+            />
           </div>
         );
       
       case 'date-range':
-        const fromValue = value?.from instanceof Date ? value.from : (value?.from ? new Date(value.from) : undefined);
-        const toValue = value?.to instanceof Date ? value.to : (value?.to ? new Date(value.to) : undefined);
+        const fromValue = value?.from ? new Date(value.from) : undefined;
+        const toValue = value?.to ? new Date(value.to) : undefined;
         return (
           <div onClick={(e) => e.stopPropagation()} className="space-y-6">
             <div className="relative group">
@@ -111,15 +111,14 @@ export function SearchToolbar({
                 <FilterDatePicker
                   value={fromValue}
                   onChange={(date) => {
-                    const newValue = { ...value, from: date };
+                    const currentRange = typeof value === 'object' && value !== null ? value : {};
+                    const newValue = { ...currentRange, from: date };
+                    
                     if (date) {
                       // الغاء حقل تاريخ اليوم عند تحديد تاريخ من
-                      newValue.specificDate = undefined;
-                    }
-                    onFilterChange?.(filter.key, newValue);
-                    if (date) {
                       onFilterChange?.('specificDate', undefined);
                     }
+                    onFilterChange?.(filter.key, newValue);
                   }}
                   placeholder="اختر التاريخ"
                   showClearButton={true}
@@ -135,7 +134,9 @@ export function SearchToolbar({
                 <FilterDatePicker
                   value={toValue}
                   onChange={(date) => {
-                    onFilterChange?.(filter.key, { ...value, to: date });
+                    const currentRange = typeof value === 'object' && value !== null ? value : {};
+                    const newValue = { ...currentRange, to: date };
+                    onFilterChange?.(filter.key, newValue);
                   }}
                   placeholder="اختر التاريخ"
                   showClearButton={true}

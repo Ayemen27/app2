@@ -267,19 +267,17 @@ export class ExpenseLedgerService {
       
       const totalIncome = fundTransfers + incomingProjectTransfers;
       
-      // الرصيد النقدي التراكمي الحقيقي (الدخل - المصروفات)
-      // يعتمد النظام الآن على الحساب التراكمي التاريخي من قاعدة البيانات مباشرة لضمان الدقة
+      // الرصيد النقدي التراكمي الحقيقي (الدخل - المصروفات) لليوم المختار فقط
       const cashBalance = totalIncome - totalCashExpenses;
 
-      // إذا كنا في وضع الفلترة، نضيف الرصيد المرحل للدخل الكلي المعروض لليوم
       // الدخل الظاهري لليوم = (دخل اليوم الحقيقي) + (الرصيد القادم من الأيام السابقة)
       const totalIncomeWithCarried = totalIncome + carriedForwardBalance;
       
-      // الرصيد النهائي لليوم = (الدخل مع الرصيد المرحل) - مصروفات اليوم
+      // الرصيد النهائي المتبقي الفعلي حتى نهاية اليوم المختار
       const currentDayRemaining = totalIncomeWithCarried - totalCashExpenses;
 
       // الرصيد الإجمالي يخصم منه المصاريف الآجلة أيضاً ليعبر عن المديونية الكلية للمشروع
-      const totalBalance = totalIncome - (totalCashExpenses + materialExpensesCredit);
+      const totalBalance = totalIncomeWithCarried - (totalCashExpenses + materialExpensesCredit);
 
       // إذا كان هناك فلتر تاريخ، لا نقوم بتحديث الرصيد المتبقي التراكمي في الجداول
       if (!date) {

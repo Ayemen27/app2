@@ -412,10 +412,9 @@ function DailyExpensesContent() {
 
   // حساب القيم المعروضة بناءً على وجود فلتر تاريخ
   const displayIncome = useMemo(() => {
-    // إجمالي الدخل المتاح لليوم = دخل اليوم + الرصيد القادم من سابق
-    const incomeToday = financialSummary?.income?.totalIncome || 0;
-    const carriedForward = financialSummary?.income?.carriedForwardBalance || 0;
-    return incomeToday + carriedForward;
+    // إذا كان هناك فلتر تاريخ، نعرض دخل ذلك اليوم فقط
+    // ملاحظة: الرصيد المرحل يظهر في بطاقة منفصلة أو يحسب ضمن المتبقي
+    return financialSummary?.income?.totalIncome || 0;
   }, [financialSummary]);
 
   const displayExpenses = useMemo(() => {
@@ -424,16 +423,22 @@ function DailyExpensesContent() {
   }, [financialSummary]);
 
   const displayBalance = useMemo(() => {
-    // المتبقي النهائي = (دخل اليوم + الرصيد القادم من سابق) - مصروفات اليوم
+    // صافي الحركة للفترة المختارة (دخل الفترة - مصروفات الفترة)
     const incomeToday = financialSummary?.income?.totalIncome || 0;
-    const carriedForward = financialSummary?.income?.carriedForwardBalance || 0;
     const expensesToday = financialSummary?.expenses?.totalCashExpenses || 0;
-    
-    return (incomeToday + carriedForward) - expensesToday;
+    return incomeToday - expensesToday;
   }, [financialSummary]);
 
   const carriedForwardDisplay = useMemo(() => {
     return financialSummary?.income?.carriedForwardBalance || 0;
+  }, [financialSummary]);
+
+  const totalRemainingWithCarried = useMemo(() => {
+    // الرصيد الإجمالي الفعلي المتبقي في الصندوق حتى نهاية اليوم المختار
+    const incomeToday = financialSummary?.income?.totalIncome || 0;
+    const carriedForward = financialSummary?.income?.carriedForwardBalance || 0;
+    const expensesToday = financialSummary?.expenses?.totalCashExpenses || 0;
+    return (incomeToday + carriedForward) - expensesToday;
   }, [financialSummary]);
 
   const { 

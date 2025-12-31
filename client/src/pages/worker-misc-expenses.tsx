@@ -38,6 +38,22 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
 
+  // دالة مساعدة لحفظ قيم الإكمال التلقائي
+  const saveAutocompleteValue = async (field: string, value: string) => {
+    if (!value || value.trim().length < 2) return;
+
+    try {
+      await apiRequest('/api/autocomplete', 'POST', {
+        category: field,
+        value: value.trim(),
+        usageCount: 1
+      });
+      console.log(`✅ تم حفظ قيمة الإكمال التلقائي: ${field} = ${value.trim()}`);
+    } catch (error) {
+      console.warn(`Failed to save autocomplete value for ${field}:`, error);
+    }
+  };
+
   const { data: todayMiscExpenses = [] } = useQuery<WorkerMiscExpense[]>({
     queryKey: ["/api/worker-misc-expenses", projectId, selectedDate],
     queryFn: async () => {
@@ -76,11 +92,12 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
         description: "تم إضافة نثريات العمال بنجاح"
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || error?.message || "حدث خطأ أثناء إضافة النثريات";
       console.error("Error creating misc expense:", error);
       toast({
         title: "خطأ في إضافة النثريات",
-        description: "حدث خطأ أثناء إضافة النثريات",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -100,11 +117,12 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
         description: "تم تحديث النثريات بنجاح"
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || error?.message || "حدث خطأ أثناء تحديث النثريات";
       console.error("Error updating misc expense:", error);
       toast({
         title: "خطأ في تحديث النثريات",
-        description: "حدث خطأ أثناء تحديث النثريات",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -119,11 +137,12 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
         description: "تم حذف النثريات بنجاح"
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || error?.message || "حدث خطأ أثناء حذف النثريات";
       console.error("Error deleting misc expense:", error);
       toast({
         title: "خطأ في حذف النثريات",
-        description: "حدث خطأ أثناء حذف النثريات",
+        description: errorMessage,
         variant: "destructive"
       });
     }

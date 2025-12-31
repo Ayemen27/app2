@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Project } from "@shared/schema";
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 import { 
   DollarSign as UnifiedDollarSign, 
   TrendingUp as UnifiedTrendingUp, 
@@ -71,6 +72,15 @@ export default function ProjectTransactionsSimple() {
     projectId: selectedProject || 'all',
     enabled: true
   });
+
+  // الحسابات المالية (إجمالي التوريد والمنصرف والرصيد) - من المصدر الموحد للحقيقة
+  const stats = useMemo(() => {
+    return {
+      totalIncome: financialTotals?.totalIncome || 0,
+      totalExpenses: financialTotals?.totalAllExpenses || 0,
+      currentBalance: financialTotals?.totalBalance || 0
+    };
+  }, [financialTotals]);
 
   // تحسين جلب البيانات باستخدام Cache و StaleTime
   const queryOptions = {

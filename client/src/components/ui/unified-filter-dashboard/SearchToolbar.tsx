@@ -82,15 +82,19 @@ export function SearchToolbar({
       case 'date':
         return (
           <div onClick={(e) => e.stopPropagation()} className="relative">
-            <FilterDatePicker
-              value={value}
-              onChange={(date) => {
-                onFilterChange?.(filter.key, date);
-              }}
-              placeholder={filter.placeholder}
-              showClearButton={true}
-              className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
-            />
+              <FilterDatePicker
+                value={value}
+                onChange={(date) => {
+                  onFilterChange?.(filter.key, date);
+                  if (date) {
+                    // الغاء حقل تاريخ من/إلى عند تحديد تاريخ يوم محدد
+                    onFilterChange?.('dateRange', undefined);
+                  }
+                }}
+                placeholder={filter.placeholder}
+                showClearButton={true}
+                className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
+              />
           </div>
         );
       
@@ -107,7 +111,15 @@ export function SearchToolbar({
                 <FilterDatePicker
                   value={fromValue}
                   onChange={(date) => {
-                    onFilterChange?.(filter.key, { ...value, from: date });
+                    const newValue = { ...value, from: date };
+                    if (date) {
+                      // الغاء حقل تاريخ اليوم عند تحديد تاريخ من
+                      newValue.specificDate = undefined;
+                    }
+                    onFilterChange?.(filter.key, newValue);
+                    if (date) {
+                      onFilterChange?.('specificDate', undefined);
+                    }
                   }}
                   placeholder="اختر التاريخ"
                   showClearButton={true}

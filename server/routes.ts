@@ -4406,14 +4406,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/financial-summary", requireAuth, async (req, res) => {
     const startTime = Date.now();
     try {
-      const { projectId } = req.query;
+      const { projectId, date, dateFrom, dateTo } = req.query;
       
-      console.log(`💰 [API] طلب ملخص مالي شامل للمشروع: ${projectId || 'جميع المشاريع'}`);
+      console.log(`💰 [API] طلب ملخص مالي شامل للمشروع: ${projectId || 'جميع المشاريع'}`, { date, dateFrom, dateTo });
       
       const { ExpenseLedgerService } = await import('./services/ExpenseLedgerService');
       
       if (projectId && projectId !== 'all') {
-        const summary = await ExpenseLedgerService.getProjectFinancialSummary(projectId as string);
+        const summary = await ExpenseLedgerService.getProjectFinancialSummary(
+          projectId as string, 
+          date as string, 
+          dateFrom as string, 
+          dateTo as string
+        );
         const duration = Date.now() - startTime;
         return res.json({
           success: true,

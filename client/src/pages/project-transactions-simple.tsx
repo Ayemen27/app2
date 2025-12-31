@@ -66,10 +66,10 @@ export default function ProjectTransactionsSimple() {
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin' || user?.role === 'مدير';
 
-  // جلب البيانات من المزامنة المحلية للأداء
-  const { data: localDataStats } = useQuery({
-    queryKey: ['/api/sync/stats'],
-    staleTime: 5000
+  // استخدام الملخص المالي الموحد من ExpenseLedgerService
+  const { totals: financialTotals, isLoading: financialLoading } = useFinancialSummary({
+    projectId: selectedProject || 'all',
+    enabled: true
   });
 
   // تحسين جلب البيانات باستخدام Cache و StaleTime

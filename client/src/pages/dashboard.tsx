@@ -338,9 +338,9 @@ export default function Dashboard() {
       totalExpenses: currentTotals.totalAllExpenses || 0,
       currentBalance: currentTotals.totalBalance || 0,
       activeWorkers: String(currentTotals.activeWorkers || 0),
-      completedDays: String(currentTotals.totalWorkers || 0), // استبدال completedDays بـ totalWorkers مؤقتاً إذا لم تتوفر
-      materialPurchases: '0',
-      transportExpenses: 0
+      completedDays: String(currentTotals.totalWorkers || 0), 
+      materialExpenses: currentTotals.materialExpenses || 0,
+      transportExpenses: currentTotals.transportExpenses || 0
     };
   }, [currentTotals]);
 

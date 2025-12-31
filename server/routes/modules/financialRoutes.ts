@@ -32,9 +32,13 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
     console.log('📊 [API] جلب الملخص المالي الموحد', { projectId, date, dateFrom, dateTo });
 
     if (projectId && projectId !== 'all') {
-      const summary = (date || (dateFrom && dateTo))
-        ? await ExpenseLedgerService.getProjectFinancialSummary(projectId as string, date as string, dateFrom as string, dateTo as string)
-        : await ExpenseLedgerService.getProjectFinancialSummary(projectId as string);
+      // تمرير معاملات التاريخ دائماً للخدمة لضمان احترام الفلترة في جميع الحالات
+      const summary = await ExpenseLedgerService.getProjectFinancialSummary(
+        projectId as string, 
+        date as string, 
+        dateFrom as string, 
+        dateTo as string
+      );
 
       const duration = Date.now() - startTime;
       console.log(`✅ [API] تم جلب الملخص المالي للمشروع ${projectId} في ${duration}ms`);

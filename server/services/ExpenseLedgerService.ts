@@ -100,6 +100,13 @@ export class ExpenseLedgerService {
         dateFilterAttendance = sql`AND attendance_date BETWEEN ${dateFrom} AND ${dateTo}`;
         dateFilterTransport = sql`AND date BETWEEN ${dateFrom} AND ${dateTo}`;
         dateFilterMisc = sql`AND date BETWEEN ${dateFrom} AND ${dateTo}`;
+      } else {
+        // إذا لم يتم توفير تاريخ، نجعل الفلاتر فارغة لجلب كل البيانات
+        dateFilter = sql``;
+        dateFilterTransfer = sql``;
+        dateFilterAttendance = sql``;
+        dateFilterTransport = sql``;
+        dateFilterMisc = sql``;
       }
 
       // تسجيل الفلاتر للتأكد من صحتها

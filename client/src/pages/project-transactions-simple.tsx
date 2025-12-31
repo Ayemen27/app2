@@ -96,7 +96,8 @@ export default function ProjectTransactionsSimple() {
         if (isAllProjects) {
           // جلب من جميع المشاريع
           const allRecords: any[] = [];
-          for (const project of projects) {
+          // تحسين: جلب البيانات بالتوازي لجميع المشاريع لزيادة السرعة
+          await Promise.all(projects.map(async (project) => {
             try {
               const data = await apiRequest(`/api/projects/${project.id}/fund-transfers`);
               const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
@@ -104,7 +105,7 @@ export default function ProjectTransactionsSimple() {
             } catch (e) {
               console.error(`❌ خطأ في جلب تحويلات عهدة المشروع ${project.id}:`, e);
             }
-          }
+          }));
           console.log(`✅ تم جلب ${allRecords.length} تحويل عهدة من جميع المشاريع`);
           return allRecords;
         } else {

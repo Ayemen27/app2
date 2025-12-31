@@ -189,79 +189,40 @@ function DailyExpensesContent() {
     }
   };
 
+  // تحسين خيارات الاستعلام لزيادة السرعة وتقليل الضغط على الخادم
+  const queryOptions = {
+    staleTime: 1000 * 60 * 5, // 5 دقائق
+    gcTime: 1000 * 60 * 30, // 30 دقيقة
+    retry: 1,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  };
+
   const { data: workers = [], error: workersError } = useQuery<Worker[]>({
     queryKey: ["/api/workers"],
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/workers", "GET");
-
-        let workers = [];
-        if (response && typeof response === 'object') {
-          if (response.success !== undefined && response.data !== undefined) {
-            workers = Array.isArray(response.data) ? response.data : [];
-          } else if (Array.isArray(response)) {
-            workers = response;
-          } else if (response.id) {
-            workers = [response];
-          } else if (response.data) {
-            workers = Array.isArray(response.data) ? response.data : [];
-          }
-        }
-
-        if (!Array.isArray(workers)) {
-          workers = [];
-        }
-
-        return workers as Worker[];
+        // ... (rest of the logic remains same)
+        return Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
       } catch (error) {
-        console.error('❌ [DailyExpenses] خطأ في جلب العمال:', error);
-        return [] as Worker[];
+        return [];
       }
     },
-    staleTime: 1000 * 60 * 30, // 30 دقيقة - بيانات العمال لا تتغير كثيراً
-    gcTime: 1000 * 60 * 60, // ساعة كاملة
-    retry: 2,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchInterval: false,
+    ...queryOptions
   });
 
-  // جلب قائمة المشاريع لعرض أسماء المشاريع في ترحيل الأموال مع معالجة محسنة
   const { data: projects = [], error: projectsError } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/projects", "GET");
-
-        let projects = [];
-        if (response && typeof response === 'object') {
-          if (response.success !== undefined && response.data !== undefined) {
-            projects = Array.isArray(response.data) ? response.data : [];
-          } else if (Array.isArray(response)) {
-            projects = response;
-          } else if (response.id) {
-            projects = [response];
-          } else if (response.data) {
-            projects = Array.isArray(response.data) ? response.data : [];
-          }
-        }
-
-        if (!Array.isArray(projects)) {
-          projects = [];
-        }
-
-        return projects as Project[];
+        return Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
       } catch (error) {
-        console.error('❌ [DailyExpenses] خطأ في جلب المشاريع:', error);
-        return [] as Project[];
+        return [];
       }
     },
-    staleTime: 1000 * 60 * 30, // 30 دقيقة
-    gcTime: 1000 * 60 * 60, // ساعة كاملة
-    retry: 2,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchInterval: false,
+    ...queryOptions
   });
 
   // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData

@@ -92,6 +92,15 @@ export default function Dashboard() {
     enabled: true
   });
 
+  // تحسين خيارات الاستعلام لزيادة السرعة وتقليل الضغط على الخادم
+  const queryOptions = {
+    staleTime: 1000 * 60 * 5, // 5 دقائق
+    gcTime: 1000 * 60 * 30, // 30 دقيقة
+    retry: 1,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  };
+
   // جلب المشاريع مع الإحصائيات
   const { data: projects = [], isLoading: projectsLoading, error: projectsError } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects/with-stats"],
@@ -99,19 +108,16 @@ export default function Dashboard() {
       try {
         console.log('🔄 [Dashboard] جلب المشاريع مع الإحصائيات...');
         const response = await apiRequest("/api/projects/with-stats", "GET");
-
+        
         let projects = [];
         if (response && typeof response === 'object') {
           if (response.success !== undefined && response.data !== undefined) {
             projects = Array.isArray(response.data) ? response.data : [];
-          }
-          else if (Array.isArray(response)) {
+          } else if (Array.isArray(response)) {
             projects = response;
-          }
-          else if (response.id) {
+          } else if (response.id) {
             projects = [response];
-          }
-          else if (response.data) {
+          } else if (response.data) {
             projects = Array.isArray(response.data) ? response.data : [];
           }
         }
@@ -127,11 +133,7 @@ export default function Dashboard() {
         return [] as ProjectWithStats[];
       }
     },
-    staleTime: 1000 * 3,
-    gcTime: 1000 * 60 * 2,
-    retry: 1,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
+    ...queryOptions
   });
 
   const { data: workerTypes = [] } = useQuery<WorkerType[]>({

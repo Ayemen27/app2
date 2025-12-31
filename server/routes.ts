@@ -1482,6 +1482,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`💰 [Calc] فحص دقيق لمشروع ${projectId}:`, stats);
       
+      // إذا كان الطلب يتوقع كائن إحصائيات كامل (كما في لوحة التحكم)
+      if (req.query.detailed === 'true') {
+        return res.json({ success: true, data: stats });
+      }
+
       return balance;
     } catch (error) {
       console.error('❌ خطأ في حساب الرصيد التراكمي:', error);

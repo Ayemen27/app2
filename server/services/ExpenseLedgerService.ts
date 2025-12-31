@@ -113,45 +113,37 @@ export class ExpenseLedgerService {
       console.log(`🔍 [ExpenseLedger] تطبيق الفلترة لـ ${projectId}:`, { date, dateFrom, dateTo });
 
       // 1. حساب الرصيد المرحل (ما قبل الفترة المحددة)
-      let carriedForwardFilter = sql``;
-      if (date) {
-        carriedForwardFilter = sql`AND transfer_date::date < ${date}::date`;
-      } else if (dateFrom) {
-        carriedForwardFilter = sql`AND transfer_date::date < ${dateFrom}::date`;
-      }
-
-      // استعلام الرصيد المرحل (دخل سابق - مصروفات سابقة)
-      // ملاحظة: نحتاج لحساب كل المصروفات والدخل قبل التاريخ المحدد
+      // ملاحظة: نحتاج لحساب كل المصروفات والدخل قبل التاريخ المحدد بدقة شديدة
       const [prevIncome, prevExpenses] = await Promise.all([
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM (
-            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} ${date ? sql`AND transfer_date::date < ${date}::date` : (dateFrom ? sql`AND transfer_date::date < ${dateFrom}::date` : sql`AND 1=0`)}
+            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId} ${date ? sql`AND transfer_date::date < ${date}::date` : (dateFrom ? sql`AND transfer_date::date < ${dateFrom}::date` : sql`AND 1=0`)}
+            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
           ) as prev_income
         `),
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM (
-            SELECT total_amount as amount FROM material_purchases WHERE project_id = ${projectId} AND purchase_type = 'نقد' ${date ? sql`AND purchase_date < ${date}` : (dateFrom ? sql`AND purchase_date < ${dateFrom}` : sql`AND 1=0`)}
+            SELECT total_amount as amount FROM material_purchases WHERE project_id = ${projectId} AND purchase_type = 'نقد' AND purchase_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
             UNION ALL
-            SELECT actual_wage as amount FROM worker_attendance WHERE project_id = ${projectId} AND is_present = true ${date ? sql`AND attendance_date < ${date}` : (dateFrom ? sql`AND attendance_date < ${dateFrom}` : sql`AND 1=0`)}
+            SELECT actual_wage as amount FROM worker_attendance WHERE project_id = ${projectId} AND is_present = true AND attendance_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
             UNION ALL
-            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} ${date ? sql`AND date < ${date}` : (dateFrom ? sql`AND date < ${dateFrom}` : sql`AND 1=0`)}
+            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
             UNION ALL
-            SELECT amount FROM worker_transfers WHERE project_id = ${projectId} ${date ? sql`AND transfer_date::date < ${date}::date` : (dateFrom ? sql`AND transfer_date::date < ${dateFrom}::date` : sql`AND 1=0`)}
+            SELECT amount FROM worker_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
             UNION ALL
-            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId} ${date ? sql`AND date < ${date}` : (dateFrom ? sql`AND date < ${dateFrom}` : sql`AND 1=0`)}
+            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId} AND date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId} ${date ? sql`AND transfer_date::date < ${date}::date` : (dateFrom ? sql`AND transfer_date::date < ${dateFrom}::date` : sql`AND 1=0`)}
+            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
           ) as prev_expenses
         `)
       ]);
 
       const carriedForwardBalance = this.cleanDbValue(prevIncome.rows[0]?.total) - this.cleanDbValue(prevExpenses.rows[0]?.total);
 
-      // تحضير الفلاتر الزمنية بدقة لجميع الاستعلامات
+      // تحضير الفلاتر الزمنية لليوم المختار فقط
       let dateFilterMp = sql``;
       let dateFilterWa = sql``;
       let dateFilterTe = sql``;
@@ -161,19 +153,19 @@ export class ExpenseLedgerService {
       let dateFilterPft = sql``;
 
       if (date) {
-        dateFilterMp = sql`AND purchase_date = ${date}`;
-        dateFilterWa = sql`AND attendance_date = ${date}`;
-        dateFilterTe = sql`AND date = ${date}`;
+        dateFilterMp = sql`AND purchase_date::date = ${date}::date`;
+        dateFilterWa = sql`AND attendance_date::date = ${date}::date`;
+        dateFilterTe = sql`AND date::date = ${date}::date`;
         dateFilterWt = sql`AND transfer_date::date = ${date}::date`;
-        dateFilterMwe = sql`AND date = ${date}`;
+        dateFilterMwe = sql`AND date::date = ${date}::date`;
         dateFilterFt = sql`AND transfer_date::date = ${date}::date`;
         dateFilterPft = sql`AND transfer_date::date = ${date}::date`;
       } else if (dateFrom && dateTo) {
-        dateFilterMp = sql`AND purchase_date BETWEEN ${dateFrom} AND ${dateTo}`;
-        dateFilterWa = sql`AND attendance_date BETWEEN ${dateFrom} AND ${dateTo}`;
-        dateFilterTe = sql`AND date BETWEEN ${dateFrom} AND ${dateTo}`;
+        dateFilterMp = sql`AND purchase_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
+        dateFilterWa = sql`AND attendance_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
+        dateFilterTe = sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
         dateFilterWt = sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
-        dateFilterMwe = sql`AND date BETWEEN ${dateFrom} AND ${dateTo}`;
+        dateFilterMwe = sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
         dateFilterFt = sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
         dateFilterPft = sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
       }

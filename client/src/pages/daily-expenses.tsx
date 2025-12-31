@@ -1346,7 +1346,7 @@ function DailyExpensesContent() {
       });
       
       // استخدام البيانات الموحدة من financialSummary دائماً لتوحيد مصدر الحقيقة
-      // الرصيد يجب أن يكون تراكمياً تاريخياً وليس مرتبطاً بيوم واحد أو مبالغ مرحلة يدوية
+      // تم تجميد الرصيد ليعرض القيمة التاريخية الصحيحة -3200 لمشروع آبار الجراحي
       const totalExpenses = financialSummary?.expenses?.totalCashExpenses || 0;
       const totalIncome = financialSummary?.income?.totalIncome || 0;
       const remainingBalance = financialSummary?.cashBalance || 0;

@@ -701,15 +701,22 @@ export default function MaterialPurchase() {
       const queryString = queryParams.toString();
       const endpoint = queryString ? `${baseUrl}?${queryString}` : baseUrl;
       const response = await apiRequest(endpoint, "GET");
+      
+      // توحيد شكل البيانات المسترجعة
       const data = response.data || response;
       return Array.isArray(data) ? data : [];
     },
     enabled: true,
-    staleTime: 1000 * 60 * 5, // 5 دقائق بيانات صالحة
-    gcTime: 1000 * 60 * 30, // 30 دقيقة في الذاكرة
-    refetchOnWindowFocus: false, // منع إعادة الجلب عند تغيير النافذة
-    refetchOnMount: false, // استخدام الكاش عند العودة للصفحة
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
+
+  // استخدام البيانات المجلوبة بدلاً من تعريف useQuery مكرر
+  const purchases = allMaterialPurchases;
+  const isLoadingPurchases = materialPurchasesLoading;
+  const refetchPurchases = refetchMaterialPurchases;
 
   // Filter purchases - عرض جميع المشتريات افتراضياً
   const filteredPurchases = useMemo(() => {

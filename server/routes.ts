@@ -664,49 +664,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // 📊 GET endpoint لجلب مشتريات المواد لمشروع محدد
-  app.get("/api/projects/:projectId/material-purchases", requireAuth, async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const { projectId } = req.params;
-      
-      console.log(`📊 [API] جلب مشتريات المواد للمشروع: ${projectId}`);
-      
-      if (!projectId) {
-        return res.status(400).json({
-          success: false,
-          error: 'معرف المشروع مطلوب',
-          processingTime: Date.now() - startTime
-        });
-      }
-
-      const purchases = await db.select()
-        .from(materialPurchases)
-        .where(eq(materialPurchases.projectId, projectId))
-        .orderBy(materialPurchases.purchaseDate);
-      
-      const duration = Date.now() - startTime;
-      console.log(`✅ [API] تم جلب ${purchases.length} مشترية مواد في ${duration}ms`);
-      
-      res.json({
-        success: true,
-        data: purchases,
-        message: `تم جلب ${purchases.length} مشترية مواد للمشروع`,
-        processingTime: duration
-      });
-      
-    } catch (error: any) {
-      const duration = Date.now() - startTime;
-      console.error('❌ [API] خطأ في جلب مشتريات المواد:', error);
-      res.status(500).json({
-        success: false,
-        data: [],
-        error: error.message,
-        processingTime: duration
-      });
-    }
-  });
-
   // 📊 GET endpoint لجلب مصاريف النقل لمشروع محدد
   app.get("/api/projects/:projectId/transportation-expenses", requireAuth, async (req, res) => {
     const startTime = Date.now();
@@ -4598,10 +4555,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { projectId } = req.query;
       
-      const query = db.select().from(materialPurchases);
+      let query = db.select({
+        id: materialPurchases.id,
+        projectId: materialPurchases.projectId,
+        materialName: materialPurchases.materialName,
+        materialId: materialPurchases.materialId,
+        quantity: materialPurchases.quantity,
+        unit: materialPurchases.unit,
+        materialUnit: materialPurchases.materialUnit,
+        unitPrice: materialPurchases.unitPrice,
+        totalAmount: materialPurchases.totalAmount,
+        purchaseDate: materialPurchases.purchaseDate,
+        purchaseType: materialPurchases.purchaseType,
+        supplierName: materialPurchases.supplierName,
+        invoiceNumber: materialPurchases.invoiceNumber,
+        invoiceDate: materialPurchases.invoiceDate,
+        wellId: materialPurchases.wellId,
+        notes: materialPurchases.notes,
+        projectName: projects.name,
+      })
+      .from(materialPurchases)
+      .leftJoin(projects, eq(materialPurchases.projectId, projects.id));
       
+      const conditions = [];
       if (projectId && projectId !== 'all') {
-        query.where(eq(materialPurchases.projectId, projectId as string));
+        conditions.push(eq(materialPurchases.projectId, projectId as string));
+      }
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
       }
       
       const results = await query.orderBy(desc(materialPurchases.purchaseDate));

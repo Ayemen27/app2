@@ -102,9 +102,9 @@ function DailyExpensesContent() {
   }, [toast]);
   // استبدال calculateTotals المحلي بالبيانات الموحدة من useFinancialSummary
   const financialTotalsMemo = useMemo(() => ({
-    totalIncome: financialTotals.totalIncome,
-    totalExpenses: financialTotals.totalCashExpenses,
-    remainingBalance: financialTotals.cashBalance, // الرصيد النقدي هو ما يهم المستخدم في الخزنة
+    totalIncome: financialSummary?.income.totalIncome || 0,
+    totalExpenses: financialSummary?.expenses.totalCashExpenses || 0,
+    remainingBalance: financialSummary?.cashBalance || 0, // الرصيد النقدي التاريخي الموحد هو المصدر الوحيد
     totalWorkerWages: financialSummary?.expenses.workerWages || 0,
     totalFundTransfers: financialSummary?.income.fundTransfers || 0,
     totalMaterialCosts: financialSummary?.expenses.materialExpenses || 0,
@@ -114,7 +114,7 @@ function DailyExpensesContent() {
     materialExpensesCredit: financialSummary?.expenses.materialExpensesCredit || 0,
     incomingProjectTransfers: financialSummary?.income.incomingProjectTransfers || 0,
     outgoingProjectTransfers: financialSummary?.expenses.outgoingProjectTransfers || 0,
-  }), [financialTotals, financialSummary]);
+  }), [financialSummary]);
 
   const [isExporting, setIsExporting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1345,17 +1345,13 @@ function DailyExpensesContent() {
         calculation: `${carriedAmount} + ${totalFundTransfers} + ${incomingProjectTransfers}`,
       });
       
-      // استخدام البيانات الموحدة من financialSummary إذا كانت متاحة
-      const totalExpenses = financialSummary?.expenses?.totalAllExpenses || 
-                           (totalWorkerWages + totalTransportation + totalMaterialCosts + 
-                            totalWorkerTransfers + totalMiscExpenses + outgoingProjectTransfers);
+      // استخدام البيانات الموحدة من financialSummary دائماً لتوحيد مصدر الحقيقة
+      // الرصيد يجب أن يكون تراكمياً تاريخياً وليس مرتبطاً بيوم واحد أو مبالغ مرحلة يدوية
+      const totalExpenses = financialSummary?.expenses?.totalCashExpenses || 0;
+      const totalIncome = financialSummary?.income?.totalIncome || 0;
+      const remainingBalance = financialSummary?.cashBalance || 0;
       
-      const totalIncome = financialSummary?.income?.totalIncome || 
-                         (carriedAmount + totalFundTransfers + incomingProjectTransfers);
-      
-      const remainingBalance = financialSummary?.totalBalance ?? (totalIncome - totalExpenses);
-      
-      console.log('✅ [calculateTotals] النتيجة النهائية:', {
+      console.log('✅ [calculateTotals] النتيجة النهائية الموحدة:', {
         totalIncome,
         totalExpenses,
         remainingBalance

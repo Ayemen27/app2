@@ -198,15 +198,25 @@ export class ExpenseLedgerService {
 
       const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
       // المصروفات الكلية تشمل الكاش فقط، والآجل يظهر في التقارير كفئة منفصلة ولا يخصم من الرصيد
-      // ملاحظة: تم تعديل هذا المنطق لاستبعاد فئات معينة إذا لزم الأمر، ولكن حالياً نعتمد على أن النقد هو ما يخصم من الرصيد
       const totalAllExpenses = totalCashExpenses; 
       
       const totalIncome = fundTransfers + incomingProjectTransfers;
       
+      // الرصيد النقدي التراكمي الحقيقي (الدخل - المصروفات)
+      // الدخل يشمل تحويلات العهدة + التحويلات الواردة من مشاريع أخرى
+      // المصروفات تشمل جميع الفئات النقدية + التحويلات الصادرة لمشاريع أخرى
       const cashBalance = totalIncome - totalCashExpenses;
-      // تصحيح: الرصيد الإجمالي يجب أن يخصم منه المصاريف الآجلة أيضاً ليعبر عن المديونية الكلية للمشروع
-      // بينما الرصيد النقدي (cashBalance) يمثل ما تبقى في الخزنة فعلياً
+      
+      // الرصيد الإجمالي يخصم منه المصاريف الآجلة أيضاً ليعبر عن المديونية الكلية للمشروع
       const totalBalance = totalIncome - (totalCashExpenses + materialExpensesCredit);
+
+      // تسجيل لوغ لفحص الحسابات
+      console.log(`📊 [ExpenseLedger] حسابات المشروع ${projectName}:`, {
+        totalIncome,
+        totalCashExpenses,
+        cashBalance,
+        totalBalance
+      });
 
       const totalWorkers = this.cleanDbValue(workersStatsResult.rows[0]?.total_workers, 'integer');
       const activeWorkers = this.cleanDbValue(workersStatsResult.rows[0]?.active_workers, 'integer');

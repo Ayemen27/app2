@@ -193,7 +193,7 @@ export class ExpenseLedgerService {
             COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as total,
             COUNT(DISTINCT attendance_date) as completed_days
           FROM worker_attendance 
-          WHERE project_id = ${projectId} AND is_present = true ${dateFilterWa}
+          WHERE project_id = ${projectId} ${dateFilterWa}
         `),
         
         db.execute(sql`
@@ -254,6 +254,7 @@ export class ExpenseLedgerService {
       const projectStatus = String(projectInfo.rows[0]?.status || 'active');
       const projectDescription = projectInfo.rows[0]?.description ? String(projectInfo.rows[0].description) : null;
 
+      // ملاحظة: تم تعديل منطق الحساب لضمان شمول جميع الفئات المصروفة (عمال، مواصلات، مواد، نثريات)
       const materialExpenses = this.cleanDbValue(materialCashStats.rows[0]?.total);
       const materialExpensesCredit = this.cleanDbValue(materialCreditStats.rows[0]?.total);
       const workerWages = this.cleanDbValue(workerWagesStats.rows[0]?.total);
@@ -264,6 +265,8 @@ export class ExpenseLedgerService {
       const outgoingProjectTransfers = this.cleanDbValue(outgoingTransfersStats.rows[0]?.total);
       const incomingProjectTransfers = this.cleanDbValue(incomingTransfersStats.rows[0]?.total);
 
+      // حساب إجمالي المنصرف النقدي لليوم بدقة
+      // المنصرفات = مواد (كاش) + أجور عمال + مواصلات + تحويلات عمال + نثريات + تحويلات لمشاريع أخرى
       const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
       // المصروفات الكلية تشمل الكاش فقط، والآجل يظهر في التقارير كفئة منفصلة ولا يخصم من الرصيد
       const totalAllExpenses = totalCashExpenses; 
@@ -279,6 +282,9 @@ export class ExpenseLedgerService {
       // الرصيد النهائي المتبقي الفعلي حتى نهاية اليوم المختار
       const currentDayRemaining = totalIncomeWithCarried - totalCashExpenses;
 
+      // حساب صافي حركة اليوم (دخل اليوم - مصروف اليوم)
+      const dailyNetChange = totalIncome - totalCashExpenses;
+
       // الرصيد الإجمالي يخصم منه المصاريف الآجلة أيضاً ليعبر عن المديونية الكلية للمشروع
       const totalBalance = totalIncomeWithCarried - (totalCashExpenses + materialExpensesCredit);
 
@@ -290,6 +296,7 @@ export class ExpenseLedgerService {
         incomeToday: totalIncome,
         expensesToday: totalCashExpenses,
         remainingToday: currentDayRemaining,
+        dailyNetChange,
         totalIncomeWithCarried,
         finalBalance: totalBalance
       });

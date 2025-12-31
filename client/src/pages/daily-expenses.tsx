@@ -423,6 +423,7 @@ function DailyExpensesContent() {
 
   const displayBalance = useMemo(() => {
     // صافي الحركة للفترة المختارة (الدخل - المصروفات)
+    // نستخدم totalCashExpenses التي تشمل كل شيء (مواد كاش، أجور، نقل، إلخ)
     const incomeToday = financialSummary?.income?.totalIncome || 0;
     const expensesToday = financialSummary?.expenses?.totalCashExpenses || 0;
     return incomeToday - expensesToday;

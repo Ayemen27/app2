@@ -104,24 +104,24 @@ function DailyExpensesContent() {
     isLoading: summaryLoading, 
     refetch: refetchFinancial 
   } = useFinancialSummary({
-    projectId: selectedProjectId,
+    projectId: selectedProjectId === 'all' ? undefined : selectedProjectId,
     date: selectedDate || undefined,
-    enabled: !!selectedProjectId && !isAllProjects
+    enabled: !!selectedProjectId
   });
 
   const financialTotalsMemo = useMemo(() => ({
-    totalIncome: financialSummary?.income.totalIncome || 0,
-    totalExpenses: financialSummary?.expenses.totalCashExpenses || 0,
+    totalIncome: financialSummary?.income?.totalIncome || 0,
+    totalExpenses: financialSummary?.expenses?.totalCashExpenses || 0,
     remainingBalance: financialSummary?.cashBalance || 0,
-    totalWorkerWages: financialSummary?.expenses.workerWages || 0,
-    totalFundTransfers: financialSummary?.income.fundTransfers || 0,
-    totalMaterialCosts: financialSummary?.expenses.materialExpenses || 0,
-    totalTransportation: financialSummary?.expenses.transportExpenses || 0,
-    totalMiscExpenses: financialSummary?.expenses.miscExpenses || 0,
-    totalWorkerTransfers: financialSummary?.expenses.workerTransfers || 0,
-    materialExpensesCredit: financialSummary?.expenses.materialExpensesCredit || 0,
-    incomingProjectTransfers: financialSummary?.income.incomingProjectTransfers || 0,
-    outgoingProjectTransfers: financialSummary?.expenses.outgoingProjectTransfers || 0,
+    totalWorkerWages: financialSummary?.expenses?.workerWages || 0,
+    totalFundTransfers: financialSummary?.income?.fundTransfers || 0,
+    totalMaterialCosts: financialSummary?.expenses?.materialExpenses || 0,
+    totalTransportation: financialSummary?.expenses?.transportExpenses || 0,
+    totalMiscExpenses: financialSummary?.expenses?.miscExpenses || 0,
+    totalWorkerTransfers: financialSummary?.expenses?.workerTransfers || 0,
+    materialExpensesCredit: financialSummary?.expenses?.materialExpensesCredit || 0,
+    incomingProjectTransfers: financialSummary?.income?.incomingProjectTransfers || 0,
+    outgoingProjectTransfers: financialSummary?.expenses?.outgoingProjectTransfers || 0,
   }), [financialSummary]);
 
   const [isExporting, setIsExporting] = useState(false);
@@ -299,8 +299,8 @@ function DailyExpensesContent() {
               />
             </div>
             <WellSelector 
-              projectId={selectedProjectId} 
-              onSelect={setSelectedWellId}
+              projectId={selectedProjectId === 'all' ? undefined : selectedProjectId} 
+              onChange={setSelectedWellId}
               value={selectedWellId}
             />
           </div>
@@ -323,9 +323,7 @@ function DailyExpensesContent() {
           </div>
         </div>
 
-        {/* الأقسام القابلة للطي */}
         <div className="grid grid-cols-1 gap-6">
-          {/* قسم التحويلات المالية */}
           <Collapsible
             open={isFundTransfersExpanded}
             onOpenChange={setIsFundTransfersExpanded}
@@ -380,7 +378,6 @@ function DailyExpensesContent() {
             </CollapsibleContent>
           </Collapsible>
 
-          {/* قسم أجور العمال */}
           <Collapsible
             open={isAttendanceExpanded}
             onOpenChange={setIsAttendanceExpanded}
@@ -451,7 +448,6 @@ function DailyExpensesContent() {
             </CollapsibleContent>
           </Collapsible>
 
-          {/* قسم تكاليف النقل والمحروقات */}
           <Collapsible
             open={isTransportationExpanded}
             onOpenChange={setIsTransportationExpanded}
@@ -479,11 +475,18 @@ function DailyExpensesContent() {
           </Collapsible>
         </div>
 
-        {/* عرض الخلاصة */}
         <div className="mt-8">
           <ExpenseSummary 
-            projectId={selectedProjectId} 
-            date={selectedDate} 
+            totalIncome={financialTotalsMemo.totalIncome}
+            totalExpenses={financialTotalsMemo.totalExpenses}
+            remainingBalance={financialTotalsMemo.remainingBalance}
+            materialExpensesCredit={financialTotalsMemo.materialExpensesCredit}
+            details={{
+              workerWages: financialTotalsMemo.totalWorkerWages,
+              materialCosts: financialTotalsMemo.totalMaterialCosts,
+              transportation: financialTotalsMemo.totalTransportation,
+              miscExpenses: financialTotalsMemo.totalMiscExpenses
+            }}
           />
         </div>
       </div>

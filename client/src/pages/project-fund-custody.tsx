@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertFundTransferSchema } from "@shared/schema";
 import type { InsertFundTransfer, FundTransfer, Project } from "@shared/schema";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 import { DollarSign, Calendar, Edit, Trash2, TrendingUp, FileText, Building2 } from "lucide-react";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -127,11 +128,14 @@ export default function ProjectFundCustody() {
     return filtered;
   }, [allTransfers, searchValue, filterValues]);
 
+  const { summary, isLoading: isLoadingSummary } = useFinancialSummary();
+
   // Calculate Stats
   const stats = useMemo(() => {
     return {
       total: allTransfers.length,
-      totalAmount: allTransfers.reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0),
+      totalAmount: summary?.totalIncome || allTransfers.reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0),
+      currentBalance: summary?.totalProjectBalance || 0,
       filtered: filteredTransfers.length,
       today: filteredTransfers.filter(t => new Date(t.transferDate).toDateString() === new Date().toDateString()).length,
       thisWeek: filteredTransfers.filter(t => {
@@ -141,7 +145,7 @@ export default function ProjectFundCustody() {
         return date >= weekAgo && date <= today;
       }).length,
     };
-  }, [allTransfers, filteredTransfers]);
+  }, [allTransfers, filteredTransfers, summary]);
 
   // Mutations
   const createTransferMutation = useMutation({
@@ -281,22 +285,31 @@ export default function ProjectFundCustody() {
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
-      columns: 3,
+      columns: 4,
       gap: 'sm',
       items: [
         {
-          key: 'total',
-          label: "إجمالي الدخل",
-          value: stats.total,
-          icon: DollarSign,
-          color: "blue"
-        },
-        {
           key: 'totalAmount',
-          label: "إجمالي المبالغ",
+          label: "إجمالي الوارد",
           value: stats.totalAmount,
           icon: TrendingUp,
-          color: "green",
+          color: "blue",
+          formatter: formatCurrency
+        },
+        {
+          key: 'totalExpenses',
+          label: "إجمالي المنصرف",
+          value: summary?.totalCashExpenses || 0,
+          icon: TrendingUp,
+          color: "red",
+          formatter: formatCurrency
+        },
+        {
+          key: 'currentBalance',
+          label: "الرصيد المتبقي",
+          value: stats.currentBalance,
+          icon: DollarSign,
+          color: stats.currentBalance >= 0 ? "green" : "red",
           formatter: formatCurrency
         },
         {
@@ -308,7 +321,7 @@ export default function ProjectFundCustody() {
         }
       ]
     }
-  ], [stats]);
+  ], [stats, summary]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">

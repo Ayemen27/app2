@@ -11,6 +11,7 @@ import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-s
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 import { Plus, CheckCircle2, Clock, AlertCircle, MapPin, TrendingUp, Wrench, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
@@ -146,6 +147,8 @@ export default function WellAccounting() {
     }
   });
 
+  const { summary, isLoading: isLoadingSummary } = useFinancialSummary();
+
   const pendingTasks = useMemo(() => tasks.filter((t: any) => t.status === 'pending'), [tasks]);
   const completedTasks = useMemo(() => tasks.filter((t: any) => t.status === 'completed'), [tasks]);
 
@@ -236,6 +239,12 @@ export default function WellAccounting() {
             title="إحصائيات المهام"
             hideHeader={false}
             stats={[
+              {
+                title: 'إجمالي التكاليف',
+                value: formatCurrency(summary?.totalWellsExpenses || 0),
+                icon: DollarSign,
+                color: 'blue'
+              },
               {
                 title: 'إجمالي المهام',
                 value: tasks.length,

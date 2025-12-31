@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 import { 
   Building2, 
   FileText, 
@@ -150,31 +151,18 @@ export default function SupplierAccountsPage() {
   }>({
     queryKey: ["/api/suppliers/statistics"],
     queryFn: async () => {
-      try {
-        const result = await apiRequest('/api/suppliers/statistics');
-        return result.data || result || {
-          totalSuppliers: 0,
-          totalCashPurchases: "0",
-          totalCreditPurchases: "0",
-          totalDebt: "0",
-          totalPaid: "0",
-          remainingDebt: "0",
-          activeSuppliers: 0
-        };
-      } catch (error) {
-        return {
-          totalSuppliers: 0,
-          totalCashPurchases: "0",
-          totalCreditPurchases: "0",
-          totalDebt: "0",
-          totalPaid: "0",
-          remainingDebt: "0",
-          activeSuppliers: 0
-        };
-      }
+      // إرجاع بيانات فارغة لأننا سنعتمد على summary الموحد للإحصائيات العامة
+      return {
+        totalSuppliers: 0,
+        totalCashPurchases: "0",
+        totalCreditPurchases: "0",
+        totalDebt: "0",
+        totalPaid: "0",
+        remainingDebt: "0",
+        activeSuppliers: 0
+      };
     },
-    refetchOnWindowFocus: false,
-    staleTime: 60000
+    enabled: false // تعطيل هذا الاستعلام لتوحيد المصدر
   });
 
   const { data: supplierStats } = useQuery<{
@@ -244,19 +232,20 @@ export default function SupplierAccountsPage() {
     return acc;
   }, { totalAmount: 0, paidAmount: 0, remainingAmount: 0 }) : { totalAmount: 0, paidAmount: 0, remainingAmount: 0 };
 
-  // استخدام supplierStats للإحصائيات المفلترة أو globalStats للعامة
-  const displayStats = (selectedSupplierId && selectedSupplierId !== 'all') || dateFrom || dateTo || paymentTypeFilter !== 'all' 
-    ? supplierStats 
-    : globalStats;
+  const { summary, isLoading: isLoadingSummary } = useFinancialSummary();
+
+  const isFiltered = (selectedSupplierId && selectedSupplierId !== 'all') || 
+                    (selectedProjectId && selectedProjectId !== 'all') || 
+                    dateFrom || dateTo || (paymentTypeFilter && paymentTypeFilter !== 'all') || searchTerm;
 
   const overallStats = {
-    totalSuppliers: displayStats?.totalSuppliers || suppliers.length,
-    totalCashPurchases: displayStats?.totalCashPurchases || "0",
-    totalCreditPurchases: displayStats?.totalCreditPurchases || "0",
-    totalDebt: displayStats?.totalDebt || "0",
-    totalPaid: displayStats?.totalPaid || "0",
-    remainingDebt: displayStats?.remainingDebt || "0",
-    activeSuppliers: displayStats?.activeSuppliers || (Array.isArray(suppliers) ? suppliers.filter(s => parseFloat(s.totalDebt || '0') > 0).length : 0),
+    totalSuppliers: suppliers.length,
+    totalCashPurchases: isFiltered ? (Array.isArray(purchases) ? purchases.filter(p => p.purchaseType === 'نقد').reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0).toString() : "0") : (summary?.totalCashMaterials || "0").toString(),
+    totalCreditPurchases: isFiltered ? (Array.isArray(purchases) ? purchases.filter(p => p.purchaseType === 'آجل' || p.purchaseType === 'أجل').reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0).toString() : "0") : (summary?.totalCreditMaterials || "0").toString(),
+    totalDebt: summary?.totalSuppliersDebt || "0",
+    totalPaid: summary?.totalSuppliersPaid || "0",
+    remainingDebt: summary?.totalSuppliersDebt || "0",
+    activeSuppliers: suppliers.filter(s => parseFloat(s.totalDebt || '0') > 0).length,
     totalPurchases: Array.isArray(purchases) ? purchases.length : 0
   };
 

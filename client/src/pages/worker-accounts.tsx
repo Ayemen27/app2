@@ -24,6 +24,7 @@ import { useSelectedProject, ALL_PROJECTS_ID } from '@/hooks/use-selected-projec
 import { UnifiedFilterDashboard } from '@/components/ui/unified-filter-dashboard';
 import type { StatsRowConfig, FilterConfig } from '@/components/ui/unified-filter-dashboard/types';
 import { UnifiedCard, UnifiedCardGrid } from '@/components/ui/unified-card';
+import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { 
   Send, 
   User, 
@@ -441,6 +442,8 @@ export default function WorkerAccountsPage() {
     return result;
   }, [transfers, selectedProject, selectedWorkerId, transferMethodFilter, searchTerm, dateFrom, dateTo, specificDate, workers]);
 
+  const { summary, isLoading: isLoadingSummary } = useFinancialSummary();
+
   const stats = useMemo(() => {
     const totalAmount = filteredTransfers.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const cashTransfers = filteredTransfers.filter(t => t.transferMethod === 'cash');
@@ -453,16 +456,22 @@ export default function WorkerAccountsPage() {
     
     const uniqueWorkers = new Set(filteredTransfers.map(t => t.workerId)).size;
     
+    // استخدام البيانات الموحدة للحوالات الكلية إذا لم يكن هناك فلتر
+    const isFiltered = (selectedProject && selectedProject !== 'all') || 
+                      (selectedWorkerId && selectedWorkerId !== 'all') || 
+                      (transferMethodFilter && transferMethodFilter !== 'all') ||
+                      searchTerm || dateFrom || dateTo || specificDate;
+
     return {
       totalTransfers: filteredTransfers.length,
-      totalAmount,
+      totalAmount: isFiltered ? totalAmount : (summary?.totalWorkerTransfers || totalAmount),
       cashAmount,
       bankAmount,
       hawalehAmount,
       uniqueWorkers,
       averageTransfer: filteredTransfers.length > 0 ? totalAmount / filteredTransfers.length : 0
     };
-  }, [filteredTransfers]);
+  }, [filteredTransfers, summary, selectedProject, selectedWorkerId, transferMethodFilter, searchTerm, dateFrom, dateTo, specificDate]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {

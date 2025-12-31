@@ -37,9 +37,19 @@ export default function ExpenseSummary({
   const safeBalance = typeof remainingBalance === 'number' ? remainingBalance : parseFloat(String(remainingBalance || '0')) || 0;
   const safeDeferred = typeof materialExpensesCredit === 'number' ? materialExpensesCredit : parseFloat(String(materialExpensesCredit || '0')) || 0;
 
-  // حساب النسب المئوية
-  const totalAmount = safeIncome + safeExpenses;
-  const incomePercentage = totalAmount > 0 ? (safeIncome / totalAmount) * 100 : 0;
+  // المصاريف التفصيلية من المصدر الموحد (إذا توفرت)
+  const workerWages = details?.workerWages ?? 0;
+  const materialCosts = details?.materialCosts ?? 0;
+  const transportation = details?.transportation ?? 0;
+  const miscExpenses = details?.miscExpenses ?? 0;
+  const workerTransfers = (details as any)?.workerTransfers ?? 0;
+
+  // إجمالي المصروفات النقدية الفعلية (باستثناء الآجل) لضمان مطابقة سجل العمليات
+  const totalCashExpenses = workerWages + materialCosts + transportation + miscExpenses + workerTransfers;
+
+  // حساب النسب المئوية بناءً على المصاريف الفعلية
+  const totalAmount = safeIncome;
+  const incomePercentage = 100;
   const expensesPercentage = totalAmount > 0 ? (safeExpenses / totalAmount) * 100 : 0;
 
   // تحديد لون الرصيد بناءً على القيمة

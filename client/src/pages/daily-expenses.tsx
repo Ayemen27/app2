@@ -399,6 +399,7 @@ function DailyExpensesContent() {
 
   // استخدام useFinancialSummary الموحد لتحسين الأداء وتجنب اختلاف البيانات
   const { 
+    totals: financialTotals,
     summary: financialSummary, 
     isLoading: summaryLoading, 
     refetch: refetchFinancial 

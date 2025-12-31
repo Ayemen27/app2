@@ -135,7 +135,8 @@ export default function Reports() {
       materialCosts: expenseSummary.expenses.materialExpenses || 0,
       transportation: expenseSummary.expenses.transportExpenses || 0,
       miscExpenses: expenseSummary.expenses.miscExpenses || 0,
-      total: expenseSummary.expenses.totalAllExpenses || 0,
+      workerTransfers: expenseSummary.expenses.workerTransfers || 0,
+      total: expenseSummary.expenses.totalCashExpenses || 0, // استخدام المنصرف النقدي الفعلي لمطابقة سجل العمليات
     };
   }, [expenseSummary, selectedDate]);
 
@@ -481,8 +482,9 @@ export default function Reports() {
                         workerWages: expenseData.workerWages,
                         materialCosts: expenseData.materialCosts,
                         transportation: expenseData.transportation,
-                        miscExpenses: expenseData.miscExpenses
-                      }}
+                        miscExpenses: expenseData.miscExpenses,
+                        workerTransfers: expenseData.workerTransfers
+                      } as any}
                     />
 
                     {expenseData.total > 0 && (

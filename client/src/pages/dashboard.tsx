@@ -335,11 +335,11 @@ export default function Dashboard() {
   const currentStats = useMemo(() => {
     return {
       totalIncome: currentTotals.totalIncome || 0,
-      totalExpenses: currentTotals.totalAllExpenses || 0,
+      totalExpenses: currentTotals.totalCashExpenses || 0, // استخدام المنصرف النقدي الفعلي
       currentBalance: currentTotals.totalBalance || 0,
       activeWorkers: String(currentTotals.activeWorkers || 0),
-      completedDays: String(currentTotals.totalWorkers || 0), 
-      materialExpenses: currentTotals.materialExpenses || 0,
+      completedDays: String(currentTotals.completedDays || 0), 
+      materialPurchases: String(currentTotals.counts?.materialPurchases || 0),
       transportExpenses: currentTotals.transportExpenses || 0
     };
   }, [currentTotals]);

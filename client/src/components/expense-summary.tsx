@@ -9,7 +9,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { TrendingUp, TrendingDown, DollarSign, Gauge, Users, Package, Truck, AlertCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Gauge, Users, Package, Truck, AlertCircle, Clock } from "lucide-react";
 
 interface ExpenseSummaryProps {
   totalIncome?: number | string;

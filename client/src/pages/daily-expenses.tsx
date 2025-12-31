@@ -101,7 +101,7 @@ function DailyExpensesContent() {
     });
   }, [toast]);
   // استبدال calculateTotals المحلي بالبيانات الموحدة من useFinancialSummary
-  const totals = useMemo(() => ({
+  const financialTotalsMemo = useMemo(() => ({
     totalIncome: financialTotals.totalIncome,
     totalExpenses: financialTotals.totalCashExpenses,
     remainingBalance: financialTotals.cashBalance, // الرصيد النقدي هو ما يهم المستخدم في الخزنة
@@ -1439,20 +1439,20 @@ function DailyExpensesContent() {
       return;
     }
 
-    const totals = calculateTotals();
+    const currentTotals = calculateTotals();
 
     saveDailySummaryMutation.mutate({
       projectId: selectedProjectId,
       date: selectedDate || new Date().toISOString().split('T')[0],
       carriedForwardAmount: carriedForward,
-      totalFundTransfers: totals.totalFundTransfers.toString(),
-      totalWorkerWages: totals.totalWorkerWages.toString(),
-      totalMaterialCosts: totals.totalMaterialCosts.toString(),
-      totalTransportationCosts: totals.totalTransportation.toString(),
+      totalFundTransfers: currentTotals.totalFundTransfers.toString(),
+      totalWorkerWages: currentTotals.totalWorkerWages.toString(),
+      totalMaterialCosts: currentTotals.totalMaterialCosts.toString(),
+      totalTransportationCosts: currentTotals.totalTransportation.toString(),
 
-      totalIncome: totals.totalIncome.toString(),
-      totalExpenses: totals.totalExpenses.toString(),
-      remainingBalance: totals.remainingBalance.toString(),
+      totalIncome: currentTotals.totalIncome.toString(),
+      totalExpenses: currentTotals.totalExpenses.toString(),
+      remainingBalance: currentTotals.remainingBalance.toString(),
     });
   };
 

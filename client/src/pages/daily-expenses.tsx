@@ -97,6 +97,7 @@ function DailyExpensesContent() {
     });
   }, [toast]);
 
+  // استخدام useFinancialSummary الموحد لتحسين الأداء وتجنب اختلاف البيانات
   const { 
     totals: financialTotals,
     summary: financialSummary, 

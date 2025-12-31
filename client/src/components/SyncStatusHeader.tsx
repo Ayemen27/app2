@@ -16,13 +16,34 @@ import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
 export function SyncStatusHeader() {
-  const { isSyncing, offlineCount, isOnline, lastSync, lastError, manualSync } = useSyncData();
+  const { isSyncing, offlineCount, isOnline, lastSync, lastError, lastErrorType, manualSync, cancelAllOperations } = useSyncData();
   const [isSyncingManual, setIsSyncingManual] = useState(false);
 
   const handleManualSync = async () => {
     setIsSyncingManual(true);
     await manualSync();
     setIsSyncingManual(false);
+  };
+
+  const handleCancelAll = async () => {
+    if (window.confirm('هل أنت متأكد من إلغاء جميع العمليات المعلقة؟')) {
+      await cancelAllOperations();
+    }
+  };
+
+  const getErrorTitle = (errorType?: string) => {
+    switch (errorType) {
+      case 'timeout':
+        return 'انتهت المهلة الزمنية';
+      case 'network':
+        return 'خطأ في الاتصال';
+      case 'server':
+        return 'خطأ في الخادم';
+      case 'validation':
+        return 'خطأ في البيانات';
+      default:
+        return 'حدث خطأ';
+    }
   };
 
   return (
@@ -107,9 +128,23 @@ export function SyncStatusHeader() {
           </div>
 
           {lastError && (
-            <div className="text-[10px] text-red-500 bg-red-50 p-1.5 rounded flex gap-1 items-start mt-2">
-              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-              <span className="break-words line-clamp-2">{lastError}</span>
+            <div className="text-[10px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded flex gap-2 items-start mt-2 flex-col">
+              <div className="flex gap-1 items-start w-full">
+                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0 text-red-500" />
+                <div className="flex-1">
+                  <div className="font-semibold">{getErrorTitle(lastErrorType)}</div>
+                  <span className="break-words line-clamp-2 text-red-500">{lastError}</span>
+                </div>
+              </div>
+              {offlineCount > 0 && (
+                <button
+                  onClick={handleCancelAll}
+                  className="text-xs bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200 px-2 py-1 rounded hover:bg-red-300 dark:hover:bg-red-700 transition-colors w-full"
+                  data-testid="button-cancel-all-operations"
+                >
+                  إلغاء جميع العمليات ({offlineCount})
+                </button>
+              )}
             </div>
           )}
 

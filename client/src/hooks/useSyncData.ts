@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { subscribeSyncState, getSyncState, syncOfflineData } from '@/offline/sync';
+import { cancelSyncQueueItem, cancelAllSyncQueueItems, getPendingSyncQueue } from '@/offline/offline';
 
 export function useSyncData() {
   const [syncState, setSyncState] = useState(() => getSyncState());
@@ -37,12 +38,35 @@ export function useSyncData() {
     }
   };
 
+  const cancelOperation = async (operationId: string) => {
+    await cancelSyncQueueItem(operationId);
+    // تحديث حالة المزامنة
+    const pending = await getPendingSyncQueue();
+    setSyncState(prev => ({
+      ...prev,
+      pendingCount: pending.length
+    }));
+  };
+
+  const cancelAllOperations = async () => {
+    const count = await cancelAllSyncQueueItems();
+    setSyncState(prev => ({
+      ...prev,
+      pendingCount: 0,
+      lastError: `تم إلغاء ${count} عملية معلقة`
+    }));
+  };
+
   return {
     isSyncing: syncState.isSyncing,
     offlineCount: syncState.pendingCount,
     lastSync: syncState.lastSync,
     lastError: syncState.lastError,
+    lastErrorType: syncState.lastErrorType,
+    lastErrorDetails: syncState.lastErrorDetails,
     isOnline,
     manualSync,
+    cancelOperation,
+    cancelAllOperations,
   };
 }

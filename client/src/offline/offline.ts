@@ -54,7 +54,8 @@ export async function removeSyncQueueItem(id: string): Promise<void> {
 export async function updateSyncRetries(
   id: string,
   retries: number,
-  error?: string
+  error?: string,
+  errorType?: string
 ): Promise<void> {
   const db = await getDB();
   const item = await db.get('syncQueue', id);
@@ -64,8 +65,36 @@ export async function updateSyncRetries(
     if (error) {
       item.lastError = error;
     }
+    if (errorType) {
+      item.errorType = errorType;
+    }
     await db.put('syncQueue', item);
   }
+}
+
+/**
+ * إلغاء عملية معلقة
+ */
+export async function cancelSyncQueueItem(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('syncQueue', id);
+  console.log(`[Offline] تم إلغاء عملية من قائمة الانتظار: ${id}`);
+}
+
+/**
+ * إلغاء جميع العمليات المعلقة
+ */
+export async function cancelAllSyncQueueItems(): Promise<number> {
+  const db = await getDB();
+  const items = await getPendingSyncQueue();
+  const count = items.length;
+  
+  const tx = db.transaction('syncQueue', 'readwrite');
+  await tx.objectStore('syncQueue').clear();
+  await tx.done;
+  
+  console.log(`[Offline] تم إلغاء جميع العمليات المعلقة: ${count} عملية`);
+  return count;
 }
 
 /**

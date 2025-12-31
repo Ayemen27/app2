@@ -12,6 +12,8 @@ export interface SyncState {
   lastSync: number;
   pendingCount: number;
   lastError?: string;
+  lastErrorType?: 'timeout' | 'network' | 'server' | 'validation' | 'unknown';
+  lastErrorDetails?: any;
   isOnline: boolean;
   syncedCount?: number;
   failedCount?: number;
@@ -103,9 +105,12 @@ export async function syncOfflineData(): Promise<void> {
     });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(`❌ [Sync] خطأ عام:`, errorMsg);
+    const errorType = classifyError(error);
+    console.error(`❌ [Sync] خطأ عام (${errorType}):`, errorMsg);
     updateSyncState({ 
       lastError: errorMsg,
+      lastErrorType: errorType,
+      lastErrorDetails: error instanceof Error ? { message: error.message, stack: error.stack } : error,
       isSyncing: false
     });
   } finally {
@@ -205,22 +210,33 @@ async function syncIndividual(pending: any[]) {
         successCount++;
       } else {
         const error = await response.text();
-        console.error(`❌ [Sync] فشل: ${item.endpoint} - ${response.status}`);
+        const errorType = classifySyncError(response.status);
+        console.error(`❌ [Sync] فشل: ${item.endpoint} - ${response.status} (${errorType})`);
         failureCount++;
         
+        // حفظ نوع الخطأ مع الرسالة
+        const errorMsg = `[${errorType}] ${error.substring(0, 100)}`;
+        
         if (item.retries < MAX_RETRIES && response.status < 500) {
-          await updateSyncRetries(item.id, item.retries + 1, error);
+          await updateSyncRetries(item.id, item.retries + 1, errorMsg, errorType);
         } else if (response.status >= 500 && item.retries < MAX_RETRIES) {
-          await updateSyncRetries(item.id, item.retries + 1, error);
+          await updateSyncRetries(item.id, item.retries + 1, errorMsg, errorType);
+        } else if (response.status >= 400 && response.status < 500) {
+          // خطأ في البيانات - لا داعي لإعادة المحاولة
+          await updateSyncRetries(item.id, MAX_RETRIES + 1, errorMsg, errorType);
         }
       }
     } catch (error) {
       failureCount++;
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`❌ [Sync] خطأ في المزامنة:`, errorMsg);
+      const errorType = classifyError(error);
+      console.error(`❌ [Sync] خطأ في المزامنة (${errorType}):`, errorMsg);
       
-      if (item.retries < MAX_RETRIES) {
-        await updateSyncRetries(item.id, item.retries + 1, errorMsg);
+      if (item.retries < MAX_RETRIES && errorType !== 'network') {
+        await updateSyncRetries(item.id, item.retries + 1, errorMsg, errorType);
+      } else if (errorType === 'network') {
+        // خطأ شبكة فعلي - حاول لاحقاً
+        await updateSyncRetries(item.id, item.retries + 1, errorMsg, errorType);
       }
     }
   }
@@ -300,4 +316,37 @@ export function stopSyncListener(): void {
     syncInterval = null;
   }
   console.log('🛑 [Sync] توقف نظام المزامنة');
+}
+
+/**
+ * تصنيف نوع الخطأ
+ */
+function classifyError(error: any): 'timeout' | 'network' | 'server' | 'validation' | 'unknown' {
+  const errorMsg = error instanceof Error ? error.message : String(error);
+  
+  if (errorMsg.includes('timeout') || errorMsg.includes('timed out')) {
+    return 'timeout';
+  } else if (errorMsg.includes('Network') || errorMsg.includes('Failed to fetch') || errorMsg.includes('offline')) {
+    return 'network';
+  } else if (errorMsg.includes('500') || errorMsg.includes('502') || errorMsg.includes('503')) {
+    return 'server';
+  } else if (errorMsg.includes('400') || errorMsg.includes('validation') || errorMsg.includes('invalid')) {
+    return 'validation';
+  }
+  
+  return 'unknown';
+}
+
+/**
+ * تصنيف خطأ المزامنة حسب رمز HTTP
+ */
+function classifySyncError(status: number): 'timeout' | 'network' | 'server' | 'validation' | 'unknown' {
+  if (status === 408 || status === 504) {
+    return 'timeout';
+  } else if (status >= 500) {
+    return 'server';
+  } else if (status >= 400 && status < 500) {
+    return 'validation';
+  }
+  return 'unknown';
 }

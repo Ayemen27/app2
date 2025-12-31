@@ -21,6 +21,8 @@ interface ExpenseSummaryProps {
     materialCosts?: number;
     transportation?: number;
     miscExpenses?: number;
+    workerTransfers?: number;
+    outgoingProjectTransfers?: number;
   };
 }
 
@@ -108,7 +110,7 @@ export default function ExpenseSummary({
 
         {/* تفاصيل المنصرفات الإضافية */}
         {details && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-4">
             <div className="bg-white/50 dark:bg-black/20 p-2 rounded border border-border/50">
               <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">
                 <Users className="h-3 w-3" />
@@ -129,6 +131,20 @@ export default function ExpenseSummary({
                 نقل
               </div>
               <div className="text-xs font-bold">{formatCurrency(details.transportation || 0)}</div>
+            </div>
+            <div className="bg-white/50 dark:bg-black/20 p-2 rounded border border-border/50">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">
+                <DollarSign className="h-3 w-3" />
+                تحويلات عمال
+              </div>
+              <div className="text-xs font-bold">{formatCurrency((details as any).workerTransfers || 0)}</div>
+            </div>
+            <div className="bg-white/50 dark:bg-black/20 p-2 rounded border border-border/50">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">
+                <Send className="h-3 w-3" />
+                تحويلات مشاريع
+              </div>
+              <div className="text-xs font-bold">{formatCurrency((details as any).outgoingProjectTransfers || 0)}</div>
             </div>
             <div className="bg-white/50 dark:bg-black/20 p-2 rounded border border-border/50">
               <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">

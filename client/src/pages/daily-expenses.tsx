@@ -3030,6 +3030,14 @@ function DailyExpensesContent() {
                   totalIncome={displayIncome}
                   totalExpenses={displayExpenses}
                   remainingBalance={displayBalance}
+                  details={ {
+                    workerWages: financialSummary?.expenses?.workerWages || 0,
+                    materialCosts: financialSummary?.expenses?.materialExpenses || 0,
+                    transportation: financialSummary?.expenses?.transportExpenses || 0,
+                    miscExpenses: financialSummary?.expenses?.miscExpenses || 0,
+                    workerTransfers: financialSummary?.expenses?.workerTransfers || 0,
+                    outgoingProjectTransfers: financialSummary?.expenses?.outgoingProjectTransfers || 0,
+                  } }
                 />
               </div>
 

@@ -4479,6 +4479,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 💰 GET endpoint لملخص مالي شامل للمشروع - استخدام ExpenseLedgerService كمصدر وحيد للحقيقة
+  app.get("/api/financial-summary", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId } = req.query;
+      
+      console.log(`💰 [API] طلب ملخص مالي شامل للمشروع: ${projectId || 'جميع المشاريع'}`);
+      
+      const { ExpenseLedgerService } = await import('./services/ExpenseLedgerService');
+      
+      if (projectId && projectId !== 'all') {
+        const summary = await ExpenseLedgerService.getProjectFinancialSummary(projectId as string);
+        const duration = Date.now() - startTime;
+        return res.json({
+          success: true,
+          data: summary,
+          message: 'تم جلب الملخص المالي للمشروع بنجاح',
+          processingTime: duration
+        });
+      } else {
+        const projectSummaries = await ExpenseLedgerService.getAllProjectsStats();
+        
+        // حساب الإجماليات لجميع المشاريع
+        const totals = projectSummaries.reduce((acc, p) => ({
+          totalIncome: acc.totalIncome + p.income.totalIncome,
+          totalCashExpenses: acc.totalCashExpenses + p.expenses.totalCashExpenses,
+          totalAllExpenses: acc.totalAllExpenses + p.expenses.totalAllExpenses,
+          cashBalance: acc.cashBalance + p.cashBalance,
+          totalBalance: acc.totalBalance + p.totalBalance,
+          totalWorkers: acc.totalWorkers + p.workers.totalWorkers,
+          activeWorkers: acc.activeWorkers + p.workers.activeWorkers,
+          materialExpensesCredit: acc.materialExpensesCredit + p.expenses.materialExpensesCredit,
+        }), {
+          totalIncome: 0,
+          totalCashExpenses: 0,
+          totalAllExpenses: 0,
+          cashBalance: 0,
+          totalBalance: 0,
+          totalWorkers: 0,
+          activeWorkers: 0,
+          materialExpensesCredit: 0
+        });
+
+        const duration = Date.now() - startTime;
+        return res.json({
+          success: true,
+          data: {
+            projects: projectSummaries,
+            totals,
+            projectsCount: projectSummaries.length
+          },
+          message: 'تم جلب ملخص جميع المشاريع بنجاح',
+          processingTime: duration
+        });
+      }
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ [API] خطأ في جلب الملخص المالي:', error);
+      res.status(500).json({
+        success: false,
+        error: 'فشل في جلب الملخص المالي',
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+
   app.get("/api/daily-expenses", requireAuth, async (req, res) => {
     const startTime = Date.now();
     try {

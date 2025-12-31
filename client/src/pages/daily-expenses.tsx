@@ -437,21 +437,21 @@ function DailyExpensesContent() {
   const safeProjectTransfers = Array.isArray(projectTransfers) ? projectTransfers : [];
 
   // استخدام useFinancialSummary الموحد لتحسين الأداء وتجنب اختلاف البيانات
-  const { summary: financialSummary, isLoading: summaryLoading, refetch: refetchFinancial } = useFinancialSummary({
+  const { 
+    summary: financialSummary, 
+    isLoading: summaryLoading, 
+    refetch: refetchFinancial 
+  } = useFinancialSummary({
     projectId: selectedProjectId,
     date: selectedDate || undefined,
     enabled: !!selectedProjectId && !isAllProjects
   });
 
-  // تحديث البيانات عند الحفظ أو الحذف
-  const refreshAllData = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-    refetchDailyExpenses();
-    refetchProjectTransfers();
-    refetchFinancial();
-  }, [queryClient, refetchDailyExpenses, refetchProjectTransfers, refetchFinancial]);
-
-  const { data: dailyExpensesData, isLoading: dailyExpensesLoading, refetch: refetchDailyExpenses } = useQuery<any>({
+  const { 
+    data: dailyExpensesData, 
+    isLoading: dailyExpensesLoading, 
+    refetch: refetchDailyExpenses 
+  } = useQuery<any>({
     queryKey: ["/api/projects", isAllProjects ? "all-projects" : selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],
     queryFn: async () => {
       try {
@@ -491,13 +491,21 @@ function DailyExpensesContent() {
     },
     enabled: isAllProjects || !!selectedProjectId,
     retry: 2,
-    staleTime: 1000 * 60 * 10, // 10 دقائق كاش بدلاً من 5
-    gcTime: 1000 * 60 * 20, // 20 دقيقة
-    refetchOnMount: true, // الجلب عند التحميل فقط إذا انتهى الكاش
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 20,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
     refetchInterval: false,
     placeholderData: (previousData: any) => previousData,
   });
+
+  // تحديث البيانات عند الحفظ أو الحذف
+  const refreshAllData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+    refetchDailyExpenses();
+    refetchProjectTransfers();
+    refetchFinancial();
+  }, [queryClient, refetchDailyExpenses, refetchProjectTransfers, refetchFinancial]);
 
   // استخراج البيانات من الاستجابة الموحدة
   const todayFundTransfers = dailyExpensesData?.fundTransfers || [];

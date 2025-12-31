@@ -43,9 +43,10 @@ export default function ExpenseSummary({
   const transportation = details?.transportation ?? 0;
   const miscExpenses = details?.miscExpenses ?? 0;
   const workerTransfers = (details as any)?.workerTransfers ?? 0;
+  const outgoingProjectTransfers = (details as any)?.outgoingProjectTransfers ?? 0;
 
   // إجمالي المصروفات النقدية الفعلية (باستثناء الآجل) لضمان مطابقة سجل العمليات
-  const totalCashExpenses = workerWages + materialCosts + transportation + miscExpenses + workerTransfers;
+  const totalCashExpenses = workerWages + materialCosts + transportation + miscExpenses + workerTransfers + outgoingProjectTransfers;
 
   // حساب النسب المئوية بناءً على المصاريف الفعلية
   const totalAmount = safeIncome;

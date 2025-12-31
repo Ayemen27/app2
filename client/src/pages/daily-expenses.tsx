@@ -417,15 +417,14 @@ function DailyExpensesContent() {
   }, [financialSummary]);
 
   const displayExpenses = useMemo(() => {
-    // إجمالي المصروفات النقدية للفترة المختارة
-    return financialSummary?.expenses?.totalCashExpenses || 0;
+    // إجمالي المصروفات النقدية للفترة المختارة الشامل لجميع الأنواع
+    return financialSummary?.expenses?.totalAllExpenses || financialSummary?.expenses?.totalCashExpenses || 0;
   }, [financialSummary]);
 
   const displayBalance = useMemo(() => {
-    // صافي الحركة للفترة المختارة (الدخل - المصروفات)
-    // نستخدم totalCashExpenses التي تشمل كل شيء (مواد كاش، أجور، نقل، إلخ)
+    // صافي الحركة للفترة المختارة (الدخل - المصروفات الشاملة)
     const incomeToday = financialSummary?.income?.totalIncome || 0;
-    const expensesToday = financialSummary?.expenses?.totalCashExpenses || 0;
+    const expensesToday = financialSummary?.expenses?.totalAllExpenses || financialSummary?.expenses?.totalCashExpenses || 0;
     return incomeToday - expensesToday;
   }, [financialSummary]);
 
@@ -435,9 +434,9 @@ function DailyExpensesContent() {
   }, [financialSummary]);
 
   const totalRemainingWithCarried = useMemo(() => {
-    // الرصيد الإجمالي الفعلي المتبقي في الصندوق (الرصيد السابق + دخل اليوم - مصروف اليوم)
+    // الرصيد الإجمالي الفعلي المتبقي في الصندوق (الرصيد السابق + دخل اليوم - مصروف اليوم الشامل)
     const totalIn = financialSummary?.income?.totalIncomeWithCarried || 0;
-    const expensesToday = financialSummary?.expenses?.totalCashExpenses || 0;
+    const expensesToday = financialSummary?.expenses?.totalAllExpenses || financialSummary?.expenses?.totalCashExpenses || 0;
     return totalIn - expensesToday;
   }, [financialSummary]);
 

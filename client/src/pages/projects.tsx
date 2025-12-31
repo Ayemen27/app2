@@ -51,6 +51,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { useAuth } from "@/components/AuthProvider";
 import { ProjectsPageSkeleton } from "@/components/ui/project-skeleton";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
+import { triggerSync } from "@/offline/sync";
 
 interface ProjectStats {
   totalWorkers: number;
@@ -415,6 +416,7 @@ export default function ProjectsPage() {
 
       queryClient.refetchQueries({ queryKey: ["/api/projects"] });
       queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
+      triggerSync(); // 🚀 تفعيل المزامنة الفورية
       toast({ title: "تم إنشاء المشروع بنجاح" });
       setIsCreateDialogOpen(false);
       createForm.reset();
@@ -442,6 +444,7 @@ export default function ProjectsPage() {
 
       queryClient.refetchQueries({ queryKey: ["/api/projects"] });
       queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
+      triggerSync(); // 🚀 تفعيل المزامنة الفورية
       toast({ title: "تم تحديث المشروع بنجاح" });
       setIsEditDialogOpen(false);
       setEditingProject(null);
@@ -464,6 +467,7 @@ export default function ProjectsPage() {
     mutationFn: ({ id, confirmDeletion }: { id: string; confirmDeletion?: boolean }) =>
       apiRequest(`/api/projects/${id}`, "DELETE", { confirmDeletion }),
     onSuccess: () => {
+      triggerSync(); // 🚀 تفعيل المزامنة الفورية
       queryClient.refetchQueries({ queryKey: ["/api/projects"] });
       queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
       toast({ title: "تم حذف المشروع بنجاح" });

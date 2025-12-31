@@ -51,7 +51,7 @@ import { AdminRoute } from "./components/AdminRoute";
 import EmailVerificationGuard from "./components/EmailVerificationGuard";
 import { SelectedProjectProvider } from "./contexts/SelectedProjectContext";
 import { Loader2 } from "lucide-react";
-import { initSyncListener, subscribeSyncState } from "./offline/sync";
+import { initSyncListener, subscribeSyncState, loadFullBackup } from "./offline/sync";
 import { initializeDB } from "./offline/db";
 import { SyncStatusIndicator } from "./components/sync-status";
 
@@ -95,6 +95,15 @@ function Router() {
         // تهيئة قاعدة البيانات المحلية
         await initializeDB();
         console.log('✅ تم تهيئة قاعدة البيانات المحلية');
+
+        // 🚀 تحميل جميع البيانات من الخادم (66 جدول كامل)
+        try {
+          console.log('📥 جاري تحميل جميع البيانات من الخادم...');
+          const result = await loadFullBackup();
+          console.log(`✅ تم تحميل جميع البيانات بنجاح - ${result.recordCount} سجل`);
+        } catch (backupError) {
+          console.warn('⚠️ فشل تحميل البيانات الكاملة، سيتم المتابعة بدون بيانات محلية:', backupError);
+        }
 
         // تفعيل مراقب الاتصال والمزامنة التلقائية
         initSyncListener();

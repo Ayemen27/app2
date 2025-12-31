@@ -2,6 +2,7 @@ import { getPendingSyncQueue, removeSyncQueueItem, updateSyncRetries } from './o
 import { getDB, saveSyncedData } from './db';
 import { clearAllLocalData } from './data-cleanup';
 import { detectConflict, resolveConflict, logConflict } from './conflict-resolver';
+import { apiRequest } from '../lib/queryClient';
 
 const MAX_RETRIES = 5;
 const INITIAL_SYNC_DELAY = 5000; // تأخير 5 ثواني عند بدء التطبيق
@@ -45,6 +46,14 @@ export function getSyncState(): SyncState {
   return { ...currentSyncState };
 }
 
+/**
+ * استدعاء المزامنة فوراً (يُستخدم بعد كل CREATE/UPDATE/DELETE)
+ */
+export function triggerSync() {
+  // استدعاء المزامنة بدون انتظار
+  syncOfflineData().catch(err => console.error('❌ [Sync] خطأ في المزامنة الفورية:', err));
+}
+
 
 /**
  * تحميل جميع بيانات الخادم للـ offline sync (مرآة كاملة)
@@ -54,13 +63,7 @@ export async function loadFullBackup(): Promise<{ recordCount: number }> {
     console.log('📥 [Sync] جاري تحميل نسخة احتياطية كاملة من الخادم...');
     const startTime = Date.now();
     
-    const response = await fetch('/api/sync/full-backup');
-    
-    if (!response.ok) {
-      throw new Error(`Failed to load backup: ${response.statusText}`);
-    }
-    
-    const result = await response.json();
+    const result = await apiRequest('/api/sync/full-backup', 'GET');
     
     if (!result.success) {
       throw new Error('Backup failed on server');
@@ -351,12 +354,12 @@ export function initSyncListener(): void {
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);
 
-  // محاولة المزامنة كل 30 ثانية
+  // محاولة المزامنة كل 10 ثواني (للتحديث المستمر)
   syncInterval = setInterval(() => {
     if (navigator.onLine) {
       syncOfflineData().catch(console.error);
     }
-  }, 30000);
+  }, 10000);
 
   if (navigator.onLine) {
     console.log('✅ [Sync] متصل بالإنترنت - بدء المزامنة الفوري');

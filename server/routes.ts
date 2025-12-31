@@ -1445,7 +1445,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ))
       ]);
 
-      // حساب الإجماليات
       const totalFundTransfers = ftRows.reduce((sum: number, t: any) => sum + parseFloat(String(t.amount || '0')), 0);
       const totalWorkerWages = waRows.reduce((sum: number, w: any) => sum + parseFloat(String(w.paidAmount || '0')), 0);
       const totalMaterialCosts = mpRows.reduce((sum: number, m: any) => sum + parseFloat(String(m.totalAmount || '0')), 0);
@@ -1455,11 +1454,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalIncomingProjectTransfers = incomingPtRows.reduce((sum: number, p: any) => sum + parseFloat(String(p.amount || '0')), 0);
       const totalOutgoingProjectTransfers = outgoingPtRows.reduce((sum: number, p: any) => sum + parseFloat(String(p.amount || '0')), 0);
 
+      // الرصيد = (العهد + التحويلات الواردة) - (الأجور + المواد + النقل + الحوالات + النثريات + التحويلات الصادرة)
       const totalIncome = totalFundTransfers + totalIncomingProjectTransfers;
       const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses + totalOutgoingProjectTransfers;
       const balance = totalIncome - totalExpenses;
 
-      console.log(`💰 [Calc] فترة ${fromDate || 'البداية'} إلى ${toDate}: دخل=${totalIncome}, مصاريف=${totalExpenses}, رصيد=${balance}`);
+      console.log(`💰 [Calc] فحص دقيق لمشروع ${projectId}:`);
+      console.log(`📥 دخل: عهد=${totalFundTransfers}, وارد من مشاريع=${totalIncomingProjectTransfers}`);
+      console.log(`📤 صرف: أجور=${totalWorkerWages}, مواد=${totalMaterialCosts}, نقل=${totalTransportation}, حوالات=${totalWorkerTransfers}, نثريات=${totalMiscExpenses}, صادر لمشاريع=${totalOutgoingProjectTransfers}`);
+      console.log(`⚖️ رصيد نهائي: ${balance}`);
       
       return balance;
     } catch (error) {

@@ -908,10 +908,9 @@ export default function ProjectTransactionsSimple() {
     tooltip: 'تصدير سجل العمليات إلى ملف Excel'
   };
 
-  // تكوين صفوف الإحصائيات
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
-      columns: 3,
+      columns: 4, // Increased to 4 for better layout
       gap: 'sm',
       items: [
         {
@@ -937,13 +936,7 @@ export default function ProjectTransactionsSimple() {
           icon: UnifiedDollarSign,
           color: totals.balance >= 0 ? "green" : "red",
           formatter: formatCurrencyUnified
-        }
-      ]
-    },
-    {
-      columns: 3,
-      gap: 'sm',
-      items: [
+        },
         {
           key: 'deferred',
           label: "المشتريات الآجلة",
@@ -951,24 +944,10 @@ export default function ProjectTransactionsSimple() {
           icon: UnifiedAlertCircle,
           color: "orange",
           formatter: formatCurrencyUnified
-        },
-        {
-          key: 'total',
-          label: "إجمالي العمليات",
-          value: transactions.length,
-          icon: UnifiedFileText,
-          color: "blue"
-        },
-        {
-          key: 'filtered',
-          label: "النتائج المفلترة",
-          value: filteredTransactions.length,
-          icon: UnifiedCalendar,
-          color: "purple"
         }
       ]
     }
-  ], [totals, transactions, filteredTransactions]);
+  ], [totals]);
 
   // تكوين الفلاتر
   const filterConfigs: FilterConfig[] = [

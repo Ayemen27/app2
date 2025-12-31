@@ -9,7 +9,18 @@ import {
   projects, workers, materials, suppliers, materialPurchases, workerAttendance, 
   fundTransfers, transportationExpenses, dailyExpenseSummaries, tools, toolMovements,
   workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers, users,
-  buildDeployments,
+  buildDeployments, projectTypes, wells, supplierPayments, workerTypes, 
+  autocompleteData, printSettings, authUserSessions, emailVerificationTokens,
+  passwordResetTokens, securityPolicies, securityPolicyImplementations,
+  securityPolicySuggestions, securityPolicyViolations, permissionAuditLogs,
+  userProjectPermissions, toolCategories, toolStock, toolReservations,
+  toolPurchaseItems, toolCostTracking, toolMaintenanceLogs, toolUsageAnalytics,
+  toolNotifications, maintenanceSchedules, maintenanceTasks, wellTasks, wellExpenses,
+  wellAuditLogs, wellTaskAccounts, messages, channels, notifications,
+  notificationReadStates, systemNotifications, systemEvents, actions, aiChatSessions,
+  aiChatMessages, aiUsageStats, approvals, transactions, transactionLines, journals,
+  accounts, accountBalances, financePayments, financeEvents, reportTemplates,
+  materialCategories,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
   insertMaterialSchema, insertSupplierSchema, insertMaterialPurchaseSchema,
   insertWorkerAttendanceSchema, insertFundTransferSchema, insertTransportationExpenseSchema,
@@ -5123,43 +5134,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
   /**
    * Full backup of all server data for offline-first sync
    * GET /api/sync/full-backup
-   * Returns all data from server for local cache
+   * مرآة 100% من قاعدة البيانات - جميع الجداول والأعمدة
    */
   app.get("/api/sync/full-backup", requireAuth, async (req, res) => {
     try {
-      console.log('📥 [Sync] Starting full backup for offline sync...');
+      console.log('📥 [Sync] جاري تحميل نسخة احتياطية كاملة من قاعدة البيانات...');
       const startTime = Date.now();
       
-      // جلب جميع البيانات - اترك النتيجة كـ JSON كما هي
-      const allData = {
+      // جلب جميع الجداول من قاعدة البيانات - مرآة 100% (66 جدول)
+      const allData: Record<string, any[]> = {
+        // المستخدمين والمشاريع
         users: await db.select().from(users),
         projects: await db.select().from(projects),
+        projectTypes: await db.select().from(projectTypes),
+        projectFundTransfers: await db.select().from(projectFundTransfers),
+        // العمال والحضور
         workers: await db.select().from(workers),
-        // يمكن إضافة المزيد من الجداول حسب الحاجة
-        materials: await db.select().from(materials),
-        suppliers: await db.select().from(suppliers),
+        workerTypes: await db.select().from(workerTypes),
         workerAttendance: await db.select().from(workerAttendance),
+        workerTransfers: await db.select().from(workerTransfers),
+        workerBalances: await db.select().from(workerBalances),
+        workerMiscExpenses: await db.select().from(workerMiscExpenses),
+        // الآبار
+        wells: await db.select().from(wells),
+        wellTasks: await db.select().from(wellTasks),
+        wellExpenses: await db.select().from(wellExpenses),
+        wellAuditLogs: await db.select().from(wellAuditLogs),
+        wellTaskAccounts: await db.select().from(wellTaskAccounts),
+        // المواد والموردين
+        materials: await db.select().from(materials),
+        materialCategories: await db.select().from(materialCategories),
         materialPurchases: await db.select().from(materialPurchases),
+        suppliers: await db.select().from(suppliers),
+        supplierPayments: await db.select().from(supplierPayments),
+        // التحويلات والمصروفات
         fundTransfers: await db.select().from(fundTransfers),
         transportationExpenses: await db.select().from(transportationExpenses),
-        timestamp: Date.now()
+        dailyExpenseSummaries: await db.select().from(dailyExpenseSummaries),
+        // الأدوات والصيانة
+        tools: await db.select().from(tools),
+        toolCategories: await db.select().from(toolCategories),
+        toolMovements: await db.select().from(toolMovements),
+        toolStock: await db.select().from(toolStock),
+        toolReservations: await db.select().from(toolReservations),
+        toolPurchaseItems: await db.select().from(toolPurchaseItems),
+        toolCostTracking: await db.select().from(toolCostTracking),
+        toolMaintenanceLogs: await db.select().from(toolMaintenanceLogs),
+        toolUsageAnalytics: await db.select().from(toolUsageAnalytics),
+        toolNotifications: await db.select().from(toolNotifications),
+        maintenanceSchedules: await db.select().from(maintenanceSchedules),
+        maintenanceTasks: await db.select().from(maintenanceTasks),
+        // الرسائل والإشعارات
+        messages: await db.select().from(messages),
+        channels: await db.select().from(channels),
+        notifications: await db.select().from(notifications),
+        notificationReadStates: await db.select().from(notificationReadStates),
+        systemNotifications: await db.select().from(systemNotifications),
+        // الأمان والجلسات
+        authUserSessions: await db.select().from(authUserSessions),
+        emailVerificationTokens: await db.select().from(emailVerificationTokens),
+        passwordResetTokens: await db.select().from(passwordResetTokens),
+        securityPolicies: await db.select().from(securityPolicies),
+        securityPolicyImplementations: await db.select().from(securityPolicyImplementations),
+        securityPolicySuggestions: await db.select().from(securityPolicySuggestions),
+        securityPolicyViolations: await db.select().from(securityPolicyViolations),
+        permissionAuditLogs: await db.select().from(permissionAuditLogs),
+        userProjectPermissions: await db.select().from(userProjectPermissions),
+        // الحسابات والمالية
+        transactions: await db.select().from(transactions),
+        transactionLines: await db.select().from(transactionLines),
+        journals: await db.select().from(journals),
+        accounts: await db.select().from(accounts),
+        accountBalances: await db.select().from(accountBalances),
+        financePayments: await db.select().from(financePayments),
+        financeEvents: await db.select().from(financeEvents),
+        // الإعدادات والتقارير
+        printSettings: await db.select().from(printSettings),
+        reportTemplates: await db.select().from(reportTemplates),
+        autocompleteData: await db.select().from(autocompleteData),
+        // الأحداث والذكاء الاصطناعي
+        systemEvents: await db.select().from(systemEvents),
+        actions: await db.select().from(actions),
+        aiChatSessions: await db.select().from(aiChatSessions),
+        aiChatMessages: await db.select().from(aiChatMessages),
+        aiUsageStats: await db.select().from(aiUsageStats),
+        // البناء والموافقات
+        buildDeployments: await db.select().from(buildDeployments),
+        approvals: await db.select().from(approvals),
       };
       
       const duration = Date.now() - startTime;
-      console.log(`✅ [Sync] Full backup completed in ${duration}ms`);
+      
+      // حساب عدد السجلات
+      let totalRecords = 0;
+      const recordCounts: Record<string, number> = {};
+      for (const [table, records] of Object.entries(allData)) {
+        const count = Array.isArray(records) ? records.length : 0;
+        recordCounts[table] = count;
+        totalRecords += count;
+      }
+      
+      console.log(`✅ [Sync] تم جلب البيانات الكاملة في ${duration}ms - ${totalRecords} سجل`);
+      console.log('📊 [Sync] توزيع السجلات:', recordCounts);
       
       res.json({
         success: true,
         data: allData,
         timestamp: Date.now(),
-        recordCount: Object.values(allData).reduce((sum: number, arr: any) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
+        recordCount: totalRecords,
+        recordCounts,
+        duration
       });
     } catch (error: any) {
-      console.error('❌ [Sync] Full backup error:', error);
+      console.error('❌ [Sync] خطأ في النسخة الاحتياطية:', error);
       res.status(500).json({
         success: false,
         error: error.message,
-        message: "Failed to create full backup"
+        message: "فشل في إنشاء نسخة احتياطية كاملة"
       });
     }
   });

@@ -1,6 +1,6 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
-// تعريف schema قاعدة البيانات - مرآة كاملة من الخادم
+// تعريف schema قاعدة البيانات - مرآة كاملة 100% من الخادم (66 جدول)
 export interface BinarJoinDB extends DBSchema {
   syncQueue: {
     key: string;
@@ -23,33 +23,41 @@ export interface BinarJoinDB extends DBSchema {
       version: string;
       recordCount: number;
       lastSyncTime?: number;
+      tableList?: string[];
     };
   };
-  // الجداول الرئيسية - جميعها تحتوي على بيانات من الخادم
+  // جميع جداول الخادم - 66 جدول
   users: { key: string; value: Record<string, any> };
+  authUserSessions: { key: string; value: Record<string, any> };
+  emailVerificationTokens: { key: string; value: Record<string, any> };
+  passwordResetTokens: { key: string; value: Record<string, any> };
+  projectTypes: { key: string; value: Record<string, any> };
   projects: { key: string; value: Record<string, any> };
   workers: { key: string; value: Record<string, any> };
   wells: { key: string; value: Record<string, any> };
-  materials: { key: string; value: Record<string, any> };
-  suppliers: { key: string; value: Record<string, any> };
-  projectTypes: { key: string; value: Record<string, any> };
-  workerTypes: { key: string; value: Record<string, any> };
-  materialCategories: { key: string; value: Record<string, any> };
-  toolCategories: { key: string; value: Record<string, any> };
-  
-  // جداول البيانات المالية والعمليات
+  fundTransfers: { key: string; value: Record<string, any> };
   workerAttendance: { key: string; value: Record<string, any> };
+  suppliers: { key: string; value: Record<string, any> };
+  materials: { key: string; value: Record<string, any> };
   materialPurchases: { key: string; value: Record<string, any> };
   supplierPayments: { key: string; value: Record<string, any> };
   transportationExpenses: { key: string; value: Record<string, any> };
-  fundTransfers: { key: string; value: Record<string, any> };
-  projectFundTransfers: { key: string; value: Record<string, any> };
   workerTransfers: { key: string; value: Record<string, any> };
   workerBalances: { key: string; value: Record<string, any> };
-  workerMiscExpenses: { key: string; value: Record<string, any> };
   dailyExpenseSummaries: { key: string; value: Record<string, any> };
-  
-  // جداول الأدوات والصيانة
+  workerTypes: { key: string; value: Record<string, any> };
+  autocompleteData: { key: string; value: Record<string, any> };
+  workerMiscExpenses: { key: string; value: Record<string, any> };
+  printSettings: { key: string; value: Record<string, any> };
+  projectFundTransfers: { key: string; value: Record<string, any> };
+  securityPolicies: { key: string; value: Record<string, any> };
+  securityPolicyImplementations: { key: string; value: Record<string, any> };
+  securityPolicySuggestions: { key: string; value: Record<string, any> };
+  securityPolicyViolations: { key: string; value: Record<string, any> };
+  permissionAuditLogs: { key: string; value: Record<string, any> };
+  userProjectPermissions: { key: string; value: Record<string, any> };
+  materialCategories: { key: string; value: Record<string, any> };
+  toolCategories: { key: string; value: Record<string, any> };
   tools: { key: string; value: Record<string, any> };
   toolMovements: { key: string; value: Record<string, any> };
   toolStock: { key: string; value: Record<string, any> };
@@ -61,32 +69,22 @@ export interface BinarJoinDB extends DBSchema {
   toolNotifications: { key: string; value: Record<string, any> };
   maintenanceSchedules: { key: string; value: Record<string, any> };
   maintenanceTasks: { key: string; value: Record<string, any> };
-  
-  // جداول الآبار والمشاريع
   wellTasks: { key: string; value: Record<string, any> };
   wellExpenses: { key: string; value: Record<string, any> };
   wellAuditLogs: { key: string; value: Record<string, any> };
   wellTaskAccounts: { key: string; value: Record<string, any> };
-  
-  // جداول الرسائل والإشعارات
   messages: { key: string; value: Record<string, any> };
   channels: { key: string; value: Record<string, any> };
   notifications: { key: string; value: Record<string, any> };
   notificationReadStates: { key: string; value: Record<string, any> };
   systemNotifications: { key: string; value: Record<string, any> };
-  
-  // جداول الأمان والمراجعة
-  authUserSessions: { key: string; value: Record<string, any> };
-  emailVerificationTokens: { key: string; value: Record<string, any> };
-  passwordResetTokens: { key: string; value: Record<string, any> };
-  securityPolicies: { key: string; value: Record<string, any> };
-  securityPolicyImplementations: { key: string; value: Record<string, any> };
-  securityPolicySuggestions: { key: string; value: Record<string, any> };
-  securityPolicyViolations: { key: string; value: Record<string, any> };
-  permissionAuditLogs: { key: string; value: Record<string, any> };
-  userProjectPermissions: { key: string; value: Record<string, any> };
-  
-  // جداول المالية والحسابات
+  systemEvents: { key: string; value: Record<string, any> };
+  actions: { key: string; value: Record<string, any> };
+  aiChatSessions: { key: string; value: Record<string, any> };
+  aiChatMessages: { key: string; value: Record<string, any> };
+  aiUsageStats: { key: string; value: Record<string, any> };
+  buildDeployments: { key: string; value: Record<string, any> };
+  approvals: { key: string; value: Record<string, any> };
   transactions: { key: string; value: Record<string, any> };
   transactionLines: { key: string; value: Record<string, any> };
   journals: { key: string; value: Record<string, any> };
@@ -94,35 +92,42 @@ export interface BinarJoinDB extends DBSchema {
   accountBalances: { key: string; value: Record<string, any> };
   financePayments: { key: string; value: Record<string, any> };
   financeEvents: { key: string; value: Record<string, any> };
-  
-  // جداول الإعدادات والتقارير
-  printSettings: { key: string; value: Record<string, any> };
   reportTemplates: { key: string; value: Record<string, any> };
-  autocompleteData: { key: string; value: Record<string, any> };
-  
-  // جداول الأحداث والذكاء الاصطناعي
-  systemEvents: { key: string; value: Record<string, any> };
-  actions: { key: string; value: Record<string, any> };
-  aiChatSessions: { key: string; value: Record<string, any> };
-  aiChatMessages: { key: string; value: Record<string, any> };
-  aiUsageStats: { key: string; value: Record<string, any> };
-  
-  // جداول النشر والبناء
-  buildDeployments: { key: string; value: Record<string, any> };
-  approvals: { key: string; value: Record<string, any> };
 }
 
 let dbInstance: IDBPDatabase<BinarJoinDB> | null = null;
 
+// قائمة جميع الجداول (66 جدول)
+const ALL_STORES = [
+  'users', 'authUserSessions', 'emailVerificationTokens', 'passwordResetTokens',
+  'projectTypes', 'projects', 'workers', 'wells', 'fundTransfers',
+  'workerAttendance', 'suppliers', 'materials', 'materialPurchases',
+  'supplierPayments', 'transportationExpenses', 'workerTransfers',
+  'workerBalances', 'dailyExpenseSummaries', 'workerTypes', 'autocompleteData',
+  'workerMiscExpenses', 'printSettings', 'projectFundTransfers',
+  'securityPolicies', 'securityPolicyImplementations',
+  'securityPolicySuggestions', 'securityPolicyViolations',
+  'permissionAuditLogs', 'userProjectPermissions', 'materialCategories',
+  'toolCategories', 'tools', 'toolMovements', 'toolStock', 'toolReservations',
+  'toolPurchaseItems', 'toolCostTracking', 'toolMaintenanceLogs',
+  'toolUsageAnalytics', 'toolNotifications', 'maintenanceSchedules',
+  'maintenanceTasks', 'wellTasks', 'wellExpenses', 'wellAuditLogs',
+  'wellTaskAccounts', 'messages', 'channels', 'notifications',
+  'notificationReadStates', 'systemNotifications', 'systemEvents', 'actions',
+  'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
+  'approvals', 'transactions', 'transactionLines', 'journals', 'accounts',
+  'accountBalances', 'financePayments', 'financeEvents', 'reportTemplates'
+] as const;
+
 /**
- * فتح أو إنشاء قاعدة البيانات المحلية
+ * فتح أو إنشاء قاعدة البيانات المحلية (مرآة 100% من الخادم)
  */
 export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
   if (dbInstance) {
     return dbInstance;
   }
 
-  dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 2, {
+  dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 3, {
     upgrade(db) {
       // Object Store للبيانات المعلقة للمزامنة
       if (!db.objectStoreNames.contains('syncQueue')) {
@@ -136,38 +141,15 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
         db.createObjectStore('syncMetadata', { keyPath: 'key' });
       }
 
-      // قائمة الجداول التي سيتم إنشاؤها
-      const allStores = [
-        'users', 'projects', 'workers', 'wells', 'materials', 'suppliers',
-        'projectTypes', 'workerTypes', 'materialCategories', 'toolCategories',
-        'workerAttendance', 'materialPurchases', 'supplierPayments',
-        'transportationExpenses', 'fundTransfers', 'projectFundTransfers',
-        'workerTransfers', 'workerBalances', 'workerMiscExpenses',
-        'dailyExpenseSummaries', 'tools', 'toolMovements', 'toolStock',
-        'toolReservations', 'toolPurchaseItems', 'toolCostTracking',
-        'toolMaintenanceLogs', 'toolUsageAnalytics', 'toolNotifications',
-        'maintenanceSchedules', 'maintenanceTasks', 'wellTasks',
-        'wellExpenses', 'wellAuditLogs', 'wellTaskAccounts', 'messages',
-        'channels', 'notifications', 'notificationReadStates',
-        'systemNotifications', 'authUserSessions', 'emailVerificationTokens',
-        'passwordResetTokens', 'securityPolicies', 'securityPolicyImplementations',
-        'securityPolicySuggestions', 'securityPolicyViolations',
-        'permissionAuditLogs', 'userProjectPermissions', 'transactions',
-        'transactionLines', 'journals', 'accounts', 'accountBalances',
-        'financePayments', 'financeEvents', 'printSettings', 'reportTemplates',
-        'autocompleteData', 'systemEvents', 'actions', 'aiChatSessions',
-        'aiChatMessages', 'aiUsageStats', 'buildDeployments', 'approvals'
-      ] as const;
-      
-      // إنشاء جميع الجداول
-      for (const storeName of allStores) {
+      // إنشاء جميع الجداول - مرآة 100% من الخادم
+      for (const storeName of ALL_STORES) {
         if (!db.objectStoreNames.contains(storeName)) {
           try {
             const store = db.createObjectStore(storeName, { keyPath: 'id' });
             store.createIndex('createdAt', 'createdAt');
+            store.createIndex('projectId', 'projectId');
           } catch (e) {
-            // إذا فشل، قد يكون الجدول موجود بالفعل
-            console.warn(`[DB] Store ${storeName} creation skipped`, e);
+            console.warn(`[DB] Store ${storeName} creation handled`, e);
           }
         }
       }
@@ -228,4 +210,41 @@ export async function getLastSyncTime(): Promise<number> {
   const db = await getDB();
   const metadata = await db.get('syncMetadata', 'lastSync');
   return metadata?.lastSyncTime || 0;
+}
+
+/**
+ * حفظ بيانات من الخادم إلى IndexedDB
+ */
+export async function saveSyncedData(tableName: string, records: any[]): Promise<number> {
+  const db = await getDB();
+  let count = 0;
+  for (const record of records) {
+    if (record && record.id) {
+      await db.put(tableName as any, record);
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * حذف جميع البيانات من جدول معين
+ */
+export async function clearTable(tableName: string): Promise<void> {
+  const db = await getDB();
+  await db.clear(tableName as any);
+}
+
+/**
+ * حذف جميع البيانات من قاعدة البيانات (ما عدا syncQueue)
+ */
+export async function clearAllData(): Promise<void> {
+  const db = await getDB();
+  for (const storeName of ALL_STORES) {
+    try {
+      await db.clear(storeName as any);
+    } catch (e) {
+      console.warn(`[DB] Failed to clear ${storeName}`, e);
+    }
+  }
 }

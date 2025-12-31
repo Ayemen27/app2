@@ -2086,9 +2086,9 @@ function DailyExpensesContent() {
                     type="number"
                     inputMode="decimal"
                     value={carriedForward}
-                    onChange={(e) => setCarriedForward(e.target.value)}
+                    readOnly
                     placeholder="0"
-                    className="text-center arabic-numbers"
+                    className="text-center arabic-numbers bg-muted/50 cursor-not-allowed opacity-80"
                   />
                 </div>
               </div>

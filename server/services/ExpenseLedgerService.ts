@@ -155,15 +155,16 @@ export class ExpenseLedgerService {
       
       const cashBalance = totalIncome - totalCashExpenses;
       const totalIncomeWithCarried = totalIncome + carriedForwardBalance;
+      const totalAllExpenses = totalCashExpenses; // توحيد المتغيرات لضمان العرض الصحيح
       const totalBalance = totalIncomeWithCarried - (totalCashExpenses + materialExpensesCredit);
 
       console.log(`📊 [ExpenseLedger] حسابات اليوم ${date || 'تراكمي'} لـ ${projectName}:`, {
-        projectId, date: date || 'تراكمي', carriedForward: carriedForwardBalance, incomeToday: totalIncome, expensesToday: totalCashExpenses
+        projectId, date: date || 'تراكمي', carriedForward: carriedForwardBalance, incomeToday: totalIncome, expensesToday: totalCashExpenses, totalAllExpenses
       });
 
       return {
         projectId, projectName, status: projectStatus, description: projectDescription,
-        expenses: { materialExpenses, materialExpensesCredit, workerWages, transportExpenses, workerTransfers, miscExpenses, outgoingProjectTransfers, totalCashExpenses, totalAllExpenses: totalCashExpenses },
+        expenses: { materialExpenses, materialExpensesCredit, workerWages, transportExpenses, workerTransfers, miscExpenses, outgoingProjectTransfers, totalCashExpenses, totalAllExpenses },
         income: { fundTransfers, incomingProjectTransfers, totalIncome, carriedForwardBalance, totalIncomeWithCarried },
         workers: { totalWorkers: this.cleanDbValue(workersStatsResult.rows[0]?.total_workers, 'integer'), activeWorkers: this.cleanDbValue(workersStatsResult.rows[0]?.active_workers, 'integer'), completedDays: this.cleanDbValue(workerWagesStats.rows[0]?.completed_days, 'integer') },
         cashBalance, totalBalance,

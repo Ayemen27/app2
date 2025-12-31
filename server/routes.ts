@@ -5116,6 +5116,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // 🔄 Offline Sync Routes
+  // ========================================
+  
+  /**
+   * Full backup of all server data for offline-first sync
+   * GET /api/sync/full-backup
+   * Returns all data from server for local cache
+   */
+  app.get("/api/sync/full-backup", requireAuth, async (req, res) => {
+    try {
+      console.log('📥 [Sync] Starting full backup for offline sync...');
+      const startTime = Date.now();
+      
+      // جلب جميع البيانات - اترك النتيجة كـ JSON كما هي
+      const allData = {
+        users: await db.select().from(users),
+        projects: await db.select().from(projects),
+        workers: await db.select().from(workers),
+        // يمكن إضافة المزيد من الجداول حسب الحاجة
+        materials: await db.select().from(materials),
+        suppliers: await db.select().from(suppliers),
+        workerAttendance: await db.select().from(workerAttendance),
+        materialPurchases: await db.select().from(materialPurchases),
+        fundTransfers: await db.select().from(fundTransfers),
+        transportationExpenses: await db.select().from(transportationExpenses),
+        timestamp: Date.now()
+      };
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [Sync] Full backup completed in ${duration}ms`);
+      
+      res.json({
+        success: true,
+        data: allData,
+        timestamp: Date.now(),
+        recordCount: Object.values(allData).reduce((sum: number, arr: any) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
+      });
+    } catch (error: any) {
+      console.error('❌ [Sync] Full backup error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "Failed to create full backup"
+      });
+    }
+  });
+
   // ✅ معالج شامل للأخطاء 404 - سيتم إضافته بعد الملفات الثابتة
   // تم نقل هذا المعالج إلى server/index.ts ليكون بعد إعداد الملفات الثابتة
 

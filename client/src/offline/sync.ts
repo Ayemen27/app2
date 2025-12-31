@@ -43,6 +43,52 @@ export function getSyncState(): SyncState {
 }
 
 /**
+ * تحميل جميع بيانات الخادم للـ offline sync
+ */
+export async function loadFullBackup(): Promise<void> {
+  try {
+    console.log('📥 [Sync] جاري تحميل نسخة احتياطية كاملة...');
+    const response = await fetch('/api/sync/full-backup');
+    
+    if (!response.ok) {
+      throw new Error(`Failed to load backup: ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error('Backup failed on server');
+    }
+    
+    const { data } = result;
+    const db = await getDB();
+    
+    // حفظ جميع البيانات في IndexedDB
+    for (const [tableName, records] of Object.entries(data)) {
+      if (Array.isArray(records) && tableName !== 'timestamp') {
+        for (const record of records) {
+          await db.put(tableName as any, record);
+        }
+      }
+    }
+    
+    // تحديث metadata
+    await db.put('syncMetadata', {
+      key: 'lastSync',
+      timestamp: Date.now(),
+      version: '1.0',
+      recordCount: result.recordCount || 0,
+      lastSyncTime: Date.now()
+    });
+    
+    console.log('✅ [Sync] تم تحميل النسخة الاحتياطية بنجاح');
+  } catch (error: any) {
+    console.error('❌ [Sync] خطأ في تحميل النسخة الاحتياطية:', error);
+    throw error;
+  }
+}
+
+/**
  * مزامنة جميع البيانات المعلقة
  */
 export async function syncOfflineData(): Promise<void> {

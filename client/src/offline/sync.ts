@@ -1,5 +1,6 @@
 import { getPendingSyncQueue, removeSyncQueueItem, updateSyncRetries } from './offline';
-import { getDB, saveSyncedData, clearAllData } from './db';
+import { getDB, saveSyncedData } from './db';
+import { clearAllLocalData } from './data-cleanup';
 import { detectConflict, resolveConflict, logConflict } from './conflict-resolver';
 
 const MAX_RETRIES = 5;

@@ -243,21 +243,8 @@ export async function deleteItemLocal(
   console.log(`[Offline] تم حذف عنصر محلي: ${storeName}/${id}`);
 }
 
-/**
- * مسح جميع البيانات المحلية (للـ logout)
- */
-export async function clearAllOfflineData(): Promise<void> {
-  const db = await getDB();
-  const stores = ['syncQueue', 'userData', 'projects', 'workers', 'materials', 'suppliers', 'expenses'] as const;
-
-  for (const store of stores) {
-    const tx = db.transaction(store, 'readwrite');
-    await tx.objectStore(store).clear();
-    await tx.done;
-  }
-
-  console.log('[Offline] تم مسح جميع البيانات المحلية');
-}
+// ⚠️ ملاحظة: استخدم clearAllLocalData() من data-cleanup.ts بدلاً من clearAllOfflineData()
+// لتجنب التكرار والحفاظ على نظام موحد
 
 /**
  * الحصول على إحصائيات العمليات المعلقة

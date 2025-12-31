@@ -234,3 +234,6 @@ export async function clearTable(tableName: string): Promise<void> {
   const db = await getDB();
   await db.clear(tableName as any);
 }
+
+// ⚠️ ملاحظة: استخدم clearAllLocalData() من data-cleanup.ts بدلاً من clearAllData()
+// لتجنب التكرار والحفاظ على نظام موحد

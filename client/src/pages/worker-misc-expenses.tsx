@@ -158,6 +158,11 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
       return;
     }
 
+    // حفظ الوصف في نظام الإكمال التلقائي فوراً
+    if (miscDescription && miscDescription.trim().length >= 2) {
+      await saveAutocompleteValue('workerMiscDescriptions', miscDescription);
+    }
+
     if (editingMiscId) {
       // Update existing expense
       updateMiscExpenseMutation.mutate({

@@ -5255,6 +5255,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * مقارنة البيانات بين قاعدة البيانات المحلية والخادم
+   * GET /api/sync/compare
+   */
+  app.get("/api/sync/compare", requireAuth, async (req, res) => {
+    try {
+      console.log('📊 [Sync] جاري مقارنة قاعدة البيانات المحلية والخادم...');
+      
+      const recordCounts: Record<string, number> = {
+        users: (await db.select().from(users)).length,
+        projects: (await db.select().from(projects)).length,
+        projectTypes: (await db.select().from(projectTypes)).length,
+        projectFundTransfers: (await db.select().from(projectFundTransfers)).length,
+        workers: (await db.select().from(workers)).length,
+        workerTypes: (await db.select().from(workerTypes)).length,
+        workerAttendance: (await db.select().from(workerAttendance)).length,
+        workerTransfers: (await db.select().from(workerTransfers)).length,
+        workerBalances: (await db.select().from(workerBalances)).length,
+        workerMiscExpenses: (await db.select().from(workerMiscExpenses)).length,
+        wells: (await db.select().from(wells)).length,
+        wellTasks: (await db.select().from(wellTasks)).length,
+        wellExpenses: (await db.select().from(wellExpenses)).length,
+        materials: (await db.select().from(materials)).length,
+        materialCategories: (await db.select().from(materialCategories)).length,
+        materialPurchases: (await db.select().from(materialPurchases)).length,
+        suppliers: (await db.select().from(suppliers)).length,
+        supplierPayments: (await db.select().from(supplierPayments)).length,
+        fundTransfers: (await db.select().from(fundTransfers)).length,
+        transportationExpenses: (await db.select().from(transportationExpenses)).length,
+        dailyExpenseSummaries: (await db.select().from(dailyExpenseSummaries)).length,
+        tools: (await db.select().from(tools)).length,
+        toolCategories: (await db.select().from(toolCategories)).length,
+        toolMovements: (await db.select().from(toolMovements)).length,
+        messages: (await db.select().from(messages)).length,
+        notifications: (await db.select().from(notifications)).length,
+      };
+
+      const totalRecords = Object.values(recordCounts).reduce((sum, count) => sum + count, 0);
+
+      res.json({
+        success: true,
+        data: {
+          serverData: recordCounts,
+          totalRecords,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error: any) {
+      console.error('❌ [Sync] خطأ في المقارنة:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "فشل في مقارنة قاعدة البيانات"
+      });
+    }
+  });
+
   // ✅ معالج شامل للأخطاء 404 - سيتم إضافته بعد الملفات الثابتة
   // تم نقل هذا المعالج إلى server/index.ts ليكون بعد إعداد الملفات الثابتة
 

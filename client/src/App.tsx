@@ -69,6 +69,7 @@ const RealReports = lazy(() => import("./pages/real-reports"));
 const ProfessionalReports = lazy(() => import("./pages/professional-reports"));
 const UsersManagementPage = lazy(() => import("./pages/users-management"));
 const AIChatPage = lazy(() => import("./pages/ai-chat"));
+const SyncComparisonPage = lazy(() => import("./pages/sync-comparison"));
 
 
 function PageLoader() {
@@ -239,6 +240,13 @@ function Router() {
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>
             <AIChatPage />
+          </Suspense>
+        </AdminRoute>
+      </Route>
+      <Route path="/sync-comparison">
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <SyncComparisonPage />
           </Suspense>
         </AdminRoute>
       </Route>

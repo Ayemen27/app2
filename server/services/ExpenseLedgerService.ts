@@ -113,30 +113,30 @@ export class ExpenseLedgerService {
       console.log(`🔍 [ExpenseLedger] تطبيق الفلترة لـ ${projectId}:`, { date, dateFrom, dateTo });
 
       // 1. حساب الرصيد المرحل (ما قبل الفترة المحددة)
-      // ملاحظة: نحتاج لحساب كل المصروفات والدخل قبل التاريخ المحدد بدقة شديدة
+      // ملاحظة: نحتاج لحساب كل المصروفات والدخل قبل التاريخ المحدد بدقة شديدة من قاعدة البيانات مباشرة
       const [prevIncome, prevExpenses] = await Promise.all([
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM (
-            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
+            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`CURRENT_DATE`)}
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
+            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`CURRENT_DATE`)}
           ) as prev_income
         `),
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM (
-            SELECT total_amount as amount FROM material_purchases WHERE project_id = ${projectId} AND purchase_type = 'نقد' AND purchase_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
+            SELECT total_amount as amount FROM material_purchases WHERE project_id = ${projectId} AND purchase_type = 'نقد' AND purchase_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`CURRENT_DATE`)}
             UNION ALL
-            SELECT actual_wage as amount FROM worker_attendance WHERE project_id = ${projectId} AND is_present = true AND attendance_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
+            SELECT actual_wage as amount FROM worker_attendance WHERE project_id = ${projectId} AND is_present = true AND attendance_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`CURRENT_DATE`)}
             UNION ALL
-            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
+            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`CURRENT_DATE`)}
             UNION ALL
-            SELECT amount FROM worker_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
+            SELECT amount FROM worker_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`CURRENT_DATE`)}
             UNION ALL
-            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId} AND date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
+            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId} AND date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`CURRENT_DATE`)}
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`current_date`)}
+            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId} AND transfer_date::date < ${date ? sql`${date}::date` : (dateFrom ? sql`${dateFrom}::date` : sql`CURRENT_DATE`)}
           ) as prev_expenses
         `)
       ]);
@@ -144,31 +144,14 @@ export class ExpenseLedgerService {
       const carriedForwardBalance = this.cleanDbValue(prevIncome.rows[0]?.total) - this.cleanDbValue(prevExpenses.rows[0]?.total);
 
       // تحضير الفلاتر الزمنية لليوم المختار فقط
-      let dateFilterMp = sql``;
-      let dateFilterWa = sql``;
-      let dateFilterTe = sql``;
-      let dateFilterWt = sql``;
-      let dateFilterMwe = sql``;
-      let dateFilterFt = sql``;
-      let dateFilterPft = sql``;
-
-      if (date) {
-        dateFilterMp = sql`AND purchase_date::date = ${date}::date`;
-        dateFilterWa = sql`AND attendance_date::date = ${date}::date`;
-        dateFilterTe = sql`AND date::date = ${date}::date`;
-        dateFilterWt = sql`AND transfer_date::date = ${date}::date`;
-        dateFilterMwe = sql`AND date::date = ${date}::date`;
-        dateFilterFt = sql`AND transfer_date::date = ${date}::date`;
-        dateFilterPft = sql`AND transfer_date::date = ${date}::date`;
-      } else if (dateFrom && dateTo) {
-        dateFilterMp = sql`AND purchase_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
-        dateFilterWa = sql`AND attendance_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
-        dateFilterTe = sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
-        dateFilterWt = sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
-        dateFilterMwe = sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
-        dateFilterFt = sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
-        dateFilterPft = sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
-      }
+      // نستخدم ::date لضمان المقارنة الصحيحة بغض النظر عن الوقت
+      const dateFilterMp = date ? sql`AND purchase_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND purchase_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
+      const dateFilterWa = date ? sql`AND attendance_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND attendance_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
+      const dateFilterTe = date ? sql`AND date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
+      const dateFilterWt = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
+      const dateFilterMwe = date ? sql`AND date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
+      const dateFilterFt = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
+      const dateFilterPft = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
 
       const [
         projectInfo,
@@ -289,8 +272,12 @@ export class ExpenseLedgerService {
       const cashBalance = totalIncome - totalCashExpenses;
 
       // إذا كنا في وضع الفلترة، نضيف الرصيد المرحل للدخل الكلي المعروض لليوم
+      // الدخل الظاهري لليوم = (دخل اليوم الحقيقي) + (الرصيد القادم من الأيام السابقة)
       const totalIncomeWithCarried = totalIncome + carriedForwardBalance;
       
+      // الرصيد النهائي لليوم = (الدخل مع الرصيد المرحل) - مصروفات اليوم
+      const currentDayRemaining = totalIncomeWithCarried - totalCashExpenses;
+
       // الرصيد الإجمالي يخصم منه المصاريف الآجلة أيضاً ليعبر عن المديونية الكلية للمشروع
       const totalBalance = totalIncome - (totalCashExpenses + materialExpensesCredit);
 
@@ -301,7 +288,7 @@ export class ExpenseLedgerService {
           await db.execute(sql`
             UPDATE daily_expense_summaries 
             SET remaining_balance = ${cashBalance}, 
-                carried_forward_amount = ${totalIncome - fundTransfers - incomingProjectTransfers} -- تقريبي
+                carried_forward_amount = ${carriedForwardBalance}
             WHERE project_id = ${projectId} AND date = ${date || new Date().toISOString().split('T')[0]}
           `);
         } catch (e) {
@@ -309,12 +296,14 @@ export class ExpenseLedgerService {
         }
       }
 
-      // تسجيل لوغ لفحص الحسابات
+      // تسجيل لوغ لفحص الحسابات بدقة
       console.log(`📊 [ExpenseLedger] حسابات المشروع ${projectName}:`, {
-        totalIncome,
-        totalCashExpenses,
-        cashBalance,
-        totalBalance
+        date: date || 'تراكمي',
+        carriedForward: carriedForwardBalance,
+        incomeToday: totalIncome,
+        expensesToday: totalCashExpenses,
+        remainingToday: currentDayRemaining,
+        cumulativeBalance: cashBalance
       });
 
       const totalWorkers = this.cleanDbValue(workersStatsResult.rows[0]?.total_workers, 'integer');

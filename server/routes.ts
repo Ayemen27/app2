@@ -1364,132 +1364,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // دالة مساعدة لحساب الرصيد التراكمي
   async function calculateCumulativeBalance(projectId: string, fromDate: string | null, toDate: string): Promise<number> {
     try {
-      // تحديد النطاق الزمني
-      const whereConditions = [eq(fundTransfers.projectId, projectId)];
-      
-      if (fromDate) {
-        whereConditions.push(gte(fundTransfers.transferDate, sql`${fromDate}::date`));
-      }
-      whereConditions.push(lt(fundTransfers.transferDate, sql`(${toDate}::date + interval '1 day')`));
-
-      // جلب جميع البيانات المالية للفترة المحددة
-      const [
-        ftRows,
-        waRows,
-        mpRows,
-        teRows,
-        wtRows,
-        wmRows,
-        incomingPtRows,
-        outgoingPtRows
-      ] = await Promise.all([
-        // تحويلات العهدة (fund_transfers)
-        db.select().from(fundTransfers)
-          .where(and(...whereConditions)),
-        
-        // أجور العمال المدفوعة (worker_attendance)
-        db.select().from(workerAttendance)
-          .where(and(
-            eq(workerAttendance.projectId, projectId),
-            fromDate ? gte(workerAttendance.date, fromDate) : sql`true`,
-            lte(workerAttendance.date, toDate)
-          )),
-        
-        // مشتريات المواد النقدية فقط
-        db.select().from(materialPurchases)
-          .where(and(
-            eq(materialPurchases.projectId, projectId),
-            eq(materialPurchases.purchaseType, "نقد"),
-            fromDate ? gte(materialPurchases.purchaseDate, fromDate) : sql`true`,
-            lte(materialPurchases.purchaseDate, toDate)
-          )),
-        
-        // مصاريف النقل
-        db.select().from(transportationExpenses)
-          .where(and(
-            eq(transportationExpenses.projectId, projectId),
-            fromDate ? gte(transportationExpenses.date, fromDate) : sql`true`,
-            lte(transportationExpenses.date, toDate)
-          )),
-        
-        // حوالات العمال
-        db.select().from(workerTransfers)
-          .where(and(
-            eq(workerTransfers.projectId, projectId),
-            fromDate ? gte(workerTransfers.transferDate, fromDate) : sql`true`,
-            lte(workerTransfers.transferDate, toDate)
-          )),
-        
-        // مصاريف متنوعة للعمال
-        db.select().from(workerMiscExpenses)
-          .where(and(
-            eq(workerMiscExpenses.projectId, projectId),
-            fromDate ? gte(workerMiscExpenses.date, fromDate) : sql`true`,
-            lte(workerMiscExpenses.date, toDate)
-          )),
-        
-        // تحويلات واردة من مشاريع أخرى
-        db.select().from(projectFundTransfers)
-          .where(and(
-            eq(projectFundTransfers.toProjectId, projectId),
-            fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql`true`,
-            lte(projectFundTransfers.transferDate, toDate)
-          )),
-        
-        // تحويلات صادرة إلى مشاريع أخرى
-        db.select().from(projectFundTransfers)
-          .where(and(
-            eq(projectFundTransfers.fromProjectId, projectId),
-            fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql`true`,
-            lte(projectFundTransfers.transferDate, toDate)
-          ))
+      const [income, expenses] = await Promise.all([
+        db.execute(sql`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          FROM (
+            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} 
+            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql``}
+            AND transfer_date::date <= ${toDate}::date
+            UNION ALL
+            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId}
+            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql``}
+            AND transfer_date::date <= ${toDate}::date
+          ) as income_sum
+        `),
+        db.execute(sql`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          FROM (
+            SELECT total_amount as amount FROM material_purchases WHERE project_id = ${projectId} AND purchase_type = 'نقد'
+            ${fromDate ? sql`AND purchase_date::date >= ${fromDate}::date` : sql``}
+            AND purchase_date::date <= ${toDate}::date
+            UNION ALL
+            SELECT actual_wage as amount FROM worker_attendance WHERE project_id = ${projectId} AND is_present = true
+            ${fromDate ? sql`AND attendance_date::date >= ${fromDate}::date` : sql``}
+            AND attendance_date::date <= ${toDate}::date
+            UNION ALL
+            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId}
+            ${fromDate ? sql`AND date::date >= ${fromDate}::date` : sql``}
+            AND date::date <= ${toDate}::date
+            UNION ALL
+            SELECT amount FROM worker_transfers WHERE project_id = ${projectId}
+            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql``}
+            AND transfer_date::date <= ${toDate}::date
+            UNION ALL
+            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId}
+            ${fromDate ? sql`AND date::date >= ${fromDate}::date` : sql``}
+            AND date::date <= ${toDate}::date
+            UNION ALL
+            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId}
+            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql``}
+            AND transfer_date::date <= ${toDate}::date
+          ) as expenses_sum
+        `)
       ]);
 
-      // حساب الإجماليات
-      const totalFundTransfers = ftRows.reduce((sum: number, t: any) => sum + parseFloat(String(t.amount || '0')), 0);
-      const totalWorkerWages = waRows.reduce((sum: number, w: any) => sum + parseFloat(String(w.paidAmount || '0')), 0);
-      const totalMaterialCosts = mpRows.reduce((sum: number, m: any) => sum + parseFloat(String(m.totalAmount || '0')), 0);
-      const totalTransportation = teRows.reduce((sum: number, t: any) => sum + parseFloat(String(t.amount || '0')), 0);
-      const totalWorkerTransfers = wtRows.reduce((sum: number, w: any) => sum + parseFloat(String(w.amount || '0')), 0);
-      const totalMiscExpenses = wmRows.reduce((sum: number, m: any) => sum + parseFloat(String(m.amount || '0')), 0);
-      const totalIncomingProjectTransfers = incomingPtRows.reduce((sum: number, p: any) => sum + parseFloat(String(p.amount || '0')), 0);
-      const totalOutgoingProjectTransfers = outgoingPtRows.reduce((sum: number, p: any) => sum + parseFloat(String(p.amount || '0')), 0);
-
-      // الرصيد = (العهد + التحويلات الواردة من مشاريع) - (الأجور + المواد + النقل + الحوالات + النثريات + التحويلات الصادرة لمشاريع)
-      // ملاحظة: التحويلات الواردة (Incoming) تضاف للرصيد، والتحويلات الصادرة (Outgoing) تخصم منه
-      const totalIncome = totalFundTransfers + totalIncomingProjectTransfers;
-      const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses + totalOutgoingProjectTransfers;
-      const balance = totalIncome - totalExpenses;
-
-      // إحصائيات إضافية للبطاقات
-      const stats = {
-        totalIncome,
-        totalExpenses,
-        currentBalance: balance,
-        incomeBreakdown: {
-          fundTransfers: totalFundTransfers,
-          projectIncoming: totalIncomingProjectTransfers
-        },
-        expenseBreakdown: {
-          wages: totalWorkerWages,
-          materials: totalMaterialCosts,
-          transport: totalTransportation,
-          transfers: totalWorkerTransfers,
-          misc: totalMiscExpenses,
-          projectOutgoing: totalOutgoingProjectTransfers
-        }
-      };
-
-      console.log(`💰 [Calc] فحص دقيق لمشروع ${projectId}:`, stats);
+      const incomeTotal = parseFloat(String(income.rows[0]?.total || 0));
+      const expensesTotal = parseFloat(String(expenses.rows[0]?.total || 0));
       
-      // إذا كان الطلب يتوقع كائن إحصائيات كامل (كما في لوحة التحكم)
-      if (req && req.query && req.query.detailed === 'true') {
-        return res.json({ success: true, data: stats });
-      }
+      console.log(`💰 [Calc] حساب تراكمي للمشروع ${projectId} من ${fromDate || 'البداية'} إلى ${toDate}:`, {
+        incomeTotal,
+        expensesTotal,
+        balance: incomeTotal - expensesTotal
+      });
 
-      return balance;
+      return incomeTotal - expensesTotal;
     } catch (error) {
-      console.error('❌ خطأ في حساب الرصيد التراكمي:', error);
+      console.error('❌ [Calc] خطأ في حساب الرصيد التراكمي:', error);
       return 0;
     }
   }

@@ -209,16 +209,19 @@ export class ExpenseLedgerService {
       // الرصيد الإجمالي يخصم منه المصاريف الآجلة أيضاً ليعبر عن المديونية الكلية للمشروع
       const totalBalance = totalIncome - (totalCashExpenses + materialExpensesCredit);
 
-      // تنظيف أي تضارب في السجلات اليومية المحفوظة (إذا وجدت) لضمان مطابقتها للحساب التراكمي
-      try {
-        await db.execute(sql`
-          UPDATE daily_expense_summaries 
-          SET remaining_balance = ${cashBalance}, 
-              carried_forward_amount = ${totalIncome - fundTransfers - incomingProjectTransfers} -- تقريبي
-          WHERE project_id = ${projectId} AND date = ${date || new Date().toISOString().split('T')[0]}
-        `);
-      } catch (e) {
-        // تجاهل الخطأ إذا لم يكن هناك سجل لليوم
+      // إذا كان هناك فلتر تاريخ، لا نقوم بتحديث الرصيد المتبقي التراكمي في الجداول
+      if (!date) {
+        // تنظيف أي تضارب في السجلات اليومية المحفوظة (إذا وجدت) لضمان مطابقتها للحساب التراكمي
+        try {
+          await db.execute(sql`
+            UPDATE daily_expense_summaries 
+            SET remaining_balance = ${cashBalance}, 
+                carried_forward_amount = ${totalIncome - fundTransfers - incomingProjectTransfers} -- تقريبي
+            WHERE project_id = ${projectId} AND date = ${date || new Date().toISOString().split('T')[0]}
+          `);
+        } catch (e) {
+          // تجاهل الخطأ إذا لم يكن هناك سجل لليوم
+        }
       }
 
       // تسجيل لوغ لفحص الحسابات

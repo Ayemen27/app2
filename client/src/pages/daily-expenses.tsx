@@ -408,6 +408,19 @@ function DailyExpensesContent() {
     enabled: !!selectedProjectId && !isAllProjects
   });
 
+  // حساب القيم المعروضة بناءً على وجود فلتر تاريخ
+  const displayIncome = useMemo(() => {
+    return financialSummary?.income?.totalIncome || 0;
+  }, [financialSummary]);
+
+  const displayExpenses = useMemo(() => {
+    return financialSummary?.expenses?.totalCashExpenses || 0;
+  }, [financialSummary]);
+
+  const displayBalance = useMemo(() => {
+    return financialSummary?.cashBalance || 0;
+  }, [financialSummary]);
+
   const { 
     data: dailyExpensesData, 
     isLoading: dailyExpensesLoading, 
@@ -2995,9 +3008,9 @@ function DailyExpensesContent() {
               {/* Total Summary */}
               <div className="border-t pt-3 mt-3">
                 <ExpenseSummary
-                  totalIncome={totals.totalIncome}
-                  totalExpenses={totals.totalExpenses}
-                  remainingBalance={totals.remainingBalance}
+                  totalIncome={displayIncome}
+                  totalExpenses={displayExpenses}
+                  remainingBalance={displayBalance}
                 />
               </div>
 

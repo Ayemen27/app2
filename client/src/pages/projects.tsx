@@ -666,10 +666,10 @@ export default function ProjectsPage() {
     
     // استخدام البيانات من الـ Hook الموحد
     if (financialTotals) {
-      const activeProjects = projects.filter(p => p.status === 'active').length;
+      const activeProjectsCount = projectsData.filter(p => p.status === 'active').length;
       return {
-        totalProjects: projects.length,
-        activeProjects,
+        totalProjects: projectsData.length,
+        activeProjects: activeProjectsCount,
         totalIncome: financialTotals.totalIncome || 0,
         totalExpenses: financialTotals.totalAllExpenses || financialTotals.totalExpenses || 0,
         totalWorkers: financialTotals.totalWorkers || 0,
@@ -679,14 +679,14 @@ export default function ProjectsPage() {
     
     // قيم افتراضية إذا لم تتوفر البيانات
     return {
-      totalProjects: projects.length,
-      activeProjects: projects.filter(p => p.status === 'active').length,
+      totalProjects: projectsData.length,
+      activeProjects: projectsData.filter(p => p.status === 'active').length,
       totalIncome: 0,
       totalExpenses: 0,
       totalWorkers: 0,
       materialPurchases: 0,
     };
-  }, [financialTotals, projects]);
+  }, [financialTotals, projectsData]);
 
   const currentBalance = financialTotals?.totalBalance ?? (overallStats.totalIncome - overallStats.totalExpenses);
 
@@ -694,7 +694,7 @@ export default function ProjectsPage() {
   const formatCurrencyLocal = formatCurrency;
 
   const filteredProjects = useMemo(() => {
-    return projects.filter(project => {
+    return projectsData.filter(project => {
       if (searchValue && !project.name.toLowerCase().includes(searchValue.toLowerCase())) {
         return false;
       }
@@ -710,7 +710,7 @@ export default function ProjectsPage() {
       }
       return true;
     });
-  }, [projects, searchValue, filterValues]);
+  }, [projectsData, searchValue, filterValues]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {

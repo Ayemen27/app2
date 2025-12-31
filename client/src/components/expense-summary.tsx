@@ -15,6 +15,7 @@ interface ExpenseSummaryProps {
   totalIncome?: number | string;
   totalExpenses?: number | string;
   remainingBalance?: number | string;
+  materialExpensesCredit?: number | string;
   details?: {
     workerWages?: number;
     materialCosts?: number;
@@ -23,11 +24,18 @@ interface ExpenseSummaryProps {
   };
 }
 
-export default function ExpenseSummary({ totalIncome, totalExpenses, remainingBalance, details }: ExpenseSummaryProps) {
+export default function ExpenseSummary({ 
+  totalIncome, 
+  totalExpenses, 
+  remainingBalance, 
+  materialExpensesCredit,
+  details 
+}: ExpenseSummaryProps) {
   // معالجة آمنة للقيم - تحويل إلى أرقام والتعامل مع القيم المفقودة
   const safeIncome = typeof totalIncome === 'number' ? totalIncome : parseFloat(String(totalIncome || '0')) || 0;
   const safeExpenses = typeof totalExpenses === 'number' ? totalExpenses : parseFloat(String(totalExpenses || '0')) || 0;
   const safeBalance = typeof remainingBalance === 'number' ? remainingBalance : parseFloat(String(remainingBalance || '0')) || 0;
+  const safeDeferred = typeof materialExpensesCredit === 'number' ? materialExpensesCredit : parseFloat(String(materialExpensesCredit || '0')) || 0;
 
   // حساب النسب المئوية
   const totalAmount = safeIncome + safeExpenses;
@@ -138,7 +146,7 @@ export default function ExpenseSummary({ totalIncome, totalExpenses, remainingBa
         )}
 
         {/* الرصيد المتبقي */}
-        <div className="bg-gradient-to-r from-primary/20 to-primary/10 rounded-lg p-3 border border-primary/30">
+        <div className="bg-gradient-to-r from-primary/20 to-primary/10 rounded-lg p-3 border border-primary/30 mb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Gauge className="h-5 w-5 text-primary" />
@@ -154,6 +162,19 @@ export default function ExpenseSummary({ totalIncome, totalExpenses, remainingBa
               : safeBalance < 0 
                 ? '⚠️ رصيد سالب' 
                 : '➖ رصيد متوازن'}
+          </div>
+        </div>
+
+        {/* المواد الآجلة - عرض منفصل */}
+        <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-3 border border-orange-200 dark:border-orange-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-orange-500" />
+              <span className="font-medium text-sm text-orange-700 dark:text-orange-300">مواد آجلة (لا تُخصم من الرصيد)</span>
+            </div>
+            <div className="text-xl font-bold text-orange-600 dark:text-orange-400 arabic-numbers">
+              {formatCurrency(safeDeferred)}
+            </div>
           </div>
         </div>
       </div>

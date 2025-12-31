@@ -156,16 +156,16 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
     summary: projectData,
     allProjects: null as AllProjectsSummary | null,
     totals: hasValidData ? {
-      totalIncome: projectData!.income.totalIncome || 0,
-      totalCashExpenses: projectData!.expenses.totalCashExpenses || 0,
-      totalAllExpenses: projectData!.expenses.totalAllExpenses || 0,
-      totalExpenses: projectData!.expenses.totalAllExpenses || 0,
-      cashBalance: projectData!.cashBalance || 0,
-      totalBalance: projectData!.totalBalance || 0,
-      currentBalance: projectData!.totalBalance || 0,
-      totalWorkers: projectData!.workers.totalWorkers || 0,
-      activeWorkers: projectData!.workers.activeWorkers || 0,
-      materialExpensesCredit: projectData!.expenses.materialExpensesCredit || 0
+      totalIncome: projectData!.income?.totalIncome ?? 0,
+      totalCashExpenses: projectData!.expenses?.totalCashExpenses ?? 0,
+      totalAllExpenses: projectData!.expenses?.totalAllExpenses ?? 0,
+      totalExpenses: projectData!.expenses?.totalCashExpenses ?? 0,
+      cashBalance: projectData!.cashBalance ?? 0,
+      totalBalance: projectData!.totalBalance ?? 0,
+      currentBalance: projectData!.totalBalance ?? 0,
+      totalWorkers: projectData!.workers?.totalWorkers ?? 0,
+      activeWorkers: projectData!.workers?.activeWorkers ?? 0,
+      materialExpensesCredit: projectData!.expenses?.materialExpensesCredit ?? 0
     } : {
       totalIncome: 0,
       totalCashExpenses: 0,

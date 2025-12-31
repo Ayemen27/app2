@@ -76,11 +76,43 @@ export default function ProjectTransactionsSimple() {
     // الحسابات المالية (إجمالي التوريد والمنصرف والرصيد) - من المصدر الموحد للحقيقة
     const stats = useMemo(() => {
       return {
-        totalIncome: financialTotals?.totalIncome || 0,
-        totalExpenses: financialTotals?.totalCashExpenses || 0, // استخدام الكاش فقط كمصروفات فعلية
-        currentBalance: financialTotals?.totalBalance || 0
+        totalIncome: financialTotals?.totalIncome ?? 0,
+        totalExpenses: financialTotals?.totalCashExpenses ?? 0, // استخدام الكاش فقط كمصروفات فعلية
+        currentBalance: financialTotals?.totalBalance ?? 0,
+        deferredExpenses: financialTotals?.materialExpensesCredit ?? 0
       };
     }, [financialTotals]);
+
+    const statsRow: StatsRowConfig[] = [
+      { 
+        label: "إجمالي التوريد", 
+        value: stats.totalIncome, 
+        icon: UnifiedTrendingUp, 
+        color: "green",
+        formatter: (val) => formatCurrency(val)
+      },
+      { 
+        label: "إجمالي المنصرف (نقدي)", 
+        value: stats.totalExpenses, 
+        icon: UnifiedTrendingDown, 
+        color: "red",
+        formatter: (val) => formatCurrency(val)
+      },
+      { 
+        label: "الرصيد المتبقي", 
+        value: stats.currentBalance, 
+        icon: UnifiedDollarSign, 
+        color: stats.currentBalance >= 0 ? "blue" : "red",
+        formatter: (val) => formatCurrency(val)
+      },
+      { 
+        label: "المواد الآجلة", 
+        value: stats.deferredExpenses, 
+        icon: Clock, 
+        color: "orange",
+        formatter: (val) => formatCurrency(val)
+      }
+    ];
 
   // تحسين جلب البيانات باستخدام Cache و StaleTime
   const queryOptions = {

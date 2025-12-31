@@ -476,6 +476,7 @@ export default function Reports() {
                       totalIncome={expenseSummary?.income.totalIncome || 0}
                       totalExpenses={expenseData.total}
                       remainingBalance={expenseSummary?.totalBalance || 0}
+                      materialExpensesCredit={expenseSummary?.expenses.materialExpensesCredit || 0}
                       details={{
                         workerWages: expenseData.workerWages,
                         materialCosts: expenseData.materialCosts,

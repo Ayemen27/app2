@@ -25,6 +25,8 @@ export interface IncomeSummary {
   fundTransfers: number;
   incomingProjectTransfers: number;
   totalIncome: number;
+  carriedForwardBalance?: number;
+  totalIncomeWithCarried?: number;
 }
 
 export interface WorkerStats {

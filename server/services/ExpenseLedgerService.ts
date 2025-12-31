@@ -102,6 +102,9 @@ export class ExpenseLedgerService {
         dateFilterMisc = sql`AND date BETWEEN ${dateFrom} AND ${dateTo}`;
       }
 
+      // تسجيل الفلاتر للتأكد من صحتها
+      console.log(`🔍 [ExpenseLedger] تطبيق الفلترة لـ ${projectId}:`, { date, dateFrom, dateTo });
+
       const [
         projectInfo,
         materialCashStats,
@@ -137,7 +140,7 @@ export class ExpenseLedgerService {
           SELECT 
             COUNT(*) as count,
             COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as total,
-            COUNT(DISTINCT date) as completed_days
+            COUNT(DISTINCT attendance_date) as completed_days
           FROM worker_attendance 
           WHERE project_id = ${projectId} AND is_present = true ${dateFilterAttendance}
         `),

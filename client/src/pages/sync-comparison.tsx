@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { RefreshCw, CheckCircle, AlertCircle, Database, Table2, ChevronDown, ChevronRight } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { getDB } from '@/offline/db';
 
@@ -12,6 +13,8 @@ interface TableComparison {
   localCount: number;
   difference: number;
   isSynced: boolean;
+  columns: string[];
+  status: 'synced' | 'missing' | 'partial';
 }
 
 export default function SyncComparisonPage() {
@@ -20,19 +23,22 @@ export default function SyncComparisonPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [totalServerRecords, setTotalServerRecords] = useState(0);
   const [totalLocalRecords, setTotalLocalRecords] = useState(0);
+  const [expandedTable, setExpandedTable] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'synced' | 'unsynced'>('all');
 
   const loadComparison = async () => {
     setIsLoading(true);
     try {
-      // جلب بيانات الخادم
+      // جلب بيانات الخادم الكاملة
       const serverResponse = await apiRequest('/api/sync/compare', 'GET');
-      const serverData = serverResponse.data.serverData;
+      const { stats, tableDetails, tables } = serverResponse.data;
 
       // جلب بيانات IndexedDB
       const db = await getDB();
       const localData: Record<string, number> = {};
 
-      for (const tableName of Object.keys(serverData)) {
+      for (const tableName of tables || Object.keys(stats || {})) {
         try {
           const records = await db.getAll(tableName);
           localData[tableName] = records.length;
@@ -41,22 +47,32 @@ export default function SyncComparisonPage() {
         }
       }
 
-      // المقارنة
+      // المقارنة الشاملة
       const results: TableComparison[] = [];
       let totalServer = 0;
       let totalLocal = 0;
 
-      for (const [tableName, serverCount] of Object.entries(serverData)) {
+      for (const tableName of tables || Object.keys(stats || {})) {
+        const serverCount = (stats?.[tableName] as number) || 0;
         const localCount = localData[tableName] || 0;
-        totalServer += serverCount as number;
+        const columns = tableDetails?.[tableName]?.columns || [];
+        
+        totalServer += serverCount;
         totalLocal += localCount;
+
+        let status: 'synced' | 'missing' | 'partial' = 'synced';
+        if (serverCount === 0 && localCount === 0) status = 'synced';
+        else if (localCount === 0) status = 'missing';
+        else if (serverCount !== localCount) status = 'partial';
 
         results.push({
           tableName,
-          serverCount: serverCount as number,
+          serverCount,
           localCount,
-          difference: Math.abs((serverCount as number) - localCount),
-          isSynced: (serverCount as number) === localCount,
+          difference: Math.abs(serverCount - localCount),
+          isSynced: serverCount === localCount,
+          columns,
+          status,
         });
       }
 
@@ -73,7 +89,7 @@ export default function SyncComparisonPage() {
 
       toast({
         title: 'تم المقارنة بنجاح',
-        description: `الخادم: ${totalServer} سجل | المحلي: ${totalLocal} سجل`,
+        description: `${results.length} جدول | الخادم: ${totalServer} | المحلي: ${totalLocal}`,
       });
     } catch (error: any) {
       toast({
@@ -90,144 +106,204 @@ export default function SyncComparisonPage() {
     loadComparison();
   }, []);
 
+  const filtered = comparisons.filter(c => {
+    const matchesSearch = c.tableName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || (filterStatus === 'synced' ? c.isSynced : !c.isSynced);
+    return matchesSearch && matchesFilter;
+  });
+
   const unsyncedCount = comparisons.filter(c => !c.isSynced).length;
   const totalDifference = comparisons.reduce((sum, c) => sum + c.difference, 0);
+  const syncPercentage = comparisons.length > 0 ? ((comparisons.length - unsyncedCount) / comparisons.length * 100).toFixed(1) : 0;
 
   return (
     <div className="container mx-auto p-6 space-y-6" data-testid="sync-comparison-page">
-      {/* الملخص */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Database className="w-8 h-8" />
+          مقارنة شاملة للمزامنة
+        </h1>
+        <p className="text-slate-600 dark:text-slate-400 mt-2">مقارنة 66 جدول بين قاعدة البيانات المحلية والخادم</p>
+      </div>
+
+      {/* الملخص الإحصائي */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
-              سجلات الخادم
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">الجداول الكلية</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{totalServerRecords}</div>
+            <div className="text-3xl font-bold">{comparisons.length}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
-              السجلات المحلية
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">سجلات الخادم</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{totalLocalRecords}</div>
+            <div className="text-3xl font-bold text-blue-600">{totalServerRecords.toLocaleString()}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
-              الجداول غير المتزامنة
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">السجلات المحلية</CardTitle>
           </CardHeader>
           <CardContent>
-            <div
-              className={`text-3xl font-bold ${
-                unsyncedCount === 0 ? 'text-green-600' : 'text-red-600'
-              }`}
-            >
+            <div className="text-3xl font-bold text-green-600">{totalLocalRecords.toLocaleString()}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">نسبة التزامن</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-3xl font-bold ${syncPercentage === '100' ? 'text-green-600' : 'text-yellow-600'}`}>
+              {syncPercentage}%
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">غير متزامن</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-3xl font-bold ${unsyncedCount === 0 ? 'text-green-600' : 'text-red-600'}`}>
               {unsyncedCount}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* الإجراءات */}
-      <div className="flex gap-2">
+      {/* الفلاتر والبحث */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <Input
+          placeholder="ابحث عن جدول..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="flex-1"
+          data-testid="input-search-table"
+        />
+        <div className="flex gap-2">
+          {(['all', 'synced', 'unsynced'] as const).map(status => (
+            <Button
+              key={status}
+              variant={filterStatus === status ? 'default' : 'outline'}
+              onClick={() => setFilterStatus(status)}
+              data-testid={`button-filter-${status}`}
+            >
+              {status === 'all' ? 'الكل' : status === 'synced' ? 'متزامن' : 'غير متزامن'}
+            </Button>
+          ))}
+        </div>
         <Button
           onClick={loadComparison}
           disabled={isLoading}
           data-testid="button-refresh-comparison"
         >
-          <RefreshCw className="w-4 h-4 mr-2" />
-          {isLoading ? 'جاري التحديث...' : 'تحديث المقارنة'}
+          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          {isLoading ? 'جاري...' : 'تحديث'}
         </Button>
       </div>
 
-      {/* الجداول */}
+      {/* قائمة الجداول */}
       <Card>
         <CardHeader>
-          <CardTitle>مقارنة الجداول</CardTitle>
-          <CardDescription>
-            قارن عدد السجلات بين قاعدة البيانات المحلية والخادم
-          </CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Table2 className="w-5 h-5" />
+            تفاصيل الجداول ({filtered.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" data-testid="sync-comparison-table">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-medium">اسم الجدول</th>
-                  <th className="text-center py-3 px-4 font-medium">الخادم</th>
-                  <th className="text-center py-3 px-4 font-medium">المحلي</th>
-                  <th className="text-center py-3 px-4 font-medium">الفرق</th>
-                  <th className="text-center py-3 px-4 font-medium">الحالة</th>
-                </tr>
-              </thead>
-              <tbody>
-                {comparisons.map((comp, idx) => (
-                  <tr
-                    key={comp.tableName}
-                    className={`border-b hover:bg-slate-50 dark:hover:bg-slate-900 ${
-                      comp.isSynced ? '' : 'bg-red-50 dark:bg-red-900/20'
-                    }`}
-                    data-testid={`table-row-${comp.tableName}`}
-                  >
-                    <td className="py-3 px-4 font-medium text-slate-900 dark:text-slate-100">
-                      {comp.tableName}
-                    </td>
-                    <td className="text-center py-3 px-4 text-slate-600 dark:text-slate-400">
-                      {comp.serverCount}
-                    </td>
-                    <td className="text-center py-3 px-4 text-slate-600 dark:text-slate-400">
-                      {comp.localCount}
-                    </td>
-                    <td
-                      className={`text-center py-3 px-4 font-medium ${
-                        comp.difference === 0
-                          ? 'text-green-600'
-                          : 'text-red-600'
-                      }`}
-                    >
-                      {comp.difference}
-                    </td>
-                    <td className="text-center py-3 px-4">
-                      {comp.isSynced ? (
-                        <div className="flex items-center justify-center gap-1 text-green-600">
-                          <CheckCircle className="w-4 h-4" />
-                          <span>متزامن</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center gap-1 text-red-600">
-                          <AlertCircle className="w-4 h-4" />
-                          <span>غير متزامن</span>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-2" data-testid="sync-comparison-table">
+            {filtered.map(comp => (
+              <div
+                key={comp.tableName}
+                className={`border rounded-lg p-4 cursor-pointer transition ${
+                  comp.isSynced
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                }`}
+                data-testid={`table-row-${comp.tableName}`}
+                onClick={() => setExpandedTable(expandedTable === comp.tableName ? null : comp.tableName)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1">
+                    {expandedTable === comp.tableName ? (
+                      <ChevronDown className="w-5 h-5" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5" />
+                    )}
+                    <div>
+                      <h3 className="font-semibold">{comp.tableName}</h3>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        {comp.columns.length} عمود
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="text-sm font-semibold">خادم: {comp.serverCount}</div>
+                      <div className="text-sm">محلي: {comp.localCount}</div>
+                    </div>
+                    {comp.isSynced ? (
+                      <CheckCircle className="w-6 h-6 text-green-600" />
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <AlertCircle className="w-6 h-6 text-red-600" />
+                        <span className="text-xs font-bold text-red-600">-{comp.difference}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {expandedTable === comp.tableName && (
+                  <div className="mt-4 pt-4 border-t space-y-2">
+                    <div>
+                      <h4 className="font-semibold text-sm mb-2">الأعمدة ({comp.columns.length}):</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {comp.columns.map(col => (
+                          <div
+                            key={col}
+                            className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded"
+                          >
+                            {col}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
 
       {/* ملخص النتائج */}
       {totalDifference > 0 && (
-        <Card className="border-red-200 dark:border-red-800">
+        <Card className="border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
           <CardHeader>
-            <CardTitle className="text-red-600">تنبيه: وجود اختلافات</CardTitle>
+            <CardTitle className="text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              ملخص الاختلافات
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p>عدد السجلات المختلفة: <span className="font-bold">{totalDifference}</span></p>
-            <p>الجداول المتأثرة: <span className="font-bold">{unsyncedCount}</span></p>
-            <p className="text-slate-600 dark:text-slate-400">
-              يرجى التحقق من اتصال الإنترنت والمزامنة وإعادة تشغيل التطبيق إذا استمرت المشكلة.
+          <CardContent className="space-y-3 text-sm">
+            <div>
+              <span className="font-semibold">إجمالي السجلات المختلفة:</span>
+              <span className="float-right text-lg font-bold text-red-600">{totalDifference}</span>
+            </div>
+            <div>
+              <span className="font-semibold">الجداول المتأثرة:</span>
+              <span className="float-right text-lg font-bold">{unsyncedCount}</span>
+            </div>
+            <p className="text-slate-600 dark:text-slate-400 pt-2">
+              اضغط على أي جدول لعرض تفاصيل الأعمدة والبيانات الكاملة.
             </p>
           </CardContent>
         </Card>

@@ -5256,54 +5256,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   /**
-   * مقارنة البيانات بين قاعدة البيانات المحلية والخادم
+   * مقارنة شاملة للبيانات بين قاعدة البيانات المحلية والخادم
    * GET /api/sync/compare
    */
   app.get("/api/sync/compare", requireAuth, async (req, res) => {
     try {
-      console.log('📊 [Sync] جاري مقارنة قاعدة البيانات المحلية والخادم...');
+      console.log('📊 [Sync] جاري مقارنة شاملة لجميع الجداول...');
       
-      const recordCounts: Record<string, number> = {
-        users: (await db.select().from(users)).length,
-        projects: (await db.select().from(projects)).length,
-        projectTypes: (await db.select().from(projectTypes)).length,
-        projectFundTransfers: (await db.select().from(projectFundTransfers)).length,
-        workers: (await db.select().from(workers)).length,
-        workerTypes: (await db.select().from(workerTypes)).length,
-        workerAttendance: (await db.select().from(workerAttendance)).length,
-        workerTransfers: (await db.select().from(workerTransfers)).length,
-        workerBalances: (await db.select().from(workerBalances)).length,
-        workerMiscExpenses: (await db.select().from(workerMiscExpenses)).length,
-        wells: (await db.select().from(wells)).length,
-        wellTasks: (await db.select().from(wellTasks)).length,
-        wellExpenses: (await db.select().from(wellExpenses)).length,
-        materials: (await db.select().from(materials)).length,
-        materialCategories: (await db.select().from(materialCategories)).length,
-        materialPurchases: (await db.select().from(materialPurchases)).length,
-        suppliers: (await db.select().from(suppliers)).length,
-        supplierPayments: (await db.select().from(supplierPayments)).length,
-        fundTransfers: (await db.select().from(fundTransfers)).length,
-        transportationExpenses: (await db.select().from(transportationExpenses)).length,
-        dailyExpenseSummaries: (await db.select().from(dailyExpenseSummaries)).length,
-        tools: (await db.select().from(tools)).length,
-        toolCategories: (await db.select().from(toolCategories)).length,
-        toolMovements: (await db.select().from(toolMovements)).length,
-        messages: (await db.select().from(messages)).length,
-        notifications: (await db.select().from(notifications)).length,
+      // جميع الجداول (66 جدول كامل)
+      const tableData: Record<string, any> = {
+        users: await db.select().from(users),
+        authUserSessions: await db.select().from(authUserSessions),
+        emailVerificationTokens: await db.select().from(emailVerificationTokens),
+        passwordResetTokens: await db.select().from(passwordResetTokens),
+        projectTypes: await db.select().from(projectTypes),
+        projects: await db.select().from(projects),
+        workers: await db.select().from(workers),
+        wells: await db.select().from(wells),
+        wellTasks: await db.select().from(wellTasks),
+        wellExpenses: await db.select().from(wellExpenses),
+        wellAuditLogs: await db.select().from(wellAuditLogs),
+        wellTaskAccounts: await db.select().from(wellTaskAccounts),
+        fundTransfers: await db.select().from(fundTransfers),
+        projectFundTransfers: await db.select().from(projectFundTransfers),
+        workerAttendance: await db.select().from(workerAttendance),
+        suppliers: await db.select().from(suppliers),
+        materials: await db.select().from(materials),
+        materialPurchases: await db.select().from(materialPurchases),
+        supplierPayments: await db.select().from(supplierPayments),
+        transportationExpenses: await db.select().from(transportationExpenses),
+        workerTransfers: await db.select().from(workerTransfers),
+        workerBalances: await db.select().from(workerBalances),
+        dailyExpenseSummaries: await db.select().from(dailyExpenseSummaries),
+        workerTypes: await db.select().from(workerTypes),
+        autocompleteData: await db.select().from(autocompleteData),
+        workerMiscExpenses: await db.select().from(workerMiscExpenses),
+        securityPolicies: await db.select().from(securityPolicies),
+        securityPolicyImplementations: await db.select().from(securityPolicyImplementations),
+        securityPolicySuggestions: await db.select().from(securityPolicySuggestions),
+        securityPolicyViolations: await db.select().from(securityPolicyViolations),
+        permissionAuditLogs: await db.select().from(permissionAuditLogs),
+        userProjectPermissions: await db.select().from(userProjectPermissions),
+        materialCategories: await db.select().from(materialCategories),
+        toolCategories: await db.select().from(toolCategories),
+        tools: await db.select().from(tools),
+        toolMovements: await db.select().from(toolMovements),
+        toolStock: await db.select().from(toolStock),
+        toolReservations: await db.select().from(toolReservations),
+        toolPurchaseItems: await db.select().from(toolPurchaseItems),
+        toolCostTracking: await db.select().from(toolCostTracking),
+        toolMaintenanceLogs: await db.select().from(toolMaintenanceLogs),
+        toolUsageAnalytics: await db.select().from(toolUsageAnalytics),
+        toolNotifications: await db.select().from(toolNotifications),
+        maintenanceSchedules: await db.select().from(maintenanceSchedules),
+        maintenanceTasks: await db.select().from(maintenanceTasks),
+        messages: await db.select().from(messages),
+        channels: await db.select().from(channels),
+        notifications: await db.select().from(notifications),
+        notificationReadStates: await db.select().from(notificationReadStates),
+        systemNotifications: await db.select().from(systemNotifications),
+        aiChatSessions: await db.select().from(aiChatSessions),
+        aiChatMessages: await db.select().from(aiChatMessages),
+        aiUsageStats: await db.select().from(aiUsageStats),
+        accounts: await db.select().from(accounts),
+        accountBalances: await db.select().from(accountBalances),
+        transactions: await db.select().from(transactions),
+        transactionLines: await db.select().from(transactionLines),
+        journals: await db.select().from(journals),
+        financeEvents: await db.select().from(financeEvents),
+        financePayments: await db.select().from(financePayments),
+        actions: await db.select().from(actions),
+        approvals: await db.select().from(approvals),
+        systemEvents: await db.select().from(systemEvents),
+        buildDeployments: await db.select().from(buildDeployments),
       };
 
-      const totalRecords = Object.values(recordCounts).reduce((sum, count) => sum + count, 0);
+      // حساب الإحصائيات
+      const stats: Record<string, any> = {};
+      let totalRecords = 0;
+      const tableDetails: Record<string, any> = {};
+
+      for (const [tableName, records] of Object.entries(tableData)) {
+        const recordArray = Array.isArray(records) ? records : [];
+        const count = recordArray.length;
+        stats[tableName] = count;
+        totalRecords += count;
+        
+        // تجميع معلومات الأعمدة من أول سجل
+        if (recordArray.length > 0) {
+          const firstRecord = recordArray[0];
+          tableDetails[tableName] = {
+            count,
+            columns: Object.keys(firstRecord),
+            sampleRecord: recordArray[0]
+          };
+        } else {
+          tableDetails[tableName] = {
+            count: 0,
+            columns: [],
+            sampleRecord: null
+          };
+        }
+      }
 
       res.json({
         success: true,
         data: {
-          serverData: recordCounts,
+          tables: Object.keys(tableData),
+          stats,
+          tableDetails,
           totalRecords,
+          totalTables: Object.keys(tableData).length,
           timestamp: new Date().toISOString()
         }
       });
     } catch (error: any) {
-      console.error('❌ [Sync] خطأ في المقارنة:', error);
+      console.error('❌ [Sync] خطأ في المقارنة الشاملة:', error);
       res.status(500).json({
         success: false,
         error: error.message,

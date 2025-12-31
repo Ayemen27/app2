@@ -80,13 +80,27 @@ export class ExpenseLedgerService {
    * جلب الملخص المالي لمشروع معين
    * هذه الدالة هي المصدر الوحيد للحقيقة
    */
-  static async getProjectFinancialSummary(projectId: string, date?: string): Promise<ProjectFinancialSummary> {
+  static async getProjectFinancialSummary(projectId: string, date?: string, dateFrom?: string, dateTo?: string): Promise<ProjectFinancialSummary> {
     try {
-      const dateFilter = date ? sql`AND DATE(purchase_date) = ${date}` : sql``;
-      const dateFilterTransfer = date ? sql`AND DATE(transfer_date) = ${date}` : sql``;
-      const dateFilterAttendance = date ? sql`AND date = ${date}` : sql``;
-      const dateFilterTransport = date ? sql`AND date = ${date}` : sql``;
-      const dateFilterMisc = date ? sql`AND date = ${date}` : sql``;
+      let dateFilter = sql``;
+      let dateFilterTransfer = sql``;
+      let dateFilterAttendance = sql``;
+      let dateFilterTransport = sql``;
+      let dateFilterMisc = sql``;
+
+      if (date) {
+        dateFilter = sql`AND purchase_date = ${date}`;
+        dateFilterTransfer = sql`AND DATE(transfer_date) = ${date}`;
+        dateFilterAttendance = sql`AND attendance_date = ${date}`;
+        dateFilterTransport = sql`AND date = ${date}`;
+        dateFilterMisc = sql`AND date = ${date}`;
+      } else if (dateFrom && dateTo) {
+        dateFilter = sql`AND purchase_date BETWEEN ${dateFrom} AND ${dateTo}`;
+        dateFilterTransfer = sql`AND DATE(transfer_date) BETWEEN ${dateFrom} AND ${dateTo}`;
+        dateFilterAttendance = sql`AND attendance_date BETWEEN ${dateFrom} AND ${dateTo}`;
+        dateFilterTransport = sql`AND date BETWEEN ${dateFrom} AND ${dateTo}`;
+        dateFilterMisc = sql`AND date BETWEEN ${dateFrom} AND ${dateTo}`;
+      }
 
       const [
         projectInfo,

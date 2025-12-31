@@ -73,15 +73,17 @@ export interface AllProjectsSummary {
 interface UseFinancialSummaryOptions {
   projectId?: string | null;
   date?: string | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
   enabled?: boolean;
 }
 
 export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
-  const { projectId, date, enabled = true } = options;
+  const { projectId, date, dateFrom, dateTo, enabled = true } = options;
 
   const queryKey = projectId && projectId !== 'all'
-    ? ["/api/financial-summary", projectId, date]
-    : ["/api/financial-summary", "all", date];
+    ? ["/api/financial-summary", projectId, date, dateFrom, dateTo]
+    : ["/api/financial-summary", "all", date, dateFrom, dateTo];
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey,
@@ -95,6 +97,12 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
         }
         if (date) {
           params.append("date", date);
+        }
+        if (dateFrom) {
+          params.append("dateFrom", dateFrom);
+        }
+        if (dateTo) {
+          params.append("dateTo", dateTo);
         }
 
         if (params.toString()) {

@@ -405,6 +405,8 @@ function DailyExpensesContent() {
   } = useFinancialSummary({
     projectId: selectedProjectId,
     date: selectedDate || undefined,
+    dateFrom: filterValues.dateRange?.from ? formatDate(filterValues.dateRange.from) : undefined,
+    dateTo: filterValues.dateRange?.to ? formatDate(filterValues.dateRange.to) : undefined,
     enabled: !!selectedProjectId && !isAllProjects
   });
 
@@ -418,8 +420,13 @@ function DailyExpensesContent() {
   }, [financialSummary]);
 
   const displayBalance = useMemo(() => {
+    // في حالة الفلترة لليوم أو الفترة، نعرض رصيد الدخل - المصروفات لتلك الفترة
+    if (selectedDate || (filterValues.dateRange?.from)) {
+      return (financialSummary?.income?.totalIncome || 0) - (financialSummary?.expenses?.totalCashExpenses || 0);
+    }
+    // في الحالة العامة نعرض الرصيد التراكمي
     return financialSummary?.cashBalance || 0;
-  }, [financialSummary]);
+  }, [financialSummary, selectedDate, filterValues.dateRange]);
 
   const { 
     data: dailyExpensesData, 

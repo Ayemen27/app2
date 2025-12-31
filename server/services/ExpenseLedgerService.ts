@@ -72,12 +72,8 @@ export class ExpenseLedgerService {
     }
     const parsed = type === 'integer' ? parseInt(strValue, 10) : parseFloat(strValue);
     if (isNaN(parsed) || !isFinite(parsed)) return 0;
-    const maxValue = type === 'integer' ? 1000000 : 100000000000;
-    if (Math.abs(parsed) > maxValue) {
-      console.warn(`⚠️ [ExpenseLedger] قيمة تتجاوز الحد:`, parsed);
-      return 0;
-    }
-    return Math.max(0, parsed);
+    const maxValue = type === 'integer' ? 1000000000 : 100000000000;
+    return parsed;
   }
 
   /**
@@ -201,7 +197,7 @@ export class ExpenseLedgerService {
       const incomingProjectTransfers = this.cleanDbValue(incomingTransfersStats.rows[0]?.total);
 
       const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
-      const totalAllExpenses = totalCashExpenses + materialExpensesCredit;
+      const totalAllExpenses = totalCashExpenses; // لا يتم احتساب الآجل ضمن المصروفات الكلية حسب طلب المستخدم
       
       const totalIncome = fundTransfers + incomingProjectTransfers;
       

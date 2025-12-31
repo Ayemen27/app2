@@ -90,13 +90,13 @@ export class ExpenseLedgerService {
 
       if (date) {
         dateFilter = sql`AND purchase_date = ${date}`;
-        dateFilterTransfer = sql`AND DATE(transfer_date) = ${date}`;
+        dateFilterTransfer = sql`AND transfer_date::date = ${date}::date`;
         dateFilterAttendance = sql`AND attendance_date = ${date}`;
         dateFilterTransport = sql`AND date = ${date}`;
         dateFilterMisc = sql`AND date = ${date}`;
       } else if (dateFrom && dateTo) {
         dateFilter = sql`AND purchase_date BETWEEN ${dateFrom} AND ${dateTo}`;
-        dateFilterTransfer = sql`AND DATE(transfer_date) BETWEEN ${dateFrom} AND ${dateTo}`;
+        dateFilterTransfer = sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
         dateFilterAttendance = sql`AND attendance_date BETWEEN ${dateFrom} AND ${dateTo}`;
         dateFilterTransport = sql`AND date BETWEEN ${dateFrom} AND ${dateTo}`;
         dateFilterMisc = sql`AND date BETWEEN ${dateFrom} AND ${dateTo}`;

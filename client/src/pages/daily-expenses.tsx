@@ -412,6 +412,7 @@ function DailyExpensesContent() {
 
   // حساب القيم المعروضة بناءً على وجود فلتر تاريخ
   const displayIncome = useMemo(() => {
+    // في صفحة المصروفات اليومية، نحن مهتمون فقط بدخل الفترة المختارة
     return financialSummary?.income?.totalIncome || 0;
   }, [financialSummary]);
 
@@ -420,13 +421,10 @@ function DailyExpensesContent() {
   }, [financialSummary]);
 
   const displayBalance = useMemo(() => {
-    // في حالة الفلترة لليوم أو الفترة، نعرض رصيد الدخل - المصروفات لتلك الفترة
-    if (selectedDate || (filterValues.dateRange?.from)) {
-      return (financialSummary?.income?.totalIncome || 0) - (financialSummary?.expenses?.totalCashExpenses || 0);
-    }
-    // في الحالة العامة نعرض الرصيد التراكمي
-    return financialSummary?.cashBalance || 0;
-  }, [financialSummary, selectedDate, filterValues.dateRange]);
+    // في صفحة المصروفات اليومية، نعرض دائماً صافي الحركة للفترة المختارة (دخل - مصروفات)
+    // ليتطابق مع ما يراه المستخدم في الجداول بالأسفل
+    return (financialSummary?.income?.totalIncome || 0) - (financialSummary?.expenses?.totalCashExpenses || 0);
+  }, [financialSummary]);
 
   const { 
     data: dailyExpensesData, 

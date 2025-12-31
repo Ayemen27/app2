@@ -642,30 +642,6 @@ function DailyExpensesContent() {
     }
   }, [selectedProjectId, selectedDate, isAllProjects, queryClient]);
 
-  // دالة مساعدة لتحديث جميع البيانات - محسّنة
-  const refreshAllData = useCallback(() => {
-    const currentProjectId = selectedProjectId;
-    const currentDate = selectedDate || getCurrentDate();
-    
-    // تحديث فقط الاستعلامات النشطة
-    if (isAllProjects) {
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", "all-projects"],
-        exact: false
-      });
-    } else if (currentProjectId && currentProjectId !== 'all') {
-      // تحديث مجمّع للمشروع المحدد
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", currentProjectId],
-        exact: false
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/financial-summary", currentProjectId],
-        exact: false
-      });
-    }
-  }, [queryClient, selectedProjectId, selectedDate, isAllProjects]);
-
   // تهيئة قيم الإكمال التلقائي الافتراضية لنوع التحويل
   useEffect(() => {
     const initializeDefaultTransferTypes = async () => {

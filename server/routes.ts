@@ -1445,6 +1445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ))
       ]);
 
+      // حساب الإجماليات
       const totalFundTransfers = ftRows.reduce((sum: number, t: any) => sum + parseFloat(String(t.amount || '0')), 0);
       const totalWorkerWages = waRows.reduce((sum: number, w: any) => sum + parseFloat(String(w.paidAmount || '0')), 0);
       const totalMaterialCosts = mpRows.reduce((sum: number, m: any) => sum + parseFloat(String(m.totalAmount || '0')), 0);
@@ -1454,15 +1455,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalIncomingProjectTransfers = incomingPtRows.reduce((sum: number, p: any) => sum + parseFloat(String(p.amount || '0')), 0);
       const totalOutgoingProjectTransfers = outgoingPtRows.reduce((sum: number, p: any) => sum + parseFloat(String(p.amount || '0')), 0);
 
-      // الرصيد = (العهد + التحويلات الواردة) - (الأجور + المواد + النقل + الحوالات + النثريات + التحويلات الصادرة)
+      // الرصيد = (العهد + التحويلات الواردة من مشاريع) - (الأجور + المواد + النقل + الحوالات + النثريات + التحويلات الصادرة لمشاريع)
+      // ملاحظة: التحويلات الواردة (Incoming) تضاف للرصيد، والتحويلات الصادرة (Outgoing) تخصم منه
       const totalIncome = totalFundTransfers + totalIncomingProjectTransfers;
       const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses + totalOutgoingProjectTransfers;
       const balance = totalIncome - totalExpenses;
 
       console.log(`💰 [Calc] فحص دقيق لمشروع ${projectId}:`);
-      console.log(`📥 دخل: عهد=${totalFundTransfers}, وارد من مشاريع=${totalIncomingProjectTransfers}`);
-      console.log(`📤 صرف: أجور=${totalWorkerWages}, مواد=${totalMaterialCosts}, نقل=${totalTransportation}, حوالات=${totalWorkerTransfers}, نثريات=${totalMiscExpenses}, صادر لمشاريع=${totalOutgoingProjectTransfers}`);
-      console.log(`⚖️ رصيد نهائي: ${balance}`);
+      console.log(`📥 دخل: عهد=${totalFundTransfers.toLocaleString()}, وارد من مشاريع=${totalIncomingProjectTransfers.toLocaleString()}, إجمالي الدخل=${totalIncome.toLocaleString()}`);
+      console.log(`📤 صرف: أجور=${totalWorkerWages.toLocaleString()}, مواد=${totalMaterialCosts.toLocaleString()}, نقل=${totalTransportation.toLocaleString()}, حوالات=${totalWorkerTransfers.toLocaleString()}, نثريات=${totalMiscExpenses.toLocaleString()}, صادر لمشاريع=${totalOutgoingProjectTransfers.toLocaleString()}, إجمالي المصروفات=${totalExpenses.toLocaleString()}`);
+      console.log(`⚖️ رصيد نهائي (المتبقي): ${balance.toLocaleString()}`);
       
       return balance;
     } catch (error) {

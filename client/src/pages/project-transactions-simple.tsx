@@ -73,14 +73,14 @@ export default function ProjectTransactionsSimple() {
     enabled: true
   });
 
-  // الحسابات المالية (إجمالي التوريد والمنصرف والرصيد) - من المصدر الموحد للحقيقة
-  const stats = useMemo(() => {
-    return {
-      totalIncome: financialTotals?.totalIncome || 0,
-      totalExpenses: financialTotals?.totalAllExpenses || 0,
-      currentBalance: financialTotals?.totalBalance || 0
-    };
-  }, [financialTotals]);
+    // الحسابات المالية (إجمالي التوريد والمنصرف والرصيد) - من المصدر الموحد للحقيقة
+    const stats = useMemo(() => {
+      return {
+        totalIncome: financialTotals?.totalIncome || 0,
+        totalExpenses: financialTotals?.totalCashExpenses || 0, // استخدام الكاش فقط كمصروفات فعلية
+        currentBalance: financialTotals?.totalBalance || 0
+      };
+    }, [financialTotals]);
 
   // تحسين جلب البيانات باستخدام Cache و StaleTime
   const queryOptions = {

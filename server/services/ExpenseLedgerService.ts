@@ -197,7 +197,7 @@ export class ExpenseLedgerService {
       const incomingProjectTransfers = this.cleanDbValue(incomingTransfersStats.rows[0]?.total);
 
       const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
-      const totalAllExpenses = totalCashExpenses; // لا يتم احتساب الآجل ضمن المصروفات الكلية حسب طلب المستخدم
+      const totalAllExpenses = totalCashExpenses; // المصروفات الكلية تشمل الكاش فقط، والآجل يظهر في التقارير كفئة منفصلة ولا يخصم من الرصيد
       
       const totalIncome = fundTransfers + incomingProjectTransfers;
       

@@ -119,6 +119,8 @@ export function StatsCard({
   
   // تنظيف القيمة قبل العرض مع حماية أقوى ومحسنة
   const cleanValue = () => {
+    if (value === undefined || value === null) return '0';
+    
     if (typeof value === 'number') {
       if (isNaN(value) || !isFinite(value)) return '0';
       

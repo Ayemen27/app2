@@ -331,6 +331,16 @@ export default function Dashboard() {
     }).format(amount) + ' ر.ي';
   };
 
+  // وظيفة للحصول على قيم الإكمال التلقائي
+  const saveAutocompleteValue = useCallback(async (category: string, value: string) => {
+    if (!value || value.trim().length < 2) return;
+    try {
+      await apiRequest("/api/autocomplete", "POST", { category, value: value.trim() });
+    } catch (error) {
+      console.warn(`[Dashboard] Failed to save autocomplete: ${category}`, error);
+    }
+  }, []);
+
   // الإحصائيات الحالية - من ExpenseLedgerService فقط (مصدر موحد للحقيقة)
   const currentStats = useMemo(() => {
     return {
@@ -339,8 +349,8 @@ export default function Dashboard() {
       currentBalance: currentTotals.totalBalance || 0,
       activeWorkers: String(currentTotals.activeWorkers || 0),
       completedDays: String(currentTotals.completedDays || 0), 
-      materialPurchases: String(currentTotals.counts?.materialPurchases || 0),
-      transportExpenses: currentTotals.transportExpenses || 0
+      materialPurchases: String(currentTotals.materialExpensesCredit || 0), // تم التصحيح لاستخدام الرصيد الآجل للمواد
+      transportExpenses: currentTotals.totalCashExpenses || 0
     };
   }, [currentTotals]);
 

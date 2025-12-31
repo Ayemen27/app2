@@ -85,32 +85,32 @@ export default function ProjectTransactionsSimple() {
 
     const statsRow: StatsRowConfig[] = [
       { 
-        label: "إجمالي التوريد", 
+        title: "إجمالي التوريد", 
         value: stats.totalIncome, 
         icon: UnifiedTrendingUp, 
         color: "green",
-        formatter: (val) => formatCurrency(val)
+        formatter: (val: number) => formatCurrency(val)
       },
       { 
-        label: "إجمالي المنصرف (نقدي)", 
+        title: "إجمالي المنصرف (نقدي)", 
         value: stats.totalExpenses, 
         icon: UnifiedTrendingDown, 
         color: "red",
-        formatter: (val) => formatCurrency(val)
+        formatter: (val: number) => formatCurrency(val)
       },
       { 
-        label: "الرصيد المتبقي", 
+        title: "الرصيد المتبقي", 
         value: stats.currentBalance, 
         icon: UnifiedDollarSign, 
         color: stats.currentBalance >= 0 ? "blue" : "red",
-        formatter: (val) => formatCurrency(val)
+        formatter: (val: number) => formatCurrency(val)
       },
       { 
-        label: "المواد الآجلة", 
+        title: "المواد الآجلة", 
         value: stats.deferredExpenses, 
         icon: Clock, 
         color: "orange",
-        formatter: (val) => formatCurrency(val)
+        formatter: (val: number) => formatCurrency(val)
       }
     ];
 

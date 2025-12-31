@@ -29,7 +29,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { exportLocalData, importLocalData } from "@/offline/backup";
-import { clearAllOfflineData, getSyncStats } from "@/offline/offline";
+import { clearAllLocalData } from "@/offline/data-cleanup";
+import { getSyncStats } from "@/offline/offline";
 import { useSyncData } from "@/hooks/useSyncData";
 
 export default function SettingsPage() {
@@ -80,7 +81,7 @@ export default function SettingsPage() {
 
   const handleClear = async () => {
     if (confirm("هل أنت متأكد من مسح جميع البيانات المحلية؟ سيتم حذف جميع العمليات غير المتزامنة.")) {
-      await clearAllOfflineData();
+      await clearAllLocalData();
       await loadStats();
       toast({ title: "تم مسح البيانات", description: "تم تنظيف قاعدة البيانات المحلية بنجاح" });
     }

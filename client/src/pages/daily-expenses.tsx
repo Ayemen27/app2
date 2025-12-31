@@ -2995,11 +2995,21 @@ function DailyExpensesContent() {
 
               {/* Total Summary */}
               <div className="border-t pt-3 mt-3">
-                <ExpenseSummary
-                  totalIncome={totals.totalIncome}
-                  totalExpenses={totals.totalExpenses}
-                  remainingBalance={totals.remainingBalance}
-                />
+                {financialTotals && (
+                  <ExpenseSummary 
+                    totalIncome={financialTotals.totalIncome}
+                    totalExpenses={financialTotals.totalCashExpenses}
+                    remainingBalance={financialTotals.totalBalance}
+                    materialExpensesCredit={financialTotals.materialExpensesCredit}
+                    details={{
+                      workerWages: financialSummary?.expenses.workerWages || 0,
+                      materialCosts: financialSummary?.expenses.materialExpenses || 0,
+                      transportation: financialSummary?.expenses.transportExpenses || 0,
+                      miscExpenses: financialSummary?.expenses.miscExpenses || 0,
+                      workerTransfers: financialSummary?.expenses.workerTransfers || 0
+                    } as any}
+                  />
+                )}
               </div>
 
               {/* Save Button */}

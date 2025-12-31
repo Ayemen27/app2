@@ -99,8 +99,8 @@ export function SearchToolbar({
         );
       
       case 'date-range':
-        const fromValue = value?.from ? new Date(value.from) : undefined;
-        const toValue = value?.to ? new Date(value.to) : undefined;
+        const fromValue = value?.from ? (value.from instanceof Date ? value.from : new Date(value.from)) : undefined;
+        const toValue = value?.to ? (value.to instanceof Date ? value.to : new Date(value.to)) : undefined;
         return (
           <div onClick={(e) => e.stopPropagation()} className="space-y-6">
             <div className="relative group">
@@ -111,14 +111,14 @@ export function SearchToolbar({
                 <FilterDatePicker
                   value={fromValue}
                   onChange={(date) => {
-                    const currentRange = typeof value === 'object' && value !== null ? value : {};
-                    const newValue = { ...currentRange, from: date };
+                    const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
+                    currentRange.from = date;
                     
                     if (date) {
                       // الغاء حقل تاريخ اليوم عند تحديد تاريخ من
                       onFilterChange?.('specificDate', undefined);
                     }
-                    onFilterChange?.(filter.key, newValue);
+                    onFilterChange?.(filter.key, currentRange);
                   }}
                   placeholder="اختر التاريخ"
                   showClearButton={true}
@@ -134,9 +134,9 @@ export function SearchToolbar({
                 <FilterDatePicker
                   value={toValue}
                   onChange={(date) => {
-                    const currentRange = typeof value === 'object' && value !== null ? value : {};
-                    const newValue = { ...currentRange, to: date };
-                    onFilterChange?.(filter.key, newValue);
+                    const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
+                    currentRange.to = date;
+                    onFilterChange?.(filter.key, currentRange);
                   }}
                   placeholder="اختر التاريخ"
                   showClearButton={true}

@@ -48,9 +48,11 @@ export function FilterDatePicker({
   const [open, setOpen] = useState(false);
 
   const handleSelect = useCallback((date: Date | undefined) => {
+    if (!date) return;
     const normalizedDate = normalizeDate(date);
     onChange(normalizedDate);
-    setOpen(false);
+    // تأخير بسيط للإغلاق لضمان معالجة الحالة
+    setTimeout(() => setOpen(false), 10);
   }, [onChange]);
 
   const handleClear = useCallback((e: React.MouseEvent) => {

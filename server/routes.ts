@@ -1383,11 +1383,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         incomingPtRows,
         outgoingPtRows
       ] = await Promise.all([
-        // تحويلات العهدة
+        // تحويلات العهدة (fund_transfers)
         db.select().from(fundTransfers)
           .where(and(...whereConditions)),
         
-        // أجور العمال
+        // أجور العمال المدفوعة (worker_attendance)
         db.select().from(workerAttendance)
           .where(and(
             eq(workerAttendance.projectId, projectId),

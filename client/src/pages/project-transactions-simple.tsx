@@ -66,9 +66,24 @@ export default function ProjectTransactionsSimple() {
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin' || user?.role === 'مدير';
 
+  // جلب البيانات من المزامنة المحلية للأداء
+  const { data: localDataStats } = useQuery({
+    queryKey: ['/api/sync/stats'],
+    staleTime: 5000
+  });
+
+  // تحسين جلب البيانات باستخدام Cache و StaleTime
+  const queryOptions = {
+    staleTime: 1000 * 60 * 5, // 5 دقائق
+    gcTime: 1000 * 60 * 30, // 30 دقيقة
+    retry: 1,
+    refetchOnWindowFocus: false,
+  };
+
   // جلب المشاريع
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
+    ...queryOptions
   });
 
   // جلب تحويلات العهدة العادية للمشروع

@@ -1461,10 +1461,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses + totalOutgoingProjectTransfers;
       const balance = totalIncome - totalExpenses;
 
-      console.log(`💰 [Calc] فحص دقيق لمشروع ${projectId}:`);
-      console.log(`📥 دخل: عهد=${totalFundTransfers.toLocaleString()}, وارد من مشاريع=${totalIncomingProjectTransfers.toLocaleString()}, إجمالي الدخل=${totalIncome.toLocaleString()}`);
-      console.log(`📤 صرف: أجور=${totalWorkerWages.toLocaleString()}, مواد=${totalMaterialCosts.toLocaleString()}, نقل=${totalTransportation.toLocaleString()}, حوالات=${totalWorkerTransfers.toLocaleString()}, نثريات=${totalMiscExpenses.toLocaleString()}, صادر لمشاريع=${totalOutgoingProjectTransfers.toLocaleString()}, إجمالي المصروفات=${totalExpenses.toLocaleString()}`);
-      console.log(`⚖️ رصيد نهائي (المتبقي): ${balance.toLocaleString()}`);
+      // إحصائيات إضافية للبطاقات
+      const stats = {
+        totalIncome,
+        totalExpenses,
+        currentBalance: balance,
+        incomeBreakdown: {
+          fundTransfers: totalFundTransfers,
+          projectIncoming: totalIncomingProjectTransfers
+        },
+        expenseBreakdown: {
+          wages: totalWorkerWages,
+          materials: totalMaterialCosts,
+          transport: totalTransportation,
+          transfers: totalWorkerTransfers,
+          misc: totalMiscExpenses,
+          projectOutgoing: totalOutgoingProjectTransfers
+        }
+      };
+
+      console.log(`💰 [Calc] فحص دقيق لمشروع ${projectId}:`, stats);
       
       return balance;
     } catch (error) {

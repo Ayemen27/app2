@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, Edit2, Save, X, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, Edit2, Save, X, DollarSign, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
@@ -239,11 +239,29 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
             />
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleAddMiscExpense} size="sm" className="bg-purple-600 hover:bg-purple-700">
-              {editingMiscId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            <Button 
+              onClick={handleAddMiscExpense} 
+              size="sm" 
+              className="bg-purple-600 hover:bg-purple-700 transition-all duration-200 disabled:opacity-50"
+              disabled={createMiscExpenseMutation.isPending || updateMiscExpenseMutation.isPending}
+              data-testid="button-add-misc-expense"
+            >
+              {createMiscExpenseMutation.isPending || updateMiscExpenseMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : editingMiscId ? (
+                <Save className="h-4 w-4" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
             </Button>
             {editingMiscId && (
-              <Button onClick={resetMiscExpenseForm} size="sm" variant="outline">
+              <Button 
+                onClick={resetMiscExpenseForm} 
+                size="sm" 
+                variant="outline"
+                disabled={createMiscExpenseMutation.isPending || updateMiscExpenseMutation.isPending}
+                data-testid="button-cancel-edit-misc-expense"
+              >
                 إلغاء
               </Button>
             )}

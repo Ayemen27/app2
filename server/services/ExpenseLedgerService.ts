@@ -204,7 +204,9 @@ export class ExpenseLedgerService {
       const totalIncome = fundTransfers + incomingProjectTransfers;
       
       const cashBalance = totalIncome - totalCashExpenses;
-      const totalBalance = cashBalance; // الرصيد المتبقي هو نفسه الرصيد النقدي لأن الآجل لا يخصم من العهدة الحالية
+      // تصحيح: الرصيد الإجمالي يجب أن يخصم منه المصاريف الآجلة أيضاً ليعبر عن المديونية الكلية للمشروع
+      // بينما الرصيد النقدي (cashBalance) يمثل ما تبقى في الخزنة فعلياً
+      const totalBalance = totalIncome - (totalCashExpenses + materialExpensesCredit);
 
       const totalWorkers = this.cleanDbValue(workersStatsResult.rows[0]?.total_workers, 'integer');
       const activeWorkers = this.cleanDbValue(workersStatsResult.rows[0]?.active_workers, 'integer');

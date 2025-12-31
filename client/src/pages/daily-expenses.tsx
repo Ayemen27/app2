@@ -100,6 +100,22 @@ function DailyExpensesContent() {
       description: "تم مسح جميع الفلاتر وتعيين تاريخ اليوم",
     });
   }, [toast]);
+  // استبدال calculateTotals المحلي بالبيانات الموحدة من useFinancialSummary
+  const totals = useMemo(() => ({
+    totalIncome: financialTotals.totalIncome,
+    totalExpenses: financialTotals.totalCashExpenses,
+    remainingBalance: financialTotals.cashBalance, // الرصيد النقدي هو ما يهم المستخدم في الخزنة
+    totalWorkerWages: financialSummary?.expenses.workerWages || 0,
+    totalFundTransfers: financialSummary?.income.fundTransfers || 0,
+    totalMaterialCosts: financialSummary?.expenses.materialExpenses || 0,
+    totalTransportation: financialSummary?.expenses.transportExpenses || 0,
+    totalMiscExpenses: financialSummary?.expenses.miscExpenses || 0,
+    totalWorkerTransfers: financialSummary?.expenses.workerTransfers || 0,
+    materialExpensesCredit: financialSummary?.expenses.materialExpensesCredit || 0,
+    incomingProjectTransfers: financialSummary?.income.incomingProjectTransfers || 0,
+    outgoingProjectTransfers: financialSummary?.expenses.outgoingProjectTransfers || 0,
+  }), [financialTotals, financialSummary]);
+
   const [isExporting, setIsExporting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
@@ -408,6 +424,12 @@ function DailyExpensesContent() {
     date: selectedDate || undefined,
     enabled: !!selectedProjectId && !isAllProjects
   });
+
+  // حساب الرصيد باستخدام المصدر الموحد فقط
+  const currentProjectBalance = useMemo(() => {
+    if (isAllProjects) return 0;
+    return financialTotals.currentBalance;
+  }, [financialTotals.currentBalance, isAllProjects]);
 
   const { 
     data: dailyExpensesData, 

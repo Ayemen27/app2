@@ -450,6 +450,8 @@ function DailyExpensesContent() {
     refetchProjectTransfers();
     refetchFinancial();
   }, [queryClient, refetchDailyExpenses, refetchProjectTransfers, refetchFinancial]);
+
+  const { data: dailyExpensesData, isLoading: dailyExpensesLoading, refetch: refetchDailyExpenses } = useQuery<any>({
     queryKey: ["/api/projects", isAllProjects ? "all-projects" : selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],
     queryFn: async () => {
       try {

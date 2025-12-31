@@ -1,8 +1,8 @@
 # 🚀 تطبيق إدارة المشاريع الإنشائية (BinarJoin)
 
-**الإصدار:** 2.0  
-**الحالة:** ✅ المرحلة 2 - مرآة قاعدة البيانات الكاملة (100%)  
-**آخر تحديث:** 31 ديسمبر 2025 23:59 UTC
+**الإصدار:** 2.1  
+**الحالة:** ✅ المرحلة 2 - مرآة قاعدة البيانات + نظام موحد للمزامنة  
+**آخر تحديث:** 31 ديسمبر 2025 12:10 UTC
 
 ---
 
@@ -62,16 +62,22 @@
 
 ## ✅ ما تم إنجازه (المرحلة 2)
 
-### مرآة قاعدة البيانات الكاملة
+### مرآة قاعدة البيانات الكاملة + نظام موحد للمزامنة
 - ✅ `client/src/offline/db.ts` - محدّث مع 66 جدول
-  - جميع interfaces محدثة
+  - جميع interfaces محدثة لـ 66 جدول بالكامل
   - جميع stores مع index للـ createdAt و projectId
-  - دوال مساعدة للمزامنة
+  - دوال مساعدة للمزامنة: `saveSyncedData()`, `clearTable()`, `clearAllData()`
 
-- ✅ `/api/sync/full-backup` endpoint جديد
+- ✅ `client/src/offline/sync.ts` - نظام موحد شامل
+  - **initSyncListener()** - مراقب الاتصال والمزامنة التلقائية
+  - **loadFullBackup()** - تحميل كل البيانات من الخادم (66 جدول)
+  - **syncOfflineData()** - مزامنة العمليات المعلقة من قائمة الانتظار
+  - **subscribeSyncState()** - الاشتراك في تغييرات حالة المزامنة
+
+- ✅ `/api/sync/full-backup` endpoint محدّث
   - يجلب جميع 66 جدول من الخادم
-  - يرجع عدد السجلات لكل جدول
-  - مدتم الجلب و التفاصيل
+  - يرجع عدد السجلات لكل جدول مع التفاصيل
+  - مدة الجلب والأداء
 
 ### قائمة الجداول المتاحة (66 جدول):
 
@@ -171,30 +177,41 @@
 
 ---
 
-## 📁 هيكل المشروع
+## 📁 هيكل المشروع - نظام موحد
 
 ```
 client/src/
-├── offline/                 # نظام المزامنة
-│   ├── sync.ts             # محرك المزامنة + loadFullBackup()
-│   ├── offline.ts          # قائمة الانتظار
-│   ├── db.ts               # IndexedDB (66 جدول)
-│   ├── types.ts            # الأنواع
-│   └── conflict-resolver.ts# حل التضارعات
+├── offline/                 # نظام المزامنة الموحد
+│   ├── sync.ts              # 📌 النظام الرئيسي الوحيد
+│   │   ├── initSyncListener()      - مراقب online/offline
+│   │   ├── loadFullBackup()        - تحميل من الخادم
+│   │   ├── syncOfflineData()       - مزامنة العمليات
+│   │   └── subscribeSyncState()    - الاشتراك في التغييرات
+│   │
+│   ├── db.ts                # IndexedDB (66 جدول)
+│   ├── offline.ts           # قائمة الانتظار والعمليات
+│   ├── offline-queries.ts   # استعلامات مع fallback
+│   ├── offline-mutations.ts # عمليات محسّنة
+│   ├── conflict-resolver.ts # حل التضارعات
+│   ├── index.ts             # تصدير موحد
+│   └── [utilities]          # ضغط، تشفير، تنظيف، أداء
 │
 ├── components/
-│   └── sync-status.tsx     # مكون المؤشر
+│   └── sync-status.tsx      # مؤشر حالة المزامنة
 │
 └── pages/
     └── [pages here]
 
 server/
-├── routes.ts               # مع /api/sync/full-backup
-└── db.ts                   # اتصال قاعدة البيانات
+├── routes.ts                # مع /api/sync/full-backup
+└── db.ts                    # اتصال قاعدة البيانات
 
 shared/
-└── schema.ts              # 66 جدول PostgreSQL
+└── schema.ts               # 66 جدول PostgreSQL
 ```
+
+**لاحظ:** تم حذف `database-switcher.ts` و `sync-loader.ts` (ملفات مكررة)
+**النظام الآن موحد تماماً** - جميع الوظائف في `sync.ts`
 
 ---
 

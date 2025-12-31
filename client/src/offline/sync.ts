@@ -1,11 +1,13 @@
 import { getPendingSyncQueue, removeSyncQueueItem, updateSyncRetries } from './offline';
-import { getDB } from './db';
+import { getDB, saveSyncedData, clearAllData } from './db';
 import { detectConflict, resolveConflict, logConflict } from './conflict-resolver';
 
 const MAX_RETRIES = 5;
+const INITIAL_SYNC_DELAY = 5000; // تأخير 5 ثواني عند بدء التطبيق
 let isSyncing = false;
 let syncListeners: ((state: SyncState) => void)[] = [];
 let syncInterval: NodeJS.Timeout | null = null;
+let initialSyncDone = false;
 
 export interface SyncState {
   isSyncing: boolean;
@@ -42,12 +44,15 @@ export function getSyncState(): SyncState {
   return { ...currentSyncState };
 }
 
+
 /**
- * تحميل جميع بيانات الخادم للـ offline sync
+ * تحميل جميع بيانات الخادم للـ offline sync (مرآة كاملة)
  */
-export async function loadFullBackup(): Promise<void> {
+export async function loadFullBackup(): Promise<{ recordCount: number }> {
   try {
-    console.log('📥 [Sync] جاري تحميل نسخة احتياطية كاملة...');
+    console.log('📥 [Sync] جاري تحميل نسخة احتياطية كاملة من الخادم...');
+    const startTime = Date.now();
+    
     const response = await fetch('/api/sync/full-backup');
     
     if (!response.ok) {
@@ -60,15 +65,16 @@ export async function loadFullBackup(): Promise<void> {
       throw new Error('Backup failed on server');
     }
     
-    const { data } = result;
+    const { data, recordCount } = result;
     const db = await getDB();
     
     // حفظ جميع البيانات في IndexedDB
+    let totalSaved = 0;
     for (const [tableName, records] of Object.entries(data)) {
       if (Array.isArray(records) && tableName !== 'timestamp') {
-        for (const record of records) {
-          await db.put(tableName as any, record);
-        }
+        const savedCount = await saveSyncedData(tableName, records);
+        totalSaved += savedCount;
+        console.log(`✅ [Sync] تم حفظ ${savedCount} سجل من ${tableName}`);
       }
     }
     
@@ -76,12 +82,16 @@ export async function loadFullBackup(): Promise<void> {
     await db.put('syncMetadata', {
       key: 'lastSync',
       timestamp: Date.now(),
-      version: '1.0',
-      recordCount: result.recordCount || 0,
-      lastSyncTime: Date.now()
+      version: '2.0',
+      recordCount: totalSaved,
+      lastSyncTime: Date.now(),
+      tableList: Object.keys(data)
     });
     
-    console.log('✅ [Sync] تم تحميل النسخة الاحتياطية بنجاح');
+    const duration = Date.now() - startTime;
+    console.log(`✅ [Sync] تم تحميل النسخة الاحتياطية بنجاح - ${totalSaved} سجل في ${duration}ms`);
+    
+    return { recordCount: totalSaved };
   } catch (error: any) {
     console.error('❌ [Sync] خطأ في تحميل النسخة الاحتياطية:', error);
     throw error;

@@ -2785,6 +2785,224 @@ var init_db = __esm({
   }
 });
 
+// server/services/ExpenseLedgerService.ts
+var ExpenseLedgerService_exports = {};
+__export(ExpenseLedgerService_exports, {
+  ExpenseLedgerService: () => ExpenseLedgerService,
+  default: () => ExpenseLedgerService_default
+});
+import { sql as sql5 } from "drizzle-orm";
+var ExpenseLedgerService, ExpenseLedgerService_default;
+var init_ExpenseLedgerService = __esm({
+  "server/services/ExpenseLedgerService.ts"() {
+    "use strict";
+    init_db();
+    ExpenseLedgerService = class {
+      static cleanDbValue(value, type = "decimal") {
+        if (value === null || value === void 0) return 0;
+        const strValue = String(value).trim();
+        if (strValue.match(/^(\d{1,3})\1{2,}$/)) {
+          console.warn("\u26A0\uFE0F [ExpenseLedger] \u0642\u064A\u0645\u0629 \u0645\u0634\u0628\u0648\u0647\u0629:", strValue);
+          return 0;
+        }
+        const parsed = type === "integer" ? parseInt(strValue, 10) : parseFloat(strValue);
+        if (isNaN(parsed) || !isFinite(parsed)) return 0;
+        const maxValue = type === "integer" ? 1e6 : 1e11;
+        if (Math.abs(parsed) > maxValue) {
+          console.warn(`\u26A0\uFE0F [ExpenseLedger] \u0642\u064A\u0645\u0629 \u062A\u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F:`, parsed);
+          return 0;
+        }
+        return Math.max(0, parsed);
+      }
+      /**
+       * جلب الملخص المالي لمشروع معين
+       * هذه الدالة هي المصدر الوحيد للحقيقة
+       */
+      static async getProjectFinancialSummary(projectId, date2) {
+        try {
+          const dateFilter = date2 ? sql5`AND DATE(purchase_date) = ${date2}` : sql5``;
+          const dateFilterTransfer = date2 ? sql5`AND DATE(transfer_date) = ${date2}` : sql5``;
+          const dateFilterAttendance = date2 ? sql5`AND date = ${date2}` : sql5``;
+          const dateFilterTransport = date2 ? sql5`AND date = ${date2}` : sql5``;
+          const dateFilterMisc = date2 ? sql5`AND date = ${date2}` : sql5``;
+          const [
+            projectInfo,
+            materialCashStats,
+            materialCreditStats,
+            workerWagesStats,
+            transportStats,
+            workerTransfersStats,
+            miscExpensesStats,
+            fundTransfersStats,
+            outgoingTransfersStats,
+            incomingTransfersStats,
+            workersStatsResult
+          ] = await Promise.all([
+            db.execute(sql5`SELECT name, status, description FROM projects WHERE id = ${projectId}`),
+            db.execute(sql5`
+          SELECT 
+            COUNT(*) as count,
+            COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total
+          FROM material_purchases 
+          WHERE project_id = ${projectId} AND purchase_type = 'نقد' ${dateFilter}
+        `),
+            db.execute(sql5`
+          SELECT 
+            COUNT(*) as count,
+            COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total
+          FROM material_purchases 
+          WHERE project_id = ${projectId} AND purchase_type = 'آجل' ${dateFilter}
+        `),
+            db.execute(sql5`
+          SELECT 
+            COUNT(*) as count,
+            COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as total,
+            COUNT(DISTINCT date) as completed_days
+          FROM worker_attendance 
+          WHERE project_id = ${projectId} AND is_present = true ${dateFilterAttendance}
+        `),
+            db.execute(sql5`
+          SELECT 
+            COUNT(*) as count,
+            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          FROM transportation_expenses 
+          WHERE project_id = ${projectId} ${dateFilterTransport}
+        `),
+            db.execute(sql5`
+          SELECT 
+            COUNT(*) as count,
+            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          FROM worker_transfers 
+          WHERE project_id = ${projectId} ${dateFilterTransfer}
+        `),
+            db.execute(sql5`
+          SELECT 
+            COUNT(*) as count,
+            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          FROM worker_misc_expenses 
+          WHERE project_id = ${projectId} ${dateFilterMisc}
+        `),
+            db.execute(sql5`
+          SELECT 
+            COUNT(*) as count,
+            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          FROM fund_transfers 
+          WHERE project_id = ${projectId} ${dateFilterTransfer}
+        `),
+            db.execute(sql5`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          FROM project_fund_transfers 
+          WHERE from_project_id = ${projectId} ${dateFilterTransfer}
+        `),
+            db.execute(sql5`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          FROM project_fund_transfers 
+          WHERE to_project_id = ${projectId} ${dateFilterTransfer}
+        `),
+            db.execute(sql5`
+          SELECT 
+            COUNT(DISTINCT wa.worker_id) as total_workers,
+            COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
+          FROM worker_attendance wa
+          INNER JOIN workers w ON wa.worker_id = w.id
+          WHERE wa.project_id = ${projectId} ${dateFilterAttendance}
+        `)
+          ]);
+          const projectName = String(projectInfo.rows[0]?.name || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641");
+          const projectStatus = String(projectInfo.rows[0]?.status || "active");
+          const projectDescription = projectInfo.rows[0]?.description ? String(projectInfo.rows[0].description) : null;
+          const materialExpenses = this.cleanDbValue(materialCashStats.rows[0]?.total);
+          const materialExpensesCredit = this.cleanDbValue(materialCreditStats.rows[0]?.total);
+          const workerWages = this.cleanDbValue(workerWagesStats.rows[0]?.total);
+          const transportExpenses = this.cleanDbValue(transportStats.rows[0]?.total);
+          const workerTransfers2 = this.cleanDbValue(workerTransfersStats.rows[0]?.total);
+          const miscExpenses = this.cleanDbValue(miscExpensesStats.rows[0]?.total);
+          const fundTransfers2 = this.cleanDbValue(fundTransfersStats.rows[0]?.total);
+          const outgoingProjectTransfers = this.cleanDbValue(outgoingTransfersStats.rows[0]?.total);
+          const incomingProjectTransfers = this.cleanDbValue(incomingTransfersStats.rows[0]?.total);
+          const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers2 + miscExpenses + outgoingProjectTransfers;
+          const totalAllExpenses = totalCashExpenses + materialExpensesCredit;
+          const totalIncome = fundTransfers2 + incomingProjectTransfers;
+          const cashBalance = totalIncome - totalCashExpenses;
+          const totalBalance = totalIncome - totalAllExpenses;
+          const totalWorkers = this.cleanDbValue(workersStatsResult.rows[0]?.total_workers, "integer");
+          const activeWorkers = this.cleanDbValue(workersStatsResult.rows[0]?.active_workers, "integer");
+          const completedDays = this.cleanDbValue(workerWagesStats.rows[0]?.completed_days, "integer");
+          return {
+            projectId,
+            projectName,
+            status: projectStatus,
+            description: projectDescription,
+            expenses: {
+              materialExpenses,
+              materialExpensesCredit,
+              workerWages,
+              transportExpenses,
+              workerTransfers: workerTransfers2,
+              miscExpenses,
+              outgoingProjectTransfers,
+              totalCashExpenses,
+              totalAllExpenses
+            },
+            income: {
+              fundTransfers: fundTransfers2,
+              incomingProjectTransfers,
+              totalIncome
+            },
+            workers: {
+              totalWorkers,
+              activeWorkers,
+              completedDays
+            },
+            cashBalance,
+            totalBalance,
+            counts: {
+              materialPurchases: this.cleanDbValue(materialCashStats.rows[0]?.count, "integer") + this.cleanDbValue(materialCreditStats.rows[0]?.count, "integer"),
+              workerAttendance: this.cleanDbValue(workerWagesStats.rows[0]?.count, "integer"),
+              transportationExpenses: this.cleanDbValue(transportStats.rows[0]?.count, "integer"),
+              workerTransfers: this.cleanDbValue(workerTransfersStats.rows[0]?.count, "integer"),
+              miscExpenses: this.cleanDbValue(miscExpensesStats.rows[0]?.count, "integer"),
+              fundTransfers: this.cleanDbValue(fundTransfersStats.rows[0]?.count, "integer")
+            },
+            lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+          };
+        } catch (error) {
+          console.error(`\u274C [ExpenseLedger] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 ${projectId}:`, error);
+          throw error;
+        }
+      }
+      /**
+       * جلب الملخص المالي اليومي لمشروع معين
+       */
+      static async getDailyFinancialSummary(projectId, date2) {
+        const summary = await this.getProjectFinancialSummary(projectId, date2);
+        return {
+          ...summary,
+          date: date2
+        };
+      }
+      /**
+       * جلب إحصائيات جميع المشاريع
+       */
+      static async getAllProjectsStats() {
+        try {
+          const projectsList = await db.execute(sql5`SELECT id, name FROM projects ORDER BY created_at`);
+          const summaries = await Promise.all(
+            projectsList.rows.map(async (project) => {
+              return this.getProjectFinancialSummary(project.id);
+            })
+          );
+          return summaries;
+        } catch (error) {
+          console.error("\u274C [ExpenseLedger] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639:", error);
+          throw error;
+        }
+      }
+    };
+    ExpenseLedgerService_default = ExpenseLedgerService;
+  }
+});
+
 // server/services/NotificationService.ts
 var NotificationService_exports = {};
 __export(NotificationService_exports, {
@@ -7402,214 +7620,7 @@ init_db();
 init_schema();
 import express6 from "express";
 import { eq as eq7, and as and6, sql as sql6, gte as gte5, lt as lt2, lte as lte2, desc as desc4 } from "drizzle-orm";
-
-// server/services/ExpenseLedgerService.ts
-init_db();
-import { sql as sql5 } from "drizzle-orm";
-var ExpenseLedgerService = class {
-  static cleanDbValue(value, type = "decimal") {
-    if (value === null || value === void 0) return 0;
-    const strValue = String(value).trim();
-    if (strValue.match(/^(\d{1,3})\1{2,}$/)) {
-      console.warn("\u26A0\uFE0F [ExpenseLedger] \u0642\u064A\u0645\u0629 \u0645\u0634\u0628\u0648\u0647\u0629:", strValue);
-      return 0;
-    }
-    const parsed = type === "integer" ? parseInt(strValue, 10) : parseFloat(strValue);
-    if (isNaN(parsed) || !isFinite(parsed)) return 0;
-    const maxValue = type === "integer" ? 1e6 : 1e11;
-    if (Math.abs(parsed) > maxValue) {
-      console.warn(`\u26A0\uFE0F [ExpenseLedger] \u0642\u064A\u0645\u0629 \u062A\u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F:`, parsed);
-      return 0;
-    }
-    return Math.max(0, parsed);
-  }
-  /**
-   * جلب الملخص المالي لمشروع معين
-   * هذه الدالة هي المصدر الوحيد للحقيقة
-   */
-  static async getProjectFinancialSummary(projectId, date2) {
-    try {
-      const dateFilter = date2 ? sql5`AND DATE(purchase_date) = ${date2}` : sql5``;
-      const dateFilterTransfer = date2 ? sql5`AND DATE(transfer_date) = ${date2}` : sql5``;
-      const dateFilterAttendance = date2 ? sql5`AND date = ${date2}` : sql5``;
-      const dateFilterTransport = date2 ? sql5`AND date = ${date2}` : sql5``;
-      const dateFilterMisc = date2 ? sql5`AND date = ${date2}` : sql5``;
-      const [
-        projectInfo,
-        materialCashStats,
-        materialCreditStats,
-        workerWagesStats,
-        transportStats,
-        workerTransfersStats,
-        miscExpensesStats,
-        fundTransfersStats,
-        outgoingTransfersStats,
-        incomingTransfersStats,
-        workersStatsResult
-      ] = await Promise.all([
-        db.execute(sql5`SELECT name, status, description FROM projects WHERE id = ${projectId}`),
-        db.execute(sql5`
-          SELECT 
-            COUNT(*) as count,
-            COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total
-          FROM material_purchases 
-          WHERE project_id = ${projectId} AND purchase_type = 'نقد' ${dateFilter}
-        `),
-        db.execute(sql5`
-          SELECT 
-            COUNT(*) as count,
-            COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total
-          FROM material_purchases 
-          WHERE project_id = ${projectId} AND purchase_type = 'آجل' ${dateFilter}
-        `),
-        db.execute(sql5`
-          SELECT 
-            COUNT(*) as count,
-            COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as total,
-            COUNT(DISTINCT date) as completed_days
-          FROM worker_attendance 
-          WHERE project_id = ${projectId} AND is_present = true ${dateFilterAttendance}
-        `),
-        db.execute(sql5`
-          SELECT 
-            COUNT(*) as count,
-            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
-          FROM transportation_expenses 
-          WHERE project_id = ${projectId} ${dateFilterTransport}
-        `),
-        db.execute(sql5`
-          SELECT 
-            COUNT(*) as count,
-            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
-          FROM worker_transfers 
-          WHERE project_id = ${projectId} ${dateFilterTransfer}
-        `),
-        db.execute(sql5`
-          SELECT 
-            COUNT(*) as count,
-            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
-          FROM worker_misc_expenses 
-          WHERE project_id = ${projectId} ${dateFilterMisc}
-        `),
-        db.execute(sql5`
-          SELECT 
-            COUNT(*) as count,
-            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
-          FROM fund_transfers 
-          WHERE project_id = ${projectId} ${dateFilterTransfer}
-        `),
-        db.execute(sql5`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
-          FROM project_fund_transfers 
-          WHERE from_project_id = ${projectId} ${dateFilterTransfer}
-        `),
-        db.execute(sql5`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
-          FROM project_fund_transfers 
-          WHERE to_project_id = ${projectId} ${dateFilterTransfer}
-        `),
-        db.execute(sql5`
-          SELECT 
-            COUNT(DISTINCT wa.worker_id) as total_workers,
-            COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
-          FROM worker_attendance wa
-          INNER JOIN workers w ON wa.worker_id = w.id
-          WHERE wa.project_id = ${projectId} ${dateFilterAttendance}
-        `)
-      ]);
-      const projectName = String(projectInfo.rows[0]?.name || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641");
-      const projectStatus = String(projectInfo.rows[0]?.status || "active");
-      const projectDescription = projectInfo.rows[0]?.description ? String(projectInfo.rows[0].description) : null;
-      const materialExpenses = this.cleanDbValue(materialCashStats.rows[0]?.total);
-      const materialExpensesCredit = this.cleanDbValue(materialCreditStats.rows[0]?.total);
-      const workerWages = this.cleanDbValue(workerWagesStats.rows[0]?.total);
-      const transportExpenses = this.cleanDbValue(transportStats.rows[0]?.total);
-      const workerTransfers2 = this.cleanDbValue(workerTransfersStats.rows[0]?.total);
-      const miscExpenses = this.cleanDbValue(miscExpensesStats.rows[0]?.total);
-      const fundTransfers3 = this.cleanDbValue(fundTransfersStats.rows[0]?.total);
-      const outgoingProjectTransfers = this.cleanDbValue(outgoingTransfersStats.rows[0]?.total);
-      const incomingProjectTransfers = this.cleanDbValue(incomingTransfersStats.rows[0]?.total);
-      const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers2 + miscExpenses + outgoingProjectTransfers;
-      const totalAllExpenses = totalCashExpenses + materialExpensesCredit;
-      const totalIncome = fundTransfers3 + incomingProjectTransfers;
-      const cashBalance = totalIncome - totalCashExpenses;
-      const totalBalance = totalIncome - totalAllExpenses;
-      const totalWorkers = this.cleanDbValue(workersStatsResult.rows[0]?.total_workers, "integer");
-      const activeWorkers = this.cleanDbValue(workersStatsResult.rows[0]?.active_workers, "integer");
-      const completedDays = this.cleanDbValue(workerWagesStats.rows[0]?.completed_days, "integer");
-      return {
-        projectId,
-        projectName,
-        status: projectStatus,
-        description: projectDescription,
-        expenses: {
-          materialExpenses,
-          materialExpensesCredit,
-          workerWages,
-          transportExpenses,
-          workerTransfers: workerTransfers2,
-          miscExpenses,
-          outgoingProjectTransfers,
-          totalCashExpenses,
-          totalAllExpenses
-        },
-        income: {
-          fundTransfers: fundTransfers3,
-          incomingProjectTransfers,
-          totalIncome
-        },
-        workers: {
-          totalWorkers,
-          activeWorkers,
-          completedDays
-        },
-        cashBalance,
-        totalBalance,
-        counts: {
-          materialPurchases: this.cleanDbValue(materialCashStats.rows[0]?.count, "integer") + this.cleanDbValue(materialCreditStats.rows[0]?.count, "integer"),
-          workerAttendance: this.cleanDbValue(workerWagesStats.rows[0]?.count, "integer"),
-          transportationExpenses: this.cleanDbValue(transportStats.rows[0]?.count, "integer"),
-          workerTransfers: this.cleanDbValue(workerTransfersStats.rows[0]?.count, "integer"),
-          miscExpenses: this.cleanDbValue(miscExpensesStats.rows[0]?.count, "integer"),
-          fundTransfers: this.cleanDbValue(fundTransfersStats.rows[0]?.count, "integer")
-        },
-        lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
-      };
-    } catch (error) {
-      console.error(`\u274C [ExpenseLedger] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 ${projectId}:`, error);
-      throw error;
-    }
-  }
-  /**
-   * جلب الملخص المالي اليومي لمشروع معين
-   */
-  static async getDailyFinancialSummary(projectId, date2) {
-    const summary = await this.getProjectFinancialSummary(projectId, date2);
-    return {
-      ...summary,
-      date: date2
-    };
-  }
-  /**
-   * جلب إحصائيات جميع المشاريع
-   */
-  static async getAllProjectsStats() {
-    try {
-      const projectsList = await db.execute(sql5`SELECT id, name FROM projects ORDER BY created_at`);
-      const summaries = await Promise.all(
-        projectsList.rows.map(async (project) => {
-          return this.getProjectFinancialSummary(project.id);
-        })
-      );
-      return summaries;
-    } catch (error) {
-      console.error("\u274C [ExpenseLedger] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639:", error);
-      throw error;
-    }
-  }
-};
-
-// server/routes/modules/projectRoutes.ts
+init_ExpenseLedgerService();
 var projectRouter = express6.Router();
 projectRouter.use(requireAuth);
 projectRouter.get("/", async (req, res) => {
@@ -7945,9 +7956,21 @@ projectRouter.get("/:id", async (req, res) => {
     console.log("\u{1F4CB} [API] \u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0634\u0631\u0648\u0639:", id);
     if (id === "all") {
       const { date: date2 } = req.query;
+      const projectsList = await db.select().from(projects);
+      const summaries = await Promise.all(projectsList.map(async (p) => {
+        try {
+          return await ExpenseLedgerService.getProjectFinancialSummary(p.id, date2);
+        } catch (e) {
+          return null;
+        }
+      }));
       return res.json({
         success: true,
-        data: { message: "All projects summary" },
+        data: {
+          message: "All projects summary",
+          date: date2,
+          summaries: summaries.filter((s) => s !== null)
+        },
         message: "\u062A\u0645 \u062C\u0644\u0628 \u0645\u0644\u062E\u0635 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"
       });
     }
@@ -11621,16 +11644,19 @@ workerRouter.post("/worker-attendance", async (req, res) => {
       });
     }
     console.log("\u2705 [API] \u0646\u062C\u062D validation \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644");
+    const attendanceDate = req.body.attendanceDate || req.body.date;
     const actualWageValue = parseFloat(validationResult.data.dailyWage) * validationResult.data.workDays;
     const dataWithCalculatedFields = {
       ...validationResult.data,
+      date: attendanceDate,
+      // التأكد من تعيين التاريخ
       workDays: validationResult.data.workDays.toString(),
       // تحويل إلى string للتوافق مع decimal
       actualWage: actualWageValue.toString(),
       totalPay: actualWageValue.toString(),
       // totalPay = actualWage
-      notes: validationResult.data.notes || ""
-      // تأكد من حفظ الملاحظات
+      notes: req.body.notes || validationResult.data.notes || ""
+      // تأكد من جلب الملاحظات من جسم الطلب
     };
     console.log("\u{1F4BE} [API] \u062D\u0641\u0638 \u062D\u0636\u0648\u0631 \u0627\u0644\u0639\u0627\u0645\u0644 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
     console.log("\u{1F4DD} [API] \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u064F\u062F\u0631\u062C\u0629 \u062A\u0634\u0645\u0644 \u0627\u0644\u0645\u0644\u0627\u062D\u0638\u0627\u062A:", { notes: dataWithCalculatedFields.notes });
@@ -11720,21 +11746,22 @@ workerRouter.patch("/worker-attendance/:id", async (req, res) => {
       });
     }
     const updateData = { ...validationResult.data };
-    if (updateData.workDays !== void 0) {
+    if (updateData.workDays !== void 0 && updateData.workDays !== null) {
       updateData.workDays = updateData.workDays.toString();
     }
-    if (updateData.dailyWage && updateData.workDays) {
-      const actualWageValue = parseFloat(updateData.dailyWage) * parseFloat(updateData.workDays);
+    if (req.body.notes !== void 0) updateData.notes = req.body.notes;
+    if (req.body.workDescription !== void 0) updateData.workDescription = req.body.workDescription;
+    const dailyWage = updateData.dailyWage || existingAttendance[0].dailyWage;
+    const workDays = updateData.workDays || existingAttendance[0].workDays;
+    if (dailyWage && workDays) {
+      const actualWageValue = parseFloat(dailyWage) * parseFloat(workDays);
       updateData.actualWage = actualWageValue.toString();
       updateData.totalPay = actualWageValue.toString();
-    } else if (updateData.dailyWage && existingAttendance[0].workDays) {
-      const actualWageValue = parseFloat(updateData.dailyWage) * parseFloat(existingAttendance[0].workDays);
-      updateData.actualWage = actualWageValue.toString();
-      updateData.totalPay = actualWageValue.toString();
-    } else if (updateData.workDays && existingAttendance[0].dailyWage) {
-      const actualWageValue = parseFloat(existingAttendance[0].dailyWage) * parseFloat(updateData.workDays);
-      updateData.actualWage = actualWageValue.toString();
-      updateData.totalPay = actualWageValue.toString();
+      const paidAmount = updateData.paidAmount !== void 0 ? updateData.paidAmount : existingAttendance[0].paidAmount;
+      if (paidAmount !== void 0) {
+        updateData.remainingAmount = (actualWageValue - parseFloat(paidAmount)).toString();
+        updateData.paymentType = parseFloat(paidAmount) >= actualWageValue ? "full" : "partial";
+      }
     }
     const updatedAttendance = await db.update(workerAttendance).set(updateData).where(eq11(workerAttendance.id, attendanceId)).returning();
     const io2 = global.io;
@@ -12136,6 +12163,7 @@ init_db();
 init_schema();
 import express11 from "express";
 import { eq as eq12, and as and11, sql as sql11, gte as gte7, lte as lte4, desc as desc8 } from "drizzle-orm";
+init_ExpenseLedgerService();
 var financialRouter = express11.Router();
 financialRouter.use(requireAuth);
 financialRouter.get("/financial-summary", async (req, res) => {
@@ -13210,7 +13238,23 @@ financialRouter.get("/material-purchases", async (req, res) => {
     if (dateTo) {
       conditions.push(lte4(materialPurchases.purchaseDate, dateTo));
     }
-    let query = db.select().from(materialPurchases);
+    let query = db.select({
+      id: materialPurchases.id,
+      projectId: materialPurchases.projectId,
+      materialName: materialPurchases.materialName,
+      materialCategory: materialPurchases.materialCategory,
+      materialUnit: materialPurchases.materialUnit,
+      quantity: materialPurchases.quantity,
+      unitPrice: materialPurchases.unitPrice,
+      totalAmount: materialPurchases.totalAmount,
+      purchaseType: materialPurchases.purchaseType,
+      supplierName: materialPurchases.supplierName,
+      invoiceNumber: materialPurchases.invoiceNumber,
+      invoiceDate: materialPurchases.invoiceDate,
+      purchaseDate: materialPurchases.purchaseDate,
+      notes: materialPurchases.notes,
+      projectName: projects.name
+    }).from(materialPurchases).leftJoin(projects, eq12(materialPurchases.projectId, projects.id));
     if (conditions.length > 0) {
       query = query.where(and11(...conditions));
     }
@@ -14248,6 +14292,70 @@ autocompleteRouter.get("/materialTypes", requireAuth, async (req, res) => {
       success: false,
       error: error.message,
       message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0645\u0648\u0627\u062F"
+    });
+  }
+});
+autocompleteRouter.get("/materialCategories", requireAuth, async (req, res) => {
+  try {
+    const data = await db.select().from(autocompleteData).where(eq13(autocompleteData.category, "materialCategories")).orderBy(desc9(autocompleteData.usageCount));
+    res.json({
+      success: true,
+      data,
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0641\u0626\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0641\u0626\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F"
+    });
+  }
+});
+autocompleteRouter.get("/materialNames", requireAuth, async (req, res) => {
+  try {
+    const data = await db.select().from(autocompleteData).where(eq13(autocompleteData.category, "materialNames")).orderBy(desc9(autocompleteData.usageCount));
+    res.json({
+      success: true,
+      data,
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0648\u0627\u062F"
+    });
+  }
+});
+autocompleteRouter.get("/materialUnits", requireAuth, async (req, res) => {
+  try {
+    const data = await db.select().from(autocompleteData).where(eq13(autocompleteData.category, "materialUnits")).orderBy(desc9(autocompleteData.usageCount));
+    res.json({
+      success: true,
+      data,
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0648\u062D\u062F\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0648\u062D\u062F\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F"
+    });
+  }
+});
+autocompleteRouter.get("/invoiceNumbers", requireAuth, async (req, res) => {
+  try {
+    const data = await db.select().from(autocompleteData).where(eq13(autocompleteData.category, "invoiceNumbers")).orderBy(desc9(autocompleteData.usageCount));
+    res.json({
+      success: true,
+      data,
+      message: "\u062A\u0645 \u062C\u0644\u0628 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u0641\u0648\u0627\u062A\u064A\u0631 \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u0641\u0648\u0627\u062A\u064A\u0631"
     });
   }
 });
@@ -17820,6 +17928,69 @@ var smartErrorHandler = new SmartErrorHandler();
 // server/routes/modules/syncRoutes.ts
 var syncRouter = express16.Router();
 syncRouter.use(requireAuth);
+syncRouter.post("/full-backup", async (req, res) => {
+  try {
+    const startTime = Date.now();
+    console.log("\u{1F504} [Sync] \u0637\u0644\u0628 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0646\u0633\u062E\u0629 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629 \u0627\u0644\u0643\u0627\u0645\u0644\u0629");
+    const [
+      projectsList,
+      workersList,
+      materialsList,
+      suppliersList,
+      attendanceList,
+      purchasesList,
+      expensesList,
+      transfersList,
+      wellsList,
+      typesList
+    ] = await Promise.all([
+      db.select().from(projects).limit(1e4),
+      db.select().from(workers).limit(1e4),
+      db.query("SELECT * FROM materials LIMIT 10000"),
+      db.query("SELECT * FROM suppliers LIMIT 10000"),
+      db.select().from(workerAttendance).limit(5e4),
+      db.query("SELECT * FROM material_purchases LIMIT 50000"),
+      db.query("SELECT * FROM transportation_expenses LIMIT 50000"),
+      db.select().from(fundTransfers).limit(5e4),
+      db.query("SELECT * FROM wells LIMIT 10000"),
+      db.query("SELECT * FROM project_types LIMIT 100")
+    ]);
+    const duration = Date.now() - startTime;
+    res.json({
+      success: true,
+      data: {
+        projects: projectsList,
+        workers: workersList,
+        materials: materialsList,
+        suppliers: suppliersList,
+        workerAttendance: attendanceList,
+        materialPurchases: purchasesList,
+        transportationExpenses: expensesList,
+        fundTransfers: transfersList,
+        wells: wellsList,
+        projectTypes: typesList
+      },
+      metadata: {
+        timestamp: Date.now(),
+        version: "1.0",
+        duration,
+        recordCounts: {
+          projects: projectsList.length,
+          workers: workersList.length,
+          materials: materialsList.length,
+          workerAttendance: attendanceList.length
+        }
+      }
+    });
+    console.log(`\u2705 [Sync] \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0641\u064A ${duration}ms`);
+  } catch (error) {
+    console.error("\u274C [Sync] \u062E\u0637\u0623 \u0641\u064A \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0646\u0633\u062E\u0629 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629:", error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "\u0641\u0634\u0644 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A"
+    });
+  }
+});
 syncRouter.get("/status", (req, res) => {
   try {
     res.json({
@@ -17832,7 +18003,8 @@ syncRouter.get("/status", (req, res) => {
         conflictResolution: true,
         offlineMode: true,
         compression: true,
-        incrementalSync: true
+        incrementalSync: true,
+        fullBackup: true
       }
     });
   } catch (error) {
@@ -18991,8 +19163,10 @@ async function registerRoutes(app2) {
           if (totalWorkers > 1e3) {
             console.warn(`\u26A0\uFE0F [API] \u0639\u062F\u062F \u0639\u0645\u0627\u0644 \u063A\u064A\u0631 \u0645\u0646\u0637\u0642\u064A \u0644\u0644\u0645\u0634\u0631\u0648\u0639 ${project.name}: ${totalWorkers}`);
           }
-          const totalExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers2 + miscExpenses;
-          const currentBalance = totalIncome - totalExpenses;
+          const { ExpenseLedgerService: ExpenseLedgerService2 } = await Promise.resolve().then(() => (init_ExpenseLedgerService(), ExpenseLedgerService_exports));
+          const financialSummary = await ExpenseLedgerService2.getProjectFinancialSummary(projectId);
+          const totalExpenses = financialSummary.expenses.totalAllExpenses;
+          const currentBalance = financialSummary.totalBalance;
           if (process.env.NODE_ENV === "development") {
             console.log(`\u{1F4CA} [API] \u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A \u0627\u0644\u0645\u0634\u0631\u0648\u0639 "${project.name}":`, {
               totalWorkers,
@@ -19753,7 +19927,11 @@ async function registerRoutes(app2) {
           paidAmount: workerAttendance.paidAmount,
           actualWage: workerAttendance.actualWage,
           workDays: workerAttendance.workDays,
-          workerName: workers.name
+          dailyWage: workerAttendance.dailyWage,
+          payableAmount: workerAttendance.actualWage,
+          workDescription: workerAttendance.workDescription,
+          workerName: workers.name,
+          projectName: sql19`''`
         }).from(workerAttendance).leftJoin(workers, eq22(workerAttendance.workerId, workers.id)).where(and18(eq22(workerAttendance.projectId, projectId), eq22(workerAttendance.date, date2))),
         db.select().from(materialPurchases).where(and18(eq22(materialPurchases.projectId, projectId), eq22(materialPurchases.purchaseDate, date2))),
         db.select().from(transportationExpenses).where(and18(eq22(transportationExpenses.projectId, projectId), eq22(transportationExpenses.date, date2))),
@@ -19767,9 +19945,11 @@ async function registerRoutes(app2) {
       const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
       const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
       const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
-      const totalIncome = totalFundTransfers;
-      const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
-      const remainingBalance = totalIncome - totalExpenses;
+      const { ExpenseLedgerService: ExpenseLedgerService2 } = await Promise.resolve().then(() => (init_ExpenseLedgerService(), ExpenseLedgerService_exports));
+      const dailyFinancial = await ExpenseLedgerService2.getDailyFinancialSummary(projectId, date2);
+      const totalIncome = dailyFinancial.income.totalIncome;
+      const totalExpenses = dailyFinancial.expenses.totalAllExpenses;
+      const remainingBalance = dailyFinancial.totalBalance;
       const responseData = {
         date: date2,
         projectName: projectInfo[0]?.name || "\u0645\u0634\u0631\u0648\u0639 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641",
@@ -21472,11 +21652,36 @@ async function registerRoutes(app2) {
     const startTime = Date.now();
     try {
       const attendanceId = req.params.id;
-      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062D\u0636\u0648\u0631:", attendanceId);
+      const { workDays, paidAmount, notes } = req.body;
+      console.log("\u{1F504} [API] \u0637\u0644\u0628 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062D\u0636\u0648\u0631:", attendanceId, { workDays, paidAmount, notes });
+      if (!attendanceId) {
+        const duration2 = Date.now() - startTime;
+        return res.status(400).json({
+          success: false,
+          error: "\u0645\u0639\u0631\u0641 \u0627\u0644\u062D\u0636\u0648\u0631 \u0645\u0637\u0644\u0648\u0628",
+          processingTime: duration2
+        });
+      }
+      const updatedRecord = await db.update(workerAttendance).set({
+        workDays: workDays ? parseFloat(workDays) : void 0,
+        paidAmount: paidAmount ? parseFloat(paidAmount) : void 0,
+        notes: notes || void 0
+      }).where(eq22(workerAttendance.id, attendanceId)).returning();
+      if (!updatedRecord.length) {
+        const duration2 = Date.now() - startTime;
+        return res.status(404).json({
+          success: false,
+          error: "\u0633\u062C\u0644 \u0627\u0644\u062D\u0636\u0648\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F",
+          processingTime: duration2
+        });
+      }
+      const duration = Date.now() - startTime;
+      console.log(`\u2705 [API] \u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062D\u0636\u0648\u0631 \u0628\u0646\u062C\u0627\u062D \u0641\u064A ${duration}ms`);
       res.json({
         success: true,
-        message: "endpoint \u062C\u0627\u0647\u0632 - \u0633\u064A\u062A\u0645 \u062A\u0641\u0639\u064A\u0644\u0647 \u0639\u0646\u062F \u0625\u0646\u0634\u0627\u0621 \u062C\u062F\u0648\u0644 \u0627\u0644\u062D\u0636\u0648\u0631",
-        processingTime: Date.now() - startTime
+        data: updatedRecord[0],
+        message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062D\u0636\u0648\u0631 \u0628\u0646\u062C\u0627\u062D",
+        processingTime: duration
       });
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -21562,11 +21767,180 @@ async function registerRoutes(app2) {
       });
     }
   });
-  app2.get("/api/daily-expenses", requireAuth, (req, res) => {
-    res.json({ success: true, data: [], message: "Daily expenses endpoint working - NOW SECURED \u2705" });
+  app2.get("/api/projects/:projectId/material-purchases", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId } = req.params;
+      const { date: date2 } = req.query;
+      console.log(`\u{1F4D6} [API] \u0637\u0644\u0628 \u062C\u0644\u0628 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId}, \u0627\u0644\u062A\u0627\u0631\u064A\u062E: ${date2 || "\u0627\u0644\u064A\u0648\u0645"}`);
+      let query = db.select({
+        id: materialPurchases.id,
+        projectId: materialPurchases.projectId,
+        materialName: materialPurchases.materialName,
+        materialId: materialPurchases.materialId,
+        quantity: materialPurchases.quantity,
+        unit: materialPurchases.unit,
+        materialUnit: materialPurchases.materialUnit,
+        unitPrice: materialPurchases.unitPrice,
+        totalAmount: materialPurchases.totalAmount,
+        purchaseDate: materialPurchases.purchaseDate,
+        purchaseType: materialPurchases.purchaseType,
+        supplierName: materialPurchases.supplierName,
+        invoiceNumber: materialPurchases.invoiceNumber,
+        invoiceDate: materialPurchases.invoiceDate,
+        wellId: materialPurchases.wellId,
+        notes: materialPurchases.notes,
+        projectName: projects.name,
+        project: {
+          id: projects.id,
+          name: projects.name
+        }
+      }).from(materialPurchases).leftJoin(projects, eq22(materialPurchases.projectId, projects.id));
+      const conditions = [];
+      if (projectId !== "all") {
+        conditions.push(eq22(materialPurchases.projectId, projectId));
+      }
+      if (date2) {
+        conditions.push(eq22(materialPurchases.purchaseDate, date2));
+      }
+      if (conditions.length > 0) {
+        query = query.where(and18(...conditions));
+      }
+      const results = await query.orderBy(desc17(materialPurchases.purchaseDate));
+      const duration = Date.now() - startTime;
+      console.log(`\u2705 [API] \u062A\u0645 \u062C\u0644\u0628 ${results.length} \u0645\u0646 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0641\u064A ${duration}ms`);
+      res.json({
+        success: true,
+        data: results,
+        message: `\u062A\u0645 \u062C\u0644\u0628 ${results.length} \u0645\u0646 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F \u0628\u0646\u062C\u0627\u062D`,
+        processingTime: duration
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F",
+        message: error.message,
+        processingTime: duration
+      });
+    }
   });
-  app2.get("/api/material-purchases", requireAuth, (req, res) => {
-    res.json({ success: true, data: [], message: "Material purchases endpoint working - NOW SECURED \u2705" });
+  app2.get("/api/financial-summary", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId } = req.query;
+      console.log(`\u{1F4B0} [API] \u0637\u0644\u0628 \u0645\u0644\u062E\u0635 \u0645\u0627\u0644\u064A \u0634\u0627\u0645\u0644 \u0644\u0644\u0645\u0634\u0631\u0648\u0639: ${projectId || "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639"}`);
+      const { ExpenseLedgerService: ExpenseLedgerService2 } = await Promise.resolve().then(() => (init_ExpenseLedgerService(), ExpenseLedgerService_exports));
+      if (projectId && projectId !== "all") {
+        const summary = await ExpenseLedgerService2.getProjectFinancialSummary(projectId);
+        const duration = Date.now() - startTime;
+        return res.json({
+          success: true,
+          data: summary,
+          message: "\u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0627\u0644\u064A \u0644\u0644\u0645\u0634\u0631\u0648\u0639 \u0628\u0646\u062C\u0627\u062D",
+          processingTime: duration
+        });
+      } else {
+        const projectSummaries = await ExpenseLedgerService2.getAllProjectsStats();
+        const totals = projectSummaries.reduce((acc, p) => ({
+          totalIncome: acc.totalIncome + p.income.totalIncome,
+          totalCashExpenses: acc.totalCashExpenses + p.expenses.totalCashExpenses,
+          totalAllExpenses: acc.totalAllExpenses + p.expenses.totalAllExpenses,
+          cashBalance: acc.cashBalance + p.cashBalance,
+          totalBalance: acc.totalBalance + p.totalBalance,
+          totalWorkers: acc.totalWorkers + p.workers.totalWorkers,
+          activeWorkers: acc.activeWorkers + p.workers.activeWorkers,
+          materialExpensesCredit: acc.materialExpensesCredit + p.expenses.materialExpensesCredit
+        }), {
+          totalIncome: 0,
+          totalCashExpenses: 0,
+          totalAllExpenses: 0,
+          cashBalance: 0,
+          totalBalance: 0,
+          totalWorkers: 0,
+          activeWorkers: 0,
+          materialExpensesCredit: 0
+        });
+        const duration = Date.now() - startTime;
+        return res.json({
+          success: true,
+          data: {
+            projects: projectSummaries,
+            totals,
+            projectsCount: projectSummaries.length
+          },
+          message: "\u062A\u0645 \u062C\u0644\u0628 \u0645\u0644\u062E\u0635 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u0628\u0646\u062C\u0627\u062D",
+          processingTime: duration
+        });
+      }
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0627\u0644\u064A:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0644\u062E\u0635 \u0627\u0644\u0645\u0627\u0644\u064A",
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+  app2.get("/api/daily-expenses", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { date: date2, projectId } = req.query;
+      const query = db.select().from(dailyExpenses);
+      if (date2) {
+        query.where(eq22(dailyExpenses.date, date2));
+      }
+      if (projectId && projectId !== "all") {
+        query.where(eq22(dailyExpenses.projectId, projectId));
+      }
+      const results = await query.orderBy(desc17(dailyExpenses.date));
+      const duration = Date.now() - startTime;
+      res.json({
+        success: true,
+        data: results,
+        message: `\u062A\u0645 \u062C\u0644\u0628 ${results.length} \u0645\u0646 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629`,
+        processingTime: duration
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629",
+        message: error.message,
+        processingTime: duration
+      });
+    }
+  });
+  app2.get("/api/material-purchases", requireAuth, async (req, res) => {
+    const startTime = Date.now();
+    try {
+      const { projectId } = req.query;
+      const query = db.select().from(materialPurchases);
+      if (projectId && projectId !== "all") {
+        query.where(eq22(materialPurchases.projectId, projectId));
+      }
+      const results = await query.orderBy(desc17(materialPurchases.purchaseDate));
+      const duration = Date.now() - startTime;
+      res.json({
+        success: true,
+        data: results,
+        message: `\u062A\u0645 \u062C\u0644\u0628 ${results.length} \u0645\u0646 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F`,
+        processingTime: duration
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error("\u274C [API] \u062E\u0637\u0623 \u0641\u064A \u062C\u0644\u0628 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F:", error);
+      res.status(500).json({
+        success: false,
+        error: "\u0641\u0634\u0644 \u0641\u064A \u062C\u0644\u0628 \u0645\u0634\u062A\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u062F",
+        message: error.message,
+        processingTime: duration
+      });
+    }
   });
   app2.get("/api/notifications", requireAuth, async (req, res) => {
     try {
@@ -21951,6 +22325,117 @@ async function registerRoutes(app2) {
         success: false,
         error: error.message,
         message: "Failed to retrieve tokens"
+      });
+    }
+  });
+  app2.get("/api/sync/full-backup", requireAuth, async (req, res) => {
+    try {
+      console.log("\u{1F4E5} [Sync] \u062C\u0627\u0631\u064A \u062A\u062D\u0645\u064A\u0644 \u0646\u0633\u062E\u0629 \u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629 \u0643\u0627\u0645\u0644\u0629 \u0645\u0646 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A...");
+      const startTime = Date.now();
+      const allData = {
+        // المستخدمين والمشاريع
+        users: await db.select().from(users),
+        projects: await db.select().from(projects),
+        projectTypes: await db.select().from(projectTypes),
+        projectFundTransfers: await db.select().from(projectFundTransfers),
+        // العمال والحضور
+        workers: await db.select().from(workers),
+        workerTypes: await db.select().from(workerTypes),
+        workerAttendance: await db.select().from(workerAttendance),
+        workerTransfers: await db.select().from(workerTransfers),
+        workerBalances: await db.select().from(workerBalances),
+        workerMiscExpenses: await db.select().from(workerMiscExpenses),
+        // الآبار
+        wells: await db.select().from(wells),
+        wellTasks: await db.select().from(wellTasks),
+        wellExpenses: await db.select().from(wellExpenses),
+        wellAuditLogs: await db.select().from(wellAuditLogs),
+        wellTaskAccounts: await db.select().from(wellTaskAccounts),
+        // المواد والموردين
+        materials: await db.select().from(materials),
+        materialCategories: await db.select().from(materialCategories),
+        materialPurchases: await db.select().from(materialPurchases),
+        suppliers: await db.select().from(suppliers),
+        supplierPayments: await db.select().from(supplierPayments),
+        // التحويلات والمصروفات
+        fundTransfers: await db.select().from(fundTransfers),
+        transportationExpenses: await db.select().from(transportationExpenses),
+        dailyExpenseSummaries: await db.select().from(dailyExpenseSummaries),
+        // الأدوات والصيانة
+        tools: await db.select().from(tools),
+        toolCategories: await db.select().from(toolCategories),
+        toolMovements: await db.select().from(toolMovements),
+        toolStock: await db.select().from(toolStock),
+        toolReservations: await db.select().from(toolReservations),
+        toolPurchaseItems: await db.select().from(toolPurchaseItems),
+        toolCostTracking: await db.select().from(toolCostTracking),
+        toolMaintenanceLogs: await db.select().from(toolMaintenanceLogs),
+        toolUsageAnalytics: await db.select().from(toolUsageAnalytics),
+        toolNotifications: await db.select().from(toolNotifications),
+        maintenanceSchedules: await db.select().from(maintenanceSchedules),
+        maintenanceTasks: await db.select().from(maintenanceTasks),
+        // الرسائل والإشعارات
+        messages: await db.select().from(messages),
+        channels: await db.select().from(channels),
+        notifications: await db.select().from(notifications),
+        notificationReadStates: await db.select().from(notificationReadStates),
+        systemNotifications: await db.select().from(systemNotifications),
+        // الأمان والجلسات
+        authUserSessions: await db.select().from(authUserSessions),
+        emailVerificationTokens: await db.select().from(emailVerificationTokens),
+        passwordResetTokens: await db.select().from(passwordResetTokens),
+        securityPolicies: await db.select().from(securityPolicies),
+        securityPolicyImplementations: await db.select().from(securityPolicyImplementations),
+        securityPolicySuggestions: await db.select().from(securityPolicySuggestions),
+        securityPolicyViolations: await db.select().from(securityPolicyViolations),
+        permissionAuditLogs: await db.select().from(permissionAuditLogs),
+        userProjectPermissions: await db.select().from(userProjectPermissions),
+        // الحسابات والمالية
+        transactions: await db.select().from(transactions),
+        transactionLines: await db.select().from(transactionLines),
+        journals: await db.select().from(journals),
+        accounts: await db.select().from(accounts),
+        accountBalances: await db.select().from(accountBalances),
+        financePayments: await db.select().from(financePayments),
+        financeEvents: await db.select().from(financeEvents),
+        // الإعدادات والتقارير
+        printSettings: await db.select().from(printSettings),
+        reportTemplates: await db.select().from(reportTemplates),
+        autocompleteData: await db.select().from(autocompleteData),
+        // الأحداث والذكاء الاصطناعي
+        systemEvents: await db.select().from(systemEvents),
+        actions: await db.select().from(actions),
+        aiChatSessions: await db.select().from(aiChatSessions),
+        aiChatMessages: await db.select().from(aiChatMessages),
+        aiUsageStats: await db.select().from(aiUsageStats),
+        // البناء والموافقات
+        buildDeployments: await db.select().from(buildDeployments),
+        approvals: await db.select().from(approvals)
+      };
+      const duration = Date.now() - startTime;
+      let totalRecords = 0;
+      const recordCounts = {};
+      for (const [table, records] of Object.entries(allData)) {
+        const count = Array.isArray(records) ? records.length : 0;
+        recordCounts[table] = count;
+        totalRecords += count;
+      }
+      console.log(`\u2705 [Sync] \u062A\u0645 \u062C\u0644\u0628 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0643\u0627\u0645\u0644\u0629 \u0641\u064A ${duration}ms - ${totalRecords} \u0633\u062C\u0644`);
+      console.log("\u{1F4CA} [Sync] \u062A\u0648\u0632\u064A\u0639 \u0627\u0644\u0633\u062C\u0644\u0627\u062A:", recordCounts);
+      res.json({
+        success: true,
+        data: allData,
+        timestamp: Date.now(),
+        recordCount: totalRecords,
+        recordCounts,
+        duration
+      });
+    } catch (error) {
+      console.error("\u274C [Sync] \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0646\u0633\u062E\u0629 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0646\u0633\u062E\u0629 \u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629 \u0643\u0627\u0645\u0644\u0629"
       });
     }
   });

@@ -234,17 +234,3 @@ export async function clearTable(tableName: string): Promise<void> {
   const db = await getDB();
   await db.clear(tableName as any);
 }
-
-/**
- * حذف جميع البيانات من قاعدة البيانات (ما عدا syncQueue)
- */
-export async function clearAllData(): Promise<void> {
-  const db = await getDB();
-  for (const storeName of ALL_STORES) {
-    try {
-      await db.clear(storeName as any);
-    } catch (e) {
-      console.warn(`[DB] Failed to clear ${storeName}`, e);
-    }
-  }
-}

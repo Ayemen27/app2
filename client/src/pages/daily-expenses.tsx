@@ -450,6 +450,7 @@ function DailyExpensesContent() {
   const { 
     data: dailyExpensesData, 
     isLoading: dailyExpensesLoading, 
+    error: dailyExpensesError,
     refetch: refetchDailyExpenses 
   } = useQuery<any>({
     queryKey: ["/api/projects", isAllProjects ? "all-projects" : selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],

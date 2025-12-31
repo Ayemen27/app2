@@ -87,23 +87,12 @@ export default function Dashboard() {
   } = useUnifiedFilter({ status: 'all' }, '');
 
   // استخدام الملخص المالي الموحد من ExpenseLedgerService
-  const { allProjects: financialData, isLoading: financialLoading } = useFinancialSummary({
-    projectId: 'all',
+  const { totals: currentTotals, isLoading: financialLoading } = useFinancialSummary({
+    projectId: selectedProjectId || 'all',
     enabled: true
   });
 
-  const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
-    if (!value || typeof value !== 'string' || !value.trim()) return;
-    try {
-      await apiRequest("/api/autocomplete", "POST", { 
-        category, 
-        value: value.trim() 
-      });
-    } catch (error) {
-      console.log(`Failed to save autocomplete value for ${category}:`, error);
-    }
-  };
-
+  // جلب المشاريع مع الإحصائيات
   const { data: projects = [], isLoading: projectsLoading, error: projectsError } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects/with-stats"],
     queryFn: async () => {
@@ -288,17 +277,6 @@ export default function Dashboard() {
 
   const selectedProject = Array.isArray(projects) ? projects.find((p: ProjectWithStats) => p.id === selectedProjectId) : undefined;
 
-  // إنشاء map للوصول السريع لبيانات المشاريع المالية من ExpenseLedgerService
-  const financialProjectsMap = useMemo(() => {
-    const map = new Map<string, any>();
-    if (financialData?.projects) {
-      financialData.projects.forEach((p: any) => {
-        map.set(p.projectId, p);
-      });
-    }
-    return map;
-  }, [financialData?.projects]);
-
   const filteredProjects = useMemo(() => {
     if (!Array.isArray(projects)) return [];
 
@@ -311,47 +289,6 @@ export default function Dashboard() {
       return matchesSearch && matchesStatus;
     });
   }, [projects, searchValue, filterValues.status]);
-
-  // دالة للحصول على إحصائيات المشروع من ExpenseLedgerService
-  const getProjectStats = useCallback((projectId: string) => {
-    const financialProject = financialProjectsMap.get(projectId) as ProjectFinancialSummary | undefined;
-    if (financialProject) {
-      return {
-        totalIncome: financialProject.income?.totalIncome || 0,
-        totalExpenses: financialProject.expenses?.totalAllExpenses || 0,
-        currentBalance: financialProject.totalBalance || 0,
-        activeWorkers: financialProject.workers?.activeWorkers || 0,
-        completedDays: financialProject.workers?.completedDays || 0,
-        materialPurchases: financialProject.counts?.materialPurchases || 0,
-        transportExpenses: financialProject.expenses?.transportExpenses || 0
-      };
-    }
-    return null;
-  }, [financialProjectsMap]);
-
-  // الإجماليات من /api/financial-summary - مصدر موحد من ExpenseLedgerService (لا حسابات محلية)
-  const totalStats = useMemo(() => {
-    if (financialData?.totals) {
-      return {
-        totalIncome: financialData.totals.totalIncome || 0,
-        totalExpenses: financialData.totals.totalAllExpenses || 0,
-        currentBalance: financialData.totals.totalBalance || 0,
-        activeWorkers: financialData.totals.activeWorkers || 0,
-        completedDays: 0,
-        materialPurchases: 0,
-        projectsCount: financialData.projectsCount || projects.length || 0
-      };
-    }
-    return {
-      totalIncome: 0,
-      totalExpenses: 0,
-      currentBalance: 0,
-      activeWorkers: 0,
-      completedDays: 0,
-      materialPurchases: 0,
-      projectsCount: 0
-    };
-  }, [financialData, projects.length]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -379,28 +316,6 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => {
-    if (selectedProject) {
-      console.log('🔍 بيانات المشروع المحدد في Frontend:', {
-        projectId: selectedProject.id,
-        projectName: selectedProject.name,
-        totalIncome: selectedProject.stats?.totalIncome,
-        totalExpenses: selectedProject.stats?.totalExpenses,
-        currentBalance: selectedProject.stats?.currentBalance
-      });
-
-      if ((selectedProject.name || '').includes('الحبشي')) {
-        console.warn('🚨 مشروع الحبشي - تحقق من البيانات:', {
-          مشروع: selectedProject.name,
-          الدخل: selectedProject.stats?.totalIncome,
-          المصاريف: selectedProject.stats?.totalExpenses,
-          هل_متساوية: selectedProject.stats?.totalIncome === selectedProject.stats?.totalExpenses,
-          fullStats: selectedProject.stats
-        });
-      }
-    }
-  }, [selectedProject]);
-
   const formatCurrency = (amount: number) => {
     if (typeof amount !== 'number') {
       const num = parseFloat(String(amount));
@@ -415,32 +330,42 @@ export default function Dashboard() {
   };
 
   // الإحصائيات الحالية - من ExpenseLedgerService فقط (مصدر موحد للحقيقة)
-  // نقل هذا useMemo قبل أي return مبكر لتجنب خطأ Hooks
   const currentStats = useMemo(() => {
-    if (selectedProject && selectedProjectId) {
-      const projectStats = getProjectStats(selectedProjectId);
-      if (projectStats) {
+    return {
+      totalIncome: currentTotals.totalIncome || 0,
+      totalExpenses: currentTotals.totalAllExpenses || 0,
+      currentBalance: currentTotals.totalBalance || 0,
+      activeWorkers: String(currentTotals.activeWorkers || 0),
+      completedDays: String(currentTotals.totalWorkers || 0), // استبدال completedDays بـ totalWorkers مؤقتاً إذا لم تتوفر
+      materialPurchases: '0',
+      transportExpenses: 0
+    };
+  }, [currentTotals]);
+
+  // وظيفة للحصول على إحصائيات مشروع معين من قائمة المشاريع الكلية
+  const getProjectStats = useCallback((projectId: string) => {
+    // محاولة إيجاد المشروع في بيانات الملخص المالي الموحد أولاً
+    if (currentTotals.projects && Array.isArray(currentTotals.projects)) {
+      const projectSummary = currentTotals.projects.find((p: any) => p.projectId === projectId);
+      if (projectSummary) {
         return {
-          totalIncome: projectStats.totalIncome,
-          totalExpenses: projectStats.totalExpenses,
-          currentBalance: projectStats.currentBalance,
-          activeWorkers: String(projectStats.activeWorkers),
-          completedDays: String(projectStats.completedDays),
-          materialPurchases: String(projectStats.materialPurchases),
-          transportExpenses: projectStats.transportExpenses
+          totalIncome: projectSummary.income.totalIncome,
+          totalExpenses: projectSummary.expenses.totalAllExpenses,
+          currentBalance: projectSummary.totalBalance,
+          activeWorkers: projectSummary.workers.activeWorkers
         };
       }
     }
-    return {
-      totalIncome: totalStats.totalIncome,
-      totalExpenses: totalStats.totalExpenses,
-      currentBalance: totalStats.currentBalance,
-      activeWorkers: String(totalStats.activeWorkers),
-      completedDays: String(totalStats.completedDays),
-      materialPurchases: String(totalStats.materialPurchases),
-      transportExpenses: 0
+    
+    // إذا لم يوجد في الملخص، نبحث في بيانات المشاريع الأصلية (كاحتياطي)
+    const project = projects.find(p => p.id === projectId);
+    return project?.stats || {
+      totalIncome: 0,
+      totalExpenses: 0,
+      currentBalance: 0,
+      activeWorkers: 0
     };
-  }, [selectedProject, selectedProjectId, getProjectStats, totalStats]);
+  }, [currentTotals.projects, projects]);
 
   if (projectsLoading) {
     return <LoadingCard />;

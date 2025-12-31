@@ -412,8 +412,10 @@ function DailyExpensesContent() {
 
   // حساب القيم المعروضة بناءً على وجود فلتر تاريخ
   const displayIncome = useMemo(() => {
-    // في صفحة المصروفات اليومية، نحن مهتمون فقط بدخل الفترة المختارة
-    return financialSummary?.income?.totalIncome || 0;
+    // في صفحة المصروفات اليومية، نعرض إجمالي الدخل المتاح (دخل اليوم + الرصيد المرحل من سابق)
+    const incomeToday = financialSummary?.income?.totalIncome || 0;
+    const carriedForward = (financialSummary?.income as any)?.carriedForwardBalance || 0;
+    return incomeToday + carriedForward;
   }, [financialSummary]);
 
   const displayExpenses = useMemo(() => {
@@ -421,9 +423,12 @@ function DailyExpensesContent() {
   }, [financialSummary]);
 
   const displayBalance = useMemo(() => {
-    // في صفحة المصروفات اليومية، نعرض دائماً صافي الحركة للفترة المختارة (دخل - مصروفات)
-    // ليتطابق مع ما يراه المستخدم في الجداول بالأسفل
-    return (financialSummary?.income?.totalIncome || 0) - (financialSummary?.expenses?.totalCashExpenses || 0);
+    // المتبقي = (دخل اليوم + الرصيد المرحل) - مصروفات اليوم
+    const incomeToday = financialSummary?.income?.totalIncome || 0;
+    const carriedForward = (financialSummary?.income as any)?.carriedForwardBalance || 0;
+    const expensesToday = financialSummary?.expenses?.totalCashExpenses || 0;
+    
+    return (incomeToday + carriedForward) - expensesToday;
   }, [financialSummary]);
 
   const { 

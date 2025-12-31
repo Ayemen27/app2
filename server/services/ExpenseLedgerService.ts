@@ -151,6 +151,33 @@ export class ExpenseLedgerService {
 
       const carriedForwardBalance = this.cleanDbValue(prevIncome.rows[0]?.total) - this.cleanDbValue(prevExpenses.rows[0]?.total);
 
+      // تحضير الفلاتر الزمنية بدقة لجميع الاستعلامات
+      let dateFilterMp = sql``;
+      let dateFilterWa = sql``;
+      let dateFilterTe = sql``;
+      let dateFilterWt = sql``;
+      let dateFilterMwe = sql``;
+      let dateFilterFt = sql``;
+      let dateFilterPft = sql``;
+
+      if (date) {
+        dateFilterMp = sql`AND purchase_date = ${date}`;
+        dateFilterWa = sql`AND attendance_date = ${date}`;
+        dateFilterTe = sql`AND date = ${date}`;
+        dateFilterWt = sql`AND transfer_date::date = ${date}::date`;
+        dateFilterMwe = sql`AND date = ${date}`;
+        dateFilterFt = sql`AND transfer_date::date = ${date}::date`;
+        dateFilterPft = sql`AND transfer_date::date = ${date}::date`;
+      } else if (dateFrom && dateTo) {
+        dateFilterMp = sql`AND purchase_date BETWEEN ${dateFrom} AND ${dateTo}`;
+        dateFilterWa = sql`AND attendance_date BETWEEN ${dateFrom} AND ${dateTo}`;
+        dateFilterTe = sql`AND date BETWEEN ${dateFrom} AND ${dateTo}`;
+        dateFilterWt = sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
+        dateFilterMwe = sql`AND date BETWEEN ${dateFrom} AND ${dateTo}`;
+        dateFilterFt = sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
+        dateFilterPft = sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date`;
+      }
+
       const [
         projectInfo,
         materialCashStats,
@@ -171,7 +198,7 @@ export class ExpenseLedgerService {
             COUNT(*) as count,
             COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total
           FROM material_purchases 
-          WHERE project_id = ${projectId} AND purchase_type = 'نقد' ${dateFilter}
+          WHERE project_id = ${projectId} AND purchase_type = 'نقد' ${dateFilterMp}
         `),
         
         db.execute(sql`
@@ -179,7 +206,7 @@ export class ExpenseLedgerService {
             COUNT(*) as count,
             COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total
           FROM material_purchases 
-          WHERE project_id = ${projectId} AND purchase_type = 'آجل' ${dateFilter}
+          WHERE project_id = ${projectId} AND purchase_type = 'آجل' ${dateFilterMp}
         `),
         
         db.execute(sql`
@@ -188,7 +215,7 @@ export class ExpenseLedgerService {
             COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as total,
             COUNT(DISTINCT attendance_date) as completed_days
           FROM worker_attendance 
-          WHERE project_id = ${projectId} AND is_present = true ${dateFilterAttendance}
+          WHERE project_id = ${projectId} AND is_present = true ${dateFilterWa}
         `),
         
         db.execute(sql`
@@ -196,7 +223,7 @@ export class ExpenseLedgerService {
             COUNT(*) as count,
             COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM transportation_expenses 
-          WHERE project_id = ${projectId} ${dateFilterTransport}
+          WHERE project_id = ${projectId} ${dateFilterTe}
         `),
         
         db.execute(sql`
@@ -204,7 +231,7 @@ export class ExpenseLedgerService {
             COUNT(*) as count,
             COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM worker_transfers 
-          WHERE project_id = ${projectId} ${dateFilterTransfer}
+          WHERE project_id = ${projectId} ${dateFilterWt}
         `),
         
         db.execute(sql`
@@ -212,7 +239,7 @@ export class ExpenseLedgerService {
             COUNT(*) as count,
             COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM worker_misc_expenses 
-          WHERE project_id = ${projectId} ${dateFilterMisc}
+          WHERE project_id = ${projectId} ${dateFilterMwe}
         `),
         
         db.execute(sql`
@@ -220,19 +247,19 @@ export class ExpenseLedgerService {
             COUNT(*) as count,
             COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM fund_transfers 
-          WHERE project_id = ${projectId} ${dateFilterTransfer}
+          WHERE project_id = ${projectId} ${dateFilterFt}
         `),
         
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM project_fund_transfers 
-          WHERE from_project_id = ${projectId} ${dateFilterTransfer}
+          WHERE from_project_id = ${projectId} ${dateFilterPft}
         `),
         
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM project_fund_transfers 
-          WHERE to_project_id = ${projectId} ${dateFilterTransfer}
+          WHERE to_project_id = ${projectId} ${dateFilterPft}
         `),
         
         db.execute(sql`
@@ -241,7 +268,7 @@ export class ExpenseLedgerService {
             COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers
           FROM worker_attendance wa
           INNER JOIN workers w ON wa.worker_id = w.id
-          WHERE wa.project_id = ${projectId} ${dateFilterAttendance}
+          WHERE wa.project_id = ${projectId} ${dateFilterWa}
         `)
       ]);
 

@@ -158,12 +158,9 @@ export class ExpenseLedgerService {
       const totalIncome = fundTransfers + incomingProjectTransfers;
       const cashBalance = totalIncome - totalCashExpenses;
       
-      // 6. الرصيد التراكمي الشامل (الدخل التراكمي - المصروفات التراكمية النقدية والآجلة)
-      // totalIncomeWithCarried هو إجمالي المال المتاح (الرصيد المرحل من أمس + دخل اليوم)
+      // 6. الرصيد التراكمي الشامل
+      // المتبقي هو (الرصيد المرحل من سابقاً + دخل اليوم) - مصروفات اليوم
       const totalIncomeWithCarried = totalIncome + carriedForwardBalance;
-      
-      // الرصيد النهائي الصحيح = (إجمالي الدخل المتاح) - (إجمالي مصروفات اليوم النقدية فقط)
-      // لأن الرصيد النقدي في العهدة لا يتأثر بالمشتريات الآجلة (Credit)
       const totalBalance = totalIncomeWithCarried - totalCashExpenses;
       const totalAllExpenses = totalCashExpenses + materialExpensesCredit; 
 

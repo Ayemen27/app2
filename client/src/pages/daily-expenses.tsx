@@ -2871,6 +2871,9 @@ function DailyExpensesContent() {
                               }`}>
                                 {isCash ? 'نقد' : 'آجل'}
                               </div>
+                              {isAllProjects && purchase.projectName && (
+                                <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {purchase.projectName}</div>
+                              )}
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
                               <Button 

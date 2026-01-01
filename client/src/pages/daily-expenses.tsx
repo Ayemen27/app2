@@ -449,7 +449,7 @@ function DailyExpensesContent() {
   }, [totalsValue]);
 
   const displayAvailableBalance = useMemo(() => {
-    return totalsValue.totalIncome + totalsValue.carriedForwardBalance;
+    return totalsValue.totalIncome + (totalsValue.carriedForwardBalance || 0);
   }, [totalsValue]);
 
   const displayExpenses = useMemo(() => {

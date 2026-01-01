@@ -95,7 +95,9 @@ export class ExpenseLedgerService {
       const startDateStr = date || dateFrom || new Date().toISOString().split('T')[0];
       
       // في حالة الفلترة المحددة، الرصيد المرحل يجب أن يكون من قبل تاريخ البداية
-      // أما في حالة التراكمي، الرصيد المرحل يكون صفر لأننا نجمع كل شيء
+      // تم إصلاح المنطق: حتى لو كان العرض تراكمياً لليوم، نحتاج لمعرفة ما قبل هذا اليوم
+      // إذا كان isCumulative true (لا يوجد تاريخ محدد)، فالرصيد المرحل 0 لأننا نجمع كل التاريخ
+      // إذا كان هناك تاريخ محدد (مثل 25/11)، فنحن بحاجة لكل ما قبل 25/11
       const [prevIncome, prevExpenses] = isCumulative ? [
         { rows: [{ total: 0 }] },
         { rows: [{ total: 0 }] }

@@ -461,21 +461,6 @@ function DailyExpensesContent() {
     return (totalsValue.totalIncome + (totalsValue.carriedForwardBalance || 0)) - totalsValue.totalCashExpenses;
   }, [totalsValue]);
 
-  const carriedForwardDisplay = useMemo(() => {
-    // إذا كان عرض "جميع المشاريع"، نستخدم القيمة القادمة من API المجمع
-    if (isAllProjects && dailyExpensesData?.carriedForwardBalance !== undefined) {
-      return dailyExpensesData.carriedForwardBalance;
-    }
-    return totalsValue.carriedForwardBalance || 0;
-  }, [isAllProjects, totalsValue, dailyExpensesData]);
-
-  const totalRemainingWithCarried = useMemo(() => {
-    const carried = isAllProjects && dailyExpensesData?.carriedForwardBalance !== undefined 
-      ? dailyExpensesData.carriedForwardBalance 
-      : (totalsValue.carriedForwardBalance || 0);
-    return (totalsValue.totalIncome + carried) - totalsValue.totalCashExpenses;
-  }, [isAllProjects, totalsValue, dailyExpensesData]);
-
   const { 
     data: dailyExpensesData, 
     isLoading: dailyExpensesLoading, 
@@ -543,6 +528,21 @@ function DailyExpensesContent() {
     refetchInterval: false,
     placeholderData: (previousData: any) => previousData,
   });
+
+  const carriedForwardDisplay = useMemo(() => {
+    // إذا كان عرض "جميع المشاريع"، نستخدم القيمة القادمة من API المجمع
+    if (isAllProjects && dailyExpensesData?.carriedForwardBalance !== undefined) {
+      return dailyExpensesData.carriedForwardBalance;
+    }
+    return totalsValue.carriedForwardBalance || 0;
+  }, [isAllProjects, totalsValue, dailyExpensesData]);
+
+  const totalRemainingWithCarried = useMemo(() => {
+    const carried = isAllProjects && dailyExpensesData?.carriedForwardBalance !== undefined 
+      ? dailyExpensesData.carriedForwardBalance 
+      : (totalsValue.carriedForwardBalance || 0);
+    return (totalsValue.totalIncome + carried) - totalsValue.totalCashExpenses;
+  }, [isAllProjects, totalsValue, dailyExpensesData]);
 
   // تحديث البيانات عند الحفظ أو الحذف
   const refreshAllData = useCallback(() => {

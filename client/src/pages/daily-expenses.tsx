@@ -513,10 +513,10 @@ function DailyExpensesContent() {
       }
     },
     enabled: isAllProjects || !!selectedProjectId,
-    retry: 2,
-    staleTime: 1000 * 60 * 10,
-    gcTime: 1000 * 60 * 20,
-    refetchOnMount: true,
+    retry: 1,
+    staleTime: 1000 * 60 * 30, // 30 minutes
+    gcTime: 1000 * 60 * 60,    // 1 hour
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchInterval: false,
     placeholderData: (previousData: any) => previousData,

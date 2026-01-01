@@ -146,14 +146,18 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       materialExpensesCredit: 0,
       carriedForwardBalance: 0
     };
-    return {
-      summary: null as ProjectFinancialSummary | null,
-      allProjects: allProjectsData,
-      totals: {
-      ...totals,
-      totalExpenses: totals.totalAllExpenses || 0,
-      currentBalance: totals.totalBalance || 0,
-      carriedForwardBalance: totals.carriedForwardBalance || 0,
+
+    // حساب تفاصيل الفئات المجمعة من جميع المشاريع
+    const aggregatedCategories = allProjectsData.projects?.reduce((acc, p) => ({
+      totalWorkerWages: acc.totalWorkerWages + (p.expenses?.workerWages || 0),
+      totalTransportation: acc.totalTransportation + (p.expenses?.transportExpenses || 0),
+      totalMaterialCosts: acc.totalMaterialCosts + (p.expenses?.materialExpenses || 0),
+      totalWorkerTransfers: acc.totalWorkerTransfers + (p.expenses?.workerTransfers || 0),
+      totalMiscExpenses: acc.totalMiscExpenses + (p.expenses?.miscExpenses || 0),
+      totalFundTransfers: acc.totalFundTransfers + (p.income?.fundTransfers || 0),
+      incomingProjectTransfers: acc.incomingProjectTransfers + (p.income?.incomingProjectTransfers || 0),
+      outgoingProjectTransfers: acc.outgoingProjectTransfers + (p.expenses?.outgoingProjectTransfers || 0),
+    }), {
       totalWorkerWages: 0,
       totalTransportation: 0,
       totalMaterialCosts: 0,
@@ -162,6 +166,26 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       totalFundTransfers: 0,
       incomingProjectTransfers: 0,
       outgoingProjectTransfers: 0,
+    }) || {
+      totalWorkerWages: 0,
+      totalTransportation: 0,
+      totalMaterialCosts: 0,
+      totalWorkerTransfers: 0,
+      totalMiscExpenses: 0,
+      totalFundTransfers: 0,
+      incomingProjectTransfers: 0,
+      outgoingProjectTransfers: 0,
+    };
+
+    return {
+      summary: null as ProjectFinancialSummary | null,
+      allProjects: allProjectsData,
+      totals: {
+      ...totals,
+      ...aggregatedCategories,
+      totalExpenses: totals.totalAllExpenses || 0,
+      currentBalance: totals.totalBalance || 0,
+      carriedForwardBalance: totals.carriedForwardBalance || 0,
       remainingBalance: totals.totalBalance || 0
     },
       isLoading,

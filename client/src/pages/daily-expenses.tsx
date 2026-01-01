@@ -405,7 +405,7 @@ function DailyExpensesContent() {
     isLoading: summaryLoading, 
     refetch: refetchFinancial 
   } = useFinancialSummary({
-    projectId: selectedProjectId,
+    projectId: selectedProjectId === 'all' ? 'all' : selectedProjectId,
     date: selectedDate && selectedDate !== "null" ? selectedDate : undefined,
     dateFrom: filterValues.dateRange?.from ? formatDate(filterValues.dateRange.from) : undefined,
     dateTo: filterValues.dateRange?.to ? formatDate(filterValues.dateRange.to) : undefined,

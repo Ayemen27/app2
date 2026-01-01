@@ -250,7 +250,6 @@ export class ExpenseLedgerService {
   static async getAllProjectsStats(date?: string, dateFrom?: string, dateTo?: string): Promise<ProjectFinancialSummary[]> {
     try {
       const projectsList = await db.execute(sql`SELECT id, name FROM projects WHERE is_active = true ORDER BY created_at`);
-      // تحسين: تقليل عدد الطلبات المتزامنة لتجنب إرهاق قاعدة البيانات
       const results: ProjectFinancialSummary[] = [];
       for (const project of projectsList.rows) {
         const summary = await this.getProjectFinancialSummary(project.id as string, date, dateFrom, dateTo);
@@ -259,6 +258,57 @@ export class ExpenseLedgerService {
       return results;
     } catch (error) {
       console.error('❌ [ExpenseLedger] خطأ في جلب إحصائيات جميع المشاريع:', error);
+      throw error;
+    }
+  }
+
+  static async getTotalDailyFinancialSummary(date: string): Promise<any> {
+    try {
+      const projects = await this.getAllProjectsStats(date);
+      
+      const totals = {
+        totalIncome: 0,
+        totalCashExpenses: 0,
+        totalAllExpenses: 0,
+        cashBalance: 0,
+        totalBalance: 0,
+        carriedForwardBalance: 0,
+        totalIncomeWithCarried: 0,
+        materialExpensesCredit: 0,
+        workerWages: 0,
+        transportExpenses: 0,
+        workerTransfers: 0,
+        miscExpenses: 0,
+        fundTransfers: 0,
+        incomingProjectTransfers: 0,
+        outgoingProjectTransfers: 0,
+        totalWorkers: 0,
+        activeWorkers: 0
+      };
+
+      projects.forEach(p => {
+        totals.totalIncome += p.income.totalIncome;
+        totals.totalCashExpenses += p.expenses.totalCashExpenses;
+        totals.totalAllExpenses += p.expenses.totalAllExpenses;
+        totals.cashBalance += p.cashBalance;
+        totals.totalBalance += p.totalBalance;
+        totals.carriedForwardBalance += (p.income.carriedForwardBalance || 0);
+        totals.totalIncomeWithCarried += (p.income.totalIncomeWithCarried || 0);
+        totals.materialExpensesCredit += p.expenses.materialExpensesCredit;
+        totals.workerWages += p.expenses.workerWages;
+        totals.transportExpenses += p.expenses.transportExpenses;
+        totals.workerTransfers += p.expenses.workerTransfers;
+        totals.miscExpenses += p.expenses.miscExpenses;
+        totals.fundTransfers += p.income.fundTransfers;
+        totals.incomingProjectTransfers += p.income.incomingProjectTransfers;
+        totals.outgoingProjectTransfers += p.expenses.outgoingProjectTransfers;
+        totals.totalWorkers += p.workers.totalWorkers;
+        totals.activeWorkers += p.workers.activeWorkers;
+      });
+
+      return totals;
+    } catch (error) {
+      console.error('❌ [ExpenseLedger] خطأ في حساب الإجمالي اليومي:', error);
       throw error;
     }
   }

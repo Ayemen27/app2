@@ -95,7 +95,15 @@ export class ExpenseLedgerService {
       const startDateStr = date || dateFrom || new Date().toISOString().split('T')[0];
       
       // في حالة الفلترة المحددة، الرصيد المرحل يجب أن يكون من قبل تاريخ البداية
-      // إذا كان هناك تاريخ محدد (مثل 25/11)، فنحن بحاجة لكل ما قبل 25/11 (تاريخ البداية)
+      // إذا كان هناك تاريخ محدد (مثل 25/11)، فنحن بحاجة لرصيد اليوم السابق فقط (24/11)
+      // تم تعديل المنطق بناءً على طلب المستخدم: المتبقي من اليوم السابق فقط وليس كل ما قبله
+      let prevDateStr = startDateStr;
+      if (!isCumulative) {
+        const d = new Date(startDateStr);
+        d.setDate(d.getDate() - 1);
+        prevDateStr = d.toISOString().split('T')[0];
+      }
+
       const [prevIncome, prevExpenses] = isCumulative ? [
         { rows: [{ total: 0 }] },
         { rows: [{ total: 0 }] }
@@ -103,9 +111,9 @@ export class ExpenseLedgerService {
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM (
-            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
+            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} AND transfer_date::date = ${prevDateStr}::date
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
+            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId} AND transfer_date::date = ${prevDateStr}::date
           ) as prev_income
         `),
         db.execute(sql`
@@ -117,17 +125,17 @@ export class ExpenseLedgerService {
                 ELSE CAST(paid_amount AS DECIMAL)
               END as amount 
             FROM material_purchases 
-            WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date < ${startDateStr}::date
+            WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date = ${prevDateStr}::date
             UNION ALL
-            SELECT paid_amount as amount FROM worker_attendance WHERE project_id = ${projectId} AND attendance_date::date < ${startDateStr}::date
+            SELECT paid_amount as amount FROM worker_attendance WHERE project_id = ${projectId} AND attendance_date::date = ${prevDateStr}::date
             UNION ALL
-            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND date::date < ${startDateStr}::date
+            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND date::date = ${prevDateStr}::date
             UNION ALL
-            SELECT amount FROM worker_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
+            SELECT amount FROM worker_transfers WHERE project_id = ${projectId} AND transfer_date::date = ${prevDateStr}::date
             UNION ALL
-            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId} AND date::date < ${startDateStr}::date
+            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId} AND date::date = ${prevDateStr}::date
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
+            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId} AND transfer_date::date = ${prevDateStr}::date
           ) as prev_expenses
         `)
       ]);

@@ -50,7 +50,11 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
         processingTime: duration
       });
     } else {
-      const summaries = await ExpenseLedgerService.getAllProjectsStats();
+      const summaries = await ExpenseLedgerService.getAllProjectsStats(
+        date as string,
+        dateFrom as string,
+        dateTo as string
+      );
       
       const totalSummary = summaries.reduce((acc, s) => ({
         totalIncome: acc.totalIncome + s.income.totalIncome,

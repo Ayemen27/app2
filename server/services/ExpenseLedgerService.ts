@@ -224,10 +224,12 @@ export class ExpenseLedgerService {
     return { ...summary, date };
   }
 
-  static async getAllProjectsStats(): Promise<ProjectFinancialSummary[]> {
+  static async getAllProjectsStats(date?: string, dateFrom?: string, dateTo?: string): Promise<ProjectFinancialSummary[]> {
     try {
       const projectsList = await db.execute(sql`SELECT id, name FROM projects ORDER BY created_at`);
-      return await Promise.all(projectsList.rows.map(async (project: any) => this.getProjectFinancialSummary(project.id)));
+      return await Promise.all(projectsList.rows.map(async (project: any) => 
+        this.getProjectFinancialSummary(project.id, date, dateFrom, dateTo)
+      ));
     } catch (error) {
       console.error('❌ [ExpenseLedger] خطأ في جلب إحصائيات جميع المشاريع:', error);
       throw error;

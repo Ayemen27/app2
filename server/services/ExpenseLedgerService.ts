@@ -70,18 +70,36 @@ export class ExpenseLedgerService {
 
   static async getProjectFinancialSummary(projectId: string, date?: string, dateFrom?: string, dateTo?: string): Promise<ProjectFinancialSummary> {
     try {
-      const dateFilterMp = date ? sql`AND purchase_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND purchase_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
-      const dateFilterWa = date ? sql`AND attendance_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND attendance_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
-      const dateFilterTe = date ? sql`AND date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
-      const dateFilterWt = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
-      const dateFilterMwe = date ? sql`AND date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
-      const dateFilterFt = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
-      const dateFilterPft = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql``);
+      // تصحيح الفلترة لضمان عدم ظهور بيانات من تواريخ أخرى عند وجود فلتر
+      const dateFilterMp = date ? sql`AND purchase_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND purchase_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
+      const dateFilterWa = date ? sql`AND attendance_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND attendance_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
+      const dateFilterTe = date ? sql`AND date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
+      const dateFilterWt = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
+      const dateFilterMwe = date ? sql`AND date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
+      const dateFilterFt = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
+      const dateFilterPft = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
 
-      console.log(`🔍 [ExpenseLedger] تطبيق الفلترة لـ ${projectId}:`, { date, dateFrom, dateTo });
+      // إذا لم يكن هناك تاريخ محدد، نعتبره عرض تراكمي ونلغي فلاتر التواريخ لضمان جلب كل شيء
+      const isCumulative = !date && !dateFrom && !dateTo;
+      
+      const finalFilterMp = isCumulative ? sql`` : dateFilterMp;
+      const finalFilterWa = isCumulative ? sql`` : dateFilterWa;
+      const finalFilterTe = isCumulative ? sql`` : dateFilterTe;
+      const finalFilterWt = isCumulative ? sql`` : dateFilterWt;
+      const finalFilterMwe = isCumulative ? sql`` : dateFilterMwe;
+      const finalFilterFt = isCumulative ? sql`` : dateFilterFt;
+      const finalFilterPft = isCumulative ? sql`` : dateFilterPft;
+
+      console.log(`🔍 [ExpenseLedger] تطبيق الفلترة لـ ${projectId}:`, { date, dateFrom, dateTo, isCumulative });
 
       const startDateStr = date || dateFrom || new Date().toISOString().split('T')[0];
-      const [prevIncome, prevExpenses] = await Promise.all([
+      
+      // في حالة الفلترة المحددة، الرصيد المرحل يجب أن يكون من قبل تاريخ البداية
+      // أما في حالة التراكمي، الرصيد المرحل يكون صفر لأننا نجمع كل شيء
+      const [prevIncome, prevExpenses] = isCumulative ? [
+        { rows: [{ total: 0 }] },
+        { rows: [{ total: 0 }] }
+      ] : await Promise.all([
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM (
@@ -114,7 +132,7 @@ export class ExpenseLedgerService {
         `)
       ]);
 
-      const carriedForwardBalance = this.cleanDbValue(prevIncome.rows[0]?.total) - this.cleanDbValue(prevExpenses.rows[0]?.total);
+      const carriedForwardBalance = isCumulative ? 0 : (this.cleanDbValue(prevIncome.rows[0]?.total) - this.cleanDbValue(prevExpenses.rows[0]?.total));
 
       const [
         projectInfo,
@@ -135,17 +153,17 @@ export class ExpenseLedgerService {
             WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) = 0 OR paid_amount IS NULL) THEN CAST(total_amount AS DECIMAL)
             ELSE CAST(paid_amount AS DECIMAL)
           END
-        ), 0) as total FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') ${dateFilterMp}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount - paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'آجل' OR purchase_type = 'اجل') ${dateFilterMp}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = ${projectId} ${dateFilterWa}`),
+        ), 0) as total FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') ${finalFilterMp}`),
+        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount - paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'آجل' OR purchase_type = 'اجل') ${finalFilterMp}`),
+        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = ${projectId} ${finalFilterWa}`),
 
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = ${projectId} ${dateFilterTe}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = ${projectId} ${dateFilterWt}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_misc_expenses WHERE project_id = ${projectId} ${dateFilterMwe}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM fund_transfers WHERE project_id = ${projectId} ${dateFilterFt}`),
-        db.execute(sql`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE from_project_id = ${projectId} ${dateFilterPft}`),
-        db.execute(sql`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE to_project_id = ${projectId} ${dateFilterPft}`),
-        db.execute(sql`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = ${projectId} ${dateFilterWa}`)
+        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = ${projectId} ${finalFilterTe}`),
+        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = ${projectId} ${finalFilterWt}`),
+        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_misc_expenses WHERE project_id = ${projectId} ${finalFilterMwe}`),
+        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM fund_transfers WHERE project_id = ${projectId} ${finalFilterFt}`),
+        db.execute(sql`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE from_project_id = ${projectId} ${finalFilterPft}`),
+        db.execute(sql`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE to_project_id = ${projectId} ${finalFilterPft}`),
+        db.execute(sql`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = ${projectId} ${finalFilterWa}`)
       ]);
 
       const projectName = String(projectInfo.rows[0]?.name || 'مشروع غير معروف');

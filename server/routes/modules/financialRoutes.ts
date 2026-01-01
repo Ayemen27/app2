@@ -1492,17 +1492,25 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
   try {
     const validated = insertMaterialPurchaseSchema.parse(req.body);
     
+    // تصحيح تلقائي: إذا كان نوع الشراء نقداً، يجب أن يكون المبلغ المدفوع مساوياً للمبلغ الإجمالي
+    const purchaseData = { 
+      ...validated,
+      projectId: validated.projectId,
+      quantity: validated.quantity,
+      unit: validated.unit,
+      unitPrice: validated.unitPrice,
+      totalAmount: validated.totalAmount,
+      purchaseDate: validated.purchaseDate
+    } as any;
+
+    if (purchaseData.purchaseType === 'نقد' || purchaseData.purchaseType === 'نقداً') {
+      purchaseData.paidAmount = purchaseData.totalAmount;
+      purchaseData.remainingAmount = '0';
+    }
+
     const newPurchase = await db
       .insert(materialPurchases)
-      .values({
-        ...validated,
-        projectId: validated.projectId,
-        quantity: validated.quantity,
-        unit: validated.unit,
-        unitPrice: validated.unitPrice,
-        totalAmount: validated.totalAmount,
-        purchaseDate: validated.purchaseDate
-      })
+      .values(purchaseData)
       .returning();
     
     const duration = Date.now() - startTime;

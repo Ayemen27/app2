@@ -530,19 +530,37 @@ function DailyExpensesContent() {
   });
 
   const carriedForwardDisplay = useMemo(() => {
-    // إذا كان عرض "جميع المشاريع"، نستخدم القيمة القادمة من API المجمع
-    if (isAllProjects && dailyExpensesData?.carriedForwardBalance !== undefined) {
+    // الأولوية لبيانات dailyExpensesData إذا كانت متوفرة (لجميع المشاريع)
+    if (dailyExpensesData?.carriedForwardBalance !== undefined) {
       return dailyExpensesData.carriedForwardBalance;
     }
+    // وإلا نستخدم القيمة من totalsValue (للمشروع الفردي)
     return totalsValue.carriedForwardBalance || 0;
-  }, [isAllProjects, totalsValue, dailyExpensesData]);
+  }, [totalsValue.carriedForwardBalance, dailyExpensesData]);
 
   const totalRemainingWithCarried = useMemo(() => {
-    const carried = isAllProjects && dailyExpensesData?.carriedForwardBalance !== undefined 
+    const carried = dailyExpensesData?.carriedForwardBalance !== undefined 
       ? dailyExpensesData.carriedForwardBalance 
       : (totalsValue.carriedForwardBalance || 0);
     return (totalsValue.totalIncome + carried) - totalsValue.totalCashExpenses;
-  }, [isAllProjects, totalsValue, dailyExpensesData]);
+  }, [totalsValue.totalIncome, totalsValue.totalCashExpenses, totalsValue.carriedForwardBalance, dailyExpensesData]);
+
+  // إعداد البيانات لملخص المصاريف
+  const summaryData = useMemo(() => ({
+    totalIncome: totalsValue.totalIncome,
+    totalExpenses: totalsValue.totalCashExpenses,
+    remainingBalance: totalRemainingWithCarried,
+    materialExpensesCredit: totalsValue.materialExpensesCredit,
+    carriedForward: carriedForwardDisplay,
+    details: {
+      workerWages: totalsValue.totalWorkerWages,
+      materialCosts: totalsValue.totalMaterialCosts,
+      transportation: totalsValue.totalTransportation,
+      miscExpenses: totalsValue.totalMiscExpenses,
+      workerTransfers: totalsValue.totalWorkerTransfers,
+      outgoingProjectTransfers: totalsValue.outgoingProjectTransfers
+    }
+  }), [totalsValue, totalRemainingWithCarried, carriedForwardDisplay]);
 
   // تحديث البيانات عند الحفظ أو الحذف
   const refreshAllData = useCallback(() => {

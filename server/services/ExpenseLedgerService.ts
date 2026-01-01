@@ -306,6 +306,13 @@ export class ExpenseLedgerService {
         totals.activeWorkers += p.workers.activeWorkers;
       });
 
+      console.log(`📊 [ExpenseLedger] إجمالي جميع المشاريع لتاريخ ${date}:`, {
+        carriedForwardBalance: totals.carriedForwardBalance,
+        totalIncome: totals.totalIncome,
+        totalCashExpenses: totals.totalCashExpenses,
+        totalBalance: totals.totalBalance
+      });
+
       return totals;
     } catch (error) {
       console.error('❌ [ExpenseLedger] خطأ في حساب الإجمالي اليومي:', error);

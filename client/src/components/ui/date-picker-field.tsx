@@ -95,16 +95,24 @@ export function DatePickerField({
             {formattedDate || placeholder}
           </Button>
         </DialogTrigger>
-        <DialogContent className="w-[85%] max-w-[280px] p-0 overflow-hidden border-none gap-0 rounded-2xl shadow-2xl fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-          <DialogHeader className="bg-teal-700 p-4 text-white text-right">
-            <div className="text-[10px] opacity-80 mb-0.5">
+        <DialogContent className="w-[92%] max-w-[310px] p-0 overflow-hidden border-none gap-0 rounded-2xl shadow-2xl fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 outline-none">
+          <button 
+            onClick={() => setOpen(false)}
+            className="absolute left-4 top-4 text-white/70 hover:text-white z-50"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          
+          <DialogHeader className="bg-teal-700 p-5 pt-10 text-white text-right relative">
+            <div className="text-xs opacity-80 mb-0.5 font-normal">
               {tempDate ? format(tempDate, "yyyy") : format(new Date(), "yyyy")}
             </div>
-            <div className="text-lg font-bold">
+            <div className="text-2xl font-bold">
               {tempDate ? format(tempDate, "eeee، d MMMM", { locale: ar }) : "لم يتم التحديد"}
             </div>
           </DialogHeader>
-          <div className="p-0 flex justify-center bg-white min-h-[260px]">
+
+          <div className="p-0 flex justify-center bg-white min-h-[320px]">
             <Calendar
               mode="single"
               selected={tempDate}
@@ -113,27 +121,44 @@ export function DatePickerField({
               captionLayout="dropdown-buttons"
               fromYear={2020}
               toYear={2035}
-              className="rounded-md border-none w-full scale-[0.8] origin-top"
+              className="border-none w-full p-2 pb-0 flex flex-col items-center"
               classNames={{
                 caption_dropdowns: "flex justify-start gap-1 px-1",
                 chevron: "fill-teal-700",
                 day_selected: "bg-teal-700 text-white hover:bg-teal-800 focus:bg-teal-700 rounded-full",
                 day_today: "text-teal-700 font-bold",
+                table: "w-full border-collapse space-y-0 mt-1",
+                head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
+                cell: "h-9 w-9 text-center text-sm p-0 relative",
+                day: "h-9 w-9 p-0 font-normal hover:bg-teal-50 rounded-full transition-colors",
+                months: "flex flex-col items-center w-full",
+                month: "w-full px-2",
               }}
             />
           </div>
-          <div className="flex items-center justify-between px-3 py-2 bg-white border-t border-gray-50">
-            <Button variant="ghost" onClick={() => setOpen(false)} className="text-teal-700 hover:bg-teal-50 font-medium h-8 text-xs">
+
+          <div className="flex items-center justify-between px-8 py-6 bg-white">
+            <Button 
+              variant="ghost" 
+              onClick={handleApply} 
+              className="text-teal-700 hover:bg-teal-50 font-bold text-sm p-0 h-auto"
+            >
+              تعيين
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => setOpen(false)} 
+              className="text-teal-700 hover:bg-teal-50 font-bold text-sm p-0 h-auto"
+            >
               Cancel
             </Button>
-            <div className="flex gap-1">
-              <Button variant="ghost" onClick={handleClear} className="text-teal-700 hover:bg-teal-50 font-medium h-8 text-xs">
-                محو
-              </Button>
-              <Button variant="ghost" onClick={handleApply} className="text-teal-700 hover:bg-teal-50 font-medium h-8 text-xs">
-                تعيين
-              </Button>
-            </div>
+            <Button 
+              variant="ghost" 
+              onClick={handleClear} 
+              className="text-teal-700 hover:bg-teal-50 font-bold text-sm p-0 h-auto"
+            >
+              محو
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -177,21 +177,31 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       outgoingProjectTransfers: 0,
     };
 
+    // عند عرض جميع المشاريع، نستخدم الإجماليات المجمعة مباشرة
+    // ملاحظة: totals القادمة من Backend في AllProjectsSummary هي بالفعل مفلترة بالتاريخ
     return {
       summary: null as ProjectFinancialSummary | null,
       allProjects: allProjectsData,
       totals: {
-      ...totals,
-      ...aggregatedCategories,
-      totalExpenses: totals.totalAllExpenses || 0,
-      currentBalance: totals.totalBalance || 0,
-      carriedForwardBalance: totals.carriedForwardBalance || 0,
-      remainingBalance: totals.totalBalance || 0
-    },
+        totalIncome: totals.totalIncome,
+        totalCashExpenses: totals.totalCashExpenses,
+        totalAllExpenses: totals.totalAllExpenses,
+        cashBalance: totals.cashBalance,
+        totalBalance: totals.totalBalance,
+        totalWorkers: totals.totalWorkers,
+        activeWorkers: totals.activeWorkers,
+        materialExpensesCredit: totals.materialExpensesCredit,
+        carriedForwardBalance: totals.carriedForwardBalance,
+        ...aggregatedCategories,
+        totalExpenses: totals.totalAllExpenses || 0,
+        currentBalance: totals.totalBalance || 0,
+        remainingBalance: totals.totalBalance || 0
+      },
       isLoading,
       error,
       refetch
     };
+  }
   }
 
   // التحقق من وجود البيانات بالشكل الصحيح قبل الوصول إليها

@@ -95,16 +95,16 @@ export function DatePickerField({
             {formattedDate || placeholder}
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden border-none gap-0">
-          <DialogHeader className="bg-blue-600 p-4 text-white">
-            <div className="flex justify-between items-center">
-              <DialogTitle className="text-white text-right w-full">اختر التاريخ</DialogTitle>
+        <DialogContent className="sm:max-w-[320px] p-0 overflow-hidden border-none gap-0 rounded-2xl">
+          <DialogHeader className="bg-teal-700 p-6 text-white text-right">
+            <div className="text-sm opacity-80 mb-1">
+              {tempDate ? format(tempDate, "yyyy") : format(new Date(), "yyyy")}
             </div>
-            <div className="text-center mt-2 text-2xl font-bold">
+            <div className="text-2xl font-bold">
               {tempDate ? format(tempDate, "eeee، d MMMM", { locale: ar }) : "لم يتم التحديد"}
             </div>
           </DialogHeader>
-          <div className="p-2 flex justify-center">
+          <div className="p-1 flex justify-center bg-white">
             <Calendar
               mode="single"
               selected={tempDate}
@@ -113,18 +113,24 @@ export function DatePickerField({
               captionLayout="dropdown-buttons"
               fromYear={2020}
               toYear={2035}
-              className="rounded-md border-none"
+              className="rounded-md border-none w-full"
+              classNames={{
+                caption_dropdowns: "flex justify-start gap-1 px-2",
+                chevron: "fill-teal-700",
+                day_selected: "bg-teal-700 text-white hover:bg-teal-800 focus:bg-teal-700 rounded-full",
+                day_today: "text-teal-700 font-bold",
+              }}
             />
           </div>
-          <div className="flex items-center justify-between p-4 border-t bg-muted/30">
-            <Button variant="ghost" onClick={() => setOpen(false)} className="text-muted-foreground">
+          <div className="flex items-center justify-between p-4 bg-white">
+            <Button variant="ghost" onClick={() => setOpen(false)} className="text-teal-700 hover:bg-teal-50 font-medium">
               Cancel
             </Button>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleClear} className="text-red-500 border-red-200 hover:bg-red-50">
+            <div className="flex gap-4">
+              <Button variant="ghost" onClick={handleClear} className="text-teal-700 hover:bg-teal-50 font-medium">
                 محو
               </Button>
-              <Button onClick={handleApply} className="bg-blue-600 hover:bg-blue-700">
+              <Button variant="ghost" onClick={handleApply} className="text-teal-700 hover:bg-teal-50 font-medium">
                 تعيين
               </Button>
             </div>

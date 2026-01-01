@@ -31,11 +31,11 @@ function Calendar({
           months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
           month: "space-y-4",
           caption: "flex justify-center pt-1 relative items-center gap-1",
-          caption_dropdowns: "flex justify-center gap-1",
-          nav: "space-x-1 flex items-center",
+          caption_dropdowns: "flex justify-center items-center gap-1",
+          nav: "flex items-center gap-1",
           nav_button: cn(
-            buttonVariants({ variant: "outline" }),
-            "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+            buttonVariants({ variant: "ghost" }),
+            "h-7 w-7 bg-transparent p-0 text-teal-700 hover:bg-teal-50 opacity-100"
           ),
           nav_button_previous: isArabic ? "absolute right-1" : "absolute left-1",
           nav_button_next: isArabic ? "absolute left-1" : "absolute right-1",

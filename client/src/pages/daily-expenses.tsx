@@ -3057,8 +3057,8 @@ function DailyExpensesContent() {
               {/* Total Summary */}
               <div className="border-t pt-3 mt-3">
                 <ExpenseSummary
-                  totalIncome={displayIncome}
-                  totalExpenses={displayExpenses}
+                  totalIncome={totalsValue.totalIncome}
+                  totalExpenses={totalsValue.totalCashExpenses}
                   remainingBalance={displayBalance}
                   details={{
                     workerWages: totalsValue.totalWorkerWages,

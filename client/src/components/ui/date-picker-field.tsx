@@ -1,15 +1,17 @@
 import * as React from "react"
 import { format } from "date-fns"
 import { ar } from "date-fns/locale"
-import { Calendar as CalendarIcon } from "lucide-react"
+import { Calendar as CalendarIcon, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Controller, Control, FieldValues, Path } from "react-hook-form"
 
@@ -37,6 +39,7 @@ export function DatePickerField({
   id,
 }: DatePickerFieldProps) {
   const [open, setOpen] = React.useState(false)
+  const [tempDate, setTempDate] = React.useState<Date | undefined>(undefined)
 
   const dateValue = React.useMemo(() => {
     if (!value) return undefined
@@ -48,8 +51,19 @@ export function DatePickerField({
     return undefined
   }, [value])
 
-  const handleSelect = (date: Date | undefined) => {
-    onChange?.(date)
+  React.useEffect(() => {
+    if (open) {
+      setTempDate(dateValue || new Date())
+    }
+  }, [open, dateValue])
+
+  const handleApply = () => {
+    onChange?.(tempDate)
+    setOpen(false)
+  }
+
+  const handleClear = () => {
+    onChange?.(undefined)
     setOpen(false)
   }
 
@@ -65,14 +79,14 @@ export function DatePickerField({
           {required && <span className="text-destructive mr-1">*</span>}
         </Label>
       )}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
           <Button
             id={id}
             variant="outline"
             disabled={disabled}
             className={cn(
-              "w-full justify-start text-right font-normal",
+              "w-full justify-start text-right font-normal h-10",
               !dateValue && "text-muted-foreground",
               error && "border-destructive"
             )}
@@ -80,16 +94,40 @@ export function DatePickerField({
             <CalendarIcon className="ml-2 h-4 w-4" />
             {formattedDate || placeholder}
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={dateValue}
-            onSelect={handleSelect}
-            initialFocus
-          />
-        </PopoverContent>
-      </Popover>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden border-none gap-0">
+          <DialogHeader className="bg-blue-600 p-4 text-white">
+            <div className="flex justify-between items-center">
+              <DialogTitle className="text-white text-right w-full">اختر التاريخ</DialogTitle>
+            </div>
+            <div className="text-center mt-2 text-2xl font-bold">
+              {tempDate ? format(tempDate, "eeee، d MMMM", { locale: ar }) : "لم يتم التحديد"}
+            </div>
+          </DialogHeader>
+          <div className="p-2 flex justify-center">
+            <Calendar
+              mode="single"
+              selected={tempDate}
+              onSelect={setTempDate}
+              initialFocus
+              className="rounded-md border-none"
+            />
+          </div>
+          <div className="flex items-center justify-between p-4 border-t bg-muted/30">
+            <Button variant="ghost" onClick={() => setOpen(false)} className="text-muted-foreground">
+              Cancel
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleClear} className="text-red-500 border-red-200 hover:bg-red-50">
+                محو
+              </Button>
+              <Button onClick={handleApply} className="bg-blue-600 hover:bg-blue-700">
+                تعيين
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       {error && (
         <p className="text-sm text-destructive text-right">{error}</p>
       )}

@@ -2155,11 +2155,10 @@ function DailyExpensesContent() {
             <CardContent className="p-4 pt-0">
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <Label className="block text-sm font-medium text-foreground">التاريخ</Label>
-                  <Input
-                    type="date"
+                  <DatePickerField
+                    label="التاريخ"
                     value={selectedDate || ''}
-                    onChange={(e) => setSelectedDate(e.target.value || null)}
+                    onChange={(date) => setSelectedDate(date ? format(date, 'yyyy-MM-dd') : null)}
                   />
                 </div>
                 <div>

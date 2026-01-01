@@ -1,343 +1,48 @@
-## 🛡️ ميثاق عمل المهندس الصارم (Strict Engineer Rules)
-
-هذا القسم ملزم لجميع وكلاء الذكاء الاصطناعي العاملين على هذا المشروع:
-
-1. **التحليل قبل التنفيذ:** ممنوع إعطاء أول إجابة تخطر؛ يجب التفكير التحليلي خطوة بخطوة.
-2. **الصدق والدقة:** ممنوع الخداع أو المجاملة. قدّم الواقع كما هو، وصرح بوضوح عند عدم المعرفة.
-3. **منع التخمين:** لا تختلق معلومات ولا تعطي إجابات غير مؤكدة. إذا كانت المعلومة ناقصة، اطلبها بوضوح.
-4. **كفاءة الأدوات:** ممنوع استخدام أداة `search_codebase` (معطلة حالياً وتسبب تعليق الوكيل). استخدم `ls`, `read`, `grep`, و `bash` بدلاً منها.
-5. **جودة الحلول:** اختر الحل الأكثر واقعية وقابلية للتنفيذ. اقترح حلولاً غير تقليدية فقط عند فشل الحلول الشائعة وبشكل منطقي.
-6. **السرعة مقابل الدقة:** الدقة مقدمة دائماً على السرعة. لا تتسرع على حساب صحة الكود أو استقرار النظام.
-
----
-
-## 🚀 تطبيق إدارة المشاريع الإنشائية (BinarJoin)
-
-**الإصدار:** 2.1  
-**الحالة:** ✅ المرحلة 2 - مرآة قاعدة البيانات + نظام موحد للمزامنة  
-**آخر تحديث:** 31 ديسمبر 2025 12:10 UTC
-
----
-
-## 📊 الملخص التنفيذي
-
-### ✅ المرحلة 2 مكتملة بنجاح (100%)
-
-تم بناء نظام مزامنة كامل يعكس قاعدة البيانات على الخادم بنسبة 100% - **66 جدول** مع جميع الأعمدة والعلاقات.
-
-**المميزات الجديدة:**
-- 🔄 **66 جدول محلي** مرآة من الخادم
-- 📥 **Endpoint نسخة احتياطية كاملة** - `/api/sync/full-backup`
-- 💾 **IndexedDB محسّن** - Typed interfaces لجميع الجداول
-- 🔐 **مزامنة آمنة** - جميع البيانات محفوظة محلياً
-- ⚡ **أداء عالي** - جلب البيانات الكاملة في ميلي ثانية
-
----
-
-## 🎯 الهدف النهائي
-
-بناء نظام **Offline-First** متكامل بنسبة 100%:
-- ✅ قاعدة بيانات محلية مطابقة تماماً للخادم (مرحلة 2)
-- ⏳ تزامن ثنائي الاتجاه (client ↔ server) - المرحلة 3
-- ⏳ حل تضارعات تلقائي - المرحلة 3
-- ⏳ معايير أداء عالمية - المرحلة 4
-- ⏳ أمان كامل للبيانات - المرحلة 5
-
----
-
-## 📋 المراحل الستة
-
-```
-✅ المرحلة 1: التأسيس (30-31 ديسمبر)
-   نظام حفظ محلي + مزامنة أساسية
-   ✨ + معالجة أخطاء محسّنة + إلغاء عمليات
-
-✅ المرحلة 2: مرآة قاعدة البيانات (1-3 يناير) ✨ مكتملة!
-   - 66 جدول في IndexedDB
-   - Endpoint `/api/sync/full-backup`
-   - Typed interfaces لكل جدول
-   - نسخة احتياطية كاملة من الخادم
-
-⏳ المرحلة 3: الاستعلامات الذكية (3-6 يناير)
-   queries تعمل offline و online
-
-⏳ المرحلة 4: التزامن ثنائي (6-10 يناير)
-   batch sync + حل تضارعات
-
-⏳ المرحلة 5: الأداء والأمان (10-12 يناير)
-   تشفير + ضغط + مراقبة
-
-⏳ المرحلة 6: الاختبار والنشر (12-14 يناير)
-   اختبارات شاملة + نشر
-```
-
----
-
-## ✅ ما تم إنجازه (المرحلة 2)
-
-### مرآة قاعدة البيانات الكاملة + نظام موحد للمزامنة
-- ✅ `client/src/offline/db.ts` - محدّث مع 66 جدول
-  - جميع interfaces محدثة لـ 66 جدول بالكامل
-  - جميع stores مع index للـ createdAt و projectId
-  - دوال مساعدة للمزامنة: `saveSyncedData()`, `clearTable()`, `clearAllData()`
-
-- ✅ `client/src/offline/sync.ts` - نظام موحد شامل
-  - **initSyncListener()** - مراقب الاتصال والمزامنة التلقائية
-  - **loadFullBackup()** - تحميل كل البيانات من الخادم (66 جدول)
-  - **syncOfflineData()** - مزامنة العمليات المعلقة من قائمة الانتظار
-  - **subscribeSyncState()** - الاشتراك في تغييرات حالة المزامنة
-
-- ✅ `/api/sync/full-backup` endpoint محدّث
-  - يجلب جميع 66 جدول من الخادم
-  - يرجع عدد السجلات لكل جدول مع التفاصيل
-  - مدة الجلب والأداء
-
-### قائمة الجداول المتاحة (66 جدول):
-
-**المستخدمين والمشاريع** (4)
-- users, projects, projectTypes, projectFundTransfers
-
-**العمال والحضور** (6)
-- workers, workerTypes, workerAttendance, workerTransfers, workerBalances, workerMiscExpenses
-
-**الآبار** (5)
-- wells, wellTasks, wellExpenses, wellAuditLogs, wellTaskAccounts
-
-**المواد والموردين** (5)
-- materials, materialCategories, materialPurchases, suppliers, supplierPayments
-
-**التحويلات والمصروفات** (3)
-- fundTransfers, transportationExpenses, dailyExpenseSummaries
-
-**الأدوات والصيانة** (12)
-- tools, toolCategories, toolMovements, toolStock, toolReservations, toolPurchaseItems, toolCostTracking, toolMaintenanceLogs, toolUsageAnalytics, toolNotifications, maintenanceSchedules, maintenanceTasks
-
-**الرسائل والإشعارات** (5)
-- messages, channels, notifications, notificationReadStates, systemNotifications
-
-**الأمان والجلسات** (9)
-- authUserSessions, emailVerificationTokens, passwordResetTokens, securityPolicies, securityPolicyImplementations, securityPolicySuggestions, securityPolicyViolations, permissionAuditLogs, userProjectPermissions
-
-**الحسابات والمالية** (7)
-- transactions, transactionLines, journals, accounts, accountBalances, financePayments, financeEvents
-
-**الإعدادات والتقارير** (3)
-- printSettings, reportTemplates, autocompleteData
-
-**الأحداث والذكاء الاصطناعي** (5)
-- systemEvents, actions, aiChatSessions, aiChatMessages, aiUsageStats
-
-**البناء والموافقات** (2)
-- buildDeployments, approvals
-
----
-
-## 🏗️ معمارية النظام
-
-```
-┌─────────────────────────┐
-│   User Interface        │
-│  (React Components)     │
-└────────────┬────────────┘
-             │
-┌────────────▼────────────┐
-│  React Query Cache      │  ← الذاكرة السريعة
-│  (5 دقائق TTL)          │
-└────────────┬────────────┘
-             │
-┌────────────▼────────────┐
-│  Local Storage          │  ← التخزين المحلي
-│  (IndexedDB)            │  - syncQueue
-│  - 66 جدول متطابق       │  - جميع بيانات الخادم
-│  - syncMetadata         │
-└────────────┬────────────┘
-             │
-┌────────────▼────────────┐
-│  Sync Manager           │  ← المزامنة
-│  (sync.ts)              │
-│  - loadFullBackup()     │
-│  - syncOfflineData()    │
-└────────────┬────────────┘
-             │ (HTTP)
-┌────────────▼────────────┐
-│  API Server             │  ← الخادم
-│  (Express)              │
-│  - /api/sync/full-backup│
-│  - باقي الـ endpoints    │
-└────────────┬────────────┘
-             │
-┌────────────▼────────────┐
-│  PostgreSQL             │  ← قاعدة البيانات
-│  (66 جدول - المصدر)     │
-└─────────────────────────┘
-```
-
----
-
-## 🎯 معايير النجاح - المرحلة 2
-
-| المعيار | الوصف | الحالة |
-|--------|-------|--------|
-| **66 جدول** | جميع جداول الخادم في IndexedDB | ✅ 100% |
-| **Typed Interfaces** | جميع الجداول لها interfaces | ✅ 100% |
-| **Full Backup API** | endpoint يجلب كل البيانات | ✅ 100% |
-| **Metadata Sync** | تتبع آخر مزامنة | ✅ 100% |
-| **Error Handling** | معالجة أخطاء شاملة | ✅ 100% |
-| **Performance** | جلب البيانات بسرعة | ✅ <500ms |
-| **Data Integrity** | جميع البيانات محفوظة بأمان | ✅ 100% |
-
-**النتيجة النهائية:** 100% ✅
-
----
-
-## 📁 هيكل المشروع - نظام موحد
-
-```
-client/src/
-├── offline/                 # نظام المزامنة الموحد
-│   ├── sync.ts              # 📌 النظام الرئيسي الوحيد
-│   │   ├── initSyncListener()      - مراقب online/offline
-│   │   ├── loadFullBackup()        - تحميل من الخادم
-│   │   ├── syncOfflineData()       - مزامنة العمليات
-│   │   └── subscribeSyncState()    - الاشتراك في التغييرات
-│   │
-│   ├── db.ts                # IndexedDB (66 جدول)
-│   ├── offline.ts           # قائمة الانتظار والعمليات
-│   ├── offline-queries.ts   # استعلامات مع fallback
-│   ├── offline-mutations.ts # عمليات محسّنة
-│   ├── conflict-resolver.ts # حل التضارعات
-│   ├── index.ts             # تصدير موحد
-│   └── [utilities]          # ضغط، تشفير، تنظيف، أداء
-│
-├── components/
-│   └── sync-status.tsx      # مؤشر حالة المزامنة
-│
-└── pages/
-    └── [pages here]
-
-server/
-├── routes.ts                # مع /api/sync/full-backup
-└── db.ts                    # اتصال قاعدة البيانات
-
-shared/
-└── schema.ts               # 66 جدول PostgreSQL
-```
-
-**لاحظ:** تم حذف `database-switcher.ts` و `sync-loader.ts` (ملفات مكررة)
-**النظام الآن موحد تماماً** - جميع الوظائف في `sync.ts`
-
----
-
-## 🔧 التكوينات الحالية
-
-```typescript
-// في sync.ts
-const MAX_RETRIES = 5;              // 5 محاولات
-const RETRY_DELAY = 2000;           // 2 ثانية
-const SYNC_INTERVAL = 30000;        // 30 ثانية
-
-// في db.ts
-const ALL_STORES = [66 جدول];      // جميع الجداول
-const DB_VERSION = 3;               // نسخة قاعدة البيانات
-
-// في queryClient.ts
-staleTime: 5 * 60 * 1000;           // 5 دقائق
-gcTime: 30 * 60 * 1000;             // 30 دقيقة
-```
-
----
-
-## 🧪 اختبار Offline Mode
-
-### خطوات الاختبار:
-
-```javascript
-// 1. تحميل النسخة الاحتياطية الكاملة
-const { loadFullBackup } = await import('@/offline/sync');
-await loadFullBackup();
-// ✅ يجب أن يحمل 66 جدول من الخادم
-
-// 2. التحقق من البيانات المحلية
-const db = await import('@/offline/db').then(m => m.getDB());
-const users = await db.getAll('users');
-console.log(users); // ✅ يجب أن يظهر جميع المستخدمين
-
-// 3. اختبار Offline
-// - افتح DevTools → Network → Offline
-// - جرب إضافة بيانات
-// - انتظر حتى تُحفظ محلياً
-
-// 4. العودة للإنترنت
-// - Offline → uncheck
-// - البيانات ستُمزامن تلقائياً
-```
-
----
-
-## 🚀 الخطوات التالية (المرحلة 3)
-
-**موعد البداية:** 3 يناير 2026
-
-### أهداف المرحلة 3:
-1. استعلامات ذكية تعمل offline و online
-2. حل تضارعات تلقائي
-3. تزامن ثنائي الاتجاه محسّن
-4. caching استراتيجي
-
----
-
-## 📚 المراجع والملفات
-
-### معايير ومخطط عام:
-- 📖 **OFFLINE_SYNC_PLAN.md** - الخطة الرئيسية
-- 📋 **ACCEPTANCE_CRITERIA.md** - معايير القبول
-- 📐 **TECHNICAL_STANDARDS.md** - معايير الكود
-
-### تتبع التقدم:
-- 📊 **.work/CURRENT_STATUS.md** - الحالة الحالية
-- 🗺️ **.work/ROADMAP.md** - الخطة الزمنية
-
-### توثيق التطوير:
-- 📖 **replit.md** - هذا الملف
-- 🔧 **client/src/offline/README_SYNC.md** - توثيق تقني
-
----
-
-## 💡 ملاحظات مهمة
-
-### ✅ النظام جاهز الآن:
-- 66 جدول محلي مع typed interfaces
-- Endpoint full backup مع جميع البيانات
-- مزامنة موثوقة مع retry logic
-- واجهة واضحة لحالة المزامنة
-- معالجة أخطاء شاملة
-
-### ⚠️ النقاط المستقبلية:
-- المرحلة 3: استعلامات ذكية وحل تضارعات
-- المرحلة 4: تزامن ثنائي متقدم
-- المرحلة 5: تشفير وضغط البيانات
-
----
-
-## 📞 الدعم والمساعدة
-
-### للمطورين:
-1. اقرأ `OFFLINE_SYNC_PLAN.md` للصورة الكاملة
-2. اقرأ `.work/CURRENT_STATUS.md` لآخر تحديث
-3. اقرأ `TECHNICAL_STANDARDS.md` قبل الكود
-
-### للاختبار:
-```bash
-# 1. تحميل النسخة الاحتياطية
-await loadFullBackup()
-
-# 2. تفعيل Offline mode في DevTools
-# 3. التحقق من البيانات المحلية
-# 4. اختبار المزامنة
-```
-
----
-
-**الحالة:** ✅ مرحلة 2 مكتملة بنسبة 100%  
-**المتطلب التالي:** المرحلة 3 - الاستعلامات الذكية  
-**آخر تحديث:** 31 ديسمبر 2025 23:59 UTC
+## Overview
+
+BinarJoin is an ambitious project aimed at creating a 100% Offline-First project management application specifically designed for construction projects. The core vision is to provide a robust, reliable, and high-performance system where users can seamlessly work offline with a local database mirror and have their data synchronized bi-directionally with a server-side PostgreSQL database. The project is currently in Phase 2, having successfully mirrored 66 server tables to a local IndexedDB, establishing a unified synchronization system. The ultimate goal is to achieve global performance standards, comprehensive data security, and intelligent conflict resolution for a seamless user experience in challenging environments.
+
+## User Preferences
+
+1.  **Analysis Before Execution:** Do not provide the first answer that comes to mind; analytical thinking should be step-by-step.
+2.  **Honesty and Accuracy:** No deception or flattery. Present reality as it is, and state clearly when you do not know.
+3.  **No Guessing:** Do not fabricate information or give unconfirmed answers. If information is incomplete, ask for it clearly.
+4.  **Tool Efficiency:** Do not use the `search_codebase` tool (currently disabled and causes agent suspension). Use `ls`, `read`, `grep`, and `bash` instead.
+5.  **Quality Solutions:** Choose the most realistic and implementable solution. Suggest unconventional solutions only when common ones fail and in a logical manner.
+6.  **Speed vs. Accuracy:** Accuracy always takes precedence over speed. Do not rush at the expense of code correctness or system stability.
+
+## System Architecture
+
+The system employs an Offline-First architecture, prioritizing local data availability and synchronization.
+
+**UI/UX Decisions:**
+The frontend is built with React Components, integrating with React Query for efficient data caching.
+
+**Technical Implementations:**
+-   **Local Storage:** IndexedDB serves as the primary local storage for a complete mirror of 66 PostgreSQL tables from the server. It stores the `syncQueue` for offline operations and `syncMetadata`.
+-   **Synchronization Manager:** A unified `Sync Manager` (`sync.ts`) handles all synchronization logic, including:
+    -   `initSyncListener()`: Monitors online/offline status and triggers automatic synchronization.
+    -   `loadFullBackup()`: Fetches all data (66 tables) from the server.
+    -   `syncOfflineData()`: Synchronizes pending operations from the local queue.
+    -   `subscribeSyncState()`: Allows components to subscribe to synchronization state changes.
+-   **Data Interfaces:** All 66 tables in IndexedDB have corresponding Typed Interfaces for enhanced type safety and developer experience.
+-   **Backend API:** An Express-based API server exposes a `/api/sync/full-backup` endpoint to provide a comprehensive data backup of all 66 tables.
+
+**Feature Specifications:**
+-   **Offline Data Mirror:** 66 server tables are fully mirrored in IndexedDB with indexes for `createdAt` and `projectId`.
+-   **Optimized IndexedDB:** `db.ts` is updated with all 66 table definitions, including helper functions `saveSyncedData()`, `clearTable()`, and `clearAllData()`.
+-   **Robust Synchronization:** `sync.ts` implements a unified synchronization system with retry logic (5 retries, 2-second delay) and a synchronization interval of 30 seconds.
+-   **Project Structure:** The `client/src/offline/` directory centralizes all offline synchronization logic, including `sync.ts`, `db.ts`, `offline.ts` (queue), `offline-queries.ts`, `offline-mutations.ts`, and `conflict-resolver.ts`.
+
+**System Design Choices:**
+-   **Unified Sync System:** All synchronization functionalities are consolidated into `sync.ts`, eliminating redundant files.
+-   **Caching Strategy:** React Query is configured with a `staleTime` of 5 minutes and `gcTime` of 30 minutes for efficient client-side caching.
+-   **Database Versioning:** IndexedDB uses `DB_VERSION = 3`.
+
+## External Dependencies
+
+-   **Database:** PostgreSQL (primary server-side database).
+-   **Local Storage:** IndexedDB (for client-side data mirroring).
+-   **Frontend Framework:** React.js.
+-   **State Management/Caching:** React Query.
+-   **Backend Framework:** Express.js (for the API server).

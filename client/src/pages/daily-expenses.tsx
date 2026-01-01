@@ -435,15 +435,16 @@ function DailyExpensesContent() {
   }, [financialSummary]);
 
   const displayBalance = useMemo(() => {
-    // الرصيد المتبقي لليوم هو الرصيد التراكمي النهائي كما حسبه الـ backend
+    // الرصيد المتبقي النهائي المعتمد من محرك الحسابات الموحد (Source of Truth)
     if (financialSummary?.totalBalance !== undefined) {
       return financialSummary.totalBalance;
     }
     
-    // صافي الحركة للفترة المختارة (الدخل - المصروفات الشاملة)
-    const incomeToday = financialSummary?.income?.totalIncome || 0;
-    const expensesToday = financialSummary?.expenses?.totalAllExpenses || financialSummary?.expenses?.totalCashExpenses || 0;
-    return incomeToday - expensesToday;
+    // Fallback في حالة غياب البيانات
+    const incomeTotal = (financialSummary?.income?.totalIncome || 0) + (financialSummary?.income?.carriedForwardBalance || 0);
+    const expensesTotal = (financialSummary?.expenses?.totalCashExpenses || 0) + (financialSummary?.expenses?.materialExpensesCredit || 0);
+    
+    return incomeTotal - expensesTotal;
   }, [financialSummary]);
 
   const carriedForwardDisplay = useMemo(() => {

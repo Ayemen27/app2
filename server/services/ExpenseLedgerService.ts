@@ -157,20 +157,21 @@ export class ExpenseLedgerService {
       const totalIncome = fundTransfers + incomingProjectTransfers;
       const cashBalance = totalIncome - totalCashExpenses;
       
-      // 6. الرصيد التراكمي الشامل (الدخل التراكمي - المصروفات التراكمية - المواد الآجلة)
+      // 6. الرصيد التراكمي الشامل (الدخل التراكمي - المصروفات التراكمية النقدية والآجلة)
+      // totalIncomeWithCarried هو إجمالي المال المتاح (الرصيد المرحل من أمس + دخل اليوم)
       const totalIncomeWithCarried = totalIncome + carriedForwardBalance;
-      const totalAllExpenses = totalCashExpenses; 
-      const totalBalance = totalIncomeWithCarried - materialExpensesCredit; // الرصيد المتبقي الفعلي هو إجمالي الدخل مع السابق ناقص المصروفات النقدية والآجلة
       
-      // إضافة سجل تفصيلي للحسابات في الـ console
-      console.log(`📊 [ExpenseLedger] تفاصيل المصروفات لليوم ${date || 'تراكمي'}:`, {
-        materialCash: materialExpenses,
-        wages: workerWages,
-        transport: transportExpenses,
-        workerTransfers: workerTransfers,
-        misc: miscExpenses,
-        projectTransfers: outgoingProjectTransfers,
-        total: totalCashExpenses
+      // الرصيد النهائي الصحيح = (إجمالي الدخل المتاح) - (إجمالي مصروفات اليوم النقدية والآجلة)
+      const totalBalance = totalIncomeWithCarried - (totalCashExpenses + materialExpensesCredit);
+      const totalAllExpenses = totalCashExpenses + materialExpensesCredit; 
+
+      // إضافة سجل تفصيلي للحسابات في الـ console للتدقيق والمطابقة
+      console.log(`✅ [UnifiedTruth] تدقيق الرصيد لليوم ${date || 'تراكمي'}:`, {
+        carriedForward: carriedForwardBalance,
+        todayIncome: totalIncome,
+        todayCashExpenses: totalCashExpenses,
+        todayCreditExpenses: materialExpensesCredit,
+        computedBalance: totalBalance
       });
 
       console.log(`📊 [ExpenseLedger] الرصيد المالي:`, {

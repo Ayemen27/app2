@@ -10,6 +10,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { DatePickerField } from "@/components/ui/date-picker-field";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
 import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw, Wallet, Banknote, Package, Truck, Receipt, Building2, Send, TrendingDown, Calculator, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -2157,8 +2160,8 @@ function DailyExpensesContent() {
                 <div>
                   <DatePickerField
                     label="التاريخ"
-                    value={selectedDate || ''}
-                    onChange={(date) => setSelectedDate(date ? format(date, 'yyyy-MM-dd') : null)}
+                    value={selectedDate || ""}
+                    onChange={(date) => setSelectedDate(date ? format(date, "yyyy-MM-dd") : null)}
                   />
                 </div>
                 <div>
@@ -2195,19 +2198,19 @@ function DailyExpensesContent() {
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div>
-                        <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          value={fundAmount}
-                          onChange={(e) => setFundAmount(e.target.value)}
-                          placeholder="المبلغ *"
-                          className="text-center arabic-numbers"
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
+                          <div className="flex flex-col">
+                            <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              value={fundAmount}
+                              onChange={(e) => setFundAmount(e.target.value)}
+                              placeholder="المبلغ *"
+                              className="text-center arabic-numbers"
+                              min="0"
+                              step="0.01"
+                            />
+                          </div>
                       <div>
                         <Label className="block text-sm font-medium text-foreground mb-1">اسم المرسل</Label>
                         <AutocompleteInput
@@ -2376,17 +2379,17 @@ function DailyExpensesContent() {
                     placeholder="الوصف"
                   />
                 </div>
-                <div className="flex flex-col">
-                  <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    value={transportAmount}
-                    onChange={(e) => setTransportAmount(e.target.value)}
-                    placeholder="المبلغ"
-                    className="text-center arabic-numbers"
-                  />
-                </div>
+                          <div className="flex flex-col">
+                            <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              value={transportAmount}
+                              onChange={(e) => setTransportAmount(e.target.value)}
+                              placeholder="المبلغ"
+                              className="text-center arabic-numbers"
+                            />
+                          </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="flex flex-col">

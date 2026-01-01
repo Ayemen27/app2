@@ -7,6 +7,9 @@
  * الحالة: نشط - إدارة مالية العمال - تصميم موحد
  */
 
+import { DatePickerField } from "@/components/ui/date-picker-field";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
@@ -895,10 +898,9 @@ export default function WorkerAccountsPage() {
               </div>
               <div>
                 <Label>التاريخ *</Label>
-                <Input
-                  type="date"
+                <DatePickerField
                   value={formData.transferDate}
-                  onChange={(e) => setFormData({...formData, transferDate: e.target.value})}
+                  onChange={(date) => setFormData({...formData, transferDate: date ? format(date, "yyyy-MM-dd") : ""})}
                   className="w-full"
                 />
               </div>

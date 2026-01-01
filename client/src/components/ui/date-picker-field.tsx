@@ -110,6 +110,9 @@ export function DatePickerField({
               selected={tempDate}
               onSelect={setTempDate}
               initialFocus
+              captionLayout="dropdown-buttons"
+              fromYear={2020}
+              toYear={2035}
               className="rounded-md border-none"
             />
           </div>

@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from "react";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -408,15 +411,11 @@ export default function Reports() {
                   <CardContent className="p-4 space-y-4">
                     <div className="flex flex-col md:flex-row gap-3 items-end">
                       <div className="flex-1 min-w-0">
-                        <Label className="text-sm font-semibold text-gray-700 block mb-2">
-                          <Calendar className="h-4 w-4 inline mr-1" />
-                          اختر التاريخ
-                        </Label>
-                        <Input
-                          type="date"
+                        <DatePickerField
+                          label="اختر التاريخ"
                           value={selectedDate}
-                          onChange={(e) => setSelectedDate(e.target.value)}
-                          className="w-full h-10 text-sm"
+                          onChange={(date) => setSelectedDate(date ? format(date, "yyyy-MM-dd") : "")}
+                          className="w-full"
                         />
                       </div>
                       <Button

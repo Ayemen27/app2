@@ -5,6 +5,8 @@ import { ar } from "date-fns/locale"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
@@ -28,8 +30,8 @@ function Calendar({
         classNames={{
           months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
           month: "space-y-4",
-          caption: "flex justify-center pt-1 relative items-center",
-          caption_label: "text-sm font-medium",
+          caption: "flex justify-center pt-1 relative items-center gap-1",
+          caption_dropdowns: "flex justify-center gap-1",
           nav: "space-x-1 flex items-center",
           nav_button: cn(
             buttonVariants({ variant: "outline" }),
@@ -60,6 +62,38 @@ function Calendar({
           ...classNames,
         }}
         components={{
+          Dropdown: ({ value, onChange, children, ...props }: any) => {
+            const options = React.Children.toArray(children) as React.ReactElement<any>[];
+            const selected = options.find((child) => child.props.value === value);
+            const handleChange = (value: string) => {
+              const changeEvent = {
+                target: { value },
+              } as React.ChangeEvent<HTMLSelectElement>;
+              onChange?.(changeEvent);
+            };
+            return (
+              <Select
+                value={value?.toString()}
+                onValueChange={(value) => handleChange(value)}
+              >
+                <SelectTrigger className="h-7 pr-2 pl-2 border-none bg-transparent hover:bg-accent hover:text-accent-foreground focus:ring-0">
+                  <SelectValue>{selected?.props?.children}</SelectValue>
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <ScrollArea className="h-80">
+                    {options.map((option, id: number) => (
+                      <SelectItem
+                        key={`${option.props.value}-${id}`}
+                        value={option.props.value?.toString() ?? ""}
+                      >
+                        {option.props.children}
+                      </SelectItem>
+                    ))}
+                  </ScrollArea>
+                </SelectContent>
+              </Select>
+            );
+          },
           IconLeft: ({ className, ...iconProps }) => (
             isArabic ? (
               <ChevronRight className={cn("h-4 w-4", className)} {...iconProps} />

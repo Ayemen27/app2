@@ -1,3 +1,4 @@
+import { DatePickerField } from "@/components/ui/date-picker-field";
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -492,24 +493,14 @@ export default function ProjectTransfers() {
                             </FormItem>
                           )}
                         />
-                        <FormField
-                          control={form.control}
-                          name="transferDate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs md:text-sm font-semibold">التاريخ</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="date" 
-                                  {...field} 
-                                  className="h-10 md:h-11 border-2 text-xs md:text-sm"
-                                  style={{ direction: 'ltr' }}
-                                />
-                              </FormControl>
-                              <FormMessage className="text-xs" />
-                            </FormItem>
-                          )}
-                        />
+                        <FormItem className="flex flex-col gap-1.5">
+                          <FormLabel className="text-xs md:text-sm font-semibold">التاريخ</FormLabel>
+                          <DatePickerField
+                            value={field.value}
+                            onChange={(date) => field.onChange(date ? format(date, "yyyy-MM-dd") : "")}
+                          />
+                          <FormMessage className="text-xs" />
+                        </FormItem>
                       </div>
 
                       {/* Row 2: Projects */}

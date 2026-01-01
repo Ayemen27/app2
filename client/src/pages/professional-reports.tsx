@@ -6,6 +6,9 @@
 
 import './professional-reports.print.css';
 import React, { useState, useMemo, useCallback } from "react";
+import { DatePickerField } from "@/components/ui/date-picker-field";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

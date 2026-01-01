@@ -1,9 +1,6 @@
 /**
  * Hook موحد للملخص المالي
  * Unified Financial Summary Hook
- * 
- * هذا الـ Hook هو المصدر الوحيد للحقيقة لجميع الحسابات المالية في الواجهة الأمامية
- * يستخدم /api/financial-summary كمصدر موحد للبيانات
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -113,11 +110,9 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
         }
 
         const response = await apiRequest(url, "GET");
-
         if (response?.success && response?.data) {
           return response.data;
         }
-
         return null;
       } catch (error) {
         console.error("❌ [useFinancialSummary] خطأ في جلب الملخص المالي:", error);
@@ -177,21 +172,11 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       outgoingProjectTransfers: 0,
     };
 
-    // عند عرض جميع المشاريع، نستخدم الإجماليات المجمعة مباشرة
-    // ملاحظة: totals القادمة من Backend في AllProjectsSummary هي بالفعل مفلترة بالتاريخ
     return {
       summary: null as ProjectFinancialSummary | null,
       allProjects: allProjectsData,
       totals: {
-        totalIncome: totals.totalIncome,
-        totalCashExpenses: totals.totalCashExpenses,
-        totalAllExpenses: totals.totalAllExpenses,
-        cashBalance: totals.cashBalance,
-        totalBalance: totals.totalBalance,
-        totalWorkers: totals.totalWorkers,
-        activeWorkers: totals.activeWorkers,
-        materialExpensesCredit: totals.materialExpensesCredit,
-        carriedForwardBalance: totals.carriedForwardBalance,
+        ...totals,
         ...aggregatedCategories,
         totalExpenses: totals.totalAllExpenses || 0,
         currentBalance: totals.totalBalance || 0,
@@ -202,9 +187,7 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       refetch
     };
   }
-  }
 
-  // التحقق من وجود البيانات بالشكل الصحيح قبل الوصول إليها
   const projectData = data as ProjectFinancialSummary | null;
   const hasValidData = projectData && projectData.income && projectData.expenses && projectData.workers;
 

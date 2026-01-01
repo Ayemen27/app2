@@ -68,6 +68,7 @@ export interface AllProjectsSummary {
     totalWorkers: number;
     activeWorkers: number;
     materialExpensesCredit: number;
+    carriedForwardBalance: number;
   };
   projectsCount: number;
 }
@@ -149,11 +150,20 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       summary: null as ProjectFinancialSummary | null,
       allProjects: allProjectsData,
       totals: {
-        ...totals,
-        totalExpenses: totals.totalAllExpenses || 0,
-        currentBalance: totals.totalBalance || 0,
-        carriedForwardBalance: totals.carriedForwardBalance || 0
-      },
+      ...totals,
+      totalExpenses: totals.totalAllExpenses || 0,
+      currentBalance: totals.totalBalance || 0,
+      carriedForwardBalance: totals.carriedForwardBalance || 0,
+      totalWorkerWages: 0,
+      totalTransportation: 0,
+      totalMaterialCosts: 0,
+      totalWorkerTransfers: 0,
+      totalMiscExpenses: 0,
+      totalFundTransfers: 0,
+      incomingProjectTransfers: 0,
+      outgoingProjectTransfers: 0,
+      remainingBalance: totals.totalBalance || 0
+    },
       isLoading,
       error,
       refetch
@@ -177,7 +187,17 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       currentBalance: projectData!.totalBalance ?? 0,
       totalWorkers: projectData!.workers?.totalWorkers ?? 0,
       activeWorkers: projectData!.workers?.activeWorkers ?? 0,
-      materialExpensesCredit: projectData!.expenses?.materialExpensesCredit ?? 0
+      materialExpensesCredit: projectData!.expenses?.materialExpensesCredit ?? 0,
+      carriedForwardBalance: projectData!.income?.carriedForwardBalance ?? 0,
+      totalWorkerWages: projectData!.expenses?.workerWages ?? 0,
+      totalTransportation: projectData!.expenses?.transportExpenses ?? 0,
+      totalMaterialCosts: projectData!.expenses?.materialExpenses ?? 0,
+      totalWorkerTransfers: projectData!.expenses?.workerTransfers ?? 0,
+      totalMiscExpenses: projectData!.expenses?.miscExpenses ?? 0,
+      totalFundTransfers: projectData!.income?.fundTransfers ?? 0,
+      incomingProjectTransfers: projectData!.income?.incomingProjectTransfers ?? 0,
+      outgoingProjectTransfers: projectData!.expenses?.outgoingProjectTransfers ?? 0,
+      remainingBalance: projectData!.totalBalance ?? 0
     } : {
       totalIncome: 0,
       totalCashExpenses: 0,
@@ -188,7 +208,17 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       currentBalance: 0,
       totalWorkers: 0,
       activeWorkers: 0,
-      materialExpensesCredit: 0
+      materialExpensesCredit: 0,
+      carriedForwardBalance: 0,
+      totalWorkerWages: 0,
+      totalTransportation: 0,
+      totalMaterialCosts: 0,
+      totalWorkerTransfers: 0,
+      totalMiscExpenses: 0,
+      totalFundTransfers: 0,
+      incomingProjectTransfers: 0,
+      outgoingProjectTransfers: 0,
+      remainingBalance: 0
     },
     isLoading,
     error,

@@ -400,6 +400,8 @@ function DailyExpensesContent() {
   // استخدام useFinancialSummary الموحد لتحسين الأداء وتجنب اختلاف البيانات
   const { 
     summary: financialSummary, 
+    allProjects,
+    totals,
     isLoading: summaryLoading, 
     refetch: refetchFinancial 
   } = useFinancialSummary({
@@ -407,64 +409,64 @@ function DailyExpensesContent() {
     date: selectedDate && selectedDate !== "null" ? selectedDate : undefined,
     dateFrom: filterValues.dateRange?.from ? formatDate(filterValues.dateRange.from) : undefined,
     dateTo: filterValues.dateRange?.to ? formatDate(filterValues.dateRange.to) : undefined,
-    enabled: !!selectedProjectId && !isAllProjects
+    enabled: isAllProjects || !!selectedProjectId
   });
 
+  const totalsValue = useMemo(() => {
+    if (isAllProjects) {
+      return totals;
+    }
+    
+    // حساب totals للمشروع الفردي بناءً على financialSummary
+    return {
+      totalIncome: financialSummary?.income?.totalIncome || 0,
+      totalCashExpenses: financialSummary?.expenses?.totalCashExpenses || 0,
+      totalAllExpenses: financialSummary?.expenses?.totalAllExpenses || 0,
+      totalExpenses: financialSummary?.expenses?.totalAllExpenses || 0,
+      cashBalance: financialSummary?.cashBalance || 0,
+      totalBalance: financialSummary?.totalBalance || 0,
+      currentBalance: financialSummary?.totalBalance || 0,
+      totalWorkers: financialSummary?.workers?.totalWorkers || 0,
+      activeWorkers: financialSummary?.workers?.activeWorkers || 0,
+      materialExpensesCredit: financialSummary?.expenses?.materialExpensesCredit || 0,
+      carriedForwardBalance: financialSummary?.income?.carriedForwardBalance || 0,
+      
+      // الحقول الإضافية التي يحتاجها المكون
+      totalWorkerWages: financialSummary?.expenses?.workerWages || 0,
+      totalTransportation: financialSummary?.expenses?.transportExpenses || 0,
+      totalMaterialCosts: financialSummary?.expenses?.materialExpenses || 0,
+      totalWorkerTransfers: financialSummary?.expenses?.workerTransfers || 0,
+      totalMiscExpenses: financialSummary?.expenses?.miscExpenses || 0,
+      totalFundTransfers: financialSummary?.income?.fundTransfers || 0,
+      incomingProjectTransfers: financialSummary?.income?.incomingProjectTransfers || 0,
+      outgoingProjectTransfers: financialSummary?.expenses?.outgoingProjectTransfers || 0,
+      remainingBalance: financialSummary?.totalBalance || 0
+    };
+  }, [isAllProjects, totals, financialSummary]);
+
   const displayIncome = useMemo(() => {
-    // إجمالي الدخل للفترة
-    return financialSummary?.income?.totalIncome || 0;
-  }, [financialSummary]);
+    return totalsValue.totalIncome;
+  }, [totalsValue]);
 
   const displayAvailableBalance = useMemo(() => {
-    // الرصيد المتاح (الرصيد السابق + دخل اليوم)
-    return financialSummary?.income?.totalIncomeWithCarried || 0;
-  }, [financialSummary]);
+    return totalsValue.totalIncome + totalsValue.carriedForwardBalance;
+  }, [totalsValue]);
 
   const displayExpenses = useMemo(() => {
-    // نفضل استخدام القيمة المحسوبة بدقة من الـ backend
-    if (financialSummary?.expenses?.totalAllExpenses !== undefined) {
-      return financialSummary.expenses.totalAllExpenses;
-    }
-    
-    // Fallback في حالة عدم وجود البيانات من الـ backend (لضمان استمرارية العمل)
-    const total = (
-      (financialSummary?.expenses?.workerWages || 0) +
-      (financialSummary?.expenses?.materialExpenses || 0) +
-      (financialSummary?.expenses?.transportExpenses || 0) +
-      (financialSummary?.expenses?.miscExpenses || 0) +
-      (financialSummary?.expenses?.workerTransfers || 0) +
-      (financialSummary?.expenses?.outgoingProjectTransfers || 0)
-    );
-    return total;
-  }, [financialSummary]);
+    return totalsValue.totalAllExpenses;
+  }, [totalsValue]);
 
   const displayBalance = useMemo(() => {
-    // الرصيد المتبقي النهائي المعتمد من محرك الحسابات الموحد (Source of Truth)
-    if (financialSummary?.totalBalance !== undefined) {
-      return financialSummary.totalBalance;
-    }
-    
-    // Fallback في حالة غياب البيانات
-    const incomeTotal = (financialSummary?.income?.totalIncome || 0) + (financialSummary?.income?.carriedForwardBalance || 0);
-    const expensesTotal = (financialSummary?.expenses?.totalCashExpenses || 0) + (financialSummary?.expenses?.materialExpensesCredit || 0);
-    
-    return incomeTotal - expensesTotal;
-  }, [financialSummary]);
+    return totalsValue.totalBalance;
+  }, [totalsValue]);
 
   const carriedForwardDisplay = useMemo(() => {
-    // الرصيد المرحل من الأيام السابقة
-    if (isAllProjects && totals?.carriedForwardBalance !== undefined) {
-      return totals.carriedForwardBalance;
-    }
-    return financialSummary?.income?.carriedForwardBalance || 0;
-  }, [financialSummary, isAllProjects, totals]);
+    return totalsValue.carriedForwardBalance;
+  }, [totalsValue]);
 
   const totalRemainingWithCarried = useMemo(() => {
-    // الرصيد الإجمالي الفعلي المتبقي في الصندوق (الرصيد السابق + دخل اليوم - مصروف اليوم الشامل)
-    const totalIn = financialSummary?.income?.totalIncomeWithCarried || 0;
-    const expensesToday = financialSummary?.expenses?.totalAllExpenses || financialSummary?.expenses?.totalCashExpenses || 0;
-    return totalIn - expensesToday;
-  }, [financialSummary]);
+    return totalsValue.totalBalance;
+  }, [totalsValue]);
 
   const { 
     data: dailyExpensesData, 
@@ -1474,25 +1476,25 @@ function DailyExpensesContent() {
       return;
     }
 
-    const totals = calculateTotals();
+    const totalsResult = calculateTotals();
 
     saveDailySummaryMutation.mutate({
       projectId: selectedProjectId,
       date: selectedDate || new Date().toISOString().split('T')[0],
       carriedForwardAmount: carriedForward,
-      totalFundTransfers: totals.totalFundTransfers.toString(),
-      totalWorkerWages: totals.totalWorkerWages.toString(),
-      totalMaterialCosts: totals.totalMaterialCosts.toString(),
-      totalTransportationCosts: totals.totalTransportation.toString(),
+      totalFundTransfers: totalsResult.totalFundTransfers.toString(),
+      totalWorkerWages: totalsResult.totalWorkerWages.toString(),
+      totalMaterialCosts: totalsResult.totalMaterialCosts.toString(),
+      totalTransportationCosts: totalsResult.totalTransportation.toString(),
 
-      totalIncome: totals.totalIncome.toString(),
-      totalExpenses: totals.totalExpenses.toString(),
-      remainingBalance: totals.remainingBalance.toString(),
+      totalIncome: totalsResult.totalIncome.toString(),
+      totalExpenses: totalsResult.totalExpenses.toString(),
+      remainingBalance: totalsResult.remainingBalance.toString(),
     });
   };
 
   // حساب المجاميع مع معالجة آمنة للأخطاء
-  const totals = useMemo(() => {
+  const computedTotalsFromCalculate = useMemo(() => {
     try {
       const result = calculateTotals();
       if (!result || typeof result !== 'object') {
@@ -1537,21 +1539,21 @@ function DailyExpensesContent() {
         {
           key: 'workerWages',
           label: 'أجور العمال',
-          value: formatCurrency(totals.totalWorkerWages),
+          value: formatCurrency(totalsValue.totalWorkerWages),
           icon: Users,
           color: 'blue',
         },
         {
           key: 'fundTransfers',
           label: 'تحويلات العهدة',
-          value: formatCurrency(totals.totalFundTransfers),
+          value: formatCurrency(totalsValue.totalFundTransfers),
           icon: Banknote,
           color: 'green',
         },
         {
           key: 'materials',
           label: 'المواد',
-          value: formatCurrency(totals.totalMaterialCosts),
+          value: formatCurrency(totalsValue.totalMaterialCosts),
           icon: Package,
           color: 'purple',
         },
@@ -1564,14 +1566,14 @@ function DailyExpensesContent() {
         {
           key: 'transportation',
           label: 'المواصلات',
-          value: formatCurrency(totals.totalTransportation),
+          value: formatCurrency(totalsValue.totalTransportation),
           icon: Truck,
           color: 'orange',
         },
         {
           key: 'miscExpenses',
           label: 'النثريات',
-          value: formatCurrency(totals.totalMiscExpenses),
+          value: formatCurrency(totalsValue.totalMiscExpenses),
           icon: Receipt,
           color: 'amber',
         },
@@ -1579,10 +1581,10 @@ function DailyExpensesContent() {
           key: 'projectTransfers',
           label: 'الترحيل',
           splitValue: {
-            incoming: totals.incomingProjectTransfers,
-            outgoing: totals.outgoingProjectTransfers
+            incoming: totalsValue.incomingProjectTransfers,
+            outgoing: totalsValue.outgoingProjectTransfers
           },
-          value: formatCurrency(totals.incomingProjectTransfers - totals.outgoingProjectTransfers),
+          value: formatCurrency(totalsValue.incomingProjectTransfers - totalsValue.outgoingProjectTransfers),
           icon: Building2,
           color: 'teal',
           isSplitCard: true,
@@ -1596,27 +1598,27 @@ function DailyExpensesContent() {
         {
           key: 'workerTransfers',
           label: 'الحوالات',
-          value: formatCurrency(totals.totalWorkerTransfers),
+          value: formatCurrency(totalsValue.totalWorkerTransfers),
           icon: Send,
           color: 'indigo',
         },
         {
           key: 'totalExpenses',
           label: 'المنصرف',
-          value: formatCurrency(totals.totalExpenses),
+          value: formatCurrency(totalsValue.totalExpenses),
           icon: TrendingDown,
           color: 'red',
         },
         {
           key: 'remainingBalance',
           label: 'المتبقي',
-          value: formatCurrency(totals.remainingBalance),
+          value: formatCurrency(totalsValue.totalBalance),
           icon: Calculator,
-          color: totals.remainingBalance >= 0 ? 'emerald' : 'rose',
+          color: totalsValue.totalBalance >= 0 ? 'emerald' : 'rose',
         },
       ]
     }
-  ], [totals]);
+  ], [totalsValue]);
 
   // فئات المواصلات (يمكن جعلها من قاعدة البيانات لاحقاً)
   const transportCategories = ["عام", "خاص", "بترول", "ديزل", "صيانة", "إيجار"];
@@ -2979,7 +2981,7 @@ function DailyExpensesContent() {
                     <div className="text-left mt-2 pt-2 border-t">
                       <span className="text-sm text-muted-foreground">إجمالي الحوالات: </span>
                       <span className="font-bold text-warning arabic-numbers">
-                        {formatCurrency(totals.totalWorkerTransfers)}
+                        {formatCurrency(totalsValue.totalWorkerTransfers)}
                       </span>
                     </div>
                   </div>
@@ -3056,14 +3058,14 @@ function DailyExpensesContent() {
                   totalIncome={displayIncome}
                   totalExpenses={displayExpenses}
                   remainingBalance={displayBalance}
-                  details={ {
-                    workerWages: financialSummary?.expenses?.workerWages || 0,
-                    materialCosts: financialSummary?.expenses?.materialExpenses || 0,
-                    transportation: financialSummary?.expenses?.transportExpenses || 0,
-                    miscExpenses: financialSummary?.expenses?.miscExpenses || 0,
-                    workerTransfers: financialSummary?.expenses?.workerTransfers || 0,
-                    outgoingProjectTransfers: financialSummary?.expenses?.outgoingProjectTransfers || 0,
-                  } }
+                  details={{
+                    workerWages: totalsValue.totalWorkerWages,
+                    materialCosts: totalsValue.totalMaterialCosts,
+                    transportation: totalsValue.totalTransportation,
+                    miscExpenses: totalsValue.totalMiscExpenses,
+                    workerTransfers: totalsValue.totalWorkerTransfers,
+                    outgoingProjectTransfers: totalsValue.outgoingProjectTransfers,
+                  }}
                 />
               </div>
 

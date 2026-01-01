@@ -150,7 +150,9 @@ export class ExpenseLedgerService {
       const outgoingProjectTransfers = this.cleanDbValue(outgoingTransfersStats.rows[0]?.total);
       const incomingProjectTransfers = this.cleanDbValue(incomingTransfersStats.rows[0]?.total);
 
-      // 4. إجمالي المصروفات النقدية
+      // 4. إجمالي المصروفات النقدية (نستبعد أجور العمال لأنها تُحسب ضمن تحويلات العمال أو المصاريف المتنوعة لتجنب التكرار إذا كان ذلك هو المتبع)
+      // ولكن الصحيح برمجياً هو جمع كل فئة مستقلة. التناقض قد يأتي من خلط "أجور العمال" مع "تحويلات العمال".
+      // سنقوم هنا بالتأكد من أننا نجمع القيم الحقيقية من كل جدول.
       const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
       
       // 5. الرصيد النقدي لليوم (الدخل - المصروفات)

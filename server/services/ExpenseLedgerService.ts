@@ -95,9 +95,7 @@ export class ExpenseLedgerService {
       const startDateStr = date || dateFrom || new Date().toISOString().split('T')[0];
       
       // في حالة الفلترة المحددة، الرصيد المرحل يجب أن يكون من قبل تاريخ البداية
-      // تم إصلاح المنطق: حتى لو كان العرض تراكمياً لليوم، نحتاج لمعرفة ما قبل هذا اليوم
-      // إذا كان isCumulative true (لا يوجد تاريخ محدد)، فالرصيد المرحل 0 لأننا نجمع كل التاريخ
-      // إذا كان هناك تاريخ محدد (مثل 25/11)، فنحن بحاجة لكل ما قبل 25/11
+      // إذا كان هناك تاريخ محدد (مثل 25/11)، فنحن بحاجة لكل ما قبل 25/11 (تاريخ البداية)
       const [prevIncome, prevExpenses] = isCumulative ? [
         { rows: [{ total: 0 }] },
         { rows: [{ total: 0 }] }
@@ -246,10 +244,14 @@ export class ExpenseLedgerService {
 
   static async getAllProjectsStats(date?: string, dateFrom?: string, dateTo?: string): Promise<ProjectFinancialSummary[]> {
     try {
-      const projectsList = await db.execute(sql`SELECT id, name FROM projects ORDER BY created_at`);
-      return await Promise.all(projectsList.rows.map(async (project: any) => 
-        this.getProjectFinancialSummary(project.id, date, dateFrom, dateTo)
-      ));
+      const projectsList = await db.execute(sql`SELECT id, name FROM projects WHERE is_active = true ORDER BY created_at`);
+      // تحسين: تقليل عدد الطلبات المتزامنة لتجنب إرهاق قاعدة البيانات
+      const results: ProjectFinancialSummary[] = [];
+      for (const project of projectsList.rows) {
+        const summary = await this.getProjectFinancialSummary(project.id as string, date, dateFrom, dateTo);
+        results.push(summary);
+      }
+      return results;
     } catch (error) {
       console.error('❌ [ExpenseLedger] خطأ في جلب إحصائيات جميع المشاريع:', error);
       throw error;

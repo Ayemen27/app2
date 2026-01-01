@@ -346,7 +346,10 @@ console.log('🔧 بيئة التشغيل:', NODE_ENV);
       console.log('✅ Socket.IO server متشغل');
 
       // ✅ تشغيل نظام النسخ الاحتياطي التلقائي
-      startAutoBackupScheduler();
+      // تعديل: تشغيل النسخ الاحتياطي بعد فترة أطول لتقليل الحمل عند بدء التشغيل
+      setTimeout(() => {
+        startAutoBackupScheduler();
+      }, 60000); // الانتظار دقيقة كاملة قبل بدء الجدولة
 
       // ✅ نظام فحص المخطط - يعمل بوضع القراءة فقط مع timeout
       setTimeout(async () => {

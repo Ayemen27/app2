@@ -435,6 +435,11 @@ function DailyExpensesContent() {
   }, [financialSummary]);
 
   const displayBalance = useMemo(() => {
+    // الرصيد المتبقي لليوم هو الرصيد التراكمي النهائي كما حسبه الـ backend
+    if (financialSummary?.totalBalance !== undefined) {
+      return financialSummary.totalBalance;
+    }
+    
     // صافي الحركة للفترة المختارة (الدخل - المصروفات الشاملة)
     const incomeToday = financialSummary?.income?.totalIncome || 0;
     const expensesToday = financialSummary?.expenses?.totalAllExpenses || financialSummary?.expenses?.totalCashExpenses || 0;

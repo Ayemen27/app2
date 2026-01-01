@@ -150,14 +150,18 @@ export class ExpenseLedgerService {
       const outgoingProjectTransfers = this.cleanDbValue(outgoingTransfersStats.rows[0]?.total);
       const incomingProjectTransfers = this.cleanDbValue(incomingTransfersStats.rows[0]?.total);
 
+      // 4. إجمالي المصروفات النقدية
       const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
-      const totalIncome = fundTransfers + incomingProjectTransfers;
       
+      // 5. الرصيد النقدي لليوم (الدخل - المصروفات)
+      const totalIncome = fundTransfers + incomingProjectTransfers;
       const cashBalance = totalIncome - totalCashExpenses;
+      
+      // 6. الرصيد التراكمي الشامل (الدخل التراكمي - المصروفات التراكمية - المواد الآجلة)
       const totalIncomeWithCarried = totalIncome + carriedForwardBalance;
-      const totalAllExpenses = totalCashExpenses; // توحيد المتغيرات لضمان العرض الصحيح
-      const totalBalance = totalIncomeWithCarried - (totalCashExpenses + materialExpensesCredit);
-
+      const totalAllExpenses = totalCashExpenses; 
+      const totalBalance = totalIncomeWithCarried - materialExpensesCredit; // الرصيد المتبقي الفعلي هو إجمالي الدخل مع السابق ناقص المصروفات النقدية والآجلة
+      
       // إضافة سجل تفصيلي للحسابات في الـ console
       console.log(`📊 [ExpenseLedger] تفاصيل المصروفات لليوم ${date || 'تراكمي'}:`, {
         materialCash: materialExpenses,
@@ -167,6 +171,14 @@ export class ExpenseLedgerService {
         misc: miscExpenses,
         projectTransfers: outgoingProjectTransfers,
         total: totalCashExpenses
+      });
+
+      console.log(`📊 [ExpenseLedger] الرصيد المالي:`, {
+        carriedForward: carriedForwardBalance,
+        incomeToday: totalIncome,
+        expensesToday: totalCashExpenses,
+        materialCredit: materialExpensesCredit,
+        finalBalance: totalBalance
       });
 
       console.log(`📊 [ExpenseLedger] حسابات اليوم ${date || 'تراكمي'} لـ ${projectName}:`, {

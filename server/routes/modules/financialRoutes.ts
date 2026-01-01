@@ -64,7 +64,8 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
         totalBalance: acc.totalBalance + s.totalBalance,
         totalWorkers: acc.totalWorkers + s.workers.totalWorkers,
         activeWorkers: acc.activeWorkers + s.workers.activeWorkers,
-        materialExpensesCredit: acc.materialExpensesCredit + s.expenses.materialExpensesCredit
+        materialExpensesCredit: acc.materialExpensesCredit + s.expenses.materialExpensesCredit,
+        carriedForwardBalance: acc.carriedForwardBalance + (s.income.carriedForwardBalance || 0)
       }), { 
         totalIncome: 0, 
         totalCashExpenses: 0, 
@@ -73,7 +74,8 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
         totalBalance: 0, 
         totalWorkers: 0, 
         activeWorkers: 0,
-        materialExpensesCredit: 0
+        materialExpensesCredit: 0,
+        carriedForwardBalance: 0
       });
 
       const duration = Date.now() - startTime;

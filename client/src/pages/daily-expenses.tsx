@@ -453,8 +453,11 @@ function DailyExpensesContent() {
 
   const carriedForwardDisplay = useMemo(() => {
     // الرصيد المرحل من الأيام السابقة
+    if (isAllProjects && totals?.carriedForwardBalance !== undefined) {
+      return totals.carriedForwardBalance;
+    }
     return financialSummary?.income?.carriedForwardBalance || 0;
-  }, [financialSummary]);
+  }, [financialSummary, isAllProjects, totals]);
 
   const totalRemainingWithCarried = useMemo(() => {
     // الرصيد الإجمالي الفعلي المتبقي في الصندوق (الرصيد السابق + دخل اليوم - مصروف اليوم الشامل)

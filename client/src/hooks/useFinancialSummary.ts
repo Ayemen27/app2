@@ -142,7 +142,8 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       totalBalance: 0,
       totalWorkers: 0,
       activeWorkers: 0,
-      materialExpensesCredit: 0
+      materialExpensesCredit: 0,
+      carriedForwardBalance: 0
     };
     return {
       summary: null as ProjectFinancialSummary | null,
@@ -150,7 +151,8 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       totals: {
         ...totals,
         totalExpenses: totals.totalAllExpenses || 0,
-        currentBalance: totals.totalBalance || 0
+        currentBalance: totals.totalBalance || 0,
+        carriedForwardBalance: totals.carriedForwardBalance || 0
       },
       isLoading,
       error,

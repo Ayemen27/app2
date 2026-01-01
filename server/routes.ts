@@ -4427,7 +4427,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           processingTime: duration
         });
       } else {
-        const projectSummaries = await ExpenseLedgerService.getAllProjectsStats();
+        const projectSummaries = await ExpenseLedgerService.getAllProjectsStats(
+          date as string,
+          dateFrom as string,
+          dateTo as string
+        );
         
         // حساب الإجماليات لجميع المشاريع
         const totals = projectSummaries.reduce((acc, p) => ({
@@ -4439,6 +4443,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalWorkers: acc.totalWorkers + p.workers.totalWorkers,
           activeWorkers: acc.activeWorkers + p.workers.activeWorkers,
           materialExpensesCredit: acc.materialExpensesCredit + p.expenses.materialExpensesCredit,
+          
+          // إضافة تفاصيل الفئات للحساب الإجمالي الموحد
+          totalWorkerWages: acc.totalWorkerWages + (p.expenses?.workerWages || 0),
+          totalTransportation: acc.totalTransportation + (p.expenses?.transportExpenses || 0),
+          totalMaterialCosts: acc.totalMaterialCosts + (p.expenses?.materialExpenses || 0),
+          totalWorkerTransfers: acc.totalWorkerTransfers + (p.expenses?.workerTransfers || 0),
+          totalMiscExpenses: acc.totalMiscExpenses + (p.expenses?.miscExpenses || 0),
+          totalFundTransfers: acc.totalFundTransfers + (p.income?.fundTransfers || 0),
+          incomingProjectTransfers: acc.incomingProjectTransfers + (p.income?.incomingProjectTransfers || 0),
+          outgoingProjectTransfers: acc.outgoingProjectTransfers + (p.expenses?.outgoingProjectTransfers || 0),
         }), {
           totalIncome: 0,
           totalCashExpenses: 0,
@@ -4447,7 +4461,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalBalance: 0,
           totalWorkers: 0,
           activeWorkers: 0,
-          materialExpensesCredit: 0
+          materialExpensesCredit: 0,
+          totalWorkerWages: 0,
+          totalTransportation: 0,
+          totalMaterialCosts: 0,
+          totalWorkerTransfers: 0,
+          totalMiscExpenses: 0,
+          totalFundTransfers: 0,
+          incomingProjectTransfers: 0,
+          outgoingProjectTransfers: 0,
         });
 
         const duration = Date.now() - startTime;

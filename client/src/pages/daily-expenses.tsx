@@ -453,21 +453,20 @@ function DailyExpensesContent() {
   }, [totalsValue]);
 
   const displayExpenses = useMemo(() => {
-    return totalsValue.totalAllExpenses;
+    return totalsValue.totalCashExpenses;
   }, [totalsValue]);
 
   const displayBalance = useMemo(() => {
-    // الرصيد المتبقي = (الدخل اليومي + الرصيد المرحل) - المصروفات النقدية
-    // لضمان المطابقة مع ما يراه المستخدم: 0 + 0 - 498,250 = -498,250
-    return (totalsValue.totalIncome + totalsValue.carriedForwardBalance) - totalsValue.totalCashExpenses;
+    // الرصيد المتبقي = (الدخل اليومي + الرصيد السابق) - المصروفات النقدية
+    return (totalsValue.totalIncome + (totalsValue.carriedForwardBalance || 0)) - totalsValue.totalCashExpenses;
   }, [totalsValue]);
 
   const carriedForwardDisplay = useMemo(() => {
-    return totalsValue.carriedForwardBalance;
+    return totalsValue.carriedForwardBalance || 0;
   }, [totalsValue]);
 
   const totalRemainingWithCarried = useMemo(() => {
-    return (totalsValue.totalIncome + totalsValue.carriedForwardBalance) - totalsValue.totalCashExpenses;
+    return (totalsValue.totalIncome + (totalsValue.carriedForwardBalance || 0)) - totalsValue.totalCashExpenses;
   }, [totalsValue]);
 
   const { 

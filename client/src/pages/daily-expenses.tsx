@@ -410,10 +410,14 @@ function DailyExpensesContent() {
     enabled: !!selectedProjectId && !isAllProjects
   });
 
-  // حساب القيم المعروضة بناءً على وجود بيانات الملخص
   const displayIncome = useMemo(() => {
-    // إجمالي الدخل للفترة (بدون رصيد سابق)
+    // إجمالي الدخل للفترة
     return financialSummary?.income?.totalIncome || 0;
+  }, [financialSummary]);
+
+  const displayAvailableBalance = useMemo(() => {
+    // الرصيد المتاح (الرصيد السابق + دخل اليوم)
+    return financialSummary?.income?.totalIncomeWithCarried || 0;
   }, [financialSummary]);
 
   const displayExpenses = useMemo(() => {

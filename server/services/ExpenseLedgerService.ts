@@ -95,7 +95,7 @@ export class ExpenseLedgerService {
           FROM (
             SELECT total_amount as amount FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date < ${startDateStr}::date
             UNION ALL
-            SELECT actual_wage as amount FROM worker_attendance WHERE project_id = ${projectId} AND (payment_status = 'مدفوع' OR payment_status = 'نقد' OR payment_status = 'نقداً') AND attendance_date::date < ${startDateStr}::date
+            SELECT actual_wage as amount FROM worker_attendance WHERE project_id = ${projectId} AND attendance_date::date < ${startDateStr}::date
             UNION ALL
             SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND date::date < ${startDateStr}::date
             UNION ALL
@@ -126,7 +126,7 @@ export class ExpenseLedgerService {
         db.execute(sql`SELECT name, status, description FROM projects WHERE id = ${projectId}`),
         db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') ${dateFilterMp}`),
         db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'آجل' OR purchase_type = 'اجل') ${dateFilterMp}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = ${projectId} AND (payment_status = 'مدفوع' OR payment_status = 'نقد' OR payment_status = 'نقداً') ${dateFilterWa}`),
+        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = ${projectId} ${dateFilterWa}`),
         db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = ${projectId} ${dateFilterTe}`),
         db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = ${projectId} ${dateFilterWt}`),
         db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_misc_expenses WHERE project_id = ${projectId} ${dateFilterMwe}`),

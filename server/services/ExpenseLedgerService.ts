@@ -162,8 +162,9 @@ export class ExpenseLedgerService {
       // totalIncomeWithCarried هو إجمالي المال المتاح (الرصيد المرحل من أمس + دخل اليوم)
       const totalIncomeWithCarried = totalIncome + carriedForwardBalance;
       
-      // الرصيد النهائي الصحيح = (إجمالي الدخل المتاح) - (إجمالي مصروفات اليوم النقدية والآجلة)
-      const totalBalance = totalIncomeWithCarried - (totalCashExpenses + materialExpensesCredit);
+      // الرصيد النهائي الصحيح = (إجمالي الدخل المتاح) - (إجمالي مصروفات اليوم النقدية فقط)
+      // لأن الرصيد النقدي في العهدة لا يتأثر بالمشتريات الآجلة (Credit)
+      const totalBalance = totalIncomeWithCarried - totalCashExpenses;
       const totalAllExpenses = totalCashExpenses + materialExpensesCredit; 
 
       // إضافة سجل تفصيلي للحسابات في الـ console للتدقيق والمطابقة

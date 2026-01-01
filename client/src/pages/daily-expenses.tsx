@@ -462,12 +462,19 @@ function DailyExpensesContent() {
   }, [totalsValue]);
 
   const carriedForwardDisplay = useMemo(() => {
+    // إذا كان عرض "جميع المشاريع"، نستخدم القيمة القادمة من API المجمع
+    if (isAllProjects && dailyExpensesData?.carriedForwardBalance !== undefined) {
+      return dailyExpensesData.carriedForwardBalance;
+    }
     return totalsValue.carriedForwardBalance || 0;
-  }, [totalsValue]);
+  }, [isAllProjects, totalsValue, dailyExpensesData]);
 
   const totalRemainingWithCarried = useMemo(() => {
-    return (totalsValue.totalIncome + (totalsValue.carriedForwardBalance || 0)) - totalsValue.totalCashExpenses;
-  }, [totalsValue]);
+    const carried = isAllProjects && dailyExpensesData?.carriedForwardBalance !== undefined 
+      ? dailyExpensesData.carriedForwardBalance 
+      : (totalsValue.carriedForwardBalance || 0);
+    return (totalsValue.totalIncome + carried) - totalsValue.totalCashExpenses;
+  }, [isAllProjects, totalsValue, dailyExpensesData]);
 
   const { 
     data: dailyExpensesData, 
@@ -479,11 +486,26 @@ function DailyExpensesContent() {
     queryFn: async () => {
       try {
         if (isAllProjects) {
+          // جلب بيانات الإجمالي لجميع المشاريع بما في ذلك الرصيد المرحل
+          const totalUrl = selectedDate && selectedDate !== "null"
+            ? `/api/projects/all-projects-total?date=${selectedDate}`
+            : `/api/projects/all-projects-total`;
+            
+          const totalResponse = await apiRequest(totalUrl, "GET");
+          
           const url = selectedDate && selectedDate !== "null"
             ? `/api/projects/all-projects-expenses?date=${selectedDate}`
             : `/api/projects/all-projects-expenses`;
           const response = await apiRequest(url, "GET");
+          
           if (response && response.success && response.data) {
+            // دمج بيانات الرصيد المرحل من الاستجابة الجديدة
+            if (totalResponse && totalResponse.success && totalResponse.data) {
+              return {
+                ...response.data,
+                carriedForwardBalance: totalResponse.data.carriedForwardBalance
+              };
+            }
             return response.data;
           }
           return null;

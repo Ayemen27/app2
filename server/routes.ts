@@ -452,6 +452,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // إضافة مسار جديد لجلب الإجمالي لجميع المشاريع (بما في ذلك الرصيد المرحل التراكمي)
+  app.get("/api/projects/all-projects-total", requireAuth, async (req, res) => {
+    try {
+      const { date } = req.query;
+      const dateStr = date ? String(date) : new Date().toISOString().split('T')[0];
+      
+      console.log(`📊 [API] جلب الإجمالي لجميع المشاريع لتاريخ: ${dateStr}`);
+      const totals = await ExpenseLedgerService.getTotalDailyFinancialSummary(dateStr);
+      
+      res.json({ 
+        success: true, 
+        data: totals,
+        message: "تم جلب إجمالي المشاريع بنجاح"
+      });
+    } catch (error: any) {
+      console.error('❌ [API] خطأ في جلب إجمالي المشاريع:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message,
+        message: "فشل في جلب إجمالي المشاريع"
+      });
+    }
+  });
+
   // تحديث المشاريع المرتبطة بالمستخدم
   app.post("/api/users/:userId/projects", requireAuth, requireRole('admin'), async (req, res) => {
     try {

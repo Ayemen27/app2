@@ -1,4 +1,4 @@
-package com.binarjoin.analytics;
+package com.binarjoin.construction.manager;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;

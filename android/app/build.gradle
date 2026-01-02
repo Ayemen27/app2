@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.binarjoin.analytics"
+    namespace "com.binarjoin.construction.manager"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.binarjoin.analytics"
+        applicationId "com.binarjoin.construction.manager"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 10027

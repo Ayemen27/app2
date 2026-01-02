@@ -75,6 +75,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const API_BASE_URL = 'https://app2.binarjoinanelytic.info/api';
 
+  // تهيئة مستخدم الطوارئ الافتراضي
+  useEffect(() => {
+    const initEmergencyAdmin = async () => {
+      try {
+        const { smartGetAll, smartSave } = await import('../offline/storage-factory');
+        const existing = await smartGetAll('emergencyUsers');
+        if (existing.length === 0) {
+          console.log('🛡️ [AuthProvider] إنشاء مستخدم الطوارئ الافتراضي...');
+          await smartSave('emergencyUsers', [{
+            id: 'emergency-admin',
+            email: 'admin@binarjoin.com',
+            password: 'admin', // في التطبيق الحقيقي يفضل تشفيرها، لكن هنا للطوارئ
+            name: 'مسؤول الطوارئ',
+            role: 'admin',
+            createdAt: new Date().toISOString()
+          }]);
+        }
+      } catch (err) {
+        console.warn('⚠️ فشل تهيئة مستخدم الطوارئ:', err);
+      }
+    };
+    initEmergencyAdmin();
+  }, []);
+
   // تحقق من وجود مستخدم محفوظ عند بدء التطبيق مع آليات تعافي محسنة
   useEffect(() => {
     const initAuth = async () => {
@@ -245,20 +269,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // ✅ منطق تسجيل الدخول أوفلاين إذا فشل السيرفر
     if (!result) {
-      const localUsers = await smartGetAll('users');
-      const localUser = localUsers.find((u: any) => u.email === email);
-
-      if (localUser) {
-        console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (تسجيل دخول أوفلاين)');
+      console.log('🔍 [AuthProvider] البحث عن المستخدم في جداول الطوارئ والمحلي...');
+      
+      // 1. البحث في جدول الطوارئ أولاً (مستخدمين مثبتين مسبقاً)
+      const emergencyUsers = await smartGetAll('emergencyUsers');
+      const emergencyUser = emergencyUsers.find((u: any) => u.email === email);
+      
+      if (emergencyUser) {
+        console.log('🚨 [AuthProvider] تم الدخول بواسطة مستخدم الطوارئ');
         result = {
           success: true,
           data: {
-            user: localUser,
-            tokens: { accessToken: 'offline-token', refreshToken: 'offline-refresh' }
+            user: { ...emergencyUser, emailVerified: true },
+            tokens: { accessToken: 'emergency-token', refreshToken: 'emergency-refresh' }
           }
         };
       } else {
-        throw new Error('المستخدم غير موجود محلياً، يرجى الاتصال بالإنترنت للمزامنة الأولية');
+        // 2. البحث في جدول المستخدمين العادي المزامنين
+        const localUsers = await smartGetAll('users');
+        const localUser = localUsers.find((u: any) => u.email === email);
+        
+        if (localUser) {
+          console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (تسجيل دخول أوفلاين)');
+          result = {
+            success: true,
+            data: {
+              user: localUser,
+              tokens: { accessToken: 'offline-token', refreshToken: 'offline-refresh' }
+            }
+          };
+        } else {
+          throw new Error('المستخدم غير موجود محلياً أو في نظام الطوارئ، يرجى الاتصال بالإنترنت للمرة الأولى');
+        }
       }
     }
 

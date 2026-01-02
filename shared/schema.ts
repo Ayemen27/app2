@@ -29,6 +29,21 @@ export const users = pgTable("users", {
   ...syncFields,
 });
 
+// Emergency Users table (جدول مستخدمي الطوارئ - محلي فقط)
+export const emergencyUsers = pgTable("emergency_users", {
+  id: varchar("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default("admin"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertEmergencyUserSchema = createInsertSchema(emergencyUsers);
+export type EmergencyUser = typeof emergencyUsers.$inferSelect;
+export type InsertEmergencyUser = z.infer<typeof insertEmergencyUserSchema>;
+
+
 // Authentication User Sessions table (جدول جلسات المستخدمين)
 export const authUserSessions = pgTable("auth_user_sessions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

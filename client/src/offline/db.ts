@@ -95,6 +95,7 @@ export interface BinarJoinDB extends DBSchema {
   aiChatSessions: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean } };
   aiChatMessages: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean } };
   aiUsageStats: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean } };
+  emergencyUsers: { key: string; value: Record<string, any> };
   buildDeployments: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean } };
   approvals: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean } };
   transactions: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean } };
@@ -129,7 +130,7 @@ const ALL_STORES = [
   'notificationReadStates', 'systemNotifications', 'systemEvents', 'actions',
   'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
   'approvals', 'transactions', 'transactionLines', 'journals', 'accounts',
-  'accountBalances', 'financePayments', 'financeEvents', 'reportTemplates'
+  'accountBalances', 'financePayments', 'financeEvents', 'reportTemplates', 'emergencyUsers'
 ] as const;
 
 /**

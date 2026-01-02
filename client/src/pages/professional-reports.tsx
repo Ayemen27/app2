@@ -122,7 +122,7 @@ function KPICard({ title, value, change, changeLabel, icon, color, subValue }: K
   );
 }
 
-export default function ProfessionalReports() {
+export function ProfessionalReports() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [dateFrom, setDateFrom] = useState(() => {
     const date = new Date();

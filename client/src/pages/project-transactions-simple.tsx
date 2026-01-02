@@ -85,14 +85,14 @@ export default function ProjectTransactionsSimple() {
 
     const statsRow: StatsRowConfig[] = [
       { 
-        title: "إجمالي التوريد", 
+        title: "التوريد", 
         value: stats.totalIncome, 
         icon: UnifiedTrendingUp, 
         color: "green",
         formatter: (val: number) => formatCurrency(val)
       },
       { 
-        title: "إجمالي المنصرف (نقدي)", 
+        title: "المنصرف (نقدي)", 
         value: stats.totalExpenses, 
         icon: UnifiedTrendingDown, 
         color: "red",
@@ -113,6 +113,31 @@ export default function ProjectTransactionsSimple() {
         formatter: (val: number) => formatCurrency(val)
       }
     ];
+
+  // تحسين عرض شبكة الإحصائيات لتصبح 3*2 مع تصغير الخط
+  const customStatsGrid = (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+      {statsRow.map((stat, idx) => (
+        <Card key={idx} className="overflow-hidden">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className={`p-1.5 rounded-full bg-${stat.color}-100 dark:bg-${stat.color}-900/30`}>
+                <stat.icon className={`h-3.5 w-3.5 text-${stat.color}-600 dark:text-${stat.color}-400`} />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-medium text-muted-foreground leading-none">
+                  {stat.title}
+                </p>
+                <p className={`text-xs font-bold arabic-numbers leading-none ${stat.color === 'red' ? 'text-red-600' : stat.color === 'green' ? 'text-green-600' : ''}`}>
+                  {stat.formatter(stat.value)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
 
   // تحسين جلب البيانات باستخدام Cache و StaleTime
   const queryOptions = {
@@ -910,12 +935,12 @@ export default function ProjectTransactionsSimple() {
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
-      columns: 4, // Increased to 4 for better layout
+      columns: 3,
       gap: 'sm',
       items: [
         {
           key: 'totalIncome',
-          label: "إجمالي الدخل",
+          label: "التوريد",
           value: totals.totalIncome,
           icon: UnifiedTrendingUp,
           color: "green",
@@ -923,7 +948,7 @@ export default function ProjectTransactionsSimple() {
         },
         {
           key: 'totalExpenses',
-          label: "إجمالي المصروفات",
+          label: "المنصرف (نقدي)",
           value: totals.totalExpenses,
           icon: UnifiedTrendingDown,
           color: "red",
@@ -931,17 +956,17 @@ export default function ProjectTransactionsSimple() {
         },
         {
           key: 'balance',
-          label: "الرصيد الصافي",
+          label: "الرصيد المتبقي",
           value: totals.balance,
           icon: UnifiedDollarSign,
-          color: totals.balance >= 0 ? "green" : "red",
+          color: totals.balance >= 0 ? "blue" : "red",
           formatter: formatCurrencyUnified
         },
         {
           key: 'deferred',
-          label: "المشتريات الآجلة",
+          label: "المواد الآجلة",
           value: totals.deferredExpenses,
-          icon: UnifiedAlertCircle,
+          icon: Clock,
           color: "orange",
           formatter: formatCurrencyUnified
         }

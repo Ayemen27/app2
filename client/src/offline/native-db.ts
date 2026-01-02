@@ -72,15 +72,20 @@ class SQLiteStorage {
         CREATE TABLE IF NOT EXISTS ${store} (
           id TEXT PRIMARY KEY, 
           data TEXT,
-          synced INTEGER DEFAULT 1
+          synced INTEGER DEFAULT 1,
+          isLocal INTEGER DEFAULT 0,
+          pendingSync INTEGER DEFAULT 0
         );
       `);
       
-      // إضافة عمود synced إذا لم يكن موجوداً (للتوافق)
-      try {
-        await this.db.execute(`ALTER TABLE ${store} ADD COLUMN synced INTEGER DEFAULT 1;`);
-      } catch (e) {
-        // العمود موجود بالفعل
+      // إضافة أعمدة المزامنة إذا لم تكن موجودة (للتوافق مع الإصدارات الأقدم)
+      const columns = ['synced', 'isLocal', 'pendingSync'];
+      for (const col of columns) {
+        try {
+          await this.db.execute(`ALTER TABLE ${store} ADD COLUMN ${col} INTEGER DEFAULT 0;`);
+        } catch (e) {
+          // العمود موجود بالفعل
+        }
       }
     }
   }

@@ -10,6 +10,7 @@ import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-search-filter";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { apiRequest } from "@/lib/queryClient";
+import { performLocalOperation } from "@/offline/db";
 import { formatCurrency } from "@/lib/utils";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 import { Plus, CheckCircle2, Clock, AlertCircle, MapPin, TrendingUp, Wrench, DollarSign } from "lucide-react";
@@ -94,10 +95,17 @@ export default function WellAccounting() {
   const createTaskMutation = useMutation({
     mutationFn: async (data: any) => {
       if (!selectedWellId) throw new Error('البئر غير محددة');
-      return apiRequest(`/api/wells/${selectedWellId}/tasks`, 'POST', data);
+      return performLocalOperation('wellTasks', 'create', {
+        ...data,
+        wellId: selectedWellId,
+        projectId: selectedProjectId,
+        paidAmount: 0,
+        expectedAmount: parseFloat(data.amount) || 0,
+        createdAt: new Date().toISOString()
+      }, `/api/wells/${selectedWellId}/tasks`);
     },
     onSuccess: () => {
-      toast({ title: "نجاح", description: "تم إنشاء المهمة بنجاح" });
+      toast({ title: "نجاح", description: "تم إنشاء المهمة بنجاح (محلياً)" });
       setTaskForm({ description: '', amount: '', status: 'pending' });
       setShowTaskDialog(false);
       queryClient.invalidateQueries({ queryKey: ['well-tasks', selectedWellId] });
@@ -114,10 +122,13 @@ export default function WellAccounting() {
   // تحديث حالة المهمة
   const updateTaskStatusMutation = useMutation({
     mutationFn: async ({ taskId, status }: any) => {
-      return apiRequest(`/api/wells/tasks/${taskId}/status`, 'PATCH', { status });
+      return performLocalOperation('wellTasks', 'update', {
+        id: taskId,
+        status
+      }, `/api/wells/tasks/${taskId}/status`);
     },
     onSuccess: () => {
-      toast({ title: "نجاح", description: "تم تحديث حالة المهمة" });
+      toast({ title: "نجاح", description: "تم تحديث حالة المهمة (محلياً)" });
       queryClient.invalidateQueries({ queryKey: ['well-tasks', selectedWellId] });
     },
     onError: (error: any) => {
@@ -132,10 +143,15 @@ export default function WellAccounting() {
   // محاسبة المهمة
   const accountTaskMutation = useMutation({
     mutationFn: async ({ taskId, amount }: any) => {
-      return apiRequest(`/wells/tasks/${taskId}/account`, 'POST', { amount });
+      return performLocalOperation('wellTaskAccounts', 'create', {
+        taskId,
+        amount: parseFloat(amount) || 0,
+        projectId: selectedProjectId,
+        createdAt: new Date().toISOString()
+      }, `/wells/tasks/${taskId}/account`);
     },
     onSuccess: () => {
-      toast({ title: "نجاح", description: "تم محاسبة المهمة" });
+      toast({ title: "نجاح", description: "تم محاسبة المهمة (محلياً)" });
       queryClient.invalidateQueries({ queryKey: ['well-tasks', selectedWellId] });
     },
     onError: (error: any) => {

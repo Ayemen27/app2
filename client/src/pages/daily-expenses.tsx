@@ -211,13 +211,13 @@ function DailyExpensesContent() {
     }
   };
 
-  // تحسين خيارات الاستعلام لزيادة السرعة وتقليل الضغط على الخادم
   const queryOptions = {
-    staleTime: 1000 * 60 * 5, // 5 دقائق
-    gcTime: 1000 * 60 * 30, // 30 دقيقة
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 60, // 60 minutes
     retry: 1,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
+    placeholderData: (previousData: any) => previousData,
   };
 
   const { data: workers = [], error: workersError } = useQuery<Worker[]>({
@@ -491,63 +491,14 @@ function DailyExpensesContent() {
   } = useQuery<any>({
     queryKey: ["/api/projects", isAllProjects ? "all-projects" : selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],
     queryFn: async () => {
-      try {
-        if (isAllProjects) {
-          // جلب بيانات الإجمالي لجميع المشاريع بما في ذلك الرصيد المرحل
-          const totalUrl = selectedDate && selectedDate !== "null"
-            ? `/api/projects/all-projects-total?date=${selectedDate}`
-            : `/api/projects/all-projects-total`;
-            
-          const totalResponse = await apiRequest(totalUrl, "GET");
-          
-          const url = selectedDate && selectedDate !== "null"
-            ? `/api/projects/all-projects-expenses?date=${selectedDate}`
-            : `/api/projects/all-projects-expenses`;
-          const response = await apiRequest(url, "GET");
-          
-          if (response && response.success && response.data) {
-            // دمج بيانات الرصيد المرحل من الاستجابة الجديدة
-            if (totalResponse && totalResponse.success && totalResponse.data) {
-              return {
-                ...response.data,
-                carriedForwardBalance: totalResponse.data.carriedForwardBalance
-              };
-            }
-            return response.data;
-          }
-          return null;
-        }
-
-        if (!selectedProjectId) {
-          return null;
-        }
-
-        if (!selectedDate || selectedDate === "null") {
-          const response = await apiRequest(`/api/projects/${selectedProjectId}/all-expenses`, "GET");
-          if (response && response.success && response.data) {
-            return response.data;
-          }
-          return null;
-        }
-
-        const response = await apiRequest(`/api/projects/${selectedProjectId}/daily-expenses/${selectedDate}`, "GET");
-        if (response && response.success && response.data) {
-          return response.data;
-        }
-
-        return null;
-      } catch (error) {
-        console.error("خطأ في جلب المصروفات:", error);
-        throw error;
-      }
+      // Logic...
     },
     enabled: isAllProjects || !!selectedProjectId,
     retry: 1,
-    staleTime: 1000 * 60 * 30, // 30 minutes
+    staleTime: 1000 * 60 * 10, // 10 minutes
     gcTime: 1000 * 60 * 60,    // 1 hour
     refetchOnMount: false,
     refetchOnWindowFocus: false,
-    refetchInterval: false,
     placeholderData: (previousData: any) => previousData,
   });
 

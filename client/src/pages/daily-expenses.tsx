@@ -113,6 +113,7 @@ function DailyExpensesContent() {
   const [isMaterialsExpanded, setIsMaterialsExpanded] = useState(false);
   const [isWorkerTransfersExpanded, setIsWorkerTransfersExpanded] = useState(false);
   const [isProjectTransfersExpanded, setIsProjectTransfersExpanded] = useState(false);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
   const [isMiscExpanded, setIsMiscExpanded] = useState(false);
 
   // Fund transfer form
@@ -3190,21 +3191,34 @@ function DailyExpensesContent() {
                 </div>
               )}
 
-              {/* Total Summary */}
+              {/* الملخص اليومي - القسم المطوي */}
               <div className="border-t pt-3 mt-3">
-                <ExpenseSummary
-                  totalIncome={totalsValue.totalIncome}
-                  totalExpenses={totalsValue.totalCashExpenses}
-                  remainingBalance={displayBalance}
-                  details={{
-                    workerWages: totalsValue.totalWorkerWages,
-                    materialCosts: totalsValue.totalMaterialCosts,
-                    transportation: totalsValue.totalTransportation,
-                    miscExpenses: totalsValue.totalMiscExpenses,
-                    workerTransfers: totalsValue.totalWorkerTransfers,
-                    outgoingProjectTransfers: totalsValue.outgoingProjectTransfers,
-                  }}
-                />
+                <Collapsible open={isSummaryExpanded} onOpenChange={setIsSummaryExpanded}>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
+                      <h4 className="font-medium text-foreground flex items-center">
+                        <BarChart3 className="text-primary ml-2 h-5 w-5" />
+                        الملخص المالي لليوم
+                      </h4>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isSummaryExpanded ? 'rotate-180' : ''}`} />
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-2">
+                    <ExpenseSummary
+                      totalIncome={totalsValue.totalIncome}
+                      totalExpenses={totalsValue.totalCashExpenses}
+                      remainingBalance={displayBalance}
+                      details={{
+                        workerWages: totalsValue.totalWorkerWages,
+                        materialCosts: totalsValue.totalMaterialCosts,
+                        transportation: totalsValue.totalTransportation,
+                        miscExpenses: totalsValue.totalMiscExpenses,
+                        workerTransfers: totalsValue.totalWorkerTransfers,
+                        outgoingProjectTransfers: totalsValue.outgoingProjectTransfers,
+                      }}
+                    />
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
 
               {/* Save Button */}

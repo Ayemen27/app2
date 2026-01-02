@@ -23,6 +23,13 @@ class SQLiteStorage {
       if (ret.result && isConn) {
         this.db = await this.sqlite.retrieveConnection(this.dbName, false);
       } else {
+        // التحقق من وجود قاعدة بيانات مسبقة التجهيز في assets
+        try {
+          await this.sqlite.importPrebuiltDatabase(this.dbName, false);
+          console.log('📦 Prebuilt database imported successfully');
+        } catch (importErr) {
+          console.warn('⚠️ No prebuilt database found or import failed, creating new one', importErr);
+        }
         this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
       }
 
@@ -37,6 +44,7 @@ class SQLiteStorage {
   private async createTables() {
     if (!this.db) return;
     
+    // تأكد من وجود عمود المزامنة في كل جدول
     const ALL_STORES = [
       'users', 'authUserSessions', 'emailVerificationTokens', 'passwordResetTokens',
       'projectTypes', 'projects', 'workers', 'wells', 'fundTransfers',
@@ -59,12 +67,22 @@ class SQLiteStorage {
       'syncQueue', 'syncMetadata'
     ];
 
-    let queries = '';
     for (const store of ALL_STORES) {
-      queries += `CREATE TABLE IF NOT EXISTS ${store} (id TEXT PRIMARY KEY, data TEXT);`;
+      await this.db.execute(`
+        CREATE TABLE IF NOT EXISTS ${store} (
+          id TEXT PRIMARY KEY, 
+          data TEXT,
+          synced INTEGER DEFAULT 1
+        );
+      `);
+      
+      // إضافة عمود synced إذا لم يكن موجوداً (للتوافق)
+      try {
+        await this.db.execute(`ALTER TABLE ${store} ADD COLUMN synced INTEGER DEFAULT 1;`);
+      } catch (e) {
+        // العمود موجود بالفعل
+      }
     }
-    
-    await this.db.execute(queries);
   }
 
   async get(table: string, id: string) {

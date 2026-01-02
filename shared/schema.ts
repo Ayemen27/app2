@@ -3,6 +3,13 @@ import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jso
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Helper to add sync flags to any table
+const syncFields = {
+  isLocal: boolean("is_local").default(false),
+  synced: boolean("synced").default(true),
+  pendingSync: boolean("pending_sync").default(false),
+};
+
 // Users table (جدول المستخدمين)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -19,6 +26,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   lastLogin: timestamp("last_login"),
+  ...syncFields,
 });
 
 // Authentication User Sessions table (جدول جلسات المستخدمين)

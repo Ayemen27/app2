@@ -127,6 +127,25 @@ export async function syncOfflineData(): Promise<void> {
         const result = await apiRequest(item.endpoint, item.action === 'create' ? 'POST' : item.action === 'update' ? 'PATCH' : 'DELETE', item.payload);
         if (result) {
           await removeSyncQueueItem(item.id);
+          
+          // تحديث حالة المزامنة محلياً للسجل
+          const db = await getDB();
+          const recordId = item.payload.id;
+          const tableName = item.endpoint.split('/')[2]; // استخراج اسم الجدول من الـ endpoint
+          
+          if (tableName && recordId) {
+            const tx = db.transaction(tableName as any, 'readwrite');
+            const store = tx.objectStore(tableName as any);
+            const record = await store.get(recordId);
+            if (record) {
+              record.synced = true;
+              record._pendingSync = false;
+              record._isLocal = false;
+              await store.put(record);
+            }
+            await tx.done;
+          }
+          
           successCount++;
         }
       } catch (e) {

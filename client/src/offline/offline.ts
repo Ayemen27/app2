@@ -164,15 +164,22 @@ export async function saveListLocal(
 }
 
 /**
- * جلب قائمة محلية
+ * جلب قائمة محلية (تدمج البيانات السحابية مع التعديلات المحلية المعلقة)
  */
 export async function getListLocal(
-  storeName: 'projects' | 'workers' | 'materials' | 'suppliers' | 'expenses'
+  storeName: keyof BinarJoinDB
 ) {
   const db = await getDB();
-  const tx = db.transaction(storeName, 'readonly');
-  const store = tx.objectStore(storeName);
-  return await store.getAll();
+  const tx = db.transaction(storeName as any, 'readonly');
+  const store = tx.objectStore(storeName as any);
+  const items = await store.getAll();
+  
+  // ترتيب تنازلي حسب تاريخ الإنشاء لضمان ظهور الأحدث أولاً
+  return items.sort((a, b) => {
+    const dateA = new Date(a.createdAt || 0).getTime();
+    const dateB = new Date(b.createdAt || 0).getTime();
+    return dateB - dateA;
+  });
 }
 
 /**
@@ -209,38 +216,58 @@ export async function updateItemLocal(
 }
 
 /**
- * إضافة عنصر محلي
+ * إضافة عنصر محلي فورياً مع وسمه للمزامنة
  */
-export async function addItemLocal(
-  storeName: 'projects' | 'workers' | 'materials' | 'suppliers' | 'expenses',
-  item: Record<string, any>
+export async function addLocalFirst(
+  storeName: keyof BinarJoinDB,
+  item: Record<string, any>,
+  endpoint: string
 ): Promise<string> {
   const db = await getDB();
   const id = item.id || uuidv4();
-
+  
   const newItem = {
     ...item,
     id,
-    createdAt: item.createdAt || Date.now(),
-    _isLocal: true
+    _isLocal: true,
+    _pendingSync: true,
+    createdAt: item.createdAt || new Date().toISOString()
   };
 
-  await db.put(storeName, newItem);
-  console.log(`[Offline] تم إضافة عنصر محلي: ${storeName}/${id}`);
-
+  // 1. الكتابة الفورية في الجدول المحلي
+  await db.put(storeName as any, newItem);
+  
+  // 2. إضافة لجدول المزامنة
+  await queueForSync('create', endpoint, newItem);
+  
+  console.log(`[Offline-First] تم الحفظ محلياً: ${storeName}/${id}`);
   return id;
 }
 
 /**
- * حذف عنصر محلي
+ * تحديث محلي فوري
  */
-export async function deleteItemLocal(
-  storeName: 'projects' | 'workers' | 'materials' | 'suppliers' | 'expenses',
-  id: string
+export async function updateLocalFirst(
+  storeName: keyof BinarJoinDB,
+  id: string,
+  updates: Record<string, any>,
+  endpoint: string
 ): Promise<void> {
   const db = await getDB();
-  await db.delete(storeName, id);
-  console.log(`[Offline] تم حذف عنصر محلي: ${storeName}/${id}`);
+  const item = await db.get(storeName as any, id);
+  
+  if (item) {
+    const updatedItem = {
+      ...item,
+      ...updates,
+      _pendingSync: true,
+      updatedAt: new Date().toISOString()
+    };
+    
+    await db.put(storeName as any, updatedItem);
+    await queueForSync('update', `${endpoint}/${id}`, updates);
+    console.log(`[Offline-First] تم التحديث محلياً: ${storeName}/${id}`);
+  }
 }
 
 // ⚠️ ملاحظة: استخدم clearAllLocalData() من data-cleanup.ts بدلاً من clearAllOfflineData()

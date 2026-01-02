@@ -318,12 +318,28 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // ✅ **Error Handler Middleware** - Moved after static/vite
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";
 
-  res.status(status).json({ message });
-  // console.error(err); // Log the error but don't rethrow to avoid crashing
+  // ضمان إرجاع JSON لمسارات API دائماً
+  if (req.path.startsWith('/api/')) {
+    return res.status(status).json({ 
+      success: false, 
+      message,
+      error: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
+  }
+  
+  res.status(status).send(message);
+});
+
+// ✅ **404 Handler for API**
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ 
+    success: false, 
+    message: `المسار غير موجود: ${req.originalUrl}` 
+  });
 });
 
 // ALWAYS serve the app on the port specified in the environment variable PORT

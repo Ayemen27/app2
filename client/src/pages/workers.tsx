@@ -144,8 +144,11 @@ const WorkerCardWrapper = ({
         : `/api/workers/${worker.id}/stats`;
       return apiRequest(url, 'GET');
     },
-    staleTime: 300000,
+    staleTime: 600000, // 10 minutes
+    gcTime: 1200000,  // 20 minutes
     retry: 1,
+    placeholderData: (previousData) => previousData,
+    refetchOnWindowFocus: false,
   });
 
   const stats = statsData?.data;
@@ -290,8 +293,11 @@ export default function WorkersPage() {
         return [] as Worker[];
       }
     },
-    staleTime: 300000,
+    staleTime: 600000, // 10 minutes
+    gcTime: 1200000,  // 20 minutes
     retry: 2,
+    placeholderData: (previousData) => previousData,
+    refetchOnWindowFocus: false,
   });
 
   const { data: workerTypes = [] } = useQuery<WorkerType[]>({
@@ -324,8 +330,11 @@ export default function WorkersPage() {
         return [] as WorkerType[];
       }
     },
-    staleTime: 600000,
+    staleTime: 900000, // 15 minutes
+    gcTime: 1800000,  // 30 minutes
     retry: 1,
+    placeholderData: (previousData) => previousData,
+    refetchOnWindowFocus: false,
   });
 
   const handleRefresh = useCallback(async () => {

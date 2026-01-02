@@ -311,23 +311,23 @@ export class DatabaseStorage implements IStorage {
 
   // Projects
   async getProjects(): Promise<Project[]> {
-    return await db.select().from(projects);
+    return await db.select().from(projectsTable);
   }
 
   async getProject(id: string): Promise<Project | undefined> {
-    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, id));
     return project || undefined;
   }
 
   async getProjectByName(name: string): Promise<Project | undefined> {
-    const [project] = await db.select().from(projects).where(eq(projects.name, name.trim()));
+    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.name, name.trim()));
     return project || undefined;
   }
 
   async createProject(project: InsertProject): Promise<Project> {
     try {
       const [newProject] = await db
-        .insert(projects)
+        .insert(projectsTable)
         .values({ ...project, name: project.name.trim() })
         .returning();
       
@@ -345,15 +345,15 @@ export class DatabaseStorage implements IStorage {
   async updateProject(id: string, project: Partial<InsertProject>): Promise<Project | undefined> {
     const updateData = project.name ? { ...project, name: project.name.trim() } : project;
     const [updated] = await db
-      .update(projects)
+      .update(projectsTable)
       .set(updateData)
-      .where(eq(projects.id, id))
+      .where(eq(projectsTable.id, id))
       .returning();
     return updated || undefined;
   }
 
   async deleteProject(id: string): Promise<void> {
-    await db.delete(projects).where(eq(projects.id, id));
+    await db.delete(projectsTable).where(eq(projectsTable.id, id));
   }
 
   // Workers

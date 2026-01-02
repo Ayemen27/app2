@@ -86,14 +86,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
           await smartSave('emergencyUsers', [{
             id: 'emergency-admin',
             email: 'admin@binarjoin.com',
-            password: 'admin', // في التطبيق الحقيقي يفضل تشفيرها، لكن هنا للطوارئ
+            password: 'admin',
             name: 'مسؤول الطوارئ',
             role: 'admin',
             createdAt: new Date().toISOString()
           }]);
         }
       } catch (err) {
-        console.warn('⚠️ فشل تهيئة مستخدم الطوارئ:', err);
+        // تم كتم التحذير لتقليل الضوضاء في السجلات
       }
     };
     initEmergencyAdmin();

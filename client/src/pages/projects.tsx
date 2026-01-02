@@ -208,26 +208,26 @@ export default function ProjectsPage() {
   }, [setFloatingAction]);
 
   // ✅ Fetch projects with statistics - استخدام default fetcher مع Authorization headers
-  const { data: projectsDataRaw = [], isLoading, refetch: refetchProjects, error } = useQuery<ProjectWithStats[]>({
+  const { data: fetchedProjectsRaw = [], isLoading, refetch: refetchProjects, error } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects/with-stats"],
     queryFn: async () => {
       try {
         console.log('📊 [Projects] جلب المشاريع مع الإحصائيات...');
         const response = await apiRequest("/api/projects/with-stats", "GET");
         
-        let fetchedProjects = [];
+        let fetchedData = [];
         if (response && typeof response === 'object') {
           if (response.success !== undefined && response.data !== undefined) {
-            fetchedProjects = Array.isArray(response.data) ? response.data : [];
+            fetchedData = Array.isArray(response.data) ? response.data : [];
           } else if (Array.isArray(response)) {
-            fetchedProjects = response;
+            fetchedData = response;
           } else if (response.id) {
-            fetchedProjects = [response];
+            fetchedData = [response];
           } else if (response.data) {
-            fetchedProjects = Array.isArray(response.data) ? response.data : [];
+            fetchedData = Array.isArray(response.data) ? response.data : [];
           }
         }
-        return fetchedProjects as ProjectWithStats[];
+        return fetchedData as ProjectWithStats[];
       } catch (error) {
         console.error('❌ [Projects] خطأ في جلب المشاريع:', error);
         return [] as ProjectWithStats[];
@@ -236,7 +236,7 @@ export default function ProjectsPage() {
     refetchInterval: 60000,
   });
 
-  const projects = projectsDataRaw || [];
+  const projects = Array.isArray(fetchedProjectsRaw) ? fetchedProjectsRaw : [];
 
   // استخدام الملخص المالي الموحد من ExpenseLedgerService للإجماليات والمشاريع الفردية
   const { totals: financialTotals, allProjects: financialData, isLoading: financialLoading, refetch: refetchFinancial } = useFinancialSummary({

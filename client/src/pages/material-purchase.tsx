@@ -88,7 +88,7 @@ export default function MaterialPurchase() {
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
     if (showDateFilter) {
-      setSelectedDate(""); // تعيين فارغ لعرض الكل
+      setSelectedDate(getCurrentDate()); // تعيين تاريخ اليوم بدلاً من فارغ
     }
     setFilterValues({ 
       paymentType: 'all', 
@@ -97,36 +97,22 @@ export default function MaterialPurchase() {
     });
     toast({
       title: "تم إعادة التعيين",
-      description: "تم مسح جميع الفلاتر وعرض جميع المشتريات",
+      description: "تم مسح جميع الفلاتر وتعيين تاريخ اليوم",
     });
   }, [showDateFilter, toast]);
 
   // تعيين تاريخ اليوم تلقائياً عند الفتح
   useEffect(() => {
-    if (showDateFilter && !selectedDate) {
+    if (showDateFilter) {
       setSelectedDate(getCurrentDate());
     }
-  }, []);
+  }, [showDateFilter]);
 
-  // إجراء الحفظ لاستخدامه مع الزر العائم
-  const handleFloatingSave = () => {
-    if (!selectedProjectId) {
-      toast({
-        title: "خطأ",
-        description: "يرجى اختيار مشروع أولاً",
-        variant: "destructive",
-      });
-      return;
-    }
-    // محاكاة كليك زر الحفظ
-    (document.querySelector('[type="submit"]') as HTMLElement)?.click();
-  };
-
-  // تعيين إجراء الزر العائم
+  // إزالة الزر العائم من صفحة المشتريات
   useEffect(() => {
-    setFloatingAction(handleFloatingSave, "حفظ المشتريات");
+    setFloatingAction(null);
     return () => setFloatingAction(null);
-  }, [setFloatingAction, selectedProjectId]);
+  }, [setFloatingAction]);
 
   // دالة مساعدة لحفظ القيم في autocomplete_data
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {

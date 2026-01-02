@@ -15,7 +15,7 @@ import {
   DollarSign,
   Briefcase
 } from "lucide-react";
-import { LayoutShell } from "@/components/layout-shell";
+import { LayoutShell } from "@/components/layout/layout-shell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

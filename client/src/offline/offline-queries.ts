@@ -173,31 +173,6 @@ export async function getLastSyncTime(): Promise<number | null> {
 }
 
 /**
- * جلب البيانات مع timeout
- */
-async function fetchWithTimeout(
-  endpoint: string,
-  timeout: number = 5000
-): Promise<any> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const result = await apiRequest(endpoint, 'GET', undefined);
-    clearTimeout(timeoutId);
-    
-    // استخراج البيانات من استجابة API
-    if (result && typeof result === 'object' && 'data' in result) {
-      return result.data;
-    }
-    return result;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
-}
-
-/**
  * خريطة الـ entity names إلى store names
  */
 const ENTITY_STORES = {

@@ -73,6 +73,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
   }, []); // تشغيل مرة واحدة فقط
 
+  const API_BASE_URL = 'https://app2.binarjoinanelytic.info/api';
+
   // تحقق من وجود مستخدم محفوظ عند بدء التطبيق مع آليات تعافي محسنة
   useEffect(() => {
     const initAuth = async () => {
@@ -101,7 +103,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
             // ✅ التحقق من صحة التوكن مع الخادم
             console.log('🔍 [AuthProvider] التحقق من صحة التوكن مع الخادم...');
-            const response = await fetch('/api/auth/me', {
+            const response = await fetch(`${API_BASE_URL}/auth/me`, {
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json'
@@ -145,7 +147,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               const refreshTokenValue = localStorage.getItem('refreshToken');
               if (response.status === 401 && refreshTokenValue) {
                 console.log('🔄 [AuthProvider] محاولة تجديد التوكن...');
-                const refreshResponse = await fetch('/api/auth/refresh', {
+                const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ refreshToken: refreshTokenValue }),
@@ -223,8 +225,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     let response: Response | null = null;
 
     try {
-      console.log('📡 [AuthProvider.login] إرسال طلب لـ /api/auth/login...');
-      response = await fetch('/api/auth/login', {
+      console.log(`📡 [AuthProvider.login] إرسال طلب لـ ${API_BASE_URL}/auth/login...`);
+      response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -314,7 +316,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const accessToken = localStorage.getItem('accessToken');
       if (accessToken) {
         try {
-          await fetch('/api/auth/logout', {
+          await fetch(`${API_BASE_URL}/auth/logout`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -392,7 +394,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             console.log(`⏰ [AuthProvider.refreshToken] timeout للمحاولة ${attempt + 1}`);
           }, 10000); // 10 ثواني timeout
 
-          const response = await fetch('/api/auth/refresh', {
+          const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

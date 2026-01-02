@@ -67,8 +67,15 @@ export async function performInitialDataPull(): Promise<boolean> {
     const { data } = result;
     const db = await getDB();
 
+    // 1. مزامنة المستخدمين أولاً لضمان عمل Auth
+    if (data.users && Array.isArray(data.users)) {
+      await smartSave('users', data.users);
+      console.log(`✅ [Sync] تم مزامنة ${data.users.length} مستخدم لضمان الدخول Offline`);
+    }
+
+    // 2. مزامنة بقية الجداول
     for (const [tableName, records] of Object.entries(data)) {
-      if (Array.isArray(records)) {
+      if (tableName !== 'users' && Array.isArray(records)) {
         await smartSave(tableName, records);
         console.log(`✅ [Sync] تم مزامنة ${records.length} سجل في ${tableName}`);
       }

@@ -84,11 +84,16 @@ function PageLoader() {
   );
 }
 
+import { initSilentSyncObserver } from "./offline/silent-sync";
+
 function Router() {
   useWebSocketSync();
 
   // ✅ تفعيل نظام المزامنة الذكي عند تحميل التطبيق
   useEffect(() => {
+    // تشغيل مراقب المزامنة الصامت (نظام الأوفلاين المطور)
+    initSilentSyncObserver();
+
     const initSync = async () => {
       try {
         // تهيئة قاعدة البيانات المحلية
@@ -253,7 +258,12 @@ function Router() {
   );
 }
 
+import { initSilentSyncObserver } from "./offline/silent-sync";
+
 function App() {
+  useEffect(() => {
+    initSilentSyncObserver();
+  }, []);
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>

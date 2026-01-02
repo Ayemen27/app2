@@ -236,6 +236,20 @@ export default function Header() {
             <NotificationCenter />
             <SyncStatusHeader />
             
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 mx-1">
+              {isOnline ? (
+                <Cloud className="h-4 w-4 text-green-300" />
+              ) : (
+                <CloudOff className="h-4 w-4 text-yellow-300" />
+              )}
+              {pendingCount > 0 && (
+                <div className="flex items-center gap-1 border-r border-white/20 pr-1 mr-1">
+                  <RefreshCw className="h-3 w-3 animate-spin text-white" />
+                  <span className="text-[10px] font-bold text-white">{pendingCount}</span>
+                </div>
+              )}
+            </div>
+
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

@@ -1,10 +1,11 @@
-import { queueForSync, getPendingSyncQueue, removeSyncQueueItem } from './offline';
-import { saveLocalRecord, deleteLocalRecord, EntityName } from './offline-queries';
-import { syncOfflineData } from './sync';
+import { queueForSync, getPendingSyncQueue, removeSyncQueueItem, addLocalFirst, updateLocalFirst } from './offline';
+import { deleteLocalRecord, EntityName } from './offline-queries';
+import { runSilentSync } from './silent-sync';
 import { queryClient } from '@/lib/queryClient';
+import { BinarJoinDB } from './db';
 
 /**
- * إضافة بيانات مع حفظ محلي وإضافة إلى قائمة المزامنة
+ * إضافة بيانات مع حفظ محلي فوري (Offline-First)
  */
 export async function createRecordOffline(
   endpoint: string,
@@ -13,14 +14,14 @@ export async function createRecordOffline(
   id: string
 ): Promise<{ success: boolean; id: string; error?: string }> {
   try {
-    console.log(`➕ [OfflineMutations] إنشاء سجل جديد: ${entityName}/${id}`);
+    console.log(`🚀 [Absolute-Offline] إنشاء سجل فوري: ${entityName}/${id}`);
 
-    const recordToSave = { id, ...payload, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    await saveLocalRecord(entityName, recordToSave);
-    await queueForSync('create', endpoint, payload);
+    // استخدام الوظيفة الجديدة للحفظ المحلي الفوري والجدولة للمزامنة
+    await addLocalFirst(entityName as keyof BinarJoinDB, { ...payload, id }, endpoint);
 
+    // محاولة تشغيل المزامنة في الخلفية إذا كان هناك اتصال، دون انتظار
     if (navigator.onLine) {
-      await syncOfflineData().catch(err => console.warn('⚠️ Sync failed:', err));
+      runSilentSync().catch(err => console.warn('⚠️ Background sync trigger failed:', err));
     }
 
     return { success: true, id };
@@ -31,7 +32,7 @@ export async function createRecordOffline(
 }
 
 /**
- * تحديث بيانات مع حفظ محلي
+ * تحديث بيانات مع حفظ محلي فوري
  */
 export async function updateRecordOffline(
   endpoint: string,
@@ -40,14 +41,12 @@ export async function updateRecordOffline(
   payload: any
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log(`✏️ [OfflineMutations] تحديث سجل: ${entityName}/${id}`);
+    console.log(`🚀 [Absolute-Offline] تحديث سجل فوري: ${entityName}/${id}`);
 
-    const recordToSave = { id, ...payload, updatedAt: new Date().toISOString() };
-    await saveLocalRecord(entityName, recordToSave);
-    await queueForSync('update', endpoint, payload);
+    await updateLocalFirst(entityName as keyof BinarJoinDB, id, payload, endpoint);
 
     if (navigator.onLine) {
-      await syncOfflineData().catch(err => console.warn('⚠️ Sync failed:', err));
+      runSilentSync().catch(err => console.warn('⚠️ Background sync trigger failed:', err));
     }
 
     return { success: true };
@@ -66,13 +65,13 @@ export async function deleteRecordOffline(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log(`🗑️ [OfflineMutations] حذف سجل: ${entityName}/${id}`);
+    console.log(`🗑️ [Absolute-Offline] حذف سجل فوري: ${entityName}/${id}`);
 
     await deleteLocalRecord(entityName, id);
-    await queueForSync('delete', endpoint, {});
+    await queueForSync('delete', endpoint, { id });
 
     if (navigator.onLine) {
-      await syncOfflineData().catch(err => console.warn('⚠️ Sync failed:', err));
+      runSilentSync().catch(err => console.warn('⚠️ Background sync trigger failed:', err));
     }
 
     return { success: true };

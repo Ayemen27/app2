@@ -37,18 +37,34 @@ class SQLiteStorage {
   private async createTables() {
     if (!this.db) return;
     
-    // مثال بسيط لإنشاء الجداول (سيتم التوسع فيها لاحقاً)
-    const query = `
-      CREATE TABLE IF NOT EXISTS sync_metadata (
-        key TEXT PRIMARY KEY,
-        value TEXT
-      );
-      CREATE TABLE IF NOT EXISTS projects (
-        id TEXT PRIMARY KEY,
-        data TEXT
-      );
-    `;
-    await this.db.execute(query);
+    const ALL_STORES = [
+      'users', 'authUserSessions', 'emailVerificationTokens', 'passwordResetTokens',
+      'projectTypes', 'projects', 'workers', 'wells', 'fundTransfers',
+      'workerAttendance', 'suppliers', 'materials', 'materialPurchases',
+      'supplierPayments', 'transportationExpenses', 'workerTransfers',
+      'workerBalances', 'dailyExpenseSummaries', 'workerTypes', 'autocompleteData',
+      'workerMiscExpenses', 'printSettings', 'projectFundTransfers',
+      'securityPolicies', 'securityPolicyImplementations',
+      'securityPolicySuggestions', 'securityPolicyViolations',
+      'permissionAuditLogs', 'userProjectPermissions', 'materialCategories',
+      'toolCategories', 'tools', 'toolMovements', 'toolStock', 'toolReservations',
+      'toolPurchaseItems', 'toolCostTracking', 'toolMaintenanceLogs',
+      'toolUsageAnalytics', 'toolNotifications', 'maintenanceSchedules',
+      'maintenanceTasks', 'wellTasks', 'wellExpenses', 'wellAuditLogs',
+      'wellTaskAccounts', 'messages', 'channels', 'notifications',
+      'notificationReadStates', 'systemNotifications', 'systemEvents', 'actions',
+      'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
+      'approvals', 'transactions', 'transactionLines', 'journals', 'accounts',
+      'accountBalances', 'financePayments', 'financeEvents', 'reportTemplates',
+      'syncQueue', 'syncMetadata'
+    ];
+
+    let queries = '';
+    for (const store of ALL_STORES) {
+      queries += `CREATE TABLE IF NOT EXISTS ${store} (id TEXT PRIMARY KEY, data TEXT);`;
+    }
+    
+    await this.db.execute(queries);
   }
 
   async get(table: string, id: string) {

@@ -473,7 +473,7 @@ export default function ProfessionalReports() {
                   <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
                 </div>
               ) : dashboardKPIs ? (
-                <>
+                <div className="space-y-6">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <KPICard
                       title="عمال اليوم"
@@ -617,7 +617,7 @@ export default function ProfessionalReports() {
                       </Card>
                     </div>
                   )}
-                </>
+                </div>
               ) : (
                 <Card className="border-2 border-dashed">
                   <CardContent className="p-8 text-center">

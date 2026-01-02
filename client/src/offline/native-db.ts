@@ -8,9 +8,12 @@ class SQLiteStorage {
 
   constructor() {
     this.sqlite = new SQLiteConnection(CapacitorSQLite);
+    // بدء التهيئة تلقائياً عند الإنشاء لضمان الجاهزية المبكرة
+    this.initialize().catch(err => console.error('🔴 SQLite Auto-Init Failed:', err));
   }
 
   async initialize() {
+    if (this.db) return; // منع التهيئة المتكررة
     if (Capacitor.getPlatform() === 'web') {
       console.warn('⚠️ SQLite is not supported on web, falling back to mock or IndexedDB');
       return;

@@ -1207,4 +1207,5 @@ export default function ProfessionalReports() {
     </LayoutShell>
   );
 }
+
 export default ProfessionalReports;

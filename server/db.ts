@@ -13,7 +13,17 @@ export const pool = {
 // توفير نسخة محاكاة من db تدعم execute لتجنب أخطاء التشغيل
 export const db = {
   execute: async () => ({ rows: [] }),
-  select: () => ({ from: () => ({ where: () => ({ orderBy: () => ({ limit: () => [] }) }) }) }),
+  select: () => ({ 
+    from: () => ({ 
+      where: () => ({ 
+        orderBy: () => ({ 
+          limit: () => [] 
+        }),
+        limit: () => [] // إضافة limit مباشرة بعد where
+      }),
+      limit: () => [] // إضافة limit مباشرة بعد from
+    }) 
+  }),
   insert: () => ({ values: () => ({ returning: () => [] }) }),
   update: () => ({ set: () => ({ where: () => [] }) }),
   delete: () => ({ where: () => [] }),

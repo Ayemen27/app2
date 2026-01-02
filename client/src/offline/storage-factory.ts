@@ -41,7 +41,7 @@ export async function smartGet(tableName: string, id: string) {
 }
 
 /**
- * جلب جميع السجلات من جدول بشكل ذكي (لأغراض المصادقة أوفلاين)
+ * جلب جميع السجلات من جدول بشكل ذكي
  */
 export async function smartGetAll(tableName: string): Promise<any[]> {
   if (Capacitor.getPlatform() !== 'web') {
@@ -49,5 +49,24 @@ export async function smartGetAll(tableName: string): Promise<any[]> {
   } else {
     const db = await getIDB();
     return await db.getAll(tableName as any);
+  }
+}
+
+/**
+ * حفظ سجلات في الجدول المناسب
+ */
+export async function smartSave(tableName: string, records: any[]): Promise<number> {
+  if (Capacitor.getPlatform() !== 'web') {
+    let count = 0;
+    for (const record of records) {
+      if (record && record.id) {
+        await nativeStorage.set(tableName, record.id, record);
+        count++;
+      }
+    }
+    return count;
+  } else {
+    const { saveSyncedData } = await import('./db');
+    return await saveSyncedData(tableName, records);
   }
 }

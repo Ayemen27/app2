@@ -4,12 +4,14 @@ import { clearAllLocalData } from './data-cleanup';
 import { detectConflict, resolveConflict, logConflict } from './conflict-resolver';
 import { apiRequest } from '../lib/queryClient';
 import { smartSave } from './storage-factory';
+import { intelligentMonitor } from './intelligent-monitor';
 
 const MAX_RETRIES = 5;
 const INITIAL_SYNC_DELAY = 2000; 
 let isSyncing = false;
 let syncListeners: ((state: SyncState) => void)[] = [];
 let syncInterval: NodeJS.Timeout | null = null;
+let retryCount = 0;
 
 export interface SyncState {
   isSyncing: boolean;
@@ -42,6 +44,13 @@ function updateSyncState(updates: Partial<SyncState>) {
 
 export function getSyncState(): SyncState {
   return { ...currentSyncState };
+}
+
+/**
+ * حساب وقت الانتظار (Exponential Backoff)
+ */
+function getBackoffDelay(retries: number): number {
+  return Math.min(30000, INITIAL_SYNC_DELAY * Math.pow(2, retries));
 }
 
 /**
@@ -116,6 +125,7 @@ export async function syncOfflineData(): Promise<void> {
     if (pending.length === 0) {
       updateSyncState({ isSyncing: false });
       isSyncing = false;
+      retryCount = 0;
       return;
     }
 
@@ -128,10 +138,9 @@ export async function syncOfflineData(): Promise<void> {
         if (result) {
           await removeSyncQueueItem(item.id);
           
-          // تحديث حالة المزامنة محلياً للسجل
           const db = await getDB();
           const recordId = item.payload.id;
-          const tableName = item.endpoint.split('/')[2]; // استخراج اسم الجدول من الـ endpoint
+          const tableName = item.endpoint.split('/')[2]; 
           
           if (tableName && recordId) {
             const tx = db.transaction(tableName as any, 'readwrite');
@@ -149,7 +158,17 @@ export async function syncOfflineData(): Promise<void> {
           successCount++;
         }
       } catch (e) {
-        console.error('❌ [Sync] فشل مزامنة عنصر:', e);
+        retryCount++;
+        const delay = getBackoffDelay(retryCount);
+        
+        intelligentMonitor.logEvent({
+          type: 'sync',
+          severity: retryCount > 3 ? 'high' : 'medium',
+          message: `فشل مزامنة عنصر: ${e instanceof Error ? e.message : 'خطأ غير معروف'}`,
+          metadata: { retryCount, nextRetryDelay: delay, itemId: item.id }
+        });
+
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
@@ -161,6 +180,12 @@ export async function syncOfflineData(): Promise<void> {
   } catch (error) {
     console.error('❌ [Sync] خطأ في المزامنة:', error);
     updateSyncState({ isSyncing: false });
+    
+    intelligentMonitor.logEvent({
+      type: 'error',
+      severity: 'high',
+      message: `خطأ حرج في محرك المزامنة: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`,
+    });
   } finally {
     isSyncing = false;
   }
@@ -172,7 +197,6 @@ export async function syncOfflineData(): Promise<void> {
 export function initSyncListener(): void {
   window.addEventListener('online', () => {
     updateSyncState({ isOnline: true });
-    // سحب البيانات فوراً عند استعادة الاتصال
     performInitialDataPull();
     syncOfflineData();
   });
@@ -181,7 +205,6 @@ export function initSyncListener(): void {
     updateSyncState({ isOnline: false });
   });
 
-  // تشغيل السحب الأولي والمزامنة فوراً عند بدء التطبيق بدون تأخير طويل
   const runSync = async () => {
     console.log('🚀 [Sync] بدء المزامنة التلقائية الفورية...');
     await performInitialDataPull();
@@ -190,7 +213,6 @@ export function initSyncListener(): void {
 
   runSync();
 
-  // مزامنة دورية كل 30 ثانية لضمان الحداثة
   setInterval(() => {
     if (navigator.onLine) syncOfflineData();
   }, 30000);

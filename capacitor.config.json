@@ -7,10 +7,24 @@
     "androidScheme": "https",
     "cleartext": true,
     "allowNavigation": [
-      "app2.binarjoinanelytic.info"
+      "app2.binarjoinanelytic.info",
+      "be152051-6870-4cc9-a9de-c6503e6a2aed-00-pxzg0scazi9o.sisko.replit.dev"
     ]
   },
   "plugins": {
+    "CapacitorSQLite": {
+      "iosIsEncryption": false,
+      "iosKeychainPrefix": "binarjoin",
+      "iosBiometric": {
+        "biometricAuth": false,
+        "biometricTitle" : "Biometric login for binarjoin"
+      },
+      "androidIsEncryption": false,
+      "androidBiometric": {
+        "biometricAuth": false,
+        "biometricTitle" : "Biometric login for binarjoin"
+      }
+    },
     "StatusBar": {
       "style": "DARK",
       "backgroundColor": "#3b82f6",

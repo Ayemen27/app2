@@ -25,8 +25,12 @@ class SQLiteStorage {
       } else {
         // التحقق من وجود قاعدة بيانات مسبقة التجهيز في assets
         try {
-          await this.sqlite.importPrebuiltDatabase(this.dbName, false);
-          console.log('📦 Prebuilt database imported successfully');
+          // @ts-ignore
+          if (typeof this.sqlite.importPrebuiltDatabase === 'function') {
+            // @ts-ignore
+            await this.sqlite.importPrebuiltDatabase(this.dbName, false);
+            console.log('📦 Prebuilt database imported successfully');
+          }
         } catch (importErr) {
           console.warn('⚠️ No prebuilt database found or import failed, creating new one', importErr);
         }
@@ -100,6 +104,11 @@ class SQLiteStorage {
     if (!this.db) return;
     const query = `INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`;
     await this.db.run(query, [id, JSON.stringify(data)]);
+  }
+  async getAll(table: string): Promise<any[]> {
+    if (!this.db) return [];
+    const res = await this.db.query(`SELECT data FROM ${table}`);
+    return res.values ? res.values.map(row => JSON.parse(row.data)) : [];
   }
 }
 

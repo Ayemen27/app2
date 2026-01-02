@@ -45,8 +45,7 @@ export async function smartGet(tableName: string, id: string) {
  */
 export async function smartGetAll(tableName: string): Promise<any[]> {
   if (Capacitor.getPlatform() !== 'web') {
-    // سيتم تنفيذها لاحقاً في nativeStorage
-    return [];
+    return await nativeStorage.getAll(tableName);
   } else {
     const db = await getIDB();
     return await db.getAll(tableName as any);

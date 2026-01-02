@@ -105,6 +105,7 @@ export interface BinarJoinDB extends DBSchema {
   financePayments: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean } };
   financeEvents: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean } };
   reportTemplates: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean } };
+  userData: { key: string; value: { id: string; type: string; data: any; syncedAt: number; createdAt: number } };
 }
 
 let dbInstance: IDBPDatabase<BinarJoinDB> | null = null;
@@ -153,6 +154,13 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
       // Store لحفظ metadata المزامنة
       if (!db.objectStoreNames.contains('syncMetadata')) {
         db.createObjectStore('syncMetadata', { keyPath: 'key' });
+      }
+
+      // Store لحفظ بيانات المستخدم المحلية (للتوافق)
+      if (!db.objectStoreNames.contains('userData')) {
+        const userStore = db.createObjectStore('userData', { keyPath: 'id' });
+        // @ts-ignore
+        userStore.createIndex('type', 'type');
       }
 
       // إنشاء جميع الجداول - مرآة 100% من الخادم
@@ -288,6 +296,38 @@ export async function performLocalOperation(
   
   console.log(`🚀 [DB] تم التنفيذ محلياً: ${action} على ${tableName}`);
   return record;
+}
+
+/**
+ * جلب قائمة محلية (تدمج البيانات السحابية مع التعديلات المحلية المعلقة)
+ */
+export async function getListLocal(
+  storeName: keyof BinarJoinDB
+) {
+  const db = await getDB();
+  // @ts-ignore
+  const tx = db.transaction(storeName as any, 'readonly');
+  const store = tx.objectStore(storeName as any);
+  const items = await store.getAll();
+  
+  // ترتيب تنازلي حسب تاريخ الإنشاء لضمان ظهور الأحدث أولاً
+  return items.sort((a, b) => {
+    const dateA = new Date(a.createdAt || 0).getTime();
+    const dateB = new Date(b.createdAt || 0).getTime();
+    return dateB - dateA;
+  });
+}
+
+/**
+ * البحث عن عنصر محلي
+ */
+export async function getItemLocal(
+  storeName: keyof BinarJoinDB,
+  id: string
+) {
+  const db = await getDB();
+  // @ts-ignore
+  return await db.get(storeName as any, id);
 }
 
 /**

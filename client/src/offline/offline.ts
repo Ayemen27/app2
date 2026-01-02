@@ -107,6 +107,7 @@ export async function saveUserDataLocal(
   const db = await getDB();
   const id = data.id || uuidv4();
 
+  // @ts-ignore
   const userData = {
     id,
     type,
@@ -169,6 +170,7 @@ export async function saveListLocal(
 
 /**
  * جلب قائمة محلية (تدمج البيانات السحابية مع التعديلات المحلية المعلقة)
+ * @deprecated استخدم getListLocal من db.ts بدلاً من ذلك
  */
 export async function getListLocal(
   storeName: keyof BinarJoinDB
@@ -189,6 +191,7 @@ export async function getListLocal(
 
 /**
  * البحث عن عنصر محلي
+ * @deprecated استخدم getItemLocal من db.ts بدلاً من ذلك
  */
 export async function getItemLocal(
   storeName: keyof BinarJoinDB,

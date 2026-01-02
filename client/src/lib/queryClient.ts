@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { isOnline } from "@/offline/offline-queries";
+import { smartGetAll } from "@/offline/storage-factory";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -279,7 +280,17 @@ export const getQueryFn: <T>(options: {
         console.log(`🌐 [QueryClient] حالة الاتصال: ${online ? 'متصل' : 'غير متصل'}`);
 
         if (!online && useLocalFallback) {
-          console.log(`📡 [QueryClient] بدون إنترنت - قد لا تكون البيانات محدثة`);
+          console.log(`📡 [QueryClient] بدون إنترنت - محاولة جلب البيانات محلياً لـ: ${queryKey.join("/")}`);
+          try {
+            const tableName = queryKey[0].startsWith('/api/') ? queryKey[0].substring(5) : queryKey[0];
+            const localData = await smartGetAll(tableName);
+            if (localData && localData.length > 0) {
+              console.log(`✅ [QueryClient] تم استعادة ${localData.length} سجل محلياً`);
+              return localData;
+            }
+          } catch (localError) {
+            console.error(`❌ [QueryClient] فشل جلب البيانات المحلية:`, localError);
+          }
         }
 
         // إعداد headers مع Authorization

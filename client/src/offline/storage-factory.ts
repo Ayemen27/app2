@@ -14,21 +14,6 @@ export async function initializeStorage() {
 }
 
 /**
- * حفظ البيانات بشكل ذكي
- */
-export async function smartSave(tableName: string, records: any[]) {
-  if (Capacitor.getPlatform() !== 'web') {
-    for (const record of records) {
-      await nativeStorage.set(tableName, record.id, record);
-    }
-    return records.length;
-  } else {
-    // في المتصفح، نحفظ أيضاً في IndexedDB
-    return await saveIDBSyncedData(tableName, records);
-  }
-}
-
-/**
  * جلب البيانات بشكل ذكي
  */
 export async function smartGet(tableName: string, id: string) {

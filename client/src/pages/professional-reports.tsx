@@ -466,6 +466,13 @@ export function ProfessionalReports() {
                   <span className="hidden md:inline">مقارنة</span>
                 </TabsTrigger>
               </TabsList>
+            </div>
+          </div>
+        </div>
+      </div>
+    </LayoutShell>
+  );
+}
 
             <TabsContent value="dashboard" className="space-y-6">
               {kpisLoading ? (

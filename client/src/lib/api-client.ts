@@ -4,7 +4,7 @@ class ApiClient {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = '/api';
+    this.baseURL = 'https://app2.binarjoinanelytic.info/api';
   }
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

@@ -5,7 +5,10 @@
   "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https",
-    "cleartext": true
+    "cleartext": true,
+    "allowNavigation": [
+      "app2.binarjoinanelytic.info"
+    ]
   },
   "plugins": {
     "StatusBar": {

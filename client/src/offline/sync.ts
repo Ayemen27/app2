@@ -146,6 +146,7 @@ export async function syncOfflineData(): Promise<void> {
 export function initSyncListener(): void {
   window.addEventListener('online', () => {
     updateSyncState({ isOnline: true });
+    // سحب البيانات فوراً عند استعادة الاتصال
     performInitialDataPull();
     syncOfflineData();
   });
@@ -154,14 +155,19 @@ export function initSyncListener(): void {
     updateSyncState({ isOnline: false });
   });
 
-  setTimeout(() => {
-    performInitialDataPull();
-    syncOfflineData();
-  }, INITIAL_SYNC_DELAY);
+  // تشغيل السحب الأولي والمزامنة فوراً عند بدء التطبيق بدون تأخير طويل
+  const runSync = async () => {
+    console.log('🚀 [Sync] بدء المزامنة التلقائية الفورية...');
+    await performInitialDataPull();
+    await syncOfflineData();
+  };
 
+  runSync();
+
+  // مزامنة دورية كل 30 ثانية لضمان الحداثة
   setInterval(() => {
     if (navigator.onLine) syncOfflineData();
-  }, 60000);
+  }, 30000);
 }
 
 export function stopSyncListener(): void {

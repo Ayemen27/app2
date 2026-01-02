@@ -2009,6 +2009,39 @@ function DailyExpensesContent() {
         actions={actionsConfig}
       />
 
+      {/* شريط تنقل التاريخ - يظهر فقط في حالة المشروع المحدد وتاريخ واحد */}
+      {!isAllProjects && !filterValues.dateRange?.from && selectedDate && (
+        <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mx-auto w-full max-w-md">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+            onClick={prevDate}
+            title="اليوم السابق"
+          >
+            <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          </Button>
+          
+          <div className="flex flex-col items-center flex-1">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">سجل مصروفات</span>
+            <span className="text-sm font-black text-slate-900 dark:text-white arabic-numbers flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              {format(new Date(selectedDate), "EEEE, d MMMM yyyy", { locale: ar })}
+            </span>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+            onClick={nextDate}
+            title="اليوم التالي"
+          >
+            <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          </Button>
+        </div>
+      )}
+
 
       {/* بطاقات ملخص المصروفات - عرض بطاقة لكل تاريخ (سواء اختيار جميع المشاريع أو مشروع محدد) */}
       {dailyExpensesData?.groupedByProjectDate && dailyExpensesData.groupedByProjectDate.length > 0 ? (

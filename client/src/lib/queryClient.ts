@@ -251,47 +251,46 @@ export const getQueryFn: <T>(options: {
   useLocalFallback?: boolean;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior, useLocalFallback = true }) =>
-  async ({ queryKey }) => {
+    async ({ queryKey }: any) => {
+      // في بيئة التطوير على Replit، استخدم window.location.origin دائماً
+      let apiBase = window.location.origin;
 
-    // في بيئة التطوير على Replit، استخدم window.location.origin دائماً
-    let apiBase = window.location.origin;
-
-    const endpoint = queryKey.join("/");
-    let url = endpoint;
-    
-    if (!endpoint.startsWith("http")) {
-      if (apiBase) {
-        // Ensure we don't double the domain if endpoint already includes it incorrectly
-        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-        url = `${apiBase}${cleanEndpoint}`;
-      } else if (!endpoint.startsWith('/')) {
-        url = `/${endpoint}`;
-      }
-    }
-    
-    async function makeQueryRequest(retryCount = 0): Promise<any> {
-      // إعداد timeout للطلب
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased to 30s
-
-      try {
-        // ✅ فحص الاتصال قبل البدء
-        const online = isOnline();
-        console.log(`🌐 [QueryClient] حالة الاتصال: ${online ? 'متصل' : 'غير متصل'}`);
-
-        if (!online && useLocalFallback) {
-          console.log(`📡 [QueryClient] بدون إنترنت - محاولة جلب البيانات محلياً لـ: ${queryKey.join("/")}`);
-          try {
-            const tableName = queryKey[0].startsWith('/api/') ? queryKey[0].substring(5) : queryKey[0];
-            const localData = await smartGetAll(tableName);
-            if (localData && localData.length > 0) {
-              console.log(`✅ [QueryClient] تم استعادة ${localData.length} سجل محلياً`);
-              return localData;
-            }
-          } catch (localError) {
-            console.error(`❌ [QueryClient] فشل جلب البيانات المحلية:`, localError);
-          }
+      const endpoint = (queryKey as any[]).join("/");
+      let url = endpoint;
+      
+      if (!endpoint.startsWith("http")) {
+        if (apiBase) {
+          // Ensure we don't double the domain if endpoint already includes it incorrectly
+          const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+          url = `${apiBase}${cleanEndpoint}`;
+        } else if (!endpoint.startsWith('/')) {
+          url = `/${endpoint}`;
         }
+      }
+      
+      async function makeQueryRequest(retryCount = 0): Promise<any> {
+        // إعداد timeout للطلب
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased to 30s
+
+        try {
+          // ✅ فحص الاتصال قبل البدء
+          const online = isOnline();
+          console.log(`🌐 [QueryClient] حالة الاتصال: ${online ? 'متصل' : 'غير متصل'}`);
+
+          if (!online && useLocalFallback) {
+            console.log(`📡 [QueryClient] بدون إنترنت - محاولة جلب البيانات محلياً لـ: ${(queryKey as any[]).join("/")}`);
+            try {
+              const tableName = (queryKey as any[])[0].startsWith('/api/') ? (queryKey as any[])[0].substring(5) : (queryKey as any[])[0];
+              const localData = await smartGetAll(tableName as string);
+              if (localData && Array.isArray(localData) && localData.length > 0) {
+                console.log(`✅ [QueryClient] تم استعادة ${localData.length} سجل محلياً`);
+                return localData as any;
+              }
+            } catch (localError) {
+              console.error(`❌ [QueryClient] فشل جلب البيانات المحلية:`, localError);
+            }
+          }
 
         // إعداد headers مع Authorization
         const headers: Record<string, string> = {};

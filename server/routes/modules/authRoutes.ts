@@ -10,10 +10,10 @@ import bcrypt from 'bcryptjs';
 import { sql, eq, and, desc, gte, lte, or, like } from 'drizzle-orm';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, generateTokenPair } from '../../auth/jwt-utils.js';
 import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
-import { users } from '../../db/schema.js'; // استيراد جدول المستخدمين
-import { requireAuth, AuthenticatedRequest } from '../../middleware/authMiddleware.js'; // استيراد middleware المصادقة
+import { users } from '@shared/schema'; // استيراد جدول المستخدمين
+import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js'; // استيراد middleware المصادقة
 
-export const authRouter = express.Router();
+const authRouter = express.Router();
 
 /**
  * 🔐 تسجيل الدخول

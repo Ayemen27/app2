@@ -9,7 +9,7 @@ export function isOnline(): boolean {
 }
 
 /**
- * احصل على البيانات من الخادم مع fallback للبيانات المحلية
+ * احصل على البيانات من IndexedDB مباشرة (المصدر الوحيد للحقيقة)
  */
 export async function getDataWithFallback<T>(
   endpoint: string,
@@ -20,79 +20,25 @@ export async function getDataWithFallback<T>(
     timeout?: number;
   }
 ): Promise<{ data: T[]; source: 'server' | 'local' | 'empty'; isStale: boolean }> {
-  const forceServer = options?.forceServer ?? false;
-  const forceLocal = options?.forceLocal ?? false;
-  const timeout = options?.timeout ?? 5000;
+  console.log(`📦 [Absolute-Offline] جلب البيانات المحلية لـ ${entityName}`);
+  
+  const localData = await getLocalData(entityName);
+  return {
+    data: localData,
+    source: 'local',
+    isStale: false,
+  };
+}
 
-  console.log(`🔍 [OfflineQueries] جاري البحث عن ${entityName}`, {
-    online: isOnline(),
-    forceServer,
-    forceLocal,
-  });
-
-  // إذا كان المستخدم يريد فرض البيانات المحلية
-  if (forceLocal) {
-    const localData = await getLocalData(entityName);
-    return {
-      data: localData,
-      source: 'local',
-      isStale: true,
-    };
-  }
-
-  // إذا كان المستخدم يريد فرض الخادم
-  if (forceServer && isOnline()) {
-    try {
-      const serverData = await fetchWithTimeout(endpoint, timeout);
-      return {
-        data: Array.isArray(serverData) ? serverData : [],
-        source: 'server',
-        isStale: false,
-      };
-    } catch (error) {
-      console.warn(`⚠️ [OfflineQueries] فشل الخادم، استخدام البيانات المحلية:`, error);
-      const localData = await getLocalData(entityName);
-      return {
-        data: localData,
-        source: 'local',
-        isStale: true,
-      };
-    }
-  }
-
-  // إذا كان بدون إنترنت، استخدم البيانات المحلية
-  if (!isOnline()) {
-    console.log(`📡 [OfflineQueries] بدون إنترنت، استخدام البيانات المحلية لـ ${entityName}`);
-    const localData = await getLocalData(entityName);
-    return {
-      data: localData,
-      source: 'local',
-      isStale: true,
-    };
-  }
-
-  // الحالة الطبيعية: جرّب الخادم أولاً
-  try {
-    const serverData = await fetchWithTimeout(endpoint, timeout);
-    return {
-      data: Array.isArray(serverData) ? serverData : [],
-      source: 'server',
-      isStale: false,
-    };
-  } catch (error) {
-    console.warn(`⚠️ [OfflineQueries] فشل الخادم: ${error}، استخدام البيانات المحلية`);
-    const localData = await getLocalData(entityName);
-    
-    if (localData.length === 0) {
-      console.error(`❌ [OfflineQueries] لا توجد بيانات محلية أيضاً لـ ${entityName}`);
-    }
-
-    return {
-      data: localData,
-      source: 'local',
-      isStale: localData.length > 0,
-    };
-  }
+/**
+ * دالة جلب مع تعطيل الشبكة تماماً
+ */
+async function fetchWithTimeout(
+  endpoint: string,
+  timeout: number = 5000
+): Promise<any> {
+  console.warn('📡 [Absolute-Offline] محاولة اتصال بالشبكة تم حجبها');
+  return [];
 }
 
 /**

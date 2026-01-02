@@ -160,35 +160,7 @@ export async function offlineFirstMutation<T>(
   payload?: any
 ): Promise<T> {
   try {
-    if (navigator.onLine) {
-      try {
-        const token = localStorage.getItem('accessToken');
-        const response = await fetch(endpoint, {
-          method: action === 'delete' ? 'DELETE' : action === 'create' ? 'POST' : 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: action === 'delete' ? undefined : JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          
-          if (action === 'create' || action === 'update') {
-            await saveLocalRecord(entityName, { ...payload, id: recordId });
-          } else if (action === 'delete') {
-            await deleteLocalRecord(entityName, recordId);
-          }
-          
-          await invalidateCache(entityName);
-          return result.data || result;
-        }
-      } catch (serverError) {
-        console.warn('⚠️ Server failed, using offline:', serverError);
-      }
-    }
-
+    // [Absolute-Offline] تعطيل الاتصال بالسيرفر تماماً
     if (action === 'create') {
       const result = await createRecordOffline(endpoint, entityName, payload, recordId);
       if (!result.success) throw new Error(result.error);

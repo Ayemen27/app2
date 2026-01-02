@@ -85,9 +85,11 @@ function PageLoader() {
 }
 
 import { initializeStorage } from './offline/storage-factory';
+import { startPerformanceMonitoring } from './offline/performance-monitor';
 
-// تهيئة قاعدة البيانات عند بدء التطبيق
+// تهيئة قاعدة البيانات ونظام المراقبة عند بدء التطبيق
 initializeStorage().catch(console.error);
+startPerformanceMonitoring(30000); // مراقبة كل 30 ثانية
 
 function Router() {
   useWebSocketSync();

@@ -72,7 +72,13 @@ class IntelligentMonitor {
     let actionTaken = '';
     
     if (event.type === 'sync') {
-      actionTaken = 'تفعيل إعادة المحاولة الذكية (Exponential Backoff)';
+      actionTaken = 'تفعيل إعادة المحاولة الذكية وتحفيز محرك المزامنة';
+      try {
+        const { triggerSync } = await import('./sync');
+        setTimeout(() => triggerSync(), 5000); // محاولة بعد 5 ثوانٍ
+      } catch (err) {
+        console.error('❌ [Self-Healing] فشل تحفيز المزامنة:', err);
+      }
     } else if (event.message.includes('storage') || event.message.includes('quota')) {
       actionTaken = 'تحليل سعة التخزين المحلية وجدولة تنظيف تلقائي';
     }

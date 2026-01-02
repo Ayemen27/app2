@@ -37,18 +37,19 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
     const [
       projectsList, workersList, materialsList, suppliersList,
       attendanceList, purchasesList, expensesList, transfersList,
-      wellsList, typesList
+      wellsList, typesList, usersList
     ] = await Promise.all([
       db.select().from(projects).limit(10000),
       db.select().from(workers).limit(10000),
-      db.query('SELECT * FROM materials LIMIT 10000'),
-      db.query('SELECT * FROM suppliers LIMIT 10000'),
+      db.query.materials ? (db.query.materials as any).findMany({ limit: 10000 }) : db.execute(sql`SELECT * FROM materials LIMIT 10000`).then(r => r.rows),
+      db.query.suppliers ? (db.query.suppliers as any).findMany({ limit: 10000 }) : db.execute(sql`SELECT * FROM suppliers LIMIT 10000`).then(r => r.rows),
       db.select().from(workerAttendance).limit(50000),
-      db.query('SELECT * FROM material_purchases LIMIT 50000'),
-      db.query('SELECT * FROM transportation_expenses LIMIT 50000'),
+      db.query.materialPurchases ? (db.query.materialPurchases as any).findMany({ limit: 50000 }) : db.execute(sql`SELECT * FROM material_purchases LIMIT 50000`).then(r => r.rows),
+      db.query.transportationExpenses ? (db.query.transportationExpenses as any).findMany({ limit: 50000 }) : db.execute(sql`SELECT * FROM transportation_expenses LIMIT 50000`).then(r => r.rows),
       db.select().from(fundTransfers).limit(50000),
-      db.query('SELECT * FROM wells LIMIT 10000'),
-      db.query('SELECT * FROM project_types LIMIT 100')
+      db.query.wells ? (db.query.wells as any).findMany({ limit: 10000 }) : db.execute(sql`SELECT * FROM wells LIMIT 10000`).then(r => r.rows),
+      db.query.projectTypes ? (db.query.projectTypes as any).findMany({ limit: 100 }) : db.execute(sql`SELECT * FROM project_types LIMIT 100`).then(r => r.rows),
+      db.select().from(users).limit(5000)
     ]);
     
     const duration = Date.now() - startTime;
@@ -65,7 +66,8 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
         transportationExpenses: expensesList,
         fundTransfers: transfersList,
         wells: wellsList,
-        projectTypes: typesList
+        projectTypes: typesList,
+        users: usersList
       },
       metadata: {
         timestamp: Date.now(),

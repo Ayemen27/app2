@@ -144,7 +144,9 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
       // Object Store للبيانات المعلقة للمزامنة
       if (!db.objectStoreNames.contains('syncQueue')) {
         const syncStore = db.createObjectStore('syncQueue', { keyPath: 'id' });
+        // @ts-ignore
         syncStore.createIndex('timestamp', 'timestamp');
+        // @ts-ignore
         syncStore.createIndex('action', 'action');
       }
 
@@ -158,7 +160,9 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
         if (!db.objectStoreNames.contains(storeName)) {
           try {
             const store = db.createObjectStore(storeName, { keyPath: 'id' });
+            // @ts-ignore
             store.createIndex('createdAt', 'createdAt');
+            // @ts-ignore
             store.createIndex('projectId', 'projectId');
           } catch (e) {
             console.warn(`[DB] Store ${storeName} creation handled`, e);
@@ -211,6 +215,8 @@ export async function updateSyncMetadata(key: string, metadata: Record<string, a
   await db.put('syncMetadata', {
     key,
     timestamp: Date.now(),
+    version: metadata.version || '3.0',
+    recordCount: metadata.recordCount || 0,
     ...metadata
   });
 }

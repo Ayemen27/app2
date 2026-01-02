@@ -40,9 +40,9 @@ export function SyncStatusIndicator() {
       {/* Connection Status */}
       <div className="flex items-center gap-1">
         {status.isOnline ? (
-          <Wifi className="w-4 h-4 text-green-600" title="متصل بالإنترنت" />
+          <Wifi className="w-4 h-4 text-green-600" />
         ) : (
-          <WifiOff className="w-4 h-4 text-red-600" title="غير متصل" />
+          <WifiOff className="w-4 h-4 text-red-600" />
         )}
       </div>
 

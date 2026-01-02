@@ -68,7 +68,7 @@ class SQLiteStorage {
       'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
       'approvals', 'transactions', 'transactionLines', 'journals', 'accounts',
       'accountBalances', 'financePayments', 'financeEvents', 'reportTemplates',
-      'syncQueue', 'syncMetadata'
+      'emergencyUsers', 'syncQueue', 'syncMetadata'
     ];
 
     for (const store of ALL_STORES) {
@@ -96,19 +96,43 @@ class SQLiteStorage {
 
   async get(table: string, id: string) {
     if (!this.db) return null;
-    const res = await this.db.query(`SELECT data FROM ${table} WHERE id = ?`, [id]);
-    return res.values && res.values.length > 0 ? JSON.parse(res.values[0].data) : null;
+    try {
+      const res = await this.db.query(`SELECT data FROM ${table} WHERE id = ?`, [id]);
+      return res.values && res.values.length > 0 ? JSON.parse(res.values[0].data) : null;
+    } catch (e) {
+      console.error(`Error getting from ${table}:`, e);
+      return null;
+    }
   }
 
   async set(table: string, id: string, data: any) {
     if (!this.db) return;
-    const query = `INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`;
-    await this.db.run(query, [id, JSON.stringify(data)]);
+    try {
+      const query = `INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`;
+      await this.db.run(query, [id, JSON.stringify(data)]);
+    } catch (e) {
+      console.error(`Error setting in ${table}:`, e);
+    }
   }
+
   async getAll(table: string): Promise<any[]> {
     if (!this.db) return [];
-    const res = await this.db.query(`SELECT data FROM ${table}`);
-    return res.values ? res.values.map(row => JSON.parse(row.data)) : [];
+    try {
+      const res = await this.db.query(`SELECT data FROM ${table}`);
+      return res.values ? res.values.map(row => JSON.parse(row.data)) : [];
+    } catch (e) {
+      console.error(`Error getting all from ${table}:`, e);
+      return [];
+    }
+  }
+
+  async delete(table: string, id: string) {
+    if (!this.db) return;
+    try {
+      await this.db.run(`DELETE FROM ${table} WHERE id = ?`, [id]);
+    } catch (e) {
+      console.error(`Error deleting from ${table}:`, e);
+    }
   }
 }
 

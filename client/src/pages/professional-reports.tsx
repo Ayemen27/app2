@@ -94,26 +94,26 @@ function KPICard({ title, value, change, changeLabel, icon, color, subValue }: K
   const isPositive = change && change >= 0;
   
   return (
-    <Card className={`relative overflow-hidden border-l-4 ${color}`}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+    <Card className={`relative overflow-hidden border-none shadow-sm transition-all hover:shadow-md bg-white dark:bg-slate-900`}>
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
             <div className="flex items-baseline gap-2">
-              <h3 className="text-2xl font-bold tracking-tight">{value}</h3>
+              <h3 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{value}</h3>
               {change !== undefined && (
-                <span className={`flex items-center text-xs font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                  {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                <Badge variant={isPositive ? "outline" : "outline"} className={`text-[10px] px-1.5 py-0 border-none ${isPositive ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10' : 'bg-rose-50 text-rose-600 dark:bg-rose-500/10'}`}>
+                  {isPositive ? <ArrowUpRight className="h-2.5 w-2.5 ml-0.5" /> : <ArrowDownRight className="h-2.5 w-2.5 ml-0.5" />}
                   {Math.abs(change).toFixed(1)}%
-                </span>
+                </Badge>
               )}
             </div>
             {subValue && (
-              <p className="text-xs text-muted-foreground">{subValue}</p>
+              <p className="text-[11px] text-muted-foreground font-medium">{subValue}</p>
             )}
           </div>
-          <div className={`p-2 rounded-lg bg-opacity-10 ${color.replace('border-l-', 'bg-')}`}>
-            {icon}
+          <div className={`p-3 rounded-xl ${color.replace('border-l-', 'bg-').replace('-600', '-500/15')} text-${color.split('-')[2]}-600`}>
+            {React.cloneElement(icon as React.ReactElement, { className: "h-6 w-6" })}
           </div>
         </div>
       </CardContent>

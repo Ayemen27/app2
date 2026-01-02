@@ -63,10 +63,8 @@ const EquipmentManagement = lazy(() => import("./pages/equipment-management").th
 const AdminNotificationsPage = lazy(() => import("./pages/admin-notifications"));
 const SmartErrorsPage = lazy(() => import("./pages/SmartErrorsPage"));
 const SecurityPoliciesPage = lazy(() => import("./pages/SecurityPoliciesPage").then(m => ({ default: m.SecurityPoliciesPage })));
-const Reports = lazy(() => import("./pages/reports"));
+const Reports = lazy(() => import("./pages/professional-reports"));
 const SettingsPage = lazy(() => import("./pages/settings"));
-const RealReports = lazy(() => import("./pages/real-reports"));
-const ProfessionalReports = lazy(() => import("./pages/professional-reports"));
 const UsersManagementPage = lazy(() => import("./pages/users-management"));
 const AIChatPage = lazy(() => import("./pages/ai-chat"));
 const SyncComparisonPage = lazy(() => import("./pages/sync-comparison"));
@@ -221,12 +219,12 @@ function Router() {
       </Route>
       <Route path="/real-reports">
         <Suspense fallback={<PageLoader />}>
-          <RealReports />
+          <Reports />
         </Suspense>
       </Route>
       <Route path="/professional-reports">
         <Suspense fallback={<PageLoader />}>
-          <ProfessionalReports />
+          <Reports />
         </Suspense>
       </Route>
       <Route path="/users-management">

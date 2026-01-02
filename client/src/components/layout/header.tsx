@@ -1,4 +1,4 @@
-import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, FileCheck } from "lucide-react";
+import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, FileCheck, Cloud, CloudOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
@@ -16,10 +16,11 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Project } from "@shared/schema";
 import { SyncStatusHeader } from "@/components/SyncStatusHeader";
+import { subscribeSyncState } from "@/offline/sync";
 
 const pageInfo: Record<string, { title: string; icon: any }> = {
   '/': { title: 'لوحة التحكم', icon: Home },
@@ -52,6 +53,19 @@ export default function Header() {
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { selectedProjectId, selectedProjectName, selectProject, clearProject } = useSelectedProject();
+  const [syncState, setSyncState] = useState({ isOnline: true, pendingCount: 0 });
+
+  useEffect(() => {
+    const unsubscribe = subscribeSyncState((state) => {
+      setSyncState({
+        isOnline: state.isOnline,
+        pendingCount: state.pendingCount || 0
+      });
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const { isOnline, pendingCount } = syncState;
   
   const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],

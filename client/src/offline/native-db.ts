@@ -109,7 +109,7 @@ class SQLiteStorage {
     if (!this.db) return;
     try {
       const query = `INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`;
-      await this.db.run(query, [id, JSON.stringify(data)]);
+      await this.db.run(query, [id.toString(), JSON.stringify(data)]);
     } catch (e) {
       console.error(`Error setting in ${table}:`, e);
     }

@@ -41,11 +41,14 @@ export async function smartGetAll(tableName: string): Promise<any[]> {
  * حفظ سجلات في الجدول المناسب
  */
 export async function smartSave(tableName: string, records: any[]): Promise<number> {
+  if (!records || records.length === 0) return 0;
+  
   if (Capacitor.getPlatform() !== 'web') {
     let count = 0;
     for (const record of records) {
-      if (record && record.id) {
-        await nativeStorage.set(tableName, record.id, record);
+      if (record && (record.id || record.key)) {
+        const id = (record.id || record.key).toString();
+        await nativeStorage.set(tableName, id, record);
         count++;
       }
     }

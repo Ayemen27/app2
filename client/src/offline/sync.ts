@@ -80,6 +80,17 @@ export async function performInitialDataPull(): Promise<boolean> {
     if (data.users && Array.isArray(data.users)) {
       await smartSave('users', data.users);
       console.log(`✅ [Sync] تم مزامنة ${data.users.length} مستخدم لضمان الدخول Offline`);
+      
+      // حفظ بيانات المستخدمين في جدول الطوارئ أيضاً لضمان الدخول المطلق
+      const emergencyData = data.users.map((u: any) => ({
+        id: u.id.toString(),
+        email: u.email,
+        password: u.password, // يتم حفظ التشفير كما هو
+        name: `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+        role: u.role || 'user',
+        createdAt: u.createdAt
+      }));
+      await smartSave('emergencyUsers', emergencyData);
     }
 
     // 2. مزامنة بقية الجداول
@@ -240,10 +251,9 @@ export async function loadFullBackup(): Promise<{ recordCount: number }> {
     
     let totalSaved = 0;
     for (const [tableName, records] of Object.entries(data)) {
-      if (Array.isArray(records) && tableName !== 'timestamp') {
-        const savedCount = await smartSave(tableName, records);
-        totalSaved += savedCount;
-        console.log(`✅ [Sync] تم حفظ ${savedCount} سجل من ${tableName}`);
+      if (tableName !== 'users' && Array.isArray(records)) {
+        await smartSave(tableName, records);
+        console.log(`✅ [Sync] تم مزامنة ${records.length} سجل في ${tableName}`);
       }
     }
     

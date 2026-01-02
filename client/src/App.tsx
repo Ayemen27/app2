@@ -41,6 +41,7 @@ import DailyExpenses from "./pages/daily-expenses";
 import WellsPage from "./pages/wells";
 import WellCostReport from "./pages/well-cost-report";
 import WellAccounting from "./pages/well-accounting";
+import DatabaseManager from "./pages/DatabaseManager";
 
 import { LayoutShell } from "./components/layout/layout-shell";
 import { FloatingButtonProvider } from "./components/layout/floating-button-context";
@@ -253,6 +254,11 @@ function Router() {
           <Suspense fallback={<PageLoader />}>
             <SyncComparisonPage />
           </Suspense>
+        </AdminRoute>
+      </Route>
+      <Route path="/local-db">
+        <AdminRoute>
+          <DatabaseManager />
         </AdminRoute>
       </Route>
       <Route component={NotFound} />

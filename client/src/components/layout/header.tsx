@@ -1,4 +1,4 @@
-import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, FileCheck, Cloud, CloudOff, RefreshCw } from "lucide-react";
+import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, FileCheck, Cloud, CloudOff, RefreshCw, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
@@ -45,6 +45,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/equipment': { title: 'إدارة المعدات', icon: Wrench },
   '/real-reports': { title: 'تقارير حقيقية', icon: FileBarChart },
   '/professional-reports': { title: 'تقارير احترافية', icon: FileCheck },
+  '/local-db': { title: 'إدارة قاعدة البيانات المحلية', icon: Database },
 };
 
 export default function Header() {

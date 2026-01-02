@@ -94,6 +94,7 @@ const allPagesData = [
     category: "الذكاء الاصطناعي",
     pages: [
       { path: "/ai-chat", icon: Brain, label: "الوكيل الذكي", description: "مساعد ذكي لإدارة المشاريع والاستعلامات", requireAdmin: true },
+      { path: "/local-db", icon: Database, label: "إدارة القاعدة المحلية", description: "فحص حالة البيانات المحلية والمزامنة", requireAdmin: true },
     ]
   },
 ];

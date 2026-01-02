@@ -218,246 +218,94 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // تسجيل الدخول
   const login = async (email: string, password: string) => {
     console.log('🔑 [AuthProvider.login] بدء تسجيل الدخول:', email, new Date().toISOString());
-    console.log('📊 [AuthProvider.login] معاملات الدخل:', {
-      email: email,
-      hasPassword: !!password,
-      passwordLength: password?.length || 0,
-      isLoading: isLoading,
-      isAuthenticated: isAuthenticated,
-      currentUser: user?.email || 'لا يوجد'
-    });
 
-      try {
-        console.log('📡 [AuthProvider.login] إرسال طلب لـ /api/auth/login...');
-        response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password }),
-        });
-        
-        if (response.ok) {
-          result = await response.json();
-        } else {
-          console.warn(`📡 [AuthProvider] السيرفر استجاب بخطأ ${response.status}، محاولة تسجيل الدخول أوفلاين...`);
-        }
-      } catch (networkError) {
-        console.warn('📡 [AuthProvider] فشل الاتصال بالسيرفر تماماً، محاولة تسجيل الدخول أوفلاين...', networkError);
-      }
+    let result: any = null;
+    let response: Response | null = null;
 
-      // ✅ منطق تسجيل الدخول أوفلاين - محاولة استرجاع المستخدم من التخزين المحلي
-      if (!result) {
-        console.log('🔍 [AuthProvider] البحث عن المستخدم محلياً في SQLite/IndexedDB...');
-        const localUsers = await smartGetAll('users');
-        const localUser = localUsers.find((u: any) => u.email === email);
-        
-        if (localUser) {
-          console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (تم تفعيل الدخول الأوفلاين بنجاح)');
-          result = {
-            success: true,
-            data: {
-              user: localUser,
-              tokens: { accessToken: 'offline-token', refreshToken: 'offline-refresh' }
-            }
-          };
-        } else {
-          // إذا لم نجد المستخدم، فهذا يعني أنه لم يتم تحميل البيانات بعد
-          console.error('❌ [AuthProvider] المستخدم غير موجود محلياً');
-          throw new Error('فشل الاتصال بالسيرفر، والمستخدم غير مسجل محلياً. يرجى الاتصال بالإنترنت لأول مرة فقط.');
-        }
-      }
-
-      if (response && !response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.log('📋 [AuthProvider.login] الاستجابة غير الناجحة:', {
-          status: response.status,
-          requireEmailVerification: errorData.requireEmailVerification,
-          data: errorData.data,
-          message: errorData.message
-        });
-
-        // في حالة عدم التحقق من البريد الإلكتروني (403)
-        if (response.status === 403 && errorData.requireEmailVerification) {
-          const error = new Error(errorData.message || 'يجب التحقق من البريد الإلكتروني أولاً');
-          (error as any).requireEmailVerification = true;
-          (error as any).userId = errorData.data?.userId;
-          (error as any).email = errorData.data?.email;
-          (error as any).status = 403;
-          (error as any).data = errorData.data;
-          
-          throw error;
-        }
-        throw new Error(errorData.message || 'فشل تسجيل الدخول');
-      }
-
-      // استخراج بيانات المستخدم بشكل صحيح
-      const userData = result.data?.user || result.user;
-      const tokenData = result.data?.tokens?.accessToken || result.data?.accessToken || result.tokens?.accessToken || result.accessToken || result.token;
-      const refreshTokenData = result.data?.tokens?.refreshToken || result.data?.refreshToken || result.tokens?.refreshToken || result.refreshToken;
-
-      console.log('🔍 [AuthProvider.login] فحص البيانات المستخرجة:', {
-        hasUserData: !!userData,
-        hasToken: !!tokenData,
-        hasRefreshToken: !!refreshTokenData,
-        userDetails: userData ? { id: userData.id, email: userData.email, name: userData.name } : 'none'
+    try {
+      console.log('📡 [AuthProvider.login] إرسال طلب لـ /api/auth/login...');
+      response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (!userData) {
-        console.error('❌ [AuthProvider.login] بيانات المستخدم مفقودة:', {
-          userData: userData,
-          dataStructure: result,
-          possibleUserPaths: [
-            'data.user',
-            'user'
-          ]
-        });
-        throw new Error('بيانات المستخدم مفقودة من استجابة الخادم');
-      }
-
-      if (!tokenData) {
-        console.error('❌ [AuthProvider.login] الرمز المميز مفقود:', {
-          hasToken: !!tokenData,
-          dataStructure: result,
-          possibleTokenPaths: [
-            'data.accessToken',
-            'tokens.accessToken',
-            'accessToken'
-          ]
-        });
-        throw new Error('الرمز المميز مفقود من استجابة الخادم');
-      }
-
-      // حفظ بيانات المستخدم
-      const user = {
-        id: userData.id,
-        email: userData.email,
-        name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.email,
-        role: userData.role || 'admin',
-        mfaEnabled: userData.mfaEnabled || false,
-        emailVerified: userData.emailVerified === true, // تحقق صارم من emailVerified
-      };
-
-      console.log('👤 [AuthProvider.login] إعداد بيانات المستخدم:', user);
-      console.log('👤 [AuthProvider.login] التحقق من صحة البيانات:', {
-        hasId: !!user.id,
-        hasEmail: !!user.email,
-        hasName: !!user.name,
-        hasRole: !!user.role
-      });
-
-      // التحقق من وجود البيانات الأساسية
-      if (!user.id || !user.email) {
-        console.error('❌ [AuthProvider.login] بيانات المستخدم الأساسية مفقودة:', user);
-        throw new Error('بيانات المستخدم الأساسية مفقودة (ID أو البريد الإلكتروني)');
-      }
-
-      console.log('💾 [AuthProvider.login] بدء حفظ البيانات...');
-
-      // حفظ المستخدم والتوكين
-      console.log('💾 [AuthProvider.login] محاولة تعيين المستخدم في الحالة:', user);
-      setUser(user);
-      console.log('✅ [AuthProvider.login] تم تعيين المستخدم في الحالة بنجاح');
-      console.log('🔍 [AuthProvider.login] التحقق من حالة المستخدم بعد التعيين:', {
-        userSet: !!user,
-        isAuthenticatedNow: !!user,
-        userId: user?.id,
-        userEmail: user?.email
-      });
-
-      try {
-        const userJson = JSON.stringify(user);
-        console.log('💾 [AuthProvider.login] محاولة حفظ بيانات المستخدم:', {
-          userJsonLength: userJson.length,
-          userJson: userJson.substring(0, 100) + '...'
-        });
-        localStorage.setItem('user', userJson);
-        console.log('✅ [AuthProvider.login] تم حفظ بيانات المستخدم في localStorage بنجاح');
-      } catch (storageError) {
-        console.error('❌ [AuthProvider.login] فشل حفظ المستخدم في localStorage:', storageError);
-        throw new Error('فشل في حفظ بيانات المستخدم محلياً');
-      }
-
-      try {
-        console.log('💾 [AuthProvider.login] محاولة حفظ الرمز المميز:', {
-          tokenLength: tokenData?.length || 0,
-          tokenPreview: tokenData ? tokenData.substring(0, 20) + '...' : 'فارغ'
-        });
-        localStorage.setItem('accessToken', tokenData);
-        console.log('✅ [AuthProvider.login] تم حفظ الرمز المميز بنجاح');
-      } catch (storageError) {
-        console.error('❌ [AuthProvider.login] فشل حفظ الرمز في localStorage:', storageError);
-        throw new Error('فشل في حفظ الرمز المميز محلياً');
-      }
-
-      if (refreshTokenData) {
-        localStorage.setItem('refreshToken', refreshTokenData);
-        console.log('✅ [AuthProvider.login] تم حفظ رمز التجديد');
-      }
-
-      console.log('💾 [AuthProvider.login] تم حفظ جميع البيانات بنجاح');
-
-      // التحقق من الحفظ
-      const savedUser = localStorage.getItem('user');
-      const savedToken = localStorage.getItem('accessToken');
-      console.log('🔍 [AuthProvider.login] تأكيد الحفظ:', {
-        userSaved: !!savedUser,
-        tokenSaved: !!savedToken,
-        userInState: !!user
-      });
-
-      // ✅ تأخير بسيط لضمان استقرار الحالة والتخزين قبل أي عمليات أخرى
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      console.log('🔄 [AuthProvider.login] تحديث cache queries');
-
-      // ⚡ تحميل البيانات الأساسية مسبقاً لتسريع الأداء
-      console.log('🚀 [AuthProvider.login] بدء تحميل البيانات الأساسية مسبقاً...');
-      prefetchCoreData().then(() => {
-        console.log('✅ [AuthProvider.login] تم تحميل البيانات الأساسية مسبقاً بنجاح');
-      }).catch((error) => {
-        console.warn('⚠️ [AuthProvider.login] فشل تحميل بعض البيانات مسبقاً:', error);
-      });
-
-      console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');
-
-      // إجبار إعادة تقييم حالة المصادقة فوراً
-      console.log('🔄 [AuthProvider.login] إجبار تحديث حالة المصادقة...');
-
-      // التأكد من أن المكونات الأخرى تتلقى التحديث
-      setTimeout(() => {
-        console.log('✅ [AuthProvider.login] تم تأكيد حالة المصادقة:', {
-          isAuthenticated: !!user,
-          userId: user?.id,
-          userEmail: user?.email
-        });
-      }, 100);
-
-    } catch (error) {
-      console.error('❌ [AuthProvider.login] خطأ في تسجيل الدخول:', error);
-      console.error('🚨 [AuthProvider.login] تفاصيل الخطأ الشامل:', {
-        errorType: typeof error,
-        errorName: error instanceof Error ? error.name : 'Unknown',
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : 'No stack trace',
-        timestamp: new Date().toISOString()
-      });
-      console.error('❌ [AuthProvider.login] تفاصيل الخطأ:', {
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        name: error instanceof Error ? error.name : 'UnknownError'
-      });
-
-      // رمي خطأ واضح للمستخدم
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage && errorMessage.includes('غير مكتملة')) {
-        throw error;
-      } else if (errorMessage && errorMessage.includes('مفقود')) {
-        throw error;
+      if (response.ok) {
+        result = await response.json();
       } else {
-        throw new Error('حدث خطأ أثناء تسجيل الدخول، يرجى المحاولة مرة أخرى');
+        console.warn(`📡 [AuthProvider] السيرفر استجاب بخطأ ${response.status}، محاولة تسجيل الدخول أوفلاين...`);
+      }
+    } catch (networkError) {
+      console.warn('📡 [AuthProvider] فشل الاتصال بالسيرفر، محاولة تسجيل الدخول أوفلاين...', networkError);
+    }
+
+    // ✅ منطق تسجيل الدخول أوفلاين إذا فشل السيرفر
+    if (!result) {
+      const localUsers = await smartGetAll('users');
+      const localUser = localUsers.find((u: any) => u.email === email);
+
+      if (localUser) {
+        console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (تسجيل دخول أوفلاين)');
+        result = {
+          success: true,
+          data: {
+            user: localUser,
+            tokens: { accessToken: 'offline-token', refreshToken: 'offline-refresh' }
+          }
+        };
+      } else {
+        throw new Error('المستخدم غير موجود محلياً، يرجى الاتصال بالإنترنت للمزامنة الأولية');
       }
     }
+
+    if (response && !response.ok && !result) {
+      const errorData = await response.json().catch(() => ({}));
+      // في حالة عدم التحقق من البريد الإلكتروني (403)
+      if (response.status === 403 && errorData.requireEmailVerification) {
+        const error = new Error(errorData.message || 'يجب التحقق من البريد الإلكتروني أولاً');
+        (error as any).requireEmailVerification = true;
+        (error as any).userId = errorData.data?.userId;
+        (error as any).email = errorData.data?.email;
+        (error as any).status = 403;
+        (error as any).data = errorData.data;
+
+        throw error;
+      }
+      throw new Error(errorData.message || 'فشل تسجيل الدخول');
+    }
+
+    // استخراج بيانات المستخدم بشكل صحيح
+    const userData = result.data?.user || result.user;
+    const tokenData = result.data?.tokens?.accessToken || result.data?.accessToken || result.tokens?.accessToken || result.accessToken || result.token;
+    const refreshTokenData = result.data?.tokens?.refreshToken || result.data?.refreshToken || result.tokens?.refreshToken || result.refreshToken;
+
+    if (!userData || !tokenData) {
+      throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة');
+    }
+
+    // حفظ بيانات المستخدم
+    const userToSave = {
+      id: userData.id,
+      email: userData.email,
+      name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.email,
+      role: userData.role || 'admin',
+      mfaEnabled: userData.mfaEnabled || false,
+      emailVerified: userData.emailVerified === true,
+    };
+
+    setUser(userToSave);
+    localStorage.setItem('user', JSON.stringify(userToSave));
+    localStorage.setItem('accessToken', tokenData);
+    if (refreshTokenData) {
+      localStorage.setItem('refreshToken', refreshTokenData);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+    prefetchCoreData().catch(console.warn);
+
+    console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');
   };
 
   // تسجيل الخروج

@@ -227,13 +227,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       currentUser: user?.email || 'لا يوجد'
     });
 
-    try {
-      console.log('📡 [AuthProvider.login] إرسال طلب لـ /api/auth/login...');
-      
-      let result: any = null;
-      let response: Response | null = null;
-
       try {
+        console.log('📡 [AuthProvider.login] إرسال طلب لـ /api/auth/login...');
         response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: {
@@ -244,18 +239,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         if (response.ok) {
           result = await response.json();
+        } else {
+          console.warn(`📡 [AuthProvider] السيرفر استجاب بخطأ ${response.status}، محاولة تسجيل الدخول أوفلاين...`);
         }
       } catch (networkError) {
-        console.warn('📡 [AuthProvider] فشل الاتصال بالسيرفر، محاولة تسجيل الدخول أوفلاين...');
+        console.warn('📡 [AuthProvider] فشل الاتصال بالسيرفر تماماً، محاولة تسجيل الدخول أوفلاين...', networkError);
       }
 
-      // ✅ منطق تسجيل الدخول أوفلاين إذا فشل السيرفر
+      // ✅ منطق تسجيل الدخول أوفلاين - محاولة استرجاع المستخدم من التخزين المحلي
       if (!result) {
+        console.log('🔍 [AuthProvider] البحث عن المستخدم محلياً في SQLite/IndexedDB...');
         const localUsers = await smartGetAll('users');
         const localUser = localUsers.find((u: any) => u.email === email);
         
         if (localUser) {
-          console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (تسجيل دخول أوفلاين)');
+          console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (تم تفعيل الدخول الأوفلاين بنجاح)');
           result = {
             success: true,
             data: {
@@ -264,7 +262,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
           };
         } else {
-          throw new Error('المستخدم غير موجود محلياً، يرجى الاتصال بالإنترنت للمزامنة الأولية');
+          // إذا لم نجد المستخدم، فهذا يعني أنه لم يتم تحميل البيانات بعد
+          console.error('❌ [AuthProvider] المستخدم غير موجود محلياً');
+          throw new Error('فشل الاتصال بالسيرفر، والمستخدم غير مسجل محلياً. يرجى الاتصال بالإنترنت لأول مرة فقط.');
         }
       }
 

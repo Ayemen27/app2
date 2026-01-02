@@ -61,8 +61,6 @@ const allPagesData = [
     category: "التقارير",
     pages: [
       { path: "/professional-reports", icon: BarChart, label: "التقارير الاحترافية", description: "لوحة تقارير متقدمة مع رسوم بيانية وتحليلات", requireAdmin: false },
-      { path: "/real-reports", icon: ReceiptText, label: "التقارير الشاملة", description: "تقارير شاملة مع إمكانية التصدير والطباعة", requireAdmin: false },
-      { path: "/reports", icon: FileSpreadsheet, label: "بيان العمال", description: "كشوفات وبيانات العمال والأجور", requireAdmin: false },
     ]
   },
   {

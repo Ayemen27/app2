@@ -68,6 +68,7 @@ import {
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { LayoutShell } from "@/components/layout/layout-shell";
 import { 
   exportDailyReportToExcel, 
   exportPeriodicReportToExcel, 
@@ -113,7 +114,7 @@ function KPICard({ title, value, change, changeLabel, icon, color, subValue }: K
             )}
           </div>
           <div className={`p-3 rounded-xl ${color.replace('border-l-', 'bg-').replace('-600', '-500/15')} text-${color.split('-')[2]}-600`}>
-            {React.cloneElement(icon as React.ReactElement, { className: "h-6 w-6" })}
+            {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, { className: "h-6 w-6" }) : icon}
           </div>
         </div>
       </CardContent>
@@ -245,495 +246,59 @@ export default function ProfessionalReports() {
   }, [selectedWorkerId]);
 
   const handlePrint = () => {
-    // إنشاء HTML بسيط للطباعة بناءً على البيانات المتوفرة
     let printHTML = `
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
+      <html>
         <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>التقرير</title>
+          <title>طباعة التقرير</title>
           <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            html, body {
-              font-family: Arial, Helvetica, sans-serif;
-              direction: rtl;
-              text-align: right;
-              background: white;
-              color: #000;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            body {
-              padding: 30px;
-              line-height: 1.8;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            h1 {
-              text-align: center;
-              font-size: 28px;
-              margin-bottom: 30px;
-              padding-bottom: 15px;
-              border-bottom: 3px solid #2E75B6;
-              color: #1a1a1a;
-            }
-            h2 {
-              font-size: 18px;
-              margin-top: 25px;
-              margin-bottom: 15px;
-              color: #2E75B6;
-              border-bottom: 1px solid #ddd;
-              padding-bottom: 8px;
-            }
-            .section {
-              margin-bottom: 25px;
-              page-break-inside: avoid;
-            }
-            .kpi-grid {
-              display: grid;
-              grid-template-columns: repeat(2, 1fr);
-              gap: 15px;
-              margin: 15px 0;
-            }
-            .kpi {
-              border: 1px solid #ddd;
-              padding: 12px;
-              background: #f9f9f9;
-              page-break-inside: avoid;
-            }
-            .kpi-label {
-              font-size: 13px;
-              color: #666;
-              margin-bottom: 5px;
-            }
-            .kpi-value {
-              font-size: 20px;
-              font-weight: bold;
-              color: #000;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin: 15px 0;
-              page-break-inside: avoid;
-            }
-            th {
-              background-color: #2E75B6;
-              color: white;
-              padding: 10px;
-              text-align: right;
-              font-weight: bold;
-            }
-            td {
-              padding: 8px;
-              border-bottom: 1px solid #ddd;
-              text-align: right;
-            }
-            .summary {
-              background: #e8f4f8;
-              border: 2px solid #2E75B6;
-              padding: 15px;
-              margin: 15px 0;
-              page-break-inside: avoid;
-            }
-            .summary-row {
-              display: flex;
-              justify-content: space-between;
-              margin: 8px 0;
-              padding: 5px 0;
-            }
-            .footer {
-              margin-top: 40px;
-              padding-top: 20px;
-              border-top: 2px solid #999;
-              text-align: center;
-              font-size: 12px;
-              color: #666;
-            }
-            @media print {
-              body { 
-                padding: 10mm !important;
-                margin: 0 !important;
-              }
-              .no-print { display: none !important; }
-              table {
-                page-break-inside: auto !important;
-              }
-              thead {
-                display: table-header-group !important;
-              }
-              tr {
-                page-break-inside: avoid !important;
-              }
-              th, td {
-                border: 1px solid #000 !important;
-                padding: 3px 4px !important;
-              }
-              th {
-                background-color: #1f4e78 !important;
-                color: white !important;
-              }
-            }
-            
-            .company-name {
-              background-color: #1f4e78 !important;
-              color: white !important;
-              padding: 6px !important;
-              text-align: center !important;
-              font-weight: bold !important;
-              font-size: 14px !important;
-              border: 2px solid #1f4e78 !important;
-              margin: 0 0 2px 0 !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            .worker-header {
-              background-color: #1f4e78 !important;
-              color: white !important;
-              padding: 4px 6px !important;
-              text-align: center !important;
-              font-weight: bold !important;
-              font-size: 13px !important;
-              border: 2px solid #1f4e78 !important;
-              margin: 0 !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            .worker-info-table {
-              width: 100% !important;
-              border-collapse: collapse !important;
-              border: 2px solid #333 !important;
-              font-size: 9px !important;
-              margin-bottom: 2px !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            .worker-info-table td {
-              padding: 3px 4px !important;
-              border-right: 1px solid #333 !important;
-              border-bottom: 1px solid #333 !important;
-              background-color: #f0f0f0 !important;
-              font-size: 9px !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            .worker-data-table {
-              width: 100% !important;
-              border-collapse: collapse !important;
-              font-size: 9px !important;
-              border: 2px solid #333 !important;
-              margin-bottom: 2px !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            .worker-data-table th {
-              background-color: #1f4e78 !important;
-              color: white !important;
-              padding: 3px 4px !important;
-              border: 1px solid #333 !important;
-              font-weight: bold !important;
-              font-size: 9px !important;
-              text-align: center !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            .worker-data-table td {
-              padding: 3px 4px !important;
-              border: 1px solid #333 !important;
-              font-size: 9px !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            .worker-summary-table {
-              width: 100% !important;
-              border-collapse: collapse !important;
-              font-size: 9px !important;
-              border: 2px solid #333 !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            .worker-summary-table td {
-              padding: 4px !important;
-              border: 1px solid #333 !important;
-              text-align: center !important;
-              background-color: #f0f0f0 !important;
-              font-size: 9px !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            .balance-positive {
-              background-color: #90ee90 !important;
-              color: #228b22 !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            .balance-negative {
-              background-color: #ffcccc !important;
-              color: #cc0000 !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
+            body { font-family: 'Arial', sans-serif; direction: rtl; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+            .company-name { font-size: 24px; font-weight: bold; color: #1e40af; }
+            .report-title { font-size: 20px; margin-top: 10px; color: #475569; }
+            .kpi-container { display: grid; grid-template-cols: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
+            .kpi { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; text-align: center; }
+            .kpi-label { font-size: 12px; color: #64748b; margin-bottom: 5px; }
+            .kpi-value { font-size: 18px; font-weight: bold; color: #0f172a; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            th { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; text-align: right; }
+            td { border: 1px solid #e2e8f0; padding: 10px; }
+            .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #eee; padding-top: 20px; }
+            .summary { margin-top: 20px; padding: 15px; background-color: #f8fafc; border-radius: 8px; }
+            .summary-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+            @media print { .no-print { display: none; } }
           </style>
         </head>
         <body>
+          <div class="header">
+            <div class="company-name">شركة الفتيني للمقاولات والاستشارات الهندسية</div>
+            <div class="report-title">${activeTab === 'daily' ? 'التقرير اليومي' : activeTab === 'periodic' ? 'تقرير الفترة' : activeTab === 'worker' ? 'بيان العامل' : 'تقرير مقارنة'}</div>
+          </div>
     `;
 
-    // إضافة محتوى التقرير بناءً على التبويب النشط والبيانات المتوفرة
-    if (activeTab === 'dashboard') {
-      if (dashboardKPIs) {
-        printHTML += `
-          <h1>لوحة التحكم - التقرير الاحترافي</h1>
-          
-          <div class="section">
-            <h2>إحصائيات اليوم</h2>
-            <div class="kpi-grid">
-              <div class="kpi">
-                <div class="kpi-label">عدد العمال</div>
-                <div class="kpi-value">${dashboardKPIs.today?.workers || 0}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">أيام العمل</div>
-                <div class="kpi-value">${(dashboardKPIs.today?.workDays || 0).toFixed(1)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">المصروفات</div>
-                <div class="kpi-value">${formatCurrency(dashboardKPIs.today?.expenses || 0)}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="section">
-            <h2>إحصائيات الشهر</h2>
-            <div class="kpi-grid">
-              <div class="kpi">
-                <div class="kpi-label">عدد العمال</div>
-                <div class="kpi-value">${dashboardKPIs.month?.workers || 0}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">أيام العمل</div>
-                <div class="kpi-value">${(dashboardKPIs.month?.workDays || 0).toFixed(1)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">الأجور</div>
-                <div class="kpi-value">${formatCurrency(dashboardKPIs.month?.wages || 0)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">الأجور المدفوعة</div>
-                <div class="kpi-value">${formatCurrency(dashboardKPIs.month?.paid || 0)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">المشتريات</div>
-                <div class="kpi-value">${formatCurrency(dashboardKPIs.month?.materials || 0)}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="summary">
-            <h2 style="margin-top: 0; color: #2E75B6;">الملخص العام</h2>
-            <div class="summary-row">
-              <span style="font-weight: bold;">المشاريع النشطة:</span>
-              <span style="font-weight: bold;">${dashboardKPIs.overall?.activeProjects || 0}</span>
-            </div>
-            <div class="summary-row">
-              <span style="font-weight: bold;">العمال النشطين:</span>
-              <span style="font-weight: bold;">${dashboardKPIs.overall?.activeWorkers || 0}</span>
-            </div>
-          </div>
-        `;
-      } else {
-        printHTML += `<p style="text-align: center; padding: 20px;">جاري تحميل بيانات التقرير...</p>`;
-      }
-    } else if (activeTab === 'daily') {
-      if (dailyReport) {
-        printHTML += `
-          <h1>التقرير اليومي - ${selectedDate}</h1>
-          
-          <div class="section">
-            <h2>ملخص اليوم</h2>
-            <div class="kpi-grid">
-              <div class="kpi">
-                <div class="kpi-label">عدد العمال</div>
-                <div class="kpi-value">${dailyReport.summary?.totalWorkers || 0}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">أيام العمل</div>
-                <div class="kpi-value">${(dailyReport.summary?.totalWorkDays || 0).toFixed(1)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">الأجور المدفوعة</div>
-                <div class="kpi-value">${formatCurrency(dailyReport.summary?.totalPaidWages || 0)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">المشتريات</div>
-                <div class="kpi-value">${formatCurrency(dailyReport.summary?.totalMaterials || 0)}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="summary">
-            <div class="summary-row">
-              <span>إجمالي المصروفات:</span>
-              <span style="font-weight: bold;">${formatCurrency(dailyReport.summary?.totalExpenses || 0)}</span>
-            </div>
-            <div class="summary-row">
-              <span>الرصيد:</span>
-              <span style="font-weight: bold;">${formatCurrency(dailyReport.summary?.balance || 0)}</span>
-            </div>
-          </div>
-        `;
-      } else {
-        printHTML += `<p style="text-align: center; padding: 20px;">جاري تحميل البيانات اليومية...</p>`;
-      }
-    } else if (activeTab === 'periodic') {
-      if (periodicReport) {
-        printHTML += `
-          <h1>تقرير الفترة الزمنية</h1>
-          <p style="text-align: center; font-size: 14px; margin-bottom: 20px;">من ${dateFrom} إلى ${dateTo}</p>
-          
-          <div class="section">
-            <h2>ملخص الفترة</h2>
-            <div class="kpi-grid">
-              <div class="kpi">
-                <div class="kpi-label">أيام العمل</div>
-                <div class="kpi-value">${(periodicReport.summary?.totalWorkDays || 0).toFixed(1)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">الأجور</div>
-                <div class="kpi-value">${formatCurrency(periodicReport.summary?.totalWages || 0)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">الأجور المدفوعة</div>
-                <div class="kpi-value">${formatCurrency(periodicReport.summary?.totalPaidWages || 0)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">المشتريات</div>
-                <div class="kpi-value">${formatCurrency(periodicReport.summary?.totalMaterials || 0)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">النقل</div>
-                <div class="kpi-value">${formatCurrency(periodicReport.summary?.totalTransport || 0)}</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-label">مصروفات أخرى</div>
-                <div class="kpi-value">${formatCurrency(periodicReport.summary?.totalMiscExpenses || 0)}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="summary">
-            <div class="summary-row">
-              <span>إجمالي الدخل:</span>
-              <span style="font-weight: bold;">${formatCurrency(periodicReport.summary?.totalFundTransfers || 0)}</span>
-            </div>
-            <div class="summary-row">
-              <span>إجمالي المصروفات:</span>
-              <span style="font-weight: bold;">${formatCurrency(periodicReport.summary?.totalExpenses || 0)}</span>
-            </div>
-            <div class="summary-row">
-              <span>الرصيد الختامي:</span>
-              <span style="font-weight: bold;">${formatCurrency(periodicReport.summary?.balance || 0)}</span>
-            </div>
-          </div>
-        `;
-      } else {
-        printHTML += `<p style="text-align: center; padding: 20px;">جاري تحميل بيانات الفترة...</p>`;
-      }
-    } else if (activeTab === 'worker') {
-      if (workerStatement && workerStatement.worker && workerStatement.attendance?.length > 0) {
-        const balanceValue = workerStatement.summary?.remainingBalance || 0;
-        printHTML += `
-          <div class="company-name">شركة الفتيني للمقاولات والاستشارات الهندسية</div>
-          <div class="worker-header">بيان حساب العامل التفصيلي</div>
-          <table class="worker-info-table">
-            <tr>
-              <td><strong>الفترة:</strong> من ${dateFrom} إلى ${dateTo}</td>
-              <td><strong>اسم العامل:</strong> ${workerStatement.worker?.name || '-'}</td>
-              <td><strong>نوع العامل:</strong> ${workerStatement.worker?.type || '-'}</td>
-              <td><strong>أيام العمل:</strong> ${(workerStatement.summary?.totalWorkDays || 0).toFixed(1)}</td>
-            </tr>
-          </table>
-          
-          <table class="worker-data-table">
-            <thead>
-              <tr>
-                <th style="width: 11%;">التاريخ</th>
-                <th style="width: 28%;">المشروع</th>
-                <th style="width: 10%;">أيام العمل</th>
-                <th style="width: 11%;">عدد الساعات</th>
-                <th style="width: 15%;">الأجر المستحق</th>
-                <th style="width: 15%;">المبلغ المدفوع</th>
-                <th style="width: 10%;">الملاحظة</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${workerStatement.attendance?.map((record: any, index: number) => `
-                <tr>
-                  <td style="text-align: center;">${record.date}</td>
-                  <td style="text-align: right;">${record.projectName}</td>
-                  <td style="text-align: center;">${parseFloat(record.workDays || 0).toFixed(2)}</td>
-                  <td style="text-align: center;">${record.hours || '-'}</td>
-                  <td style="text-align: center;">${formatCurrency(record.actualWage || 0)}</td>
-                  <td style="text-align: center;">${formatCurrency(record.paidAmount || 0)}</td>
-                  <td style="text-align: right; font-size: 8px;">${record.notes || '-'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          
-          <table class="worker-summary-table">
-            <tr>
-              <td><strong>إجمالي المستحق</strong><br>${formatCurrency(workerStatement.summary?.totalEarned || 0)}</td>
-              <td><strong>إجمالي المدفوع</strong><br>${formatCurrency(workerStatement.summary?.totalPaid || 0)}</td>
-              <td><strong>إجمالي الحوالات</strong><br>${formatCurrency(workerStatement.summary?.totalTransfers || 0)}</td>
-              <td class="${balanceValue >= 0 ? 'balance-positive' : 'balance-negative'}"><strong>المتبقي</strong><br><strong>${formatCurrency(balanceValue)}</strong></td>
-            </tr>
-          </table>
-        `;
-      } else if (!workerStatement) {
-        printHTML += `<p style="text-align: center; padding: 20px;">جاري تحميل بيانات العامل...</p>`;
-      } else {
-        printHTML += `<p style="text-align: center; padding: 20px;">لا توجد بيانات عمل لهذا العامل</p>`;
-      }
-    } else {
-      printHTML += `<p style="text-align: center; padding: 20px; font-size: 16px;">اختر تقريراً لطباعته</p>`;
+    if (activeTab === 'daily' && dailyReport) {
+      printHTML += `
+        <div class="kpi-container">
+          <div class="kpi"><div class="kpi-label">العمال</div><div class="kpi-value">${dailyReport.summary?.totalWorkers || 0}</div></div>
+          <div class="kpi"><div class="kpi-label">الأجور</div><div class="kpi-value">${formatCurrency(dailyReport.summary?.totalPaidWages || 0)}</div></div>
+        </div>
+      `;
+    } else if (activeTab === 'periodic' && periodicReport) {
+      printHTML += `
+        <div class="summary">
+          <div class="summary-row"><span>إجمالي الدخل:</span><b>${formatCurrency(periodicReport.summary?.totalFundTransfers || 0)}</b></div>
+          <div class="summary-row"><span>إجمالي المصروفات:</span><b>${formatCurrency(periodicReport.summary?.totalExpenses || 0)}</b></div>
+          <div class="summary-row"><span>الرصيد:</span><b>${formatCurrency(periodicReport.summary?.balance || 0)}</b></div>
+        </div>
+      `;
     }
 
-    printHTML += `
-          <div class="footer">
-            <p>نظام إدارة المشاريع والآبار</p>
-            <p>${new Date().toLocaleString('ar-SA')}</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    // افتح نافذة جديدة وطبع
+    printHTML += `</body></html>`;
     const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast({ title: "تعذر فتح نافذة الطباعة - تحقق من إعدادات المتصفح", variant: "destructive" });
-      return;
+    if (printWindow) {
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
+      setTimeout(() => { printWindow.focus(); printWindow.print(); }, 500);
     }
-
-    printWindow.document.write(printHTML);
-    printWindow.document.close();
-
-    // انتظر تحميل المحتوى
-    setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-      // لا تغلق النافذة تلقائياً لتعطي المستخدم الفرصة لحفظ أو إلغاء
-    }, 800);
   };
 
   const handleExportDailyReport = async () => {
@@ -752,11 +317,7 @@ export default function ProfessionalReports() {
       toast({ title: "تم تصدير التقرير بنجاح" });
     } catch (error: any) {
       console.error('❌ خطأ التصدير:', error);
-      toast({ 
-        title: "فشل في تصدير التقرير", 
-        description: error?.message || "حدث خطأ غير متوقع",
-        variant: "destructive" 
-      });
+      toast({ title: "فشل في تصدير التقرير", variant: "destructive" });
     } finally {
       setIsExporting(false);
     }
@@ -778,11 +339,7 @@ export default function ProfessionalReports() {
       toast({ title: "تم تصدير التقرير بنجاح" });
     } catch (error: any) {
       console.error('❌ خطأ التصدير:', error);
-      toast({ 
-        title: "فشل في تصدير التقرير", 
-        description: error?.message || "حدث خطأ غير متوقع",
-        variant: "destructive" 
-      });
+      toast({ title: "فشل في تصدير التقرير", variant: "destructive" });
     } finally {
       setIsExporting(false);
     }
@@ -856,58 +413,59 @@ export default function ProfessionalReports() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden print:bg-white print:from-white print:to-white" dir="rtl">
-      <div className="flex-1 flex flex-col overflow-y-auto">
-        <div className="no-print sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
-          <div className="px-4 md:px-6 py-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl shadow-lg">
-                  <BarChart3 className="h-6 w-6 text-white" />
+    <LayoutShell showHeader={false}>
+      <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden print:bg-white print:from-white print:to-white" dir="rtl">
+        <div className="flex-1 flex flex-col overflow-y-auto">
+          <div className="no-print sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
+            <div className="px-4 md:px-6 py-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl shadow-lg">
+                    <BarChart3 className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-xl md:text-2xl font-bold text-gray-900">لوحة التقارير الاحترافية</h1>
+                    <p className="text-xs md:text-sm text-gray-500">تحليلات شاملة وتقارير تفصيلية</p>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-xl md:text-2xl font-bold text-gray-900">لوحة التقارير الاحترافية</h1>
-                  <p className="text-xs md:text-sm text-gray-500">تحليلات شاملة وتقارير تفصيلية</p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={handleRefreshAll} className="gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="hidden sm:inline">تحديث</span>
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
+                    <Printer className="h-4 w-4" />
+                    <span className="hidden sm:inline">طباعة</span>
+                  </Button>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleRefreshAll} className="gap-2">
-                  <RefreshCw className="h-4 w-4" />
-                  <span className="hidden sm:inline">تحديث</span>
-                </Button>
-                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
-                  <Printer className="h-4 w-4" />
-                  <span className="hidden sm:inline">طباعة</span>
-                </Button>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex-1 px-4 md:px-6 py-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="no-print grid w-full grid-cols-5 bg-white rounded-xl shadow-md border p-1 max-w-4xl">
-              <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-lg">
-                <Activity className="h-4 w-4" />
-                <span className="hidden md:inline">لوحة التحكم</span>
-              </TabsTrigger>
-              <TabsTrigger value="daily" className="gap-2 data-[state=active]:bg-green-500 data-[state=active]:text-white rounded-lg">
-                <Calendar className="h-4 w-4" />
-                <span className="hidden md:inline">يومي</span>
-              </TabsTrigger>
-              <TabsTrigger value="periodic" className="gap-2 data-[state=active]:bg-purple-500 data-[state=active]:text-white rounded-lg">
-                <Clock className="h-4 w-4" />
-                <span className="hidden md:inline">فترة</span>
-              </TabsTrigger>
-              <TabsTrigger value="worker" className="gap-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg">
-                <Users className="h-4 w-4" />
-                <span className="hidden md:inline">العامل</span>
-              </TabsTrigger>
-              <TabsTrigger value="comparison" className="gap-2 data-[state=active]:bg-pink-500 data-[state=active]:text-white rounded-lg">
-                <GitCompare className="h-4 w-4" />
-                <span className="hidden md:inline">مقارنة</span>
-              </TabsTrigger>
-            </TabsList>
+          <div className="flex-1 px-4 md:px-6 py-6 pb-24">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <TabsList className="no-print grid w-full grid-cols-5 bg-white rounded-xl shadow-md border p-1 max-w-4xl">
+                <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-lg">
+                  <Activity className="h-4 w-4" />
+                  <span className="hidden md:inline">لوحة التحكم</span>
+                </TabsTrigger>
+                <TabsTrigger value="daily" className="gap-2 data-[state=active]:bg-green-500 data-[state=active]:text-white rounded-lg">
+                  <Calendar className="h-4 w-4" />
+                  <span className="hidden md:inline">يومي</span>
+                </TabsTrigger>
+                <TabsTrigger value="periodic" className="gap-2 data-[state=active]:bg-purple-500 data-[state=active]:text-white rounded-lg">
+                  <Clock className="h-4 w-4" />
+                  <span className="hidden md:inline">فترة</span>
+                </TabsTrigger>
+                <TabsTrigger value="worker" className="gap-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg">
+                  <Users className="h-4 w-4" />
+                  <span className="hidden md:inline">العامل</span>
+                </TabsTrigger>
+                <TabsTrigger value="comparison" className="gap-2 data-[state=active]:bg-pink-500 data-[state=active]:text-white rounded-lg">
+                  <GitCompare className="h-4 w-4" />
+                  <span className="hidden md:inline">مقارنة</span>
+                </TabsTrigger>
+              </TabsList>
 
             <TabsContent value="dashboard" className="space-y-6">
               {kpisLoading ? (
@@ -1646,6 +1204,6 @@ export default function ProfessionalReports() {
           </Tabs>
         </div>
       </div>
-    </div>
+    </LayoutShell>
   );
 }

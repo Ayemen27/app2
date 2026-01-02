@@ -112,6 +112,7 @@ function DailyExpensesContent() {
   const [isAttendanceExpanded, setIsAttendanceExpanded] = useState(false);
   const [isMaterialsExpanded, setIsMaterialsExpanded] = useState(false);
   const [isWorkerTransfersExpanded, setIsWorkerTransfersExpanded] = useState(false);
+  const [isProjectTransfersExpanded, setIsProjectTransfersExpanded] = useState(false);
   const [isMiscExpanded, setIsMiscExpanded] = useState(false);
 
   // Fund transfer form
@@ -624,6 +625,7 @@ function DailyExpensesContent() {
     setIsAttendanceExpanded(safeAttendance.length > 0);
     setIsMaterialsExpanded(safeMaterialPurchases.length > 0);
     setIsWorkerTransfersExpanded(safeWorkerTransfers.length > 0);
+    setIsProjectTransfersExpanded(safeProjectTransfers.length > 0);
     setIsMiscExpanded(safeMiscExpenses.length > 0);
   }, [
     safeFundTransfers.length, 
@@ -631,6 +633,7 @@ function DailyExpensesContent() {
     safeAttendance.length,
     safeMaterialPurchases.length,
     safeWorkerTransfers.length,
+    safeProjectTransfers.length,
     safeMiscExpenses.length
   ]);
 
@@ -3009,164 +3012,172 @@ function DailyExpensesContent() {
                 </Collapsible>
               </div>
 
-              {/* إرسال حولة عامل - الزر + العرض */}
+              {/* إرسال حولة عامل - القسم المطوي */}
               <div className="border-t pt-3 mt-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setLocation("/worker-accounts")}
-                  className="w-full border-2 border-dashed border-yellow-300 text-yellow-600 hover:bg-yellow-50"
-                >
-                  <DollarSign className="ml-2 h-4 w-4" />
-                  إرسال حولة عامل
-                </Button>
-                
-                {/* Worker Transfers Display - يظهر فقط عند وجود بيانات */}
-                {safeWorkerTransfers.length > 0 && (
-                  <div className="space-y-2 mt-3">
-                    {safeWorkerTransfers.map((transfer, index) => {
-                      const worker = workers.find(w => w.id === transfer.workerId);
-                      const methodLabel = transfer.transferMethod === "hawaleh" ? "حولة" : transfer.transferMethod === "bank" ? "تحويل بنكي" : "نقداً";
-                      return (
-                        <div key={index} className="p-3 bg-white dark:bg-slate-800 border border-yellow-200 dark:border-yellow-900/30 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <h4 className="font-semibold text-foreground text-sm">{worker?.name || 'عامل غير معروف'}</h4>
-                                <span className="font-bold text-yellow-600 dark:text-yellow-500 arabic-numbers text-base">{formatCurrency(transfer.amount)}</span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="text-muted-foreground">
-                                  <span>المستقبل: </span>
-                                  <span className="font-medium text-foreground">{transfer.recipientName}</span>
-                                </div>
-                                <div className="text-muted-foreground">
-                                  <span>الطريقة: </span>
-                                  <span className="font-medium text-foreground">{methodLabel}</span>
-                                </div>
-                              </div>
-                              {transfer.transferNumber && (
-                                <p className="text-xs text-muted-foreground">
-                                  <span className="opacity-70">رقم الحوالة: </span>
-                                  <span className="font-medium text-foreground">{transfer.transferNumber}</span>
-                                </p>
-                              )}
-                              {(transfer.senderName || transfer.recipientPhone) && (
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                  {transfer.senderName && (
-                                    <div className="text-muted-foreground">
-                                      <span className="opacity-70">المرسل: </span>
-                                      <span className="font-medium text-foreground">{transfer.senderName}</span>
-                                    </div>
-                                  )}
-                                  {transfer.recipientPhone && (
-                                    <div className="text-muted-foreground">
-                                      <span className="opacity-70">الهاتف: </span>
-                                      <span className="font-medium text-foreground">{transfer.recipientPhone}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {transfer.notes && (
-                                <p className="text-xs text-muted-foreground bg-yellow-50 dark:bg-yellow-950/30 p-2 rounded-md border border-yellow-100 dark:border-yellow-900/50 mt-1">
-                                  <span className="font-bold text-yellow-700 dark:text-yellow-400">الملاحظات: </span>
-                                  {transfer.notes}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex gap-1 flex-shrink-0">
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                                onClick={() => setLocation(`/worker-accounts?edit=${transfer.id}&worker=${transfer.workerId}`)}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                onClick={() => {
-                                  const isConfirmed = window.confirm('هل أنت متأكد من حذف حوالة العامل؟');
-                                  if (isConfirmed) {
-                                    deleteWorkerTransferMutation.mutate(transfer.id);
-                                  }
-                                }}
-                                disabled={deleteWorkerTransferMutation.isPending}
-                              >
-                                {deleteWorkerTransferMutation.isPending ? (
-                                  <div className="h-4 w-4 animate-spin rounded-full border border-red-600 border-t-transparent" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div className="text-left mt-2 pt-2 border-t">
-                      <span className="text-sm text-muted-foreground">إجمالي الحوالات: </span>
-                      <span className="font-bold text-warning arabic-numbers">
-                        {formatCurrency(totalsValue.totalWorkerTransfers)}
-                      </span>
+                <Collapsible open={isWorkerTransfersExpanded} onOpenChange={setIsWorkerTransfersExpanded}>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
+                      <h4 className="font-medium text-foreground flex items-center">
+                        <DollarSign className="text-yellow-600 ml-2 h-5 w-5" />
+                        حوالات العمال المضافة اليوم
+                      </h4>
+                      <div className="flex items-center gap-1">
+                        {safeWorkerTransfers.length > 0 && <Badge variant="outline" className="h-5 text-[10px]">{safeWorkerTransfers.length}</Badge>}
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-
-              {/* إدارة ترحيل الأموال - الزر + العرض */}
-              <div className="border-t pt-3 mt-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setLocation("/project-transfers")}
-                  className="w-full border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50"
-                >
-                  <ArrowLeftRight className="ml-2 h-4 w-4" />
-                  إدارة ترحيل الأموال
-                </Button>
-                
-                {/* Project Fund Transfers Display - يظهر فقط عند وجود بيانات */}
-                {safeProjectTransfers.length > 0 && (
-                  <div className="space-y-3 mt-3">
-                    {safeProjectTransfers.map((transfer) => (
-                      <div 
-                        key={transfer.id} 
-                        className={`p-3 rounded border-r-4 ${
-                          transfer.toProjectId === selectedProjectId 
-                            ? 'bg-green-50 border-green-500' 
-                            : 'bg-red-50 border-red-500'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">
-                                {transfer.toProjectId === selectedProjectId ? (
-                                  <span className="text-green-700">أموال واردة من: {transfer.fromProjectName}</span>
-                                ) : (
-                                  <span className="text-red-700">أموال صادرة إلى: {transfer.toProjectName}</span>
-                                )}
-                              </span>
-                              <span className={`font-bold arabic-numbers ${
-                                transfer.toProjectId === selectedProjectId ? 'text-green-600' : 'text-red-600'
-                              }`}>
-                                {transfer.toProjectId === selectedProjectId ? '+' : '-'}{formatCurrency(transfer.amount)}
-                              </span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setLocation("/worker-accounts")}
+                      className="w-full border-2 border-dashed border-yellow-300 text-yellow-600 hover:bg-yellow-50 mb-3"
+                    >
+                      <Plus className="ml-2 h-4 w-4" />
+                      إرسال حولة عامل جديدة
+                    </Button>
+                    
+                    {/* Worker Transfers Display - يظهر فقط عند وجود بيانات */}
+                    {safeWorkerTransfers.length > 0 && (
+                      <div className="space-y-2">
+                        {safeWorkerTransfers.map((transfer: any, index: number) => {
+                          const worker = workers.find((w: any) => w.id === transfer.workerId);
+                          const methodLabel = transfer.transferMethod === "hawaleh" ? "حولة" : transfer.transferMethod === "bank" ? "تحويل بنكي" : "نقداً";
+                          return (
+                            <div key={index} className="p-3 bg-white dark:bg-slate-800 border border-yellow-200 dark:border-yellow-900/30 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-foreground text-sm">{worker?.name || 'عامل غير معروف'}</h4>
+                                    <span className="font-bold text-yellow-600 dark:text-yellow-500 arabic-numbers text-base">{formatCurrency(transfer.amount)}</span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div className="text-muted-foreground">
+                                      <span>المستقبل: </span>
+                                      <span className="font-medium text-foreground">{transfer.recipientName}</span>
+                                    </div>
+                                    <div className="text-muted-foreground">
+                                      <span>الطريقة: </span>
+                                      <span className="font-medium text-foreground">{methodLabel}</span>
+                                    </div>
+                                  </div>
+                                  {transfer.transferNumber && (
+                                    <p className="text-xs text-muted-foreground">
+                                      <span className="opacity-70">رقم الحوالة: </span>
+                                      <span className="font-medium text-foreground">{transfer.transferNumber}</span>
+                                    </p>
+                                  )}
+                                  {isAllProjects && transfer.projectName && (
+                                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {transfer.projectName}</div>
+                                  )}
+                                </div>
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    onClick={() => setLocation(`/worker-accounts?edit=${transfer.id}&worker=${transfer.workerId}`)}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => {
+                                      if (window.confirm('هل أنت متأكد من حذف حوالة العامل؟')) {
+                                        deleteWorkerTransferMutation.mutate(transfer.id);
+                                      }
+                                    }}
+                                    disabled={deleteWorkerTransferMutation.isPending}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-xs text-muted-foreground">
-                              <div>السبب: {transfer.transferReason || 'ترحيل أموال'}</div>
-                              {transfer.description && (
-                                <div className="mt-1">الوصف: {transfer.description}</div>
-                              )}
-                              <div className="mt-1">التاريخ: {formatDate(transfer.transferDate)}</div>
-                            </div>
-                          </div>
+                          );
+                        })}
+                        <div className="text-left mt-2 pt-2 border-t bg-yellow-50 dark:bg-yellow-950/20 p-2 rounded">
+                          <span className="text-sm text-muted-foreground">إجمالي الحوالات: </span>
+                          <span className="font-bold text-warning arabic-numbers">
+                            {formatCurrency(totalsValue.totalWorkerTransfers)}
+                          </span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+
+              {/* إدارة ترحيل الأموال - القسم المطوي */}
+              <div className="border-t pt-3 mt-3">
+                <Collapsible open={isProjectTransfersExpanded} onOpenChange={setIsProjectTransfersExpanded}>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
+                      <h4 className="font-medium text-foreground flex items-center">
+                        <ArrowLeftRight className="text-orange-600 ml-2 h-5 w-5" />
+                        ترحيل الأموال المضافة اليوم
+                      </h4>
+                      <div className="flex items-center gap-1">
+                        {safeProjectTransfers.length > 0 && <Badge variant="outline" className="h-5 text-[10px]">{safeProjectTransfers.length}</Badge>}
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setLocation("/project-transfers")}
+                      className="w-full border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 mb-3"
+                    >
+                      <Plus className="ml-2 h-4 w-4" />
+                      إدارة ترحيل الأموال
+                    </Button>
+                    
+                    {/* Project Fund Transfers Display - يظهر فقط عند وجود بيانات */}
+                    {safeProjectTransfers.length > 0 && (
+                      <div className="space-y-3">
+                        {safeProjectTransfers.map((transfer: any) => (
+                          <div 
+                            key={transfer.id} 
+                            className={`p-3 rounded border-r-4 ${
+                              transfer.toProjectId === selectedProjectId 
+                                ? 'bg-green-50 border-green-500' 
+                                : 'bg-red-50 border-red-500'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">
+                                    {transfer.toProjectId === selectedProjectId ? (
+                                      <span className="text-green-700">أموال واردة من: {transfer.fromProjectName}</span>
+                                    ) : (
+                                      <span className="text-red-700">أموال صادرة إلى: {transfer.toProjectName}</span>
+                                    )}
+                                  </span>
+                                  <span className={`font-bold arabic-numbers ${
+                                    transfer.toProjectId === selectedProjectId ? 'text-green-600' : 'text-red-600'
+                                  }`}>
+                                    {transfer.toProjectId === selectedProjectId ? '+' : '-'}{formatCurrency(transfer.amount)}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  <div>السبب: {transfer.transferReason || 'ترحيل أموال'}</div>
+                                  {transfer.description && (
+                                    <div className="mt-1">الوصف: {transfer.description}</div>
+                                  )}
+                                  <div className="mt-1">التاريخ: {formatDate(transfer.transferDate)}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
 
               {/* Worker Miscellaneous Expenses */}

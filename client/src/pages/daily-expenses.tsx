@@ -2176,38 +2176,12 @@ function DailyExpensesContent() {
           <CollapsibleContent>
             <CardContent className="p-4 pt-0">
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="relative">
-                  <div className="flex items-center gap-1">
-                    {!isAllProjects && !filterValues.dateRange?.from && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 mt-6"
-                        onClick={prevDate}
-                        title="اليوم السابق"
-                      >
-                        <ChevronRight className="h-5 w-5" />
-                      </Button>
-                    )}
-                    <div className="flex-1">
-                      <DatePickerField
-                        label="التاريخ"
-                        value={selectedDate || ""}
-                        onChange={(date) => setSelectedDate(date ? format(date, "yyyy-MM-dd") : null)}
-                      />
-                    </div>
-                    {!isAllProjects && !filterValues.dateRange?.from && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 mt-6"
-                        onClick={nextDate}
-                        title="اليوم التالي"
-                      >
-                        <ChevronLeft className="h-5 w-5" />
-                      </Button>
-                    )}
-                  </div>
+                <div>
+                  <DatePickerField
+                    label="التاريخ"
+                    value={selectedDate || ""}
+                    onChange={(date) => setSelectedDate(date ? format(date, "yyyy-MM-dd") : null)}
+                  />
                 </div>
                 <div>
                   <Label className="block text-sm font-medium text-foreground">المبلغ المتبقي السابق</Label>

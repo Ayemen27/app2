@@ -618,6 +618,7 @@ function DailyExpensesContent() {
 
   // تحديث حالة توسع الفئات عند تغير البيانات
   useEffect(() => {
+    // نجعلها مطوية تلقائياً (false) عندما لا توجد بيانات، ومفتوحة (true) عندما توجد بيانات
     setIsFundTransfersExpanded(safeFundTransfers.length > 0);
     setIsTransportationExpanded(safeTransportation.length > 0);
     setIsAttendanceExpanded(safeAttendance.length > 0);

@@ -493,14 +493,20 @@ export default function ProjectTransfers() {
                             </FormItem>
                           )}
                         />
-                        <FormItem className="flex flex-col gap-1.5">
-                          <FormLabel className="text-xs md:text-sm font-semibold">التاريخ</FormLabel>
-                          <DatePickerField
-                            value={field.value}
-                            onChange={(date) => field.onChange(date ? format(date, "yyyy-MM-dd") : "")}
-                          />
-                          <FormMessage className="text-xs" />
-                        </FormItem>
+                        <FormField
+                          control={form.control}
+                          name="transferDate"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col gap-1.5">
+                              <FormLabel className="text-xs md:text-sm font-semibold">التاريخ</FormLabel>
+                              <DatePickerField
+                                value={field.value}
+                                onChange={(date) => field.onChange(date ? format(date, "yyyy-MM-dd") : "")}
+                              />
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
                       </div>
 
                       {/* Row 2: Projects */}

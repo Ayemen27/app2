@@ -23,6 +23,7 @@ export async function smartSave(tableName: string, records: any[]) {
     }
     return records.length;
   } else {
+    // في المتصفح، نحفظ أيضاً في IndexedDB
     return await saveIDBSyncedData(tableName, records);
   }
 }
@@ -36,5 +37,18 @@ export async function smartGet(tableName: string, id: string) {
   } else {
     const db = await getIDB();
     return await db.get(tableName as any, id);
+  }
+}
+
+/**
+ * جلب جميع السجلات من جدول بشكل ذكي (لأغراض المصادقة أوفلاين)
+ */
+export async function smartGetAll(tableName: string): Promise<any[]> {
+  if (Capacitor.getPlatform() !== 'web') {
+    // سيتم تنفيذها لاحقاً في nativeStorage
+    return [];
+  } else {
+    const db = await getIDB();
+    return await db.getAll(tableName as any);
   }
 }

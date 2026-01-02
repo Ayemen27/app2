@@ -7,6 +7,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { useQueryClient } from "@tanstack/react-query";
 import { registerAuthHelpers, prefetchCoreData, clearAllCache } from "../lib/queryClient";
 
+import { smartGetAll } from "../offline/storage-factory";
+
 interface User {
   id: string;
   email: string;
@@ -227,41 +229,66 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       console.log('📡 [AuthProvider.login] إرسال طلب لـ /api/auth/login...');
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      
+      let result: any = null;
+      let response: Response | null = null;
 
-      const result = await response.json();
+      try {
+        response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+        
+        if (response.ok) {
+          result = await response.json();
+        }
+      } catch (networkError) {
+        console.warn('📡 [AuthProvider] فشل الاتصال بالسيرفر، محاولة تسجيل الدخول أوفلاين...');
+      }
 
-      if (!response.ok) {
+      // ✅ منطق تسجيل الدخول أوفلاين إذا فشل السيرفر
+      if (!result) {
+        const localUsers = await smartGetAll('users');
+        const localUser = localUsers.find((u: any) => u.email === email);
+        
+        if (localUser) {
+          console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (تسجيل دخول أوفلاين)');
+          result = {
+            success: true,
+            data: {
+              user: localUser,
+              tokens: { accessToken: 'offline-token', refreshToken: 'offline-refresh' }
+            }
+          };
+        } else {
+          throw new Error('المستخدم غير موجود محلياً، يرجى الاتصال بالإنترنت للمزامنة الأولية');
+        }
+      }
+
+      if (response && !response.ok) {
+        const errorData = await response.json().catch(() => ({}));
         console.log('📋 [AuthProvider.login] الاستجابة غير الناجحة:', {
           status: response.status,
-          requireEmailVerification: result.requireEmailVerification,
-          data: result.data,
-          message: result.message
+          requireEmailVerification: errorData.requireEmailVerification,
+          data: errorData.data,
+          message: errorData.message
         });
 
         // في حالة عدم التحقق من البريد الإلكتروني (403)
-        if (response.status === 403 && result.requireEmailVerification) {
-          const error = new Error(result.message || 'يجب التحقق من البريد الإلكتروني أولاً');
+        if (response.status === 403 && errorData.requireEmailVerification) {
+          const error = new Error(errorData.message || 'يجب التحقق من البريد الإلكتروني أولاً');
           (error as any).requireEmailVerification = true;
-          (error as any).userId = result.data?.userId;
-          (error as any).email = result.data?.email;
+          (error as any).userId = errorData.data?.userId;
+          (error as any).email = errorData.data?.email;
           (error as any).status = 403;
-          (error as any).data = result.data;
-          
-          console.log('🚨 [AuthProvider.login] خطأ التحقق من البريد:', {
-            userId: (error as any).userId,
-            email: (error as any).email
-          });
+          (error as any).data = errorData.data;
           
           throw error;
         }
-        throw new Error(result.message || 'فشل تسجيل الدخول');
+        throw new Error(errorData.message || 'فشل تسجيل الدخول');
       }
 
       // استخراج بيانات المستخدم بشكل صحيح

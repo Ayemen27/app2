@@ -134,7 +134,28 @@ function DailyExpensesContent() {
   const [editWorkerNotes, setEditWorkerNotes] = useState<string>("");
 
   const queryClient = useQueryClient();
-  const { setFloatingAction } = useFloatingButton();
+    const nextDate = () => {
+      if (!selectedDate) return;
+      const date = new Date(selectedDate);
+      date.setDate(date.getDate() + 1);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      setSelectedDate(`${year}-${month}-${day}`);
+    };
+
+    const prevDate = () => {
+      if (!selectedDate) return;
+      const date = new Date(selectedDate);
+      date.setDate(date.getDate() - 1);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      setSelectedDate(`${year}-${month}-${day}`);
+    };
+
+    // إضافة أيقونات الأسهم للمستند
+    const { ChevronRight, ChevronLeft } = require("lucide-react");
 
   // دالة مساعدة لحفظ قيم الإكمال التلقائي
   const saveAutocompleteValue = async (field: string, value: string) => {
@@ -2157,12 +2178,38 @@ function DailyExpensesContent() {
           <CollapsibleContent>
             <CardContent className="p-4 pt-0">
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <DatePickerField
-                    label="التاريخ"
-                    value={selectedDate || ""}
-                    onChange={(date) => setSelectedDate(date ? format(date, "yyyy-MM-dd") : null)}
-                  />
+                <div className="relative">
+                  <div className="flex items-center gap-1">
+                    {!isAllProjects && !filterValues.dateRange?.from && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 mt-6"
+                        onClick={prevDate}
+                        title="اليوم السابق"
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </Button>
+                    )}
+                    <div className="flex-1">
+                      <DatePickerField
+                        label="التاريخ"
+                        value={selectedDate || ""}
+                        onChange={(date) => setSelectedDate(date ? format(date, "yyyy-MM-dd") : null)}
+                      />
+                    </div>
+                    {!isAllProjects && !filterValues.dateRange?.from && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 mt-6"
+                        onClick={nextDate}
+                        title="اليوم التالي"
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label className="block text-sm font-medium text-foreground">المبلغ المتبقي السابق</Label>

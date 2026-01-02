@@ -2882,114 +2882,130 @@ function DailyExpensesContent() {
         </Collapsible>
       </div>
 
-              {/* شراء مواد - الزر + العرض */}
+              {/* شراء مواد - القسم المطوي */}
               <div className="border-t pt-3 mt-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setLocation("/material-purchase")}
-                  className="w-full border-2 border-dashed border-green-300 text-green-600 hover:bg-green-50"
-                >
-                  <Package className="ml-2 h-4 w-4" />
-                  إضافة شراء مواد
-                </Button>
-                
-                {/* Materials Display - يظهر فقط عند وجود بيانات */}
-                {safeMaterialPurchases.length > 0 && (
-                  <div className="space-y-2 mt-3">
-                    {safeMaterialPurchases.map((purchase, index) => {
-                      const materialName = purchase.materialName || purchase.material?.name || 'مادة غير محددة';
-                      const materialUnit = purchase.materialUnit || purchase.unit || purchase.material?.unit || 'وحدة';
-                      const isCash = purchase.purchaseType === 'نقد';
-                      
-                      return (
-                        <div key={index} className={`p-3 border rounded-lg shadow-sm hover:shadow-md transition-shadow ${
-                          isCash 
-                            ? 'bg-white dark:bg-slate-800 border-green-200 dark:border-green-900/30' 
-                            : 'bg-white dark:bg-slate-800 border-orange-200 dark:border-orange-900/30'
-                        }`}>
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <h4 className="font-semibold text-foreground text-sm">{materialName}</h4>
-                                <span className={`font-bold arabic-numbers text-base ${isCash ? 'text-green-600' : 'text-orange-600'}`}>
-                                  {formatCurrency(purchase.totalAmount)}
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="text-muted-foreground">
-                                  <span>الكمية: </span>
-                                  <span className="font-medium text-foreground">{purchase.quantity} {materialUnit}</span>
-                                </div>
-                                <div className="text-muted-foreground">
-                                  <span>السعر: </span>
-                                  <span className="font-medium text-foreground">{formatCurrency(purchase.unitPrice)}</span>
-                                </div>
-                              </div>
-                              {purchase.supplierName && (
-                                <p className="text-xs text-muted-foreground">المورد: {purchase.supplierName}</p>
-                              )}
-                              <div className={`inline-block text-xs font-semibold px-2 py-1 rounded ${
-                                isCash 
-                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
-                                  : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
-                              }`}>
-                                {isCash ? 'نقد' : 'آجل'}
-                              </div>
-                              {isAllProjects && purchase.projectName && (
-                                <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {purchase.projectName}</div>
-                              )}
-                            </div>
-                            <div className="flex gap-1 flex-shrink-0">
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                                onClick={() => setLocation(`/material-purchase?edit=${purchase.id}`)}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                onClick={() => deleteMaterialPurchaseMutation.mutate(purchase.id)}
-                                disabled={deleteMaterialPurchaseMutation.isPending}
-                              >
-                                {deleteMaterialPurchaseMutation.isPending ? (
-                                  <div className="h-4 w-4 animate-spin rounded-full border border-red-600 border-t-transparent" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div className="text-left mt-2 pt-2 border-t space-y-1">
-                      <div>
-                        <span className="text-sm text-muted-foreground">المشتريات النقدية: </span>
-                        <span className="font-bold text-success arabic-numbers">
-                          {formatCurrency(totals.totalMaterialCosts)}
-                        </span>
+                <Collapsible open={isMaterialsExpanded} onOpenChange={setIsMaterialsExpanded}>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
+                      <h4 className="font-medium text-foreground flex items-center">
+                        <Package className="text-green-600 ml-2 h-5 w-5" />
+                        المشتريات المضافة اليوم
+                      </h4>
+                      <div className="flex items-center gap-1">
+                        {safeMaterialPurchases.length > 0 && <Badge variant="outline" className="h-5 text-[10px]">{safeMaterialPurchases.length}</Badge>}
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      {(() => {
-                        const deferredAmount = Array.isArray(todayMaterialPurchases) ? 
-                          todayMaterialPurchases
-                            .filter(purchase => purchase.purchaseType === "آجل")
-                            .reduce((sum, purchase) => sum + parseFloat(purchase.totalAmount || "0"), 0) : 0;
-                        return deferredAmount > 0 ? (
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setLocation("/material-purchase")}
+                      className="w-full border-2 border-dashed border-green-300 text-green-600 hover:bg-green-50 mb-3"
+                    >
+                      <Plus className="ml-2 h-4 w-4" />
+                      إضافة شراء مواد جديدة
+                    </Button>
+                    
+                    {/* Materials Display - يظهر فقط عند وجود بيانات */}
+                    {safeMaterialPurchases.length > 0 && (
+                      <div className="space-y-2">
+                        {safeMaterialPurchases.map((purchase: any, index: number) => {
+                          const materialName = purchase.materialName || purchase.material?.name || 'مادة غير محددة';
+                          const materialUnit = purchase.materialUnit || purchase.unit || purchase.material?.unit || 'وحدة';
+                          const isCash = purchase.purchaseType === 'نقد';
+                          
+                          return (
+                            <div key={index} className={`p-3 border rounded-lg shadow-sm hover:shadow-md transition-shadow ${
+                              isCash 
+                                ? 'bg-white dark:bg-slate-800 border-green-200 dark:border-green-900/30' 
+                                : 'bg-white dark:bg-slate-800 border-orange-200 dark:border-orange-900/30'
+                            }`}>
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-foreground text-sm">{materialName}</h4>
+                                    <span className={`font-bold arabic-numbers text-base ${isCash ? 'text-green-600' : 'text-orange-600'}`}>
+                                      {formatCurrency(purchase.totalAmount)}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div className="text-muted-foreground">
+                                      <span>الكمية: </span>
+                                      <span className="font-medium text-foreground">{purchase.quantity} {materialUnit}</span>
+                                    </div>
+                                    <div className="text-muted-foreground">
+                                      <span>السعر: </span>
+                                      <span className="font-medium text-foreground">{formatCurrency(purchase.unitPrice)}</span>
+                                    </div>
+                                  </div>
+                                  {purchase.supplierName && (
+                                    <p className="text-xs text-muted-foreground">المورد: {purchase.supplierName}</p>
+                                  )}
+                                  <div className={`inline-block text-xs font-semibold px-2 py-1 rounded ${
+                                    isCash 
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                                      : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
+                                  }`}>
+                                    {isCash ? 'نقد' : 'آجل'}
+                                  </div>
+                                  {isAllProjects && purchase.projectName && (
+                                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {purchase.projectName}</div>
+                                  )}
+                                </div>
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                                    onClick={() => setLocation(`/material-purchase?edit=${purchase.id}`)}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                    onClick={() => deleteMaterialPurchaseMutation.mutate(purchase.id)}
+                                    disabled={deleteMaterialPurchaseMutation.isPending}
+                                  >
+                                    {deleteMaterialPurchaseMutation.isPending ? (
+                                      <div className="h-4 w-4 animate-spin rounded-full border border-red-600 border-t-transparent" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div className="text-left mt-2 pt-2 border-t space-y-1">
                           <div>
-                            <span className="text-sm text-muted-foreground">المشتريات الآجلة: </span>
-                            <span className="font-bold text-orange-600 arabic-numbers">
-                              {formatCurrency(deferredAmount)}
+                            <span className="text-sm text-muted-foreground">المشتريات النقدية: </span>
+                            <span className="font-bold text-success arabic-numbers">
+                              {formatCurrency(totals.totalMaterialCosts)}
                             </span>
                           </div>
-                        ) : null;
-                      })()}
-                    </div>
-                  </div>
-                )}
+                          {(() => {
+                            const deferredAmount = Array.isArray(todayMaterialPurchases) ? 
+                              todayMaterialPurchases
+                                .filter((purchase: any) => purchase.purchaseType === "آجل")
+                                .reduce((sum: number, purchase: any) => sum + parseFloat(purchase.totalAmount || "0"), 0) : 0;
+                            return deferredAmount > 0 ? (
+                              <div>
+                                <span className="text-sm text-muted-foreground">المشتريات الآجلة: </span>
+                                <span className="font-bold text-orange-600 arabic-numbers">
+                                  {formatCurrency(deferredAmount)}
+                                </span>
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
 
               {/* إرسال حولة عامل - الزر + العرض */}

@@ -217,14 +217,59 @@ export async function getLastSyncTime(): Promise<number> {
  */
 export async function saveSyncedData(tableName: string, records: any[]): Promise<number> {
   const db = await getDB();
+  const tx = db.transaction(tableName as any, 'readwrite');
+  const store = tx.objectStore(tableName as any);
   let count = 0;
+  
   for (const record of records) {
     if (record && record.id) {
-      await db.put(tableName as any, record);
+      await store.put(record);
       count++;
     }
   }
+  
+  await tx.done;
   return count;
+}
+
+/**
+ * إضافة عملية إلى طابور المزامنة وتنفيذها محلياً فوراً
+ */
+export async function performLocalOperation(
+  tableName: string,
+  action: 'create' | 'update' | 'delete',
+  payload: Record<string, any>,
+  endpoint: string
+): Promise<any> {
+  const db = await getDB();
+  const id = payload.id || crypto.randomUUID();
+  const record = { ...payload, id, _isLocal: true, _pendingSync: true };
+
+  // 1. تنفيذ العملية محلياً فوراً (المصدر الأساسي للحقيقة)
+  const tx = db.transaction([tableName as any, 'syncQueue'], 'readwrite');
+  const store = tx.objectStore(tableName as any);
+  const queueStore = tx.objectStore('syncQueue');
+
+  if (action === 'delete') {
+    await store.delete(id);
+  } else {
+    await store.put(record);
+  }
+
+  // 2. إضافة العملية إلى طابور المزامنة للخلفية
+  await queueStore.put({
+    id: crypto.randomUUID(),
+    action,
+    endpoint,
+    payload: record,
+    timestamp: Date.now(),
+    retries: 0
+  });
+
+  await tx.done;
+  
+  console.log(`🚀 [DB] تم التنفيذ محلياً: ${action} على ${tableName}`);
+  return record;
 }
 
 /**

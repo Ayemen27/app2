@@ -103,6 +103,17 @@ export async function loadFullBackup(): Promise<{ recordCount: number }> {
 }
 
 /**
+ * مزامنة جميع البيانات المعلقة في الخلفية دون حظر الواجهة
+ */
+export function startBackgroundSync(): void {
+  if (isSyncing) return;
+  
+  syncOfflineData().catch(err => {
+    console.error('❌ [Sync] فشل المزامنة الخلفية:', err);
+  });
+}
+
+/**
  * مزامنة جميع البيانات المعلقة
  */
 export async function syncOfflineData(): Promise<void> {

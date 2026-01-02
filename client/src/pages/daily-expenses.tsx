@@ -13,7 +13,7 @@ import { useLocation } from "wouter";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw, Wallet, Banknote, Package, Truck, Receipt, Building2, Send, TrendingDown, Calculator, FileSpreadsheet, ChevronRight, ChevronLeft } from "lucide-react";
+import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw, Wallet, Banknote, Package, Truck, Receipt, Building2, Send, TrendingDown, Calculator, FileSpreadsheet, ChevronRight, ChevronLeft, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -3181,13 +3181,29 @@ function DailyExpensesContent() {
                 </Collapsible>
               </div>
 
-              {/* Worker Miscellaneous Expenses */}
+              {/* Worker Miscellaneous Expenses - القسم المطوي */}
               {selectedProjectId && (
                 <div className="border-t pt-3 mt-3">
-                  <WorkerMiscExpenses 
-                    projectId={selectedProjectId} 
-                    selectedDate={selectedDate || new Date().toISOString().split('T')[0]} 
-                  />
+                  <Collapsible open={isMiscExpanded} onOpenChange={setIsMiscExpanded}>
+                    <CollapsibleTrigger asChild>
+                      <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
+                        <h4 className="font-medium text-foreground flex items-center">
+                          <Package className="text-purple-600 ml-2 h-5 w-5" />
+                          نثريات العمال المضافة اليوم
+                        </h4>
+                        <div className="flex items-center gap-1">
+                          {safeMiscExpenses.length > 0 && <Badge variant="outline" className="h-5 text-[10px]">{safeMiscExpenses.length}</Badge>}
+                          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isMiscExpanded ? 'rotate-180' : ''}`} />
+                        </div>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2">
+                      <WorkerMiscExpenses 
+                        projectId={selectedProjectId} 
+                        selectedDate={selectedDate || new Date().toISOString().split('T')[0]} 
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
                 </div>
               )}
 

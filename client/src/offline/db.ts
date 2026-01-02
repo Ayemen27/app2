@@ -1,4 +1,16 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { Capacitor } from '@capacitor/core';
+import { nativeStorage } from './native-db';
+
+/**
+ * دالة ذكية لاختيار المحرك المناسب (IndexedDB للويب و SQLite للاندرويد)
+ */
+export async function getSmartStorage() {
+  if (Capacitor.getPlatform() !== 'web') {
+    return nativeStorage;
+  }
+  return null; // Fallback to IDB
+}
 
 // تعريف schema قاعدة البيانات - مرآة كاملة 100% من الخادم (66 جدول)
 export interface BinarJoinDB extends DBSchema {

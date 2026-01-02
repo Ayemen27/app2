@@ -84,6 +84,11 @@ function PageLoader() {
   );
 }
 
+import { initializeStorage } from './offline/storage-factory';
+
+// تهيئة قاعدة البيانات عند بدء التطبيق
+initializeStorage().catch(console.error);
+
 function Router() {
   useWebSocketSync();
 

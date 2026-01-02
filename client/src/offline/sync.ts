@@ -3,6 +3,7 @@ import { getDB, saveSyncedData } from './db';
 import { clearAllLocalData } from './data-cleanup';
 import { detectConflict, resolveConflict, logConflict } from './conflict-resolver';
 import { apiRequest } from '../lib/queryClient';
+import { smartSave } from './storage-factory';
 
 const MAX_RETRIES = 5;
 const INITIAL_SYNC_DELAY = 2000; 
@@ -68,7 +69,7 @@ export async function performInitialDataPull(): Promise<boolean> {
 
     for (const [tableName, records] of Object.entries(data)) {
       if (Array.isArray(records)) {
-        await saveSyncedData(tableName, records);
+        await smartSave(tableName, records);
         console.log(`✅ [Sync] تم مزامنة ${records.length} سجل في ${tableName}`);
       }
     }
@@ -169,6 +170,41 @@ export function stopSyncListener(): void {
 
 export function triggerSync() {
   syncOfflineData().catch(err => console.error('❌ [Sync] خطأ في المزامنة الفورية:', err));
+}
+
+export async function loadFullBackup(): Promise<{ recordCount: number }> {
+  try {
+    console.log('📥 [Sync] جاري تحميل نسخة احتياطية كاملة من الخادم...');
+    const result = await apiRequest('/api/sync/full-backup', 'GET');
+    
+    if (!result.success) {
+      throw new Error('Backup failed on server');
+    }
+    
+    const { data, recordCount } = result;
+    const db = await getDB();
+    
+    let totalSaved = 0;
+    for (const [tableName, records] of Object.entries(data)) {
+      if (Array.isArray(records) && tableName !== 'timestamp') {
+        const savedCount = await smartSave(tableName, records);
+        totalSaved += savedCount;
+        console.log(`✅ [Sync] تم حفظ ${savedCount} سجل من ${tableName}`);
+      }
+    }
+    
+    await db.put('syncMetadata', {
+      key: 'lastSync',
+      timestamp: Date.now(),
+      version: '3.0',
+      recordCount: totalSaved
+    });
+    
+    return { recordCount: totalSaved };
+  } catch (error: any) {
+    console.error('❌ [Sync] خطأ في تحميل النسخة الاحتياطية:', error);
+    throw error;
+  }
 }
 
 export function startBackgroundSync(): void {

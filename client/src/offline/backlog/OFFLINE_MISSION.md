@@ -21,11 +21,11 @@
     - المزامنة تتم في صمت (Silent Sync). (✅ محقق عبر `silent-sync.ts`)
     - التعامل مع تعارض البيانات (Conflict Resolution) بناءً على "الأحدث محلياً هو الأصح". (✅ محقق عبر `conflict-resolver.ts` المدمج)
 
-### 3. واجهة المستخدم (Optimistic UI & Indicators) (⏳ قيد التنفيذ)
+### 3. واجهة المستخدم (Optimistic UI & Indicators) (✅ مكتملة)
 - **المهمة:** تعديل المكونات لاستخدام `Optimistic Updates` من React Query بشكل كامل.
 - **معايير القبول:**
     - استجابة فورية للواجهة (Immediate Feedback). (✅ محقق عبر `offline-mutations.ts`)
-    - أيقونة حالة توضح "تم الحفظ محلياً" مقابل "تمت المزامنة مع السحاب".
+    - أيقونة حالة توضح "تم الحفظ محلياً" مقابل "تمت المزامنة مع السحاب". (✅ تم التحقق من وجود `SyncStatusIndicator` في `App.tsx`)
 
 ---
 

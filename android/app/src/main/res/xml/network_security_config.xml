@@ -3,6 +3,7 @@
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">app2.binarjoinanelytic.info</domain>
         <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">be152051-6870-4cc9-a9de-c6503e6a2aed-00-pxzg0scazi9o.sisko.replit.dev</domain>
     </domain-config>
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>

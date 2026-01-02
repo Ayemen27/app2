@@ -9,7 +9,7 @@ class SQLiteStorage {
   constructor() {
     this.sqlite = new SQLiteConnection(CapacitorSQLite);
     // بدء التهيئة تلقائياً عند الإنشاء لضمان الجاهزية المبكرة
-    this.initialize().catch(err => console.error('🔴 SQLite Auto-Init Failed:', err));
+    setTimeout(() => this.initialize().catch(err => console.error("🔴 SQLite Auto-Init Failed:", err)), 500)(err => console.error('🔴 SQLite Auto-Init Failed:', err));
   }
 
   async initialize() {
@@ -41,6 +41,8 @@ class SQLiteStorage {
       }
 
       await this.db.open();
+      const isDbOpen = await this.db.isDBOpen();
+      if (!isDbOpen.result) throw new Error("Database connection failed to open");
       await this.createTables();
       console.log('✅ Native SQLite initialized');
     } catch (err) {

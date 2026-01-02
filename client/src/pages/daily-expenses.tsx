@@ -110,6 +110,9 @@ function DailyExpensesContent() {
   const [isFundTransfersExpanded, setIsFundTransfersExpanded] = useState(false);
   const [isTransportationExpanded, setIsTransportationExpanded] = useState(false);
   const [isAttendanceExpanded, setIsAttendanceExpanded] = useState(false);
+  const [isMaterialsExpanded, setIsMaterialsExpanded] = useState(false);
+  const [isWorkerTransfersExpanded, setIsWorkerTransfersExpanded] = useState(false);
+  const [isMiscExpanded, setIsMiscExpanded] = useState(false);
 
   // Fund transfer form
   const [fundAmount, setFundAmount] = useState<string>("");
@@ -618,7 +621,17 @@ function DailyExpensesContent() {
     setIsFundTransfersExpanded(safeFundTransfers.length > 0);
     setIsTransportationExpanded(safeTransportation.length > 0);
     setIsAttendanceExpanded(safeAttendance.length > 0);
-  }, [safeFundTransfers.length, safeTransportation.length, safeAttendance.length]);
+    setIsMaterialsExpanded(safeMaterialPurchases.length > 0);
+    setIsWorkerTransfersExpanded(safeWorkerTransfers.length > 0);
+    setIsMiscExpanded(safeMiscExpenses.length > 0);
+  }, [
+    safeFundTransfers.length, 
+    safeTransportation.length, 
+    safeAttendance.length,
+    safeMaterialPurchases.length,
+    safeWorkerTransfers.length,
+    safeMiscExpenses.length
+  ]);
 
   // فلترة البيانات حسب نص البحث
   const filteredFundTransfers = useMemo(() => {

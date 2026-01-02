@@ -134,7 +134,8 @@ app.use(compressionMiddleware);
 app.use(performanceHeaders);
 
 // ⚙️ **تطبيق الـ middleware الشاملة**
-app.use(generalRateLimit);
+// تم تعطيل generalRateLimit مؤقتاً لحل مشكلة استجابة HTML بدلاً من JSON
+// app.use(generalRateLimit);
 app.use(trackSuspiciousActivity);
 app.use(securityHeaders);
 

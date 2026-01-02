@@ -188,6 +188,7 @@ const ENTITY_STORES = {
   workerMiscExpenses: 'workerMiscExpenses',
   wells: 'wells',
   projectTypes: 'projectTypes',
+  users: 'users',
 } as const;
 
 /**

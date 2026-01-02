@@ -283,9 +283,12 @@ export default function AuthPage() {
       }
       
       // رسالة خطأ عامة
+      const isOffline = !navigator.onLine;
       toast({
         title: "فشل تسجيل الدخول",
-        description: error.message || "حدث خطأ أثناء الاتصال بالخادم",
+        description: isOffline 
+          ? "أنت تعمل في وضع الأوفلاين، يرجى التأكد من تسجيل الدخول مسبقاً أثناء الاتصال بالإنترنت لمزامنة بياناتك."
+          : (error.message || "حدث خطأ أثناء الاتصال بالخادم. يرجى التحقق من بيانات الاعتماد."),
         variant: "destructive",
       });
     },

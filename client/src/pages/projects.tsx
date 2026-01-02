@@ -208,26 +208,26 @@ export default function ProjectsPage() {
   }, [setFloatingAction]);
 
   // ✅ Fetch projects with statistics - استخدام default fetcher مع Authorization headers
-  const { data: projectsData = [], isLoading, refetch: refetchProjects, error } = useQuery<ProjectWithStats[]>({
+  const { data: projectsDataRaw = [], isLoading, refetch: refetchProjects, error } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects/with-stats"],
     queryFn: async () => {
       try {
         console.log('📊 [Projects] جلب المشاريع مع الإحصائيات...');
         const response = await apiRequest("/api/projects/with-stats", "GET");
         
-        let projects = [];
+        let fetchedProjects = [];
         if (response && typeof response === 'object') {
           if (response.success !== undefined && response.data !== undefined) {
-            projects = Array.isArray(response.data) ? response.data : [];
+            fetchedProjects = Array.isArray(response.data) ? response.data : [];
           } else if (Array.isArray(response)) {
-            projects = response;
+            fetchedProjects = response;
           } else if (response.id) {
-            projects = [response];
+            fetchedProjects = [response];
           } else if (response.data) {
-            projects = Array.isArray(response.data) ? response.data : [];
+            fetchedProjects = Array.isArray(response.data) ? response.data : [];
           }
         }
-        return projects as ProjectWithStats[];
+        return fetchedProjects as ProjectWithStats[];
       } catch (error) {
         console.error('❌ [Projects] خطأ في جلب المشاريع:', error);
         return [] as ProjectWithStats[];
@@ -235,6 +235,8 @@ export default function ProjectsPage() {
     },
     refetchInterval: 60000,
   });
+
+  const projects = projectsDataRaw || [];
 
   // استخدام الملخص المالي الموحد من ExpenseLedgerService للإجماليات والمشاريع الفردية
   const { totals: financialTotals, allProjects: financialData, isLoading: financialLoading, refetch: refetchFinancial } = useFinancialSummary({

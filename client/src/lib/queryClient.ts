@@ -437,7 +437,11 @@ export const queryClient = new QueryClient({
       staleTime: CACHE_TIMES.ACTIVE_DATA,
       // ⚡ الاحتفاظ بالبيانات في الذاكرة لـ 30 دقيقة
       gcTime: CACHE_TIMES.GC_TIME,
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        // لا نعيد المحاولة إذا كان الخطأ 401 (غير مصرح)
+        if (error?.status === 401) return false;
+        return failureCount < 2;
+      },
       refetchOnReconnect: false,
       // ⚡ لا تعيد الجلب عند التحميل إذا كانت البيانات محفوظة
       refetchOnMount: false,

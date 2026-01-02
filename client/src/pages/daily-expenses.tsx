@@ -491,12 +491,60 @@ function DailyExpensesContent() {
   } = useQuery<any>({
     queryKey: ["/api/projects", isAllProjects ? "all-projects" : selectedProjectId, selectedDate ? "daily-expenses" : "all-expenses", selectedDate],
     queryFn: async () => {
-      // Logic...
+      try {
+        if (isAllProjects) {
+          // جلب بيانات الإجمالي لجميع المشاريع بما في ذلك الرصيد المرحل
+          const totalUrl = selectedDate && selectedDate !== "null"
+            ? `/api/projects/all-projects-total?date=${selectedDate}`
+            : `/api/projects/all-projects-total`;
+            
+          const totalResponse = await apiRequest(totalUrl, "GET");
+          
+          const url = selectedDate && selectedDate !== "null"
+            ? `/api/projects/all-projects-expenses?date=${selectedDate}`
+            : `/api/projects/all-projects-expenses`;
+          const response = await apiRequest(url, "GET");
+          
+          if (response && response.success && response.data) {
+            // دمج بيانات الرصيد المرحل من الاستجابة الجديدة
+            if (totalResponse && totalResponse.success && totalResponse.data) {
+              return {
+                ...response.data,
+                carriedForwardBalance: totalResponse.data.carriedForwardBalance
+              };
+            }
+            return response.data;
+          }
+          return null;
+        }
+
+        if (!selectedProjectId) {
+          return null;
+        }
+
+        if (!selectedDate || selectedDate === "null") {
+          const response = await apiRequest(`/api/projects/${selectedProjectId}/all-expenses`, "GET");
+          if (response && response.success && response.data) {
+            return response.data;
+          }
+          return null;
+        }
+
+        const response = await apiRequest(`/api/projects/${selectedProjectId}/daily-expenses/${selectedDate}`, "GET");
+        if (response && response.success && response.data) {
+          return response.data;
+        }
+
+        return null;
+      } catch (error) {
+        console.error("خطأ في جلب المصروفات:", error);
+        throw error;
+      }
     },
     enabled: isAllProjects || !!selectedProjectId,
     retry: 1,
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    gcTime: 1000 * 60 * 60,    // 1 hour
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     placeholderData: (previousData: any) => previousData,

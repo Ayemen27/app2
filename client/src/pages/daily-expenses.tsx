@@ -13,7 +13,7 @@ import { useLocation } from "wouter";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw, Wallet, Banknote, Package, Truck, Receipt, Building2, Send, TrendingDown, Calculator, FileSpreadsheet } from "lucide-react";
+import { ArrowRight, Save, Users, Car, Plus, Edit2, Trash2, ChevronDown, ChevronUp, ArrowLeftRight, RefreshCw, Wallet, Banknote, Package, Truck, Receipt, Building2, Send, TrendingDown, Calculator, FileSpreadsheet, ChevronRight, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -134,29 +134,27 @@ function DailyExpensesContent() {
   const [editWorkerNotes, setEditWorkerNotes] = useState<string>("");
 
   const queryClient = useQueryClient();
-    const nextDate = () => {
-      if (!selectedDate) return;
-      const date = new Date(selectedDate);
-      date.setDate(date.getDate() + 1);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      setSelectedDate(`${year}-${month}-${day}`);
-    };
+  const { setFloatingAction } = useFloatingButton();
 
-    const prevDate = () => {
-      if (!selectedDate) return;
-      const date = new Date(selectedDate);
-      date.setDate(date.getDate() - 1);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      setSelectedDate(`${year}-${month}-${day}`);
-    };
+  const nextDate = () => {
+    if (!selectedDate) return;
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() + 1);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    setSelectedDate(`${year}-${month}-${day}`);
+  };
 
-    // إضافة أيقونات الأسهم للمستند
-    const { ChevronRight, ChevronLeft } = require("lucide-react");
-
+  const prevDate = () => {
+    if (!selectedDate) return;
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() - 1);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    setSelectedDate(`${year}-${month}-${day}`);
+  };
   // دالة مساعدة لحفظ قيم الإكمال التلقائي
   const saveAutocompleteValue = async (field: string, value: string) => {
     if (!value || value.trim().length < 2) return;

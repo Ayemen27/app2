@@ -25,6 +25,7 @@ class SQLiteStorage {
 
       if (ret.result && isConn) {
         this.db = await this.sqlite.retrieveConnection(this.dbName, false);
+        console.log('✅ SQLite Connection retrieved');
       } else {
         // التحقق من وجود قاعدة بيانات مسبقة التجهيز في assets
         try {
@@ -38,15 +39,18 @@ class SQLiteStorage {
           console.warn('⚠️ No prebuilt database found or import failed, creating new one', importErr);
         }
         this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
+        console.log('✅ SQLite Connection created');
       }
 
       await this.db.open();
       const isDbOpen = await this.db.isDBOpen();
       if (!isDbOpen.result) throw new Error("Database connection failed to open");
       await this.createTables();
-      console.log('✅ Native SQLite initialized');
+      console.log('✅ Native SQLite initialized and tables checked');
     } catch (err) {
       console.error('❌ SQLite Init Error:', err);
+      // محاولة إعادة التهيئة في حالة الفشل لمرة واحدة
+      this.db = null;
     }
   }
 

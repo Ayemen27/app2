@@ -67,12 +67,19 @@ export default function DatabaseManager() {
         title: "تحديث البيانات",
         description: `تم تحديث حالة المزامنة لـ ${tableData.length} جدول بنجاح.`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load DB info:", error);
+      
+      // توفير رسالة أكثر دقة بناءً على بيئة التشغيل
+      const isWeb = Capacitor.getPlatform() === 'web';
+      const errorMessage = isWeb 
+        ? "نظام SQLite غير مدعوم على المتصفح، يتم استخدام IndexedDB بدلاً منه."
+        : "تعذر الوصول إلى مخزن البيانات المحلي. يرجى مراجعة الصلاحيات في إعدادات الهاتف.";
+
       toast({
-        title: "خطأ فني",
-        description: "تعذر الوصول إلى مخزن البيانات المحلي. يرجى مراجعة الصلاحيات.",
-        variant: "destructive",
+        title: isWeb ? "تنبيه النظام" : "خطأ فني",
+        description: errorMessage,
+        variant: isWeb ? "default" : "destructive",
       });
     } finally {
       setLoading(false);

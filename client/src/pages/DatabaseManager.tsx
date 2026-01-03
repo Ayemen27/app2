@@ -403,28 +403,96 @@ export default function DatabaseManager() {
           </div>
         </TabsContent>
 
-        <TabsContent value="performance" className="outline-none">
-           <Card className="border-0 shadow-sm bg-white dark:bg-slate-900 rounded-2xl p-12 text-center space-y-4">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
-                <Smartphone className="w-10 h-10 text-blue-600" />
-              </div>
-              <h2 className="text-2xl font-black">تحليلات الأداء المتقدمة</h2>
-              <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                هذه الواجهة تستخدم تقنيات IndexedDB المتقدمة لضمان سرعة فائقة في استرداد البيانات حتى في أصعب الظروف الإنشائية.
-              </p>
-              <div className="pt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <TabsContent value="performance" className="outline-none space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="border-0 shadow-sm bg-white dark:bg-slate-900 rounded-2xl">
+              <CardHeader>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-blue-500" />
+                  معلومات النظام والمنصة
+                </CardTitle>
+                <CardDescription>تفاصيل البيئة الحالية لتشغيل قاعدة البيانات</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+                  <span className="text-sm text-slate-500">المنصة</span>
+                  <Badge variant="outline" className="font-mono">{Capacitor.getPlatform().toUpperCase()}</Badge>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+                  <span className="text-sm text-slate-500">نوع التخزين</span>
+                  <Badge className="bg-blue-500">{Capacitor.getPlatform() === 'web' ? 'IndexedDB' : 'Native SQLite'}</Badge>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+                  <span className="text-sm text-slate-500">حالة الاتصال</span>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${syncState.isOnline ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                    <span className="text-sm font-bold">{syncState.isOnline ? 'متصل' : 'غير متصل'}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm bg-white dark:bg-slate-900 rounded-2xl">
+              <CardHeader>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-amber-500" />
+                  أداء المزامنة
+                </CardTitle>
+                <CardDescription>إحصائيات عمليات النقل الأخيرة</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">نجحت</p>
+                    <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{syncState.syncedCount || 0}</p>
+                  </div>
+                  <div className="p-4 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/30">
+                    <p className="text-[10px] font-bold text-red-600 uppercase mb-1">فشلت</p>
+                    <p className="text-2xl font-black text-red-700 dark:text-red-400">{syncState.failedCount || 0}</p>
+                  </div>
+                </div>
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex justify-between items-center">
+                  <span className="text-sm text-slate-500">آخر مزامنة ناجحة</span>
+                  <span className="text-sm font-bold">
+                    {syncState.lastSync > 0 ? new Date(syncState.lastSync).toLocaleTimeString('ar-SA') : 'لم تتم بعد'}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="border-0 shadow-sm bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-slate-100 dark:border-slate-800">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Activity className="w-5 h-5 text-blue-500" />
+                سجل النشاط الفوري
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {[
-                  { label: "سجلات المزامنة", icon: RefreshCw },
-                  { label: "تحليل الذاكرة", icon: Cpu },
-                  { label: "سلامة الهيكل", icon: ShieldCheck }
-                ].map((item, i) => (
-                  <Button key={i} variant="outline" className="h-24 flex flex-col gap-3 rounded-2xl border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all group">
-                    <item.icon className="w-6 h-6 text-slate-400 group-hover:text-blue-500" />
-                    <span className="font-bold">{item.label}</span>
-                  </Button>
+                  { event: "اتصال بقاعدة البيانات", time: "الآن", status: "success", icon: Database },
+                  { event: "فحص تكامل الهيكل", time: "منذ دقيقة", status: "success", icon: ShieldCheck },
+                  { event: "تحديث مخزن المستخدمين", time: "منذ 5 دقائق", status: "info", icon: RefreshCw },
+                ].map((log, i) => (
+                  <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                        <log.icon className="w-4 h-4 text-slate-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold">{log.event}</p>
+                        <p className="text-[10px] text-slate-400">{log.time}</p>
+                      </div>
+                    </div>
+                    <Badge variant={log.status === 'success' ? 'default' : 'secondary'} className={log.status === 'success' ? 'bg-emerald-500' : ''}>
+                      {log.status === 'success' ? 'آمن' : 'معلومة'}
+                    </Badge>
+                  </div>
                 ))}
               </div>
-           </Card>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

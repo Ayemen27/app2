@@ -21,6 +21,12 @@ export interface SyncState {
   isOnline: boolean;
   syncedCount?: number;
   failedCount?: number;
+  progress?: {
+    total: number;
+    current: number;
+    tableName: string;
+    percentage: number;
+  };
 }
 
 let currentSyncState: SyncState = {
@@ -75,9 +81,22 @@ export async function performInitialDataPull(): Promise<boolean> {
 
     const { data } = result;
     const db = await getDB();
+    const tableEntries = Object.entries(data);
+    const totalTables = tableEntries.length;
+    let processedTables = 0;
+    let totalSaved = 0;
 
     // 1. مزامنة المستخدمين أولاً لضمان عمل Auth
     if (data.users && Array.isArray(data.users)) {
+      processedTables++;
+      updateSyncState({ 
+        progress: { 
+          total: totalTables, 
+          current: processedTables, 
+          tableName: 'users',
+          percentage: Math.round((processedTables / totalTables) * 100)
+        } 
+      });
       await smartSave('users', data.users);
       console.log(`✅ [Sync] تم مزامنة ${data.users.length} مستخدم لضمان الدخول Offline`);
       
@@ -90,13 +109,21 @@ export async function performInitialDataPull(): Promise<boolean> {
         role: u.role || 'user',
         createdAt: u.createdAt
       }));
-      let totalSaved = 0;
       await smartSave('emergencyUsers', emergencyData);
     }
 
     // 2. مزامنة بقية الجداول
-    for (const [tableName, records] of Object.entries(data)) {
+    for (const [tableName, records] of tableEntries) {
       if (tableName !== 'users' && Array.isArray(records)) {
+        processedTables++;
+        updateSyncState({ 
+          progress: { 
+            total: totalTables, 
+            current: processedTables, 
+            tableName,
+            percentage: Math.round((processedTables / totalTables) * 100)
+          } 
+        });
         await smartSave(tableName, records);
         console.log(`✅ [Sync] تم مزامنة ${records.length} سجل في ${tableName}`);
         totalSaved += records.length;
@@ -111,7 +138,7 @@ export async function performInitialDataPull(): Promise<boolean> {
     });
 
     console.log('🎉 [Sync] اكتملت المزامنة الأولية بنجاح!');
-    updateSyncState({ isSyncing: false, lastSync: Date.now() });
+    updateSyncState({ isSyncing: false, lastSync: Date.now(), progress: undefined });
     return true;
   } catch (error) {
     console.error('❌ [Sync] خطأ في المزامنة الأولية:', error);

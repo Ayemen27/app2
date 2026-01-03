@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { getDB } from "@/offline/db";
+import { Capacitor } from '@capacitor/core';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";

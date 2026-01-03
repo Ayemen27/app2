@@ -57,9 +57,25 @@ export default function DatabaseManager() {
           await nativeStorage.initialize();
           
           const ALL_STORES = [
-            'users', 'projects', 'workers', 'wells', 'materialPurchases',
-            'fundTransfers', 'workerAttendance', 'suppliers', 'materials',
-            'materialPurchases', 'supplierPayments', 'transportationExpenses'
+            'users', 'authUserSessions', 'emailVerificationTokens', 'passwordResetTokens',
+            'projectTypes', 'projects', 'workers', 'wells', 'fundTransfers',
+            'workerAttendance', 'suppliers', 'materials', 'materialPurchases',
+            'supplierPayments', 'transportationExpenses', 'workerTransfers',
+            'workerBalances', 'dailyExpenseSummaries', 'workerTypes', 'autocompleteData',
+            'workerMiscExpenses', 'printSettings', 'projectFundTransfers',
+            'securityPolicies', 'securityPolicyImplementations',
+            'securityPolicySuggestions', 'securityPolicyViolations',
+            'permissionAuditLogs', 'userProjectPermissions', 'materialCategories',
+            'toolCategories', 'tools', 'toolMovements', 'toolStock', 'toolReservations',
+            'toolPurchaseItems', 'toolCostTracking', 'toolMaintenanceLogs',
+            'toolUsageAnalytics', 'toolNotifications', 'maintenanceSchedules',
+            'maintenanceTasks', 'wellTasks', 'wellExpenses', 'wellAuditLogs',
+            'wellTaskAccounts', 'messages', 'channels', 'notifications',
+            'notificationReadStates', 'systemNotifications', 'systemEvents', 'actions',
+            'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
+            'approvals', 'transactions', 'transactionLines', 'journals', 'accounts',
+            'accountBalances', 'financePayments', 'financeEvents', 'reportTemplates',
+            'emergencyUsers'
           ];
           
           tableData = await Promise.all(

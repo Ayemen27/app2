@@ -90,6 +90,7 @@ export async function performInitialDataPull(): Promise<boolean> {
         role: u.role || 'user',
         createdAt: u.createdAt
       }));
+      let totalSaved = 0;
       await smartSave('emergencyUsers', emergencyData);
     }
 
@@ -98,6 +99,7 @@ export async function performInitialDataPull(): Promise<boolean> {
       if (tableName !== 'users' && Array.isArray(records)) {
         await smartSave(tableName, records);
         console.log(`✅ [Sync] تم مزامنة ${records.length} سجل في ${tableName}`);
+        totalSaved += records.length;
       }
     }
 
@@ -105,7 +107,7 @@ export async function performInitialDataPull(): Promise<boolean> {
       key: 'lastSync',
       timestamp: Date.now(),
       version: '3.0',
-      recordCount: result.recordCount || 0
+      recordCount: totalSaved
     });
 
     console.log('🎉 [Sync] اكتملت المزامنة الأولية بنجاح!');
@@ -242,18 +244,19 @@ export async function loadFullBackup(): Promise<{ recordCount: number }> {
     console.log('📥 [Sync] جاري تحميل نسخة احتياطية كاملة من الخادم...');
     const result = await apiRequest('/api/sync/full-backup', 'GET');
     
-    if (!result.success) {
+    if (!result || !result.success || !result.data) {
       throw new Error('Backup failed on server');
     }
     
-    const { data, recordCount } = result;
+    const { data } = result;
     const db = await getDB();
     
     let totalSaved = 0;
     for (const [tableName, records] of Object.entries(data)) {
-      if (tableName !== 'users' && Array.isArray(records)) {
+      if (Array.isArray(records)) {
         await smartSave(tableName, records);
         console.log(`✅ [Sync] تم مزامنة ${records.length} سجل في ${tableName}`);
+        totalSaved += records.length;
       }
     }
     

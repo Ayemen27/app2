@@ -15,7 +15,7 @@ class SQLiteStorage {
   async initialize() {
     if (this.db) return; // منع التهيئة المتكررة
     if (Capacitor.getPlatform() === 'web') {
-      console.warn('⚠️ SQLite is not supported on web, falling back to mock or IndexedDB');
+      // تقليل الضجيج في السجلات عند تشغيل الويب
       return;
     }
 

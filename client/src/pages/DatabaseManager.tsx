@@ -45,7 +45,11 @@ export default function DatabaseManager() {
   const loadDatabaseInfo = async () => {
     setLoading(true);
     try {
+      // التحقق من المنصة أولاً لتجنب محاولة فتح IndexedDB إذا كنا نتوقع SQLite (أو العكس)
+      // لكن بما أن getDB() ترجع IndexedDB دائماً في هذا السياق، سنحاول جلبها
       const db = await getDB();
+      if (!db) throw new Error("Database instance not available");
+
       const storeNames = Array.from(db.objectStoreNames);
       
       const tableData = await Promise.all(

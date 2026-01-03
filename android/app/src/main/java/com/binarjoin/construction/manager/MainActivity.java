@@ -25,9 +25,29 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void checkAndRequestPermissions() {
-        List<String> permissionsNeeded = new ArrayList<>();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            List<String> permissionsNeeded = new ArrayList<>();
 
-        // 1. Handle MANAGE_EXTERNAL_STORAGE for Android 11+ (API 30+)
+            // Modern Android (13+) Media Permissions
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                addPermission(permissionsNeeded, Manifest.permission.READ_MEDIA_IMAGES);
+                addPermission(permissionsNeeded, Manifest.permission.READ_MEDIA_VIDEO);
+                addPermission(permissionsNeeded, Manifest.permission.READ_MEDIA_AUDIO);
+                addPermission(permissionsNeeded, Manifest.permission.POST_NOTIFICATIONS);
+            } else {
+                // Legacy Storage Permissions
+                addPermission(permissionsNeeded, Manifest.permission.READ_EXTERNAL_STORAGE);
+                addPermission(permissionsNeeded, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            }
+
+            if (!permissionsNeeded.isEmpty()) {
+                ActivityCompat.requestPermissions(this, 
+                    permissionsNeeded.toArray(new String[0]), 
+                    PERMISSION_REQUEST_CODE);
+            }
+        }
+
+        // Special handling for All Files Access (Android 11+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
                 try {
@@ -40,27 +60,6 @@ public class MainActivity extends BridgeActivity {
                     intent.setAction(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
                     startActivityForResult(intent, MANAGE_EXTERNAL_STORAGE_REQUEST_CODE);
                 }
-            }
-        }
-
-        // 2. Standard permissions request
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // Android 13+
-                addPermission(permissionsNeeded, Manifest.permission.READ_MEDIA_IMAGES);
-                addPermission(permissionsNeeded, Manifest.permission.READ_MEDIA_VIDEO);
-                addPermission(permissionsNeeded, Manifest.permission.READ_MEDIA_AUDIO);
-                addPermission(permissionsNeeded, Manifest.permission.POST_NOTIFICATIONS);
-            } else {
-                // Android 6.0 - 12
-                addPermission(permissionsNeeded, Manifest.permission.READ_EXTERNAL_STORAGE);
-                addPermission(permissionsNeeded, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-            }
-
-            if (!permissionsNeeded.isEmpty()) {
-                ActivityCompat.requestPermissions(this, 
-                    permissionsNeeded.toArray(new String[0]), 
-                    PERMISSION_REQUEST_CODE);
             }
         }
     }

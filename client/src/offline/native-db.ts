@@ -22,43 +22,32 @@ class SQLiteStorage {
     }
 
     try {
-      // محاولة طلب الصلاحيات على أجهزة الهاتف
-      if (platform === 'android' || platform === 'ios') {
-        console.log('📱 Requesting SQLite Permissions...');
-        try {
-          // @ts-ignore
-          const permission = await this.sqlite.requestPermissions();
-          console.log('🛡️ Permission result:', permission);
-        } catch (permErr) {
-          console.warn('⚠️ Permission request failed or already granted:', permErr);
-        }
-      }
-
-      // Force creation of directory if it doesn't exist (internal to the plugin usually)
-      // On Android, the database is stored in /data/user/0/com.binarjoin.construction.manager/databases/
-      
+      // محاولة فتح قاعدة البيانات
       const ret = await this.sqlite.checkConnectionsConsistency();
       const isConn = (await this.sqlite.isConnection(this.dbName, false)).result;
 
       if (ret.result && isConn) {
         this.db = await this.sqlite.retrieveConnection(this.dbName, false);
-        console.log('✅ SQLite Connection retrieved');
       } else {
+        // إنشاء اتصال جديد مع تعطيل التشفير وضمان القراءة/الكتابة
         this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
-        console.log('✅ SQLite Connection created');
       }
 
       await this.db.open();
       const isDbOpen = await this.db.isDBOpen();
-      if (!isDbOpen.result) throw new Error("Database connection failed to open");
+      if (!isDbOpen.result) {
+        // محاولة ثانية لفتح القاعدة إذا فشلت الأولى
+        await this.db.open();
+      }
+      
       await this.createTables();
       console.log('✅ Native SQLite initialized and tables checked');
     } catch (err) {
       console.error('❌ SQLite Init Error:', err);
-      // Fallback: If SQLite fails on Android, we should not just leave this.db null
-      // because the app expects a working storage. 
+      // في وضع الأندرويد، لا نتراجع لـ IndexedDB إلا في حالة اليأس المطلق
+      // لكن هنا نترك الخطأ ليظهر للمستخدم ليعرف أن هناك مشكلة في SQLite الحقيقي
       this.db = null;
-      throw err; // Re-throw to be caught by DatabaseManager
+      throw err;
     }
   }
 

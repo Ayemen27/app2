@@ -47,61 +47,53 @@ export default function DatabaseManager() {
     try {
       const platform = Capacitor.getPlatform();
       
-      // محاولة طلب الصلاحيات يدوياً عند ضغط زر التحديث إذا كنا على الهاتف
-      if (platform === 'android' || platform === 'ios') {
-        try {
-          const { nativeStorage } = await import("@/offline/native-db");
-          await nativeStorage.initialize();
-        } catch (e) {
-          console.error("Manual permission request failed:", e);
-          // Don't throw here, let it try to access the DB anyway
-        }
-      }
-
-      // التحقق من المنصة أولاً لتجنب محاولة فتح IndexedDB إذا كنا نتوقع SQLite (أو العكس)
+      // التحقق من المنصة
       let tableData: TableInfo[] = [];
       
-      try {
+      if (platform !== 'web') {
+        try {
+          // إجبار النظام على استخدام SQLite الحقيقي للأندرويد
+          const { nativeStorage } = await import("@/offline/native-db");
+          await nativeStorage.initialize();
+          
+          const ALL_STORES = [
+            'users', 'projects', 'workers', 'wells', 'materialPurchases',
+            'fundTransfers', 'workerAttendance', 'suppliers', 'materials',
+            'materialPurchases', 'supplierPayments', 'transportationExpenses'
+          ];
+          
+          tableData = await Promise.all(
+            ALL_STORES.map(async (name) => {
+              const records = await nativeStorage.getAll(name);
+              return {
+                name,
+                count: records.length,
+                columns: records[0] ? Object.keys(records[0]) : [],
+                lastUpdate: new Date().toLocaleTimeString('ar-SA')
+              };
+            })
+          );
+        } catch (sqliteErr) {
+          console.error("Critical SQLite failure on Android:", sqliteErr);
+          throw new Error("فشل الوصول إلى قاعدة بيانات SQLite الحقيقية. تأكد من منح صلاحية 'الوصول لجميع الملفات'.");
+        }
+      } else {
+        // الويب يستخدم IndexedDB
         const db = await getDB();
         const storeNames = Array.from(db.objectStoreNames);
-        
         tableData = await Promise.all(
           storeNames.map(async (name) => {
             const tx = db.transaction(name as any, 'readonly');
             const count = await tx.store.count();
             const firstRecord = await tx.store.get(await tx.store.getAllKeys().then(keys => keys[0]));
-            const columns = firstRecord ? Object.keys(firstRecord) : [];
             return { 
               name, 
               count, 
-              columns,
+              columns: firstRecord ? Object.keys(firstRecord) : [],
               lastUpdate: new Date().toLocaleTimeString('ar-SA')
             };
           })
         );
-      } catch (idbError) {
-        console.warn("IndexedDB access failed, trying SQLite fallback for display:", idbError);
-        // If IndexedDB fails, and we are on mobile, we might want to show SQLite info
-        if (platform !== 'web') {
-           const { nativeStorage } = await import("@/offline/native-db");
-           const ALL_STORES = [
-             'users', 'projects', 'workers', 'wells', 'materialPurchases'
-             // ... subset for display
-           ];
-           tableData = await Promise.all(
-             ALL_STORES.slice(0, 10).map(async (name) => {
-               const records = await nativeStorage.getAll(name);
-               return {
-                 name,
-                 count: records.length,
-                 columns: records[0] ? Object.keys(records[0]) : [],
-                 lastUpdate: new Date().toLocaleTimeString('ar-SA')
-               };
-             })
-           );
-        } else {
-          throw idbError;
-        }
       }
       
       setTables(tableData.sort((a, b) => b.count - a.count));

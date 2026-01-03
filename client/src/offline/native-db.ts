@@ -9,7 +9,7 @@ class SQLiteStorage {
   constructor() {
     this.sqlite = new SQLiteConnection(CapacitorSQLite);
     // بدء التهيئة تلقائياً عند الإنشاء لضمان الجاهزية المبكرة
-    setTimeout(() => this.initialize().catch(err => console.error("🔴 SQLite Auto-Init Failed:", err)), 500)(err => console.error('🔴 SQLite Auto-Init Failed:', err));
+    this.initialize().catch(err => console.error("🔴 SQLite Auto-Init Failed:", err));
   }
 
   async initialize() {

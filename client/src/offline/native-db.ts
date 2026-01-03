@@ -25,11 +25,18 @@ class SQLiteStorage {
       // محاولة طلب الصلاحيات على أجهزة الهاتف
       if (platform === 'android' || platform === 'ios') {
         console.log('📱 Requesting SQLite Permissions...');
-        // @ts-ignore
-        const permission = await this.sqlite.requestPermissions();
-        console.log('🛡️ Permission result:', permission);
+        try {
+          // @ts-ignore
+          const permission = await this.sqlite.requestPermissions();
+          console.log('🛡️ Permission result:', permission);
+        } catch (permErr) {
+          console.warn('⚠️ Permission request failed or already granted:', permErr);
+        }
       }
 
+      // Force creation of directory if it doesn't exist (internal to the plugin usually)
+      // On Android, the database is stored in /data/user/0/com.binarjoin.construction.manager/databases/
+      
       const ret = await this.sqlite.checkConnectionsConsistency();
       const isConn = (await this.sqlite.isConnection(this.dbName, false)).result;
 
@@ -37,17 +44,6 @@ class SQLiteStorage {
         this.db = await this.sqlite.retrieveConnection(this.dbName, false);
         console.log('✅ SQLite Connection retrieved');
       } else {
-        // التحقق من وجود قاعدة بيانات مسبقة التجهيز في assets
-        try {
-          // @ts-ignore
-          if (typeof this.sqlite.importPrebuiltDatabase === 'function') {
-            // @ts-ignore
-            await this.sqlite.importPrebuiltDatabase(this.dbName, false);
-            console.log('📦 Prebuilt database imported successfully');
-          }
-        } catch (importErr) {
-          console.warn('⚠️ No prebuilt database found or import failed, creating new one', importErr);
-        }
         this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
         console.log('✅ SQLite Connection created');
       }
@@ -59,8 +55,10 @@ class SQLiteStorage {
       console.log('✅ Native SQLite initialized and tables checked');
     } catch (err) {
       console.error('❌ SQLite Init Error:', err);
-      // محاولة إعادة التهيئة في حالة الفشل لمرة واحدة
+      // Fallback: If SQLite fails on Android, we should not just leave this.db null
+      // because the app expects a working storage. 
       this.db = null;
+      throw err; // Re-throw to be caught by DatabaseManager
     }
   }
 

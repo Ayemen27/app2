@@ -54,30 +54,55 @@ export default function DatabaseManager() {
           await nativeStorage.initialize();
         } catch (e) {
           console.error("Manual permission request failed:", e);
+          // Don't throw here, let it try to access the DB anyway
         }
       }
 
       // التحقق من المنصة أولاً لتجنب محاولة فتح IndexedDB إذا كنا نتوقع SQLite (أو العكس)
-      // لكن بما أن getDB() ترجع IndexedDB دائماً في هذا السياق، سنحاول جلبها
-      const db = await getDB();
-      if (!db) throw new Error("Database instance not available");
-
-      const storeNames = Array.from(db.objectStoreNames);
+      let tableData: TableInfo[] = [];
       
-      const tableData = await Promise.all(
-        storeNames.map(async (name) => {
-          const tx = db.transaction(name as any, 'readonly');
-          const count = await tx.store.count();
-          const firstRecord = await tx.store.get(await tx.store.getAllKeys().then(keys => keys[0]));
-          const columns = firstRecord ? Object.keys(firstRecord) : [];
-          return { 
-            name, 
-            count, 
-            columns,
-            lastUpdate: new Date().toLocaleTimeString('ar-SA')
-          };
-        })
-      );
+      try {
+        const db = await getDB();
+        const storeNames = Array.from(db.objectStoreNames);
+        
+        tableData = await Promise.all(
+          storeNames.map(async (name) => {
+            const tx = db.transaction(name as any, 'readonly');
+            const count = await tx.store.count();
+            const firstRecord = await tx.store.get(await tx.store.getAllKeys().then(keys => keys[0]));
+            const columns = firstRecord ? Object.keys(firstRecord) : [];
+            return { 
+              name, 
+              count, 
+              columns,
+              lastUpdate: new Date().toLocaleTimeString('ar-SA')
+            };
+          })
+        );
+      } catch (idbError) {
+        console.warn("IndexedDB access failed, trying SQLite fallback for display:", idbError);
+        // If IndexedDB fails, and we are on mobile, we might want to show SQLite info
+        if (platform !== 'web') {
+           const { nativeStorage } = await import("@/offline/native-db");
+           const ALL_STORES = [
+             'users', 'projects', 'workers', 'wells', 'materialPurchases'
+             // ... subset for display
+           ];
+           tableData = await Promise.all(
+             ALL_STORES.slice(0, 10).map(async (name) => {
+               const records = await nativeStorage.getAll(name);
+               return {
+                 name,
+                 count: records.length,
+                 columns: records[0] ? Object.keys(records[0]) : [],
+                 lastUpdate: new Date().toLocaleTimeString('ar-SA')
+               };
+             })
+           );
+        } else {
+          throw idbError;
+        }
+      }
       
       setTables(tableData.sort((a, b) => b.count - a.count));
       toast({

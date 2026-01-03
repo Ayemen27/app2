@@ -27,6 +27,7 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { subscribeSyncState, performInitialDataPull, getSyncState } from "@/offline/sync";
 
 interface TableInfo {
   name: string;
@@ -40,7 +41,44 @@ export default function DatabaseManager() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
+  const [syncState, setSyncState] = useState(getSyncState());
   const { toast } = useToast();
+
+  useEffect(() => {
+    return subscribeSyncState(setSyncState);
+  }, []);
+
+  const handleSync = async () => {
+    if (syncState.isSyncing) return;
+    
+    try {
+      setLoading(true);
+      toast({
+        title: "بدء المزامنة",
+        description: "جاري سحب البيانات من السيرفر وتحديث SQLite...",
+      });
+      
+      const success = await performInitialDataPull();
+      
+      if (success) {
+        await loadDatabaseInfo();
+        toast({
+          title: "اكتملت المزامنة",
+          description: "تم تحديث كافة الجداول والبيانات بنجاح.",
+        });
+      } else {
+        throw new Error("فشل سحب البيانات");
+      }
+    } catch (error) {
+      toast({
+        title: "خطأ في المزامنة",
+        description: "تعذر إكمال عملية استيراد البيانات.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadDatabaseInfo = async () => {
     setLoading(true);
@@ -209,6 +247,45 @@ export default function DatabaseManager() {
         </div>
 
         <TabsContent value="overview" className="space-y-6 outline-none">
+          {syncState.isSyncing && syncState.progress && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border-b-4 border-blue-500">
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <RefreshCw className="w-5 h-5 text-blue-500 animate-spin" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg leading-tight">جاري استيراد البيانات...</h3>
+                        <p className="text-xs text-slate-500">لا تغلق التطبيق حتى انتهاء العملية</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-3xl font-black text-blue-600 tracking-tighter">{syncState.progress.percentage}%</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Progress value={syncState.progress.percentage} className="h-3 rounded-full bg-slate-100 dark:bg-slate-800" />
+                    <div className="flex justify-between items-center px-1">
+                      <p className="text-xs font-bold text-slate-500">
+                        جاري معالجة: <span className="text-blue-500">{syncState.progress.tableName}</span>
+                      </p>
+                      <p className="text-[10px] font-medium text-slate-400">
+                        {syncState.progress.current} من {syncState.progress.total} جدول
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column: Stats & System Info */}
             <div className="space-y-6">
@@ -247,8 +324,13 @@ export default function DatabaseManager() {
                   <p className="text-sm text-blue-100 leading-relaxed">
                     يتم استهلاك البيانات من REST API ومرآتها محلياً لتوفير تجربة Offline-First لا مثيل لها.
                   </p>
-                  <Button variant="secondary" className="w-full bg-white text-blue-700 hover:bg-blue-50 rounded-xl font-bold h-11" onClick={loadDatabaseInfo}>
-                    مزامنة فورية
+                  <Button 
+                    variant="secondary" 
+                    className="w-full bg-white text-blue-700 hover:bg-blue-50 rounded-xl font-bold h-11" 
+                    onClick={handleSync}
+                    disabled={syncState.isSyncing || loading}
+                  >
+                    {syncState.isSyncing ? "جاري المزامنة..." : "مزامنة فورية"}
                   </Button>
                 </CardContent>
               </Card>

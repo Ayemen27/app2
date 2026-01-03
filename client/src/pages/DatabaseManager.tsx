@@ -45,6 +45,14 @@ export default function DatabaseManager() {
   const loadDatabaseInfo = async () => {
     setLoading(true);
     try {
+      const platform = Capacitor.getPlatform();
+      
+      // محاولة طلب الصلاحيات يدوياً عند ضغط زر التحديث إذا كنا على الهاتف
+      if (platform === 'android' || platform === 'ios') {
+        const { nativeStorage } = await import("@/offline/native-db");
+        await nativeStorage.initialize();
+      }
+
       // التحقق من المنصة أولاً لتجنب محاولة فتح IndexedDB إذا كنا نتوقع SQLite (أو العكس)
       // لكن بما أن getDB() ترجع IndexedDB دائماً في هذا السياق، سنحاول جلبها
       const db = await getDB();

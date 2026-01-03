@@ -14,12 +14,22 @@ class SQLiteStorage {
 
   async initialize() {
     if (this.db) return; // منع التهيئة المتكررة
-    if (Capacitor.getPlatform() === 'web') {
+    const platform = Capacitor.getPlatform();
+    
+    if (platform === 'web') {
       // تقليل الضجيج في السجلات عند تشغيل الويب
       return;
     }
 
     try {
+      // محاولة طلب الصلاحيات على أجهزة الهاتف
+      if (platform === 'android' || platform === 'ios') {
+        console.log('📱 Requesting SQLite Permissions...');
+        // @ts-ignore
+        const permission = await this.sqlite.requestPermissions();
+        console.log('🛡️ Permission result:', permission);
+      }
+
       const ret = await this.sqlite.checkConnectionsConsistency();
       const isConn = (await this.sqlite.isConnection(this.dbName, false)).result;
 

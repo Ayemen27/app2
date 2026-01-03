@@ -7,6 +7,8 @@ import android.os.Bundle;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends BridgeActivity {
     private static final int PERMISSION_REQUEST_CODE = 123;
@@ -19,34 +21,34 @@ public class MainActivity extends BridgeActivity {
 
     private void checkAndRequestPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            String[] permissions;
+            List<String> permissionsNeeded = new ArrayList<>();
+
+            // Internet is usually normal permission, but included for completeness
+            addPermission(permissionsNeeded, Manifest.permission.INTERNET);
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // For Android 13+, these are more specific, but for basic storage:
-                permissions = new String[]{
-                    Manifest.permission.INTERNET,
-                    Manifest.permission.READ_MEDIA_IMAGES,
-                    Manifest.permission.READ_MEDIA_VIDEO,
-                    Manifest.permission.READ_MEDIA_AUDIO
-                };
+                // Android 13+ (API 33+)
+                addPermission(permissionsNeeded, Manifest.permission.READ_MEDIA_IMAGES);
+                addPermission(permissionsNeeded, Manifest.permission.READ_MEDIA_VIDEO);
+                addPermission(permissionsNeeded, Manifest.permission.READ_MEDIA_AUDIO);
+                addPermission(permissionsNeeded, Manifest.permission.POST_NOTIFICATIONS);
             } else {
-                permissions = new String[]{
-                    Manifest.permission.INTERNET,
-                    Manifest.permission.READ_EXTERNAL_STORAGE,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE
-                };
+                // Android 6.0 to 12 (API 23 to 32)
+                addPermission(permissionsNeeded, Manifest.permission.READ_EXTERNAL_STORAGE);
+                addPermission(permissionsNeeded, Manifest.permission.WRITE_EXTERNAL_STORAGE);
             }
 
-            boolean allGranted = true;
-            for (String permission : permissions) {
-                if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                    allGranted = false;
-                    break;
-                }
+            if (!permissionsNeeded.isEmpty()) {
+                ActivityCompat.requestPermissions(this, 
+                    permissionsNeeded.toArray(new String[0]), 
+                    PERMISSION_REQUEST_CODE);
             }
+        }
+    }
 
-            if (!allGranted) {
-                ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE);
-            }
+    private void addPermission(List<String> permissionsList, String permission) {
+        if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+            permissionsList.add(permission);
         }
     }
 }

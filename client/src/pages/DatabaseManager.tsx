@@ -49,8 +49,12 @@ export default function DatabaseManager() {
       
       // محاولة طلب الصلاحيات يدوياً عند ضغط زر التحديث إذا كنا على الهاتف
       if (platform === 'android' || platform === 'ios') {
-        const { nativeStorage } = await import("@/offline/native-db");
-        await nativeStorage.initialize();
+        try {
+          const { nativeStorage } = await import("@/offline/native-db");
+          await nativeStorage.initialize();
+        } catch (e) {
+          console.error("Manual permission request failed:", e);
+        }
       }
 
       // التحقق من المنصة أولاً لتجنب محاولة فتح IndexedDB إذا كنا نتوقع SQLite (أو العكس)

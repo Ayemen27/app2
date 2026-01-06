@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { 
   Truck, Save, Plus, Edit, Trash2, 
-  DollarSign, TrendingUp, RefreshCw, ChevronUp 
+  DollarSign, TrendingUp, RefreshCw, ChevronUp,
+  FileSpreadsheet, Filter, XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,10 +20,11 @@ import { WellSelector } from "@/components/well-selector";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
-import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { TransportationExpense, Worker } from "@shared/schema";
+import * as XLSX from 'xlsx';
 
 export default function TransportManagement() {
   const [, setLocation] = useLocation();
@@ -35,6 +37,7 @@ export default function TransportManagement() {
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Form states
   const [workerId, setWorkerId] = useState<string>("");
@@ -74,7 +77,7 @@ export default function TransportManagement() {
     queryKey: ["/api/workers"],
   });
 
-  const { data: expenses = [], isLoading } = useQuery<TransportationExpense[]>({
+  const { data: expenses = [], isLoading, refetch } = useQuery<TransportationExpense[]>({
     queryKey: ["/api/projects", selectedProjectId, "transportation", filterValues.specificDate, filterValues.dateRange],
     queryFn: async () => {
       let url = `/api/projects/${getProjectIdForApi()}/transportation`;
@@ -96,6 +99,44 @@ export default function TransportManagement() {
     },
     enabled: !!selectedProjectId || isAllProjects
   });
+
+  const handleExportToExcel = () => {
+    try {
+      const dataToExport = expenses.map(expense => ({
+        "التاريخ": expense.date,
+        "البيان": expense.description,
+        "المبلغ": Number(expense.amount),
+        "العامل": workers.find(w => w.id === expense.workerId)?.name || "مصروف عام",
+        "رقم البئر": expense.wellId || "N/A",
+        "ملاحظات": expense.notes || ""
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Transportation");
+      XLSX.writeFile(wb, `Transportation_Report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      
+      toast({ title: "تم التصدير بنجاح", description: "تم تحميل ملف إكسل بنجاح" });
+    } catch (error) {
+      toast({ title: "خطأ في التصدير", variant: "destructive" });
+    }
+  };
+
+  const handleReset = () => {
+    setSearchValue("");
+    setFilterValues({
+      dateRange: undefined,
+      specificDate: getCurrentDate()
+    });
+    toast({ title: "تمت إعادة التعيين", description: "تم مسح جميع الفلاتر" });
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+    toast({ title: "تم التحديث", description: "تم تحديث البيانات بنجاح" });
+  };
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -155,43 +196,59 @@ export default function TransportManagement() {
     setIsDialogOpen(true);
   };
 
-  const statsConfig: StatsRowConfig[] = [
+  const statsConfigs: StatsRowConfig[] = [
     {
-      id: "total",
-      label: "إجمالي النقل",
-      value: expenses.reduce((sum, e) => sum + Number(e.amount), 0),
-      icon: DollarSign,
-      variant: "primary",
-      isCurrency: true
-    },
-    {
-      id: "count",
-      label: "عدد الرحلات",
-      value: expenses.length,
-      icon: Truck,
-      variant: "secondary"
-    },
-    {
-      id: "average",
-      label: "متوسط الرحلة",
-      value: expenses.length > 0 ? expenses.reduce((sum, e) => sum + Number(e.amount), 0) / expenses.length : 0,
-      icon: TrendingUp,
-      variant: "accent",
-      isCurrency: true
+      items: [
+        {
+          key: "total",
+          label: "إجمالي النقل",
+          value: expenses.reduce((sum, e) => sum + Number(e.amount), 0),
+          icon: DollarSign,
+          color: "blue",
+          formatter: (v) => formatCurrency(v)
+        },
+        {
+          key: "count",
+          label: "عدد الرحلات",
+          value: expenses.length,
+          icon: Truck,
+          color: "green"
+        },
+        {
+          key: "average",
+          label: "متوسط الرحلة",
+          value: expenses.length > 0 ? expenses.reduce((sum, e) => sum + Number(e.amount), 0) / expenses.length : 0,
+          icon: TrendingUp,
+          color: "orange",
+          formatter: (v) => formatCurrency(v)
+        }
+      ],
+      columns: 3
     }
   ];
 
-  const filterConfig: FilterConfig[] = [
+  const filters: FilterConfig[] = [
     {
-      id: "specificDate",
+      key: "specificDate",
       type: "date",
       label: "تاريخ محدد",
       placeholder: "اختر التاريخ"
     },
     {
-      id: "dateRange",
-      type: "dateRange",
+      key: "dateRange",
+      type: "date-range",
       label: "فترة زمنية"
+    }
+  ];
+
+  const actions: ActionButton[] = [
+    {
+      key: "export",
+      icon: FileSpreadsheet,
+      label: "تصدير إكسل",
+      onClick: handleExportToExcel,
+      variant: "outline",
+      tooltip: "تحميل التقرير بصيغة إكسل"
     }
   ];
 
@@ -281,14 +338,17 @@ export default function TransportManagement() {
           </Dialog>
 
           <UnifiedFilterDashboard
-            statsConfigs={statsConfig}
-            filterConfigs={filterConfig}
+            statsRows={statsConfigs}
+            filters={filters}
             filterValues={filterValues}
-            onFilterChange={(id, val) => setFilterValues(prev => ({ ...prev, [id]: val }))}
+            onFilterChange={(key, val) => setFilterValues(prev => ({ ...prev, [key]: val }))}
             onSearchChange={setSearchValue}
             searchValue={searchValue}
-            title="إدارة النقل"
-            statsGridCols={3}
+            onReset={handleReset}
+            onRefresh={handleRefresh}
+            isRefreshing={isRefreshing}
+            actions={actions}
+            searchPlaceholder="بحث في سجلات النقل..."
           />
 
           {isLoading ? (

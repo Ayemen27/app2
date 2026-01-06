@@ -315,7 +315,6 @@ export default function TransportManagement() {
             title="ملخص حركة النقل"
             stats={statsData}
             columns={3}
-            className="grid grid-cols-1 md:grid-cols-3 gap-4"
           />
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -412,7 +411,6 @@ export default function TransportManagement() {
                           if (worker) setWorkerId(worker.id);
                         }}
                         placeholder="اختر العامل..."
-                        className="h-9 text-xs"
                       />
                     </div>
                     <div className="space-y-1">
@@ -424,7 +422,6 @@ export default function TransportManagement() {
                         value={selectedWellId} 
                         onChange={setSelectedWellId}
                         showLabel={false}
-                        className="h-9 text-xs"
                       />
                     </div>
                   </div>

@@ -183,15 +183,7 @@ function DailyExpensesContent() {
 
   // تعيين إجراء الزر العائم لحفظ المصاريف
   useEffect(() => {
-    const handleSaveExpenses = () => {
-      // محاكاة كليك زر الحفظ
-      const saveButton = document.querySelector('[type="submit"]') as HTMLButtonElement;
-      if (saveButton) {
-        saveButton.click();
-      }
-    };
-
-    setFloatingAction(handleSaveExpenses, "حفظ المصاريف");
+    setFloatingAction(null);
     return () => setFloatingAction(null);
   }, [setFloatingAction]);
 

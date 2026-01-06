@@ -234,6 +234,23 @@ export default function TransportManagement() {
     setIsDialogOpen(true);
   };
 
+  const handleFilterChange = useCallback((key: string, value: any) => {
+    if (key === 'specificDate') {
+      if (value instanceof Date) {
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        setFilterValues(prev => ({ ...prev, specificDate: `${year}-${month}-${day}`, dateRange: undefined }));
+      } else {
+        setFilterValues(prev => ({ ...prev, specificDate: undefined }));
+      }
+    } else if (key === 'dateRange') {
+      setFilterValues(prev => ({ ...prev, [key]: value, specificDate: undefined }));
+    } else {
+      setFilterValues(prev => ({ ...prev, [key]: value }));
+    }
+  }, []);
+
   const filters: FilterConfig[] = [
     {
       key: "specificDate",
@@ -245,6 +262,25 @@ export default function TransportManagement() {
       key: "dateRange",
       type: "date-range",
       label: "فترة زمنية"
+    },
+    {
+      key: "category",
+      type: "select",
+      label: "الفئة",
+      placeholder: "جميع الفئات",
+      options: [
+        { value: 'all', label: 'جميع الفئات' },
+        { value: "worker_transport", label: "نقل عمال" },
+        { value: "material_delivery", label: "توريد مواد" },
+        { value: "concrete_transport", label: "نقل خرسانة" },
+        { value: "iron_platforms", label: "نقل حديد ومنصات" },
+        { value: "fuel_shas", label: "بترول شاص" },
+        { value: "fuel_hilux", label: "بترول هيلكس" },
+        { value: "loading_unloading", label: "تحميل وتنزيل" },
+        { value: "maintenance", label: "صيانة وإصلاح" },
+        { value: "water_supply", label: "توريد مياه" },
+        { value: "other", label: "أخرى" }
+      ]
     }
   ];
 
@@ -432,8 +468,14 @@ export default function TransportManagement() {
 
           <UnifiedFilterDashboard
             filters={filters}
-            filterValues={filterValues}
-            onFilterChange={(key, val) => setFilterValues(prev => ({ ...prev, [key]: val }))}
+            filterValues={{
+              ...filterValues,
+              specificDate: filterValues.specificDate ? (() => {
+                const [year, month, day] = filterValues.specificDate.split('-').map(Number);
+                return new Date(year, month - 1, day, 12, 0, 0, 0);
+              })() : undefined
+            }}
+            onFilterChange={handleFilterChange}
             onSearchChange={setSearchValue}
             searchValue={searchValue}
             onReset={handleReset}

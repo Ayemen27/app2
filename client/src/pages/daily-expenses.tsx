@@ -116,6 +116,27 @@ function DailyExpensesContent() {
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
   const [isMiscExpanded, setIsMiscExpanded] = useState(false);
 
+  const { 
+    data: workerMiscExpenses = [], 
+    isLoading: miscLoading 
+  } = useQuery({
+    queryKey: ["/api/worker-misc-expenses", selectedProjectId, selectedDate],
+    queryFn: async () => {
+      if (!selectedProjectId || !selectedDate) return [];
+      const response = await apiRequest(`/api/worker-misc-expenses?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
+      return Array.isArray(response) ? response : (response?.data || []);
+    },
+    enabled: !!selectedProjectId && !!selectedDate
+  });
+
+  useEffect(() => {
+    if (!miscLoading && workerMiscExpenses.length > 0) {
+      setIsMiscExpanded(true);
+    } else {
+      setIsMiscExpanded(false);
+    }
+  }, [workerMiscExpenses.length, miscLoading, selectedDate]);
+
   // Fund transfer form
   const [fundAmount, setFundAmount] = useState<string>("");
   const [senderName, setSenderName] = useState<string>("");
@@ -3201,7 +3222,7 @@ function DailyExpensesContent() {
                           نثريات العمال المضافة اليوم
                         </h4>
                         <div className="flex items-center gap-1">
-                          {safeMiscExpenses.length > 0 && <Badge variant="outline" className="h-5 text-[10px]">{safeMiscExpenses.length}</Badge>}
+                          {workerMiscExpenses.length > 0 && <Badge variant="outline" className="h-5 text-[10px]">{workerMiscExpenses.length}</Badge>}
                           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isMiscExpanded ? 'rotate-180' : ''}`} />
                         </div>
                       </div>

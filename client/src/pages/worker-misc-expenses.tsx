@@ -201,28 +201,8 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
     : 0;
 
   return (
-    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-      <Card className="mb-3">
-        <CollapsibleTrigger asChild>
-          <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-            <div className="flex items-center gap-2">
-              <DollarSign className="text-purple-600 h-5 w-5" />
-              <span className="font-medium text-foreground">نثريات العمال</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {todayMiscExpenses.length > 0 && (
-                <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded">
-                  {todayMiscExpenses.length}
-                </span>
-              )}
-              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform" />
-            </div>
-          </div>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <CardContent className="p-4 pt-0">
-            <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
             <AutocompleteInput
               value={miscDescription}
               onChange={setMiscDescription}
@@ -305,9 +285,5 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
             </div>
           )}
         </div>
-          </CardContent>
-        </CollapsibleContent>
-      </Card>
-    </Collapsible>
   );
 }

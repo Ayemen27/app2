@@ -144,8 +144,8 @@ export function SearchableSelect({
               </div>
             </div>
           )}
-          <ScrollArea style={{ maxHeight: `${maxHeight}px` }}>
-            <div className="p-1">
+          <ScrollArea className="w-full" style={{ maxHeight: `${maxHeight}px` }}>
+            <div className="p-1 min-w-[var(--radix-popover-trigger-width)]">
               {filteredOptions.length === 0 ? (
                 <div>
                   {allowCustom && searchTerm.trim() ? (

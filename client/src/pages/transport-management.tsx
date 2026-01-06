@@ -370,13 +370,6 @@ export default function TransportManagement() {
 
         row.alignment = { vertical: 'middle', horizontal: 'right' };
       });
-          worker: workers.find(w => w.id === expense.workerId)?.name || "مصروف عام",
-          well: expense.wellId || "N/A",
-          notes: expense.notes || ""
-        });
-
-        row.alignment = { vertical: 'middle', horizontal: 'right' };
-      });
 
       worksheet.eachRow((row, rowNumber) => {
         row.border = {

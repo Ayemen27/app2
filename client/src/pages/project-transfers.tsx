@@ -243,10 +243,10 @@ export default function ProjectTransfers() {
   }, [setFloatingAction, form]);
 
   const onSubmit = (data: TransferFormData) => {
-    if (!data.fromProjectId || !data.toProjectId) {
+    if (!data.fromProjectId || !data.toProjectId || data.fromProjectId === "all" || data.toProjectId === "all") {
       toast({
         title: "خطأ",
-        description: "يجب تحديد المشروع المرسل والمشروع المستقبل",
+        description: "يجب تحديد مشروع محدد للتحويل. لا يمكن استخدام 'جميع المشاريع' كطرف في التحويل.",
         variant: "destructive",
       });
       return;

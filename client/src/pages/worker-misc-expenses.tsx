@@ -149,6 +149,15 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   });
 
   const handleAddMiscExpense = async () => {
+    if (!projectId || projectId === "all") {
+      toast({
+        title: "يرجى تحديد مشروع",
+        description: "لا يمكن إضافة نثريات عند اختيار 'جميع المشاريع'. يرجى اختيار مشروع محدد أولاً.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!miscDescription.trim() || !miscAmount) {
       toast({
         title: "بيانات ناقصة",

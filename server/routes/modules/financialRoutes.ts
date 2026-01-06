@@ -179,6 +179,15 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
       });
     }
 
+    if (validationResult.data.projectId === 'all') {
+      return res.status(400).json({
+        success: false,
+        error: 'مشروع غير صالح',
+        message: 'لا يمكن إضافة تحويل عهدة لـ "جميع المشاريع". يرجى اختيار مشروع محدد.',
+        processingTime: Date.now() - startTime
+      });
+    }
+
     console.log('✅ [API] نجح validation تحويل العهدة');
 
     // إدراج تحويل العهدة الجديد في قاعدة البيانات
@@ -552,6 +561,15 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
         message: firstError,
         details: errorMessages,
         processingTime: duration
+      });
+    }
+
+    if (validationResult.data.fromProjectId === 'all' || validationResult.data.toProjectId === 'all') {
+      return res.status(400).json({
+        success: false,
+        error: 'مشروع غير صالح',
+        message: 'لا يمكن استخدام "جميع المشاريع" في تحويلات المشاريع. يرجى اختيار مشاريع محددة.',
+        processingTime: Date.now() - startTime
       });
     }
 
@@ -1020,6 +1038,15 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
         message: firstError,
         details: errorMessages,
         processingTime: duration
+      });
+    }
+
+    if (validationResult.data.projectId === 'all') {
+      return res.status(400).json({
+        success: false,
+        error: 'مشروع غير صالح',
+        message: 'لا يمكن إضافة نثريات لـ "جميع المشاريع". يرجى اختيار مشروع محدد.',
+        processingTime: Date.now() - startTime
       });
     }
 

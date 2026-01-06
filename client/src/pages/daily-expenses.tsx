@@ -325,10 +325,10 @@ function DailyExpensesContent() {
   });
 
   const handleQuickAddAttendance = () => {
-    if (!selectedProjectId || isAllProjects) {
+    if (!selectedProjectId || selectedProjectId === "all" || isAllProjects) {
       toast({
         title: "يرجى تحديد مشروع",
-        description: "يرجى اختيار مشروع محدد أولاً",
+        description: "لا يمكن إضافة حضور عند اختيار 'جميع المشاريع'. يرجى اختيار مشروع محدد أولاً.",
         variant: "destructive",
       });
       return;

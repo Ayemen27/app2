@@ -48,6 +48,7 @@ export default function TransportManagement() {
   const [description, setDescription] = useState<string>("");
   const [date, setDate] = useState<string>(getCurrentDate());
   const [notes, setNotes] = useState<string>("");
+  const [category, setCategory] = useState<string>("worker_transport");
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
 
   const { toast } = useToast();
@@ -61,6 +62,7 @@ export default function TransportManagement() {
     setDescription("");
     setDate(getCurrentDate());
     setNotes("");
+    setCategory("worker_transport");
     setSelectedWellId(undefined);
     setEditingExpenseId(null);
     setIsDialogOpen(false);
@@ -214,6 +216,7 @@ export default function TransportManagement() {
       amount: amount,
       description: description,
       date: date,
+      category: category,
       notes: notes,
       wellId: selectedWellId
     });
@@ -226,6 +229,7 @@ export default function TransportManagement() {
     setDescription(expense.description);
     setDate(expense.date);
     setNotes(expense.notes || "");
+    setCategory(expense.category || "worker_transport");
     setSelectedWellId(expense.wellId || undefined);
     setIsDialogOpen(true);
   };
@@ -325,6 +329,42 @@ export default function TransportManagement() {
                   <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-1.5">
                       <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <Filter className="h-3 w-3" /> الفئة
+                      </Label>
+                      <Combobox
+                        options={[
+                          { value: "worker_transport", label: "نقل عمال" },
+                          { value: "material_delivery", label: "توريد مواد" },
+                          { value: "maintenance", label: "صيانة وإصلاح" },
+                          { value: "water_supply", label: "توريد مياه" },
+                          { value: "other", label: "أخرى" }
+                        ].map(opt => opt.label)}
+                        value={[
+                          { value: "worker_transport", label: "نقل عمال" },
+                          { value: "material_delivery", label: "توريد مواد" },
+                          { value: "material_delivery", label: "توريد مواد" },
+                          { value: "maintenance", label: "صيانة وإصلاح" },
+                          { value: "water_supply", label: "توريد مياه" },
+                          { value: "other", label: "أخرى" }
+                        ].find(opt => opt.value === category)?.label || "أخرى"}
+                        onValueChange={(val) => {
+                          const opt = [
+                            { value: "worker_transport", label: "نقل عمال" },
+                            { value: "material_delivery", label: "توريد مواد" },
+                            { value: "maintenance", label: "صيانة وإصلاح" },
+                            { value: "water_supply", label: "توريد مياه" },
+                            { value: "other", label: "أخرى" }
+                          ].find(o => o.label === val);
+                          if (opt) setCategory(opt.value);
+                        }}
+                        placeholder="اختر الفئة..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Plus className="h-3 w-3" /> العامل (اختياري)
                       </Label>
                       <Combobox
@@ -417,6 +457,18 @@ export default function TransportManagement() {
                       icon: DollarSign,
                       emphasis: true,
                       color: "success"
+                    },
+                    {
+                      label: "الفئة",
+                      value: [
+                        { value: "worker_transport", label: "نقل عمال" },
+                        { value: "material_delivery", label: "توريد مواد" },
+                        { value: "maintenance", label: "صيانة وإصلاح" },
+                        { value: "water_supply", label: "توريد مياه" },
+                        { value: "other", label: "أخرى" }
+                      ].find(opt => opt.value === expense.category)?.label || "أخرى",
+                      icon: Filter,
+                      color: "info"
                     },
                     {
                       label: "التاريخ",

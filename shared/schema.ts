@@ -292,6 +292,7 @@ export const transportationExpenses = pgTable("transportation_expenses", {
   workerId: varchar("worker_id").references(() => workers.id, { onDelete: "set null" }), // optional, for worker-specific transport
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   description: text("description").notNull(),
+  category: text("category").notNull().default("other"), // نقل عمال، توريد مواد، صيانة، إلخ
   date: text("date").notNull(), // YYYY-MM-DD format
   notes: text("notes"),
   wellId: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)

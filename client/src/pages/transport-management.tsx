@@ -464,6 +464,7 @@ export default function TransportManagement() {
           <UnifiedStats
             title="ملخص حركة النقل"
             stats={statsData}
+            columns={3}
           />
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

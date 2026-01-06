@@ -17,7 +17,7 @@ export default function FloatingAddButton() {
   };
 
   return (
-    <div className="fixed bottom-[calc(76px+env(safe-area-inset-bottom,0px))] right-6 z-[110] pointer-events-auto">
+    <div className="fixed bottom-[calc(90px+env(safe-area-inset-bottom,0px))] right-6 z-[110] pointer-events-auto">
       <Button
         onClick={handleClick}
         className="h-12 w-12 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-110 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 border-0 text-white"

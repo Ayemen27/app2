@@ -501,7 +501,6 @@ export default function TransportManagement() {
                     </div>
                   }
                   icon={Truck}
-                  iconClassName="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-2 rounded-xl"
                   className="hover-elevate active-elevate-2 transition-all duration-300 border-l-4 border-l-blue-500 shadow-md hover:shadow-xl group"
                   fields={[
                     {
@@ -509,8 +508,7 @@ export default function TransportManagement() {
                       value: formatCurrency(Number(expense.amount)),
                       icon: DollarSign,
                       emphasis: true,
-                      color: "success",
-                      iconClassName: "text-emerald-500"
+                      color: "success"
                     },
                     {
                       label: "الفئة",
@@ -525,26 +523,22 @@ export default function TransportManagement() {
                         { value: "maintenance", label: "صيانة وإصلاح" },
                         { value: "water_supply", label: "توريد مياه" },
                         { value: "other", label: "أخرى" }
-                      ].find(opt => opt.value === expense.category)?.label || "أخرى",
+                      ].find(opt => opt.value === expense.category)?.label || expense.category || "أخرى",
                       icon: Filter,
-                      badge: true,
-                      badgeVariant: "default",
-                      className: "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
+                      badge: true
                     },
                     {
                       label: "التاريخ",
                       value: expense.date,
                       icon: Calendar,
-                      color: "secondary",
-                      iconClassName: "text-amber-500"
+                      color: "secondary"
                     },
                     {
                       label: "البئر",
                       value: expense.wellId ? `بئر ${expense.wellId}` : "N/A",
                       icon: Hash,
                       hidden: !expense.wellId,
-                      color: "info",
-                      iconClassName: "text-indigo-500"
+                      color: "info"
                     }
                   ]}
                   actions={[
@@ -552,8 +546,7 @@ export default function TransportManagement() {
                       icon: Edit,
                       label: "تعديل",
                       onClick: () => handleEdit(expense),
-                      variant: "ghost",
-                      className: "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                      variant: "ghost"
                     },
                     {
                       icon: Trash2,
@@ -561,8 +554,7 @@ export default function TransportManagement() {
                       onClick: () => {
                         if (confirm("هل أنت متأكد من الحذف؟")) deleteMutation.mutate(expense.id);
                       },
-                      variant: "ghost",
-                      className: "text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                      variant: "ghost"
                     }
                   ]}
                   footer={expense.notes && (

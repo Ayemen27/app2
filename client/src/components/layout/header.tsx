@@ -35,6 +35,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/well-accounting': { title: 'محاسبة الآبار', icon: Calculator },
   '/well-cost-report': { title: 'تقرير تكلفة الآبار', icon: FileText },
   '/wells': { title: 'إدارة الآبار', icon: Layers },
+  '/transport-management': { title: 'إدارة النقل', icon: Truck },
   '/daily-expenses': { title: 'المصاريف اليومية', icon: DollarSign },
   '/deployment': { title: 'لوحة البناء والنشر التلقائي', icon: Activity },
   '/settings': { title: 'إعدادات النظام', icon: Settings },

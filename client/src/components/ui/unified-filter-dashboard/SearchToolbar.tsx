@@ -82,18 +82,20 @@ export function SearchToolbar({
     switch (filter.type) {
       case 'date':
         return (
-          <div onClick={(e) => e.stopPropagation()} className="relative">
+          <div onClick={(e) => e.stopPropagation()} className="relative group">
+            <Label className="absolute -top-2 right-4 px-1 bg-white dark:bg-gray-950 text-[10px] font-bold text-slate-400 group-focus-within:text-primary z-10">
+              تاريخ محدد
+            </Label>
             <DatePickerField
               value={value ? new Date(value) : undefined}
               onChange={(date) => {
                 onFilterChange?.(filter.key, date);
                 if (date) {
-                  // الغاء حقل تاريخ من/إلى عند تحديد تاريخ يوم محدد
                   onFilterChange?.('dateRange', undefined);
                 }
               }}
               placeholder={filter.placeholder}
-              className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
+              className="h-12 border border-slate-200 dark:border-slate-800 rounded-xl focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 bg-slate-50/30 dark:bg-slate-900/30 px-3 text-right text-sm w-full transition-all"
             />
           </div>
         );
@@ -102,62 +104,55 @@ export function SearchToolbar({
         const fromValue = value?.from ? (value.from instanceof Date ? value.from : new Date(value.from)) : undefined;
         const toValue = value?.to ? (value.to instanceof Date ? value.to : new Date(value.to)) : undefined;
         return (
-          <div onClick={(e) => e.stopPropagation()} className="grid grid-cols-2 gap-3">
+          <div onClick={(e) => e.stopPropagation()} className="grid grid-cols-2 gap-3 pt-1">
             <div className="relative group">
-              <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-[10px] font-bold uppercase tracking-wider text-muted-foreground z-10 transition-colors group-focus-within:text-primary">
+              <Label className="absolute -top-2 right-4 px-1 bg-white dark:bg-gray-950 text-[10px] font-bold text-slate-400 group-focus-within:text-primary z-10">
                 من تاريخ
               </Label>
-              <div className="relative border-0 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50">
-                <DatePickerField
-                  value={fromValue}
-                  onChange={(date) => {
-                    const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
-                    currentRange.from = date;
-                    
-                    if (date) {
-                      onFilterChange?.('specificDate', undefined);
-                    }
-                    onFilterChange?.(filter.key, currentRange);
-                  }}
-                  placeholder="من"
-                  className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
-                />
-              </div>
+              <DatePickerField
+                value={fromValue}
+                onChange={(date) => {
+                  const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
+                  currentRange.from = date;
+                  if (date) onFilterChange?.('specificDate', undefined);
+                  onFilterChange?.(filter.key, currentRange);
+                }}
+                placeholder="من"
+                className="h-12 border border-slate-200 dark:border-slate-800 rounded-xl focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 bg-slate-50/30 dark:bg-slate-900/30 px-3 text-right text-sm w-full transition-all"
+              />
             </div>
             <div className="relative group">
-              <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-[10px] font-bold uppercase tracking-wider text-muted-foreground z-10 transition-colors group-focus-within:text-primary">
+              <Label className="absolute -top-2 right-4 px-1 bg-white dark:bg-gray-950 text-[10px] font-bold text-slate-400 group-focus-within:text-primary z-10">
                 إلى تاريخ
               </Label>
-              <div className="relative border-0 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50">
-                <DatePickerField
-                  value={toValue}
-                  onChange={(date) => {
-                    const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
-                    currentRange.to = date;
-                    onFilterChange?.(filter.key, currentRange);
-                  }}
-                  placeholder="إلى"
-                  className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
-                />
-              </div>
+              <DatePickerField
+                value={toValue}
+                onChange={(date) => {
+                  const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
+                  currentRange.to = date;
+                  onFilterChange?.(filter.key, currentRange);
+                }}
+                placeholder="إلى"
+                className="h-12 border border-slate-200 dark:border-slate-800 rounded-xl focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 bg-slate-50/30 dark:bg-slate-900/30 px-3 text-right text-sm w-full transition-all"
+              />
             </div>
           </div>
         );
       
       default:
         return (
-          <div onClick={(e) => e.stopPropagation()}>
+          <div onClick={(e) => e.stopPropagation()} className="relative group">
+            <Label className="absolute -top-2 right-4 px-1 bg-white dark:bg-gray-950 text-[10px] font-bold text-slate-400 group-focus-within:text-primary z-10">
+              {filter.label}
+            </Label>
             <Select
               value={String(value || filter.defaultValue || 'all')}
-              onValueChange={(v) => {
-                onFilterChange?.(filter.key, v);
-                // Keep open for better UX in drawer
-              }}
+              onValueChange={(v) => onFilterChange?.(filter.key, v)}
             >
-              <SelectTrigger className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium">
+              <SelectTrigger className="h-12 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-primary/5 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-right text-sm transition-all">
                 <SelectValue placeholder={filter.placeholder || filter.label} />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl shadow-2xl border-2">
+              <SelectContent className="rounded-2xl shadow-2xl border-slate-200 dark:border-slate-800">
                 {filter.options?.map((option) => (
                   <SelectItem key={option.value} value={String(option.value)} className="rounded-xl my-1 py-3 text-right">
                     {option.label}
@@ -290,24 +285,10 @@ export function SearchToolbar({
               </div>
               
               <div className="flex-1 space-y-6 overflow-y-auto custom-scrollbar pb-32">
-                <div className="space-y-6 max-w-xl mx-auto">
+                <div className="space-y-6 max-w-xl mx-auto px-1">
                   {filters.map((filter) => (
-                    <div key={filter.key} className={cn(
-                      "relative group",
-                      filter.type === 'date-range' ? "pt-2" : ""
-                    )}>
-                      {filter.type !== 'date-range' && (
-                        <Label 
-                          className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-xs font-medium text-muted-foreground z-10 transition-colors group-focus-within:text-primary"
-                        >
-                          {filter.label}
-                        </Label>
-                      )}
-                      <div className={cn(
-                        filter.type !== 'date-range' && "relative border-0 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50"
-                      )}>
-                        {renderFilterInput(filter)}
-                      </div>
+                    <div key={filter.key}>
+                      {renderFilterInput(filter)}
                     </div>
                   ))}
                 </div>
@@ -323,7 +304,7 @@ export function SearchToolbar({
               <div className="absolute bottom-6 left-6 right-6 z-40">
                 <div className="max-w-xl mx-auto">
                   <Button 
-                    className="w-full h-14 text-lg font-bold rounded-2xl shadow-xl shadow-red-500/20 bg-[#e31e33] hover:bg-[#c41a2c] text-white transition-all active:scale-[0.98]"
+                    className="w-full h-14 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/30 bg-primary hover:bg-primary/90 text-primary-foreground transition-all active:scale-[0.98] border-none"
                     onClick={() => setIsFilterOpen(false)}
                   >
                     استمرار

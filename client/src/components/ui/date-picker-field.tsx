@@ -88,16 +88,16 @@ export function DatePickerField({
         <DialogTrigger asChild>
           <Button
             id={id}
-            variant="outline"
+            variant="ghost"
             disabled={disabled}
             className={cn(
-              "w-full justify-start text-right font-normal h-10",
+              "w-full justify-start text-right font-normal h-full bg-transparent hover:bg-transparent",
               !dateValue && "text-muted-foreground",
-              error && "border-destructive"
+              error && "text-destructive"
             )}
           >
-            <CalendarIcon className="ml-2 h-4 w-4" />
-            {formattedDate || placeholder}
+            <CalendarIcon className="ml-2 h-4 w-4 opacity-50" />
+            <span className="truncate">{formattedDate || placeholder}</span>
           </Button>
         </DialogTrigger>
         <DialogContent className="z-[9999999] w-[92%] max-w-[310px] p-0 overflow-hidden border-none gap-0 rounded-2xl shadow-2xl fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 outline-none">

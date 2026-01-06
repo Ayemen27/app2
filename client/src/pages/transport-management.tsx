@@ -514,9 +514,9 @@ export default function TransportManagement() {
                         </span>
                       </div>
                       {isAllProjects && expense.projectName && (
-                        <div className="flex items-center gap-1.5 w-fit px-2.5 py-0.5 bg-primary/10 border border-primary/20 rounded-full">
-                          <MapPin className="h-3 w-3 text-primary" />
-                          <span className="text-[10px] font-bold text-primary tracking-tight">
+                        <div className="flex items-center gap-1.5 w-fit px-2.5 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded-full shadow-sm">
+                          <MapPin className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                          <span className="text-[10px] font-extrabold text-blue-700 dark:text-blue-400 tracking-tight">
                             {expense.projectName}
                           </span>
                         </div>
@@ -524,13 +524,16 @@ export default function TransportManagement() {
                     </div>
                   }
                   icon={Truck}
+                  iconClassName="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-2 rounded-xl"
+                  className="hover-elevate active-elevate-2 transition-all duration-300 border-l-4 border-l-blue-500 shadow-md hover:shadow-xl group"
                   fields={[
                     {
                       label: "المبلغ",
                       value: formatCurrency(Number(expense.amount)),
                       icon: DollarSign,
                       emphasis: true,
-                      color: "success"
+                      color: "success",
+                      iconClassName: "text-emerald-500"
                     },
                     {
                       label: "الفئة",
@@ -548,20 +551,23 @@ export default function TransportManagement() {
                       ].find(opt => opt.value === expense.category)?.label || "أخرى",
                       icon: Filter,
                       badge: true,
-                      badgeVariant: "outline"
+                      badgeVariant: "default",
+                      className: "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
                     },
                     {
                       label: "التاريخ",
                       value: expense.date,
                       icon: Calendar,
-                      color: "secondary"
+                      color: "secondary",
+                      iconClassName: "text-amber-500"
                     },
                     {
                       label: "البئر",
                       value: expense.wellId ? `بئر ${expense.wellId}` : "N/A",
                       icon: Hash,
                       hidden: !expense.wellId,
-                      color: "info"
+                      color: "info",
+                      iconClassName: "text-indigo-500"
                     }
                   ]}
                   actions={[
@@ -569,7 +575,8 @@ export default function TransportManagement() {
                       icon: Edit,
                       label: "تعديل",
                       onClick: () => handleEdit(expense),
-                      variant: "ghost"
+                      variant: "ghost",
+                      className: "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                     },
                     {
                       icon: Trash2,
@@ -578,7 +585,7 @@ export default function TransportManagement() {
                         if (confirm("هل أنت متأكد من الحذف؟")) deleteMutation.mutate(expense.id);
                       },
                       variant: "ghost",
-                      className: "text-destructive hover:text-destructive hover:bg-destructive/10"
+                      className: "text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"
                     }
                   ]}
                   footer={expense.notes && (

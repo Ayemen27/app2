@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { X, ChevronDown, Filter, Calendar } from 'lucide-react';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -30,34 +31,13 @@ function DatePickerFilter({
   onChange: (date: Date | undefined) => void;
   placeholder?: string;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            'w-full justify-between text-right h-9 font-normal',
-            !value && 'text-muted-foreground'
-          )}
-        >
-          {value ? format(value, 'dd MMMM yyyy', { locale: ar }) : placeholder}
-          <Calendar className="h-4 w-4 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <CalendarComponent
-          mode="single"
-          selected={value}
-          onSelect={(date) => {
-            onChange(date);
-            setOpen(false);
-          }}
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
+    <DatePickerField
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className="w-full"
+    />
   );
 }
 
@@ -68,43 +48,19 @@ function DateRangeFilter({
   value?: { from?: Date; to?: Date };
   onChange: (range: { from?: Date; to?: Date }) => void;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            'w-full justify-between text-right h-9 font-normal',
-            !value?.from && 'text-muted-foreground'
-          )}
-        >
-          {value?.from ? (
-            value.to ? (
-              `${format(value.from, 'dd MMM', { locale: ar })} - ${format(value.to, 'dd MMM', { locale: ar })}`
-            ) : (
-              format(value.from, 'dd MMMM yyyy', { locale: ar })
-            )
-          ) : (
-            'اختر نطاق التاريخ'
-          )}
-          <Calendar className="h-4 w-4 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <CalendarComponent
-          mode="range"
-          selected={value?.from ? { from: value.from, to: value.to } : undefined}
-          onSelect={(range: any) => {
-            onChange(range || { from: undefined, to: undefined });
-            if (range?.to) setOpen(false);
-          }}
-          numberOfMonths={2}
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
+    <div className="grid grid-cols-2 gap-2 w-full">
+      <DatePickerField
+        value={value?.from}
+        onChange={(date) => onChange({ ...value, from: date })}
+        placeholder="من تاريخ"
+      />
+      <DatePickerField
+        value={value?.to}
+        onChange={(date) => onChange({ ...value, to: date })}
+        placeholder="إلى تاريخ"
+      />
+    </div>
   );
 }
 

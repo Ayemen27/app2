@@ -18,6 +18,7 @@ import {
 import { Search, X, Filter, RefreshCw, RotateCcw, List, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FilterDatePicker, FilterDateRangePicker } from '@/components/ui/filter-date-pickers';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import type { ActionButton, FilterConfig } from './types';
 
 interface SearchToolbarProps {
@@ -82,7 +83,7 @@ export function SearchToolbar({
       case 'date':
         return (
           <div onClick={(e) => e.stopPropagation()} className="relative">
-            <FilterDatePicker
+            <DatePickerField
               value={value ? new Date(value) : undefined}
               onChange={(date) => {
                 onFilterChange?.(filter.key, date);
@@ -92,7 +93,6 @@ export function SearchToolbar({
                 }
               }}
               placeholder={filter.placeholder}
-              showClearButton={true}
               className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
             />
           </div>
@@ -108,7 +108,7 @@ export function SearchToolbar({
                 من تاريخ
               </Label>
               <div className="relative border-2 border-muted/50 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5">
-                <FilterDatePicker
+                <DatePickerField
                   value={fromValue}
                   onChange={(date) => {
                     const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
@@ -121,7 +121,6 @@ export function SearchToolbar({
                     onFilterChange?.(filter.key, currentRange);
                   }}
                   placeholder="اختر التاريخ"
-                  showClearButton={true}
                   className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
                 />
               </div>
@@ -131,7 +130,7 @@ export function SearchToolbar({
                 إلى تاريخ
               </Label>
               <div className="relative border-2 border-muted/50 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5">
-                <FilterDatePicker
+                <DatePickerField
                   value={toValue}
                   onChange={(date) => {
                     const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
@@ -139,7 +138,6 @@ export function SearchToolbar({
                     onFilterChange?.(filter.key, currentRange);
                   }}
                   placeholder="اختر التاريخ"
-                  showClearButton={true}
                   className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
                 />
               </div>

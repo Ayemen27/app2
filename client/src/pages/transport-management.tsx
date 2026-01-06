@@ -506,7 +506,23 @@ export default function TransportManagement() {
                 <UnifiedCard
                   key={expense.id}
                   title={expense.description}
-                  subtitle={expense.workerName || "مصروف عام"}
+                  subtitle={
+                    <div className="flex flex-col gap-1.5 mt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                          {expense.workerName || "مصروف عام"}
+                        </span>
+                      </div>
+                      {isAllProjects && expense.projectName && (
+                        <div className="flex items-center gap-1.5 w-fit px-2.5 py-0.5 bg-primary/10 border border-primary/20 rounded-full">
+                          <MapPin className="h-3 w-3 text-primary" />
+                          <span className="text-[10px] font-bold text-primary tracking-tight">
+                            {expense.projectName}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  }
                   icon={Truck}
                   fields={[
                     {
@@ -531,18 +547,21 @@ export default function TransportManagement() {
                         { value: "other", label: "أخرى" }
                       ].find(opt => opt.value === expense.category)?.label || "أخرى",
                       icon: Filter,
-                      color: "info"
+                      badge: true,
+                      badgeVariant: "outline"
                     },
                     {
                       label: "التاريخ",
                       value: expense.date,
-                      icon: Calendar
+                      icon: Calendar,
+                      color: "secondary"
                     },
                     {
                       label: "البئر",
                       value: expense.wellId ? `بئر ${expense.wellId}` : "N/A",
                       icon: Hash,
-                      hidden: !expense.wellId
+                      hidden: !expense.wellId,
+                      color: "info"
                     }
                   ]}
                   actions={[
@@ -550,7 +569,7 @@ export default function TransportManagement() {
                       icon: Edit,
                       label: "تعديل",
                       onClick: () => handleEdit(expense),
-                      color: "blue"
+                      variant: "ghost"
                     },
                     {
                       icon: Trash2,
@@ -558,7 +577,8 @@ export default function TransportManagement() {
                       onClick: () => {
                         if (confirm("هل أنت متأكد من الحذف؟")) deleteMutation.mutate(expense.id);
                       },
-                      color: "red"
+                      variant: "ghost",
+                      className: "text-destructive hover:text-destructive hover:bg-destructive/10"
                     }
                   ]}
                   footer={expense.notes && (

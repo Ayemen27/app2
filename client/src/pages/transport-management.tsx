@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { format } from "date-fns";
 import { 
   Truck, Save, Plus, Edit, Trash2, 
   DollarSign, TrendingUp, RefreshCw, ChevronUp,
-  FileSpreadsheet, Filter, XCircle
+  FileSpreadsheet, Filter, XCircle, Calendar, Hash
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import { getCurrentDate, formatDate } from "@/lib/utils";
+import { getCurrentDate, formatDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { WellSelector } from "@/components/well-selector";
 import { apiRequest } from "@/lib/queryClient";
@@ -258,82 +259,111 @@ export default function TransportManagement() {
         <div className="max-w-7xl mx-auto w-full p-4 space-y-6">
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent className="sm:max-w-[600px] gap-6 rounded-2xl">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-xl font-bold text-primary">
-                  <Truck className="h-5 w-5" />
+            <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none rounded-2xl shadow-2xl">
+              <DialogHeader className="p-6 bg-gradient-to-r from-primary/10 to-primary/5 border-b border-primary/10">
+                <DialogTitle className="flex items-center gap-3 text-xl font-bold text-primary">
+                  <div className="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+                    <Truck className="h-5 w-5" />
+                  </div>
                   {editingExpenseId ? "تعديل سجل النقل" : "إضافة سجل نقل جديد"}
                 </DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">البيان / الوصف</Label>
-                  <AutocompleteInput
-                    category="transport_desc"
-                    value={description}
-                    onChange={setDescription}
-                    placeholder="مثلاً: نقل عمال، توريد مياه..."
-                    className="h-11 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">المبلغ</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input 
-                      type="number" 
-                      value={amount} 
-                      onChange={(e) => setAmount(e.target.value)} 
-                      placeholder="0.00"
-                      className="h-11 pr-10 rounded-xl"
-                    />
+              <div className="p-6">
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <Edit className="h-3 w-3" /> البيان / الوصف
+                      </Label>
+                      <AutocompleteInput
+                        category="transport_desc"
+                        value={description}
+                        onChange={setDescription}
+                        placeholder="مثلاً: نقل عمال، توريد مياه..."
+                        className="h-10 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20"
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">التاريخ</Label>
-                  <Input 
-                    type="date" 
-                    value={date} 
-                    onChange={(e) => setDate(e.target.value)} 
-                    className="h-11 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">العامل (اختياري)</Label>
-                  <Combobox
-                    options={workers.map(w => String(w.name))}
-                    value={workers.find(w => w.id === workerId)?.name || ""}
-                    onValueChange={(val) => {
-                      const worker = workers.find(w => w.name === val);
-                      if (worker) setWorkerId(worker.id);
-                    }}
-                    placeholder="اختر العامل..."
-                  />
-                </div>
-                <div className="md:col-span-2 space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">تخصيص لبئر</Label>
-                  <WellSelector 
-                    selectedWellId={selectedWellId} 
-                    onSelect={setSelectedWellId} 
-                  />
-                </div>
-                <div className="md:col-span-2 space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">ملاحظات</Label>
-                  <Textarea 
-                    value={notes} 
-                    onChange={(e) => setNotes(e.target.value)} 
-                    placeholder="أي ملاحظات إضافية..."
-                    className="min-h-[100px] rounded-xl resize-none"
-                  />
-                </div>
-                <div className="md:col-span-2 flex justify-end gap-3 pt-4 border-t">
-                  <Button type="button" variant="outline" onClick={resetForm} className="rounded-xl px-6">إلغاء</Button>
-                  <Button type="submit" className="gap-2 rounded-xl px-8" disabled={saveMutation.isPending}>
-                    <Save className="h-4 w-4" />
-                    {editingExpenseId ? "تحديث السجل" : "حفظ السجل"}
-                  </Button>
-                </div>
-              </form>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <DollarSign className="h-3 w-3" /> المبلغ
+                      </Label>
+                      <div className="relative">
+                        <Input 
+                          type="number" 
+                          value={amount} 
+                          onChange={(e) => setAmount(e.target.value)} 
+                          placeholder="0.00"
+                          className="h-10 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 pl-8 focus:ring-primary/20"
+                        />
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">RY</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <Calendar className="h-3 w-3" /> التاريخ
+                      </Label>
+                      <Input 
+                        type="date" 
+                        value={date} 
+                        onChange={(e) => setDate(e.target.value)} 
+                        className="h-10 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <Plus className="h-3 w-3" /> العامل (اختياري)
+                      </Label>
+                      <Combobox
+                        options={workers.map(w => String(w.name))}
+                        value={workers.find(w => w.id === workerId)?.name || ""}
+                        onValueChange={(val) => {
+                          const worker = workers.find(w => w.name === val);
+                          if (worker) setWorkerId(worker.id);
+                        }}
+                        placeholder="اختر العامل..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <Hash className="h-3 w-3" /> تخصيص لبئر
+                      </Label>
+                      <WellSelector 
+                        selectedWellId={selectedWellId} 
+                        onSelect={setSelectedWellId} 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">ملاحظات</Label>
+                      <Textarea 
+                        value={notes} 
+                        onChange={(e) => setNotes(e.target.value)} 
+                        placeholder="أي ملاحظات إضافية..."
+                        className="min-h-[80px] rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 resize-none py-3 focus:ring-primary/20 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-4">
+                    <Button type="button" variant="ghost" onClick={resetForm} className="flex-1 rounded-xl h-11 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">إلغاء</Button>
+                    <Button type="submit" className="flex-[2] rounded-xl h-11 shadow-lg shadow-primary/20 gap-2 font-bold" disabled={saveMutation.isPending}>
+                      <Save className="h-4 w-4" />
+                      {editingExpenseId ? "تحديث السجل" : "حفظ السجل"}
+                    </Button>
+                  </div>
+                </form>
+              </div>
             </DialogContent>
           </Dialog>
 

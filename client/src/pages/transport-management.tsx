@@ -579,14 +579,19 @@ export default function TransportManagement() {
                     })()
                   }
                   icon={Truck as any}
-                  className="hover-elevate active-elevate-2 transition-all duration-300 border-l-4 border-l-blue-500 shadow-md hover:shadow-xl group"
+                  className={cn(
+                    "hover-elevate active-elevate-2 transition-all duration-300 border-l-4 shadow-md hover:shadow-xl group py-2",
+                    categoryColors[expense.category] || "border-l-blue-500"
+                  )}
+                  compact={true}
                   fields={[
                     {
                       label: "المبلغ",
                       value: formatCurrency(Number(expense.amount)),
                       icon: DollarSign,
                       emphasis: true,
-                      color: "success"
+                      color: "success",
+                      iconClassName: "text-green-600 dark:text-green-400"
                     },
                     {
                       label: "الفئة",
@@ -603,20 +608,23 @@ export default function TransportManagement() {
                         { value: "other", label: "أخرى" }
                       ].find(opt => opt.value === expense.category)?.label || expense.category || "أخرى",
                       icon: Filter,
-                      emphasis: false
+                      emphasis: false,
+                      iconClassName: categoryIconColors[expense.category] || "text-blue-500"
                     } as any,
                     {
                       label: "التاريخ",
                       value: expense.date,
                       icon: Calendar,
-                      color: "info"
+                      color: "info",
+                      iconClassName: "text-sky-500"
                     },
                     {
                       label: "البئر",
                       value: expense.wellId ? `بئر ${expense.wellId}` : "N/A",
                       icon: Hash,
                       hidden: !expense.wellId,
-                      color: "info"
+                      color: "info",
+                      iconClassName: "text-amber-500"
                     }
                   ]}
                   actions={[

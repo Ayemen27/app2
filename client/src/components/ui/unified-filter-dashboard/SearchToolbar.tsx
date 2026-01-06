@@ -102,12 +102,12 @@ export function SearchToolbar({
         const fromValue = value?.from ? (value.from instanceof Date ? value.from : new Date(value.from)) : undefined;
         const toValue = value?.to ? (value.to instanceof Date ? value.to : new Date(value.to)) : undefined;
         return (
-          <div onClick={(e) => e.stopPropagation()} className="space-y-6">
+          <div onClick={(e) => e.stopPropagation()} className="grid grid-cols-2 gap-3">
             <div className="relative group">
-              <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-xs font-medium text-muted-foreground z-10 transition-colors group-focus-within:text-primary">
+              <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-[10px] font-bold uppercase tracking-wider text-muted-foreground z-10 transition-colors group-focus-within:text-primary">
                 من تاريخ
               </Label>
-              <div className="relative border-2 border-muted/50 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5">
+              <div className="relative border-2 border-muted/30 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5 bg-slate-50/50 dark:bg-slate-900/50">
                 <DatePickerField
                   value={fromValue}
                   onChange={(date) => {
@@ -115,21 +115,20 @@ export function SearchToolbar({
                     currentRange.from = date;
                     
                     if (date) {
-                      // الغاء حقل تاريخ اليوم عند تحديد تاريخ من
                       onFilterChange?.('specificDate', undefined);
                     }
                     onFilterChange?.(filter.key, currentRange);
                   }}
-                  placeholder="اختر التاريخ"
+                  placeholder="من"
                   className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
                 />
               </div>
             </div>
             <div className="relative group">
-              <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-xs font-medium text-muted-foreground z-10 transition-colors group-focus-within:text-primary">
+              <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-[10px] font-bold uppercase tracking-wider text-muted-foreground z-10 transition-colors group-focus-within:text-primary">
                 إلى تاريخ
               </Label>
-              <div className="relative border-2 border-muted/50 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5">
+              <div className="relative border-2 border-muted/30 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5 bg-slate-50/50 dark:bg-slate-900/50">
                 <DatePickerField
                   value={toValue}
                   onChange={(date) => {
@@ -137,7 +136,7 @@ export function SearchToolbar({
                     currentRange.to = date;
                     onFilterChange?.(filter.key, currentRange);
                   }}
-                  placeholder="اختر التاريخ"
+                  placeholder="إلى"
                   className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium w-full"
                 />
               </div>
@@ -276,15 +275,18 @@ export function SearchToolbar({
             onInteractOutside={(e) => e.preventDefault()}
           >
             <div className="flex flex-col h-full relative p-6">
-              <div className="flex items-center justify-between mb-6">
-                <SheetClose asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 hover:bg-muted transition-all">
-                    <X className="h-4 w-4" />
-                  </Button>
-                </SheetClose>
-                <SheetTitle className="text-lg font-bold text-center flex-1 mr-8">
-                  اختر الفلتر
-                </SheetTitle>
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <SheetClose asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                      <X className="h-5 w-5" />
+                    </Button>
+                  </SheetClose>
+                  <SheetTitle className="text-xl font-bold tracking-tight">
+                    تصفية النتائج
+                  </SheetTitle>
+                </div>
+                <div className="h-1 w-12 bg-slate-300 dark:bg-slate-700 rounded-full" />
               </div>
               
               <div className="flex-1 space-y-6 overflow-y-auto custom-scrollbar pb-32">
@@ -302,7 +304,7 @@ export function SearchToolbar({
                         </Label>
                       )}
                       <div className={cn(
-                        filter.type !== 'date-range' && "relative border-2 border-muted/50 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5"
+                        filter.type !== 'date-range' && "relative border-2 border-muted/30 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5 bg-slate-50/50 dark:bg-slate-900/50"
                       )}>
                         {renderFilterInput(filter)}
                       </div>

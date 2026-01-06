@@ -113,7 +113,12 @@ export default function ProjectTransfers() {
     }
 
     if (filterValues.reason) {
-      filtered = filtered.filter(t => t.transferReason?.includes(filterValues.reason));
+      filtered = filtered.filter(t => {
+        if (!t.transferReason) return false;
+        // Search in the display label or the value itself
+        const option = filterConfigs.find(c => c.key === 'reason')?.options?.find(opt => opt.value === filterValues.reason);
+        return t.transferReason === filterValues.reason || t.transferReason === option?.label;
+      });
     }
 
     if (filterValues.dateRange?.from || filterValues.dateRange?.to) {

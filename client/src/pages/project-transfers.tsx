@@ -90,20 +90,13 @@ export default function ProjectTransfers() {
   const projects = projectsWithStats;
 
   // Fetch All Transfers
-  const { data: transfersResponse, isLoading: transfersLoading, refetch } = useQuery<any>({
+  const { data: allTransfers = [], isLoading: transfersLoading, refetch } = useQuery<ProjectFundTransfer[]>({
     queryKey: ["/api/project-fund-transfers"],
     queryFn: async () => {
       const response = await apiRequest('/api/project-fund-transfers', 'GET');
-      return response;
+      return response.data || [];
     },
   });
-
-  const allTransfers = useMemo(() => {
-    if (!transfersResponse) return [];
-    if (Array.isArray(transfersResponse)) return transfersResponse;
-    if (transfersResponse.data && Array.isArray(transfersResponse.data)) return transfersResponse.data;
-    return [];
-  }, [transfersResponse]);
 
   // Filter transfers based on search and filters
   const filteredTransfers = useMemo(() => {
@@ -124,11 +117,7 @@ export default function ProjectTransfers() {
         if (!t.transferReason) return false;
         // Search in the display label or the value itself
         const option = filterConfigs.find(c => c.key === 'reason')?.options?.find(opt => opt.value === filterValues.reason);
-        const reason = t.transferReason.toLowerCase();
-        const filterVal = filterValues.reason.toLowerCase();
-        const label = option?.label.toLowerCase();
-        
-        return reason === filterVal || (label && reason === label);
+        return t.transferReason === filterValues.reason || t.transferReason === option?.label;
       });
     }
 
@@ -146,15 +135,15 @@ export default function ProjectTransfers() {
 
   // Calculate Stats
   const stats = useMemo(() => {
-    const transfers = Array.isArray(filteredTransfers) ? filteredTransfers : [];
+    const transfers = Array.isArray(allTransfers) ? allTransfers : [];
     return {
       total: transfers.length,
       totalAmount: transfers.reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0),
-      filtered: transfers.length,
-      outgoing: transfers.filter(t => !transfers.some(other => other.fromProjectId === other.toProjectId)).length,
-      incoming: transfers.filter(t => transfers.some(other => other.toProjectId === other.fromProjectId)).length,
+      filtered: filteredTransfers.length,
+      outgoing: filteredTransfers.filter(t => !filteredTransfers.some(other => other.fromProjectId === other.toProjectId)).length,
+      incoming: filteredTransfers.filter(t => filteredTransfers.some(other => other.toProjectId === other.fromProjectId)).length,
     };
-  }, [filteredTransfers]);
+  }, [allTransfers, filteredTransfers]);
 
   // Mutations
   const createTransferMutation = useMutation({

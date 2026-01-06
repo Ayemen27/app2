@@ -231,7 +231,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       if (!projectDateGroups.has(key)) {
         projectDateGroups.set(key, {
           projectId,
-          projectName: projectsMap.get(projectId) || 'مشروع غير معروف',
+          projectName: projectId === 'all' ? 'مصروفات عامة (غير محددة لمشروع)' : (projectsMap.get(projectId) || 'مشروع غير معروف'),
           date: dateStr,
           fundTransfers: [],
           workerAttendance: [],
@@ -341,12 +341,12 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     const overallRemainingBalance = overallTotalIncome - overallTotalExpenses;
 
     // إنشاء مصفوفات مسطحة لجميع البيانات (للتوافق مع الكود القديم)
-    const allFundTransfers = fundTransfersResult.map(t => ({ ...t, projectName: projectsMap.get(t.projectId) || 'مشروع غير معروف' }));
-    const allWorkerAttendance = workerAttendanceResult.map(a => ({ ...a, projectName: projectsMap.get(a.projectId) || 'مشروع غير معروف' }));
-    const allMaterialPurchases = materialPurchasesResult.map(m => ({ ...m, projectName: projectsMap.get(m.projectId) || 'مشروع غير معروف' }));
-    const allTransportation = transportationResult.map(t => ({ ...t, projectName: projectsMap.get(t.projectId) || 'مشروع غير معروف' }));
-    const allWorkerTransfers = workerTransfersResult.map(w => ({ ...w, projectName: projectsMap.get(w.projectId) || 'مشروع غير معروف' }));
-    const allMiscExpenses = miscExpensesResult.map(m => ({ ...m, projectName: projectsMap.get(m.projectId) || 'مشروع غير معروف' }));
+    const allFundTransfers = fundTransfersResult.map(t => ({ ...t, projectName: t.projectId === 'all' ? 'مصروفات عامة' : (projectsMap.get(t.projectId) || 'مشروع غير معروف') }));
+    const allWorkerAttendance = workerAttendanceResult.map(a => ({ ...a, projectName: a.projectId === 'all' ? 'مصروفات عامة' : (projectsMap.get(a.projectId) || 'مشروع غير معروف') }));
+    const allMaterialPurchases = materialPurchasesResult.map(m => ({ ...m, projectName: m.projectId === 'all' ? 'مصروفات عامة' : (projectsMap.get(m.projectId) || 'مشروع غير معروف') }));
+    const allTransportation = transportationResult.map(t => ({ ...t, projectName: t.projectId === 'all' ? 'مصروفات عامة' : (projectsMap.get(t.projectId) || 'مشروع غير معروف') }));
+    const allWorkerTransfers = workerTransfersResult.map(w => ({ ...w, projectName: w.projectId === 'all' ? 'مصروفات عامة' : (projectsMap.get(w.projectId) || 'مشروع غير معروف') }));
+    const allMiscExpenses = miscExpensesResult.map(m => ({ ...m, projectName: m.projectId === 'all' ? 'مصروفات عامة' : (projectsMap.get(m.projectId) || 'مشروع غير معروف') }));
 
     const responseData = {
       // البيانات المجمعة حسب (المشروع + التاريخ) - الجديدة

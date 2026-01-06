@@ -215,14 +215,15 @@ export default function TransportManagement() {
   }, [expenses, searchValue, filterValues.category, filterCategories]);
 
   const statsData = useMemo(() => {
-    const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-    const count = expenses.length;
-    const maintenanceCost = expenses.filter(e => e.category === 'maintenance').reduce((sum, e) => sum + Number(e.amount), 0);
-    const fuelCost = expenses.filter(e => e.category === 'fuel_shas' || e.category === 'fuel_hilux').reduce((sum, e) => sum + Number(e.amount), 0);
-    const materialTransport = expenses.filter(e => e.category === 'material_delivery').reduce((sum, e) => sum + Number(e.amount), 0);
-    const concreteTransport = expenses.filter(e => e.category === 'concrete_transport').reduce((sum, e) => sum + Number(e.amount), 0);
-    const ironPlatformsCost = expenses.filter(e => e.category === 'iron_platforms').reduce((sum, e) => sum + Number(e.amount), 0);
-    const otherCategories = expenses.filter(e => e.category === 'other' || !['maintenance', 'fuel_shas', 'fuel_hilux', 'material_delivery', 'concrete_transport', 'iron_platforms'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount), 0);
+    const dataToUse = filteredExpenses;
+    const totalAmount = dataToUse.reduce((sum, e) => sum + Number(e.amount), 0);
+    const count = dataToUse.length;
+    const maintenanceCost = dataToUse.filter(e => e.category === 'maintenance').reduce((sum, e) => sum + Number(e.amount), 0);
+    const fuelCost = dataToUse.filter(e => e.category === 'fuel_shas' || e.category === 'fuel_hilux').reduce((sum, e) => sum + Number(e.amount), 0);
+    const materialTransport = dataToUse.filter(e => e.category === 'material_delivery').reduce((sum, e) => sum + Number(e.amount), 0);
+    const concreteTransport = dataToUse.filter(e => e.category === 'concrete_transport').reduce((sum, e) => sum + Number(e.amount), 0);
+    const ironPlatformsCost = dataToUse.filter(e => e.category === 'iron_platforms').reduce((sum, e) => sum + Number(e.amount), 0);
+    const otherCategories = dataToUse.filter(e => e.category === 'other' || !['maintenance', 'fuel_shas', 'fuel_hilux', 'material_delivery', 'concrete_transport', 'iron_platforms'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount), 0);
 
     return [
       {
@@ -280,7 +281,7 @@ export default function TransportManagement() {
         color: "gray" as const,
       }
     ] as UnifiedStatItem[];
-  }, [expenses]);
+  }, [filteredExpenses]);
 
   const handleExportToExcel = async () => {
     try {

@@ -454,36 +454,59 @@ function DailyExpensesContent() {
   });
 
   const totalsValue = useMemo(() => {
-    if (isAllProjects) {
-      return totals;
-    }
+    // استخدام البيانات المفلترة لحساب الإحصائيات
+    const currentFundTransfers = filteredFundTransfers || [];
+    const currentProjectTransfers = filteredProjectTransfers || [];
+    const currentAttendance = filteredAttendance || [];
+    const currentMaterials = filteredMaterials || [];
+    const currentWorkerTransfers = filteredWorkerTransfers || [];
+    const currentMiscExpenses = filteredMiscExpenses || [];
+
+    const totalIncome = currentFundTransfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+    const incomingProjectTransfers = currentProjectTransfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
     
-    // حساب totals للمشروع الفردي بناءً على financialSummary
+    const workerWages = currentAttendance.reduce((sum, a) => sum + parseFloat(a.paidAmount || '0'), 0);
+    const transportExpenses = filteredTransportation.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+    const materialExpenses = currentMaterials.reduce((sum, m) => sum + parseFloat(m.totalAmount || '0'), 0);
+    const workerTransfers = currentWorkerTransfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+    const miscExpenses = currentMiscExpenses.reduce((sum, m) => sum + parseFloat(m.amount || '0'), 0);
+    const outgoingProjectTransfers = filteredOutgoingProjectTransfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+
+    const totalCashExpenses = workerWages + transportExpenses + materialExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
+    const totalAllIncome = totalIncome + incomingProjectTransfers;
+
     return {
-      totalIncome: financialSummary?.income?.totalIncome || 0,
-      totalCashExpenses: financialSummary?.expenses?.totalCashExpenses || 0,
-      totalAllExpenses: financialSummary?.expenses?.totalAllExpenses || 0,
-      totalExpenses: financialSummary?.expenses?.totalAllExpenses || 0,
-      cashBalance: financialSummary?.cashBalance || 0,
-      totalBalance: financialSummary?.totalBalance || 0,
-      currentBalance: financialSummary?.totalBalance || 0,
-      totalWorkers: financialSummary?.workers?.totalWorkers || 0,
-      activeWorkers: financialSummary?.workers?.activeWorkers || 0,
-      materialExpensesCredit: financialSummary?.expenses?.materialExpensesCredit || 0,
+      totalIncome,
+      totalCashExpenses,
+      totalAllExpenses: totalCashExpenses,
+      totalExpenses: totalCashExpenses,
+      cashBalance: totalAllIncome - totalCashExpenses,
+      totalBalance: totalAllIncome - totalCashExpenses,
+      currentBalance: totalAllIncome - totalCashExpenses,
+      totalWorkers: currentAttendance.length,
+      activeWorkers: new Set(currentAttendance.map(a => a.workerId)).size,
       carriedForwardBalance: financialSummary?.income?.carriedForwardBalance || 0,
-      
-      // الحقول الإضافية التي يحتاجها المكون
-      totalWorkerWages: financialSummary?.expenses?.workerWages || 0,
-      totalTransportation: financialSummary?.expenses?.transportExpenses || 0,
-      totalMaterialCosts: financialSummary?.expenses?.materialExpenses || 0,
-      totalWorkerTransfers: financialSummary?.expenses?.workerTransfers || 0,
-      totalMiscExpenses: financialSummary?.expenses?.miscExpenses || 0,
-      totalFundTransfers: financialSummary?.income?.fundTransfers || 0,
-      incomingProjectTransfers: financialSummary?.income?.incomingProjectTransfers || 0,
-      outgoingProjectTransfers: financialSummary?.expenses?.outgoingProjectTransfers || 0,
-      remainingBalance: financialSummary?.totalBalance || 0
+      totalWorkerWages: workerWages,
+      totalTransportation: transportExpenses,
+      totalMaterialCosts: materialExpenses,
+      totalWorkerTransfers: workerTransfers,
+      totalMiscExpenses: miscExpenses,
+      totalFundTransfers: totalIncome,
+      incomingProjectTransfers,
+      outgoingProjectTransfers,
+      remainingBalance: totalAllIncome - totalCashExpenses
     };
-  }, [isAllProjects, totals, financialSummary]);
+  }, [
+    filteredFundTransfers, 
+    filteredProjectTransfers, 
+    filteredAttendance, 
+    filteredMaterials, 
+    filteredWorkerTransfers, 
+    filteredMiscExpenses,
+    filteredTransportation,
+    filteredOutgoingProjectTransfers,
+    financialSummary
+  ]);
 
   const displayIncome = useMemo(() => {
     return totalsValue.totalIncome;

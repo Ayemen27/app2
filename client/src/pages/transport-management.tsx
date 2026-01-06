@@ -7,7 +7,7 @@ import {
   Truck, Save, Plus, Edit, Trash2, 
   DollarSign, TrendingUp, RefreshCw, ChevronUp,
   FileSpreadsheet, Filter, XCircle, Calendar, Hash,
-  MapPin, Info, User
+  MapPin, Info, User, Settings, Droplets, Package, Building2
 } from "lucide-react";
 import { saveAs } from 'file-saver';
 import * as ExcelJS from 'exceljs';
@@ -200,6 +200,11 @@ export default function TransportManagement() {
   const statsData = useMemo(() => {
     const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
     const count = expenses.length;
+    const maintenanceCost = expenses.filter(e => e.category === 'maintenance').reduce((sum, e) => sum + Number(e.amount), 0);
+    const fuelCost = expenses.filter(e => e.category === 'fuel_shas' || e.category === 'fuel_hilux').reduce((sum, e) => sum + Number(e.amount), 0);
+    const materialTransport = expenses.filter(e => e.category === 'material_delivery').reduce((sum, e) => sum + Number(e.amount), 0);
+    const concreteTransport = expenses.filter(e => e.category === 'concrete_transport').reduce((sum, e) => sum + Number(e.amount), 0);
+
     return [
       {
         title: "إجمالي تكلفة النقل",
@@ -218,6 +223,42 @@ export default function TransportManagement() {
         value: formatCurrency(count > 0 ? totalAmount / count : 0),
         icon: TrendingUp,
         color: "amber" as const,
+      },
+      {
+        title: "تكاليف الصيانة",
+        value: formatCurrency(maintenanceCost),
+        icon: Settings,
+        color: "purple" as const,
+      },
+      {
+        title: "تكاليف الوقود",
+        value: formatCurrency(fuelCost),
+        icon: Droplets,
+        color: "red" as const,
+      },
+      {
+        title: "نقل المواد",
+        value: formatCurrency(materialTransport),
+        icon: Package,
+        color: "indigo" as const,
+      },
+      {
+        title: "نقل الخرسانة",
+        value: formatCurrency(concreteTransport),
+        icon: Building2,
+        color: "orange" as const,
+      },
+      {
+        title: "توريد المياه",
+        value: formatCurrency(expenses.filter(e => e.category === 'water_supply').reduce((sum, e) => sum + Number(e.amount), 0)),
+        icon: Droplets,
+        color: "cyan" as const,
+      },
+      {
+        title: "فئات أخرى",
+        value: formatCurrency(expenses.filter(e => e.category === 'other' || !['maintenance', 'fuel_shas', 'fuel_hilux', 'material_delivery', 'concrete_transport', 'water_supply'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount), 0)),
+        icon: Info,
+        color: "slate" as const,
       }
     ];
   }, [expenses]);
@@ -423,7 +464,6 @@ export default function TransportManagement() {
           <UnifiedStats
             title="ملخص حركة النقل"
             stats={statsData}
-            columns={3}
           />
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

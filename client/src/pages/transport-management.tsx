@@ -54,7 +54,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
-import { UnifiedStats } from "@/components/ui/unified-stats";
+import { UnifiedStats, type UnifiedStatItem } from "@/components/ui/unified-stats";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { TransportationExpense, Worker } from "@shared/schema";
 import * as XLSX from 'xlsx';
@@ -204,6 +204,8 @@ export default function TransportManagement() {
     const fuelCost = expenses.filter(e => e.category === 'fuel_shas' || e.category === 'fuel_hilux').reduce((sum, e) => sum + Number(e.amount), 0);
     const materialTransport = expenses.filter(e => e.category === 'material_delivery').reduce((sum, e) => sum + Number(e.amount), 0);
     const concreteTransport = expenses.filter(e => e.category === 'concrete_transport').reduce((sum, e) => sum + Number(e.amount), 0);
+    const waterSupply = expenses.filter(e => e.category === 'water_supply').reduce((sum, e) => sum + Number(e.amount), 0);
+    const otherCategories = expenses.filter(e => e.category === 'other' || !['maintenance', 'fuel_shas', 'fuel_hilux', 'material_delivery', 'concrete_transport', 'water_supply'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount), 0);
 
     return [
       {
@@ -250,23 +252,23 @@ export default function TransportManagement() {
       },
       {
         title: "توريد المياه",
-        value: formatCurrency(expenses.filter(e => e.category === 'water_supply').reduce((sum, e) => sum + Number(e.amount), 0)),
+        value: formatCurrency(waterSupply),
         icon: Droplets,
-        color: "cyan" as const,
+        color: "blue" as const,
       },
       {
         title: "فئات أخرى",
-        value: formatCurrency(expenses.filter(e => e.category === 'other' || !['maintenance', 'fuel_shas', 'fuel_hilux', 'material_delivery', 'concrete_transport', 'water_supply'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount), 0)),
+        value: formatCurrency(otherCategories),
         icon: Info,
-        color: "slate" as const,
+        color: "gray" as const,
       }
-    ];
+    ] as UnifiedStatItem[];
   }, [expenses]);
 
   const handleExportToExcel = async () => {
     try {
       const workbook = new ExcelJS.Workbook();
-      workbook.views = [{ rightToLeft: true }];
+      workbook.views = [{ activeTab: 0, firstSheet: 0, showGridLines: true }];
       const worksheet = workbook.addWorksheet('حركة النقل', { views: [{ rightToLeft: true }] });
 
       worksheet.columns = [

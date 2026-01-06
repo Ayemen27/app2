@@ -74,7 +74,7 @@ export default function TransportManagement() {
     queryKey: ["/api/workers"],
   });
 
-  const { data: expenses = [], isLoading, refetch } = useQuery<TransportationExpense[]>({
+  const { data: expenses = [], isLoading } = useQuery<TransportationExpense[]>({
     queryKey: ["/api/projects", selectedProjectId, "transportation", filterValues.specificDate, filterValues.dateRange],
     queryFn: async () => {
       let url = `/api/projects/${getProjectIdForApi()}/transportation`;
@@ -254,11 +254,13 @@ export default function TransportManagement() {
                       <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">العامل (اختياري)</Label>
                         <Combobox
-                          options={workers.map(w => ({ label: w.name, value: w.id }))}
-                          value={workerId}
-                          onSelect={setWorkerId}
+                          options={workers.map(w => String(w.name))}
+                          value={workers.find(w => w.id === workerId)?.name || ""}
+                          onValueChange={(val) => {
+                            const worker = workers.find(w => w.name === val);
+                            if (worker) setWorkerId(worker.id);
+                          }}
                           placeholder="اختر العامل..."
-                          className="h-11 rounded-xl"
                         />
                       </div>
                       <div className="md:col-span-2 space-y-2">
@@ -298,6 +300,7 @@ export default function TransportManagement() {
             onSearchChange={setSearchValue}
             searchValue={searchValue}
             title="إدارة النقل"
+            statsGridCols={3}
           />
 
           {isLoading ? (

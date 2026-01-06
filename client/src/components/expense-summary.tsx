@@ -192,18 +192,20 @@ export default function ExpenseSummary({
           </div>
         </div>
 
-        {/* المواد الآجلة - عرض منفصل */}
-        <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-3 border border-orange-200 dark:border-orange-800">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-orange-500" />
-              <span className="font-medium text-sm text-orange-700 dark:text-orange-300">مواد آجلة (لا تُخصم من الرصيد)</span>
-            </div>
-            <div className="text-xl font-bold text-orange-600 dark:text-orange-400 arabic-numbers">
-              {formatCurrency(safeDeferred)}
+        {/* المواد الآجلة - عرض منفصل - يظهر فقط إذا كانت القيمة أكبر من صفر */}
+        {safeDeferred > 0 && (
+          <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-3 border border-orange-200 dark:border-orange-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-orange-500" />
+                <span className="font-medium text-sm text-orange-700 dark:text-orange-300">مواد آجلة (لا تُخصم من الرصيد)</span>
+              </div>
+              <div className="text-xl font-bold text-orange-600 dark:text-orange-400 arabic-numbers">
+                {formatCurrency(safeDeferred)}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

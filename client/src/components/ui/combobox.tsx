@@ -43,7 +43,7 @@ export function Combobox({
 
   const allOptions = useMemo(() => {
     const uniqueOptions = Array.from(new Set(options));
-    return uniqueOptions.sort((a, b) => a.localeCompare(b, 'ar'));
+    return uniqueOptions.sort((a, b) => String(a).localeCompare(String(b), 'ar'));
   }, [options]);
 
   const filteredOptions = useMemo(() => {

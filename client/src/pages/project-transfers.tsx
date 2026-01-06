@@ -146,15 +146,15 @@ export default function ProjectTransfers() {
 
   // Calculate Stats
   const stats = useMemo(() => {
-    const transfers = Array.isArray(allTransfers) ? allTransfers : [];
+    const transfers = Array.isArray(filteredTransfers) ? filteredTransfers : [];
     return {
       total: transfers.length,
       totalAmount: transfers.reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0),
-      filtered: filteredTransfers.length,
-      outgoing: filteredTransfers.filter(t => !filteredTransfers.some(other => other.fromProjectId === other.toProjectId)).length,
-      incoming: filteredTransfers.filter(t => filteredTransfers.some(other => other.toProjectId === other.fromProjectId)).length,
+      filtered: transfers.length,
+      outgoing: transfers.filter(t => !transfers.some(other => other.fromProjectId === other.toProjectId)).length,
+      incoming: transfers.filter(t => transfers.some(other => other.toProjectId === other.fromProjectId)).length,
     };
-  }, [allTransfers, filteredTransfers]);
+  }, [filteredTransfers]);
 
   // Mutations
   const createTransferMutation = useMutation({

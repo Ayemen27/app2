@@ -748,7 +748,7 @@ export default function MaterialPurchase() {
 
 
   const stats = useMemo(() => {
-    const pList = allMaterialPurchases || [];
+    const pList = filteredPurchases || [];
     return {
       total: pList.length,
       cash: pList.filter((p: any) => p.purchaseType === 'نقد').length,
@@ -759,7 +759,7 @@ export default function MaterialPurchase() {
         ? pList.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0) / pList.length 
         : 0,
     };
-  }, [allMaterialPurchases]);
+  }, [filteredPurchases]);
 
 
   // فلترة المشتريات حسب المشروع المحدد، البحث، ونوع الدفع، والتاريخ

@@ -185,54 +185,6 @@ export default function TransportManagement() {
     return [...base, ...dynamic];
   }, [autocompleteResponse]);
 
-  const { data: autocompleteResponse } = useQuery({
-    queryKey: ["/api/autocomplete/transport-categories"],
-    queryFn: async () => apiRequest("/api/autocomplete/transport-categories", "GET")
-  });
-
-  const categoriesMap = useMemo(() => {
-    const map: Record<string, string> = {
-      worker_transport: "نقل عمال",
-      material_delivery: "توريد مواد",
-      concrete_transport: "نقل خرسانة",
-      iron_platforms: "نقل حديد ومنصات",
-      fuel_shas: "بترول شاص",
-      fuel_hilux: "بترول هيلكس",
-      loading_unloading: "تحميل وتنزيل",
-      maintenance: "صيانة وإصلاح",
-      water_supply: "توريد مياه",
-      other: "أخرى"
-    };
-    if (autocompleteResponse?.data) {
-      autocompleteResponse.data.forEach((cat: any) => {
-        map[cat.value] = cat.label;
-      });
-    }
-    return map;
-  }, [autocompleteResponse]);
-
-  const filterCategories = useMemo(() => {
-    const base = [
-      { value: 'all', label: 'جميع الفئات' },
-      { value: "worker_transport", label: "نقل عمال" },
-      { value: "material_delivery", label: "توريد مواد" },
-      { value: "concrete_transport", label: "نقل خرسانة" },
-      { value: "iron_platforms", label: "نقل حديد ومنصات" },
-      { value: "fuel_shas", label: "بترول شاص" },
-      { value: "fuel_hilux", label: "بترول هيلكس" },
-      { value: "loading_unloading", label: "تحميل وتنزيل" },
-      { value: "maintenance", label: "صيانة وإصلاح" },
-      { value: "water_supply", label: "توريد مياه" },
-      { value: "other", label: "أخرى" }
-    ];
-    if (!autocompleteResponse?.data) return base;
-    const existingValues = new Set(base.map(b => b.value));
-    const dynamic = autocompleteResponse.data
-      .map((cat: any) => ({ value: cat.value, label: cat.label }))
-      .filter((cat: any) => !existingValues.has(cat.value));
-    return [...base, ...dynamic];
-  }, [autocompleteResponse]);
-
   const expenses = useMemo(() => expensesResponse?.data || [], [expensesResponse]);
 
   const filteredExpenses = useMemo(() => {
@@ -294,54 +246,6 @@ export default function TransportManagement() {
         fgColor: { argb: '1E293B' }
       };
       headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-
-  const { data: autocompleteResponse } = useQuery({
-    queryKey: ["/api/autocomplete/transport-categories"],
-    queryFn: async () => apiRequest("/api/autocomplete/transport-categories", "GET")
-  });
-
-  const categoriesMap = useMemo(() => {
-    const map: Record<string, string> = {
-      worker_transport: "نقل عمال",
-      material_delivery: "توريد مواد",
-      concrete_transport: "نقل خرسانة",
-      iron_platforms: "نقل حديد ومنصات",
-      fuel_shas: "بترول شاص",
-      fuel_hilux: "بترول هيلكس",
-      loading_unloading: "تحميل وتنزيل",
-      maintenance: "صيانة وإصلاح",
-      water_supply: "توريد مياه",
-      other: "أخرى"
-    };
-    if (autocompleteResponse?.data) {
-      autocompleteResponse.data.forEach((cat: any) => {
-        map[cat.value] = cat.label;
-      });
-    }
-    return map;
-  }, [autocompleteResponse]);
-
-  const filterCategories = useMemo(() => {
-    const base = [
-      { value: 'all', label: 'جميع الفئات' },
-      { value: "worker_transport", label: "نقل عمال" },
-      { value: "material_delivery", label: "توريد مواد" },
-      { value: "concrete_transport", label: "نقل خرسانة" },
-      { value: "iron_platforms", label: "نقل حديد ومنصات" },
-      { value: "fuel_shas", label: "بترول شاص" },
-      { value: "fuel_hilux", label: "بترول هيلكس" },
-      { value: "loading_unloading", label: "تحميل وتنزيل" },
-      { value: "maintenance", label: "صيانة وإصلاح" },
-      { value: "water_supply", label: "توريد مياه" },
-      { value: "other", label: "أخرى" }
-    ];
-    if (!autocompleteResponse?.data) return base;
-    const existingValues = new Set(base.map(b => b.value));
-    const dynamic = autocompleteResponse.data
-      .map((cat: any) => ({ value: cat.value, label: cat.label }))
-      .filter((cat: any) => !existingValues.has(cat.value));
-    return [...base, ...dynamic];
-  }, [autocompleteResponse]);
 
   const { data: autocompleteResponse } = useQuery({
     queryKey: ["/api/autocomplete/transport-categories"],

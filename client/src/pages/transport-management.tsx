@@ -328,8 +328,8 @@ export default function TransportManagement() {
               </DialogHeader>
               <div className="p-4">
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 gap-3">
-                    <div className="space-y-1">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2 space-y-1">
                       <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Edit className="h-3 w-3" /> البيان / الوصف
                       </Label>
@@ -341,36 +341,7 @@ export default function TransportManagement() {
                         className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20"
                       />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                        <DollarSign className="h-3 w-3" /> المبلغ
-                      </Label>
-                      <div className="relative">
-                        <Input 
-                          type="number" 
-                          value={amount} 
-                          onChange={(e) => setAmount(e.target.value)} 
-                          placeholder="0.00"
-                          className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 pl-7 focus:ring-primary/20 text-xs"
-                        />
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400">RY</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                        <Calendar className="h-3 w-3" /> التاريخ
-                      </Label>
-                      <Input 
-                        type="date" 
-                        value={date} 
-                        onChange={(e) => setDate(e.target.value)} 
-                        className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20 text-xs px-2"
-                      />
-                    </div>
-                    <div className="space-y-1">
+                    <div className="col-span-1 space-y-1">
                       <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Filter className="h-3 w-3" /> الفئة
                       </Label>
@@ -423,6 +394,35 @@ export default function TransportManagement() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <DollarSign className="h-3 w-3" /> المبلغ
+                      </Label>
+                      <div className="relative">
+                        <Input 
+                          type="number" 
+                          value={amount} 
+                          onChange={(e) => setAmount(e.target.value)} 
+                          placeholder="0.00"
+                          className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 pl-7 focus:ring-primary/20 text-xs"
+                        />
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400">RY</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <Calendar className="h-3 w-3" /> التاريخ
+                      </Label>
+                      <Input 
+                        type="date" 
+                        value={date} 
+                        onChange={(e) => setDate(e.target.value)} 
+                        className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20 text-xs px-2"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Plus className="h-3 w-3" /> العامل (اختياري)
                       </Label>
                       <Combobox
@@ -448,6 +448,26 @@ export default function TransportManagement() {
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">ملاحظات</Label>
+                    <Textarea 
+                      value={notes} 
+                      onChange={(e) => setNotes(e.target.value)} 
+                      placeholder="أي ملاحظات إضافية..."
+                      className="min-h-[60px] rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 resize-none py-2 focus:ring-primary/20 text-xs"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <Button type="button" variant="ghost" onClick={resetForm} className="flex-1 rounded-lg h-9 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold">إلغاء</Button>
+                    <Button type="submit" className="flex-[2] rounded-lg h-9 shadow-lg shadow-primary/20 gap-2 text-xs font-bold" disabled={saveMutation.isPending}>
+                      <Save className="h-4 w-4" />
+                      {editingExpenseId ? "تحديث" : "حفظ"}
+                    </Button>
+                  </div>
+                </form>
+              </div>
 
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">ملاحظات</Label>

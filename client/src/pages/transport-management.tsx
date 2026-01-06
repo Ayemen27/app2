@@ -345,8 +345,9 @@ export default function TransportManagement() {
                         <Hash className="h-3 w-3" /> تخصيص لبئر
                       </Label>
                       <WellSelector 
-                        selectedWellId={selectedWellId} 
-                        onSelect={setSelectedWellId} 
+                        projectId={selectedProjectId}
+                        value={selectedWellId} 
+                        onChange={setSelectedWellId} 
                       />
                     </div>
                   </div>
@@ -408,27 +409,43 @@ export default function TransportManagement() {
                   key={expense.id}
                   title={expense.description}
                   subtitle={workers.find(w => w.id === expense.workerId)?.name || "مصروف عام"}
-                  amount={Number(expense.amount)}
-                  date={expense.date}
-                  badge={expense.wellId ? `بئر ${expense.wellId}` : undefined}
                   icon={Truck}
-                  actions={
-                    <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" onClick={() => handleEdit(expense)} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" 
-                        onClick={() => {
-                          if (confirm("هل أنت متأكد من الحذف؟")) deleteMutation.mutate(expense.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  }
+                  fields={[
+                    {
+                      label: "المبلغ",
+                      value: formatCurrency(Number(expense.amount)),
+                      icon: DollarSign,
+                      emphasis: true,
+                      color: "success"
+                    },
+                    {
+                      label: "التاريخ",
+                      value: expense.date,
+                      icon: Calendar
+                    },
+                    {
+                      label: "البئر",
+                      value: expense.wellId ? `بئر ${expense.wellId}` : "N/A",
+                      icon: Hash,
+                      hidden: !expense.wellId
+                    }
+                  ]}
+                  actions={[
+                    {
+                      icon: Edit,
+                      label: "تعديل",
+                      onClick: () => handleEdit(expense),
+                      color: "blue"
+                    },
+                    {
+                      icon: Trash2,
+                      label: "حذف",
+                      onClick: () => {
+                        if (confirm("هل أنت متأكد من الحذف؟")) deleteMutation.mutate(expense.id);
+                      },
+                      color: "red"
+                    }
+                  ]}
                 >
                   {expense.notes && (
                     <div className="mt-3 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">

@@ -78,12 +78,14 @@ export default function TransportManagement() {
     queryKey: ["/api/workers"],
   });
 
-  const { data: expenses = [], isLoading, refetch } = useQuery<TransportationExpense[]>({
+  const { data: expensesResponse, isLoading, refetch } = useQuery<{ success: boolean; data: TransportationExpense[] }>({
     queryKey: ["/api/projects", selectedProjectId, "transportation", filterValues.specificDate, filterValues.dateRange],
     queryFn: async () => {
-      let url = `/api/projects/${getProjectIdForApi()}/transportation`;
-      const params = new URLSearchParams();
+      let url = isAllProjects 
+        ? `/api/transportation-expenses` 
+        : `/api/projects/${getProjectIdForApi()}/transportation-expenses`;
       
+      const params = new URLSearchParams();
       if (filterValues.specificDate) {
         params.append("date", filterValues.specificDate);
       }
@@ -96,10 +98,12 @@ export default function TransportManagement() {
       
       const queryString = params.toString();
       const response = await apiRequest(`${url}${queryString ? `?${queryString}` : ''}`, "GET");
-      return response.data || [];
+      return response;
     },
     enabled: !!selectedProjectId || isAllProjects
   });
+
+  const expenses = useMemo(() => expensesResponse?.data || [], [expensesResponse]);
 
   const handleExportToExcel = () => {
     try {
@@ -142,12 +146,13 @@ export default function TransportManagement() {
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
       if (editingExpenseId) {
-        return apiRequest(`/api/transportation/${editingExpenseId}`, "PATCH", data);
+        return apiRequest(`/api/transportation-expenses/${editingExpenseId}`, "PATCH", data);
       }
-      return apiRequest("/api/transportation", "POST", data);
+      return apiRequest("/api/transportation-expenses", "POST", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "transportation"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transportation-expenses"] });
       toast({ title: editingExpenseId ? "تم التعديل بنجاح" : "تم الحفظ بنجاح" });
       resetForm();
     },
@@ -161,9 +166,10 @@ export default function TransportManagement() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/transportation/${id}`, "DELETE"),
+    mutationFn: (id: string) => apiRequest(`/api/transportation-expenses/${id}`, "DELETE"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "transportation"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transportation-expenses"] });
       toast({ title: "تم الحذف بنجاح" });
     }
   });

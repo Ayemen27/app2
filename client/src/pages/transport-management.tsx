@@ -5,7 +5,8 @@ import { format } from "date-fns";
 import { 
   Truck, Save, Plus, Edit, Trash2, 
   DollarSign, TrendingUp, RefreshCw, ChevronUp,
-  FileSpreadsheet, Filter, XCircle, Calendar, Hash
+  FileSpreadsheet, Filter, XCircle, Calendar, Hash,
+  MapPin, Info
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +24,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
+import { UnifiedStats } from "@/components/ui/unified-stats";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { TransportationExpense, Worker } from "@shared/schema";
 import * as XLSX from 'xlsx';
@@ -104,6 +106,31 @@ export default function TransportManagement() {
   });
 
   const expenses = useMemo(() => expensesResponse?.data || [], [expensesResponse]);
+
+  const statsData = useMemo(() => {
+    const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+    const count = expenses.length;
+    return [
+      {
+        title: "إجمالي تكلفة النقل",
+        value: formatCurrency(totalAmount),
+        icon: DollarSign,
+        color: "blue" as const,
+      },
+      {
+        title: "عدد الرحلات",
+        value: count,
+        icon: Truck,
+        color: "green" as const,
+      },
+      {
+        title: "متوسط تكلفة الرحلة",
+        value: formatCurrency(count > 0 ? totalAmount / count : 0),
+        icon: TrendingUp,
+        color: "amber" as const,
+      }
+    ];
+  }, [expenses]);
 
   const handleExportToExcel = () => {
     try {
@@ -203,37 +230,6 @@ export default function TransportManagement() {
     setIsDialogOpen(true);
   };
 
-  const statsConfigs: StatsRowConfig[] = [
-    {
-      items: [
-        {
-          key: "total",
-          label: "إجمالي النقل",
-          value: expenses.reduce((sum, e) => sum + Number(e.amount), 0),
-          icon: DollarSign,
-          color: "blue",
-          formatter: (v) => formatCurrency(v)
-        },
-        {
-          key: "count",
-          label: "عدد الرحلات",
-          value: expenses.length,
-          icon: Truck,
-          color: "green"
-        },
-        {
-          key: "average",
-          label: "متوسط الرحلة",
-          value: expenses.length > 0 ? expenses.reduce((sum, e) => sum + Number(e.amount), 0) / expenses.length : 0,
-          icon: TrendingUp,
-          color: "orange",
-          formatter: (v) => formatCurrency(v)
-        }
-      ],
-      columns: 3
-    }
-  ];
-
   const filters: FilterConfig[] = [
     {
       key: "specificDate",
@@ -264,6 +260,12 @@ export default function TransportManagement() {
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="max-w-7xl mx-auto w-full p-4 space-y-6">
           
+          <UnifiedStats
+            title="ملخص حركة النقل"
+            stats={statsData}
+            columns={3}
+          />
+
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none rounded-2xl shadow-2xl">
               <DialogHeader className="p-6 bg-gradient-to-r from-primary/10 to-primary/5 border-b border-primary/10">
@@ -374,7 +376,6 @@ export default function TransportManagement() {
           </Dialog>
 
           <UnifiedFilterDashboard
-            statsRows={statsConfigs}
             filters={filters}
             filterValues={filterValues}
             onFilterChange={(key, val) => setFilterValues(prev => ({ ...prev, [key]: val }))}
@@ -431,7 +432,10 @@ export default function TransportManagement() {
                 >
                   {expense.notes && (
                     <div className="mt-3 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
-                      <p className="text-[11px] text-slate-500 leading-relaxed italic">{expense.notes}</p>
+                      <div className="flex items-start gap-2">
+                        <Info className="h-3 w-3 text-slate-400 mt-0.5" />
+                        <p className="text-[11px] text-slate-500 leading-relaxed italic">{expense.notes}</p>
+                      </div>
                     </div>
                   )}
                 </UnifiedCard>

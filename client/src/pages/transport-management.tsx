@@ -82,7 +82,7 @@ export default function TransportManagement() {
     queryKey: ["/api/workers"],
   });
 
-  const { data: expensesResponse, isLoading, refetch } = useQuery<{ success: boolean; data: TransportationExpense[] }>({
+  const { data: expensesResponse, isLoading, refetch } = useQuery<{ success: boolean; data: (TransportationExpense & { workerName?: string, projectName?: string })[] }>({
     queryKey: ["/api/projects", selectedProjectId, "transportation", filterValues.specificDate, filterValues.dateRange],
     queryFn: async () => {
       let url = isAllProjects 
@@ -108,6 +108,16 @@ export default function TransportManagement() {
   });
 
   const expenses = useMemo(() => expensesResponse?.data || [], [expensesResponse]);
+
+  const filteredExpenses = useMemo(() => {
+    if (!searchValue) return expenses;
+    const lowerSearch = searchValue.toLowerCase();
+    return expenses.filter(e => 
+      e.description.toLowerCase().includes(lowerSearch) || 
+      (e.workerName && e.workerName.toLowerCase().includes(lowerSearch)) ||
+      (e.projectName && e.projectName.toLowerCase().includes(lowerSearch))
+    );
+  }, [expenses, searchValue]);
 
   const statsData = useMemo(() => {
     const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
@@ -497,14 +507,11 @@ export default function TransportManagement() {
             </Card>
           ) : (
             <UnifiedCardGrid>
-              {expenses
-                .filter(e => e.description.toLowerCase().includes(searchValue.toLowerCase()) || 
-                            workers.find(w => w.id === e.workerId)?.name.toLowerCase().includes(searchValue.toLowerCase()))
-                .map((expense) => (
+              {filteredExpenses.map((expense) => (
                 <UnifiedCard
                   key={expense.id}
                   title={expense.description}
-                  subtitle={workers.find(w => w.id === expense.workerId)?.name || "مصروف عام"}
+                  subtitle={expense.workerName || "مصروف عام"}
                   icon={Truck}
                   fields={[
                     {

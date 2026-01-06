@@ -361,11 +361,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========================================
   // 🚚 Transportation Expenses Routes
   // ========================================
-  app.get("/api/projects/:projectId/transportation", requireAuth, async (req, res) => {
+  app.get("/api/projects/:projectId/transportation-expenses", requireAuth, async (req, res) => {
     try {
       const { projectId } = req.params;
-      const { date } = req.query;
-      const expenses = await storage.getTransportationExpenses(projectId, date as string);
+      const { date, dateFrom, dateTo } = req.query;
+      
+      let query = db.select({
+        id: transportationExpenses.id,
+        projectId: transportationExpenses.projectId,
+        workerId: transportationExpenses.workerId,
+        amount: transportationExpenses.amount,
+        description: transportationExpenses.description,
+        category: transportationExpenses.category,
+        date: transportationExpenses.date,
+        notes: transportationExpenses.notes,
+        wellId: transportationExpenses.wellId,
+        workerName: workers.name,
+      })
+      .from(transportationExpenses)
+      .leftJoin(workers, eq(transportationExpenses.workerId, workers.id))
+      .where(eq(transportationExpenses.projectId, projectId));
+
+      if (date) {
+        query = query.where(eq(transportationExpenses.date, date as string)) as any;
+      } else if (dateFrom && dateTo) {
+        query = query.where(and(
+          gte(transportationExpenses.date, dateFrom as string),
+          lte(transportationExpenses.date, dateTo as string)
+        )) as any;
+      }
+
+      const expenses = await query.orderBy(desc(transportationExpenses.date));
+      res.json({ success: true, data: expenses });
+    } catch (error: any) {
+      console.error('❌ [Transportation] Error fetching expenses:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/transportation-expenses", requireAuth, async (req, res) => {
+    try {
+      const { date, dateFrom, dateTo } = req.query;
+      
+      let query = db.select({
+        id: transportationExpenses.id,
+        projectId: transportationExpenses.projectId,
+        workerId: transportationExpenses.workerId,
+        amount: transportationExpenses.amount,
+        description: transportationExpenses.description,
+        category: transportationExpenses.category,
+        date: transportationExpenses.date,
+        notes: transportationExpenses.notes,
+        wellId: transportationExpenses.wellId,
+        workerName: workers.name,
+        projectName: projects.name,
+      })
+      .from(transportationExpenses)
+      .leftJoin(workers, eq(transportationExpenses.workerId, workers.id))
+      .leftJoin(projects, eq(transportationExpenses.projectId, projects.id));
+
+      if (date) {
+        query = query.where(eq(transportationExpenses.date, date as string)) as any;
+      } else if (dateFrom && dateTo) {
+        query = query.where(and(
+          gte(transportationExpenses.date, dateFrom as string),
+          lte(transportationExpenses.date, dateTo as string)
+        )) as any;
+      }
+
+      const expenses = await query.orderBy(desc(transportationExpenses.date));
       res.json({ success: true, data: expenses });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });

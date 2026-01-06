@@ -2832,7 +2832,7 @@ function DailyExpensesContent() {
                               <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">مؤجل: {formatCurrency(deferredAmount)}</p>
                             )}
                             {attendance.workDescription && (
-                              <p className="text-xs text-muted-foreground">النوع: {attendance.workDescription}</p>
+                              <p className="text-xs text-muted-foreground">ملاحظات: {attendance.workDescription}</p>
                             )}
                             <div className="flex flex-col gap-1">
                               {attendance.notes && (

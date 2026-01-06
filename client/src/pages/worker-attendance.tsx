@@ -126,9 +126,15 @@ export default function WorkerAttendance() {
     }
   }, []);
 
-  // تعيين إجراء الزر العائم لحفظ الحضور (تم التعطيل بناءً على طلب المستخدم)
+  // تعيين إجراء الزر العائم لحفظ الحضور
   useEffect(() => {
-    setFloatingAction(null);
+    const handleFloatingSave = () => {
+      // محاكاة كليك زر الحفظ
+      const submitButton = document.querySelector('[type="submit"]') as HTMLButtonElement;
+      submitButton?.click();
+    };
+
+    setFloatingAction(handleFloatingSave, "حفظ الحضور");
     return () => setFloatingAction(null);
   }, [setFloatingAction]);
 

@@ -326,11 +326,11 @@ export default function TransportManagement() {
                   {editingExpenseId ? "تعديل سجل النقل" : "إضافة سجل نقل جديد"}
                 </DialogTitle>
               </DialogHeader>
-              <div className="p-6">
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <div className="p-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Edit className="h-3 w-3" /> البيان / الوصف
                       </Label>
                       <AutocompleteInput
@@ -338,14 +338,14 @@ export default function TransportManagement() {
                         value={description}
                         onChange={setDescription}
                         placeholder="مثلاً: نقل عمال، توريد مياه..."
-                        className="h-10 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20"
+                        className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <DollarSign className="h-3 w-3" /> المبلغ
                       </Label>
                       <div className="relative">
@@ -354,27 +354,24 @@ export default function TransportManagement() {
                           value={amount} 
                           onChange={(e) => setAmount(e.target.value)} 
                           placeholder="0.00"
-                          className="h-10 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 pl-8 focus:ring-primary/20"
+                          className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 pl-7 focus:ring-primary/20 text-xs"
                         />
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">RY</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400">RY</span>
                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Calendar className="h-3 w-3" /> التاريخ
                       </Label>
                       <Input 
                         type="date" 
                         value={date} 
                         onChange={(e) => setDate(e.target.value)} 
-                        className="h-10 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20"
+                        className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20 text-xs px-2"
                       />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Filter className="h-3 w-3" /> الفئة
                       </Label>
                       <Combobox
@@ -417,14 +414,15 @@ export default function TransportManagement() {
                           ].find(o => o.label === val);
                           if (opt) setCategory(opt.value);
                         }}
-                        placeholder="اختر الفئة..."
+                        placeholder="اختر..."
+                        className="h-9 text-xs"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Plus className="h-3 w-3" /> العامل (اختياري)
                       </Label>
                       <Combobox
@@ -435,40 +433,37 @@ export default function TransportManagement() {
                           if (worker) setWorkerId(worker.id);
                         }}
                         placeholder="اختر العامل..."
+                        className="h-9 text-xs"
                       />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Hash className="h-3 w-3" /> تخصيص لبئر
                       </Label>
                       <WellSelector 
                         projectId={selectedProjectId}
                         value={selectedWellId} 
-                        onChange={setSelectedWellId} 
+                        onChange={setSelectedWellId}
+                        className="h-9 text-xs"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">ملاحظات</Label>
-                      <Textarea 
-                        value={notes} 
-                        onChange={(e) => setNotes(e.target.value)} 
-                        placeholder="أي ملاحظات إضافية..."
-                        className="min-h-[80px] rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 resize-none py-3 focus:ring-primary/20 text-sm"
-                      />
-                    </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">ملاحظات</Label>
+                    <Textarea 
+                      value={notes} 
+                      onChange={(e) => setNotes(e.target.value)} 
+                      placeholder="أي ملاحظات إضافية..."
+                      className="min-h-[60px] rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 resize-none py-2 focus:ring-primary/20 text-xs"
+                    />
                   </div>
 
-                  <div className="flex items-center gap-3 pt-4">
-                    <Button type="button" variant="ghost" onClick={resetForm} className="flex-1 rounded-xl h-11 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold">إلغاء</Button>
-                    <Button type="submit" className="flex-[2] rounded-xl h-11 shadow-lg shadow-primary/20 gap-2 font-bold" disabled={saveMutation.isPending}>
+                  <div className="flex items-center gap-2 pt-2">
+                    <Button type="button" variant="ghost" onClick={resetForm} className="flex-1 rounded-lg h-9 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold">إلغاء</Button>
+                    <Button type="submit" className="flex-[2] rounded-lg h-9 shadow-lg shadow-primary/20 gap-2 text-xs font-bold" disabled={saveMutation.isPending}>
                       <Save className="h-4 w-4" />
-                      {editingExpenseId ? "تحديث السجل" : "حفظ السجل"}
+                      {editingExpenseId ? "تحديث" : "حفظ"}
                     </Button>
                   </div>
                 </form>

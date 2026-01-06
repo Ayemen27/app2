@@ -177,9 +177,8 @@ export default function TransportManagement() {
   const handleExportToExcel = async () => {
     try {
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('حركة النقل');
-
-      worksheet.views = [{ rightToLeft: true }];
+      workbook.views = [{ rightToLeft: true }];
+      const worksheet = workbook.addWorksheet('حركة النقل', { views: [{ rightToLeft: true }] });
 
       worksheet.columns = [
         { header: 'التاريخ', key: 'date', width: 15 },

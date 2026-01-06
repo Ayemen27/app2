@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">إدارة المشاريع الإنشائية</string>
+    <string name="title_activity_main">إدارة المشاريع الإنشائية</string>
+    <string name="package_name">com.binarjoin.construction.manager</string>
+    <string name="custom_url_scheme">com.binarjoin.construction.manager</string>
+</resources>

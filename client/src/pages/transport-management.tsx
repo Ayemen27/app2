@@ -1,12 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { format } from "date-fns";
 import { 
-  ArrowRight, Save, Plus, Truck, Edit, Trash2, 
-  Users, DollarSign, TrendingUp, Calendar, 
-  FileSpreadsheet, Search, RefreshCw, ChevronDown, 
-  ChevronUp, MapPin
+  Truck, Save, Plus, Edit, Trash2, 
+  DollarSign, TrendingUp, RefreshCw, ChevronUp 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import { getCurrentDate, formatCurrency, formatDate } from "@/lib/utils";
+import { getCurrentDate, formatDate } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { WellSelector } from "@/components/well-selector";
 import { apiRequest } from "@/lib/queryClient";
@@ -24,7 +21,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
-import type { TransportationExpense, Worker, Project } from "@shared/schema";
+import type { TransportationExpense, Worker } from "@shared/schema";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function TransportManagement() {
@@ -38,7 +35,6 @@ export default function TransportManagement() {
   
   const [isFormCollapsed, setIsFormCollapsed] = useState(true);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Form states
   const [workerId, setWorkerId] = useState<string>("");
@@ -100,13 +96,6 @@ export default function TransportManagement() {
     },
     enabled: !!selectedProjectId || isAllProjects
   });
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refetch();
-    setIsRefreshing(false);
-    toast({ title: "تم التحديث", description: "تم تحديث البيانات بنجاح" });
-  };
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -308,7 +297,7 @@ export default function TransportManagement() {
             onFilterChange={(id, val) => setFilterValues(prev => ({ ...prev, [id]: val }))}
             onSearchChange={setSearchValue}
             searchValue={searchValue}
-            title="سجلات النقل"
+            title="إدارة النقل"
           />
 
           {isLoading ? (

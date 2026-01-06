@@ -137,6 +137,102 @@ export default function TransportManagement() {
     enabled: !!selectedProjectId || isAllProjects
   });
 
+  const { data: autocompleteResponse } = useQuery({
+    queryKey: ["/api/autocomplete/transport-categories"],
+    queryFn: async () => apiRequest("/api/autocomplete/transport-categories", "GET")
+  });
+
+  const categoriesMap = useMemo(() => {
+    const map: Record<string, string> = {
+      worker_transport: "نقل عمال",
+      material_delivery: "توريد مواد",
+      concrete_transport: "نقل خرسانة",
+      iron_platforms: "نقل حديد ومنصات",
+      fuel_shas: "بترول شاص",
+      fuel_hilux: "بترول هيلكس",
+      loading_unloading: "تحميل وتنزيل",
+      maintenance: "صيانة وإصلاح",
+      water_supply: "توريد مياه",
+      other: "أخرى"
+    };
+    if (autocompleteResponse?.data) {
+      autocompleteResponse.data.forEach((cat: any) => {
+        map[cat.value] = cat.label;
+      });
+    }
+    return map;
+  }, [autocompleteResponse]);
+
+  const filterCategories = useMemo(() => {
+    const base = [
+      { value: 'all', label: 'جميع الفئات' },
+      { value: "worker_transport", label: "نقل عمال" },
+      { value: "material_delivery", label: "توريد مواد" },
+      { value: "concrete_transport", label: "نقل خرسانة" },
+      { value: "iron_platforms", label: "نقل حديد ومنصات" },
+      { value: "fuel_shas", label: "بترول شاص" },
+      { value: "fuel_hilux", label: "بترول هيلكس" },
+      { value: "loading_unloading", label: "تحميل وتنزيل" },
+      { value: "maintenance", label: "صيانة وإصلاح" },
+      { value: "water_supply", label: "توريد مياه" },
+      { value: "other", label: "أخرى" }
+    ];
+    if (!autocompleteResponse?.data) return base;
+    const existingValues = new Set(base.map(b => b.value));
+    const dynamic = autocompleteResponse.data
+      .map((cat: any) => ({ value: cat.value, label: cat.label }))
+      .filter((cat: any) => !existingValues.has(cat.value));
+    return [...base, ...dynamic];
+  }, [autocompleteResponse]);
+
+  const { data: autocompleteResponse } = useQuery({
+    queryKey: ["/api/autocomplete/transport-categories"],
+    queryFn: async () => apiRequest("/api/autocomplete/transport-categories", "GET")
+  });
+
+  const categoriesMap = useMemo(() => {
+    const map: Record<string, string> = {
+      worker_transport: "نقل عمال",
+      material_delivery: "توريد مواد",
+      concrete_transport: "نقل خرسانة",
+      iron_platforms: "نقل حديد ومنصات",
+      fuel_shas: "بترول شاص",
+      fuel_hilux: "بترول هيلكس",
+      loading_unloading: "تحميل وتنزيل",
+      maintenance: "صيانة وإصلاح",
+      water_supply: "توريد مياه",
+      other: "أخرى"
+    };
+    if (autocompleteResponse?.data) {
+      autocompleteResponse.data.forEach((cat: any) => {
+        map[cat.value] = cat.label;
+      });
+    }
+    return map;
+  }, [autocompleteResponse]);
+
+  const filterCategories = useMemo(() => {
+    const base = [
+      { value: 'all', label: 'جميع الفئات' },
+      { value: "worker_transport", label: "نقل عمال" },
+      { value: "material_delivery", label: "توريد مواد" },
+      { value: "concrete_transport", label: "نقل خرسانة" },
+      { value: "iron_platforms", label: "نقل حديد ومنصات" },
+      { value: "fuel_shas", label: "بترول شاص" },
+      { value: "fuel_hilux", label: "بترول هيلكس" },
+      { value: "loading_unloading", label: "تحميل وتنزيل" },
+      { value: "maintenance", label: "صيانة وإصلاح" },
+      { value: "water_supply", label: "توريد مياه" },
+      { value: "other", label: "أخرى" }
+    ];
+    if (!autocompleteResponse?.data) return base;
+    const existingValues = new Set(base.map(b => b.value));
+    const dynamic = autocompleteResponse.data
+      .map((cat: any) => ({ value: cat.value, label: cat.label }))
+      .filter((cat: any) => !existingValues.has(cat.value));
+    return [...base, ...dynamic];
+  }, [autocompleteResponse]);
+
   const expenses = useMemo(() => expensesResponse?.data || [], [expensesResponse]);
 
   const filteredExpenses = useMemo(() => {
@@ -199,18 +295,163 @@ export default function TransportManagement() {
       };
       headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-      const categoriesMap: Record<string, string> = {
-        worker_transport: "نقل عمال",
-        material_delivery: "توريد مواد",
-        concrete_transport: "نقل خرسانة",
-        iron_platforms: "نقل حديد ومنصات",
-        fuel_shas: "بترول شاص",
-        fuel_hilux: "بترول هيلكس",
-        loading_unloading: "تحميل وتنزيل",
-        maintenance: "صيانة وإصلاح",
-        water_supply: "توريد مياه",
-        other: "أخرى"
+  const { data: autocompleteResponse } = useQuery({
+    queryKey: ["/api/autocomplete/transport-categories"],
+    queryFn: async () => apiRequest("/api/autocomplete/transport-categories", "GET")
+  });
+
+  const categoriesMap = useMemo(() => {
+    const map: Record<string, string> = {
+      worker_transport: "نقل عمال",
+      material_delivery: "توريد مواد",
+      concrete_transport: "نقل خرسانة",
+      iron_platforms: "نقل حديد ومنصات",
+      fuel_shas: "بترول شاص",
+      fuel_hilux: "بترول هيلكس",
+      loading_unloading: "تحميل وتنزيل",
+      maintenance: "صيانة وإصلاح",
+      water_supply: "توريد مياه",
+      other: "أخرى"
+    };
+    if (autocompleteResponse?.data) {
+      autocompleteResponse.data.forEach((cat: any) => {
+        map[cat.value] = cat.label;
+      });
+    }
+    return map;
+  }, [autocompleteResponse]);
+
+  const filterCategories = useMemo(() => {
+    const base = [
+      { value: 'all', label: 'جميع الفئات' },
+      { value: "worker_transport", label: "نقل عمال" },
+      { value: "material_delivery", label: "توريد مواد" },
+      { value: "concrete_transport", label: "نقل خرسانة" },
+      { value: "iron_platforms", label: "نقل حديد ومنصات" },
+      { value: "fuel_shas", label: "بترول شاص" },
+      { value: "fuel_hilux", label: "بترول هيلكس" },
+      { value: "loading_unloading", label: "تحميل وتنزيل" },
+      { value: "maintenance", label: "صيانة وإصلاح" },
+      { value: "water_supply", label: "توريد مياه" },
+      { value: "other", label: "أخرى" }
+    ];
+    if (!autocompleteResponse?.data) return base;
+    const existingValues = new Set(base.map(b => b.value));
+    const dynamic = autocompleteResponse.data
+      .map((cat: any) => ({ value: cat.value, label: cat.label }))
+      .filter((cat: any) => !existingValues.has(cat.value));
+    return [...base, ...dynamic];
+  }, [autocompleteResponse]);
+
+  const { data: autocompleteResponse } = useQuery({
+    queryKey: ["/api/autocomplete/transport-categories"],
+    queryFn: async () => apiRequest("/api/autocomplete/transport-categories", "GET")
+  });
+
+  const categoriesMap = useMemo(() => {
+    const map: Record<string, string> = {
+      worker_transport: "نقل عمال",
+      material_delivery: "توريد مواد",
+      concrete_transport: "نقل خرسانة",
+      iron_platforms: "نقل حديد ومنصات",
+      fuel_shas: "بترول شاص",
+      fuel_hilux: "بترول هيلكس",
+      loading_unloading: "تحميل وتنزيل",
+      maintenance: "صيانة وإصلاح",
+      water_supply: "توريد مياه",
+      other: "أخرى"
+    };
+    if (autocompleteResponse?.data) {
+      autocompleteResponse.data.forEach((cat: any) => {
+        map[cat.value] = cat.label;
+      });
+    }
+    return map;
+  }, [autocompleteResponse]);
+
+  const filterCategories = useMemo(() => {
+    const base = [
+      { value: 'all', label: 'جميع الفئات' },
+      { value: "worker_transport", label: "نقل عمال" },
+      { value: "material_delivery", label: "توريد مواد" },
+      { value: "concrete_transport", label: "نقل خرسانة" },
+      { value: "iron_platforms", label: "نقل حديد ومنصات" },
+      { value: "fuel_shas", label: "بترول شاص" },
+      { value: "fuel_hilux", label: "بترول هيلكس" },
+      { value: "loading_unloading", label: "تحميل وتنزيل" },
+      { value: "maintenance", label: "صيانة وإصلاح" },
+      { value: "water_supply", label: "توريد مياه" },
+      { value: "other", label: "أخرى" }
+    ];
+    if (!autocompleteResponse?.data) return base;
+    const existingValues = new Set(base.map(b => b.value));
+    const dynamic = autocompleteResponse.data
+      .map((cat: any) => ({ value: cat.value, label: cat.label }))
+      .filter((cat: any) => !existingValues.has(cat.value));
+    return [...base, ...dynamic];
+  }, [autocompleteResponse]);
+
+  const expenses = useMemo(() => expensesResponse?.data || [], [expensesResponse]);
+
+  const filteredExpenses = useMemo(() => {
+    if (!searchValue) return expenses;
+    const lowerSearch = searchValue.toLowerCase();
+    return expenses.filter(e => 
+      e.description.toLowerCase().includes(lowerSearch) || 
+      (e.workerName && e.workerName.toLowerCase().includes(lowerSearch)) ||
+      (e.projectName && e.projectName.toLowerCase().includes(lowerSearch))
+    );
+  }, [expenses, searchValue]);
+
+  const statsData = useMemo(() => {
+    const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+    const count = expenses.length;
+    return [
+      {
+        title: "إجمالي تكلفة النقل",
+        value: formatCurrency(totalAmount),
+        icon: DollarSign,
+        color: "blue" as const,
+      },
+      {
+        title: "عدد الرحلات",
+        value: count,
+        icon: Truck,
+        color: "green" as const,
+      },
+      {
+        title: "متوسط تكلفة الرحلة",
+        value: formatCurrency(count > 0 ? totalAmount / count : 0),
+        icon: TrendingUp,
+        color: "amber" as const,
+      }
+    ];
+  }, [expenses]);
+
+  const handleExportToExcel = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.views = [{ rightToLeft: true }];
+      const worksheet = workbook.addWorksheet('حركة النقل', { views: [{ rightToLeft: true }] });
+
+      worksheet.columns = [
+        { header: 'التاريخ', key: 'date', width: 15 },
+        { header: 'البيان / الوصف', key: 'description', width: 30 },
+        { header: 'المبلغ (RY)', key: 'amount', width: 15 },
+        { header: 'الفئة', key: 'category', width: 20 },
+        { header: 'العامل', key: 'worker', width: 20 },
+        { header: 'رقم البئر', key: 'well', width: 12 },
+        { header: 'ملاحظات', key: 'notes', width: 30 }
+      ];
+
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 12 };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '1E293B' }
       };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
       expenses.forEach(expense => {
         const row = worksheet.addRow({
@@ -218,6 +459,13 @@ export default function TransportManagement() {
           description: expense.description,
           amount: Number(expense.amount),
           category: categoriesMap[expense.category] || expense.category || "أخرى",
+          worker: workers.find(w => w.id === expense.workerId)?.name || "مصروف عام",
+          well: expense.wellId || "N/A",
+          notes: expense.notes || ""
+        });
+
+        row.alignment = { vertical: 'middle', horizontal: 'right' };
+      });
           worker: workers.find(w => w.id === expense.workerId)?.name || "مصروف عام",
           well: expense.wellId || "N/A",
           notes: expense.notes || ""
@@ -365,19 +613,7 @@ export default function TransportManagement() {
       type: "select",
       label: "الفئة",
       placeholder: "جميع الفئات",
-      options: [
-        { value: 'all', label: 'جميع الفئات' },
-        { value: "worker_transport", label: "نقل عمال" },
-        { value: "material_delivery", label: "توريد مواد" },
-        { value: "concrete_transport", label: "نقل خرسانة" },
-        { value: "iron_platforms", label: "نقل حديد ومنصات" },
-        { value: "fuel_shas", label: "بترول شاص" },
-        { value: "fuel_hilux", label: "بترول هيلكس" },
-        { value: "loading_unloading", label: "تحميل وتنزيل" },
-        { value: "maintenance", label: "صيانة وإصلاح" },
-        { value: "water_supply", label: "توريد مياه" },
-        { value: "other", label: "أخرى" }
-      ]
+      options: filterCategories
     }
   ];
 

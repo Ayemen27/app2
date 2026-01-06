@@ -446,16 +446,19 @@ export default function TransportManagement() {
                       color: "red"
                     }
                   ]}
-                >
-                  {expense.notes && (
-                    <div className="mt-3 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                  footer={expense.notes && (
+                    <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
                       <div className="flex items-start gap-2">
                         <Info className="h-3 w-3 text-slate-400 mt-0.5" />
-                        <p className="text-[11px] text-slate-500 leading-relaxed italic">{expense.notes}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">
+                            {expense.notes}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
-                </UnifiedCard>
+                />
               ))}
             </UnifiedCardGrid>
           )}

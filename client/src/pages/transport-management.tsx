@@ -468,26 +468,6 @@ export default function TransportManagement() {
                   </div>
                 </form>
               </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">ملاحظات</Label>
-                    <Textarea 
-                      value={notes} 
-                      onChange={(e) => setNotes(e.target.value)} 
-                      placeholder="أي ملاحظات إضافية..."
-                      className="min-h-[60px] rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 resize-none py-2 focus:ring-primary/20 text-xs"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-2">
-                    <Button type="button" variant="ghost" onClick={resetForm} className="flex-1 rounded-lg h-9 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold">إلغاء</Button>
-                    <Button type="submit" className="flex-[2] rounded-lg h-9 shadow-lg shadow-primary/20 gap-2 text-xs font-bold" disabled={saveMutation.isPending}>
-                      <Save className="h-4 w-4" />
-                      {editingExpenseId ? "تحديث" : "حفظ"}
-                    </Button>
-                  </div>
-                </form>
-              </div>
             </DialogContent>
           </Dialog>
 

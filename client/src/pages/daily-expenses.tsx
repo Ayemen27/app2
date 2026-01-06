@@ -2022,7 +2022,11 @@ function DailyExpensesContent() {
           date: selectedDate ? (() => {
             const [year, month, day] = selectedDate.split('-').map(Number);
             return new Date(year, month - 1, day, 12, 0, 0, 0);
-          })() : undefined
+          })() : undefined,
+          dateRange: filterValues.dateRange,
+          type: filterValues.type,
+          transportCategory: filterValues.transportCategory,
+          miscCategory: filterValues.miscCategory
         }}
         onFilterChange={handleFilterChange}
         onReset={handleResetFilters}

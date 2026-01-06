@@ -21,8 +21,8 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { TransportationExpense, Worker } from "@shared/schema";
-import { motion, AnimatePresence } from "framer-motion";
 
 export default function TransportManagement() {
   const [, setLocation] = useLocation();
@@ -33,7 +33,7 @@ export default function TransportManagement() {
     specificDate: getCurrentDate()
   });
   
-  const [isFormCollapsed, setIsFormCollapsed] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
 
   // Form states
@@ -57,18 +57,18 @@ export default function TransportManagement() {
     setNotes("");
     setSelectedWellId(undefined);
     setEditingExpenseId(null);
-    setIsFormCollapsed(true);
+    setIsDialogOpen(false);
   }, []);
 
   // Unified Floating Button
   useEffect(() => {
     setFloatingAction(() => {
-      setIsFormCollapsed(prev => !prev);
-      if (!isFormCollapsed) resetForm();
-    }, isFormCollapsed ? "إضافة سجل نقل" : "إلغاء الإضافة");
+      setIsDialogOpen(true);
+      setEditingExpenseId(null);
+    }, "إضافة سجل نقل");
     
     return () => setFloatingAction(null);
-  }, [setFloatingAction, isFormCollapsed, resetForm]);
+  }, [setFloatingAction]);
 
   const { data: workers = [] } = useQuery<Worker[]>({
     queryKey: ["/api/workers"],
@@ -152,8 +152,7 @@ export default function TransportManagement() {
     setDate(expense.date);
     setNotes(expense.notes || "");
     setSelectedWellId(expense.wellId || undefined);
-    setIsFormCollapsed(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsDialogOpen(true);
   };
 
   const statsConfig: StatsRowConfig[] = [
@@ -201,96 +200,85 @@ export default function TransportManagement() {
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="max-w-7xl mx-auto w-full p-4 space-y-6">
           
-          <AnimatePresence>
-            {!isFormCollapsed && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <Card className="border-primary/20 bg-white dark:bg-slate-900 shadow-xl overflow-hidden rounded-2xl mb-6">
-                  <div className="p-4 border-b bg-primary/5 flex items-center justify-between">
-                    <div className="flex items-center gap-2 font-bold text-primary">
-                      <Truck className="h-4 w-4" />
-                      {editingExpenseId ? "تعديل سجل النقل" : "إضافة سجل نقل جديد"}
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={resetForm}>إلغاء</Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent className="sm:max-w-[600px] gap-6 rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-xl font-bold text-primary">
+                  <Truck className="h-5 w-5" />
+                  {editingExpenseId ? "تعديل سجل النقل" : "إضافة سجل نقل جديد"}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">البيان / الوصف</Label>
+                  <AutocompleteInput
+                    category="transport_desc"
+                    value={description}
+                    onChange={setDescription}
+                    placeholder="مثلاً: نقل عمال، توريد مياه..."
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">المبلغ</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input 
+                      type="number" 
+                      value={amount} 
+                      onChange={(e) => setAmount(e.target.value)} 
+                      placeholder="0.00"
+                      className="h-11 pr-10 rounded-xl"
+                    />
                   </div>
-                  <CardContent className="pt-6">
-                    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">البيان / الوصف</Label>
-                        <AutocompleteInput
-                          category="transport_desc"
-                          value={description}
-                          onChange={setDescription}
-                          placeholder="مثلاً: نقل عمال، توريد مياه..."
-                          className="h-11 rounded-xl"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">المبلغ</Label>
-                        <div className="relative">
-                          <DollarSign className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                          <Input 
-                            type="number" 
-                            value={amount} 
-                            onChange={(e) => setAmount(e.target.value)} 
-                            placeholder="0.00"
-                            className="h-11 pr-10 rounded-xl"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">التاريخ</Label>
-                        <Input 
-                          type="date" 
-                          value={date} 
-                          onChange={(e) => setDate(e.target.value)} 
-                          className="h-11 rounded-xl"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">العامل (اختياري)</Label>
-                        <Combobox
-                          options={workers.map(w => String(w.name))}
-                          value={workers.find(w => w.id === workerId)?.name || ""}
-                          onValueChange={(val) => {
-                            const worker = workers.find(w => w.name === val);
-                            if (worker) setWorkerId(worker.id);
-                          }}
-                          placeholder="اختر العامل..."
-                        />
-                      </div>
-                      <div className="md:col-span-2 space-y-2">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">تخصيص لبئر</Label>
-                        <WellSelector 
-                          selectedWellId={selectedWellId} 
-                          onSelect={setSelectedWellId} 
-                        />
-                      </div>
-                      <div className="md:col-span-2 lg:col-span-3 space-y-2">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">ملاحظات</Label>
-                        <Textarea 
-                          value={notes} 
-                          onChange={(e) => setNotes(e.target.value)} 
-                          placeholder="أي ملاحظات إضافية..."
-                          className="min-h-[100px] rounded-xl resize-none"
-                        />
-                      </div>
-                      <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-3 pt-4 border-t">
-                        <Button type="submit" className="gap-2 rounded-xl px-8" disabled={saveMutation.isPending}>
-                          <Save className="h-4 w-4" />
-                          {editingExpenseId ? "تحديث السجل" : "حفظ السجل"}
-                        </Button>
-                      </div>
-                    </form>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">التاريخ</Label>
+                  <Input 
+                    type="date" 
+                    value={date} 
+                    onChange={(e) => setDate(e.target.value)} 
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">العامل (اختياري)</Label>
+                  <Combobox
+                    options={workers.map(w => String(w.name))}
+                    value={workers.find(w => w.id === workerId)?.name || ""}
+                    onValueChange={(val) => {
+                      const worker = workers.find(w => w.name === val);
+                      if (worker) setWorkerId(worker.id);
+                    }}
+                    placeholder="اختر العامل..."
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">تخصيص لبئر</Label>
+                  <WellSelector 
+                    selectedWellId={selectedWellId} 
+                    onSelect={setSelectedWellId} 
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">ملاحظات</Label>
+                  <Textarea 
+                    value={notes} 
+                    onChange={(e) => setNotes(e.target.value)} 
+                    placeholder="أي ملاحظات إضافية..."
+                    className="min-h-[100px] rounded-xl resize-none"
+                  />
+                </div>
+                <div className="md:col-span-2 flex justify-end gap-3 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={resetForm} className="rounded-xl px-6">إلغاء</Button>
+                  <Button type="submit" className="gap-2 rounded-xl px-8" disabled={saveMutation.isPending}>
+                    <Save className="h-4 w-4" />
+                    {editingExpenseId ? "تحديث السجل" : "حفظ السجل"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
 
           <UnifiedFilterDashboard
             statsConfigs={statsConfig}

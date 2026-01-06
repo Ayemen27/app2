@@ -2,12 +2,41 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 import { 
   Truck, Save, Plus, Edit, Trash2, 
   DollarSign, TrendingUp, RefreshCw, ChevronUp,
   FileSpreadsheet, Filter, XCircle, Calendar, Hash,
-  MapPin, Info
+  MapPin, Info, User
 } from "lucide-react";
+import { saveAs } from 'file-saver';
+import * as ExcelJS from 'exceljs';
+
+const categoryColors: Record<string, string> = {
+  worker_transport: "border-l-blue-500",
+  material_delivery: "border-l-green-500",
+  concrete_transport: "border-l-orange-500",
+  iron_platforms: "border-l-slate-500",
+  fuel_shas: "border-l-red-500",
+  fuel_hilux: "border-l-red-400",
+  loading_unloading: "border-l-amber-500",
+  maintenance: "border-l-purple-500",
+  water_supply: "border-l-cyan-500",
+  other: "border-l-slate-400"
+};
+
+const categoryIconColors: Record<string, string> = {
+  worker_transport: "text-blue-500",
+  material_delivery: "text-green-500",
+  concrete_transport: "text-orange-500",
+  iron_platforms: "text-slate-500",
+  fuel_shas: "text-red-500",
+  fuel_hilux: "text-red-400",
+  loading_unloading: "text-amber-500",
+  maintenance: "text-purple-500",
+  water_supply: "text-cyan-500",
+  other: "text-slate-400"
+};
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -145,24 +174,82 @@ export default function TransportManagement() {
     ];
   }, [expenses]);
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     try {
-      const dataToExport = expenses.map(expense => ({
-        "التاريخ": expense.date,
-        "البيان": expense.description,
-        "المبلغ": Number(expense.amount),
-        "العامل": workers.find(w => w.id === expense.workerId)?.name || "مصروف عام",
-        "رقم البئر": expense.wellId || "N/A",
-        "ملاحظات": expense.notes || ""
-      }));
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('حركة النقل');
 
-      const ws = XLSX.utils.json_to_sheet(dataToExport);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Transportation");
-      XLSX.writeFile(wb, `Transportation_Report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      worksheet.views = [{ rightToLeft: true }];
+
+      worksheet.columns = [
+        { header: 'التاريخ', key: 'date', width: 15 },
+        { header: 'البيان / الوصف', key: 'description', width: 30 },
+        { header: 'المبلغ (RY)', key: 'amount', width: 15 },
+        { header: 'الفئة', key: 'category', width: 20 },
+        { header: 'العامل', key: 'worker', width: 20 },
+        { header: 'رقم البئر', key: 'well', width: 12 },
+        { header: 'ملاحظات', key: 'notes', width: 30 }
+      ];
+
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 12 };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '1E293B' }
+      };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const categoriesMap: Record<string, string> = {
+        worker_transport: "نقل عمال",
+        material_delivery: "توريد مواد",
+        concrete_transport: "نقل خرسانة",
+        iron_platforms: "نقل حديد ومنصات",
+        fuel_shas: "بترول شاص",
+        fuel_hilux: "بترول هيلكس",
+        loading_unloading: "تحميل وتنزيل",
+        maintenance: "صيانة وإصلاح",
+        water_supply: "توريد مياه",
+        other: "أخرى"
+      };
+
+      expenses.forEach(expense => {
+        const row = worksheet.addRow({
+          date: expense.date,
+          description: expense.description,
+          amount: Number(expense.amount),
+          category: categoriesMap[expense.category] || expense.category || "أخرى",
+          worker: workers.find(w => w.id === expense.workerId)?.name || "مصروف عام",
+          well: expense.wellId || "N/A",
+          notes: expense.notes || ""
+        });
+
+        row.alignment = { vertical: 'middle', horizontal: 'right' };
+      });
+
+      worksheet.eachRow((row, rowNumber) => {
+        row.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+        if (rowNumber > 1) {
+          row.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: rowNumber % 2 === 0 ? 'F8FAFC' : 'FFFFFF' }
+          };
+        }
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `تقرير_النقل_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
       
-      toast({ title: "تم التصدير بنجاح", description: "تم تحميل ملف إكسل بنجاح" });
+      toast({ title: "تم التصدير بنجاح", description: "تم تحميل ملف إكسل احترافي" });
     } catch (error) {
+      console.error("Export error:", error);
       toast({ title: "خطأ في التصدير", variant: "destructive" });
     }
   };
@@ -389,11 +476,10 @@ export default function TransportManagement() {
                       <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Calendar className="h-3 w-3" /> التاريخ
                       </Label>
-                      <Input 
-                        type="date" 
-                        value={date} 
-                        onChange={(e) => setDate(e.target.value)} 
-                        className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20 text-xs px-2"
+                      <DatePickerField
+                        value={date}
+                        onChange={(d) => setDate(d ? format(d, "yyyy-MM-dd") : getCurrentDate())}
+                        className="h-9"
                       />
                     </div>
                   </div>

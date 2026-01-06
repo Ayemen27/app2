@@ -46,7 +46,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import { getCurrentDate, formatDate, formatCurrency } from "@/lib/utils";
+import { cn, getCurrentDate, formatDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { WellSelector } from "@/components/well-selector";
 import { apiRequest } from "@/lib/queryClient";
@@ -578,7 +578,7 @@ export default function TransportManagement() {
                       return workerLabel;
                     })()
                   }
-                  icon={Truck as any}
+                  titleIcon={Truck}
                   className={cn(
                     "hover-elevate active-elevate-2 transition-all duration-300 border-l-4 shadow-md hover:shadow-xl group py-2",
                     categoryColors[expense.category] || "border-l-blue-500"

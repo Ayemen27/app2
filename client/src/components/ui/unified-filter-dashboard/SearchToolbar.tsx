@@ -107,7 +107,7 @@ export function SearchToolbar({
               <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-[10px] font-bold uppercase tracking-wider text-muted-foreground z-10 transition-colors group-focus-within:text-primary">
                 من تاريخ
               </Label>
-              <div className="relative border-2 border-muted/30 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5 bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="relative border-0 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50">
                 <DatePickerField
                   value={fromValue}
                   onChange={(date) => {
@@ -128,7 +128,7 @@ export function SearchToolbar({
               <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-[10px] font-bold uppercase tracking-wider text-muted-foreground z-10 transition-colors group-focus-within:text-primary">
                 إلى تاريخ
               </Label>
-              <div className="relative border-2 border-muted/30 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5 bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="relative border-0 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50">
                 <DatePickerField
                   value={toValue}
                   onChange={(date) => {
@@ -304,7 +304,7 @@ export function SearchToolbar({
                         </Label>
                       )}
                       <div className={cn(
-                        filter.type !== 'date-range' && "relative border-2 border-muted/30 rounded-2xl overflow-hidden transition-all focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5 bg-slate-50/50 dark:bg-slate-900/50"
+                        filter.type !== 'date-range' && "relative border-0 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50"
                       )}>
                         {renderFilterInput(filter)}
                       </div>

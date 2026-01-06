@@ -335,6 +335,9 @@ export default function TransportManagement() {
                         options={[
                           { value: "worker_transport", label: "نقل عمال" },
                           { value: "material_delivery", label: "توريد مواد" },
+                          { value: "concrete_transport", label: "نقل خرسانة" },
+                          { value: "iron_platforms", label: "نقل حديد ومنصات" },
+                          { value: "loading_unloading", label: "تحميل وتنزيل" },
                           { value: "maintenance", label: "صيانة وإصلاح" },
                           { value: "water_supply", label: "توريد مياه" },
                           { value: "other", label: "أخرى" }
@@ -342,7 +345,9 @@ export default function TransportManagement() {
                         value={[
                           { value: "worker_transport", label: "نقل عمال" },
                           { value: "material_delivery", label: "توريد مواد" },
-                          { value: "material_delivery", label: "توريد مواد" },
+                          { value: "concrete_transport", label: "نقل خرسانة" },
+                          { value: "iron_platforms", label: "نقل حديد ومنصات" },
+                          { value: "loading_unloading", label: "تحميل وتنزيل" },
                           { value: "maintenance", label: "صيانة وإصلاح" },
                           { value: "water_supply", label: "توريد مياه" },
                           { value: "other", label: "أخرى" }
@@ -351,6 +356,9 @@ export default function TransportManagement() {
                           const opt = [
                             { value: "worker_transport", label: "نقل عمال" },
                             { value: "material_delivery", label: "توريد مواد" },
+                            { value: "concrete_transport", label: "نقل خرسانة" },
+                            { value: "iron_platforms", label: "نقل حديد ومنصات" },
+                            { value: "loading_unloading", label: "تحميل وتنزيل" },
                             { value: "maintenance", label: "صيانة وإصلاح" },
                             { value: "water_supply", label: "توريد مياه" },
                             { value: "other", label: "أخرى" }
@@ -463,6 +471,9 @@ export default function TransportManagement() {
                       value: [
                         { value: "worker_transport", label: "نقل عمال" },
                         { value: "material_delivery", label: "توريد مواد" },
+                        { value: "concrete_transport", label: "نقل خرسانة" },
+                        { value: "iron_platforms", label: "نقل حديد ومنصات" },
+                        { value: "loading_unloading", label: "تحميل وتنزيل" },
                         { value: "maintenance", label: "صيانة وإصلاح" },
                         { value: "water_supply", label: "توريد مياه" },
                         { value: "other", label: "أخرى" }

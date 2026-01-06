@@ -358,6 +358,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // 🚚 Transportation Expenses Routes
+  // ========================================
+  app.get("/api/projects/:projectId/transportation", requireAuth, async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const { date } = req.query;
+      const expenses = await storage.getTransportationExpenses(projectId, date as string);
+      res.json({ success: true, data: expenses });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/transportation", requireAuth, async (req, res) => {
+    try {
+      const expense = await storage.createTransportationExpense(req.body);
+      res.json({ success: true, data: expense });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.patch("/api/transportation/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateTransportationExpense(id, req.body);
+      res.json({ success: true, data: updated });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.delete("/api/transportation/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteTransportationExpense(id);
+      res.json({ success: true, message: "تم حذف سجل النقل بنجاح" });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });

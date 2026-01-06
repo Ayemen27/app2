@@ -30,6 +30,7 @@ import WorkerAttendance from "./pages/worker-attendance";
 import DeploymentConsole from "./pages/deployment-console";
 
 import MaterialPurchase from "./pages/material-purchase";
+import TransportManagement from "./pages/transport-management";
 import ProjectTransfers from "./pages/project-transfers";
 import ProjectTransactionsPage from "./pages/project-transactions-simple";
 import ProjectFundCustody from "./pages/project-fund-custody";
@@ -153,6 +154,7 @@ function Router() {
       </Route>
       <Route path="/worker-attendance" component={WorkerAttendance} />
       <Route path="/material-purchase" component={MaterialPurchase} />
+      <Route path="/transport-management" component={TransportManagement} />
       <Route path="/project-transfers">
         <AdminRoute>
           <ProjectTransfers />

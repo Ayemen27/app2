@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/combobox";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { getCurrentDate, formatDate, formatCurrency } from "@/lib/utils";
@@ -346,7 +347,7 @@ export default function TransportManagement() {
                       <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Filter className="h-3 w-3" /> الفئة
                       </Label>
-                      <Combobox
+                      <SearchableSelect
                         options={[
                           { value: "worker_transport", label: "نقل عمال" },
                           { value: "material_delivery", label: "توريد مواد" },
@@ -358,36 +359,13 @@ export default function TransportManagement() {
                           { value: "maintenance", label: "صيانة وإصلاح" },
                           { value: "water_supply", label: "توريد مياه" },
                           { value: "other", label: "أخرى" }
-                        ].map(opt => opt.label)}
-                        value={[
-                          { value: "worker_transport", label: "نقل عمال" },
-                          { value: "material_delivery", label: "توريد مواد" },
-                          { value: "concrete_transport", label: "نقل خرسانة" },
-                          { value: "iron_platforms", label: "نقل حديد ومنصات" },
-                          { value: "fuel_shas", label: "بترول شاص" },
-                          { value: "fuel_hilux", label: "بترول هيلكس" },
-                          { value: "loading_unloading", label: "تحميل وتنزيل" },
-                          { value: "maintenance", label: "صيانة وإصلاح" },
-                          { value: "water_supply", label: "توريد مياه" },
-                          { value: "other", label: "أخرى" }
-                        ].find(opt => opt.value === category)?.label || "أخرى"}
-                        onValueChange={(val) => {
-                          const opt = [
-                            { value: "worker_transport", label: "نقل عمال" },
-                            { value: "material_delivery", label: "توريد مواد" },
-                            { value: "concrete_transport", label: "نقل خرسانة" },
-                            { value: "iron_platforms", label: "نقل حديد ومنصات" },
-                            { value: "fuel_shas", label: "بترول شاص" },
-                            { value: "fuel_hilux", label: "بترول هيلكس" },
-                            { value: "loading_unloading", label: "تحميل وتنزيل" },
-                            { value: "maintenance", label: "صيانة وإصلاح" },
-                            { value: "water_supply", label: "توريد مياه" },
-                            { value: "other", label: "أخرى" }
-                          ].find(o => o.label === val);
-                          if (opt) setCategory(opt.value);
-                        }}
-                        placeholder="اختر..."
-                        className="h-9 text-xs"
+                        ]}
+                        value={category}
+                        onValueChange={(val) => setCategory(val)}
+                        allowCustom={true}
+                        placeholder="اختر الفئة..."
+                        className="h-9"
+                        triggerClassName="h-9 text-xs"
                       />
                     </div>
                   </div>

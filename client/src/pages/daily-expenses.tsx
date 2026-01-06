@@ -2545,9 +2545,25 @@ function DailyExpensesContent() {
                           <h4 className="font-semibold text-foreground text-sm">{expense.description}</h4>
                           <span className="font-bold text-secondary arabic-numbers text-base">{formatCurrency(expense.amount)}</span>
                         </div>
-                        {expense.notes && (
-                          <p className="text-xs text-muted-foreground">الملاحظات: {expense.notes}</p>
-                        )}
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className="text-[10px] bg-secondary/5 text-secondary border-secondary/20">
+                            {[
+                              { value: "worker_transport", label: "نقل عمال" },
+                              { value: "material_delivery", label: "توريد مواد" },
+                              { value: "concrete_transport", label: "نقل خرسانة" },
+                              { value: "iron_platforms", label: "نقل حديد ومنصات" },
+                              { value: "fuel_shas", label: "بترول شاص" },
+                              { value: "fuel_hilux", label: "بترول هيلكس" },
+                              { value: "loading_unloading", label: "تحميل وتنزيل" },
+                              { value: "maintenance", label: "صيانة وإصلاح" },
+                              { value: "water_supply", label: "توريد مياه" },
+                              { value: "other", label: "أخرى" }
+                            ].find(opt => opt.value === expense.category)?.label || "أخرى"}
+                          </Badge>
+                          {expense.notes && (
+                            <p className="text-xs text-muted-foreground">الملاحظات: {expense.notes}</p>
+                          )}
+                        </div>
                         {expense.wellName && (
                           <p className="text-xs text-muted-foreground">البئر: {expense.wellName}</p>
                         )}

@@ -484,23 +484,15 @@ export default function TransportManagement() {
                   key={expense.id}
                   title={expense.description}
                   subtitle={
-                    <div className="flex flex-col gap-1.5 mt-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                          {expense.workerName || "مصروف عام"}
-                        </span>
-                      </div>
-                      {isAllProjects && expense.projectName && (
-                        <div className="flex items-center gap-1.5 w-fit px-2.5 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded-full shadow-sm">
-                          <MapPin className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                          <span className="text-[10px] font-extrabold text-blue-700 dark:text-blue-400 tracking-tight">
-                            {expense.projectName}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    (() => {
+                      const workerLabel = expense.workerName || "مصروف عام";
+                      if (isAllProjects && expense.projectName) {
+                        return `${workerLabel} - ${expense.projectName}`;
+                      }
+                      return workerLabel;
+                    })()
                   }
-                  icon={Truck}
+                  icon={Truck as any}
                   className="hover-elevate active-elevate-2 transition-all duration-300 border-l-4 border-l-blue-500 shadow-md hover:shadow-xl group"
                   fields={[
                     {
@@ -525,13 +517,13 @@ export default function TransportManagement() {
                         { value: "other", label: "أخرى" }
                       ].find(opt => opt.value === expense.category)?.label || expense.category || "أخرى",
                       icon: Filter,
-                      badge: true
-                    },
+                      emphasis: false
+                    } as any,
                     {
                       label: "التاريخ",
                       value: expense.date,
                       icon: Calendar,
-                      color: "secondary"
+                      color: "info"
                     },
                     {
                       label: "البئر",

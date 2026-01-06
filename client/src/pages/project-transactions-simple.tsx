@@ -974,6 +974,27 @@ export default function ProjectTransactionsSimple() {
     }
   ], [totals]);
 
+  const { data: transactionCategoriesResponse } = useQuery({
+    queryKey: ["/api/autocomplete/transaction-categories"],
+    queryFn: async () => apiRequest("/api/autocomplete/transaction-categories", "GET")
+  });
+
+  const transactionCategories = useMemo(() => {
+    const base = [
+      { value: 'all', label: 'جميع الأنواع' },
+      { value: 'income', label: 'دخل' },
+      { value: 'expense', label: 'مصروف' },
+      { value: 'deferred', label: 'آجل' },
+      { value: 'transfer_from_project', label: '🔄 ترحيل وارد من مشروع' }
+    ];
+    if (!transactionCategoriesResponse?.data) return base;
+    const existingValues = new Set(base.map(b => b.value));
+    const dynamic = transactionCategoriesResponse.data
+      .map((cat: any) => ({ value: cat.value, label: cat.label }))
+      .filter((cat: any) => !existingValues.has(cat.value));
+    return [...base, ...dynamic];
+  }, [transactionCategoriesResponse]);
+
   // تكوين الفلاتر
   const filterConfigs: FilterConfig[] = [
     {
@@ -981,13 +1002,7 @@ export default function ProjectTransactionsSimple() {
       label: 'نوع العملية',
       type: 'select',
       placeholder: 'جميع الأنواع',
-      options: [
-        { value: 'all', label: 'جميع الأنواع' },
-        { value: 'income', label: 'دخل' },
-        { value: 'expense', label: 'مصروف' },
-        { value: 'deferred', label: 'آجل' },
-        { value: 'transfer_from_project', label: '🔄 ترحيل وارد من مشروع' }
-      ]
+      options: transactionCategories
     },
     {
       key: 'dateRange',

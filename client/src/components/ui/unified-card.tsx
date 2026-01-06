@@ -12,6 +12,7 @@ export interface UnifiedCardField {
   emphasis?: boolean;
   color?: "default" | "success" | "warning" | "danger" | "info" | "muted";
   hidden?: boolean;
+  iconClassName?: string;
 }
 
 export interface UnifiedCardAction {
@@ -222,7 +223,7 @@ export function UnifiedCard({
                 )}
               >
                 {FieldIcon && (
-                  <FieldIcon className={cn("h-3 w-3 shrink-0", fieldIconColorClasses[field.color || "default"])} />
+                  <FieldIcon className={cn("h-3 w-3 shrink-0", field.iconClassName || fieldIconColorClasses[field.color || "default"])} />
                 )}
                 <div className="min-w-0 flex-1 flex items-baseline gap-1 flex-wrap">
                   <span className="text-xs text-muted-foreground whitespace-nowrap font-medium">

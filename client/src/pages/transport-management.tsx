@@ -204,8 +204,8 @@ export default function TransportManagement() {
     const fuelCost = expenses.filter(e => e.category === 'fuel_shas' || e.category === 'fuel_hilux').reduce((sum, e) => sum + Number(e.amount), 0);
     const materialTransport = expenses.filter(e => e.category === 'material_delivery').reduce((sum, e) => sum + Number(e.amount), 0);
     const concreteTransport = expenses.filter(e => e.category === 'concrete_transport').reduce((sum, e) => sum + Number(e.amount), 0);
-    const waterSupply = expenses.filter(e => e.category === 'water_supply').reduce((sum, e) => sum + Number(e.amount), 0);
-    const otherCategories = expenses.filter(e => e.category === 'other' || !['maintenance', 'fuel_shas', 'fuel_hilux', 'material_delivery', 'concrete_transport', 'water_supply'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount), 0);
+    const ironPlatformsCost = expenses.filter(e => e.category === 'iron_platforms').reduce((sum, e) => sum + Number(e.amount), 0);
+    const otherCategories = expenses.filter(e => e.category === 'other' || !['maintenance', 'fuel_shas', 'fuel_hilux', 'material_delivery', 'concrete_transport', 'iron_platforms'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount), 0);
 
     return [
       {
@@ -251,10 +251,10 @@ export default function TransportManagement() {
         color: "orange" as const,
       },
       {
-        title: "توريد المياه",
-        value: formatCurrency(waterSupply),
-        icon: Droplets,
-        color: "blue" as const,
+        title: "نقل حديد المنصات",
+        value: formatCurrency(ironPlatformsCost),
+        icon: Package,
+        color: "slate" as const,
       },
       {
         title: "فئات أخرى",

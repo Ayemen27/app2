@@ -144,27 +144,13 @@ export default function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
-                <DropdownMenuLabel className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
-                    اختيار المشروع
-                  </span>
-                  {selectedProjectId && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleClearProject();
-                      }}
-                      title="إلغاء تحديد المشروع"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
-                </DropdownMenuLabel>
+                  <DropdownMenuLabel className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      اختيار المشروع
+                    </span>
+                    <DropdownMenuSeparator className="hidden" />
+                  </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 
                 {selectedProjectName && (

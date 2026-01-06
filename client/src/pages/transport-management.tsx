@@ -439,12 +439,13 @@ export default function TransportManagement() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                        <Hash className="h-3 w-3" /> تخصيص لبئر
+                        <Hash className="h-3 w-3" /> البئر
                       </Label>
                       <WellSelector 
                         projectId={selectedProjectId}
                         value={selectedWellId} 
                         onChange={setSelectedWellId}
+                        showLabel={false}
                         className="h-9 text-xs"
                       />
                     </div>

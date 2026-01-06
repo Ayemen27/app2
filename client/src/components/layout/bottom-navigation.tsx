@@ -21,6 +21,7 @@ const navigationItems = [
   { path: "/projects", icon: Building2, label: "المشاريع", key: "projects" },
   { path: "/workers", icon: Users, label: "العمال", key: "workers" },
   { path: "/material-purchase", icon: Package, label: "المشتريات", key: "material_purchase" },
+  { path: "/transport-management", icon: Truck, label: "النقل", key: "transport_management" },
   { path: "/worker-attendance", icon: UserCheck, label: "حضور", key: "attendance" },
   { path: "/daily-expenses", icon: Calculator, label: "المصاريف", key: "expenses" },
 ];
@@ -44,6 +45,7 @@ const allPagesData = [
       { path: "/worker-attendance", icon: UserCheck, label: "حضور العمال", description: "تسجيل حضور وغياب العمال", requireAdmin: false },
       { path: "/daily-expenses", icon: Calculator, label: "المصاريف اليومية", description: "تسجيل المصاريف اليومية للمشاريع", requireAdmin: false },
       { path: "/material-purchase", icon: Package, label: "شراء المواد", description: "إدارة مشتريات مواد البناء", requireAdmin: false },
+      { path: "/transport-management", icon: Truck, label: "إدارة النقل", description: "إدارة أجور ونقل العمال والمعدات", requireAdmin: false },
       { path: "/worker-accounts", icon: DollarSign, label: "حسابات العمال", description: "إدارة حوالات وتحويلات العمال", requireAdmin: true },
       { path: "/equipment", icon: Settings, label: "إدارة المعدات", description: "إدارة المعدات مع النقل والتتبع", requireAdmin: true },
       { path: "/project-fund-custody", icon: DollarSign, label: "الوارد للعهد", description: "إدارة الوارد الرئيسي للعُهد", requireAdmin: true },

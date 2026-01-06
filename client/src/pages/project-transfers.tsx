@@ -90,13 +90,20 @@ export default function ProjectTransfers() {
   const projects = projectsWithStats;
 
   // Fetch All Transfers
-  const { data: allTransfers = [], isLoading: transfersLoading, refetch } = useQuery<ProjectFundTransfer[]>({
+  const { data: transfersResponse, isLoading: transfersLoading, refetch } = useQuery<any>({
     queryKey: ["/api/project-fund-transfers"],
     queryFn: async () => {
       const response = await apiRequest('/api/project-fund-transfers', 'GET');
-      return response.data || [];
+      return response;
     },
   });
+
+  const allTransfers = useMemo(() => {
+    if (!transfersResponse) return [];
+    if (Array.isArray(transfersResponse)) return transfersResponse;
+    if (transfersResponse.data && Array.isArray(transfersResponse.data)) return transfersResponse.data;
+    return [];
+  }, [transfersResponse]);
 
   // Filter transfers based on search and filters
   const filteredTransfers = useMemo(() => {
@@ -117,7 +124,11 @@ export default function ProjectTransfers() {
         if (!t.transferReason) return false;
         // Search in the display label or the value itself
         const option = filterConfigs.find(c => c.key === 'reason')?.options?.find(opt => opt.value === filterValues.reason);
-        return t.transferReason === filterValues.reason || t.transferReason === option?.label;
+        const reason = t.transferReason.toLowerCase();
+        const filterVal = filterValues.reason.toLowerCase();
+        const label = option?.label.toLowerCase();
+        
+        return reason === filterVal || (label && reason === label);
       });
     }
 

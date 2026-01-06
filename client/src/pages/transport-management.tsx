@@ -188,14 +188,31 @@ export default function TransportManagement() {
   const expenses = useMemo(() => expensesResponse?.data || [], [expensesResponse]);
 
   const filteredExpenses = useMemo(() => {
-    if (!searchValue) return expenses;
-    const lowerSearch = searchValue.toLowerCase();
-    return expenses.filter(e => 
-      e.description.toLowerCase().includes(lowerSearch) || 
-      (e.workerName && e.workerName.toLowerCase().includes(lowerSearch)) ||
-      (e.projectName && e.projectName.toLowerCase().includes(lowerSearch))
-    );
-  }, [expenses, searchValue]);
+    let filtered = expenses;
+    
+    if (searchValue) {
+      const lowerSearch = searchValue.toLowerCase();
+      filtered = filtered.filter(e => 
+        e.description.toLowerCase().includes(lowerSearch) || 
+        (e.workerName && e.workerName.toLowerCase().includes(lowerSearch)) ||
+        (e.projectName && e.projectName.toLowerCase().includes(lowerSearch))
+      );
+    }
+
+    if (filterValues.category && filterValues.category !== 'all') {
+      filtered = filtered.filter(e => {
+        if (!e.category) return false;
+        const option = filterCategories.find(opt => opt.value === filterValues.category);
+        const category = e.category.toLowerCase();
+        const filterVal = filterValues.category.toLowerCase();
+        const label = option?.label.toLowerCase();
+        
+        return category === filterVal || (label && category === label);
+      });
+    }
+
+    return filtered;
+  }, [expenses, searchValue, filterValues.category, filterCategories]);
 
   const statsData = useMemo(() => {
     const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);

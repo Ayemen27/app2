@@ -680,9 +680,6 @@ export default function MaterialPurchase() {
       if (projectIdForApi && projectIdForApi !== 'all') {
         queryParams.append('projectId', projectIdForApi);
       }
-      if (selectedDate) {
-        queryParams.append('date', selectedDate);
-      }
       
       const queryString = queryParams.toString();
       const endpoint = queryString ? `${baseUrl}?${queryString}` : baseUrl;
@@ -698,11 +695,6 @@ export default function MaterialPurchase() {
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
-
-  // استخدام البيانات المجلوبة بدلاً من تعريف useQuery مكرر
-  const purchases = allMaterialPurchases;
-  const isLoadingPurchases = materialPurchasesLoading;
-  const refetchPurchases = refetchMaterialPurchases;
 
   // Filter purchases - عرض جميع المشتريات افتراضياً
   const filteredPurchases = useMemo(() => {
@@ -727,45 +719,47 @@ export default function MaterialPurchase() {
 
       // فلترة حسب نطاق التاريخ من الفلتر المتقدم
       let matchesDateRange = true;
-    if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
-      const purchaseDate = new Date(purchase.purchaseDate);
-      if (filterValues.dateRange.from) {
-        const fromDate = new Date(filterValues.dateRange.from);
-        fromDate.setHours(0, 0, 0, 0);
-        matchesDateRange = matchesDateRange && purchaseDate >= fromDate;
+      if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
+        const purchaseDate = new Date(purchase.purchaseDate);
+        if (filterValues.dateRange.from) {
+          const fromDate = new Date(filterValues.dateRange.from);
+          fromDate.setHours(0, 0, 0, 0);
+          matchesDateRange = matchesDateRange && purchaseDate >= fromDate;
+        }
+        if (filterValues.dateRange.to) {
+          const toDate = new Date(filterValues.dateRange.to);
+          toDate.setHours(23, 59, 59, 999);
+          matchesDateRange = matchesDateRange && purchaseDate <= toDate;
+        }
       }
-      if (filterValues.dateRange.to) {
-        const toDate = new Date(filterValues.dateRange.to);
-        toDate.setHours(23, 59, 59, 999);
-        matchesDateRange = matchesDateRange && purchaseDate <= toDate;
+
+      let matchesSpecificDate = true;
+      if (filterValues.specificDate) {
+        const pDate = new Date(purchase.purchaseDate);
+        const sDate = new Date(filterValues.specificDate);
+        matchesSpecificDate = pDate.getFullYear() === sDate.getFullYear() &&
+                             pDate.getMonth() === sDate.getMonth() &&
+                             pDate.getDate() === sDate.getDate();
       }
-    }
 
-    let matchesSpecificDate = true;
-    if (filterValues.specificDate) {
-      const pDate = new Date(purchase.purchaseDate);
-      const sDate = new Date(filterValues.specificDate);
-      matchesSpecificDate = pDate.getFullYear() === sDate.getFullYear() &&
-                           pDate.getMonth() === sDate.getMonth() &&
-                           pDate.getDate() === sDate.getDate();
-    }
-
-    return matchesProject && matchesSearch && matchesPaymentType && matchesCategory && matchesDateRange && matchesSelectedDate && matchesSpecificDate;
-  });
-}, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.category, filterValues.dateRange, filterValues.specificDate, selectedDate]);
+      return matchesProject && matchesSearch && matchesPaymentType && matchesCategory && matchesDateRange && matchesSelectedDate && matchesSpecificDate;
+    });
+  }, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.category, filterValues.dateRange, filterValues.specificDate, selectedDate]);
 
 
-  // Calculate stats
-  const stats = useMemo(() => ({
-    total: allMaterialPurchases.length,
-    cash: allMaterialPurchases.filter((p: any) => p.purchaseType === 'نقد').length,
-    credit: allMaterialPurchases.filter((p: any) => p.purchaseType?.includes('آجل') || p.purchaseType?.includes('جل')).length,
-    supply: allMaterialPurchases.filter((p: any) => p.purchaseType === 'توريد').length,
-    totalValue: allMaterialPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0),
-    avgValue: allMaterialPurchases.length > 0 
-      ? allMaterialPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0) / allMaterialPurchases.length 
-      : 0,
-  }), [allMaterialPurchases]);
+  const stats = useMemo(() => {
+    const pList = allMaterialPurchases || [];
+    return {
+      total: pList.length,
+      cash: pList.filter((p: any) => p.purchaseType === 'نقد').length,
+      credit: pList.filter((p: any) => p.purchaseType?.includes('آجل') || p.purchaseType?.includes('جل')).length,
+      supply: pList.filter((p: any) => p.purchaseType === 'توريد').length,
+      totalValue: pList.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0),
+      avgValue: pList.length > 0 
+        ? pList.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0) / pList.length 
+        : 0,
+    };
+  }, [allMaterialPurchases]);
 
 
   // فلترة المشتريات حسب المشروع المحدد، البحث، ونوع الدفع، والتاريخ

@@ -652,11 +652,11 @@ function DailyExpensesContent() {
     safeMiscExpenses.length
   ]);
 
-  // فلترة البيانات حسب نص البحث
   const filteredFundTransfers = useMemo(() => {
-    if (!searchValue.trim()) return safeFundTransfers;
+    const list = safeFundTransfers || [];
+    if (!searchValue.trim()) return list;
     const searchLower = searchValue.toLowerCase().trim();
-    return safeFundTransfers.filter((transfer: any) => 
+    return list.filter((transfer: any) => 
       transfer.senderName?.toLowerCase().includes(searchLower) ||
       transfer.transferType?.toLowerCase().includes(searchLower) ||
       transfer.transferNumber?.toLowerCase().includes(searchLower) ||
@@ -678,28 +678,54 @@ function DailyExpensesContent() {
   }, [safeAttendance, workers, searchValue]);
 
   const filteredTransportation = useMemo(() => {
-    if (!searchValue.trim()) return safeTransportation;
-    const searchLower = searchValue.toLowerCase().trim();
-    return safeTransportation.filter((expense: any) => 
-      expense.description?.toLowerCase().includes(searchLower) ||
-      expense.notes?.toLowerCase().includes(searchLower) ||
-      expense.amount?.toString().includes(searchLower)
-    );
-  }, [safeTransportation, searchValue]);
+    let filtered = safeTransportation;
+    if (searchValue.trim()) {
+      const searchLower = searchValue.toLowerCase().trim();
+      filtered = filtered.filter((expense: any) => 
+        expense.description?.toLowerCase().includes(searchLower) ||
+        expense.notes?.toLowerCase().includes(searchLower) ||
+        expense.amount?.toString().includes(searchLower)
+      );
+    }
+    
+    if (filterValues.transportCategory && filterValues.transportCategory !== 'all') {
+      filtered = filtered.filter((expense: any) => {
+        if (!expense.category) return false;
+        const category = expense.category.toLowerCase();
+        const filterVal = filterValues.transportCategory.toLowerCase();
+        // Since we don't have a fixed mapping here easily accessible without passing it, 
+        // we check if it matches the value or if the value is part of the common labels
+        return category === filterVal;
+      });
+    }
+    return filtered;
+  }, [safeTransportation, searchValue, filterValues.transportCategory]);
 
   const filteredMaterialPurchases = useMemo(() => {
-    if (!searchValue.trim()) return safeMaterialPurchases;
-    const searchLower = searchValue.toLowerCase().trim();
-    return safeMaterialPurchases.filter((purchase: any) => {
-      const material = materials.find((m: any) => m.id === purchase.materialId);
-      return (
-        material?.name?.toLowerCase().includes(searchLower) ||
-        purchase.supplier?.toLowerCase().includes(searchLower) ||
-        purchase.notes?.toLowerCase().includes(searchLower) ||
-        purchase.totalAmount?.toString().includes(searchLower)
-      );
-    });
-  }, [safeMaterialPurchases, materials, searchValue]);
+    let filtered = safeMaterialPurchases;
+    if (searchValue.trim()) {
+      const searchLower = searchValue.toLowerCase().trim();
+      filtered = filtered.filter((purchase: any) => {
+        const material = materials.find((m: any) => m.id === purchase.materialId);
+        return (
+          material?.name?.toLowerCase().includes(searchLower) ||
+          purchase.supplier?.toLowerCase().includes(searchLower) ||
+          purchase.notes?.toLowerCase().includes(searchLower) ||
+          purchase.totalAmount?.toString().includes(searchLower)
+        );
+      });
+    }
+
+    if (filterValues.materialCategory && filterValues.materialCategory !== 'all') {
+      filtered = filtered.filter((purchase: any) => {
+        const material = materials.find((m: any) => m.id === purchase.materialId);
+        const materialCategory = purchase.materialCategory?.toLowerCase() || material?.category?.toLowerCase();
+        if (!materialCategory) return false;
+        return materialCategory === filterValues.materialCategory.toLowerCase();
+      });
+    }
+    return filtered;
+  }, [safeMaterialPurchases, materials, searchValue, filterValues.materialCategory]);
 
   const filteredWorkerTransfers = useMemo(() => {
     if (!searchValue.trim()) return safeWorkerTransfers;

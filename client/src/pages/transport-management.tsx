@@ -46,7 +46,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import { cn, getCurrentDate, formatDate, formatCurrency } from "@/lib/utils";
+import { cn, getCurrentDate, formatDate, formatCurrency, formatDateForApi } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { WellSelector } from "@/components/well-selector";
 import { apiRequest } from "@/lib/queryClient";
@@ -124,10 +124,10 @@ export default function TransportManagement() {
         params.append("date", filterValues.specificDate);
       }
       if (filterValues.dateRange?.from) {
-        params.append("dateFrom", formatDate(filterValues.dateRange.from));
+        params.append("dateFrom", formatDateForApi(filterValues.dateRange.from));
       }
       if (filterValues.dateRange?.to) {
-        params.append("dateTo", formatDate(filterValues.dateRange.to));
+        params.append("dateTo", formatDateForApi(filterValues.dateRange.to));
       }
       
       const queryString = params.toString();

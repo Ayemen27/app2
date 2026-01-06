@@ -103,7 +103,7 @@ export const formatDate = (dateInput: string | Date): string => {
     return 'Invalid Date';
   }
 
-  // صيغة بريطانية: DD/MM/YYYY مع أرقام إنجليزية فقط
+// صيغة بريطانية: DD/MM/YYYY مع أرقام إنجليزية فقط (للعرض فقط)
   const dateStr = new Intl.DateTimeFormat('en-GB', {
     year: 'numeric',
     month: '2-digit',
@@ -112,6 +112,17 @@ export const formatDate = (dateInput: string | Date): string => {
   
   // ضمان عدم وجود أرقام عربية
   return dateStr.replace(/[٠-٩]/g, (d) => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)]);
+};
+
+// دالة جديدة لتنسيق التاريخ للخادم YYYY-MM-DD
+export const formatDateForApi = (dateInput: string | Date): string => {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  if (isNaN(date.getTime())) return "";
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // دالة جديدة لتنسيق الأرقام بالإنجليزية

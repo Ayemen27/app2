@@ -127,6 +127,7 @@ function DailyExpensesContent() {
   const [transportAmount, setTransportAmount] = useState<string>("");
   const [transportNotes, setTransportNotes] = useState<string>("");
   const [editingTransportationId, setEditingTransportationId] = useState<string | null>(null);
+  const [transportCategory, setTransportCategory] = useState<string>("worker_transport");
 
   // Worker attendance form
   const [selectedWorkerId, setSelectedWorkerId] = useState<string>("");
@@ -1306,6 +1307,7 @@ function DailyExpensesContent() {
     setTransportDescription("");
     setTransportAmount("");
     setTransportNotes("");
+    setTransportCategory("worker_transport");
     setEditingTransportationId(null);
   };
 
@@ -1313,6 +1315,7 @@ function DailyExpensesContent() {
     setTransportDescription(expense.description);
     setTransportAmount(expense.amount);
     setTransportNotes(expense.notes || "");
+    setTransportCategory(expense.category || "worker_transport");
     setEditingTransportationId(expense.id);
   };
 
@@ -1337,9 +1340,10 @@ function DailyExpensesContent() {
 
     const transportData = {
       projectId: selectedProjectId,
-      amount: transportAmount,
       description: transportDescription,
+      amount: transportAmount,
       date: selectedDate || new Date().toISOString().split('T')[0],
+      category: transportCategory,
       notes: transportNotes,
       wellId: selectedWellId || null,
     };
@@ -1733,7 +1737,16 @@ function DailyExpensesContent() {
       placeholder: 'جميع الفئات',
       options: [
         { value: 'all', label: 'جميع الفئات' },
-        ...transportCategories.map(cat => ({ value: cat, label: cat }))
+        { value: "worker_transport", label: "نقل عمال" },
+        { value: "material_delivery", label: "توريد مواد" },
+        { value: "concrete_transport", label: "نقل خرسانة" },
+        { value: "iron_platforms", label: "نقل حديد ومنصات" },
+        { value: "fuel_shas", label: "بترول شاص" },
+        { value: "fuel_hilux", label: "بترول هيلكس" },
+        { value: "loading_unloading", label: "تحميل وتنزيل" },
+        { value: "maintenance", label: "صيانة وإصلاح" },
+        { value: "water_supply", label: "توريد مياه" },
+        { value: "other", label: "أخرى" }
       ]
     },
     {

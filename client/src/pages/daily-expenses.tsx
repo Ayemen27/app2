@@ -2478,19 +2478,39 @@ function DailyExpensesContent() {
                     placeholder="الوصف"
                   />
                 </div>
-                          <div className="flex flex-col">
-                            <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
-                            <Input
-                              type="number"
-                              inputMode="decimal"
-                              value={transportAmount}
-                              onChange={(e) => setTransportAmount(e.target.value)}
-                              placeholder="المبلغ"
-                              className="text-center arabic-numbers"
-                            />
-                          </div>
+                <div className="flex flex-col">
+                  <Label className="block text-sm font-medium text-foreground mb-1">الفئة *</Label>
+                  <Select value={transportCategory} onValueChange={setTransportCategory}>
+                    <SelectTrigger className="arabic-numbers">
+                      <SelectValue placeholder="اختر الفئة" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="worker_transport">نقل عمال</SelectItem>
+                      <SelectItem value="material_delivery">توريد مواد</SelectItem>
+                      <SelectItem value="concrete_transport">نقل خرسانة</SelectItem>
+                      <SelectItem value="iron_platforms">نقل حديد ومنصات</SelectItem>
+                      <SelectItem value="fuel_shas">بترول شاص</SelectItem>
+                      <SelectItem value="fuel_hilux">بترول هيلكس</SelectItem>
+                      <SelectItem value="loading_unloading">تحميل وتنزيل</SelectItem>
+                      <SelectItem value="maintenance">صيانة وإصلاح</SelectItem>
+                      <SelectItem value="water_supply">توريد مياه</SelectItem>
+                      <SelectItem value="other">أخرى</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col">
+                  <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={transportAmount}
+                    onChange={(e) => setTransportAmount(e.target.value)}
+                    placeholder="المبلغ"
+                    className="text-center arabic-numbers"
+                  />
+                </div>
                 <div className="flex flex-col">
                   <Label className="block text-sm font-medium text-foreground mb-1">الملاحظات</Label>
                   <AutocompleteInput
@@ -2501,6 +2521,8 @@ function DailyExpensesContent() {
                     className="flex-1"
                   />
                 </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 mb-3">
                 {selectedProjectId && !isAllProjects && (
                   <div className="flex flex-col">
                     <WellSelector

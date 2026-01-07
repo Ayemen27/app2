@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   BarChart3, 
@@ -20,7 +20,10 @@ import {
   Filter,
   Search,
   ChevronDown,
-  LayoutDashboard
+  LayoutDashboard,
+  UserCheck,
+  Wallet,
+  History
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout/layout-shell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -58,6 +61,30 @@ export default function ProfessionalReports() {
   const [selectedProject, setSelectedProject] = useState("all");
   const [timeRange, setTimeRange] = useState("this-month");
   const { toast } = useToast();
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
+  const [workerSearch, setWorkerSearch] = useState("");
+
+  const { data: workersList = [] } = useQuery({
+    queryKey: ["/api/workers"],
+    queryFn: async () => {
+      const res = await apiRequest("/api/workers", "GET");
+      return res.data || [];
+    }
+  });
+
+  const { data: workerStatement, isLoading: workerLoading } = useQuery({
+    queryKey: ["/api/reports/worker-statement", selectedWorkerId, selectedProject, timeRange],
+    queryFn: async () => {
+      if (!selectedWorkerId) return null;
+      const res = await apiRequest(`/api/reports/worker-statement?workerId=${selectedWorkerId}&projectId=${selectedProject}&dateFrom=${timeRange === 'this-month' ? format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd') : ''}`, "GET");
+      return res.data;
+    },
+    enabled: !!selectedWorkerId
+  });
+
+  const filteredWorkers = workersList.filter((w: any) => 
+    w.name.toLowerCase().includes(workerSearch.toLowerCase())
+  );
 
   const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ["/api/reports/dashboard-kpis", selectedProject, timeRange],
@@ -365,6 +392,150 @@ export default function ProfessionalReports() {
                   </div>
                 </Card>
              </div>
+          </TabsContent>
+
+          <TabsContent value="workers" className="space-y-8 animate-in slide-in-from-top-4 duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+              {/* Worker Selection Sidebar */}
+              <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden h-fit">
+                <CardHeader className="p-6 border-b bg-slate-50/50">
+                  <CardTitle className="text-xl font-black flex items-center gap-2">
+                    <UserCheck className="h-5 w-5 text-primary" />
+                    تحديد العمال
+                  </CardTitle>
+                  <CardDescription>اختر عاملاً لاستخراج الكشف</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 space-y-4">
+                  <div className="relative">
+                    <Search className="absolute right-3 top-3 h-4 w-4 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="بحث عن عامل..." 
+                      className="w-full pr-10 pl-4 py-2 bg-slate-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/20"
+                      onChange={(e) => setWorkerSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar">
+                    {filteredWorkers.map((worker: any) => (
+                      <button
+                        key={worker.id}
+                        onClick={() => setSelectedWorkerId(worker.id)}
+                        className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${
+                          selectedWorkerId === worker.id 
+                            ? "bg-primary text-white shadow-md shadow-primary/20" 
+                            : "hover:bg-slate-50 text-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
+                            selectedWorkerId === worker.id ? "bg-white/20" : "bg-primary/10 text-primary"
+                          }`}>
+                            {worker.name.charAt(0)}
+                          </div>
+                          <span className="font-bold text-sm">{worker.name}</span>
+                        </div>
+                        {selectedWorkerId === worker.id && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Worker Statement View */}
+              <div className="lg:col-span-3 space-y-6">
+                {!selectedWorkerId ? (
+                  <Card className="border-dashed border-2 bg-slate-50/50 h-[600px] flex items-center justify-center rounded-3xl">
+                    <div className="text-center space-y-4">
+                      <div className="p-6 bg-white rounded-full shadow-sm inline-block">
+                        <Users className="h-12 w-12 text-slate-300" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-xl font-black text-slate-900">لم يتم اختيار عامل</h3>
+                        <p className="text-slate-500">يرجى اختيار عامل من القائمة الجانبية لعرض كشف الحساب التفصيلي</p>
+                      </div>
+                    </div>
+                  </Card>
+                ) : workerLoading ? (
+                  <div className="h-[600px] flex items-center justify-center">
+                    <RefreshCw className="h-10 w-10 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Worker Profile Mini Dashboard */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card className="border-none shadow-sm rounded-2xl bg-white p-6">
+                        <p className="text-slate-500 text-xs font-bold uppercase mb-1">إجمالي المستحقات</p>
+                        <h4 className="text-2xl font-black text-slate-900">{formatCurrency(workerStatement?.summary?.totalEarned)}</h4>
+                      </Card>
+                      <Card className="border-none shadow-sm rounded-2xl bg-white p-6">
+                        <p className="text-slate-500 text-xs font-bold uppercase mb-1">إجمالي المدفوعات</p>
+                        <h4 className="text-2xl font-black text-emerald-600">{formatCurrency(workerStatement?.summary?.totalPaid)}</h4>
+                      </Card>
+                      <Card className="border-none shadow-sm rounded-2xl bg-primary p-6 text-white">
+                        <p className="text-white/70 text-xs font-bold uppercase mb-1">الرصيد المتبقي</p>
+                        <h4 className="text-2xl font-black">{formatCurrency(workerStatement?.summary?.finalBalance)}</h4>
+                      </Card>
+                    </div>
+
+                    {/* Statement Table */}
+                    <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden print:shadow-none">
+                      <CardHeader className="p-8 border-b flex flex-row items-center justify-between gap-4">
+                        <div>
+                          <CardTitle className="text-2xl font-black text-slate-900">كشف حساب تفصيلي</CardTitle>
+                          <CardDescription className="text-base font-medium">بيان الحركات المالية والعمل للعامل: {workerStatement?.worker?.name}</CardDescription>
+                        </div>
+                        <Button variant="outline" className="rounded-xl font-bold h-11" onClick={() => window.print()}>
+                          <Printer className="h-4 w-4 ml-2" />
+                          طباعة الكشف
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-right border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50 text-slate-500 uppercase text-xs font-black tracking-wider">
+                                <th className="px-6 py-4">التاريخ</th>
+                                <th className="px-6 py-4">البيان</th>
+                                <th className="px-6 py-4 text-blue-600">له (عمل)</th>
+                                <th className="px-6 py-4 text-emerald-600">عليه (صرف)</th>
+                                <th className="px-6 py-4 text-slate-900">الرصيد</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {workerStatement?.statement?.map((row: any, idx: number) => (
+                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="px-6 py-4 font-bold text-slate-600">{row.date}</td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex flex-col">
+                                      <span className="font-bold text-slate-900">{row.description}</span>
+                                      <span className="text-xs text-slate-400 font-medium">{row.reference}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 font-black text-blue-600">
+                                    {row.amount > 0 ? formatCurrency(row.amount) : "-"}
+                                  </td>
+                                  <td className="px-6 py-4 font-black text-emerald-600">
+                                    {row.paid > 0 ? formatCurrency(row.paid) : "-"}
+                                  </td>
+                                  <td className="px-6 py-4 font-black text-slate-900">
+                                    {formatCurrency(row.balance)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {(!workerStatement?.statement || workerStatement.statement.length === 0) && (
+                          <div className="p-12 text-center text-slate-400 font-medium">
+                            لا توجد حركات مسجلة لهذا العامل في الفترة المحددة
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

@@ -153,6 +153,15 @@ export class ExpenseLedgerService {
         `)
       ]);
 
+      // تحديث الملخصات المالية المتأثرة في قاعدة البيانات لضمان عدم وجود بيانات قديمة خاطئة
+      if (!isCumulative) {
+        // حذف الملخص المالي القديم لهذا اليوم إذا كان موجوداً لإجبار النظام على إعادة الحساب والتحديث
+        await db.execute(sql`
+          DELETE FROM daily_expense_summaries 
+          WHERE project_id = ${projectId} AND date = ${startDateStr}
+        `);
+      }
+
       const carriedForwardBalance = isCumulative ? 0 : (this.cleanDbValue(prevIncome.rows[0]?.total) - this.cleanDbValue(prevExpenses.rows[0]?.total));
 
       const [

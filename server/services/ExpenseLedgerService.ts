@@ -62,9 +62,23 @@ export class ExpenseLedgerService {
   private static cleanDbValue(value: any, type: 'integer' | 'decimal' = 'decimal'): number {
     if (value === null || value === undefined) return 0;
     const strValue = String(value).trim();
-    if (strValue.match(/^(\d{1,3})\1{2,}$/)) return 0;
+    
+    // اكتشاف وحذف الأرقام المتكررة بشكل غير طبيعي (مثل 23232323)
+    if (strValue.length > 5 && strValue.match(/^(\d{1,3})\1{2,}$/)) {
+      console.warn(`⚠️ [ExpenseLedger] تم اكتشاف قيمة مشبوهة وتصفيرها: ${strValue}`);
+      return 0;
+    }
+
     const parsed = type === 'integer' ? parseInt(strValue, 10) : parseFloat(strValue);
+    
     if (isNaN(parsed) || !isFinite(parsed)) return 0;
+    
+    // تصحيح القيم الضخمة غير المنطقية (مثلاً أكثر من مليار لمشروع واحد)
+    if (parsed > 1000000000) {
+      console.warn(`⚠️ [ExpenseLedger] تم اكتشاف قيمة ضخمة جداً وتصفيرها: ${parsed}`);
+      return 0;
+    }
+
     return parsed;
   }
 

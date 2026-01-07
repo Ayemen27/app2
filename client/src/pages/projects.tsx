@@ -264,11 +264,18 @@ export default function ProjectsPage() {
       return {
         totalIncome: financialProject.income?.totalIncome || 0,
         totalExpenses: financialProject.expenses?.totalAllExpenses || 0,
+        cashExpenses: financialProject.expenses?.totalCashExpenses || 0,
         currentBalance: financialProject.totalBalance || 0,
         totalWorkers: financialProject.workers?.totalWorkers || 0,
         activeWorkers: financialProject.workers?.activeWorkers || 0,
         completedDays: financialProject.workers?.completedDays || 0,
-        materialPurchases: financialProject.counts?.materialPurchases || 0
+        materialPurchases: financialProject.expenses?.materialExpenses || 0,
+        materialExpensesCredit: financialProject.expenses?.materialExpensesCredit || 0,
+        totalTransportation: financialProject.expenses?.transportExpenses || 0,
+        totalMiscExpenses: financialProject.expenses?.miscExpenses || 0,
+        totalWorkerWages: financialProject.expenses?.workerWages || 0,
+        totalFundTransfers: financialProject.income?.fundTransfers || 0,
+        totalWorkerTransfers: financialProject.expenses?.workerTransfers || 0
       };
     }
     return null;
@@ -298,22 +305,22 @@ export default function ProjectsPage() {
   }, [refetchProjects, toast]);
 
   // جلب قائمة المستخدمين (للاستخدام في اختيار المهندس)
-  const { data: usersResponse = { data: [] } } = useQuery<any>({
+  const { data: usersResponse = { users: [] } } = useQuery<any>({
     queryKey: ["/api/users/list"],
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/users/list", "GET");
-        return response || { data: [] };
+        return response || { users: [] };
       } catch (error) {
         console.error('❌ [Projects] خطأ في جلب المستخدمين:', error);
-        return { data: [] };
+        return { users: [] };
       }
     },
     staleTime: 60000,
   });
 
   const usersData = useMemo(() => {
-    return Array.isArray(usersResponse?.data) ? usersResponse.data : [];
+    return Array.isArray(usersResponse?.users) ? usersResponse.users : [];
   }, [usersResponse]);
 
   // جلب قائمة أنواع المشاريع
@@ -1151,7 +1158,7 @@ export default function ProjectsPage() {
                 fields={[
                   {
                     label: "المشتريات",
-                    value: formatCurrency(projectStats?.totalExpenses || 0),
+                    value: formatCurrency(projectStats?.materialPurchases || 0),
                     icon: Package,
                     color: "warning",
                   },
@@ -1174,7 +1181,7 @@ export default function ProjectsPage() {
                     color: "success",
                   },
                   {
-                    label: "الترحيل",
+                    label: "الترحيل (عهد)",
                     value: formatCurrency(projectStats?.totalFundTransfers || 0),
                     icon: ArrowUpCircle,
                     color: "indigo",

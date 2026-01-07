@@ -373,65 +373,56 @@ export default function ProfessionalReports() {
           </TabsContent>
 
           <TabsContent value="workers" className="space-y-6 animate-in slide-in-from-top-4 duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Intelligent Worker Selection */}
-              <Card className="lg:col-span-1 border-none shadow-xl rounded-3xl bg-white overflow-hidden print:hidden h-fit sticky top-24 border border-slate-100/50">
-                <CardHeader className="p-6 border-b bg-slate-50/50">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Search className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-black text-slate-900">البحث الذكي</CardTitle>
-                      <CardDescription className="font-bold text-xs">تحديد كشف حساب العامل</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 space-y-4">
-                  <div className="relative group">
-                    <Search className="absolute right-3 top-3 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                    <input 
-                      type="text" 
-                      placeholder="ابحث بالاسم أو التخصص..." 
-                      className="w-full pr-10 pl-4 py-3 bg-slate-100/50 border-2 border-transparent rounded-2xl text-sm font-bold focus:bg-white focus:border-primary/20 focus:ring-4 focus:ring-primary/5 transition-all outline-none"
-                      onChange={(e) => setWorkerSearch(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
-                    {filteredWorkers.map((worker: any) => (
-                      <button
-                        key={worker.id}
-                        onClick={() => setSelectedWorkerId(worker.id)}
-                        className={`w-full flex items-center gap-4 p-3.5 rounded-2xl transition-all duration-300 text-right group ${
-                          selectedWorkerId === worker.id 
-                            ? "bg-primary text-white shadow-lg shadow-primary/25 scale-[1.02]" 
-                            : "hover:bg-slate-50 text-slate-700 hover:translate-x-[-4px]"
-                        }`}
-                      >
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm shadow-sm transition-transform group-hover:rotate-3 ${
-                          selectedWorkerId === worker.id ? "bg-white/20 text-white" : "bg-gradient-to-br from-primary/10 to-primary/5 text-primary"
-                        }`}>
-                          {worker.name.charAt(0)}
-                        </div>
-                        <div className="flex flex-col text-right overflow-hidden flex-1">
-                          <span className="font-black text-sm truncate leading-tight">{worker.name}</span>
-                          <span className={`text-[10px] font-bold mt-0.5 tracking-wide uppercase ${selectedWorkerId === worker.id ? "text-white/70" : "text-slate-400"}`}>
-                            {worker.role || "فني متخصص"}
-                          </span>
-                        </div>
-                        {selectedWorkerId === worker.id && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            <div className="space-y-6">
+              {/* Dropdown Worker Selection */}
+              <Card className="border-none shadow-lg rounded-2xl bg-white p-6 print:hidden">
+                <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+                  <div className="flex-1 space-y-2">
+                    <label className="flex items-center gap-2 font-black text-slate-700 text-sm">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Search className="h-4 w-4 text-primary" />
+                      </div>
+                      اختر العامل لاستعراض كشف الحساب المفصل
+                    </label>
+                    <Select value={selectedWorkerId || ""} onValueChange={setSelectedWorkerId}>
+                      <SelectTrigger className="w-full h-12 rounded-xl border-2 border-slate-200 bg-white hover:border-primary/30 focus:border-primary transition-all shadow-sm font-bold text-base">
+                        <SelectValue placeholder="ابحث واختر عامل..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[400px]">
+                        {filteredWorkers.length > 0 ? (
+                          filteredWorkers.map((worker: any) => (
+                            <SelectItem key={worker.id} value={worker.id} className="font-bold text-base py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-black text-sm">
+                                  {worker.name.charAt(0)}
+                                </div>
+                                <span>{worker.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="" disabled className="text-slate-400 font-bold">
+                            لا توجد عمال متاحة
+                          </SelectItem>
                         )}
-                      </button>
-                    ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </CardContent>
+                  {selectedWorkerId && (
+                    <button 
+                      onClick={() => setSelectedWorkerId(null)}
+                      className="px-6 h-12 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-700 transition-colors whitespace-nowrap"
+                    >
+                      إعادة تعيين
+                    </button>
+                  )}
+                </div>
               </Card>
 
               {/* Detailed Worker Statement */}
-              <div className="lg:col-span-3 space-y-6">
+              <div className="w-full space-y-6">
                 {!selectedWorkerId ? (
-                  <Card className="border-2 border-dashed border-slate-200 bg-white/50 h-[600px] flex items-center justify-center rounded-3xl print:hidden backdrop-blur-sm">
+                  <Card className="w-full border-2 border-dashed border-slate-200 bg-white/50 h-[600px] flex items-center justify-center rounded-3xl print:hidden backdrop-blur-sm">
                     <div className="text-center space-y-6 max-w-sm px-6">
                       <div className="relative inline-block">
                         <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
@@ -442,13 +433,13 @@ export default function ProfessionalReports() {
                       <div className="space-y-2">
                         <h3 className="text-2xl font-black text-slate-900">تحليل كشوفات العمال</h3>
                         <p className="text-slate-500 font-bold text-lg leading-relaxed">
-                          الرجاء اختيار اسم العامل من القائمة الجانبية لاستعراض كافة العمليات المالية والجدول الزمني المرتبط به بدقة احترافية.
+                          الرجاء اختيار اسم العامل من القائمة المنسدلة أعلاه لاستعراض كافة العمليات المالية والجدول الزمني المرتبط به بدقة احترافية.
                         </p>
                       </div>
                     </div>
                   </Card>
                 ) : (
-                  <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden print:shadow-none print:border-2 print:border-slate-900 transition-all">
+                  <Card className="w-full border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden print:shadow-none print:border-2 print:border-slate-900 transition-all">
                     <CardHeader className="p-8 sm:p-10 border-b bg-gradient-to-l from-slate-50/80 to-transparent print:bg-white">
                       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
                         <div className="flex items-center gap-6">

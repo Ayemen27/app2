@@ -1150,23 +1150,40 @@ export default function ProjectsPage() {
                 ]}
                 fields={[
                   {
-                    label: "العمال",
-                    value: totalWorkers,
-                    icon: Users,
-                    emphasis: true,
-                    color: "info",
-                  },
-                  {
                     label: "المشتريات",
-                    value: materialPurchases,
+                    value: formatCurrency(projectStats?.totalExpenses || 0),
                     icon: Package,
                     color: "warning",
                   },
                   {
-                    label: "الأيام النشطة",
-                    value: completedDays,
-                    icon: Clock,
+                    label: "المواصلات",
+                    value: formatCurrency(projectStats?.totalTransportation || 0),
+                    icon: MapPin,
+                    color: "info",
+                  },
+                  {
+                    label: "نثريات",
+                    value: formatCurrency(projectStats?.totalMiscExpenses || 0),
+                    icon: Wallet,
+                    color: "default",
+                  },
+                  {
+                    label: "أجور العمال",
+                    value: formatCurrency(projectStats?.totalWorkerWages || 0),
+                    icon: Users,
                     color: "success",
+                  },
+                  {
+                    label: "الترحيل",
+                    value: formatCurrency(projectStats?.totalFundTransfers || 0),
+                    icon: ArrowUpCircle,
+                    color: "indigo",
+                  },
+                  {
+                    label: "حوالات العمال",
+                    value: formatCurrency(projectStats?.totalWorkerTransfers || 0),
+                    icon: ArrowDownCircle,
+                    color: "red",
                   },
                   {
                     label: "المهندس",

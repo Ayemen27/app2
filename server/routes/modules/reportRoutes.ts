@@ -442,175 +442,87 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
 });
 
 /**
- * 🏗️ ملخص المشروع الشامل
- * Project Summary Report
+ * 📊 مؤشرات الأداء الأساسية (Dashboard KPIs)
  */
-reportRouter.get('/reports/project-summary/:projectId', async (req: Request, res: Response) => {
+reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) => {
+  const { projectId, range } = req.query;
   const startTime = Date.now();
+
   try {
-    const { projectId } = req.params;
-    const { dateFrom, dateTo } = req.query;
-
-    // جلب معلومات المشروع
-    const projectInfo = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
-
-    if (!projectInfo.length) {
-      return res.status(404).json({
-        success: false,
-        error: 'المشروع غير موجود',
-        processingTime: Date.now() - startTime
-      });
+    // تصفية حسب التاريخ إذا تم توفيره
+    let dateFilter = sql`1=1`;
+    if (range === 'today') {
+      const today = new Date().toISOString().split('T')[0];
+      dateFilter = sql`DATE(${workerAttendance.attendanceDate}) = ${today}`;
+    } else if (range === 'this-month') {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      dateFilter = sql`${workerAttendance.attendanceDate} >= ${firstDay}`;
     }
 
-    let dateConditions: any[] = [eq(workerAttendance.projectId, projectId)];
-    if (dateFrom && dateTo) {
-      dateConditions.push(gte(workerAttendance.attendanceDate, dateFrom as string));
-      dateConditions.push(lte(workerAttendance.attendanceDate, dateTo as string));
-    }
+    // تطبيق الفلاتر على الاستعلامات
+    const projectFilter = projectId && projectId !== 'all' ? eq(fundTransfers.projectId, projectId as string) : sql`1=1`;
+    const attendanceFilter = and(
+      projectId && projectId !== 'all' ? eq(workerAttendance.projectId, projectId as string) : sql`1=1`,
+      range === 'today' ? sql`DATE(${workerAttendance.attendanceDate}) = ${new Date().toISOString().split('T')[0]}` : 
+      range === 'this-month' ? sql`${workerAttendance.attendanceDate} >= ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}` : sql`1=1`
+    );
+    const materialsFilter = and(
+      projectId && projectId !== 'all' ? eq(materialPurchases.projectId, projectId as string) : sql`1=1`,
+      range === 'today' ? eq(materialPurchases.purchaseDate, new Date().toISOString().split('T')[0]) : 
+      range === 'this-month' ? gte(materialPurchases.purchaseDate, new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) : sql`1=1`
+    );
+    const transportFilter = and(
+      projectId && projectId !== 'all' ? eq(transportationExpenses.projectId, projectId as string) : sql`1=1`,
+      range === 'today' ? eq(transportationExpenses.date, new Date().toISOString().split('T')[0]) : 
+      range === 'this-month' ? gte(transportationExpenses.date, new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) : sql`1=1`
+    );
+    const miscFilter = and(
+      projectId && projectId !== 'all' ? eq(workerMiscExpenses.projectId, projectId as string) : sql`1=1`,
+      range === 'today' ? eq(workerMiscExpenses.date, new Date().toISOString().split('T')[0]) : 
+      range === 'this-month' ? gte(workerMiscExpenses.date, new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) : sql`1=1`
+    );
+    const fundsTimeFilter = and(
+      projectFilter,
+      range === 'today' ? sql`DATE(${fundTransfers.transferDate}) = ${new Date().toISOString().split('T')[0]}` : 
+      range === 'this-month' ? sql`DATE(${fundTransfers.transferDate}) >= ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}` : sql`1=1`
+    );
 
-    // إجمالي الحضور والأجور - باستخدام الأجر الحالي للعامل
-    const attendanceStats = await db
-      .select({
-        totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-        totalWages: sql<number>`COALESCE(SUM(CAST(${workers.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-        totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
-        totalRemaining: sql<number>`COALESCE(SUM(CAST(${workers.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL) - CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
-        uniqueWorkers: sql<number>`COUNT(DISTINCT ${workerAttendance.workerId})`,
-        activeDays: sql<number>`COUNT(DISTINCT ${workerAttendance.attendanceDate})`
-      })
-      .from(workerAttendance)
-      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
-      .where(and(...dateConditions));
+    const [totalFunds] = await db.select({ sum: sql<string>`SUM(CAST(${fundTransfers.amount} AS DECIMAL))` }).from(fundTransfers).where(fundsTimeFilter);
+    const [totalWages] = await db.select({ sum: sql<string>`SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL))` }).from(workerAttendance).where(attendanceFilter);
+    const [totalMaterials] = await db.select({ sum: sql<string>`SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL))` }).from(materialPurchases).where(materialsFilter);
+    const [totalTransport] = await db.select({ sum: sql<string>`SUM(CAST(${transportationExpenses.amount} AS DECIMAL))` }).from(transportationExpenses).where(transportFilter);
+    const [totalMisc] = await db.select({ sum: sql<string>`SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL))` }).from(workerMiscExpenses).where(miscFilter);
 
-    // إجمالي المشتريات
-    let materialConditions: any[] = [eq(materialPurchases.projectId, projectId)];
-    if (dateFrom && dateTo) {
-      materialConditions.push(gte(materialPurchases.purchaseDate, dateFrom as string));
-      materialConditions.push(lte(materialPurchases.purchaseDate, dateTo as string));
-    }
+    const [activeWorkers] = await db.select({ count: sql<number>`count(distinct ${workerAttendance.workerId})` }).from(workerAttendance).where(attendanceFilter);
 
-    const materialsStats = await db
-      .select({
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL)), 0)`,
-        totalPaid: sql<number>`COALESCE(SUM(CAST(${materialPurchases.paidAmount} AS DECIMAL)), 0)`,
-        totalRemaining: sql<number>`COALESCE(SUM(CAST(${materialPurchases.remainingAmount} AS DECIMAL)), 0)`,
-        purchaseCount: sql<number>`COUNT(*)`
-      })
-      .from(materialPurchases)
-      .where(and(...materialConditions));
-
-    // إجمالي النقل
-    let transportConditions: any[] = [eq(transportationExpenses.projectId, projectId)];
-    if (dateFrom && dateTo) {
-      transportConditions.push(gte(transportationExpenses.date, dateFrom as string));
-      transportConditions.push(lte(transportationExpenses.date, dateTo as string));
-    }
-
-    const transportStats = await db
-      .select({
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${transportationExpenses.amount} AS DECIMAL)), 0)`,
-        tripCount: sql<number>`COUNT(*)`
-      })
-      .from(transportationExpenses)
-      .where(and(...transportConditions));
-
-    // إجمالي تحويلات العهدة
-    const fundTransfersStats = await db
-      .select({
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${fundTransfers.amount} AS DECIMAL)), 0)`,
-        transferCount: sql<number>`COUNT(*)`
-      })
-      .from(fundTransfers)
-      .where(eq(fundTransfers.projectId, projectId));
-
-    // إجمالي حوالات العمال
-    const workerTransfersStats = await db
-      .select({
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
-        transferCount: sql<number>`COUNT(*)`
-      })
-      .from(workerTransfers)
-      .where(eq(workerTransfers.projectId, projectId));
-
-    // حساب الملخص النهائي
-    const totalIncome = Number(fundTransfersStats[0]?.totalAmount || 0);
-    const totalWagesPaid = Number(attendanceStats[0]?.totalPaid || 0);
-    const totalMaterials = Number(materialsStats[0]?.totalAmount || 0);
-    const totalTransport = Number(transportStats[0]?.totalAmount || 0);
-    const totalWorkerTransfers = Number(workerTransfersStats[0]?.totalAmount || 0);
-
-    const totalExpenses = totalWagesPaid + totalMaterials + totalTransport + totalWorkerTransfers;
-    const currentBalance = totalIncome - totalExpenses;
-
-    // توزيع المصروفات للرسم البياني الدائري
-    const expenseBreakdown = [
-      { name: 'أجور العمال', value: totalWagesPaid, color: '#3B82F6' },
-      { name: 'مشتريات المواد', value: totalMaterials, color: '#10B981' },
-      { name: 'مصاريف النقل', value: totalTransport, color: '#F59E0B' },
-      { name: 'حوالات العمال', value: totalWorkerTransfers, color: '#EF4444' }
-    ].filter(item => item.value > 0);
-
-    const duration = Date.now() - startTime;
+    // بناء بيانات الرسم البياني الزمني (آخر 7 أيام كعينة)
+    const chartData = await db.select({
+      date: workerAttendance.attendanceDate,
+      total: sql<number>`SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL))`
+    }).from(workerAttendance)
+    .where(attendanceFilter)
+    .groupBy(workerAttendance.attendanceDate)
+    .orderBy(desc(workerAttendance.attendanceDate))
+    .limit(15);
 
     res.json({
       success: true,
       data: {
-        project: projectInfo[0],
-        period: dateFrom && dateTo ? { from: dateFrom, to: dateTo } : 'all',
-        financial: {
-          totalIncome,
-          totalExpenses,
-          currentBalance,
-          profitMargin: totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome * 100).toFixed(2) : 0
+        overall: {
+          totalFunds: Number(totalFunds?.sum || 0),
+          totalExpenses: Number(totalWages?.sum || 0) + Number(totalMaterials?.sum || 0) + Number(totalTransport?.sum || 0) + Number(totalMisc?.sum || 0),
+          wages: Number(totalWages?.sum || 0),
+          materials: Number(totalMaterials?.sum || 0),
+          transport: Number(totalTransport?.sum || 0),
+          misc: Number(totalMisc?.sum || 0),
+          activeWorkers: Number(activeWorkers?.count || 0)
         },
-        categories: {
-          wages: {
-            total: Number(attendanceStats[0]?.totalWages || 0),
-            paid: totalWagesPaid,
-            remaining: Number(attendanceStats[0]?.totalRemaining || 0)
-          },
-          materials: {
-            total: totalMaterials,
-            paid: Number(materialsStats[0]?.totalPaid || 0),
-            remaining: Number(materialsStats[0]?.totalRemaining || 0),
-            purchaseCount: Number(materialsStats[0]?.purchaseCount || 0)
-          },
-          transport: {
-            total: totalTransport,
-            tripCount: Number(transportStats[0]?.tripCount || 0)
-          },
-          workerTransfers: {
-            total: totalWorkerTransfers,
-            count: Number(workerTransfersStats[0]?.transferCount || 0)
-          },
-          fundTransfers: {
-            total: totalIncome,
-            count: Number(fundTransfersStats[0]?.transferCount || 0)
-          }
-        },
-        workforce: {
-          uniqueWorkers: Number(attendanceStats[0]?.uniqueWorkers || 0),
-          totalWorkDays: Number(attendanceStats[0]?.totalWorkDays || 0),
-          activeDays: Number(attendanceStats[0]?.activeDays || 0),
-          avgWorkersPerDay: Number(attendanceStats[0]?.activeDays || 0) > 0 
-            ? (Number(attendanceStats[0]?.totalWorkDays || 0) / Number(attendanceStats[0]?.activeDays || 0)).toFixed(2) 
-            : 0
-        },
-        charts: {
-          expenseBreakdown
-        }
-      },
-      processingTime: duration
+        chartData: chartData.reverse()
+      }
     });
-
   } catch (error: any) {
-    console.error('❌ [Reports] خطأ في ملخص المشروع:', error);
-    res.status(500).json({
-      success: false,
-      error: 'فشل في جلب ملخص المشروع',
-      message: error.message,
-      processingTime: Date.now() - startTime
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

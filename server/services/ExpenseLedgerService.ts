@@ -140,7 +140,7 @@ export class ExpenseLedgerService {
             FROM material_purchases 
             WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date < ${startDateStr}::date
             UNION ALL
-            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND attendance_date::date < ${startDateStr}::date
+            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND attendance_date::date < ${startDateStr}::date AND CAST(paid_amount AS DECIMAL) > 0
             UNION ALL
             SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND date::date < ${startDateStr}::date
             UNION ALL
@@ -186,7 +186,7 @@ export class ExpenseLedgerService {
           END
         ), 0) as total FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') ${finalFilterMp}`),
         db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL) - CAST(paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'آجل' OR purchase_type = 'اجل') ${finalFilterMp}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = ${projectId} ${finalFilterWa}`),
+        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = ${projectId} AND CAST(paid_amount AS DECIMAL) > 0 ${finalFilterWa}`),
 
         db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = ${projectId} ${finalFilterTe}`),
         db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = ${projectId} ${finalFilterWt}`),

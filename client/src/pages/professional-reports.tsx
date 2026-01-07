@@ -238,10 +238,50 @@ export default function ProfessionalReports() {
             </div>
           </TabsContent>
 
-          <TabsContent value="financial" className="text-center py-20 bg-white rounded-2xl border-2 border-dashed">
-            <DollarSign className="h-12 w-12 mx-auto text-slate-300 mb-4" />
-            <h3 className="text-lg font-medium text-slate-900">تقارير مالية تفصيلية قريباً</h3>
-            <p className="text-slate-500 max-w-sm mx-auto mt-2">نعمل على معالجة البيانات المالية لتقديم كشوفات حساب دقيقة للمقاولين والموردين</p>
+          <TabsContent value="financial" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="bg-blue-600 text-white">
+                <CardContent className="p-6">
+                  <p className="text-blue-100 text-sm">إجمالي الإيرادات (العهدة)</p>
+                  <h3 className="text-2xl font-bold mt-1">{formatCurrency(stats?.overall?.totalFunds || 0)}</h3>
+                </CardContent>
+              </Card>
+              <Card className="bg-red-600 text-white">
+                <CardContent className="p-6">
+                  <p className="text-red-100 text-sm">إجمالي المصروفات</p>
+                  <h3 className="text-2xl font-bold mt-1">{formatCurrency(stats?.overall?.totalExpenses || 0)}</h3>
+                </CardContent>
+              </Card>
+              <Card className="bg-emerald-600 text-white">
+                <CardContent className="p-6">
+                  <p className="text-emerald-100 text-sm">الرصيد المتبقي</p>
+                  <h3 className="text-2xl font-bold mt-1">{formatCurrency((stats?.overall?.totalFunds || 0) - (stats?.overall?.totalExpenses || 0))}</h3>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>كشف مالي تفصيلي</CardTitle>
+                <CardDescription>مقارنة المصروفات حسب الفئة</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={[
+                    { category: 'أجور عمال', amount: stats?.overall?.wages || 0 },
+                    { category: 'مواد', amount: stats?.overall?.materials || 0 },
+                    { category: 'مواصلات', amount: stats?.overall?.transport || 0 },
+                    { category: 'نثريات', amount: stats?.overall?.misc || 0 },
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="category" />
+                    <YAxis />
+                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                    <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

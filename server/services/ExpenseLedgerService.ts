@@ -162,7 +162,12 @@ export class ExpenseLedgerService {
         `);
       }
 
-      const carriedForwardBalance = isCumulative ? 0 : (this.cleanDbValue(prevIncome.rows[0]?.total) - this.cleanDbValue(prevExpenses.rows[0]?.total));
+      const cleanTotalIncome = this.cleanDbValue(prevIncome.rows[0]?.total);
+      const cleanTotalExpenses = this.cleanDbValue(prevExpenses.rows[0]?.total);
+      const carriedForwardBalance = isCumulative ? 0 : (cleanTotalIncome - cleanTotalExpenses);
+
+      // تأكيد إضافي لضمان عدم وجود رصيد سالب ناتج عن أخطاء محاسبية قديمة في "المتبقي من سابق"
+      const finalCarriedForward = carriedForwardBalance < -0.01 && !isCumulative ? 0 : carriedForwardBalance;
 
       const [
         projectInfo,

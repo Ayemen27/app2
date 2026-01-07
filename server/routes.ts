@@ -1410,105 +1410,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`💰 [API] طلب جلب الرصيد المتبقي من اليوم السابق: projectId=${projectId}, date=${date}`);
       
-      // التحقق من صحة المعاملات
-      if (!projectId || !date) {
-        const duration = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: 'معاملات مطلوبة مفقودة',
-          message: 'معرف المشروع والتاريخ مطلوبان',
-          processingTime: duration
-        });
-      }
-
-      // التحقق من تنسيق التاريخ
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(date)) {
-        const duration = Date.now() - startTime;
-        return res.status(400).json({
-          success: false,
-          error: 'تنسيق التاريخ غير صحيح',
-          message: 'يجب أن يكون التاريخ بصيغة YYYY-MM-DD',
-          processingTime: duration
-        });
-      }
-
-      // حساب التاريخ السابق
-      const currentDate = new Date(date);
-      const previousDate = new Date(currentDate);
-      previousDate.setDate(currentDate.getDate() - 1);
-      const previousDateStr = previousDate.toISOString().split('T')[0];
-
-      console.log(`💰 [API] البحث عن الرصيد المتبقي ليوم: ${previousDateStr}`);
-
-      let previousBalance = 0;
-      let source = 'none';
+      // إجبار النظام على الحساب التراكمي من العمليات الفعلية بدلاً من الاعتماد على ملخصات قديمة قد تكون خاطئة
+      // هذا يضمن أن الأجر المؤجل لن يظهر كرصيد سالب في "المتبقي من سابق"
+      const yesterday = new Date(date as string);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
       
-      try {
-        // أولاً: محاولة العثور على أحدث ملخص محفوظ قبل التاريخ المطلوب
-        const latestSummary = await db.select({
-          remainingBalance: dailyExpenseSummaries.remainingBalance,
-          date: dailyExpenseSummaries.date
-        })
-        .from(dailyExpenseSummaries)
-        .where(and(
-          eq(dailyExpenseSummaries.projectId, projectId),
-          lt(dailyExpenseSummaries.date, date)
-        ))
-        .orderBy(desc(dailyExpenseSummaries.date))
-        .limit(1);
-
-        if (latestSummary.length > 0) {
-          const summaryDate = latestSummary[0].date;
-          const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || '0'));
-          
-          // إذا كان الملخص الموجود هو لليوم السابق مباشرة، استخدمه
-          if (summaryDate === previousDateStr) {
-            previousBalance = summaryBalance;
-            source = 'summary';
-            console.log(`💰 [API] تم العثور على ملخص لليوم السابق: ${previousBalance}`);
-          } else {
-            // إذا كان الملخص لتاريخ أقدم، احسب من ذلك التاريخ إلى اليوم السابق
-            console.log(`💰 [API] آخر ملخص محفوظ في ${summaryDate}, حساب تراكمي إلى ${previousDateStr}`);
-            
-            const startFromDate = new Date(summaryDate);
-            startFromDate.setDate(startFromDate.getDate() + 1);
-            const startFromStr = startFromDate.toISOString().split('T')[0];
-            
-            // حساب تراكمي من startFromStr إلى previousDateStr
-            const cumulativeBalance = await calculateCumulativeBalance(projectId, startFromStr, previousDateStr);
-            previousBalance = summaryBalance + cumulativeBalance;
-            source = 'computed-from-summary';
-            console.log(`💰 [API] رصيد تراكمي من ${summaryDate} (${summaryBalance}) + ${cumulativeBalance} = ${previousBalance}`);
-          }
-        } else {
-          // لا يوجد ملخص محفوظ، حساب تراكمي من البداية
-          console.log(`💰 [API] لا يوجد ملخص محفوظ، حساب تراكمي من البداية`);
-          previousBalance = await calculateCumulativeBalance(projectId, null, previousDateStr);
-          source = 'computed-full';
-          console.log(`💰 [API] رصيد تراكمي كامل: ${previousBalance}`);
-        }
-      } catch (error) {
-        console.warn(`⚠️ [API] خطأ في حساب الرصيد السابق، استخدام القيمة الافتراضية 0:`, error);
-        previousBalance = 0;
-        source = 'error';
-      }
-
+      const balance = await calculateCumulativeBalance(projectId as string, null, yesterdayStr);
+      
       const duration = Date.now() - startTime;
-      console.log(`✅ [API] تم حساب الرصيد المتبقي من اليوم السابق بنجاح في ${duration}ms: ${previousBalance}`);
-
       res.json({
         success: true,
         data: {
-          balance: previousBalance.toString(),
-          previousDate: previousDateStr,
+          balance: balance.toString(),
+          previousDate: yesterdayStr,
           currentDate: date,
-          source
+          source: "computed-live-direct"
         },
-        message: `تم حساب الرصيد المتبقي من يوم ${previousDateStr} بنجاح`,
+        message: `تم حساب الرصيد المتبقي من يوم ${yesterdayStr} بنجاح`,
         processingTime: duration
       });
-
     } catch (error: any) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] خطأ في حساب الرصيد المتبقي من اليوم السابق:', error);
@@ -1544,11 +1465,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM (
-            SELECT total_amount as amount FROM material_purchases WHERE project_id = ${projectId} AND purchase_type = 'نقد'
+            SELECT amount FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد')
             ${fromDate ? sql`AND purchase_date::date >= ${fromDate}::date` : sql``}
             AND purchase_date::date <= ${toDate}::date
             UNION ALL
-            SELECT actual_wage as amount FROM worker_attendance WHERE project_id = ${projectId} AND is_present = true
+            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND is_present = true AND CAST(paid_amount AS DECIMAL) > 0
             ${fromDate ? sql`AND attendance_date::date >= ${fromDate}::date` : sql``}
             AND attendance_date::date <= ${toDate}::date
             UNION ALL

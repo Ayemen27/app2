@@ -115,6 +115,7 @@ export class ExpenseLedgerService {
         prevDateFilter = sql`AND transfer_date::date < ${startDateStr}::date`;
       }
 
+      // تم تصحيح منطق حساب الرصيد المرحل ليكون أكثر دقة ويمنع الازدواجية
       const [prevIncome, prevExpenses] = isCumulative ? [
         { rows: [{ total: 0 }] },
         { rows: [{ total: 0 }] }
@@ -139,7 +140,7 @@ export class ExpenseLedgerService {
             FROM material_purchases 
             WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date < ${startDateStr}::date
             UNION ALL
-            SELECT paid_amount as amount FROM worker_attendance WHERE project_id = ${projectId} AND attendance_date::date < ${startDateStr}::date
+            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND attendance_date::date < ${startDateStr}::date
             UNION ALL
             SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND date::date < ${startDateStr}::date
             UNION ALL

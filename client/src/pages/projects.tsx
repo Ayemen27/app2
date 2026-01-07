@@ -298,22 +298,23 @@ export default function ProjectsPage() {
   }, [refetchProjects, toast]);
 
   // جلب قائمة المستخدمين (للاستخدام في اختيار المهندس)
-  const { data: usersData = [] } = useQuery<{id: string; name: string; email: string; role: string}[]>({
+  const { data: usersResponse = { data: [] } } = useQuery<any>({
     queryKey: ["/api/users/list"],
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/users/list", "GET");
-        if (response?.success && Array.isArray(response.data)) {
-          return response.data;
-        }
-        return [];
+        return response || { data: [] };
       } catch (error) {
         console.error('❌ [Projects] خطأ في جلب المستخدمين:', error);
-        return [];
+        return { data: [] };
       }
     },
     staleTime: 60000,
   });
+
+  const usersData = useMemo(() => {
+    return Array.isArray(usersResponse?.data) ? usersResponse.data : [];
+  }, [usersResponse]);
 
   // جلب قائمة أنواع المشاريع
   const { data: projectTypes = [], isLoading: typesLoading } = useQuery<ProjectType[]>({

@@ -1418,11 +1418,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const balance = await calculateCumulativeBalance(projectId as string, null, yesterdayStr);
       
+      // تصحيح نهائي: إذا كان الرصيد قريباً جداً من الصفر، نعتبره صفراً
+      let finalBalance = balance;
+      if (Math.abs(finalBalance) < 1) {
+        finalBalance = 0;
+      }
+
       const duration = Date.now() - startTime;
       res.json({
         success: true,
         data: {
-          balance: balance.toString(),
+          balance: finalBalance.toString(),
           previousDate: yesterdayStr,
           currentDate: date,
           source: "computed-live-direct"
@@ -1465,11 +1471,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM (
-            SELECT total_amount as amount FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد')
+            SELECT 
+              CASE 
+                WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL)
+                WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN CAST(total_amount AS DECIMAL)
+                ELSE 0
+              END as amount 
+            FROM material_purchases 
+            WHERE project_id = ${projectId}
             ${fromDate ? sql`AND purchase_date::date >= ${fromDate}::date` : sql``}
             AND purchase_date::date <= ${toDate}::date
             UNION ALL
-            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND is_present = true AND CAST(paid_amount AS DECIMAL) > 0
+            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND CAST(paid_amount AS DECIMAL) > 0
             ${fromDate ? sql`AND attendance_date::date >= ${fromDate}::date` : sql``}
             AND attendance_date::date <= ${toDate}::date
             UNION ALL

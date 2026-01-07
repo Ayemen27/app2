@@ -176,11 +176,21 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     let decoded;
     try {
       decoded = await verifyToken(token);
-    } catch (error) {
-      console.log('❌ [AUTH] token غير صالح:', error);
+    } catch (error: any) {
+      console.log('❌ [AUTH] token غير صالح:', error.message);
+      
+      // إذا كان الرمز منتهي الصلاحية، نعيد كود خاص للجبهة الأمامية لمحاولة التجديد
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({
+          success: false,
+          message: 'انتهت الجلسة - يرجى تجديد الدخول',
+          code: 'TOKEN_EXPIRED'
+        });
+      }
+
       return res.status(401).json({
         success: false,
-        message: 'رمز المصادقة غير صالح أو منتهي الصلاحية',
+        message: 'رمز المصادقة غير صالح',
         code: 'INVALID_TOKEN'
       });
     }

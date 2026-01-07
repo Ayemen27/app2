@@ -275,7 +275,9 @@ export default function ProjectsPage() {
         totalMiscExpenses: financialProject.expenses?.miscExpenses || 0,
         totalWorkerWages: financialProject.expenses?.workerWages || 0,
         totalFundTransfers: financialProject.income?.fundTransfers || 0,
-        totalWorkerTransfers: financialProject.expenses?.workerTransfers || 0
+        totalWorkerTransfers: financialProject.expenses?.workerTransfers || 0,
+        incomingProjectTransfers: financialProject.income?.incomingProjectTransfers || 0,
+        outgoingProjectTransfers: financialProject.expenses?.outgoingProjectTransfers || 0
       };
     }
     return null;
@@ -1181,16 +1183,22 @@ export default function ProjectsPage() {
                     color: "success",
                   },
                   {
-                    label: "الترحيل (عهد)",
-                    value: formatCurrency(projectStats?.totalFundTransfers || 0),
+                    label: "الترحيل (صادر)",
+                    value: formatCurrency(projectStats?.outgoingProjectTransfers || 0),
                     icon: ArrowUpCircle,
-                    color: "indigo",
+                    color: "red",
+                  },
+                  {
+                    label: "الترحيل (وارد)",
+                    value: formatCurrency(projectStats?.incomingProjectTransfers || 0),
+                    icon: ArrowDownCircle,
+                    color: "success",
                   },
                   {
                     label: "حوالات العمال",
                     value: formatCurrency(projectStats?.totalWorkerTransfers || 0),
-                    icon: ArrowDownCircle,
-                    color: "red",
+                    icon: DollarSign,
+                    color: "orange",
                   },
                   {
                     label: "المهندس",

@@ -202,9 +202,11 @@ export class ExpenseLedgerService {
 
       // 4. إجمالي المصروفات النقدية (نجمع كل فئة مستقلة لضمان دقة البيانات كما طلب المستخدم)
       // أجور العمال، النثريات، المشتريات النقدية، المواصلات، وتحويلات العمال (كفئة مستقلة في المصروفات)
+      // ملاحظة:outgoingProjectTransfers هو تحويل "من" هذا المشروع لمشروع آخر، لذا يعتبر مصرفاً نقدياً من عهدة هذا المشروع
       const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
       
       // 5. الرصيد النقدي لليوم (الدخل - المصروفات)
+      // التوريد هو ما دخل للمشروع (تحويلات عهدة + تحويلات واردة من مشاريع أخرى)
       const totalIncome = fundTransfers + incomingProjectTransfers;
       const cashBalance = totalIncome - totalCashExpenses;
       
@@ -214,14 +216,11 @@ export class ExpenseLedgerService {
       const totalBalance = totalIncomeWithCarried - totalCashExpenses;
       const totalAllExpenses = totalCashExpenses + materialExpensesCredit; 
 
-      // إضافة سجل تفصيلي للحسابات في الـ console للتدقيق والمطابقة
-      console.log(`✅ [UnifiedTruth] تدقيق الرصيد لليوم ${date || 'تراكمي'}:`, {
-        carriedForward: carriedForwardBalance,
-        todayIncome: totalIncome,
-        todayCashExpenses: totalCashExpenses,
-        todayCreditExpenses: materialExpensesCredit,
-        computedBalance: totalBalance
-      });
+      // تصحيح القيم الضخمة الناتجة عن تكرار الحساب في الواجهة أو التقارير
+      // إذا كان إجمالي المنصرف يتجاوز إجمالي التوريد بمراحل غير منطقية، نقوم بمراجعة الحسابات
+      if (totalCashExpenses > totalIncome * 3 && totalIncome > 0) {
+        console.warn(`⚠️ [UnifiedTruth] تضخم غير منطقي في المصروفات لمشروع ${projectName}: المنصرف ${totalCashExpenses} مقابل التوريد ${totalIncome}`);
+      }
 
       console.log(`📊 [ExpenseLedger] الرصيد المالي:`, {
         carriedForward: carriedForwardBalance,

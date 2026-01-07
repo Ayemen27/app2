@@ -82,7 +82,7 @@ export class ExpenseLedgerService {
     return parsed;
   }
 
-  static async getProjectFinancialSummary(projectId: string, date?: string, dateFrom?: string, dateTo?: string): Promise<ProjectFinancialSummary> {
+  static async getProjectFinancialSummary(projectId: string, date?: string, dateFrom?: string, dateTo?: string): Promise<any> {
     try {
       // تصحيح الفلترة لضمان عدم ظهور بيانات من تواريخ أخرى عند وجود فلتر
       const dateFilterMp = date ? sql`AND purchase_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND purchase_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
@@ -132,8 +132,9 @@ export class ExpenseLedgerService {
           FROM (
             SELECT 
               CASE 
-                WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) = 0 OR paid_amount IS NULL) THEN CAST(total_amount AS DECIMAL)
-                ELSE CAST(paid_amount AS DECIMAL)
+                WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL)
+                WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN CAST(total_amount AS DECIMAL)
+                ELSE 0
               END as amount 
             FROM material_purchases 
             WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date < ${startDateStr}::date
@@ -200,54 +201,48 @@ export class ExpenseLedgerService {
       const outgoingProjectTransfers = this.cleanDbValue(outgoingTransfersStats.rows[0]?.total);
       const incomingProjectTransfers = this.cleanDbValue(incomingTransfersStats.rows[0]?.total);
 
-      // 4. إجمالي المصروفات النقدية (نجمع كل فئة مستقلة لضمان دقة البيانات كما طلب المستخدم)
-      // أجور العمال، النثريات، المشتريات النقدية، المواصلات، وتحويلات العمال (كفئة مستقلة في المصروفات)
-      // ملاحظة:outgoingProjectTransfers هو تحويل "من" هذا المشروع لمشروع آخر، لذا يعتبر مصرفاً نقدياً من عهدة هذا المشروع
-      const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
+      // 4. إجمالي المصروفات النقدية
+      // التوريد (Income) يحسب تحويلات العهدة والوارد من مشاريع
+      // المنصرف (Expenses) يحسب ما خرج فعلياً للسوق أو العمال
+      const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses;
       
       // 5. الرصيد النقدي لليوم (الدخل - المصروفات)
-      // التوريد هو ما دخل للمشروع (تحويلات عهدة + تحويلات واردة من مشاريع أخرى)
       const totalIncome = fundTransfers + incomingProjectTransfers;
-      const cashBalance = totalIncome - totalCashExpenses;
+      const cashBalance = totalIncome - totalCashExpenses - outgoingProjectTransfers;
       
       // 6. الرصيد التراكمي الشامل
-      // المتبقي هو (الرصيد المرحل من سابقاً + دخل اليوم) - مصروفات اليوم
       const totalIncomeWithCarried = totalIncome + carriedForwardBalance;
-      const totalBalance = totalIncomeWithCarried - totalCashExpenses;
-      const totalAllExpenses = totalCashExpenses + materialExpensesCredit; 
-
-      // تصحيح القيم الضخمة الناتجة عن تكرار الحساب في الواجهة أو التقارير
-      // إذا كان إجمالي المنصرف يتجاوز إجمالي التوريد بمراحل غير منطقية، نقوم بمراجعة الحسابات
-      if (totalCashExpenses > totalIncome * 3 && totalIncome > 0) {
-        console.warn(`⚠️ [UnifiedTruth] تضخم غير منطقي في المصروفات لمشروع ${projectName}: المنصرف ${totalCashExpenses} مقابل التوريد ${totalIncome}`);
-      }
-
-      console.log(`📊 [ExpenseLedger] الرصيد المالي:`, {
-        carriedForward: carriedForwardBalance,
-        incomeToday: totalIncome,
-        expensesToday: totalCashExpenses,
-        materialCredit: materialExpensesCredit,
-        finalBalance: totalBalance
-      });
-
-      console.log(`📊 [ExpenseLedger] حسابات اليوم ${date || 'تراكمي'} لـ ${projectName}:`, {
-        projectId, date: date || 'تراكمي', carriedForward: carriedForwardBalance, incomeToday: totalIncome, expensesToday: totalCashExpenses, totalAllExpenses
-      });
+      const totalBalance = totalIncomeWithCarried - totalCashExpenses - outgoingProjectTransfers;
+      const totalAllExpenses = totalCashExpenses + materialExpensesCredit + outgoingProjectTransfers; 
 
       return {
         projectId, projectName, status: projectStatus, description: projectDescription,
-        expenses: { materialExpenses, materialExpensesCredit, workerWages, transportExpenses, workerTransfers, miscExpenses, outgoingProjectTransfers, totalCashExpenses, totalAllExpenses },
-        income: { fundTransfers, incomingProjectTransfers, totalIncome, carriedForwardBalance, totalIncomeWithCarried },
-        workers: { totalWorkers: this.cleanDbValue(workersStatsResult.rows[0]?.total_workers, 'integer'), activeWorkers: this.cleanDbValue(workersStatsResult.rows[0]?.active_workers, 'integer'), completedDays: this.cleanDbValue(workerWagesStats.rows[0]?.completed_days, 'integer') },
-        cashBalance, totalBalance,
-        counts: {
-          materialPurchases: this.cleanDbValue(materialCashStats.rows[0]?.count, 'integer') + this.cleanDbValue(materialCreditStats.rows[0]?.count, 'integer'),
-          workerAttendance: this.cleanDbValue(workerWagesStats.rows[0]?.count, 'integer'),
-          transportationExpenses: this.cleanDbValue(transportStats.rows[0]?.count, 'integer'),
-          workerTransfers: this.cleanDbValue(workerTransfersStats.rows[0]?.count, 'integer'),
-          miscExpenses: this.cleanDbValue(miscExpensesStats.rows[0]?.count, 'integer'),
-          fundTransfers: this.cleanDbValue(fundTransfersStats.rows[0]?.count, 'integer')
+        expenses: { 
+          materialExpenses, 
+          materialExpensesCredit, 
+          workerWages, 
+          transportExpenses, 
+          workerTransfers, 
+          miscExpenses, 
+          outgoingProjectTransfers, 
+          totalCashExpenses, 
+          totalAllExpenses 
         },
+        income: { 
+          fundTransfers, 
+          incomingProjectTransfers, 
+          totalIncome, 
+          carriedForwardBalance, 
+          totalIncomeWithCarried 
+        },
+        workers: { 
+          totalWorkers: this.cleanDbValue(workersStatsResult.rows[0]?.total_workers, 'integer'), 
+          activeWorkers: this.cleanDbValue(workersStatsResult.rows[0]?.active_workers, 'integer'), 
+          completedDays: this.cleanDbValue(workerWagesStats.rows[0]?.completed_days, 'integer') 
+        },
+        cashBalance, 
+        totalBalance,
+        transportExpenses, // حقل إضافي لضمان الوصول السهل
         lastUpdated: new Date().toISOString()
       };
     } catch (error) {

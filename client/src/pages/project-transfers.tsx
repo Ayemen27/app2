@@ -90,13 +90,17 @@ export default function ProjectTransfers() {
   const projects = projectsWithStats;
 
   // Fetch All Transfers
-  const { data: allTransfers = [], isLoading: transfersLoading, refetch } = useQuery<ProjectFundTransfer[]>({
+  const { data: transfersResponse = { data: [] }, isLoading: transfersLoading, refetch } = useQuery<any>({
     queryKey: ["/api/project-fund-transfers"],
     queryFn: async () => {
       const response = await apiRequest('/api/project-fund-transfers', 'GET');
-      return response.data || [];
+      return response || { data: [] };
     },
   });
+
+  const allTransfers = useMemo(() => {
+    return Array.isArray(transfersResponse?.data) ? transfersResponse.data : [];
+  }, [transfersResponse]);
 
   // Filter transfers based on search and filters
   const filteredTransfers = useMemo(() => {

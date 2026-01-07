@@ -442,6 +442,89 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
 });
 
 /**
+ * 👷 تقرير كشف حساب عامل احترافي
+ * Professional Worker Statement Report
+ */
+reportRouter.get('/reports/worker-statement', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { workerId, dateFrom, dateTo, projectId } = req.query;
+
+    if (!workerId) {
+      return res.status(400).json({ success: false, error: 'معرف العامل مطلوب' });
+    }
+
+    const worker = await db.select().from(workers).where(eq(workers.id, workerId as string)).limit(1);
+    if (!worker.length) {
+      return res.status(404).json({ success: false, error: 'العامل غير موجود' });
+    }
+
+    // بناء الفلاتر
+    const filters = [eq(workerAttendance.workerId, workerId as string)];
+    const transferFilters = [eq(workerTransfers.workerId, workerId as string)];
+
+    if (projectId && projectId !== 'all') {
+      filters.push(eq(workerAttendance.projectId, projectId as string));
+      transferFilters.push(eq(workerTransfers.projectId, projectId as string));
+    }
+    if (dateFrom) {
+      filters.push(gte(workerAttendance.attendanceDate, dateFrom as string));
+      transferFilters.push(gte(workerTransfers.transferDate, dateFrom as string));
+    }
+    if (dateTo) {
+      filters.push(lte(workerAttendance.attendanceDate, dateTo as string));
+      transferFilters.push(lte(workerTransfers.transferDate, dateTo as string));
+    }
+
+    // جلب البيانات
+    const attendance = await db.select().from(workerAttendance).where(and(...filters)).orderBy(asc(workerAttendance.attendanceDate));
+    const transfers = await db.select().from(workerTransfers).where(and(...transferFilters)).orderBy(asc(workerTransfers.transferDate));
+    
+    // تجميع الحركات في كشف واحد
+    const statement = [
+      ...attendance.map(a => ({
+        date: a.attendanceDate,
+        type: 'عمل',
+        description: a.workDescription || 'تسجيل حضور',
+        amount: parseFloat(a.actualWage || '0'),
+        paid: parseFloat(a.paidAmount || '0'),
+        reference: 'حضور'
+      })),
+      ...transfers.map(t => ({
+        date: t.transferDate,
+        type: 'حوالة',
+        description: `حوالة لـ ${t.recipientName}`,
+        amount: 0,
+        paid: parseFloat(t.amount || '0'),
+        reference: t.transferNumber || 'حوالة'
+      }))
+    ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // حساب الرصيد التراكمي
+    let runningBalance = 0;
+    const finalStatement = statement.map(item => {
+      runningBalance += (item.amount - item.paid);
+      return { ...item, balance: runningBalance };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        worker: worker[0],
+        statement: finalStatement,
+        summary: {
+          totalEarned: finalStatement.reduce((sum, i) => sum + i.amount, 0),
+          totalPaid: finalStatement.reduce((sum, i) => sum + i.paid, 0),
+          finalBalance: runningBalance
+        }
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * 📊 مؤشرات الأداء الأساسية (Dashboard KPIs)
  */
 reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) => {

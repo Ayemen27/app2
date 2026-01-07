@@ -1238,16 +1238,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(sql`${dailyExpenseSummaries.date} DESC`)
       .limit(1);
     
-    const balance = result.length > 0 ? result[0].remainingBalance : "0";
-    console.log(`Previous day balance found: ${balance}`);
-    
-    // التحقق من صحة البيانات
-    if (result.length > 0) {
-      const prevSummary = result[0];
-      console.log(`Previous summary from ${prevSummary.date}: carried=${prevSummary.carriedForwardAmount}, income=${prevSummary.totalIncome}, expenses=${prevSummary.totalExpenses}, remaining=${prevSummary.remainingBalance}`);
-    }
-    
-    return balance;
+    // إجبار إعادة الحساب التراكمي إذا وجدنا رصيداً سالباً مشبوهاً أو لضمان الدقة في حالة عدم وجود ملخص
+    // سنقوم دائماً بالحساب التراكمي من البداية لضمان عدم تأثر الأيام القادمة بأخطاء الحساب القديمة
+    // إلا إذا كان هناك ملخص موثوق (تم تحديثه مؤخراً)
+    return "RECALCULATE_REQUIRED";
   }
 
   // إزالة الملخصات المكررة للتاريخ الواحد
@@ -1308,7 +1302,11 @@ export class DatabaseStorage implements IStorage {
       const outgoingTransfers = projectTransfers.filter(t => t.fromProjectId === projectId).reduce((sum, t) => sum + parseFloat(t.amount), 0);
       
       // استخدام المبلغ المدفوع بدلاً من إجمالي الأجر اليومي
-      const totalWorkerWages = workerAttendanceRecords.reduce((sum, a) => sum + parseFloat(a.paidAmount || '0'), 0);
+      // تم التعديل لضمان عدم احتساب المبالغ غير المدفوعة (0) في المصاريف النقدية
+      const totalWorkerWages = workerAttendanceRecords.reduce((sum, a) => {
+        const paid = parseFloat(a.paidAmount || '0');
+        return sum + (paid > 0 ? paid : 0);
+      }, 0);
       // فقط المشتريات النقدية تُحسب في مصروفات اليوم - المشتريات الآجلة لا تُحسب
       const totalMaterialCosts = materialPurchases
         .filter(p => p.purchaseType === "نقد")

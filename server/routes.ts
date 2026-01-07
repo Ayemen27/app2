@@ -1465,7 +1465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM (
-            SELECT amount FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد')
+            SELECT total_amount as amount FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد')
             ${fromDate ? sql`AND purchase_date::date >= ${fromDate}::date` : sql``}
             AND purchase_date::date <= ${toDate}::date
             UNION ALL

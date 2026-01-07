@@ -397,24 +397,33 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const duration = Date.now() - startTime;
 
     // حساب الإجماليات الكلية للمشروع
-    const totalFunds = await db.select({ sum: sql<number>`SUM(CAST(${fundTransfers.amount} AS DECIMAL))` }).from(fundTransfers).where(eq(fundTransfers.projectId, projectId as string));
-    const totalWages = await db.select({ sum: sql<number>`SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL))` }).from(workerAttendance).where(eq(workerAttendance.projectId, projectId as string));
-    const totalMaterials = await db.select({ sum: sql<number>`SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL))` }).from(materialPurchases).where(eq(materialPurchases.projectId, projectId as string));
-    const totalTransport = await db.select({ sum: sql<number>`SUM(CAST(${transportationExpenses.amount} AS DECIMAL))` }).from(transportationExpenses).where(eq(transportationExpenses.projectId, projectId as string));
-    const totalMisc = await db.select({ sum: sql<number>`SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL))` }).from(workerMiscExpenses).where(eq(workerMiscExpenses.projectId, projectId as string));
+    const [totalFundsResult] = await db.select({ sum: sql<string>`SUM(CAST(${fundTransfers.amount} AS DECIMAL))` }).from(fundTransfers).where(eq(fundTransfers.projectId, projectId as string));
+    const [totalWagesResult] = await db.select({ sum: sql<string>`SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL))` }).from(workerAttendance).where(eq(workerAttendance.projectId, projectId as string));
+    const [totalMaterialsResult] = await db.select({ sum: sql<string>`SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL))` }).from(materialPurchases).where(eq(materialPurchases.projectId, projectId as string));
+    const [totalTransportResult] = await db.select({ sum: sql<string>`SUM(CAST(${transportationExpenses.amount} AS DECIMAL))` }).from(transportationExpenses).where(eq(transportationExpenses.projectId, projectId as string));
+    const [totalMiscResult] = await db.select({ sum: sql<string>`SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL))` }).from(workerMiscExpenses).where(eq(workerMiscExpenses.projectId, projectId as string));
+
+    const overallTotalFunds = Number(totalFundsResult?.sum || 0);
+    const overallTotalWages = Number(totalWagesResult?.sum || 0);
+    const overallTotalMaterials = Number(totalMaterialsResult?.sum || 0);
+    const overallTotalTransport = Number(totalTransportResult?.sum || 0);
+    const overallTotalMisc = Number(totalMiscResult?.sum || 0);
+
+    const [activeProjectsCount] = await db.select({ count: sql<number>`count(*)` }).from(projects).where(eq(projects.isActive, true));
+    const [activeWorkersCount] = await db.select({ count: sql<number>`count(*)` }).from(workers).where(eq(workers.isActive, true));
 
     res.json({
       success: true,
       data: {
         overall: {
-          activeProjects: (await db.select({ count: sql`count(*)` }).from(projects).where(eq(projects.isActive, true)))[0],
-          activeWorkers: (await db.select({ count: sql`count(*)` }).from(workers).where(eq(workers.isActive, true)))[0],
-          totalFunds: Number(totalFunds[0]?.sum || 0),
-          totalExpenses: Number(totalWages[0]?.sum || 0) + Number(totalMaterials[0]?.sum || 0) + Number(totalTransport[0]?.sum || 0) + Number(totalMisc[0]?.sum || 0),
-          wages: Number(totalWages[0]?.sum || 0),
-          materials: Number(totalMaterials[0]?.sum || 0),
-          transport: Number(totalTransport[0]?.sum || 0),
-          misc: Number(totalMisc[0]?.sum || 0)
+          activeProjects: Number(activeProjectsCount?.count || 0),
+          activeWorkers: Number(activeWorkersCount?.count || 0),
+          totalFunds: overallTotalFunds,
+          totalExpenses: overallTotalWages + overallTotalMaterials + overallTotalTransport + overallTotalMisc,
+          wages: overallTotalWages,
+          materials: overallTotalMaterials,
+          transport: overallTotalTransport,
+          misc: overallTotalMisc
         },
         month: totalStats,
         chartData

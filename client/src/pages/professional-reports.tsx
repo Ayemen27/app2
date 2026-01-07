@@ -125,11 +125,24 @@ export default function ProfessionalReports() {
               >الكل</Button>
             </div>
             <Separator orientation="vertical" className="h-8 hidden md:block" />
-            <Button variant="outline" className="gap-2 bg-white h-11 px-5 border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm">
+            <Button 
+              variant="outline" 
+              className="gap-2 bg-white h-11 px-5 border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm"
+              onClick={() => window.print()}
+            >
               <Printer className="h-4 w-4 text-slate-600" />
               <span className="font-bold">طباعة الكشف</span>
             </Button>
-            <Button className="gap-2 h-11 px-6 bg-primary hover:bg-primary/90 rounded-xl transition-all shadow-lg shadow-primary/20">
+            <Button 
+              className="gap-2 h-11 px-6 bg-primary hover:bg-primary/90 rounded-xl transition-all shadow-lg shadow-primary/20"
+              onClick={() => {
+                toast({
+                  title: "جاري تجهيز التقرير",
+                  description: "يتم الآن تجميع البيانات وتوليد ملف التصدير الذكي...",
+                });
+                // سيتم هنا استدعاء وظيفة التصدير الفعلية مستقبلاً
+              }}
+            >
               <Download className="h-4 w-4" />
               <span className="font-bold text-base">تصدير ذكي</span>
             </Button>

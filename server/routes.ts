@@ -2206,6 +2206,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('✅ [API] نجح validation ملخص المصاريف اليومية');
       
+      // حذف الملخص القديم لنفس المشروع والتاريخ إن وجد لمنع التكرار وضمان تحديث البيانات
+      console.log('🗑️ [API] حذف أي ملخص سابق لنفس اليوم والمشروع...');
+      await db.delete(dailyExpenseSummaries)
+        .where(
+          and(
+            eq(dailyExpenseSummaries.projectId, validationResult.data.projectId),
+            eq(dailyExpenseSummaries.date, validationResult.data.date)
+          )
+        );
+
       // إدراج ملخص المصاريف اليومية الجديد في قاعدة البيانات
       console.log('💾 [API] حفظ ملخص المصاريف اليومية في قاعدة البيانات...');
       const newSummary = await db.insert(dailyExpenseSummaries).values(validationResult.data).returning();

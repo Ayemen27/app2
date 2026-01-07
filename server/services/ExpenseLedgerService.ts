@@ -165,13 +165,14 @@ export class ExpenseLedgerService {
       const cleanTotalIncome = this.cleanDbValue(prevIncome.rows[0]?.total);
       const cleanTotalExpenses = this.cleanDbValue(prevExpenses.rows[0]?.total);
       
-      // تصحيح: الرصيد المرحل يجب أن يأخذ في الاعتبار التحويلات الصادرة كخصم من الرصيد
-      // لكن بما أنها مدرجة بالفعل في prevExpenses فلا نحتاج لتعديل المعادلة الأساسية
-      // المشكلة قد تكون في عدم تضمينها في "المتبقي من سابق" إذا لم يتم احتسابها في الحساب التراكمي
-      const carriedForwardBalance = isCumulative ? 0 : (cleanTotalIncome - cleanTotalExpenses);
+      // حساب الرصيد المرحل بشكل مباشر وصريح
+      let carriedForwardBalance = isCumulative ? 0 : (cleanTotalIncome - cleanTotalExpenses);
+      
+      // تصحيح فوري: إذا كان الرصيد قريباً جداً من الصفر (بسبب الكسور العشرية) نعتبره صفراً
+      if (Math.abs(carriedForwardBalance) < 1) {
+        carriedForwardBalance = 0;
+      }
 
-      // تأكيد إضافي لضمان عدم وجود رصيد سالب ناتج عن أخطاء محاسبية قديمة في "المتبقي من سابق"
-      // إلا إذا كان المشروع فعلاً مديوناً (صرف أكثر مما استلم)
       const finalCarriedForward = carriedForwardBalance;
 
       const [

@@ -343,14 +343,20 @@ export default function Dashboard() {
 
   // الإحصائيات الحالية - من ExpenseLedgerService فقط (مصدر موحد للحقيقة)
   const currentStats = useMemo(() => {
+    // التوريد الصافي: تحويلات العهدة فقط (بدون التدوير بين المشاريع لتجنب التكرار في الإجمالي)
+    const rawIncome = currentTotals.totals?.totalIncome || 0;
+    
+    // المنصرف الصافي: ما خرج فعلياً للسوق (بدون التدوير بين المشاريع)
+    const rawExpenses = currentTotals.totals?.totalCashExpenses || 0;
+    
     return {
-      totalIncome: currentTotals.totalIncome || 0,
-      totalExpenses: currentTotals.totalCashExpenses || 0, // استخدام المنصرف النقدي الفعلي
-      currentBalance: currentTotals.totalBalance || 0,
-      activeWorkers: String(currentTotals.activeWorkers || 0),
-      completedDays: String(currentTotals.completedDays || 0), 
-      materialPurchases: String(currentTotals.materialExpensesCredit || 0), // تم التصحيح لاستخدام الرصيد الآجل للمواد
-      transportExpenses: currentTotals.totalCashExpenses || 0
+      totalIncome: rawIncome,
+      totalExpenses: rawExpenses,
+      currentBalance: rawIncome - rawExpenses,
+      activeWorkers: String(currentTotals.totals?.activeWorkers || 0),
+      completedDays: String(currentTotals.totals?.completedDays || 0), 
+      materialPurchases: formatCurrency(currentTotals.totals?.materialExpensesCredit || 0),
+      transportExpenses: currentTotals.totals?.transportExpenses || 0
     };
   }, [currentTotals]);
 

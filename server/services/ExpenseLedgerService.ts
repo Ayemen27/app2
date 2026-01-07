@@ -224,16 +224,16 @@ export class ExpenseLedgerService {
       // 4. إجمالي المصروفات النقدية
       // التوريد (Income) يحسب تحويلات العهدة والوارد من مشاريع
       // المنصرف (Expenses) يحسب ما خرج فعلياً للسوق أو العمال
-      const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses;
+      const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
       
       // 5. الرصيد النقدي لليوم (الدخل - المصروفات)
       const totalIncome = fundTransfers + incomingProjectTransfers;
-      const cashBalance = totalIncome - totalCashExpenses - outgoingProjectTransfers;
+      const cashBalance = totalIncome - totalCashExpenses;
       
       // 6. الرصيد التراكمي الشامل
       const totalIncomeWithCarried = totalIncome + carriedForwardBalance;
-      const totalBalance = totalIncomeWithCarried - totalCashExpenses - outgoingProjectTransfers;
-      const totalAllExpenses = totalCashExpenses + materialExpensesCredit + outgoingProjectTransfers; 
+      const totalBalance = totalIncomeWithCarried - totalCashExpenses;
+      const totalAllExpenses = totalCashExpenses + materialExpensesCredit; 
 
       return {
         projectId, projectName, status: projectStatus, description: projectDescription,

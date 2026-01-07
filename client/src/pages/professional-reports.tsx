@@ -200,7 +200,7 @@ export default function ProfessionalReports() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white/50 backdrop-blur-md border p-1 h-12 shadow-sm rounded-xl w-full max-w-lg print:hidden">
+          <TabsList className="bg-white/50 backdrop-blur-md border p-1 h-12 shadow-sm rounded-xl w-full max-lg print:hidden">
             <TabsTrigger value="overview" className="flex-1 gap-2 rounded-lg text-sm font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
               <Activity className="h-4 w-4" /> نظرة عامة
             </TabsTrigger>
@@ -375,46 +375,53 @@ export default function ProfessionalReports() {
           <TabsContent value="workers" className="space-y-6 animate-in slide-in-from-top-4 duration-500">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* Intelligent Worker Selection */}
-              <Card className="lg:col-span-1 border-none shadow-sm rounded-2xl bg-white overflow-hidden print:hidden h-fit sticky top-24">
-                <CardHeader className="p-5 border-b bg-slate-50/50">
-                  <CardTitle className="text-lg font-black flex items-center gap-2">
-                    <Search className="h-5 w-5 text-primary" />
-                    كشف حساب عامل
-                  </CardTitle>
-                  <CardDescription className="font-bold">اختر العامل لعرض بياناته</CardDescription>
+              <Card className="lg:col-span-1 border-none shadow-xl rounded-3xl bg-white overflow-hidden print:hidden h-fit sticky top-24 border border-slate-100/50">
+                <CardHeader className="p-6 border-b bg-slate-50/50">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Search className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-black text-slate-900">البحث الذكي</CardTitle>
+                      <CardDescription className="font-bold text-xs">تحديد كشف حساب العامل</CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-4 space-y-4">
-                  <div className="relative">
-                    <Search className="absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <div className="relative group">
+                    <Search className="absolute right-3 top-3 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                     <input 
                       type="text" 
-                      placeholder="ابحث بالاسم..." 
-                      className="w-full pr-10 pl-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary/20"
+                      placeholder="ابحث بالاسم أو التخصص..." 
+                      className="w-full pr-10 pl-4 py-3 bg-slate-100/50 border-2 border-transparent rounded-2xl text-sm font-bold focus:bg-white focus:border-primary/20 focus:ring-4 focus:ring-primary/5 transition-all outline-none"
                       onChange={(e) => setWorkerSearch(e.target.value)}
                     />
                   </div>
-                  <div className="space-y-1.5 max-h-[450px] overflow-y-auto custom-scrollbar pr-1">
+                  <div className="space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
                     {filteredWorkers.map((worker: any) => (
                       <button
                         key={worker.id}
                         onClick={() => setSelectedWorkerId(worker.id)}
-                        className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all text-right ${
+                        className={`w-full flex items-center gap-4 p-3.5 rounded-2xl transition-all duration-300 text-right group ${
                           selectedWorkerId === worker.id 
-                            ? "bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]" 
-                            : "hover:bg-slate-50 text-slate-700"
+                            ? "bg-primary text-white shadow-lg shadow-primary/25 scale-[1.02]" 
+                            : "hover:bg-slate-50 text-slate-700 hover:translate-x-[-4px]"
                         }`}
                       >
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-sm shadow-sm ${
-                          selectedWorkerId === worker.id ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm shadow-sm transition-transform group-hover:rotate-3 ${
+                          selectedWorkerId === worker.id ? "bg-white/20 text-white" : "bg-gradient-to-br from-primary/10 to-primary/5 text-primary"
                         }`}>
                           {worker.name.charAt(0)}
                         </div>
-                        <div className="flex flex-col text-right overflow-hidden">
-                          <span className="font-black text-sm truncate">{worker.name}</span>
-                          <span className={`text-[10px] font-bold ${selectedWorkerId === worker.id ? "text-white/70" : "text-slate-400"}`}>
-                            {worker.role || "فني"}
+                        <div className="flex flex-col text-right overflow-hidden flex-1">
+                          <span className="font-black text-sm truncate leading-tight">{worker.name}</span>
+                          <span className={`text-[10px] font-bold mt-0.5 tracking-wide uppercase ${selectedWorkerId === worker.id ? "text-white/70" : "text-slate-400"}`}>
+                            {worker.role || "فني متخصص"}
                           </span>
                         </div>
+                        {selectedWorkerId === worker.id && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        )}
                       </button>
                     ))}
                   </div>
@@ -422,80 +429,151 @@ export default function ProfessionalReports() {
               </Card>
 
               {/* Detailed Worker Statement */}
-              <div className="lg:col-span-3 space-y-4">
+              <div className="lg:col-span-3 space-y-6">
                 {!selectedWorkerId ? (
-                  <Card className="border-2 border-dashed border-slate-200 bg-slate-50/50 h-[500px] flex items-center justify-center rounded-3xl print:hidden">
-                    <div className="text-center space-y-4">
-                      <div className="p-6 bg-white rounded-full shadow-sm inline-block">
-                        <Users className="h-16 w-16 text-slate-300" />
+                  <Card className="border-2 border-dashed border-slate-200 bg-white/50 h-[600px] flex items-center justify-center rounded-3xl print:hidden backdrop-blur-sm">
+                    <div className="text-center space-y-6 max-w-sm px-6">
+                      <div className="relative inline-block">
+                        <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
+                        <div className="relative p-8 bg-white rounded-full shadow-2xl border border-slate-50">
+                          <Users className="h-16 w-16 text-primary/40" />
+                        </div>
                       </div>
-                      <h3 className="text-2xl font-black text-slate-900">بانتظار اختيار العامل</h3>
-                      <p className="text-slate-500 font-bold max-w-xs mx-auto text-lg">الرجاء اختيار اسم العامل من القائمة الجانبية لاستعراض كافة العمليات المالية المرتبطة به</p>
+                      <div className="space-y-2">
+                        <h3 className="text-2xl font-black text-slate-900">تحليل كشوفات العمال</h3>
+                        <p className="text-slate-500 font-bold text-lg leading-relaxed">
+                          الرجاء اختيار اسم العامل من القائمة الجانبية لاستعراض كافة العمليات المالية والجدول الزمني المرتبط به بدقة احترافية.
+                        </p>
+                      </div>
                     </div>
                   </Card>
                 ) : (
-                  <Card className="border-none shadow-lg rounded-3xl bg-white overflow-hidden print:shadow-none print:border-2 print:border-slate-900">
-                    <CardHeader className="p-8 border-b bg-slate-50/30 print:bg-white">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden print:shadow-none print:border-2 print:border-slate-900 transition-all">
+                    <CardHeader className="p-8 sm:p-10 border-b bg-gradient-to-l from-slate-50/80 to-transparent print:bg-white">
+                      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
                         <div className="flex items-center gap-6">
-                          <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center text-white text-3xl font-black shadow-xl shadow-primary/20">
-                            {filteredWorkers.find(w => w.id === selectedWorkerId)?.name.charAt(0)}
+                          <div className="relative">
+                            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-3xl" />
+                            <div className="relative w-24 h-24 rounded-3xl bg-primary flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-primary/20">
+                              {filteredWorkers.find(w => w.id === selectedWorkerId)?.name.charAt(0)}
+                            </div>
                           </div>
-                          <div>
-                            <CardTitle className="text-3xl font-black text-slate-900 mb-1">{filteredWorkers.find(w => w.id === selectedWorkerId)?.name}</CardTitle>
-                            <Badge className="bg-primary/10 text-primary border-none font-black px-4 py-1.5 rounded-full">كشف مالي معتمد</Badge>
+                          <div className="space-y-2">
+                            <CardTitle className="text-4xl font-black text-slate-900 tracking-tighter">
+                              {filteredWorkers.find(w => w.id === selectedWorkerId)?.name}
+                            </CardTitle>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge className="bg-primary/10 text-primary border-none font-black px-4 py-1.5 rounded-xl">كشف حساب مهني</Badge>
+                              <Badge variant="outline" className="border-slate-200 text-slate-500 font-bold px-4 py-1.5 rounded-xl bg-white shadow-sm">
+                                <Clock className="h-3.5 w-3.5 ml-1.5" />
+                                محدث الآن
+                              </Badge>
+                            </div>
                           </div>
                         </div>
-                        <div className="text-left bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm print:border-slate-900">
-                          <p className="text-sm text-slate-500 font-black mb-1 uppercase tracking-widest text-right">إجمالي الرصيد المستحق</p>
-                          <p className="text-4xl font-black text-primary print:text-slate-900 tracking-tighter">
-                            {formatCurrency(workerStatement?.balance || 0)}
-                          </p>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          <div className="text-right bg-white p-6 rounded-[2rem] border-2 border-slate-100 shadow-xl shadow-slate-100/50 min-w-[220px] print:border-slate-900">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs text-slate-400 font-black uppercase tracking-widest">صافي الاستحقاق</p>
+                              <div className="p-1.5 bg-emerald-50 rounded-lg">
+                                <TrendingUp className="h-4 w-4 text-emerald-500" />
+                              </div>
+                            </div>
+                            <p className="text-4xl font-black text-emerald-600 print:text-slate-900 tracking-tighter">
+                              {formatCurrency(workerStatement?.balance || 0)}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent className="p-0">
                       <div className="overflow-x-auto">
                         <table className="w-full text-right border-collapse">
-                          <thead className="bg-slate-900 text-white uppercase text-xs font-black tracking-widest print:bg-slate-200 print:text-slate-900">
-                            <tr>
-                              <th className="px-8 py-6">التاريخ</th>
-                              <th className="px-8 py-6">بيان العملية والوصف</th>
-                              <th className="px-8 py-6">له (مستحقات)</th>
-                              <th className="px-8 py-6">عليه (مدفوعات)</th>
-                              <th className="px-8 py-6">الرصيد التراكمي</th>
+                          <thead>
+                            <tr className="bg-slate-900 text-white print:bg-slate-100 print:text-slate-900">
+                              <th className="px-8 py-7 text-xs font-black uppercase tracking-[0.2em]">التاريخ</th>
+                              <th className="px-8 py-7 text-xs font-black uppercase tracking-[0.2em]">تفاصيل البيان والوصف</th>
+                              <th className="px-8 py-7 text-xs font-black uppercase tracking-[0.2em] text-center">له (+)</th>
+                              <th className="px-8 py-7 text-xs font-black uppercase tracking-[0.2em] text-center">عليه (-)</th>
+                              <th className="px-8 py-7 text-xs font-black uppercase tracking-[0.2em] bg-slate-800 print:bg-slate-200">الرصيد التراكمي</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className="divide-y divide-slate-100/80">
                             {workerStatement?.transactions?.length > 0 ? (
                               workerStatement.transactions.map((t: any, i: number) => (
-                                <tr key={i} className="hover:bg-slate-50/80 transition-colors print:hover:bg-transparent">
-                                  <td className="px-8 py-6 text-sm font-black text-slate-500 whitespace-nowrap">{format(new Date(t.date), "yyyy/MM/dd")}</td>
-                                  <td className="px-8 py-6">
-                                    <div className="flex flex-col gap-1.5">
-                                      <span className="text-base font-black text-slate-900 leading-tight">{t.description}</span>
+                                <tr key={i} className="group hover:bg-slate-50/80 transition-all duration-300">
+                                  <td className="px-8 py-7">
+                                    <div className="flex flex-col gap-1">
+                                      <span className="text-sm font-black text-slate-900 whitespace-nowrap">{format(new Date(t.date), "yyyy/MM/dd")}</span>
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase">{format(new Date(t.date), "EEEE")}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-8 py-7">
+                                    <div className="flex flex-col gap-2">
+                                      <span className="text-lg font-black text-slate-900 leading-tight group-hover:text-primary transition-colors">{t.description}</span>
                                       <div className="flex gap-2">
-                                        <Badge variant="outline" className="text-[10px] font-black px-2 py-0.5 bg-slate-50 border-slate-200">{t.type}</Badge>
-                                        {t.projectName && <Badge variant="outline" className="text-[10px] font-black px-2 py-0.5 border-emerald-200 text-emerald-700 bg-emerald-50">{t.projectName}</Badge>}
+                                        <Badge variant="outline" className="text-[10px] font-black px-3 py-0.5 bg-white border-slate-200 rounded-lg shadow-sm">{t.type}</Badge>
+                                        {t.projectName && (
+                                          <div className="flex items-center gap-1.5 text-[11px] font-black text-emerald-700 bg-emerald-50 px-3 py-0.5 rounded-lg border border-emerald-100">
+                                            <Building className="h-3 w-3" />
+                                            {t.projectName}
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="px-8 py-6 font-black text-lg text-emerald-600">{t.credit > 0 ? formatCurrency(t.credit) : "-"}</td>
-                                  <td className="px-8 py-6 font-black text-lg text-red-600">{t.debit > 0 ? formatCurrency(t.debit) : "-"}</td>
-                                  <td className="px-8 py-6 font-black text-xl text-slate-900 bg-slate-50/30">{formatCurrency(t.runningBalance)}</td>
+                                  <td className="px-8 py-7 text-center">
+                                    {t.credit > 0 ? (
+                                      <span className="inline-flex items-center justify-center px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl font-black text-base border border-emerald-100 shadow-sm">
+                                        {formatCurrency(t.credit)}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-200 font-bold">—</span>
+                                    )}
+                                  </td>
+                                  <td className="px-8 py-7 text-center">
+                                    {t.debit > 0 ? (
+                                      <span className="inline-flex items-center justify-center px-4 py-2 bg-red-50 text-red-700 rounded-xl font-black text-base border border-red-100 shadow-sm">
+                                        {formatCurrency(t.debit)}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-200 font-bold">—</span>
+                                    )}
+                                  </td>
+                                  <td className="px-8 py-7 bg-slate-50/50 print:bg-white">
+                                    <div className="flex flex-col items-end">
+                                      <span className="text-2xl font-black text-slate-900 tracking-tighter">{formatCurrency(t.runningBalance)}</span>
+                                      <div className={`h-1 w-12 rounded-full mt-1 ${t.runningBalance >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                                    </div>
+                                  </td>
                                 </tr>
                               ))
                             ) : (
                               <tr>
-                                <td colSpan={5} className="px-8 py-20 text-center text-slate-400 font-bold text-xl">لا توجد عمليات مسجلة لهذا العامل في الفترة المحددة</td>
+                                <td colSpan={5} className="px-8 py-32 text-center">
+                                  <div className="flex flex-col items-center gap-4 opacity-30">
+                                    <History className="h-20 w-20" />
+                                    <p className="font-black text-2xl">لا توجد سجلات مالية</p>
+                                  </div>
+                                </td>
                               </tr>
                             )}
                           </tbody>
                         </table>
                       </div>
                     </CardContent>
-                    <div className="p-8 bg-slate-50 border-t print:bg-white text-right">
-                       <p className="text-slate-500 font-bold text-sm">ملاحظة: هذا الكشف تم استخراجه آلياً من نظام BinarJoin Pro ويعتبر مرجعاً محاسبياً للعمليات المذكورة أعلاه.</p>
+                    <div className="p-10 bg-slate-50/50 border-t print:bg-white text-right">
+                       <div className="flex items-start gap-4">
+                         <div className="p-2 bg-slate-200 rounded-lg mt-1">
+                           <FileText className="h-5 w-5 text-slate-500" />
+                         </div>
+                         <div>
+                           <p className="text-slate-700 font-black text-lg mb-1 tracking-tight">إخلاء مسؤولية واعتماد محاسبي</p>
+                           <p className="text-slate-500 font-bold text-sm leading-relaxed max-w-2xl">
+                             تم استخراج هذا البيان المالي آلياً بواسطة محرك BinarJoin Pro المحاسبي. جميع البيانات المذكورة أعلاه تعكس العمليات المسجلة في قاعدة البيانات المركزية حتى لحظة استخراج التقرير. يعتبر هذا الكشف مرجعاً رسمياً للمشروع والعامل.
+                           </p>
+                         </div>
+                       </div>
                     </div>
                   </Card>
                 )}

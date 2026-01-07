@@ -81,6 +81,11 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
             completedDays: summary.workers.completedDays,
             materialPurchases: summary.counts.materialPurchases,
             materialExpensesCredit: summary.expenses.materialExpensesCredit,
+            totalTransportation: summary.expenses.totalTransportation,
+            totalMiscExpenses: summary.expenses.totalMiscExpenses,
+            totalWorkerWages: summary.expenses.totalWorkerWages,
+            totalFundTransfers: summary.expenses.totalFundTransfers,
+            totalWorkerTransfers: summary.expenses.totalWorkerTransfers,
             lastActivity: project.createdAt.toISOString()
           }
         };

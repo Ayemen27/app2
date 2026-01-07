@@ -122,11 +122,12 @@ function DailyExpensesContent() {
   } = useQuery({
     queryKey: ["/api/worker-misc-expenses", selectedProjectId, selectedDate],
     queryFn: async () => {
-      if (!selectedProjectId || !selectedDate) return [];
-      const response = await apiRequest(`/api/worker-misc-expenses?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
+      if ((!selectedProjectId && !isAllProjects) || !selectedDate) return [];
+      const projectId = isAllProjects ? "all" : selectedProjectId;
+      const response = await apiRequest(`/api/worker-misc-expenses?projectId=${projectId}&date=${selectedDate}`, "GET");
       return Array.isArray(response) ? response : (response?.data || []);
     },
-    enabled: !!selectedProjectId && !!selectedDate
+    enabled: (!!selectedProjectId || isAllProjects) && !!selectedDate
   });
 
   useEffect(() => {
@@ -404,10 +405,11 @@ function DailyExpensesContent() {
 
   // جلب عمليات ترحيل الأموال بين المشاريع مع أسماء المشاريع - استعلام منفصل للصفحة اليومية
   const { data: projectTransfers = [], refetch: refetchProjectTransfers } = useQuery<(ProjectFundTransfer & { fromProjectName?: string; toProjectName?: string })[]>({
-    queryKey: ["/api/daily-project-transfers", selectedProjectId, selectedDate],
+    queryKey: ["/api/daily-project-transfers", isAllProjects ? "all" : selectedProjectId, selectedDate],
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/daily-project-transfers?projectId=${selectedProjectId}&date=${selectedDate || ""}`, "GET");
+        const projectId = isAllProjects ? "all" : selectedProjectId;
+        const response = await apiRequest(`/api/daily-project-transfers?projectId=${projectId}&date=${selectedDate || ""}`, "GET");
         console.log('📊 [ProjectTransfers] استجابة API للصفحة اليومية:', response);
 
         let transferData = [];

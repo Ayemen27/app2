@@ -108,7 +108,7 @@ export default function ProjectFundCustody() {
       );
     }
 
-    if (filterValues.project) {
+    if (filterValues.project && filterValues.project !== 'all') {
       filtered = filtered.filter(t => t.projectId === filterValues.project);
     }
 

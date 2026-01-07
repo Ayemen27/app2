@@ -410,16 +410,10 @@ export default function ProjectTransfers() {
                       ]}
                       fields={[
                         {
-                          label: "من",
-                          value: getProjectName(transfer.fromProjectId),
+                          label: "المشروع",
+                          value: `${getProjectName(transfer.fromProjectId)} ⬅️ ${getProjectName(transfer.toProjectId)}`,
                           icon: Building2,
-                          color: "danger"
-                        },
-                        {
-                          label: "إلى",
-                          value: getProjectName(transfer.toProjectId),
-                          icon: Building2,
-                          color: "success"
+                          color: "info"
                         },
                         {
                           label: "السبب",

@@ -35,8 +35,10 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         description: fundTransfers.notes,
         createdAt: fundTransfers.createdAt,
         projectId: fundTransfers.projectId,
+        projectName: projects.name,
       })
       .from(fundTransfers)
+      .leftJoin(projects, eq(fundTransfers.projectId, projects.id))
       .orderBy(desc(fundTransfers.createdAt))
       .limit(limit);
 
@@ -44,8 +46,7 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       ...t,
       actionType: 'fund_transfer',
       actionLabel: 'تحويل للصندوق',
-      userName: 'النظام',
-      projectName: 'غير محدد'
+      userName: 'النظام'
     })));
 
     // 2. تحويلات المشاريع
@@ -56,6 +57,7 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         description: projectFundTransfers.description,
         createdAt: projectFundTransfers.createdAt,
         projectId: projectFundTransfers.toProjectId,
+        projectName: sql<string>`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`,
       })
       .from(projectFundTransfers)
       .orderBy(desc(projectFundTransfers.createdAt))
@@ -71,8 +73,7 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       ...t,
       actionType: 'project_transfer',
       actionLabel: 'تحويل بين المشاريع',
-      userName: 'النظام',
-      projectName: 'غير محدد'
+      userName: 'النظام'
     })));
 
     // 3. مصروفات العمال المتنوعة
@@ -83,8 +84,10 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         description: workerMiscExpenses.description,
         createdAt: workerMiscExpenses.createdAt,
         projectId: workerMiscExpenses.projectId,
+        projectName: projects.name,
       })
       .from(workerMiscExpenses)
+      .leftJoin(projects, eq(workerMiscExpenses.projectId, projects.id))
       .orderBy(desc(workerMiscExpenses.createdAt))
       .limit(limit);
 
@@ -96,8 +99,7 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       ...e,
       actionType: 'worker_expense',
       actionLabel: 'مصروف عامل',
-      userName: 'النظام',
-      projectName: 'غير محدد'
+      userName: 'النظام'
     })));
 
     // 4. مشتريات المواد
@@ -108,8 +110,10 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         description: materialPurchases.materialName,
         createdAt: materialPurchases.createdAt,
         projectId: materialPurchases.projectId,
+        projectName: projects.name,
       })
       .from(materialPurchases)
+      .leftJoin(projects, eq(materialPurchases.projectId, projects.id))
       .orderBy(desc(materialPurchases.createdAt))
       .limit(limit);
 
@@ -121,8 +125,7 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       ...m,
       actionType: 'material',
       actionLabel: 'شراء مواد',
-      userName: 'النظام',
-      projectName: 'غير محدد'
+      userName: 'النظام'
     })));
 
     // 5. تحويلات العمال
@@ -133,8 +136,10 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         description: workerTransfers.notes,
         createdAt: workerTransfers.createdAt,
         projectId: workerTransfers.projectId,
+        projectName: projects.name,
       })
       .from(workerTransfers)
+      .leftJoin(projects, eq(workerTransfers.projectId, projects.id))
       .orderBy(desc(workerTransfers.createdAt))
       .limit(limit);
 
@@ -146,8 +151,7 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       ...t,
       actionType: 'worker_transfer',
       actionLabel: 'تحويل لعامل',
-      userName: 'النظام',
-      projectName: 'غير محدد'
+      userName: 'النظام'
     })));
 
     // ترتيب حسب التاريخ
@@ -155,38 +159,15 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    // إضافة معلومات المشروع
-    const enrichedActivities = await Promise.all(
-      activities.slice(0, limit).map(async (activity) => {
-        let projectName = 'جميع المشاريع';
+    // تجهيز النتيجة النهائية
+    const result = activities.slice(0, limit);
 
-        // جلب اسم المشروع
-        if (activity.projectId) {
-          try {
-            const project = await db
-              .select({ name: projects.name })
-              .from(projects)
-              .where(eq(projects.id, activity.projectId))
-              .limit(1);
-            if (project.length > 0) projectName = project[0].name;
-          } catch (error) {
-            console.error('خطأ في جلب اسم المشروع:', error);
-          }
-        }
-
-        return {
-          ...activity,
-          projectName,
-        };
-      })
-    );
-
-    console.log(`✅ [API] تم جلب ${enrichedActivities.length} إجراء`);
+    console.log(`✅ [API] تم جلب ${result.length} إجراء بنظام Join المباشر`);
 
     res.json({
       success: true,
-      data: enrichedActivities,
-      count: enrichedActivities.length,
+      data: result,
+      count: result.length,
     });
   } catch (error) {
     console.error('❌ [API] خطأ في جلب آخر الإجراءات:', error);

@@ -492,7 +492,8 @@ function DailyExpensesContent() {
   }, [totalsValue]);
 
   const displayAvailableBalance = useMemo(() => {
-    return totalsValue.totalIncome + (totalsValue.carriedForwardBalance || 0);
+    // المتبقي من سابق يجمع إذا كان موجباً ويطرح إذا كان سالباً
+    return totalsValue.totalIncome + (parseFloat(String(totalsValue.carriedForwardBalance || 0)));
   }, [totalsValue]);
 
   const displayExpenses = useMemo(() => {
@@ -500,9 +501,9 @@ function DailyExpensesContent() {
   }, [totalsValue]);
 
   const displayBalance = useMemo(() => {
-    // الرصيد المتبقي = (الدخل اليومي + الرصيد السابق) - المصروفات النقدية
-    return (totalsValue.totalIncome + (totalsValue.carriedForwardBalance || 0)) - totalsValue.totalCashExpenses;
-  }, [totalsValue]);
+    // الرصيد المتبقي = (الدخل المتاح) - المصروفات النقدية
+    return displayAvailableBalance - totalsValue.totalCashExpenses;
+  }, [displayAvailableBalance, totalsValue.totalCashExpenses]);
 
   const { 
     data: dailyExpensesData, 

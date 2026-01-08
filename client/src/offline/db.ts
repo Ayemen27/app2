@@ -23,7 +23,21 @@ export async function getSmartStorage() {
   }
   
   // المتصفح (Web) يستخدم IndexedDB (الذي يدعمه openDB)
-  return null;
+  if (!dbInstance) {
+    dbInstance = await initializeDB();
+  }
+  return dbInstance;
+}
+
+/**
+ * دالة مساعدة لضمان وجود Transaction آمنة
+ */
+export async function getSafeTransaction(storeNames: string | string[], mode: 'readonly' | 'readwrite' = 'readonly') {
+  const db = await getDB();
+  if (!db || typeof db.transaction !== 'function') {
+    throw new Error('Database not initialized correctly or missing transaction method');
+  }
+  return db.transaction(storeNames, mode);
 }
 
 // تعريف schema قاعدة البيانات - مرآة كاملة 100% من الخادم (66 جدول)

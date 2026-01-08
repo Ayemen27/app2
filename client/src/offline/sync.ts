@@ -144,7 +144,7 @@ export async function performInitialDataPull(): Promise<boolean> {
     const BATCH_SIZE = 5;
     for (let i = 0; i < tableEntries.length; i += BATCH_SIZE) {
       const batch = tableEntries.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map(async ([tableName, records]) => {
+      for (const [tableName, records] of batch) {
         if (tableName !== 'users' && Array.isArray(records)) {
           processedTables++;
           updateSyncState({ 
@@ -158,7 +158,7 @@ export async function performInitialDataPull(): Promise<boolean> {
           await smartSave(tableName, records);
           totalSaved += records.length;
         }
-      }));
+      }
     }
 
     await db.put('syncMetadata', {
@@ -231,7 +231,7 @@ export async function syncOfflineData(): Promise<void> {
           const recordId = item.payload.id;
           const tableName = item.endpoint.split('/')[2]; 
           
-          if (tableName && recordId) {
+          if (tableName && recordId && typeof db.transaction === 'function') {
             const tx = db.transaction(tableName as any, 'readwrite');
             const store = tx.objectStore(tableName as any);
             const record = await store.get(recordId);

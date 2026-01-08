@@ -80,9 +80,9 @@ export default function MaterialPurchase() {
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
   const [showDateFilter, setShowDateFilter] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    // التحقق من وجود التاريخ في URL أولاً، وإلا استخدام تاريخ اليوم
+    // التحقق من وجود التاريخ في URL أولاً
     const params = new URLSearchParams(window.location.search);
-    return params.get('date') || getCurrentDate();
+    return params.get('date') || ""; // القيمة الافتراضية فارغة لجلب الكل
   });
 
   const { toast } = useToast();
@@ -92,7 +92,7 @@ export default function MaterialPurchase() {
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
     if (showDateFilter) {
-      setSelectedDate(getCurrentDate());
+      setSelectedDate(""); // تعيين قيمة فارغة لجلب الكل عند إعادة التعيين
     }
     setFilterValues({ 
       paymentType: 'all', 
@@ -104,16 +104,14 @@ export default function MaterialPurchase() {
     });
     toast({
       title: "تم إعادة التعيين",
-      description: "تم مسح جميع الفلاتر وتعيين تاريخ اليوم",
+      description: "تم مسح جميع الفلاتر وعرض كافة المشتريات",
     });
   }, [showDateFilter, toast]);
 
-  // تعيين تاريخ اليوم تلقائياً عند الفتح
+  // إزالة التعيين التلقائي لتاريخ اليوم لجلب الكل افتراضياً
   useEffect(() => {
-    if (showDateFilter) {
-      setSelectedDate(getCurrentDate());
-    }
-  }, [showDateFilter]);
+    // لا نفعل شيئاً هنا للسماح بجلب الكل افتراضياً
+  }, []);
 
   // إزالة الزر العائم من صفحة المشتريات
   useEffect(() => {

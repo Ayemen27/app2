@@ -223,7 +223,9 @@ router.post("/chat", requireAdmin, async (req: AuthenticatedRequest, res: Respon
 
     console.log(`🤖 [AI] استدعاء AgentForge للرسالة: ${message}`);
     
-    const pythonProcess = spawn("python3", ["agent_bridge.py", message]);
+    // استخدام python3 أو python حسب المتاح في البيئة
+    const pythonCommand = "python3";
+    const pythonProcess = spawn(pythonCommand, ["agent_bridge.py", message]);
     let pythonData = "";
     let pythonError = "";
 

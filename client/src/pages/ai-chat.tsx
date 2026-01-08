@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,52 +12,35 @@ import {
   Plus,
   History,
   Settings,
-  Menu,
-  X,
   Search,
   MessageSquare,
   ThumbsUp,
-  ThumbsDown,
   Share2,
-  MoreVertical,
-  Loader,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Eye,
-  EyeOff,
-  ChevronDown,
   Sparkles,
   Zap,
-  Command,
   ArrowUpRight,
   ShieldCheck,
   BrainCircuit,
   PanelLeftClose,
   PanelLeftOpen,
   FileSpreadsheet,
-  Activity,
+  Clock,
   CheckCircle,
-  AlertTriangle
+  Loader,
+  RefreshCw
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem,
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
+import { format } from "date-fns";
 
 // Mock ThemeToggle to prevent crash
 const ThemeToggle = () => (
-  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400">
+  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 no-default-hover-elevate no-default-active-elevate">
     <Zap className="h-4 w-4" />
   </Button>
 );
@@ -73,20 +56,12 @@ interface Message {
   steps?: { title: string; status: 'completed' | 'in_progress' | 'pending'; description?: string }[];
 }
 
-interface ChatSession {
-  id: string;
-  title: string;
-  messagesCount: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 export default function AIChatPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -117,17 +92,13 @@ export default function AIChatPage() {
   });
 
   // جلب الوصول
-  const { data: accessData, isLoading: isAccessLoading, error: accessError } = useQuery({
+  const { data: accessData, isLoading: isAccessLoading } = useQuery({
     queryKey: ["/api/ai/access"],
     queryFn: async () => {
       try {
-        console.log("🔄 [AI/Client] Checking access status...");
         const res = await apiRequest("/api/ai/access", "GET");
-        console.log("✅ [AI/Client] Access result:", res);
         return res;
       } catch (error: any) {
-        console.error("❌ [AI/Client] Access check error:", error);
-        // التحقق من حالة المستخدم كحل بديل إذا فشل الطلب
         if (user?.role === 'admin' || user?.role === 'super_admin') {
           return { hasAccess: true };
         }
@@ -142,17 +113,10 @@ export default function AIChatPage() {
 
   const createSessionMutation = useMutation({
     mutationFn: async (title: string) => {
-      console.log("🚀 [AI/Client] Creating session with title:", title);
-      try {
-        const res = await apiRequest("/api/ai/sessions", "POST", { title });
-        return res;
-      } catch (err: any) {
-        console.error("❌ [AI/Client] Session creation failed:", err);
-        throw err;
-      }
+      const res = await apiRequest("/api/ai/sessions", "POST", { title });
+      return res;
     },
     onSuccess: (data) => {
-      console.log("✅ [AI/Client] Session created:", data.sessionId);
       setCurrentSessionId(data.sessionId);
       queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
       setMessages([
@@ -172,38 +136,21 @@ export default function AIChatPage() {
         let activeSessionId = currentSessionId;
 
         if (!activeSessionId) {
-          console.log("🔄 [AI/Client] No active session, creating one...");
-          try {
-            const sessionRes = await apiRequest("/api/ai/sessions", "POST", { 
-              title: message.substring(0, 50) + (message.length > 50 ? "..." : "") 
-            });
-            
-            if (!sessionRes || !sessionRes.sessionId) {
-              throw new Error("فشل إنشاء جلسة جديدة - استجابة غير صالحة");
-            }
-            
-            activeSessionId = sessionRes.sessionId;
-            setCurrentSessionId(activeSessionId);
-            console.log("✅ [AI/Client] New session created:", activeSessionId);
-            
-            // تحديث قائمة الجلسات في الخلفية
-            queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
-          } catch (sessionErr: any) {
-            console.error("❌ [AI/Client] Failed to create session:", sessionErr);
-            throw new Error(`فشل بدء المحادثة: ${sessionErr.message || 'خطأ في المصادقة'}`);
-          }
+          const sessionRes = await apiRequest("/api/ai/sessions", "POST", { 
+            title: message.substring(0, 50) + (message.length > 50 ? "..." : "") 
+          });
+          
+          activeSessionId = sessionRes.sessionId;
+          setCurrentSessionId(activeSessionId);
+          queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
         }
 
-        console.log("📤 [AI/Client] Sending message to session:", activeSessionId);
         const chatRes = await apiRequest("/api/ai/chat", "POST", {
           sessionId: activeSessionId,
           message,
         });
         
         return { ...chatRes, sessionId: activeSessionId };
-      } catch (err: any) {
-        console.error("❌ [AI/Client] Chat processing error:", err);
-        throw err;
       } finally {
         setIsLoading(false);
       }
@@ -219,7 +166,6 @@ export default function AIChatPage() {
       setMessages((prev) => [...prev, assistantMessage]);
     },
     onError: (error: any) => {
-      console.error("AI Chat Error:", error);
       const errorMsg = error.response?.data?.error || error.message || "انقطع الاتصال بالخادم الذكي";
       toast({
         title: "خطأ في المعالجة",
@@ -237,13 +183,7 @@ export default function AIChatPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
       if (currentSessionId) {
         setCurrentSessionId(null);
-        setMessages([
-          {
-            role: "assistant",
-            content: "تم حذف الجلسة بنجاح. كيف يمكنني مساعدتك في جلسة جديدة؟",
-            timestamp: new Date(),
-          },
-        ]);
+        startNewChat();
       }
     },
   });
@@ -257,13 +197,17 @@ export default function AIChatPage() {
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input;
     setInput("");
-    setIsLoading(true);
+    
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
 
     try {
-      await sendMessageMutation.mutateAsync(input);
-    } finally {
-      setIsLoading(false);
+      await sendMessageMutation.mutateAsync(currentInput);
+    } catch (err) {
+      // Error handled by mutation
     }
   };
 
@@ -308,18 +252,11 @@ export default function AIChatPage() {
         }
       }
     } catch (error) {
-      console.error("Failed to load session messages:", error);
       toast({
         title: "خطأ في الاتصال",
         description: "تعذر تحميل رسائل الجلسة من قاعدة البيانات",
         variant: "destructive",
       });
-      setMessages([{
-        role: "assistant",
-        content: "عذراً، حدث خطأ أثناء جلب تاريخ المحادثة. يرجى المحاولة مرة أخرى.",
-        timestamp: new Date(),
-        error: "فشل تحميل البيانات"
-      }]);
     }
   };
 
@@ -342,6 +279,13 @@ export default function AIChatPage() {
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [input]);
+
   const filteredSessions = sessions.filter((s: any) =>
     s.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -363,57 +307,74 @@ export default function AIChatPage() {
 
   if (!hasAccess && !isAccessLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
-        <Card className="max-w-md w-full p-8 text-center border-none shadow-2xl bg-white/50 backdrop-blur-xl dark:bg-slate-900/50">
-          <ShieldCheck className="h-16 w-16 text-red-500 mx-auto mb-6 opacity-80" />
-          <h1 className="text-2xl font-bold mb-3 tracking-tight">منطقة محمية</h1>
-          <p className="text-slate-500 mb-8 leading-relaxed">يتطلب الوصول إلى الوكيل الذكي صلاحيات إدارية عليا. يرجى التواصل مع مسؤول النظام.</p>
-          <Button 
-            className="w-full h-11 bg-slate-900 dark:bg-white dark:text-slate-900 hover-elevate active-elevate-2" 
-            onClick={() => setLocation('/')}
-          >
-            العودة للوحة التحكم
-          </Button>
-        </Card>
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full"
+        >
+          <Card className="p-8 text-center border-none shadow-2xl bg-white/70 backdrop-blur-2xl dark:bg-slate-900/70 rounded-[2.5rem] overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600" />
+            <div className="relative z-10">
+              <div className="w-20 h-20 bg-blue-600/10 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                <ShieldCheck className="h-10 w-10 text-blue-600" />
+              </div>
+              <h1 className="text-3xl font-black mb-4 tracking-tight text-slate-900 dark:text-white">منطقة استراتيجية</h1>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed font-medium">
+                الوصول إلى الوكيل الذكي يتطلب مستوى صلاحيات "مسؤول نظام" لتفعيل قدرات التحليل المتقدمة.
+              </p>
+              <div className="space-y-4">
+                <Button 
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-all hover:scale-[1.02] active:scale-[0.98] no-default-hover-elevate no-default-active-elevate" 
+                  onClick={() => setLocation('/')}
+                >
+                  العودة للوحة التحكم
+                </Button>
+                <p className="text-xs text-slate-400 font-medium">تواصل مع الإدارة لطلب الترقية</p>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans" dir="rtl">
-      {/* Sidebar */}
+    <div className="flex h-screen bg-white dark:bg-slate-950 overflow-hidden font-sans selection:bg-blue-100 dark:selection:bg-blue-900/30" dir="rtl">
+      {/* Sidebar - Glassmorphic */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 300, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col relative z-40 shadow-xl"
+            initial={{ width: 0, opacity: 0, x: 20 }}
+            animate={{ width: 320, opacity: 1, x: 0 }}
+            exit={{ width: 0, opacity: 0, x: 20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="h-full bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-xl border-l border-slate-200/60 dark:border-slate-800/60 flex flex-col relative z-40"
           >
             <div className="p-6 flex flex-col gap-6 h-full">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                    <Sparkles className="h-5 w-5 text-white" />
+                  <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 group">
+                    <BrainCircuit className="h-5 w-5 text-white group-hover:scale-110 transition-transform" />
                   </div>
                   <div>
-                    <h2 className="font-bold text-slate-900 dark:text-white tracking-tight">الوكيل الذكي</h2>
-                    <div className="flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Active Engine</span>
+                    <h2 className="font-black text-slate-900 dark:text-white tracking-tight">الذكاء العملي</h2>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                      <span className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Neural v2.5</span>
                     </div>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
                   <PanelLeftClose className="h-4 w-4" />
                 </Button>
               </div>
 
               <Button 
                 onClick={startNewChat}
-                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-lg shadow-blue-500/25 border-none transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="w-full h-12 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-white gap-3 shadow-sm border border-slate-200 dark:border-slate-700 transition-all hover:scale-[1.02] active:scale-[0.98] font-bold rounded-xl no-default-hover-elevate no-default-active-elevate"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 text-blue-600" />
                 محادثة استراتيجية
               </Button>
 
@@ -423,64 +384,77 @@ export default function AIChatPage() {
                   placeholder="البحث في الأرشيف..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pr-10 h-10 bg-slate-50 dark:bg-slate-800 border-none focus-visible:ring-1 focus-visible:ring-blue-500 transition-all rounded-lg"
+                  className="pr-10 h-11 bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-2 focus-visible:ring-blue-500/20 transition-all rounded-xl text-sm font-medium"
                 />
               </div>
 
               <ScrollArea className="flex-1 -mx-2 px-2">
-          <div className="space-y-1 pb-4">
-            {filteredSessions.length === 0 ? (
-              <div className="text-center py-10">
-                <p className="text-xs text-slate-400">لا توجد محادثات سابقة</p>
-              </div>
-            ) : filteredSessions.map((session: any) => (
-              <div
-                key={session.id}
-                onClick={() => handleSessionClick(session.id)}
-                className={`group relative p-3 rounded-xl cursor-pointer transition-all border ${
-                  currentSessionId === session.id
-                    ? "bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-800"
-                    : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                    currentSessionId === session.id ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600"
-                  }`}>
-                    <MessageSquare className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${currentSessionId === session.id ? "text-blue-900 dark:text-blue-100" : "text-slate-700 dark:text-slate-300"}`}>
-                      {session.title}
-                    </p>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">{session.messagesCount} تفاعل</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteSessionMutation.mutate(session.id);
-                    }}
-                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                <div className="space-y-1.5 pb-4">
+                  {filteredSessions.length === 0 ? (
+                    <div className="text-center py-12 px-4">
+                      <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <History className="h-5 w-5 text-slate-300" />
+                      </div>
+                      <p className="text-xs font-bold text-slate-400">لا توجد سجلات حالية</p>
+                    </div>
+                  ) : filteredSessions.map((session: any) => (
+                    <motion.div
+                      key={session.id}
+                      initial={{ opacity: 0, x: 5 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      onClick={() => handleSessionClick(session.id)}
+                      className={`group relative p-3.5 rounded-2xl cursor-pointer transition-all border ${
+                        currentSessionId === session.id
+                          ? "bg-white dark:bg-slate-800 border-blue-100 dark:border-blue-900/50 shadow-sm"
+                          : "border-transparent hover:bg-white/40 dark:hover:bg-slate-800/40"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                          currentSessionId === session.id 
+                            ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 group-hover:text-blue-600"
+                        }`}>
+                          <MessageSquare className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-bold truncate ${currentSessionId === session.id ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-400"}`}>
+                            {session.title}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{session.messagesCount} تفاعل</span>
+                            <div className="w-1 h-1 bg-slate-300 rounded-full" />
+                            <span className="text-[10px] font-medium text-slate-400 italic">نشط</span>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSessionMutation.mutate(session.id);
+                          }}
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg no-default-hover-elevate no-default-active-elevate"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
-              </div>
-            ))}
-          </div>
               </ScrollArea>
 
-              <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
-                  <span className="text-sm font-bold text-slate-600">{user?.email?.[0]}</span>
+              <div className="mt-auto pt-4 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center overflow-hidden border border-white dark:border-slate-600 shadow-sm">
+                  <span className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase">{user?.email?.[0]}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.email?.split('@')[0]}</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-widest">{user?.role}</p>
+                  <p className="text-sm font-black text-slate-900 dark:text-white truncate tracking-tight">{user?.email?.split('@')[0]}</p>
+                  <Badge variant="outline" className="text-[9px] font-black uppercase py-0 px-1.5 border-blue-200 text-blue-600 bg-blue-50/50">
+                    {user?.role === 'admin' ? 'Chief Architect' : user?.role}
+                  </Badge>
                 </div>
-                <Button variant="ghost" size="icon" className="text-slate-400">
+                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl no-default-hover-elevate no-default-active-elevate">
                   <Settings className="h-4 w-4" />
                 </Button>
               </div>
@@ -491,259 +465,237 @@ export default function AIChatPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col relative bg-white dark:bg-slate-950 min-w-0">
-      {/* Top Header */}
-      <div className="sticky top-0 z-[100] w-full p-4 bg-transparent pointer-events-none">
-        <header className="h-16 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 px-6 flex items-center justify-between bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl shadow-2xl shadow-slate-200/20 dark:shadow-none pointer-events-auto max-w-5xl mx-auto">
-          <div className="flex items-center gap-4">
-            {!sidebarOpen && (
-              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
-                <PanelLeftOpen className="h-5 w-5" />
+        {/* Header Overlay */}
+        <div className="absolute top-0 left-0 right-0 z-[30] p-6 pointer-events-none">
+          <div className="max-w-5xl mx-auto flex items-center justify-between pointer-events-auto">
+            <div className="flex items-center gap-4">
+              {!sidebarOpen && (
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => setSidebarOpen(true)} 
+                  className="h-11 w-11 rounded-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all no-default-hover-elevate no-default-active-elevate"
+                >
+                  <PanelLeftOpen className="h-5 w-5 text-slate-600" />
+                </Button>
+              )}
+              <div className="flex items-center gap-2 px-4 h-11 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <Sparkles className="h-4 w-4 text-blue-600 animate-pulse" />
+                <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Neural Pro</span>
+                <Separator orientation="vertical" className="h-4 mx-1" />
+                <div className="flex items-center gap-1">
+                  <Zap className="h-3.5 w-3.5 text-yellow-500 fill-current" />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Ultra Low Latency</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={startNewChat}
+                className="h-11 px-5 rounded-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200 dark:border-slate-800 text-xs font-bold gap-2 no-default-hover-elevate no-default-active-elevate hidden sm:flex shadow-sm"
+              >
+                <Plus className="h-4 w-4 text-blue-600" />
+                مهمة جديدة
               </Button>
-            )}
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900 text-blue-600 dark:text-blue-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                Enterprise AI v2.5
-              </Badge>
-              <Separator orientation="vertical" className="h-4 hidden sm:block" />
-              <div className="hidden sm:flex items-center gap-1 text-slate-400 text-xs">
-                <Zap className="h-3 w-3 fill-current text-yellow-500" />
-                <span>Turbo Performance</span>
+              <div className="h-11 w-11 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-center">
+                <ThemeToggle />
               </div>
             </div>
           </div>
-          
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={startNewChat}
-              disabled={createSessionMutation.isPending}
-              className="h-9 rounded-lg border-slate-200 dark:border-slate-800 text-xs gap-2 hover-elevate hidden sm:flex"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              محادثة جديدة
-            </Button>
-            <ThemeToggle />
-          </div>
-        </header>
-      </div>
+        </div>
 
         <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 sm:px-6">
-          <div className="max-w-4xl mx-auto py-24 space-y-8 pb-40">
+          <div className="max-w-4xl mx-auto py-32 space-y-10 pb-48">
             {messages.length <= 1 && !currentSessionId && (
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-center py-20"
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="text-center py-16"
               >
-                <div className="w-16 h-16 bg-blue-600/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Sparkles className="h-8 w-8 text-blue-600" />
+                <div className="relative inline-block mb-10">
+                  <div className="absolute inset-0 bg-blue-600/20 blur-[60px] rounded-full scale-150 animate-pulse" />
+                  <div className="relative w-24 h-24 bg-gradient-to-tr from-blue-600 to-indigo-700 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-blue-500/40 transform -rotate-6">
+                    <Sparkles className="h-12 w-12 text-white" />
+                  </div>
                 </div>
-                <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">مركز العمليات الذكي</h2>
-                <p className="text-slate-500 max-w-md mx-auto leading-relaxed">مرحباً بك في وحدة التحكم المتقدمة. اختر أحد الاختصارات أدناه أو ابدأ محادثة جديدة للتحليل المعمق.</p>
+                <h2 className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white mb-6 tracking-tighter leading-tight">كيف يمكنني قيادة <br/><span className="text-blue-600">بياناتك اليوم؟</span></h2>
+                <p className="text-slate-500 dark:text-slate-400 max-w-xl mx-auto leading-relaxed font-medium text-lg mb-16">أنا وحدة الذكاء الاصطناعي المتقدمة، مصمم لتحليل أداء مشاريعك واستخراج رؤى استراتيجية من بياناتك بدقة متناهية.</p>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12 max-w-2xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-3xl mx-auto">
                   {[
-                    { title: "ملخص المشاريع الرقمي", icon: FileSpreadsheet, prompt: "أعطني ملخصاً لحالة كافة المشاريع النشطة", color: "text-blue-600" },
-                    { title: "تحليل المصاريف والتدفقات", icon: Zap, prompt: "حلل مصاريف الأسبوع الماضي وقارنها بالميزانية", color: "text-yellow-500" },
-                    { title: "كشوفات المستحقات والعمال", icon: MessageSquare, prompt: "استخرج كشف حساب للعاملين في مشروع محدد", color: "text-green-600" },
-                    { title: "التدقيق الأمني والمالي", icon: ShieldCheck, prompt: "هل هناك أي تضارب في القيود المالية الأخيرة؟", color: "text-red-500" }
+                    { title: "التقرير التنفيذي الشامل", desc: "ملخص ذكي لكافة العمليات الجارية", icon: FileSpreadsheet, prompt: "أريد تقريراً تنفيذياً شاملاً عن حالة كافة المشاريع النشطة اليوم", color: "blue" },
+                    { title: "تحليل كفاءة الإنفاق", desc: "رصد الانحرافات المالية والتدفقات", icon: Zap, prompt: "حلل نمط الإنفاق في آخر 30 يوماً وقارنه بالميزانيات التقديرية", color: "amber" },
+                    { title: "جرد المستحقات العمالية", desc: "كشوفات دقيقة للعمال والمهام", icon: MessageSquare, prompt: "استخرج لي قائمة بالمستحقات المتبقية للعمال في المشاريع النشطة", color: "emerald" },
+                    { title: "التدقيق المالي الاستباقي", desc: "كشف الثغرات والأخطاء المحتملة", icon: ShieldCheck, prompt: "هل تكتشف أي تضارب أو عمليات غير منطقية في السجلات المالية الأخيرة؟", color: "rose" }
                   ].map((item, i) => (
-                    <button
+                    <motion.button
                       key={i}
+                      whileHover={{ y: -5, scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => setInput(item.prompt)}
-                      className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-white dark:hover:bg-slate-900 hover:shadow-xl hover:shadow-blue-500/5 text-right transition-all group flex items-start gap-4"
+                      className="p-6 rounded-[2rem] border border-slate-200/60 dark:border-slate-800/60 bg-white dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-900 hover:shadow-2xl hover:shadow-blue-500/10 text-right transition-all group flex items-start gap-5 relative overflow-hidden"
                     >
-                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-600 transition-colors shadow-sm">
-                        <item.icon className={`h-6 w-6 ${item.color} group-hover:text-white transition-colors`} />
+                      <div className={`p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner`}>
+                        <item.icon className="h-6 w-6" />
                       </div>
-                      <div className="flex-1">
-                        <p className="text-base font-bold text-slate-900 dark:text-white mb-1">{item.title}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">{item.prompt}</p>
+                      <div className="flex-1 pt-1">
+                        <h4 className="font-black text-slate-900 dark:text-white mb-1 tracking-tight">{item.title}</h4>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest leading-none">{item.desc}</p>
                       </div>
-                    </button>
+                      <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ArrowUpRight className="h-4 w-4 text-slate-300" />
+                      </div>
+                    </motion.button>
                   ))}
                 </div>
               </motion.div>
             )}
 
-            <AnimatePresence mode="popLayout">
-              {messages.map((msg, idx) => (
+            <div className="space-y-10">
+              {messages.map((message, index) => (
                 <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, y: 20 }}
+                  key={index}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+                  transition={{ delay: index * 0.05 }}
+                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  <div className={`w-8 h-8 rounded-lg shrink-0 flex items-center justify-center shadow-sm ${
-                    msg.role === "user" 
-                      ? "bg-blue-700 text-white" 
-                      : "bg-blue-600 text-white"
-                  }`}>
-                    {msg.role === "user" ? <Command className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-                  </div>
-
-                  <div className={`flex flex-col gap-2 max-w-[85%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
-                    {msg.role === "assistant" && msg.steps && msg.steps.length > 0 && (
-                      <div className="w-full mb-2 space-y-2">
-                        {msg.steps.map((step, sIdx) => (
-                          <div key={sIdx} className="flex items-center gap-2 text-[10px] text-slate-500 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                            {step.status === 'completed' ? (
-                              <CheckCircle2 className="h-3 w-3 text-green-500" />
-                            ) : step.status === 'in_progress' ? (
-                              <Loader className="h-3 w-3 text-blue-500 animate-spin" />
-                            ) : (
-                              <Clock className="h-3 w-3 text-slate-300" />
-                            )}
-                            <span className="font-medium">{step.title}</span>
+                  <div className={`flex gap-5 max-w-[85%] sm:max-w-[75%] ${message.role === "user" ? "flex-row" : "flex-row-reverse"}`}>
+                    <div className={`flex-1 space-y-2.5 ${message.role === "user" ? "text-left" : "text-right"}`}>
+                      <div className={`inline-block p-5 sm:p-6 rounded-[2rem] text-sm leading-relaxed font-medium shadow-sm border ${
+                        message.role === "user"
+                          ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white rounded-br-none"
+                          : "bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 border-slate-200/50 dark:border-slate-800/50 rounded-tl-none"
+                      }`}>
+                        <div className="whitespace-pre-wrap break-words">{message.content}</div>
+                        
+                        {message.steps && (
+                          <div className="mt-6 space-y-3 bg-white/40 dark:bg-white/5 p-4 rounded-2xl border border-white/50 dark:border-white/5">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">تسلسل المعالجة الرقمي</p>
+                            {message.steps.map((step, i) => (
+                              <div key={i} className="flex items-center gap-3">
+                                {step.status === 'completed' ? (
+                                  <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                                ) : step.status === 'in_progress' ? (
+                                  <Loader className="h-3.5 w-3.5 text-blue-500 animate-spin" />
+                                ) : (
+                                  <Clock className="h-3.5 w-3.5 text-slate-300" />
+                                )}
+                                <span className={`text-xs font-bold ${step.status === 'in_progress' ? 'text-blue-600 animate-pulse' : 'text-slate-500'}`}>{step.title}</span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className={`rounded-2xl p-5 shadow-sm relative overflow-hidden transition-all hover:shadow-md ${
-                      msg.role === "user"
-                        ? "bg-blue-600 text-white font-medium shadow-blue-500/10"
-                        : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200"
-                    }`}>
-                      {msg.role === "assistant" && (
-                        <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-600 opacity-80" />
-                      )}
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap selection:bg-blue-100 selection:text-blue-900">
-                        {msg.content}
+                        )}
                       </div>
                       
-                      {msg.error && (
-                        <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-100 dark:border-red-900/30 flex items-start gap-3">
-                          <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                          <p className="text-xs text-red-600 dark:text-red-400 font-medium">{msg.error}</p>
-                        </div>
-                      )}
+                      <div className={`flex items-center gap-4 px-2 ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                        <span className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">
+                          {format(message.timestamp, 'HH:mm')}
+                        </span>
+                        {message.role === "assistant" && (
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => copyMessage(message.content)} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 no-default-hover-elevate no-default-active-elevate">
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-400 hover:text-blue-600 no-default-hover-elevate no-default-active-elevate">
+                              <ThumbsUp className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-
-                    <div className="flex items-center gap-4 px-1">
-                      <span className="text-[10px] text-slate-400 font-medium tabular-nums">
-                        {msg.timestamp.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                      
-                      {msg.role === "assistant" && !msg.error && (
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600" onClick={() => copyMessage(msg.content)}>
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-green-600">
-                            <ThumbsUp className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-600">
-                            <ThumbsDown className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600">
-                            <Share2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      )}
+                    
+                    <div className="flex-shrink-0 pt-1">
+                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg transform transition-transform hover:scale-110 ${
+                        message.role === "user" 
+                          ? "bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 text-slate-600 dark:text-slate-300 border-2 border-white dark:border-slate-600" 
+                          : "bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-blue-500/30"
+                      }`}>
+                        {message.role === "user" ? (
+                          <span className="text-xs font-black uppercase">{user?.email?.[0]}</span>
+                        ) : (
+                          <Bot className="h-5 w-5" />
+                        )}
+                      </div>
                     </div>
                   </div>
                 </motion.div>
               ))}
+              
               {isLoading && (
                 <motion.div 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
-                  className="flex gap-4"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex justify-start"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center">
-                    <Sparkles className="h-4 w-4 animate-pulse" />
-                  </div>
-                  <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-2xl flex items-center gap-3">
-                    <div className="flex gap-1">
-                      <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0 }} className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
-                      <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
-                      <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                  <div className="flex gap-5 max-w-[75%]">
+                    <div className="w-11 h-11 rounded-2xl bg-blue-600/10 text-blue-600 flex items-center justify-center animate-pulse">
+                      <Bot className="h-5 w-5" />
                     </div>
-                    <span className="text-xs font-bold text-blue-600 uppercase tracking-widest animate-pulse">Processing...</span>
+                    <div className="flex-1">
+                      <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-[2.5rem] rounded-tl-none shadow-sm border border-slate-200/50 dark:border-slate-800/50">
+                        <div className="flex gap-1.5">
+                          <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                          <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                          <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               )}
-            </AnimatePresence>
+            </div>
           </div>
         </ScrollArea>
 
-        {/* Quick Actions Bar */}
-        <div className="absolute bottom-[110px] left-0 right-0 px-6 z-[90]">
-          <div className="max-w-4xl mx-auto flex gap-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth">
-            {[
-              { label: "تصدير كشف عامل", icon: FileSpreadsheet, prompt: "أريد تصدير كشف حساب اكسل للعامل: " },
-              { label: "تقرير المصروفات", icon: Activity, prompt: "استخرج تقرير مصروفات شامل لمشروع: " },
-              { label: "فحص الأخطاء", icon: AlertTriangle, prompt: "هل توجد أخطاء في بيانات مشروع: " },
-              { label: "ملخص يومي", icon: Clock, prompt: "أعطني ملخص العمليات لليوم" }
-            ].map((item, i) => (
-              <Button
-                key={i}
-                variant="outline"
-                size="sm"
-                onClick={() => setInput(item.prompt)}
-                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200 dark:border-slate-800 text-[10px] h-8 rounded-full gap-2 whitespace-nowrap hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 transition-all shadow-sm shrink-0"
-              >
-                <item.icon className="h-3 w-3 text-blue-500" />
-                {item.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Action Bar */}
-        <div className="sticky bottom-0 left-0 right-0 p-6 bg-transparent z-[100]">
-          <div className="max-w-4xl mx-auto">
-            <div className="relative group bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-slate-300/50 dark:border-slate-700/50 rounded-2xl shadow-2xl transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder="اسأل أي شيء... (Shift+Enter لسطر جديد)"
-                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 placeholder:text-slate-500 p-5 pr-14 pl-20 min-h-[60px] max-h-[200px] resize-none focus:ring-0 text-base leading-relaxed transition-all"
-                rows={1}
-                onInput={(e) => {
-                  const target = e.target as HTMLTextAreaElement;
-                  target.style.height = 'auto';
-                  target.style.height = `${target.scrollHeight}px`;
-                }}
-              />
-              
-              <div className="absolute right-4 top-4">
-                <div className="w-6 h-6 rounded-md bg-slate-100/50 dark:bg-slate-800/50 flex items-center justify-center">
-                  <ArrowUpRight className="h-3 w-3 text-slate-400" />
-                </div>
-              </div>
-
-              <div className="absolute left-3 bottom-3 flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-9 w-9 text-slate-400 hover:text-blue-600 rounded-xl"
-                >
-                  <Plus className="h-4 w-4" />
+        {/* Input Bar - Floating & Glassmorphic */}
+        <div className="absolute bottom-0 left-0 right-0 z-40 p-6 pointer-events-none">
+          <div className="max-w-4xl mx-auto pointer-events-auto">
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="relative p-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl shadow-slate-200 dark:shadow-none border border-slate-200/50 dark:border-slate-800/50 ring-1 ring-slate-900/5"
+            >
+              <div className="flex items-end gap-2 px-2">
+                <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0 no-default-hover-elevate no-default-active-elevate">
+                  <Share2 className="h-5 w-5" />
                 </Button>
-                <Separator orientation="vertical" className="h-4 mx-1" />
-                <Button
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder="اسأل الوكيل الذكي عن أي شيء في مشاريعك..."
+                  className="flex-1 max-h-48 min-h-[48px] py-3 text-sm bg-transparent border-none focus:ring-0 resize-none font-medium placeholder:text-slate-400 dark:text-white"
+                  rows={1}
+                />
+                <Button 
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
-                  size="icon"
-                  className={`h-10 w-10 rounded-xl transition-all shadow-lg ${
+                  className={`h-12 w-12 rounded-full transition-all duration-300 shrink-0 shadow-lg no-default-hover-elevate no-default-active-elevate ${
                     input.trim() 
-                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30 scale-105" 
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/25" 
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-400 shadow-none"
                   }`}
                 >
-                  {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {isLoading ? (
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Send className="h-5 w-5" />
+                  )}
                 </Button>
               </div>
-            </div>
+            </motion.div>
+            <p className="text-[10px] text-center mt-3 text-slate-400 font-bold uppercase tracking-[0.2em]">Neural Intelligence Engine Powered by BinarJoin Core</p>
           </div>
         </div>
       </div>

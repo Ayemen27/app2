@@ -9,8 +9,11 @@ import {
   Wallet,
   Building2,
   Wrench,
+  BarChart,
+  Brain,
   UserPlus,
-  FolderPlus
+  FolderPlus,
+  DollarSign
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,30 +37,6 @@ export function QuickActionsGrid({ onAddWorker, onAddProject }: QuickActionsGrid
 
   const quickActions: QuickAction[] = [
     {
-      id: "attendance",
-      label: "تسجيل حضور",
-      icon: Clock,
-      route: "/worker-attendance",
-      gradient: "from-blue-500 to-blue-600",
-      iconColor: "text-white",
-    },
-    {
-      id: "daily-expenses",
-      label: "مصروفات يومية",
-      icon: Receipt,
-      route: "/daily-expenses",
-      gradient: "from-emerald-500 to-emerald-600",
-      iconColor: "text-white",
-    },
-    {
-      id: "material-purchase",
-      label: "شراء مواد",
-      icon: ShoppingCart,
-      route: "/material-purchase",
-      gradient: "from-orange-500 to-orange-600",
-      iconColor: "text-white",
-    },
-    {
       id: "add-worker",
       label: "إضافة عامل",
       icon: UserPlus,
@@ -74,19 +53,19 @@ export function QuickActionsGrid({ onAddWorker, onAddProject }: QuickActionsGrid
       iconColor: "text-white",
     },
     {
-      id: "transfers",
+      id: "project-fund-custody",
+      label: "الوارد للعهد",
+      icon: DollarSign,
+      route: "/project-fund-custody",
+      gradient: "from-blue-500 to-blue-600",
+      iconColor: "text-white",
+    },
+    {
+      id: "project-transfers",
       label: "ترحيل أموال",
       icon: ArrowLeftRight,
       route: "/project-transfers",
       gradient: "from-purple-500 to-purple-600",
-      iconColor: "text-white",
-    },
-    {
-      id: "workers",
-      label: "إدارة العمال",
-      icon: Users,
-      route: "/workers",
-      gradient: "from-cyan-500 to-cyan-600",
       iconColor: "text-white",
     },
     {
@@ -103,6 +82,30 @@ export function QuickActionsGrid({ onAddWorker, onAddProject }: QuickActionsGrid
       icon: Wrench,
       route: "/equipment",
       gradient: "from-slate-500 to-slate-600",
+      iconColor: "text-white",
+    },
+    {
+      id: "worker-accounts",
+      label: "حسابات العمال",
+      icon: DollarSign,
+      route: "/worker-accounts",
+      gradient: "from-cyan-500 to-cyan-600",
+      iconColor: "text-white",
+    },
+    {
+      id: "professional-reports",
+      label: "التقارير",
+      icon: BarChart,
+      route: "/professional-reports",
+      gradient: "from-indigo-500 to-indigo-600",
+      iconColor: "text-white",
+    },
+    {
+      id: "ai-chat",
+      label: "الوكيل الذكي",
+      icon: Brain,
+      route: "/ai-chat",
+      gradient: "from-pink-500 to-pink-600",
       iconColor: "text-white",
     },
   ];

@@ -629,61 +629,90 @@ export default function AIChatPage() {
                   transition={{ delay: index * 0.05 }}
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  <div className={`flex gap-5 max-w-[85%] sm:max-w-[75%] ${message.role === "user" ? "flex-row" : "flex-row-reverse"}`}>
-                    <div className={`flex-1 space-y-2.5 ${message.role === "user" ? "text-left" : "text-right"}`}>
-                      <div className={`inline-block p-5 sm:p-6 rounded-[2rem] text-sm leading-relaxed font-medium shadow-sm border ${
-                        message.role === "user"
-                          ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white rounded-br-none"
-                          : "bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 border-slate-200/50 dark:border-slate-800/50 rounded-tl-none"
-                      }`}>
-                        <div className="whitespace-pre-wrap break-words">{message.content}</div>
-                        
-                        {message.steps && (
-                          <div className="mt-6 space-y-3 bg-white/40 dark:bg-white/5 p-4 rounded-2xl border border-white/50 dark:border-white/5">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">تسلسل المعالجة الرقمي</p>
-                            {message.steps.map((step, i) => (
-                              <div key={i} className="flex items-center gap-3">
-                                {step.status === 'completed' ? (
-                                  <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-                                ) : step.status === 'in_progress' ? (
-                                  <Loader className="h-3.5 w-3.5 text-blue-500 animate-spin" />
-                                ) : (
-                                  <Clock className="h-3.5 w-3.5 text-slate-300" />
-                                )}
-                                <span className={`text-xs font-bold ${step.status === 'in_progress' ? 'text-blue-600 animate-pulse' : 'text-slate-500'}`}>{step.title}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className={`flex items-center gap-4 px-2 ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                        <span className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">
-                          {format(message.timestamp, 'HH:mm')}
+                  <div className={`flex gap-3 max-w-[90%] sm:max-w-[85%] ${message.role === "user" ? "flex-row" : "flex-row-reverse"}`}>
+                    <div className={`flex-1 flex flex-col gap-1.5 ${message.role === "user" ? "items-end" : "items-start"}`}>
+                      <div className={`flex items-center gap-2 px-1 ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+                          {message.role === "user" ? "You" : "Neural Agent"}
                         </span>
-                        {message.role === "assistant" && (
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => copyMessage(message.content)} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 no-default-hover-elevate no-default-active-elevate">
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-400 hover:text-blue-600 no-default-hover-elevate no-default-active-elevate">
-                              <ThumbsUp className="h-3.5 w-3.5" />
-                            </Button>
+                        <span className="text-[10px] text-slate-300 dark:text-slate-600">
+                          {format(message.timestamp, "h:mm a")}
+                        </span>
+                      </div>
+
+                      <div className={`flex flex-col gap-2 w-full ${message.role === "user" ? "items-end" : "items-start"}`}>
+                        {message.role === "assistant" && message.pending && (
+                          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+                            <Loader className="h-3.5 w-3.5 text-blue-500 animate-spin" />
+                            <span className="text-xs font-bold text-blue-600 animate-pulse">Working...</span>
                           </div>
                         )}
+                        {message.steps && (
+                          <div className="w-full max-w-sm">
+                            <Card className="border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden rounded-2xl">
+                              <details className="group">
+                                <summary className="flex items-center justify-between p-3 cursor-pointer list-none hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors">
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                                      {message.steps.length} Completed tasks
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-mono text-slate-400">
+                                      {message.steps.filter(s => s.status === 'completed').length}/{message.steps.length}
+                                    </span>
+                                    <ArrowUp className="h-3 w-3 text-slate-400 group-open:rotate-180 transition-transform" />
+                                  </div>
+                                </summary>
+                                <div className="p-3 pt-0 space-y-2 border-t border-slate-200/40 dark:border-slate-800/40">
+                                  {message.steps.map((step, i) => (
+                                    <div key={i} className="flex items-center gap-3">
+                                      {step.status === 'completed' ? (
+                                        <CheckCircle className="h-3 w-3 text-emerald-500" />
+                                      ) : step.status === 'in_progress' ? (
+                                        <Loader className="h-3 w-3 text-blue-500 animate-spin" />
+                                      ) : (
+                                        <Clock className="h-3 w-3 text-slate-300" />
+                                      )}
+                                      <span className="text-[11px] font-medium text-slate-500">{step.title}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            </Card>
+                          </div>
+                        )}
+
+                        <div className={`text-sm leading-relaxed whitespace-pre-wrap font-medium break-words max-w-full ${
+                          message.role === "user" ? "text-slate-700 dark:text-slate-200" : "text-slate-800 dark:text-slate-100"
+                        }`}>
+                          {message.content}
+                        </div>
                       </div>
+
+                      {message.role === "assistant" && !message.pending && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" onClick={() => copyMessage(message.content)} className="h-7 w-7 text-slate-300 hover:text-blue-600">
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-blue-600">
+                            <ThumbsUp className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="flex-shrink-0 pt-1">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg transform transition-transform hover:scale-110 ${
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                         message.role === "user" 
-                          ? "bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 text-slate-600 dark:text-slate-300 border-2 border-white dark:border-slate-600" 
-                          : "bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-blue-500/30"
+                          ? "bg-slate-100 dark:bg-slate-800 text-slate-500" 
+                          : "bg-blue-600/10 text-blue-600"
                       }`}>
                         {message.role === "user" ? (
-                          <span className="text-xs font-black uppercase">{user?.email?.[0]}</span>
+                          <span className="text-[10px] font-black uppercase">{user?.email?.[0]}</span>
                         ) : (
-                          <Bot className="h-5 w-5" />
+                          <Bot className="h-4 w-4" />
                         )}
                       </div>
                     </div>
@@ -717,8 +746,8 @@ export default function AIChatPage() {
           </div>
         </ScrollArea>
 
-        {/* Floating Input Bar - Replit Style */}
-        <div className="absolute bottom-10 left-0 right-0 p-4 z-[120] pointer-events-none">
+                        {/* Floating Input Bar - Replit Style */}
+        <div className="absolute bottom-6 left-0 right-0 p-4 z-[120] pointer-events-none">
           <div className="max-w-3xl mx-auto relative group pointer-events-auto">
             <div className="absolute inset-0 bg-blue-600/5 blur-2xl rounded-[1.5rem] group-focus-within:bg-blue-600/10 transition-all" />
             <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 p-2 rounded-[1.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">

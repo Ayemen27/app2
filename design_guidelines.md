@@ -1,79 +1,141 @@
-# AI Chat Interface Design Guidelines
+# Construction Project Management System - Design Guidelines
 
 ## Design Approach
-**Reference-Based**: Drawing from ChatGPT, Claude, and Linear's interface excellence. This is a utility-focused chat application requiring clarity, speed, and intuitive navigation.
+**Reference-Based**: Drawing from Linear's precision, Vercel's minimalism, and Asana's project clarity. Utility-focused dashboard requiring efficiency and mobile-first touch optimization for construction site use.
 
-## Visual Treatment
-**Glassmorphism & Depth**: Use backdrop-blur effects on sidebar and floating elements with semi-transparent backgrounds. Apply subtle gradients (blue to indigo) on primary actions and accent areas. Implement soft shadows (shadow-sm to shadow-lg) with minimal offset for professional depth.
+**Critical RTL Implementation**: Full Arabic support with mirrored layouts (sidebar on right, icons flipped, text alignment right-to-left throughout).
 
 ## Layout Architecture
 
-**Spacing System**: Tailwind units of 2, 4, 6, 8, and 12 for consistent rhythm.
+**Spacing System**: Tailwind units of 3, 4, 6, 8, 12, and 16 for mobile-optimized touch targets.
 
-**Three-Panel Structure**:
-1. **Collapsible Sidebar** (w-64 when open, w-16 collapsed): Chat history navigation, glassmorphic background with subtle border
-2. **Main Chat Area** (flex-1): Messages container with generous padding (px-6 md:px-12), max-w-4xl centered
-3. **Access Panel** (conditional): Elegant modal or inline activation interface with gradient accents
+**Mobile-First Structure**:
+- **Mobile (<768px)**: Bottom navigation bar (h-16), full-width content, overlay sidebar
+- **Tablet (768px-1024px)**: Left sidebar (w-64, RTL: right), main content area
+- **Desktop (>1024px)**: Sidebar (w-72, RTL: right), main content (max-w-7xl), optional quick panel (w-80)
+
+**High-Contrast Sidebar** (Slate/Blue gradient background):
+- Logo/brand header (h-16, border-b)
+- Navigation sections with icon + label (h-12 min touch target)
+- Active state indicator (4px right border, RTL: left border)
+- Workspace switcher at top
+- User profile/settings at bottom (sticky)
+- Project favorites pinned section
 
 ## Typography Hierarchy
-**Font**: Inter or similar (Google Fonts CDN)
-- Display: text-3xl to text-4xl, font-bold (page headers)
-- Chat Messages: text-base, font-normal (line-height-relaxed)
-- Timestamps/Meta: text-sm, font-medium, opacity-60
-- Sidebar Items: text-sm, font-medium
+**Font**: Cairo or Tajawal (Google Fonts CDN) for Arabic optimization
+- Headers: text-2xl to text-4xl, font-bold
+- Section Titles: text-xl, font-semibold
+- Body/Cards: text-base, font-medium
+- Labels/Meta: text-sm, font-normal
+- Buttons: text-sm, font-semibold
+- Mobile Headers: Scale down one size (text-xl instead of text-2xl)
 
-## Core Components
+## Core Dashboard Components
 
-**Sidebar Navigation**:
-- Compact header with logo and collapse toggle
-- Scrollable chat history with hover states
-- New chat button (gradient background, glassmorphic)
-- User profile at bottom
-- Each chat item: rounded-lg, p-3, truncated text
+**Project Overview Cards** (Mobile: 1 column, Tablet: 2 columns, Desktop: 3 columns):
+- Card dimensions: min-h-48, rounded-xl, p-6
+- Header: Project name (text-lg, font-bold) + status badge
+- Progress bar with percentage (h-2, rounded-full)
+- Key metrics row (grid-cols-3): Budget, Timeline, Tasks
+- Team avatars (overlapping, -space-x-2, RTL: -space-x-reverse)
+- Quick actions footer (icon buttons, justify-end, RTL: justify-start)
 
-**Chat Message Container**:
-- Alternating message blocks (user vs AI)
-- User messages: align-right, blue gradient background, rounded-2xl
-- AI messages: align-left, slate background with subtle glassmorphic effect, rounded-2xl
-- Avatar icons (w-8 h-8, rounded-full)
-- Generous vertical spacing between messages (space-y-6)
+**Mobile Bottom Navigation** (z-50, backdrop-blur):
+- 5 core actions: Dashboard, Projects, Tasks, Team, More
+- Icon + label (vertical stack)
+- Active state with indicator bar (h-1, top, rounded-b-full)
+- Touch target: min-h-16, p-4
 
-**Input Area**:
-- Fixed bottom position with backdrop-blur
-- Multi-line textarea with auto-expand
-- Send button with gradient (disabled state in muted slate)
-- Attachment/options buttons (icon-only, subtle)
-- Container: rounded-xl, shadow-lg, glassmorphic border
+**Task List Component**:
+- Grouped by status (backlog, in-progress, review, completed)
+- Each task: rounded-lg, p-4, border-l-4 (priority indicator)
+- Checkbox (w-5 h-5, rounded-md, large touch target)
+- Task title (text-base, truncate on mobile, full on desktop)
+- Assignee avatar (w-8 h-8, rounded-full)
+- Due date badge (text-xs, px-2 py-1, rounded-full)
+- Mobile: Swipe actions for quick edit/delete
 
-**Access/Activation Interface**:
-- Centered modal (max-w-md) with dramatic glassmorphic card
-- Gradient header section
-- Clear benefit list with checkmarks (Heroicons)
-- Primary CTA button (gradient, shadow-lg)
-- Secondary text links
-- Pricing tiers if applicable (grid-cols-1 md:grid-cols-2)
+**Project Detail Header**:
+- Breadcrumb navigation (text-sm, with Heroicons arrows)
+- Project title (text-3xl mobile: text-2xl, font-bold)
+- Tab navigation (horizontal scroll on mobile)
+- Action buttons (gradient primary CTA, ghost secondary)
+- Stats row (grid-cols-2 md:grid-cols-4): Completion, Budget, Team, Documents
 
-## Interaction Patterns
-- Smooth sidebar collapse animation (300ms ease)
-- Message fade-in on receipt
-- Typing indicator (animated dots)
-- Skeleton loaders for chat history
-- Auto-scroll to latest message
+**Timeline/Gantt Section**:
+- Horizontal scroll container (snap-x on mobile)
+- Month headers (sticky)
+- Project bars with gradient fills
+- Milestone markers (diamond shapes, w-4 h-4)
+- Touch-draggable for mobile timeline adjustment
+- Zoom controls (pinch-to-zoom + manual buttons)
 
-## Responsive Behavior
-- Mobile: Sidebar becomes full-screen overlay, hamburger toggle
-- Tablet: Sidebar auto-collapses, main area optimized
-- Desktop: Three-panel layout with optimal spacing
+**Document Management Grid**:
+- File cards (aspect-square on mobile, aspect-video on desktop)
+- Thumbnail preview area (bg-slate-lighter, rounded-t-lg)
+- File info footer (name, size, upload date)
+- Overlay actions on hover (desktop) or long-press (mobile)
+- Quick filters: All, Images, PDFs, CAD, Reports
 
-## Icons
-**Heroicons** (CDN): Navigation arrows, chat bubbles, settings, plus/minus, checkmarks, menu
+## Mobile-Specific Optimizations
+
+**Touch Targets**: All interactive elements minimum 44x44px (h-11, w-11)
+
+**Gestures**:
+- Pull-to-refresh on lists
+- Swipe-to-delete on task items
+- Long-press for context menus
+- Pinch-to-zoom on timeline and floor plans
+
+**Input Fields**:
+- Extra padding (p-4 vs desktop p-3)
+- Large labels (text-base vs desktop text-sm)
+- Clear button visible on mobile (x icon, right side, RTL: left)
+- Native date/time pickers
+
+**Modal Behavior**:
+- Mobile: Full-screen overlay with slide-up animation
+- Desktop: Centered dialog (max-w-2xl, rounded-2xl)
+- Always include close button (top-right, RTL: top-left)
+
+## Form Layouts
+
+**Create Project Form**:
+- Section grouping (border-l-2, pl-6, RTL: border-r-2, pr-6)
+- Field spacing (space-y-6)
+- Input groups: Label (font-medium, mb-2) + Input (h-12, rounded-lg)
+- Helper text (text-sm, mt-1)
+- Multi-step on mobile (wizard with progress indicator)
+- Single scrollable form on desktop
+
+**Filter Panel**:
+- Accordion sections (collapsible on mobile)
+- Checkbox groups (space-y-3)
+- Date range picker (calendar dropdown)
+- Clear filters button (text link, text-sm)
+- Apply button (fixed bottom on mobile, sticky)
+
+## Data Visualization
+
+**Charts & Metrics**:
+- Donut charts for budget allocation (responsive svg)
+- Bar charts for task completion (horizontal on mobile)
+- Line graphs for timeline progress
+- Card-based KPIs (number + trend arrow + sparkline)
+- Mobile: Stack vertically, desktop: grid-cols-3
+
+## Icons & Assets
+**Heroicons**: Navigation (home, briefcase, clipboard), actions (plus, edit, trash), status (check, clock, alert)
 
 ## Images
-No hero image needed for this application interface. Focus remains on functional clarity and conversational flow.
+**No hero image** - This is a utility dashboard. Focus on data visualization, project thumbnails, and functional clarity.
+
+**Project Thumbnails**: Use placeholder images for construction sites, floor plans, progress photos in project cards and detail views.
 
 ## Empty States
-- "Start New Conversation" with suggested prompts (grid of 2x2 cards)
-- No chat history: Illustration placeholder with welcoming message
-- Activation required: Feature showcase with clear upgrade path
+**No Projects**: Illustration + "Create First Project" CTA (gradient button, shadow-lg)
+**No Tasks**: Checklist icon + "Add Your First Task" prompt
+**No Team Members**: Avatar grid placeholder + "Invite Team" action
 
-**Critical Details**: Messages should breathe with py-4 px-6 padding, code blocks need syntax highlighting placeholders, streaming responses should show character-by-character reveal, maintain consistent glassmorphic treatment across all floating elements for cohesive modern aesthetic.
+**Responsive Breakpoints**: Mobile-first cascade - design for 375px, enhance at 768px, optimize at 1280px. All touch targets respect 44px minimum. Sidebar transforms to bottom nav on mobile with smooth transitions (300ms ease). RTL support is mandatory throughout with proper icon mirroring and layout reversal.

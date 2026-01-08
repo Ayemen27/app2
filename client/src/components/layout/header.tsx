@@ -115,34 +115,32 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-primary text-primary-foreground shadow-sm h-14 md:h-16 flex-shrink-0 sticky top-0 z-[100] safe-area-inset-top">
-      <div className="px-4 h-full">
-        <div className="flex items-center justify-between h-full">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-1.5 rounded-lg">
-              <PageIcon className="h-5 w-5 md:h-6 md:w-6" />
-            </div>
-            <div className="flex flex-col justify-center">
-              <h1 className="text-sm md:text-base font-bold leading-tight">{currentPage.title}</h1>
-              <p className="text-[10px] opacity-80 font-medium">مشروعي - إدارة المشاريع</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-reverse space-x-1 md:space-x-2">
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="p-2 rounded-full hover:bg-primary/80 relative"
-                  title={selectedProjectName || "اختيار المشروع"}
-                >
-                  <FolderOpen className="h-4 w-4 md:h-5 md:w-5" />
-                  {selectedProjectId && (
-                    <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full w-2.5 h-2.5 border-2 border-primary" />
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
+    <div className="flex items-center justify-between h-full w-full">
+      <div className="flex items-center gap-3">
+        <div className="bg-white/20 p-1.5 rounded-lg">
+          <PageIcon className="h-5 w-5" />
+        </div>
+        <div className="flex flex-col justify-center">
+          <h1 className="text-sm font-bold leading-tight">{currentPage.title}</h1>
+          <p className="text-[10px] opacity-80 font-medium">مشروعي - إدارة المشاريع</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="rounded-full hover:bg-white/10 relative"
+              title={selectedProjectName || "اختيار المشروع"}
+            >
+              <FolderOpen className="h-5 w-5" />
+              {selectedProjectId && (
+                <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full w-2.5 h-2.5 border-2 border-primary" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
                   <DropdownMenuLabel className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
@@ -239,35 +237,35 @@ export default function Header() {
             <NotificationCenter />
             <SyncStatusHeader />
             
-            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 mx-1">
-              {isOnline ? (
-                <Cloud className="h-4 w-4 text-green-300" />
-              ) : (
-                <CloudOff className="h-4 w-4 text-yellow-300" />
-              )}
-              {pendingCount > 0 && (
-                <div className="flex items-center gap-1 border-r border-white/20 pr-1 mr-1">
-                  <RefreshCw className="h-3 w-3 animate-spin text-white" />
-                  <span className="text-[10px] font-bold text-white">{pendingCount}</span>
-                </div>
-              )}
+        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 mx-1">
+          {isOnline ? (
+            <Cloud className="h-4 w-4 text-green-300" />
+          ) : (
+            <CloudOff className="h-4 w-4 text-yellow-300" />
+          )}
+          {pendingCount > 0 && (
+            <div className="flex items-center gap-1 border-r border-white/20 pr-1 mr-1">
+              <RefreshCw className="h-3 w-3 animate-spin text-white" />
+              <span className="text-[10px] font-bold text-white">{pendingCount}</span>
             </div>
+          )}
+        </div>
 
-            {isAuthenticated ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="p-2 rounded-full hover:bg-primary/80 relative"
-                    data-testid="user-menu-trigger"
-                  >
-                    <UserCircle className="h-5 w-5" />
-                    {user && (
-                      <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full w-3 h-3 border-2 border-primary" />
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
+        {isAuthenticated ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full hover:bg-white/10 relative"
+                data-testid="user-menu-trigger"
+              >
+                <UserCircle className="h-5 w-5" />
+                {user && (
+                  <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full w-3 h-3 border-2 border-primary" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-3 py-2 text-sm">
                     <div className="font-medium text-foreground">
@@ -331,19 +329,17 @@ export default function Header() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="p-2 rounded-full hover:bg-primary/80"
-                onClick={() => setLocation('/login')}
-                data-testid="login-button"
-              >
-                <UserCircle className="h-5 w-5" />
-              </Button>
-            )}
-          </div>
-        </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full hover:bg-white/10"
+            onClick={() => setLocation('/login')}
+            data-testid="login-button"
+          >
+            <UserCircle className="h-5 w-5" />
+          </Button>
+        )}
       </div>
-    </header>
+    </div>
   );
 }

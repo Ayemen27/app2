@@ -347,127 +347,137 @@ export default function AIChatPage() {
 
   return (
     <div className="flex h-screen bg-white dark:bg-slate-950 overflow-hidden font-sans selection:bg-blue-100 dark:selection:bg-blue-900/30" dir="rtl">
-      {/* Sidebar - Glassmorphic */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.div
-            initial={{ width: 0, opacity: 0, x: 20 }}
-            animate={{ width: 320, opacity: 1, x: 0 }}
-            exit={{ width: 0, opacity: 0, x: 20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="h-full bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-xl border-l border-slate-200/60 dark:border-slate-800/60 flex flex-col relative z-40"
-          >
-            <div className="p-6 flex flex-col gap-6 h-full">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 group">
-                    <BrainCircuit className="h-5 w-5 text-white group-hover:scale-110 transition-transform" />
-                  </div>
-                  <div>
-                    <h2 className="font-black text-slate-900 dark:text-white tracking-tight">الذكاء العملي</h2>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                      <span className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Neural v2.5</span>
-                    </div>
-                  </div>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
-                  <PanelLeftClose className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <Button 
-                onClick={startNewChat}
-                className="w-full h-12 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-white gap-3 shadow-sm border border-slate-200 dark:border-slate-700 transition-all hover:scale-[1.02] active:scale-[0.98] font-bold rounded-xl no-default-hover-elevate no-default-active-elevate"
+        {/* Sidebar - Glassmorphic Overlay */}
+        <AnimatePresence>
+          {sidebarOpen && (
+            <>
+              {/* Scrim/Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setSidebarOpen(false)}
+                className="fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-[140]"
+              />
+              <motion.div
+                initial={{ width: 0, opacity: 0, x: 20 }}
+                animate={{ width: 260, opacity: 1, x: 0 }}
+                exit={{ width: 0, opacity: 0, x: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="h-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-l border-slate-200/60 dark:border-slate-800/60 flex flex-col fixed inset-y-0 right-0 z-[150] shadow-2xl"
               >
-                <Plus className="h-4 w-4 text-blue-600" />
-                محادثة استراتيجية
-              </Button>
-
-              <div className="relative group">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                <Input
-                  placeholder="البحث في الأرشيف..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pr-10 h-11 bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-2 focus-visible:ring-blue-500/20 transition-all rounded-xl text-sm font-medium"
-                />
-              </div>
-
-              <ScrollArea className="flex-1 -mx-2 px-2">
-                <div className="space-y-1.5 pb-4">
-                  {filteredSessions.length === 0 ? (
-                    <div className="text-center py-12 px-4">
-                      <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <History className="h-5 w-5 text-slate-300" />
+                <div className="p-6 flex flex-col gap-6 h-full">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 group">
+                        <BrainCircuit className="h-5 w-5 text-white group-hover:scale-110 transition-transform" />
                       </div>
-                      <p className="text-xs font-bold text-slate-400">لا توجد سجلات حالية</p>
+                      <div>
+                        <h2 className="font-black text-slate-900 dark:text-white tracking-tight">الذكاء العملي</h2>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                          <span className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Neural v2.5</span>
+                        </div>
+                      </div>
                     </div>
-                  ) : filteredSessions.map((session: any) => (
-                    <motion.div
-                      key={session.id}
-                      initial={{ opacity: 0, x: 5 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      onClick={() => handleSessionClick(session.id)}
-                      className={`group relative p-3.5 rounded-2xl cursor-pointer transition-all border ${
-                        currentSessionId === session.id
-                          ? "bg-white dark:bg-slate-800 border-blue-100 dark:border-blue-900/50 shadow-sm"
-                          : "border-transparent hover:bg-white/40 dark:hover:bg-slate-800/40"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                          currentSessionId === session.id 
-                            ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
-                            : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 group-hover:text-blue-600"
-                        }`}>
-                          <MessageSquare className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-bold truncate ${currentSessionId === session.id ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-400"}`}>
-                            {session.title}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{session.messagesCount} تفاعل</span>
-                            <div className="w-1 h-1 bg-slate-300 rounded-full" />
-                            <span className="text-[10px] font-medium text-slate-400 italic">نشط</span>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteSessionMutation.mutate(session.id);
-                          }}
-                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg no-default-hover-elevate no-default-active-elevate"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </ScrollArea>
+                    <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
+                      <PanelLeftClose className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-              <div className="mt-auto pt-4 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center overflow-hidden border border-white dark:border-slate-600 shadow-sm">
-                  <span className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase">{user?.email?.[0]}</span>
+                  <Button 
+                    onClick={startNewChat}
+                    className="w-full h-12 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-white gap-3 shadow-sm border border-slate-200 dark:border-slate-700 transition-all hover:scale-[1.02] active:scale-[0.98] font-bold rounded-xl no-default-hover-elevate no-default-active-elevate"
+                  >
+                    <Plus className="h-4 w-4 text-blue-600" />
+                    محادثة استراتيجية
+                  </Button>
+
+                  <div className="relative group">
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                    <Input
+                      placeholder="البحث في الأرشيف..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pr-10 h-11 bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-2 focus-visible:ring-blue-500/20 transition-all rounded-xl text-sm font-medium"
+                    />
+                  </div>
+
+                  <ScrollArea className="flex-1 -mx-2 px-2">
+                    <div className="space-y-1.5 pb-4">
+                      {filteredSessions.length === 0 ? (
+                        <div className="text-center py-12 px-4">
+                          <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <History className="h-5 w-5 text-slate-300" />
+                          </div>
+                          <p className="text-xs font-bold text-slate-400">لا توجد سجلات حالية</p>
+                        </div>
+                      ) : filteredSessions.map((session: any) => (
+                        <motion.div
+                          key={session.id}
+                          initial={{ opacity: 0, x: 5 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          onClick={() => handleSessionClick(session.id)}
+                          className={`group relative p-3.5 rounded-2xl cursor-pointer transition-all border ${
+                            currentSessionId === session.id
+                              ? "bg-white dark:bg-slate-800 border-blue-100 dark:border-blue-900/50 shadow-sm"
+                              : "border-transparent hover:bg-white/40 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                              currentSessionId === session.id 
+                                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 group-hover:text-blue-600"
+                            }`}>
+                              <MessageSquare className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-bold truncate ${currentSessionId === session.id ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-400"}`}>
+                                {session.title}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{session.messagesCount} تفاعل</span>
+                                <div className="w-1 h-1 bg-slate-300 rounded-full" />
+                                <span className="text-[10px] font-medium text-slate-400 italic">نشط</span>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteSessionMutation.mutate(session.id);
+                              }}
+                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg no-default-hover-elevate no-default-active-elevate"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+
+                  <div className="mt-auto pt-4 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center overflow-hidden border border-white dark:border-slate-600 shadow-sm">
+                      <span className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase">{user?.email?.[0]}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-slate-900 dark:text-white truncate tracking-tight">{user?.email?.split('@')[0]}</p>
+                      <Badge variant="outline" className="text-[9px] font-black uppercase py-0 px-1.5 border-blue-200 text-blue-600 bg-blue-50/50">
+                        {user?.role === 'admin' ? 'Chief Architect' : user?.role}
+                      </Badge>
+                    </div>
+                    <Button variant="ghost" size="icon" className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl no-default-hover-elevate no-default-active-elevate">
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black text-slate-900 dark:text-white truncate tracking-tight">{user?.email?.split('@')[0]}</p>
-                  <Badge variant="outline" className="text-[9px] font-black uppercase py-0 px-1.5 border-blue-200 text-blue-600 bg-blue-50/50">
-                    {user?.role === 'admin' ? 'Chief Architect' : user?.role}
-                  </Badge>
-                </div>
-                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl no-default-hover-elevate no-default-active-elevate">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col relative bg-white dark:bg-slate-950 min-w-0">
@@ -658,17 +668,15 @@ export default function AIChatPage() {
           </div>
         </ScrollArea>
 
-        {/* Input Bar - Floating & Fixed at Bottom */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pb-8 pointer-events-none">
-          <div className="max-w-5xl mx-auto pointer-events-auto">
-            <motion.div 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl rounded-xl border border-slate-200/60 dark:border-slate-800/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none"
-            >
-              <div className="flex flex-col">
+        {/* Input Bar - Redesigned Floating Style */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-8 z-[120]">
+          <div className="max-w-4xl mx-auto relative group">
+            <div className="absolute inset-0 bg-blue-600/5 blur-2xl rounded-[2rem] group-focus-within:bg-blue-600/10 transition-all" />
+            <div className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 p-2 sm:p-3 rounded-[2rem] shadow-2xl shadow-blue-900/10">
+              <div className="flex items-end gap-2 px-2">
                 <textarea
                   ref={textareaRef}
+                  placeholder="كيف يمكنني مساعدتك في إدارة مشاريعك اليوم؟"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -677,55 +685,19 @@ export default function AIChatPage() {
                       handleSend();
                     }
                   }}
-                  placeholder="اسأل الوكيل الذكي عن أي شيء..."
-                  className="w-full max-h-48 min-h-[60px] p-4 text-sm bg-transparent border-none focus:ring-0 resize-none font-medium placeholder:text-slate-400 dark:text-white"
                   rows={1}
+                  className="w-full bg-transparent border-none focus:ring-0 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 py-3 text-sm font-medium resize-none min-h-[44px] max-h-48"
                 />
-                
-                <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100 dark:border-slate-800/50">
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-[10px] font-bold text-slate-500 rounded-lg no-default-hover-elevate no-default-active-elevate">
-                      <BrainCircuit className="h-3.5 w-3.5" />
-                      <span>استراتيجية</span>
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600 rounded-lg no-default-hover-elevate no-default-active-elevate">
-                      <Share2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 rounded-lg no-default-hover-elevate no-default-active-elevate">
-                      <Zap className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 rounded-lg no-default-hover-elevate no-default-active-elevate">
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                    
-                    <AnimatePresence>
-                      {input.trim() && (
-                        <motion.div
-                          initial={{ scale: 0.8, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0.8, opacity: 0 }}
-                        >
-                          <Button 
-                            onClick={handleSend}
-                            disabled={isLoading}
-                            className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 p-0 rounded-lg flex items-center justify-center transition-all no-default-hover-elevate no-default-active-elevate"
-                          >
-                            {isLoading ? (
-                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <ArrowUp className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
+                <Button 
+                  onClick={handleSend}
+                  disabled={!input.trim() || isLoading}
+                  size="icon"
+                  className="h-10 w-10 sm:h-12 sm:w-12 bg-blue-600 hover:bg-blue-700 text-white rounded-[1.2rem] shadow-lg shadow-blue-600/20 shrink-0 mb-1 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 no-default-hover-elevate no-default-active-elevate"
+                >
+                  {isLoading ? <Loader className="h-5 w-5 animate-spin" /> : <ArrowUp className="h-5 w-5" />}
+                </Button>
               </div>
-            </motion.div>
+            </div>
           </div>
         </div>
       </div>

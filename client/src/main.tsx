@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { initializeDB } from "./offline/db";
 import App from "./App";
 import "./index.css";
+import "./nav-fix.css";
 
 // 🚀 تنظيف الكود وتبسيط عملية الإقلاع للإنتاج
 const startApp = async () => {

@@ -59,7 +59,7 @@ export function LayoutShell({
             
             {showNav && !hideNav && (
               <div className="md:hidden">
-                <nav className="layout-nav fixed bottom-0 left-0 right-0 z-[100] safe-bottom bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-200/50 dark:border-slate-800/50">
+                <nav className="layout-nav fixed bottom-0 left-0 right-0 z-[100] bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200/50 dark:border-slate-800/50 pb-[env(safe-area-inset-bottom,12px)]">
                   <BottomNavigation />
                 </nav>
               </div>

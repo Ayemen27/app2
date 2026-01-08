@@ -1190,14 +1190,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 📊 GET endpoint للملخص اليومي للمشروع - جلب الملخص المالي ليوم محدد
-  app.get("/api/projects/:id/daily-summary/:date", requireAuth, async (req, res) => {
+  app.get("/api/projects/:projectId/daily-summary/:date", requireAuth, async (req, res) => {
     const startTime = Date.now();
     try {
-      const { id: projectId, date } = req.params;
+      const { projectId, date } = req.params;
       
       console.log(`📊 [API] طلب جلب الملخص اليومي للمشروع من المستخدم: ${req.user?.email}`);
       console.log(`📋 [API] معاملات الطلب: projectId=${projectId}, date=${date}`);
       
+      if (projectId === 'all') {
+        const summary = await ExpenseLedgerService.getProjectDailySummary(null, date);
+        return res.json({ success: true, data: summary });
+      }
       // Validation للمعاملات
       if (!projectId || !date) {
         const duration = Date.now() - startTime;

@@ -750,7 +750,7 @@ export default function AIChatPage() {
         <div className="absolute bottom-6 left-0 right-0 p-4 z-[120] pointer-events-none">
           <div className="max-w-3xl mx-auto relative group pointer-events-auto">
             <div className="absolute inset-0 bg-blue-600/5 blur-2xl rounded-[1.5rem] group-focus-within:bg-blue-600/10 transition-all" />
-            <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 p-2 rounded-[1.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
+            <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 p-2 rounded-[1.5rem] shadow-none">
               <div className="flex flex-col">
                 {/* Image Previews */}
                 <AnimatePresence>
@@ -782,13 +782,13 @@ export default function AIChatPage() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
+                    if (e.key === "Enter" && e.shiftKey) {
+                      // Allow shift+enter for new lines if needed, 
+                      // but user specifically asked Enter to be new line.
                     }
                   }}
                   rows={1}
-                  className="w-full bg-transparent border-none focus:ring-0 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 py-3 px-3 text-sm font-medium resize-none min-h-[44px] max-h-48"
+                  className="w-full bg-transparent border-none focus:ring-0 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 py-3 px-3 text-sm font-medium resize-none min-h-[44px] max-h-48 shadow-none"
                 />
                 
                 <div className="flex items-center justify-between px-2 pb-1 mt-1">

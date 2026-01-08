@@ -1199,7 +1199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📋 [API] معاملات الطلب: projectId=${projectId}, date=${date}`);
       
       if (projectId === 'all') {
-        const summary = await ExpenseLedgerService.getProjectDailySummary(null, date);
+        const summary = await ExpenseLedgerService.getTotalDailyFinancialSummary(date);
         return res.json({ success: true, data: summary });
       }
       // Validation للمعاملات

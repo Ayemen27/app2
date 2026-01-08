@@ -19,6 +19,7 @@ import {
   Sparkles,
   Zap,
   ArrowUpRight,
+  ArrowUp,
   ShieldCheck,
   BrainCircuit,
   PanelLeftClose,
@@ -657,18 +658,15 @@ export default function AIChatPage() {
           </div>
         </ScrollArea>
 
-        {/* Input Bar - Floating & Glassmorphic */}
-        <div className="absolute bottom-0 left-0 right-0 z-40 p-4 pointer-events-none">
-          <div className="max-w-full mx-auto pointer-events-auto">
+        {/* Input Bar - Floating & Fixed at Bottom */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pb-8 pointer-events-none">
+          <div className="max-w-5xl mx-auto pointer-events-auto">
             <motion.div 
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              className="relative p-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl rounded-2xl shadow-2xl shadow-slate-200 dark:shadow-none border border-slate-200/50 dark:border-slate-800/50 ring-1 ring-slate-900/5"
+              className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl rounded-xl border border-slate-200/60 dark:border-slate-800/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none"
             >
-              <div className="flex items-end gap-2 px-2">
-                <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0 no-default-hover-elevate no-default-active-elevate">
-                  <Share2 className="h-5 w-5" />
-                </Button>
+              <div className="flex flex-col">
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -679,25 +677,53 @@ export default function AIChatPage() {
                       handleSend();
                     }
                   }}
-                  placeholder="اسأل الوكيل الذكي عن أي شيء في مشاريعك..."
-                  className="flex-1 max-h-48 min-h-[48px] py-3 text-sm bg-transparent border-none focus:ring-0 resize-none font-medium placeholder:text-slate-400 dark:text-white"
+                  placeholder="اسأل الوكيل الذكي عن أي شيء..."
+                  className="w-full max-h-48 min-h-[60px] p-4 text-sm bg-transparent border-none focus:ring-0 resize-none font-medium placeholder:text-slate-400 dark:text-white"
                   rows={1}
                 />
-                <Button 
-                  onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
-                  className={`h-12 w-12 rounded-full transition-all duration-300 shrink-0 shadow-lg no-default-hover-elevate no-default-active-elevate ${
-                    input.trim() 
-                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/25" 
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-400 shadow-none"
-                  }`}
-                >
-                  {isLoading ? (
-                    <RefreshCw className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Send className="h-5 w-5" />
-                  )}
-                </Button>
+                
+                <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100 dark:border-slate-800/50">
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-[10px] font-bold text-slate-500 rounded-lg no-default-hover-elevate no-default-active-elevate">
+                      <BrainCircuit className="h-3.5 w-3.5" />
+                      <span>استراتيجية</span>
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600 rounded-lg no-default-hover-elevate no-default-active-elevate">
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 rounded-lg no-default-hover-elevate no-default-active-elevate">
+                      <Zap className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 rounded-lg no-default-hover-elevate no-default-active-elevate">
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                    
+                    <AnimatePresence>
+                      {input.trim() && (
+                        <motion.div
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.8, opacity: 0 }}
+                        >
+                          <Button 
+                            onClick={handleSend}
+                            disabled={isLoading}
+                            className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 p-0 rounded-lg flex items-center justify-center transition-all no-default-hover-elevate no-default-active-elevate"
+                          >
+                            {isLoading ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ArrowUp className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>

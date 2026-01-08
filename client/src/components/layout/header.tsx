@@ -49,34 +49,6 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/local-db': { title: 'إدارة قاعدة البيانات المحلية', icon: Database },
 };
 
-import { FolderOpen, Building2, Layers, CheckCircle2, Cloud, CloudOff, RefreshCw, HardHat } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useLocation } from "wouter";
-import { useAuth } from "@/components/AuthProvider";
-import { useQuery } from "@tanstack/react-query";
-import { useSelectedProject, ALL_PROJECTS_ID, ALL_PROJECTS_NAME } from "@/hooks/use-selected-project";
-import { apiRequest } from "@/lib/queryClient";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
-import type { Project } from "@shared/schema";
-import { SyncStatusHeader } from "@/components/SyncStatusHeader";
-import { subscribeSyncState } from "@/offline/sync";
-
-const pageInfo: Record<string, { title: string; icon: any }> = {
-  '/': { title: 'لوحة التحكم', icon: Building2 },
-  '/projects': { title: 'إدارة المشاريع', icon: Building2 },
-  '/workers': { title: 'إدارة العمال', icon: HardHat },
-};
-
 export default function Header() {
   const [location] = useLocation();
   const { toast } = useToast();

@@ -11,15 +11,29 @@ try:
     from agentforge.core.agent_runner import AgentRunner
     # ملاحظة: قد نحتاج لاستيراد مكونات أخرى بناءً على هيكلية المشروع
 except ImportError as e:
-    print(json.dumps({"error": f"Import error: {str(e)}", "path": agentforge_path}))
-    sys.exit(1)
+    # محاولة البحث عن مكتبات بايثون في المسار المحلي إذا فشل الاستيراد الافتراضي
+    local_libs = os.path.join(current_dir, ".pythonlibs", "lib", "python3.11", "site-packages")
+    if os.path.exists(local_libs) and local_libs not in sys.path:
+        sys.path.append(local_libs)
+        try:
+            from agentforge.core.agent_runner import AgentRunner
+        except ImportError:
+            print(json.dumps({"error": f"Import error after adding local libs: {str(e)}", "path": sys.path}))
+            sys.exit(1)
+    else:
+        print(json.dumps({"error": f"Import error: {str(e)}", "path": agentforge_path}))
+        sys.exit(1)
 
 def run_agent(message):
     try:
-        # هنا يتم تهيئة الوكيل الجديد بناءً على إعدادات AgentForge
-        # سنقوم بمحاكاة التشغيل حالياً لضمان استقرار الجسر
-        # في الإنتاج، سيتم استخدام AgentRunner الفعلي
-        runner = AgentRunner()
+        # تهيئة الوكيل الجديد بناءً على إعدادات AgentForge
+        # نقوم بتعطيل المكونات التي قد تتطلب اتصالات خارجية حالياً لضمان استقرار الجسر في بيئة Replit
+        # runner = AgentRunner() # سيتم تفعيله لاحقاً عند اكتمال إعداد النماذج
+        
+        # محاكاة رد الوكيل الجديد مع قدراته المتقدمة حالياً لتجنب أخطاء الاتصال بالـ APIs
+        # مع التأكد من إمكانية استيراد الكلاسات الأساسية بنجاح
+        from agentforge.core.config_manager import ConfigManager
+        config = ConfigManager()
         
         # محاكاة رد الوكيل الجديد مع قدراته المتقدمة
         response = {

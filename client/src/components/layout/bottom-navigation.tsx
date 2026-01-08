@@ -137,12 +137,12 @@ export default function BottomNavigation() {
 
   return (
     <nav 
-      className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex-shrink-0 h-[68px] w-full relative z-[100] pb-[env(safe-area-inset-bottom,0px)] touch-none"
+      className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] flex-shrink-0 h-[72px] w-full relative z-[100] pb-[env(safe-area-inset-bottom,0px)] touch-none"
       onClick={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
       onTouchMove={(e) => e.stopPropagation()}
     >
-      <div className="flex justify-around items-center h-full w-full max-w-screen-xl mx-auto px-1 relative">
+      <div className="flex justify-around items-center h-full w-full max-w-screen-xl mx-auto px-2 relative">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.path;

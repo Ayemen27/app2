@@ -44,7 +44,11 @@ export default function MaterialPurchase() {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleFilterChange = useCallback((key: string, value: any) => {
-    setFilterValues(prev => ({ ...prev, [key]: value }));
+    if (key === 'selectedDate') {
+      setSelectedDate(value ? format(new Date(value), "yyyy-MM-dd") : "");
+    } else {
+      setFilterValues(prev => ({ ...prev, [key]: value }));
+    }
   }, []);
 
   // Get URL parameters for editing
@@ -77,8 +81,6 @@ export default function MaterialPurchase() {
   const [supplierFormAddress, setSupplierFormAddress] = useState("");
   const [supplierFormPaymentTerms, setSupplierFormPaymentTerms] = useState("نقد");
   const [supplierFormNotes, setSupplierFormNotes] = useState("");
-  const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
-  const [showDateFilter, setShowDateFilter] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     // التحقق من وجود التاريخ في URL أولاً
     const params = new URLSearchParams(window.location.search);
@@ -91,9 +93,7 @@ export default function MaterialPurchase() {
 
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
-    if (showDateFilter) {
-      setSelectedDate(""); // تعيين قيمة فارغة لجلب الكل عند إعادة التعيين
-    }
+    setSelectedDate(""); 
     setFilterValues({ 
       paymentType: 'all', 
       category: 'all',
@@ -106,7 +106,7 @@ export default function MaterialPurchase() {
       title: "تم إعادة التعيين",
       description: "تم مسح جميع الفلاتر وعرض كافة المشتريات",
     });
-  }, [showDateFilter, toast]);
+  }, [toast]);
 
   // إزالة التعيين التلقائي لتاريخ اليوم لجلب الكل افتراضياً
   useEffect(() => {
@@ -738,7 +738,9 @@ export default function MaterialPurchase() {
 
       const matchesSearch = searchValue === '' || 
         purchase.materialName?.toLowerCase().includes(searchValue.toLowerCase()) ||
-        purchase.supplierName?.toLowerCase().includes(searchValue.toLowerCase());
+        purchase.supplierName?.toLowerCase().includes(searchValue.toLowerCase()) ||
+        purchase.notes?.toLowerCase().includes(searchValue.toLowerCase()) ||
+        purchase.materialCategory?.toLowerCase().includes(searchValue.toLowerCase());
 
       const matchesPaymentType = filterValues.paymentType === 'all' || 
         purchase.purchaseType === filterValues.paymentType;
@@ -916,6 +918,12 @@ export default function MaterialPurchase() {
 
   // تكوين الفلاتر
   const filtersConfig: FilterConfig[] = useMemo(() => [
+    {
+      key: 'selectedDate',
+      label: 'التاريخ',
+      type: 'date',
+      placeholder: 'جميع التواريخ',
+    },
     {
       key: 'category',
       label: 'الفئة',

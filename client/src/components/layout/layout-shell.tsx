@@ -43,7 +43,7 @@ export function LayoutShell({
         <SidebarInset className="flex flex-col flex-1 min-w-0 overflow-hidden">
           <div className="layout-shell flex flex-col h-full relative overflow-hidden">
             {showHeader && !isCustomHeaderPage && (
-              <header className="layout-header flex-shrink-0 w-full border-b bg-white dark:bg-slate-900 shadow-sm">
+              <header className="layout-header flex-shrink-0 w-full border-b bg-white dark:bg-slate-900 shadow-sm relative z-40">
                 <div className="flex h-[60px] items-center px-4 gap-4">
                   <SidebarTrigger className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" />
                   <div className="flex-1 overflow-hidden text-slate-900 dark:text-white">
@@ -60,7 +60,7 @@ export function LayoutShell({
             </main>
             
             {showNav && !hideNav && (
-              <nav className="layout-nav flex-shrink-0 fixed bottom-0 left-0 right-0 z-[100] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/50 dark:border-slate-800/50 pb-[env(safe-area-inset-bottom,12px)] h-[calc(64px+env(safe-area-inset-bottom,12px))] overflow-hidden flex items-center md:hidden pointer-events-auto">
+              <nav className="layout-nav flex-shrink-0 fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/50 dark:border-slate-800/50 pb-[env(safe-area-inset-bottom,12px)] h-[calc(64px+env(safe-area-inset-bottom,12px))] overflow-hidden flex items-center md:hidden pointer-events-auto">
                 <div className="w-full">
                   <BottomNavigation />
                 </div>

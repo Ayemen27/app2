@@ -58,7 +58,7 @@ export function LayoutShell({
             </main>
             
             {showNav && !hideNav && (
-              <nav className="layout-nav flex-shrink-0 fixed bottom-0 left-0 right-0 z-[100] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/50 dark:border-slate-800/50 pb-[env(safe-area-inset-bottom,12px)] h-[calc(64px+env(safe-area-inset-bottom,12px))] overflow-hidden flex items-center md:hidden">
+              <nav className="layout-nav flex-shrink-0 fixed bottom-0 left-0 right-0 z-[100] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/50 dark:border-slate-800/50 pb-[env(safe-area-inset-bottom,12px)] h-[calc(64px+env(safe-area-inset-bottom,12px))] overflow-hidden flex items-center md:hidden pointer-events-auto">
                 <div className="w-full">
                   <BottomNavigation />
                 </div>

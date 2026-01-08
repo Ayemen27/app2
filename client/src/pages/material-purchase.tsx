@@ -92,11 +92,14 @@ export default function MaterialPurchase() {
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
     if (showDateFilter) {
-      setSelectedDate(getCurrentDate()); // تعيين تاريخ اليوم بدلاً من فارغ
+      setSelectedDate(getCurrentDate());
     }
     setFilterValues({ 
       paymentType: 'all', 
+      category: 'all',
       dateRange: undefined,
+      dateFrom: '',
+      dateTo: '',
       specificDate: '' 
     });
     toast({
@@ -380,10 +383,10 @@ export default function MaterialPurchase() {
     },
     onMutate: async (data) => {
       // فوري - تحديث البيانات محلياً قبل انتظار الخادم
-      await queryClient.cancelQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
-      const previousData = queryClient.getQueryData(["/api/projects", selectedProjectId, "material-purchases"]);
+      await queryClient.cancelQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate] });
+      const previousData = queryClient.getQueryData(["/api/projects", selectedProjectId, "material-purchases", selectedDate]);
 
-      queryClient.setQueryData(["/api/projects", selectedProjectId, "material-purchases"], (old: any) => {
+      queryClient.setQueryData(["/api/projects", selectedProjectId, "material-purchases", selectedDate], (old: any) => {
         const newPurchase = { id: `temp-${Date.now()}`, ...data, createdAt: new Date().toISOString() };
         return old ? [...old, newPurchase] : [newPurchase];
       });
@@ -404,7 +407,7 @@ export default function MaterialPurchase() {
         description: "تم حفظ شراء المواد بنجاح",
       });
       resetForm();
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate] });
     },
     onError: async (error: any) => {
       // حفظ القيم في autocomplete_data حتى في حالة الخطأ
@@ -499,7 +502,7 @@ export default function MaterialPurchase() {
         description: "تم تعديل شراء المواد بنجاح",
       });
       resetForm();
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate] });
     },
     onError: async (error: any) => {
       // حفظ القيم في autocomplete_data حتى في حالة الخطأ
@@ -552,10 +555,10 @@ export default function MaterialPurchase() {
     mutationFn: (id: string) => apiRequest(`/api/material-purchases/${id}`, "DELETE"),
     onMutate: async (id) => {
       // فوري - حذف البيانات محلياً قبل انتظار الخادم
-      await queryClient.cancelQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
-      const previousData = queryClient.getQueryData(["/api/projects", selectedProjectId, "material-purchases"]);
+      await queryClient.cancelQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate] });
+      const previousData = queryClient.getQueryData(["/api/projects", selectedProjectId, "material-purchases", selectedDate]);
 
-      queryClient.setQueryData(["/api/projects", selectedProjectId, "material-purchases"], (old: any) => {
+      queryClient.setQueryData(["/api/projects", selectedProjectId, "material-purchases", selectedDate], (old: any) => {
         return old ? old.filter((p: any) => p.id !== id) : [];
       });
 
@@ -571,7 +574,7 @@ export default function MaterialPurchase() {
         title: "تم الحذف",
         description: "تم حذف شراء المواد بنجاح",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate] });
     },
     onError: (error: any) => {
       console.error("Material purchase delete error:", error);
@@ -681,15 +684,20 @@ export default function MaterialPurchase() {
       const baseUrl = `/api/material-purchases`;
       
       const queryParams = new URLSearchParams();
+      // إذا كان projectId هو 'all'، لا نرسله كمعامل projectId للخادم بل نتركه ليجلب الكل
       if (projectIdForApi && projectIdForApi !== 'all') {
         queryParams.append('projectId', projectIdForApi);
       }
+      
+      // نرسل التاريخ دائماً إذا كان موجوداً
       if (selectedDate) {
         queryParams.append('date', selectedDate);
       }
       
       const queryString = queryParams.toString();
       const endpoint = queryString ? `${baseUrl}?${queryString}` : baseUrl;
+      
+      console.log(`📡 [Fetching] ${endpoint}`);
       const response = await apiRequest(endpoint, "GET");
       
       // توحيد شكل البيانات المسترجعة
@@ -697,10 +705,7 @@ export default function MaterialPurchase() {
       return Array.isArray(data) ? data : [];
     },
     enabled: true,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 0, // تعطيل staleTime لضمان جلب بيانات حية عند تغيير الفلاتر
   });
 
   // استخدام البيانات المجلوبة بدلاً من تعريف useQuery مكرر
@@ -727,36 +732,37 @@ export default function MaterialPurchase() {
         purchase.materialCategory === filterValues.category;
 
       // فلترة حسب التاريخ المختار من القائمة العلوية (إذا لم يكن "all")
+      // ملاحظة: قمنا بإضافة المعامل للسيرفر، ولكن هنا نضمن الفلترة في الواجهة أيضاً
       const matchesSelectedDate = !selectedDate || purchase.purchaseDate === selectedDate;
 
       // فلترة حسب نطاق التاريخ من الفلتر المتقدم
       let matchesDateRange = true;
-    if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
-      const purchaseDate = new Date(purchase.purchaseDate);
-      if (filterValues.dateRange.from) {
-        const fromDate = new Date(filterValues.dateRange.from);
-        fromDate.setHours(0, 0, 0, 0);
-        matchesDateRange = matchesDateRange && purchaseDate >= fromDate;
+      if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
+        const purchaseDate = new Date(purchase.purchaseDate);
+        if (filterValues.dateRange.from) {
+          const fromDate = new Date(filterValues.dateRange.from);
+          fromDate.setHours(0, 0, 0, 0);
+          matchesDateRange = matchesDateRange && purchaseDate >= fromDate;
+        }
+        if (filterValues.dateRange.to) {
+          const toDate = new Date(filterValues.dateRange.to);
+          toDate.setHours(23, 59, 59, 999);
+          matchesDateRange = matchesDateRange && purchaseDate <= toDate;
+        }
       }
-      if (filterValues.dateRange.to) {
-        const toDate = new Date(filterValues.dateRange.to);
-        toDate.setHours(23, 59, 59, 999);
-        matchesDateRange = matchesDateRange && purchaseDate <= toDate;
+
+      let matchesSpecificDate = true;
+      if (filterValues.specificDate) {
+        const pDate = new Date(purchase.purchaseDate);
+        const sDate = new Date(filterValues.specificDate);
+        matchesSpecificDate = pDate.getFullYear() === sDate.getFullYear() &&
+                             pDate.getMonth() === sDate.getMonth() &&
+                             pDate.getDate() === sDate.getDate();
       }
-    }
 
-    let matchesSpecificDate = true;
-    if (filterValues.specificDate) {
-      const pDate = new Date(purchase.purchaseDate);
-      const sDate = new Date(filterValues.specificDate);
-      matchesSpecificDate = pDate.getFullYear() === sDate.getFullYear() &&
-                           pDate.getMonth() === sDate.getMonth() &&
-                           pDate.getDate() === sDate.getDate();
-    }
-
-    return matchesProject && matchesSearch && matchesPaymentType && matchesCategory && matchesDateRange && matchesSelectedDate && matchesSpecificDate;
-  });
-}, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.category, filterValues.dateRange, filterValues.specificDate, selectedDate]);
+      return matchesProject && matchesSearch && matchesPaymentType && matchesCategory && matchesDateRange && matchesSelectedDate && matchesSpecificDate;
+    });
+  }, [allMaterialPurchases, selectedProjectId, isAllProjects, searchValue, filterValues.paymentType, filterValues.category, filterValues.dateRange, filterValues.specificDate, selectedDate]);
 
 
   // Calculate stats

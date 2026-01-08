@@ -480,43 +480,38 @@ export default function AIChatPage() {
         </AnimatePresence>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col relative bg-white dark:bg-slate-950 min-w-0">
-        {/* Header Overlay */}
-        <div className="absolute top-0 left-0 right-0 z-[30] p-6 pointer-events-none">
+      <div className="flex-1 flex flex-col relative bg-white dark:bg-slate-950 min-w-0 h-full overflow-hidden">
+        {/* Header Overlay - Adjusted for better visibility and float */}
+        <div className="absolute top-0 left-0 right-0 z-[100] p-4 pointer-events-none">
           <div className="max-w-5xl mx-auto flex items-center justify-between pointer-events-auto">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               {!sidebarOpen && (
                 <Button 
                   variant="outline" 
                   size="icon" 
                   onClick={() => setSidebarOpen(true)} 
-                  className="h-11 w-11 rounded-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all no-default-hover-elevate no-default-active-elevate"
+                  className="h-10 w-10 rounded-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all no-default-hover-elevate no-default-active-elevate"
                 >
-                  <PanelLeftOpen className="h-5 w-5 text-slate-600" />
+                  <PanelLeftOpen className="h-4 w-4 text-slate-600" />
                 </Button>
               )}
-              <div className="flex items-center gap-2 px-4 h-11 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <Sparkles className="h-4 w-4 text-blue-600 animate-pulse" />
-                <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Neural Pro</span>
-                <Separator orientation="vertical" className="h-4 mx-1" />
-                <div className="flex items-center gap-1">
-                  <Zap className="h-3.5 w-3.5 text-yellow-500 fill-current" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Ultra Low Latency</span>
-                </div>
+              <div className="flex items-center gap-2 px-3 h-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <Sparkles className="h-3.5 w-3.5 text-blue-600 animate-pulse" />
+                <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Neural Pro</span>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={startNewChat}
-                className="h-11 px-5 rounded-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200 dark:border-slate-800 text-xs font-bold gap-2 no-default-hover-elevate no-default-active-elevate hidden sm:flex shadow-sm"
+                className="h-10 px-4 rounded-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-slate-200 dark:border-slate-800 text-[10px] font-bold gap-2 no-default-hover-elevate no-default-active-elevate hidden sm:flex shadow-sm"
               >
-                <Plus className="h-4 w-4 text-blue-600" />
+                <Plus className="h-3.5 w-3.5 text-blue-600" />
                 مهمة جديدة
               </Button>
-              <div className="h-11 w-11 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-center">
+              <div className="h-10 w-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-center">
                 <ThemeToggle />
               </div>
             </div>
@@ -524,7 +519,7 @@ export default function AIChatPage() {
         </div>
 
         <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 sm:px-6">
-          <div className="max-w-4xl mx-auto py-32 space-y-10 pb-48">
+          <div className="max-w-4xl mx-auto py-24 space-y-10 pb-40">
             {messages.length <= 1 && !currentSessionId && (
               <motion.div 
                 initial={{ opacity: 0, y: 30 }}
@@ -668,12 +663,12 @@ export default function AIChatPage() {
           </div>
         </ScrollArea>
 
-        {/* Input Bar - Redesigned Floating Style */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-8 z-[120]">
-          <div className="max-w-4xl mx-auto relative group">
-            <div className="absolute inset-0 bg-blue-600/5 blur-2xl rounded-[2rem] group-focus-within:bg-blue-600/10 transition-all" />
-            <div className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 p-2 sm:p-3 rounded-[2rem] shadow-2xl shadow-blue-900/10">
-              <div className="flex items-end gap-2 px-2">
+        {/* Floating Input Bar - Replit Style */}
+        <div className="absolute bottom-6 left-0 right-0 p-4 z-[120] pointer-events-none">
+          <div className="max-w-3xl mx-auto relative group pointer-events-auto">
+            <div className="absolute inset-0 bg-blue-600/5 blur-2xl rounded-[1.5rem] group-focus-within:bg-blue-600/10 transition-all" />
+            <div className="relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 p-2 rounded-[1.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
+              <div className="flex flex-col">
                 <textarea
                   ref={textareaRef}
                   placeholder="كيف يمكنني مساعدتك في إدارة مشاريعك اليوم؟"
@@ -686,16 +681,45 @@ export default function AIChatPage() {
                     }
                   }}
                   rows={1}
-                  className="w-full bg-transparent border-none focus:ring-0 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 py-3 text-sm font-medium resize-none min-h-[44px] max-h-48"
+                  className="w-full bg-transparent border-none focus:ring-0 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 py-3 px-3 text-sm font-medium resize-none min-h-[44px] max-h-48"
                 />
-                <Button 
-                  onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
-                  size="icon"
-                  className="h-10 w-10 sm:h-12 sm:w-12 bg-blue-600 hover:bg-blue-700 text-white rounded-[1.2rem] shadow-lg shadow-blue-600/20 shrink-0 mb-1 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 no-default-hover-elevate no-default-active-elevate"
-                >
-                  {isLoading ? <Loader className="h-5 w-5 animate-spin" /> : <ArrowUp className="h-5 w-5" />}
-                </Button>
+                
+                <div className="flex items-center justify-between px-2 pb-1 mt-1">
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-slate-400 hover:text-blue-600 no-default-hover-elevate no-default-active-elevate">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-slate-400 hover:text-blue-600 no-default-hover-elevate no-default-active-elevate">
+                      <MessageSquare className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <AnimatePresence>
+                      {input.trim() && (
+                        <motion.div
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.8, opacity: 0 }}
+                        >
+                          <Button 
+                            onClick={handleSend}
+                            disabled={isLoading}
+                            size="icon"
+                            className="h-9 w-9 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-600/20 transition-all hover:scale-105 active:scale-95 no-default-hover-elevate no-default-active-elevate"
+                          >
+                            {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
+                          </Button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    {!input.trim() && (
+                      <div className="h-9 w-9 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 rounded-xl">
+                        <ArrowUp className="h-4 w-4" />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

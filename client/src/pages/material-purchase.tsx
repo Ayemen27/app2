@@ -79,7 +79,11 @@ export default function MaterialPurchase() {
   const [supplierFormNotes, setSupplierFormNotes] = useState("");
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
   const [showDateFilter, setShowDateFilter] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<string>(getCurrentDate());
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    // التحقق من وجود التاريخ في URL أولاً، وإلا استخدام تاريخ اليوم
+    const params = new URLSearchParams(window.location.search);
+    return params.get('date') || getCurrentDate();
+  });
 
   const { toast } = useToast();
   const queryClient = useQueryClient();

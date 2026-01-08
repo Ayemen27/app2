@@ -223,9 +223,14 @@ export default function AIChatPage() {
   };
 
   const handleSessionClick = async (sessionId: string) => {
-    if (currentSessionId === sessionId) return;
+    if (currentSessionId === sessionId) {
+      if (window.innerWidth < 1024) setSidebarOpen(false);
+      return;
+    }
     
     setCurrentSessionId(sessionId);
+    if (window.innerWidth < 1024) setSidebarOpen(false);
+    
     setMessages([{ 
       role: "assistant", 
       content: "جاري تحميل محادثتك الاستراتيجية...", 

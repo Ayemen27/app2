@@ -207,8 +207,10 @@ router.delete("/sessions/:id", requireAdmin, async (req: AuthenticatedRequest, r
   }
 });
 
+import { spawn } from "child_process";
+
 /**
- * إرسال رسالة للوكيل
+ * إرسال رسالة للوكيل (AgentForge Bridge)
  * POST /api/ai/chat
  */
 router.post("/chat", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
@@ -219,17 +221,43 @@ router.post("/chat", requireAdmin, async (req: AuthenticatedRequest, res: Respon
       return res.status(400).json({ error: "sessionId و message مطلوبان" });
     }
 
-    const aiService = getAIAgentService();
+    console.log(`🤖 [AI] استدعاء AgentForge للرسالة: ${message}`);
+    
+    const pythonProcess = spawn("python3", ["agent_bridge.py", message]);
+    let pythonData = "";
+    let pythonError = "";
 
-    if (!aiService.isAvailable()) {
-      return res.status(503).json({ 
-        error: "الوكيل الذكي غير متاح حالياً. يرجى إعداد مفاتيح API." 
-      });
-    }
+    pythonProcess.stdout.on("data", (data) => {
+      pythonData += data.toString();
+    });
 
-    const response = await aiService.processMessage(sessionId, message, req.user!.userId);
+    pythonProcess.stderr.on("data", (data) => {
+      pythonError += data.toString();
+    });
 
-    res.json(response);
+    pythonProcess.on("close", async (code) => {
+      if (code !== 0) {
+        console.error(`❌ [AI] خطأ في جسر Python: ${pythonError}`);
+        return res.status(500).json({ error: "فشل في تشغيل وكيل AgentForge" });
+      }
+
+      try {
+        const result = JSON.parse(pythonData);
+        
+        if (result.error) {
+          throw new Error(result.error);
+        }
+
+        // حفظ الرسائل في قاعدة البيانات (اختياري حسب الحاجة ولكن هنا نرجع النتيجة مباشرة)
+        res.json({
+          message: result.message,
+          steps: result.steps
+        });
+      } catch (e: any) {
+        res.status(500).json({ error: e.message });
+      }
+    });
+
   } catch (error: any) {
     console.error("Error processing message:", error);
     res.status(500).json({ error: error.message });

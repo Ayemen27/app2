@@ -67,7 +67,7 @@ export default function AIChatPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "مرحباً بك في مركز القيادة الذكي. أنا الوكيل المتقدم لمساعدتك في إدارة العمليات والبيانات.\n\nبإمكاني تحليل المشاريع، إنشاء التقارير، وأتمتة المهام الروتينية بدقة عالية. كيف يمكنني دعم أهدافك اليوم؟",
+      content: "مرحباً بك في مركز قيادة AgentForge. لقد تم تفعيل الوكيل الجديد مع كافة الصلاحيات للوصول إلى أدوات المشروع وتحليل البيانات الاستراتيجية.\n\nكيف يمكنني مساعدتك اليوم باستخدام قدرات AF المتقدمة؟",
       timestamp: new Date(),
     },
   ]);
@@ -413,18 +413,18 @@ export default function AIChatPage() {
               >
                 <div className="p-6 flex flex-col gap-6 h-full">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 group">
-                        <BrainCircuit className="h-5 w-5 text-white group-hover:scale-110 transition-transform" />
-                      </div>
-                      <div>
-                        <h2 className="font-black text-slate-900 dark:text-white tracking-tight">الذكاء العملي</h2>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                          <span className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Neural v2.5</span>
-                        </div>
-                      </div>
-                    </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 group">
+                              <Sparkles className="h-5 w-5 text-white group-hover:scale-110 transition-transform" />
+                            </div>
+                            <div>
+                              <h2 className="font-black text-slate-900 dark:text-white tracking-tight">AgentForge Commander</h2>
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                                <span className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Powered by AF-Core</span>
+                              </div>
+                            </div>
+                          </div>
                     <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
                       <PanelLeftClose className="h-4 w-4" />
                     </Button>

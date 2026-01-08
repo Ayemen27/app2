@@ -358,8 +358,19 @@ export default function MaterialPurchase() {
 
   // Get unique material names, categories, units, and suppliers
   const materialNames = Array.isArray(materials) ? materials.map(m => m.name) : [];
-  const materialCategories = Array.isArray(materials) ? Array.from(new Set(materials.map(m => m.category))) : [];
   const materialUnits = Array.isArray(materials) ? Array.from(new Set(materials.map(m => m.unit))) : [];
+
+  // جلب الفئات الفعلية من المشتريات بدلاً من جدول المواد فقط
+  const { data: purchases = [] } = useQuery<any[]>({
+    queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate],
+    enabled: !!selectedProjectId,
+  });
+
+  const materialCategories = useMemo(() => {
+    const categoriesFromMaterials = Array.isArray(materials) ? materials.map(m => m.category) : [];
+    const categoriesFromPurchases = Array.isArray(purchases) ? purchases.map(p => p.materialCategory) : [];
+    return Array.from(new Set([...categoriesFromMaterials, ...categoriesFromPurchases])).filter(Boolean);
+  }, [materials, purchases]);
 
   // الموردين النشطين من قاعدة البيانات
   const activeSuppliers = Array.isArray(suppliers) ? suppliers.filter(supplier => supplier.isActive) : [];

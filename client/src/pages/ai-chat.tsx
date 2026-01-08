@@ -61,7 +61,7 @@ export default function AIChatPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {

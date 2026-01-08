@@ -155,7 +155,7 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
   }
 
   try {
-    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 7, {
+    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 9, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`[DB] Upgrading from ${oldVersion} to ${newVersion}`);
         
@@ -163,24 +163,21 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
         for (const storeName of ALL_STORES) {
           if (!db.objectStoreNames.contains(storeName)) {
             console.log(`[DB] Creating store: ${storeName}`);
-            let store;
             if (storeName === 'syncQueue') {
-              store = db.createObjectStore(storeName, { keyPath: 'id' });
+              const store = db.createObjectStore(storeName, { keyPath: 'id' });
               store.createIndex('timestamp', 'timestamp');
               store.createIndex('action', 'action');
             } else if (storeName === 'userData') {
-              store = db.createObjectStore(storeName, { keyPath: 'id' });
+              const store = db.createObjectStore(storeName, { keyPath: 'id' });
               store.createIndex('type', 'type');
             } else if (storeName === 'syncMetadata') {
               db.createObjectStore(storeName, { keyPath: 'key' });
             } else {
-              store = db.createObjectStore(storeName as any, { keyPath: 'id' });
-              if (store.createIndex) {
-                store.createIndex('createdAt', 'createdAt');
-                store.createIndex('projectId', 'projectId');
-                store.createIndex('synced', 'synced');
-                store.createIndex('_pendingSync', '_pendingSync');
-              }
+              const store = db.createObjectStore(storeName as any, { keyPath: 'id' });
+              store.createIndex('createdAt', 'createdAt');
+              store.createIndex('projectId', 'projectId');
+              store.createIndex('synced', 'synced');
+              store.createIndex('_pendingSync', '_pendingSync');
             }
           }
         }

@@ -5,6 +5,7 @@ import BottomNavigation from "./bottom-navigation";
 import FloatingAddButton from "./floating-add-button";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
+import { SyncProgressTracker } from "@/components/ui/sync-progress-tracker";
 
 interface LayoutShellProps {
   children: React.ReactNode;
@@ -36,6 +37,7 @@ export function LayoutShell({
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+      <SyncProgressTracker />
       <div className="flex min-h-svh w-full bg-background" dir="rtl">
         <AppSidebar />
         <SidebarInset className="flex flex-col flex-1 min-w-0 overflow-hidden">

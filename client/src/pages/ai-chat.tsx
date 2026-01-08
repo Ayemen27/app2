@@ -74,8 +74,33 @@ export default function AIChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachmentPreviews, setAttachmentPreviews] = useState<string[]>([]);
+  const [showHeader, setShowHeader] = useState(true);
+  const lastScrollY = useRef(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setAttachments(prev => [...prev, ...files]);
+    
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAttachmentPreviews(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+    setAttachmentPreviews(prev => prev.filter((_, i) => i !== index));
+  };
 
   // جلب الجلسات
   const { data: sessions = [] } = useQuery({
@@ -189,8 +214,26 @@ export default function AIChatPage() {
     },
   });
 
+  useEffect(() => {
+    const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const currentScrollY = scrollContainer.scrollTop;
+      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        setShowHeader(false);
+      } else {
+        setShowHeader(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
     const userMessage: Message = {
       role: "user",
@@ -200,6 +243,8 @@ export default function AIChatPage() {
     setMessages((prev) => [...prev, userMessage]);
     const currentInput = input;
     setInput("");
+    setAttachments([]);
+    setAttachmentPreviews([]);
     
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -482,41 +527,50 @@ export default function AIChatPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col relative bg-white dark:bg-slate-950 min-w-0 h-full overflow-hidden">
         {/* Header Overlay - Adjusted for better visibility and float */}
-        <div className="absolute top-0 left-0 right-0 z-[100] p-4 pointer-events-none">
-          <div className="max-w-5xl mx-auto flex items-center justify-between pointer-events-auto">
-            <div className="flex items-center gap-2">
-              {!sidebarOpen && (
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={() => setSidebarOpen(true)} 
-                  className="h-10 w-10 rounded-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all no-default-hover-elevate no-default-active-elevate"
-                >
-                  <PanelLeftOpen className="h-4 w-4 text-slate-600" />
-                </Button>
-              )}
-              <div className="flex items-center gap-2 px-3 h-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <Sparkles className="h-3.5 w-3.5 text-blue-600 animate-pulse" />
-                <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Neural Pro</span>
+        <AnimatePresence>
+          {showHeader && (
+            <motion.div 
+              initial={{ y: -100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -100, opacity: 0 }}
+              className="absolute top-0 left-0 right-0 z-[100] p-4 pointer-events-none"
+            >
+              <div className="max-w-5xl mx-auto flex items-center justify-between pointer-events-auto">
+                <div className="flex items-center gap-2">
+                  {!sidebarOpen && (
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => setSidebarOpen(true)} 
+                      className="h-10 w-10 rounded-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all no-default-hover-elevate no-default-active-elevate"
+                    >
+                      <PanelLeftOpen className="h-4 w-4 text-slate-600" />
+                    </Button>
+                  )}
+                  <div className="flex items-center gap-2 px-3 h-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <Sparkles className="h-3.5 w-3.5 text-blue-600 animate-pulse" />
+                    <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Neural Pro</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={startNewChat}
+                    className="h-10 px-4 rounded-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-slate-200 dark:border-slate-800 text-[10px] font-bold gap-2 no-default-hover-elevate no-default-active-elevate hidden sm:flex shadow-sm"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-blue-600" />
+                    مهمة جديدة
+                  </Button>
+                  <div className="h-10 w-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-center">
+                    <ThemeToggle />
+                  </div>
+                </div>
               </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={startNewChat}
-                className="h-10 px-4 rounded-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-slate-200 dark:border-slate-800 text-[10px] font-bold gap-2 no-default-hover-elevate no-default-active-elevate hidden sm:flex shadow-sm"
-              >
-                <Plus className="h-3.5 w-3.5 text-blue-600" />
-                مهمة جديدة
-              </Button>
-              <div className="h-10 w-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-center">
-                <ThemeToggle />
-              </div>
-            </div>
-          </div>
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 sm:px-6">
           <div className="max-w-4xl mx-auto py-24 space-y-10 pb-40">
@@ -664,11 +718,35 @@ export default function AIChatPage() {
         </ScrollArea>
 
         {/* Floating Input Bar - Replit Style */}
-        <div className="absolute bottom-6 left-0 right-0 p-4 z-[120] pointer-events-none">
+        <div className="absolute bottom-10 left-0 right-0 p-4 z-[120] pointer-events-none">
           <div className="max-w-3xl mx-auto relative group pointer-events-auto">
             <div className="absolute inset-0 bg-blue-600/5 blur-2xl rounded-[1.5rem] group-focus-within:bg-blue-600/10 transition-all" />
-            <div className="relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 p-2 rounded-[1.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
+            <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 p-2 rounded-[1.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
               <div className="flex flex-col">
+                {/* Image Previews */}
+                <AnimatePresence>
+                  {attachmentPreviews.length > 0 && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="flex flex-wrap gap-2 px-3 pt-2 overflow-hidden"
+                    >
+                      {attachmentPreviews.map((preview, i) => (
+                        <div key={i} className="relative group/img">
+                          <img src={preview} alt="Attachment" className="w-16 h-16 object-cover rounded-lg border border-slate-200 dark:border-slate-700" />
+                          <button 
+                            onClick={() => removeAttachment(i)}
+                            className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover/img:opacity-100 transition-opacity"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <textarea
                   ref={textareaRef}
                   placeholder="كيف يمكنني مساعدتك في إدارة مشاريعك اليوم؟"
@@ -686,7 +764,20 @@ export default function AIChatPage() {
                 
                 <div className="flex items-center justify-between px-2 pb-1 mt-1">
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-slate-400 hover:text-blue-600 no-default-hover-elevate no-default-active-elevate">
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      multiple 
+                      onChange={handleFileSelect}
+                    />
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-9 w-9 rounded-xl text-slate-400 hover:text-blue-600 no-default-hover-elevate no-default-active-elevate"
+                    >
                       <Plus className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-slate-400 hover:text-blue-600 no-default-hover-elevate no-default-active-elevate">
@@ -696,7 +787,7 @@ export default function AIChatPage() {
 
                   <div className="flex items-center gap-2">
                     <AnimatePresence>
-                      {input.trim() && (
+                      {(input.trim() || attachments.length > 0) && (
                         <motion.div
                           initial={{ scale: 0.8, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
@@ -713,7 +804,7 @@ export default function AIChatPage() {
                         </motion.div>
                       )}
                     </AnimatePresence>
-                    {!input.trim() && (
+                    {!input.trim() && attachments.length === 0 && (
                       <div className="h-9 w-9 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 rounded-xl">
                         <ArrowUp className="h-4 w-4" />
                       </div>

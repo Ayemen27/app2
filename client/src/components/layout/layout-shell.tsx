@@ -38,13 +38,13 @@ export function LayoutShell({
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
       <div className="flex min-h-svh w-full bg-background" dir="rtl">
         <AppSidebar />
-        <SidebarInset className="flex flex-col flex-1 overflow-hidden">
+        <SidebarInset className="flex flex-col flex-1 min-w-0 overflow-hidden">
           <div className="layout-shell flex flex-col h-full relative">
             {showHeader && !isCustomHeaderPage && (
-              <header className="layout-header sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="flex h-[var(--header-height)] items-center px-4 gap-4">
-                  <SidebarTrigger className="md:flex" />
-                  <div className="flex-1">
+              <header className="layout-header sticky top-0 z-50 w-full border-b bg-primary text-primary-foreground shadow-sm">
+                <div className="flex h-[60px] items-center px-4 gap-4">
+                  <SidebarTrigger className="text-white hover:bg-white/10" />
+                  <div className="flex-1 overflow-hidden">
                     <Header />
                   </div>
                 </div>

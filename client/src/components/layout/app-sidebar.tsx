@@ -36,15 +36,15 @@ export function AppSidebar() {
   const { logout, user } = useAuth();
 
   return (
-    <Sidebar side="right" variant="sidebar" collapsible="offcanvas">
-      <SidebarHeader className="border-b px-6 py-4">
+    <Sidebar side="right" variant="sidebar" collapsible="icon">
+      <SidebarHeader className="border-b px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-            <Building2 className="h-6 w-6" />
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+            <Building2 className="h-5 w-5" />
           </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-slate-900 dark:text-white">مشروعي</span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">إدارة المشاريع الإنشائية</span>
+          <div className="flex flex-col overflow-hidden">
+            <span className="font-bold text-sm truncate">مشروعي</span>
+            <span className="text-[10px] text-muted-foreground truncate font-medium">إدارة المشاريع الإنشائية</span>
           </div>
         </div>
       </SidebarHeader>

@@ -658,12 +658,12 @@ export default function AIChatPage() {
         </ScrollArea>
 
         {/* Input Bar - Floating & Glassmorphic */}
-        <div className="absolute bottom-0 left-0 right-0 z-40 p-6 pointer-events-none">
-          <div className="max-w-4xl mx-auto pointer-events-auto">
+        <div className="absolute bottom-0 left-0 right-0 z-40 p-4 pointer-events-none">
+          <div className="max-w-full mx-auto pointer-events-auto">
             <motion.div 
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              className="relative p-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl shadow-slate-200 dark:shadow-none border border-slate-200/50 dark:border-slate-800/50 ring-1 ring-slate-900/5"
+              className="relative p-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl rounded-2xl shadow-2xl shadow-slate-200 dark:shadow-none border border-slate-200/50 dark:border-slate-800/50 ring-1 ring-slate-900/5"
             >
               <div className="flex items-end gap-2 px-2">
                 <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0 no-default-hover-elevate no-default-active-elevate">
@@ -700,7 +700,6 @@ export default function AIChatPage() {
                 </Button>
               </div>
             </motion.div>
-            <p className="text-[10px] text-center mt-3 text-slate-400 font-bold uppercase tracking-[0.2em]">Neural Intelligence Engine Powered by BinarJoin Core</p>
           </div>
         </div>
       </div>

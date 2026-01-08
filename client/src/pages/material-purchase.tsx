@@ -81,6 +81,7 @@ export default function MaterialPurchase() {
   const [supplierFormAddress, setSupplierFormAddress] = useState("");
   const [supplierFormPaymentTerms, setSupplierFormPaymentTerms] = useState("نقد");
   const [supplierFormNotes, setSupplierFormNotes] = useState("");
+  const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     // التحقق من وجود التاريخ في URL أولاً
     const params = new URLSearchParams(window.location.search);

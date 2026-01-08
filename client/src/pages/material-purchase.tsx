@@ -687,8 +687,8 @@ export default function MaterialPurchase() {
         queryParams.append('projectId', projectIdForApi);
       }
       
-      // نرسل التاريخ دائماً إذا كان موجوداً
-      if (selectedDate) {
+      // نرسل التاريخ فقط إذا كان محدداً، وإلا سيجلب السيرفر الكل
+      if (selectedDate && selectedDate !== "") {
         queryParams.append('date', selectedDate);
       }
       
@@ -703,7 +703,7 @@ export default function MaterialPurchase() {
       return Array.isArray(data) ? data : [];
     },
     enabled: true,
-    staleTime: 0, // تعطيل staleTime لضمان جلب بيانات حية عند تغيير الفلاتر
+    staleTime: 0, 
   });
 
   // استخدام البيانات المجلوبة بدلاً من تعريف useQuery مكرر

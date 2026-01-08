@@ -1395,7 +1395,8 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
     if (projectId && projectId !== 'all') {
       conditions.push(eq(materialPurchases.projectId, projectId as string));
     }
-    if (date) {
+    // تعديل: لا نطبق فلترة التاريخ إذا كانت القيمة فارغة أو غير موجودة
+    if (date && date !== "" && date !== "undefined") {
       conditions.push(eq(materialPurchases.purchaseDate, date as string));
     }
 

@@ -1069,6 +1069,28 @@ function DailyExpensesContent() {
     }
   });
 
+  const deleteProjectTransferMutation = useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/project-fund-transfers/${id}`, "DELETE"),
+    onSuccess: () => {
+      refreshAllData();
+      refetchProjectTransfers();
+      toast({ title: "تم الحذف", description: "تم حذف ترحيل الأموال بنجاح" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "خطأ", 
+        description: error?.message || "حدث خطأ أثناء حذف الترحيل", 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const [editingProjectTransferId, setEditingProjectTransferId] = useState<string | null>(null);
+
+  const handleEditProjectTransfer = (transfer: any) => {
+    setLocation(`/project-transfers?edit=${transfer.id}`);
+  };
+
   const deleteWorkerAttendanceMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/worker-attendance/${id}`, "DELETE"),
     onMutate: () => {
@@ -3229,11 +3251,36 @@ function DailyExpensesContent() {
                                       <span className="text-red-700">أموال صادرة إلى: {transfer.toProjectName}</span>
                                     )}
                                   </span>
-                                  <span className={`font-bold arabic-numbers ${
-                                    transfer.toProjectId === selectedProjectId ? 'text-green-600' : 'text-red-600'
-                                  }`}>
-                                    {transfer.toProjectId === selectedProjectId ? '+' : '-'}{formatCurrency(transfer.amount)}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`font-bold arabic-numbers ${
+                                      transfer.toProjectId === selectedProjectId ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                      {transfer.toProjectId === selectedProjectId ? '+' : '-'}{formatCurrency(transfer.amount)}
+                                    </span>
+                                    <div className="flex gap-1">
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                        onClick={() => handleEditProjectTransfer(transfer)}
+                                      >
+                                        <Edit2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        onClick={() => {
+                                          if (confirm("هل أنت متأكد من حذف هذا الترحيل؟")) {
+                                            deleteProjectTransferMutation.mutate(transfer.id);
+                                          }
+                                        }}
+                                        disabled={deleteProjectTransferMutation.isPending}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
+                                  </div>
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   <div>السبب: {transfer.transferReason || 'ترحيل أموال'}</div>

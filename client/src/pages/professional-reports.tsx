@@ -56,6 +56,8 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { useSelectedProjectContext, ALL_PROJECTS_ID } from "@/contexts/SelectedProjectContext";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
@@ -160,7 +162,11 @@ export default function ProfessionalReports() {
                 variant="outline" 
                 size="sm"
                 className="gap-2 bg-white h-9 border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm"
-                onClick={() => window.print()}
+                onClick={() => {
+                  setTimeout(() => {
+                    window.print();
+                  }, 500);
+                }}
               >
                 <Printer className="h-4 w-4 text-slate-600" />
                 <span className="font-bold hidden sm:inline">طباعة</span>
@@ -171,8 +177,28 @@ export default function ProfessionalReports() {
                 onClick={() => {
                   toast({
                     title: "جاري تصدير Excel",
-                    description: "يتم الآن إنشاء ملف الكشف المحاسبي الاحترافي بناءً على البيانات الفعلية...",
+                    description: "يتم الآن إنشاء ملف الكشف المحاسبي الاحترافي...",
                   });
+
+                  try {
+                    const dataToExport = stats?.chartData?.map((row: any) => ({
+                      "التاريخ": row.date,
+                      "الإجمالي": row.total,
+                    })) || [];
+
+                    const ws = XLSX.utils.json_to_sheet(dataToExport);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "التقارير");
+                    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+                    const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+                    saveAs(data, `تقرير_${selectedProjectName}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+                  } catch (error) {
+                    toast({
+                      title: "خطأ في التصدير",
+                      description: "حدث خطأ أثناء محاولة تصدير الملف.",
+                      variant: "destructive"
+                    });
+                  }
                 }}
               >
                 <Download className="h-4 w-4" />

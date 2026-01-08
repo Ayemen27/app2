@@ -35,9 +35,10 @@
   --ring: hsl(215, 20%, 65%);
   --radius: 0.75rem;
   
-  /* ارتفاعات التخطيط */
-  --header-height: 56px;
-  --nav-height: 56px;
+  /* ارتفاعات التخطيط - محسنة للهواتف */
+  --header-height: 60px;
+  --nav-height: 64px;
+  --touch-target: 48px;
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -45,7 +46,7 @@
 @media (min-width: 768px) {
   :root {
     --header-height: 64px;
-    --nav-height: 56px;
+    --nav-height: 0px; /* القائمة الجانبية تلغي الحاجة للتنقل السفلي في الديسكتوب */
   }
 }
 

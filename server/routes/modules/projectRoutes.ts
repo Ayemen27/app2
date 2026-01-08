@@ -1255,11 +1255,12 @@ projectRouter.get('/:projectId/material-purchases', async (req: Request, res: Re
     }
 
     const isAllProjects = projectId === 'all';
+    const { date } = req.query;
 
     let purchases;
     if (isAllProjects) {
       // جلب جميع المشتريات مع اسم المشروع
-      const purchasesWithProject = await db.select({
+      let query = db.select({
         id: materialPurchases.id,
         projectId: materialPurchases.projectId,
         projectName: projects.name,
@@ -1285,12 +1286,16 @@ projectRouter.get('/:projectId/material-purchases', async (req: Request, res: Re
         createdAt: materialPurchases.createdAt,
       })
         .from(materialPurchases)
-        .leftJoin(projects, eq(materialPurchases.projectId, projects.id))
-        .orderBy(desc(materialPurchases.purchaseDate));
-      purchases = purchasesWithProject;
+        .leftJoin(projects, eq(materialPurchases.projectId, projects.id));
+      
+      if (date) {
+        query = query.where(eq(materialPurchases.purchaseDate, date as string)) as any;
+      }
+      
+      purchases = await query.orderBy(desc(materialPurchases.purchaseDate));
     } else {
       // جلب مشتريات مشروع محدد مع اسم المشروع
-      const purchasesWithProject = await db.select({
+      let query = db.select({
         id: materialPurchases.id,
         projectId: materialPurchases.projectId,
         projectName: projects.name,
@@ -1316,10 +1321,14 @@ projectRouter.get('/:projectId/material-purchases', async (req: Request, res: Re
         createdAt: materialPurchases.createdAt,
       })
         .from(materialPurchases)
-        .leftJoin(projects, eq(materialPurchases.projectId, projects.id))
-        .where(eq(materialPurchases.projectId, projectId))
-        .orderBy(desc(materialPurchases.purchaseDate));
-      purchases = purchasesWithProject;
+        .leftJoin(projects, eq(materialPurchases.projectId, projects.id));
+      
+      const conditions = [eq(materialPurchases.projectId, projectId)];
+      if (date) {
+        conditions.push(eq(materialPurchases.purchaseDate, date as string));
+      }
+      
+      purchases = await query.where(and(...conditions)).orderBy(desc(materialPurchases.purchaseDate));
     }
 
     const duration = Date.now() - startTime;
@@ -1338,9 +1347,72 @@ projectRouter.get('/:projectId/material-purchases', async (req: Request, res: Re
     res.status(500).json({
       success: false,
       data: [],
-      error: error.error,
+      error: error.message || error,
       processingTime: duration
     });
+  }
+});
+
+/**
+ * 📊 جلب مشتريات المواد (مسار عام مع فلاتر)
+ * GET /api/material-purchases
+ */
+projectRouter.get('/material-purchases-unified', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, date } = req.query;
+    console.log('📊 [API] جلب مشتريات المواد الموحد:', { projectId, date });
+
+    let query = db.select({
+      id: materialPurchases.id,
+      projectId: materialPurchases.projectId,
+      projectName: projects.name,
+      supplierId: materialPurchases.supplierId,
+      materialName: materialPurchases.materialName,
+      materialCategory: materialPurchases.materialCategory,
+      materialUnit: materialPurchases.materialUnit,
+      quantity: materialPurchases.quantity,
+      unit: materialPurchases.unit,
+      unitPrice: materialPurchases.unitPrice,
+      totalAmount: materialPurchases.totalAmount,
+      purchaseType: materialPurchases.purchaseType,
+      paidAmount: materialPurchases.paidAmount,
+      remainingAmount: materialPurchases.remainingAmount,
+      supplierName: materialPurchases.supplierName,
+      receiptNumber: materialPurchases.receiptNumber,
+      invoiceNumber: materialPurchases.invoiceNumber,
+      invoiceDate: materialPurchases.invoiceDate,
+      dueDate: materialPurchases.dueDate,
+      invoicePhoto: materialPurchases.invoicePhoto,
+      notes: materialPurchases.notes,
+      purchaseDate: materialPurchases.purchaseDate,
+      createdAt: materialPurchases.createdAt,
+    })
+    .from(materialPurchases)
+    .leftJoin(projects, eq(materialPurchases.projectId, projects.id));
+
+    const conditions = [];
+    if (projectId && projectId !== 'all') {
+      conditions.push(eq(materialPurchases.projectId, projectId as string));
+    }
+    if (date) {
+      conditions.push(eq(materialPurchases.purchaseDate, date as string));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const purchases = await query.orderBy(desc(materialPurchases.purchaseDate));
+
+    res.json({
+      success: true,
+      data: purchases,
+      message: `تم جلب ${purchases.length} سجل`,
+      processingTime: Date.now() - startTime
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

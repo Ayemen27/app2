@@ -224,29 +224,33 @@ export async function syncOfflineData(): Promise<void> {
         const endTime = Date.now();
         const requestLatency = endTime - startTime;
 
-        if (result) {
-          await removeSyncQueueItem(item.id);
-          
-          const db = await getDB();
-          const recordId = item.payload.id;
-          const tableName = item.endpoint.split('/')[2]; 
-          
-          if (tableName && recordId && typeof db.transaction === 'function') {
-            const tx = db.transaction(tableName as any, 'readwrite');
-            const store = tx.objectStore(tableName as any);
-            const record = await store.get(recordId);
-            if (record) {
-              record.synced = true;
-              record._pendingSync = false;
-              record._isLocal = false;
-              await store.put(record);
+          if (result) {
+            await removeSyncQueueItem(item.id);
+            
+            const db = await getDB();
+            const recordId = item.payload.id;
+            const tableName = item.endpoint.split('/')[2]; 
+            
+            if (tableName && recordId) {
+              try {
+                // محاولة تحديث حالة المزامنة في التخزين الذكي (يدعم SQLite و IDB)
+                const localRecords = await smartGetAll(tableName);
+                const record = localRecords.find((r: any) => (r.id || r.key) === recordId);
+                if (record) {
+                  record.synced = true;
+                  record.pendingSync = false;
+                  record.isLocal = false;
+                  await smartSave(tableName, [record]);
+                  console.log(`✅ [Sync] تم تحديث حالة المزامنة لـ ${tableName}:${recordId}`);
+                }
+              } catch (updateError) {
+                console.warn(`⚠️ [Sync] فشل تحديث حالة المزامنة محلياً لـ ${tableName}:`, updateError);
+              }
             }
-            await tx.done;
+            
+            successCount++;
+            updateSyncState({ latency: requestLatency });
           }
-          
-          successCount++;
-          updateSyncState({ latency: requestLatency });
-        }
       } catch (e) {
         retryCount++;
         const delay = getBackoffDelay(retryCount);

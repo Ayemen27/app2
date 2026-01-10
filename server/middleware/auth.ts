@@ -294,11 +294,14 @@ export function isReadOnly(req: AuthenticatedRequest) {
 }
 
 export function checkWriteAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  console.log(`🛡️ [WRITE-ACCESS] فحص الصلاحية للمسار: ${req.method} ${req.originalUrl} | الدور: ${req.user?.role}`);
+  
   if (req.method !== "GET" && isReadOnly(req)) {
+    console.warn(`🚫 [WRITE-ACCESS] منع محاولة تعديل من مستخدم "قراءة فقط": ${req.user?.email}`);
     return res.status(403).json({ 
       success: false,
       error: "صلاحية القراءة فقط", 
-      message: "لا تملك صلاحية تعديل البيانات. يرجى التواصل مع المسؤول." 
+      message: "لا تملك صلاحية تعديل البيانات. يرجى التواصل مع المسؤول للحصول على صلاحيات إضافية." 
     });
   }
   next();

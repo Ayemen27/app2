@@ -277,7 +277,7 @@ export const requireAdmin = (req: AuthenticatedRequest, res: Response, next: Nex
     });
   }
 
-  if (req.user.role !== 'admin') {
+  if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
     console.log(`🚫 [AUTH] محاولة وصول غير مصرح بها من: ${req.user.email} للمسار: ${req.originalUrl}`);
     return res.status(403).json({
       success: false,
@@ -288,6 +288,21 @@ export const requireAdmin = (req: AuthenticatedRequest, res: Response, next: Nex
 
   next();
 };
+
+export function isReadOnly(req: AuthenticatedRequest) {
+  return req.user?.role === "user";
+}
+
+export function checkWriteAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (req.method !== "GET" && isReadOnly(req)) {
+    return res.status(403).json({ 
+      success: false,
+      error: "صلاحية القراءة فقط", 
+      message: "لا تملك صلاحية تعديل البيانات. يرجى التواصل مع المسؤول." 
+    });
+  }
+  next();
+}
 
 // Middleware للطلبات الاختيارية (لا تتطلب مصادقة إجبارية)
 export const optionalAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

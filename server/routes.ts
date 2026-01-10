@@ -30,7 +30,15 @@ import {
 import { requireAuth, requireRole } from "./middleware/auth";
 import { ExpenseLedgerService } from "./services/ExpenseLedgerService";
 
+import userRoutes from "./routes/modules/userRoutes";
+import { checkWriteAccess } from "./middleware/auth";
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // تطبيق حماية القراءة فقط على جميع مسارات API التي ليست GET
+  app.use("/api", checkWriteAccess);
+
+  // مسار إدارة المستخدمين
+  app.use("/api/users", userRoutes);
 
 
   // مسار المزامنة العام (قبل أي حماية) - تم رفعه لأعلى أولوية

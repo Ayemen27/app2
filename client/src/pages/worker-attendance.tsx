@@ -367,6 +367,7 @@ export default function WorkerAttendance() {
       const errors: Array<{ workerId: string; workerName: string; error: string }> = [];
 
       for (const record of attendanceRecords) {
+        try {
           // التأكد من وجود تاريخ التحضير
           if (!record.attendanceDate && record.date) {
             record.attendanceDate = record.date;

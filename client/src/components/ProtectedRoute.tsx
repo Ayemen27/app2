@@ -26,18 +26,20 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   // ✅ الحالة 1: جاري التحميل - إظهار شاشة التحميل
   if (isLoading) {
     console.log('⏳ [ProtectedRoute] جاري التحميل...');
-    // إضافة مهلة زمنية للخروج من شاشة التحميل إذا تعطلت
-    setTimeout(() => {
-      if (isLoading) {
-        console.warn('⚠️ [ProtectedRoute] التحميل استغرق وقتاً طويلاً، محاولة المتابعة...');
-      }
-    }, 5000);
     
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center p-8 bg-card rounded-lg border shadow-sm">
           <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
           <p className="text-muted-foreground text-sm animate-pulse">جاري التحقق من الجلسة...</p>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="mt-4 text-xs opacity-50 hover:opacity-100"
+            onClick={() => window.location.reload()}
+          >
+            إعادة تحميل التطبيق
+          </Button>
         </div>
       </div>
     );

@@ -294,10 +294,15 @@ export function isReadOnly(req: AuthenticatedRequest) {
 }
 
 export function checkWriteAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  console.log(`🛡️ [WRITE-ACCESS] فحص الصلاحية للمسار: ${req.method} ${req.originalUrl} | الدور: ${req.user?.role}`);
+  // التحقق من أن المستخدم مسجل دخوله أولاً
+  if (!req.user) {
+    return next(); // سيتم التعامل معه في middleware المصادقة
+  }
+
+  console.log(`🛡️ [WRITE-ACCESS] فحص الصلاحية للمسار: ${req.method} ${req.originalUrl} | الدور: ${req.user.role}`);
   
   if (req.method !== "GET" && isReadOnly(req)) {
-    console.warn(`🚫 [WRITE-ACCESS] منع محاولة تعديل من مستخدم "قراءة فقط": ${req.user?.email}`);
+    console.warn(`🚫 [WRITE-ACCESS] منع محاولة تعديل من مستخدم "قراءة فقط": ${req.user.email}`);
     return res.status(403).json({ 
       success: false,
       error: "صلاحية القراءة فقط", 

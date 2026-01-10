@@ -290,7 +290,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(userToSave);
 
     // 3. بدء مزامنة البيانات (دون انتظار انتهاء العملية)
-    const async () => {} // performInitialDataPull = async () => {
+    const performInitialDataPull = async () => {
       try {
         const { startSync } = await import('../offline/sync');
         await startSync();
@@ -299,7 +299,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     };
 
-    async () => {} // performInitialDataPull().then(() => {
+    performInitialDataPull().then(() => {
       console.log('✅ [AuthProvider] اكتمل سحب البيانات الأولي');
       queryClient.invalidateQueries();
     }).catch(err => {

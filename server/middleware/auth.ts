@@ -305,7 +305,6 @@ export function checkWriteAccess(req: AuthenticatedRequest, res: Response, next:
     console.warn(`🚫 [WRITE-ACCESS] منع محاولة تعديل من مستخدم "قراءة فقط": ${req.user.email}`);
     return res.status(403).json({ 
       success: false,
-      error: "صلاحية القراءة فقط", 
       message: "لا تملك صلاحية تعديل البيانات. يرجى التواصل مع المسؤول للحصول على صلاحيات إضافية." 
     });
   }

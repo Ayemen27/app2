@@ -367,8 +367,16 @@ export default function WorkerAttendance() {
       const errors: Array<{ workerId: string; workerName: string; error: string }> = [];
 
       for (const record of attendanceRecords) {
-        try {
-          console.log(`🔄 محاولة حفظ حضور العامل: ${record.workerId} في التاريخ: ${record.date}`);
+          // التأكد من وجود تاريخ التحضير
+          if (!record.attendanceDate && record.date) {
+            record.attendanceDate = record.date;
+          }
+
+          if (!record.attendanceDate) {
+            record.attendanceDate = selectedDate || getCurrentDate();
+          }
+
+          console.log(`🔄 محاولة حفظ حضور العامل: ${record.workerId} في التاريخ: ${record.attendanceDate}`);
 
           // إذا كان نوع السجل = سحب (advance)، فرض workDays = 0
           if ((record as any).recordType === "advance") {

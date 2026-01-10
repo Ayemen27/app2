@@ -26,6 +26,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   // ✅ الحالة 1: جاري التحميل - إظهار شاشة التحميل
   if (isLoading) {
     console.log('⏳ [ProtectedRoute] جاري التحميل...');
+    // إضافة مهلة زمنية للخروج من شاشة التحميل إذا تعطلت
+    setTimeout(() => {
+      if (isLoading) {
+        console.warn('⚠️ [ProtectedRoute] التحميل استغرق وقتاً طويلاً، محاولة المتابعة...');
+      }
+    }, 5000);
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center p-8 bg-card rounded-lg border shadow-sm">

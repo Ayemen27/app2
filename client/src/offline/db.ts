@@ -11,14 +11,24 @@ export async function getSmartStorage() {
   // 🚀 إجبار النظام على استخدام SQLite فقط وفقط في بيئة الأندرويد/iOS
   if (platform === 'android' || platform === 'ios') {
     try {
-      // التأكد من تهيئة المحرك قبل إرجاعه
+      console.log('📱 [DB] محاولة تهيئة محرك SQLite للأندرويد...');
+      // التأكد من تهيئة المحرك قبل إرجاعه مع مهلة زمنية
       if (!(nativeStorage as any).db) {
-        await nativeStorage.initialize();
+        const initPromise = nativeStorage.initialize();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('SQLite Initialization Timeout')), 5000)
+        );
+        await Promise.race([initPromise, timeoutPromise]);
       }
+      console.log('✅ [DB] تم تهيئة محرك SQLite بنجاح');
       return nativeStorage;
     } catch (e) {
-      console.error("🔴 SQLite Engine Critical Failure:", e);
-      return null;
+      console.error("🔴 SQLite Engine Critical Failure, falling back to IDB:", e);
+      // Fallback to IndexedDB if SQLite fails to prevent app crash
+      if (!dbInstance) {
+        dbInstance = await initializeDB();
+      }
+      return dbInstance;
     }
   }
   

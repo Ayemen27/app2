@@ -289,6 +289,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // تحديث الحالة فوراً قبل أي عمليات أخرى
     setUser(userToSave);
 
+    // 3. بدء مزامنة البيانات (دون انتظار انتهاء العملية)
+    performInitialDataPull().then(() => {
+      console.log('✅ [AuthProvider] اكتمل سحب البيانات الأولي');
+      queryClient.invalidateQueries();
+    }).catch(err => {
+      console.error('❌ [AuthProvider] فشل سحب البيانات الأولي:', err);
+    });
+
     await new Promise(resolve => setTimeout(resolve, 100));
     prefetchCoreData().catch(console.warn);
 

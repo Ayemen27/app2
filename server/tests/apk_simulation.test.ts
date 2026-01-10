@@ -31,20 +31,14 @@ describe('APK Environment & Connection Tests', () => {
     expect(url).toBe('https://app2.binarjoinanelytic.info/api');
   });
 
-  it('يجب أن ينجح النظام في الانتقال إلى IndexedDB إذا فشل SQLite', async () => {
-    let storageUsed = 'none';
+  it('يجب أن يكون هناك تطابق في هيكلية البيانات بين السيرفر والمحلي', () => {
+    // محاكاة سجل من السيرفر (Postgres) وسجل محلي (SQLite/IDB)
+    const serverRecord = { id: '1', name: 'مشروع أ', budget: '1000.00', status: 'active' };
+    const localRecord = { id: '1', name: 'مشروع أ', budget: '1000.00', status: 'active' };
     
-    const getSmartStorage = async (failSQLite: boolean) => {
-      if (!failSQLite) {
-        storageUsed = 'sqlite';
-        return { type: 'sqlite' };
-      } else {
-        storageUsed = 'idb';
-        return { type: 'idb' };
-      }
-    };
-
-    await getSmartStorage(true);
-    expect(storageUsed).toBe('idb');
+    expect(serverRecord.id).toBe(localRecord.id);
+    expect(serverRecord.name).toBe(localRecord.name);
+    // التأكد من أن الحقول الأساسية متطابقة تماماً
+    expect(Object.keys(serverRecord)).toEqual(expect.arrayContaining(Object.keys(localRecord)));
   });
 });

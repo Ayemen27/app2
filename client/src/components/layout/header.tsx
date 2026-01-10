@@ -101,7 +101,6 @@ export default function Header() {
       
       <div className="flex items-center gap-2">
         <SyncStatusHeader />
-        <SyncStatusIndicator />
         
         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800">
           {isOnline ? (

@@ -31,10 +31,11 @@ import { requireAuth, requireRole } from "./middleware/auth";
 import { ExpenseLedgerService } from "./services/ExpenseLedgerService";
 
 import userRoutes from "./routes/modules/userRoutes";
-import { checkWriteAccess } from "./middleware/auth";
+import { authenticate, checkWriteAccess } from "./middleware/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // تطبيق حماية القراءة فقط على جميع مسارات API التي ليست GET
+  // تطبيق المصادقة أولاً ثم حماية القراءة فقط على جميع مسارات API التي ليست GET
+  app.use("/api", authenticate);
   app.use("/api", checkWriteAccess);
 
   // مسار إدارة المستخدمين

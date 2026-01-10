@@ -37,7 +37,8 @@ export const initializeNativePush = async (_userId: string) => {
     }
 
     if (permStatus.receive !== 'granted') {
-      throw new Error('User denied permissions!');
+      console.warn('⚠️ [NativePush] User denied permissions, skipping registration');
+      return; // لا ترفع خطأ يسبب انهيار التطبيق، فقط توقف عن التسجيل
     }
 
     await PushNotifications.register();

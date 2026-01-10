@@ -260,12 +260,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       throw new Error(errorData.message || 'فشل تسجيل الدخول');
     }
 
-    // استخراج بيانات المستخدم بشكل صحيح
-    const userData = result.data?.user || result.user;
-    const tokenData = result.data?.tokens?.accessToken || result.data?.accessToken || result.tokens?.accessToken || result.accessToken || result.token;
-    const refreshTokenData = result.data?.tokens?.refreshToken || result.data?.refreshToken || result.tokens?.refreshToken || result.refreshToken;
+    // استخراج بيانات المستخدم بشكل صحيح مع حماية ضد null
+    const userData = result?.data?.user || result?.user;
+    const tokenData = result?.data?.tokens?.accessToken || result?.data?.accessToken || result?.tokens?.accessToken || result?.accessToken || result?.token;
+    const refreshTokenData = result?.data?.tokens?.refreshToken || result?.data?.refreshToken || result?.tokens?.refreshToken || result?.refreshToken;
 
     if (!userData || !tokenData) {
+      console.error('❌ [AuthProvider.login] الاستجابة غير مكتملة:', result);
       throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة');
     }
 

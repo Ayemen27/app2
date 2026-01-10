@@ -288,8 +288,14 @@ export async function saveSyncedData(tableName: string, records: any[]): Promise
     let count = 0;
     for (const record of records) {
       if (record && record.id) {
-        await storage.set(tableName, record.id.toString(), record);
-        count++;
+        // التحقق من وجود الدالة قبل الاستدعاء لتجنب الانهيار
+        if (storage && typeof (storage as any).set === 'function') {
+          await (storage as any).set(tableName, record.id.toString(), record);
+          count++;
+        } else if (storage && typeof (storage as any).put === 'function') {
+          await (storage as any).put(tableName, record);
+          count++;
+        }
       }
     }
     return count;

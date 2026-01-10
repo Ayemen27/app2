@@ -290,6 +290,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(userToSave);
 
     // 3. بدء مزامنة البيانات (دون انتظار انتهاء العملية)
+    const performInitialDataPull = async () => {
+      try {
+        const { startSync } = await import('../offline/sync');
+        await startSync();
+      } catch (err) {
+        console.error('Error in initial pull:', err);
+      }
+    };
+
     performInitialDataPull().then(() => {
       console.log('✅ [AuthProvider] اكتمل سحب البيانات الأولي');
       queryClient.invalidateQueries();

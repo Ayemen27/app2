@@ -15,3 +15,5 @@ backups
 *.tar.gz
 *.zip
 *.rar
+SERVICE_ACCOUNT_KEY.json
+SERVICE_ACCOUNT_KEY.json

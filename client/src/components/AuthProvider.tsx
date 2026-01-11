@@ -260,12 +260,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
       throw new Error(errorData.message || 'فشل تسجيل الدخول');
     }
 
-    // استخراج بيانات المستخدم بشكل صحيح مع حماية ضد null
-    const userData = result?.data?.user || result?.user || result;
-    const tokenData = result?.data?.tokens?.accessToken || result?.data?.accessToken || result?.tokens?.accessToken || result?.accessToken || result?.token || result?.data?.token;
-    const refreshTokenData = result?.data?.tokens?.refreshToken || result?.data?.refreshToken || result?.tokens?.refreshToken || result?.refreshToken || result?.data?.refreshToken;
+    // استخراج بيانات المستخدم بشكل صحيح مع حماية شاملة
+    // السيرفر يرجع البيانات داخل كائن 'data'
+    const responseData = result?.data || result;
+    
+    const userData = responseData?.user || result?.user || result;
+    // دعم جميع أشكال التوكنات الممكنة
+    const tokenData = responseData?.tokens?.accessToken || 
+                     responseData?.accessToken || 
+                     responseData?.token ||
+                     result?.accessToken || 
+                     result?.token ||
+                     (result?.data?.tokens?.accessToken);
+                     
+    const refreshTokenData = responseData?.tokens?.refreshToken || 
+                            responseData?.refreshToken || 
+                            result?.refreshToken ||
+                            (result?.data?.tokens?.refreshToken);
 
-    if (!userData || !tokenData) {
+    console.log('🛡️ [AuthProvider.login] فحص البيانات المستخرجة:', { 
+      hasUser: !!userData, 
+      hasToken: !!tokenData,
+      userId: userData?.id,
+      tokenPreview: typeof tokenData === 'string' ? tokenData.substring(0, 10) + '...' : 'not a string'
+    });
+
+    if (!userData || !tokenData || !userData.id) {
       console.error('❌ [AuthProvider.login] الاستجابة غير مكتملة أو مفقودة:', result);
       throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.');
     }

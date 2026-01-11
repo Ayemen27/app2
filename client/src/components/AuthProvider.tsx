@@ -293,8 +293,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // 3. بدء مزامنة البيانات (دون انتظار انتهاء العملية)
     const performInitialDataPull = async () => {
       try {
-        const { startSync } = await import('../offline/sync');
-        await startSync();
+        const syncModule = await import('../offline/sync');
+        // @ts-ignore - التحقق من وجود الدالة ديناميكياً
+        if (syncModule.startSync) {
+          await syncModule.startSync();
+        } else if ((syncModule as any).default && (syncModule as any).default.startSync) {
+          await (syncModule as any).default.startSync();
+        }
       } catch (err) {
         console.error('Error in initial pull:', err);
       }

@@ -1,141 +1,139 @@
-# Construction Project Management System - Design Guidelines
+# AgentForge AI Agent Management Dashboard - Design Guidelines
 
 ## Design Approach
-**Reference-Based**: Drawing from Linear's precision, Vercel's minimalism, and Asana's project clarity. Utility-focused dashboard requiring efficiency and mobile-first touch optimization for construction site use.
+**Reference-Based**: Drawing from Linear's precision, ChatGPT's conversational interface, and Vercel's dashboard minimalism. Modern SaaS aesthetic with focus on both data visualization and natural interaction.
 
-**Critical RTL Implementation**: Full Arabic support with mirrored layouts (sidebar on right, icons flipped, text alignment right-to-left throughout).
+**Dark-First Design**: All layouts optimized for dark mode with light mode as alternative. High contrast for readability in extended sessions.
 
 ## Layout Architecture
 
-**Spacing System**: Tailwind units of 3, 4, 6, 8, 12, and 16 for mobile-optimized touch targets.
+**Spacing System**: Tailwind units of 2, 4, 6, 8, and 16 for clean, consistent rhythm.
 
-**Mobile-First Structure**:
-- **Mobile (<768px)**: Bottom navigation bar (h-16), full-width content, overlay sidebar
-- **Tablet (768px-1024px)**: Left sidebar (w-64, RTL: right), main content area
-- **Desktop (>1024px)**: Sidebar (w-72, RTL: right), main content (max-w-7xl), optional quick panel (w-80)
+**Desktop-First Structure** (>1024px):
+- Left sidebar navigation (w-64, backdrop-blur, semi-transparent)
+- Main content area (flex-1, max-w-7xl, px-8)
+- Optional right panel for agent chat (w-96, slide-in overlay)
 
-**High-Contrast Sidebar** (Slate/Blue gradient background):
-- Logo/brand header (h-16, border-b)
-- Navigation sections with icon + label (h-12 min touch target)
-- Active state indicator (4px right border, RTL: left border)
-- Workspace switcher at top
-- User profile/settings at bottom (sticky)
-- Project favorites pinned section
+**Tablet/Mobile** (≤1024px):
+- Collapsible hamburger sidebar
+- Full-width content
+- Chat opens as full-screen modal
+
+**Sidebar Components**:
+- Logo/brand (h-16, p-4)
+- Navigation groups with icons (h-10, hover state with subtle glow)
+- Active indicator (left border, 3px width, rounded-r)
+- Quick actions section (create agent, settings)
+- User profile at bottom (avatar + name + dropdown)
 
 ## Typography Hierarchy
-**Font**: Cairo or Tajawal (Google Fonts CDN) for Arabic optimization
-- Headers: text-2xl to text-4xl, font-bold
-- Section Titles: text-xl, font-semibold
-- Body/Cards: text-base, font-medium
-- Labels/Meta: text-sm, font-normal
-- Buttons: text-sm, font-semibold
-- Mobile Headers: Scale down one size (text-xl instead of text-2xl)
+**Font**: Inter + JetBrains Mono (code/logs) via Google Fonts CDN
+- Page Titles: text-3xl, font-bold, tracking-tight
+- Section Headers: text-xl, font-semibold
+- Card Titles: text-lg, font-medium
+- Body Text: text-base, font-normal
+- Labels/Meta: text-sm, font-medium
+- Code/Logs: text-sm, font-mono
+- Buttons: text-sm, font-semibold, tracking-wide
 
 ## Core Dashboard Components
 
-**Project Overview Cards** (Mobile: 1 column, Tablet: 2 columns, Desktop: 3 columns):
-- Card dimensions: min-h-48, rounded-xl, p-6
-- Header: Project name (text-lg, font-bold) + status badge
-- Progress bar with percentage (h-2, rounded-full)
-- Key metrics row (grid-cols-3): Budget, Timeline, Tasks
-- Team avatars (overlapping, -space-x-2, RTL: -space-x-reverse)
-- Quick actions footer (icon buttons, justify-end, RTL: justify-start)
+**Agent Grid** (Desktop: 3 columns, Tablet: 2, Mobile: 1):
+- Cards: rounded-2xl, p-6, min-h-64, backdrop-blur border
+- Header: Agent name (text-lg, font-bold) + type badge (px-3 py-1, rounded-full, text-xs)
+- Status indicator: Pulsing dot (w-2 h-2) + text (Active/Idle/Training/Error)
+- Real-time metrics section (grid-cols-2, gap-4):
+  - Requests handled (large number text-2xl + label text-sm)
+  - Response time (ms, with trend arrow)
+  - Success rate (percentage with mini progress ring)
+  - Last active (timestamp, text-xs)
+- Preview of recent activity (3 latest interactions, truncated)
+- Action footer: Chat button (primary gradient), Settings (ghost), Stop/Start toggle
 
-**Mobile Bottom Navigation** (z-50, backdrop-blur):
-- 5 core actions: Dashboard, Projects, Tasks, Team, More
-- Icon + label (vertical stack)
-- Active state with indicator bar (h-1, top, rounded-b-full)
-- Touch target: min-h-16, p-4
+**Hero/Dashboard Header**:
+- Full-width gradient banner with abstract AI/neural network visualization (h-80)
+- Overlay content (absolute positioning, z-10):
+  - Welcome message (text-4xl, font-bold)
+  - Quick stats row (grid-cols-4): Total agents, Active now, Today's tasks, System health
+  - Primary CTA: "Create New Agent" (large button, px-8 py-4, backdrop-blur background)
+- Stats cards float slightly above gradient (transform: translateY(-50%))
 
-**Task List Component**:
-- Grouped by status (backlog, in-progress, review, completed)
-- Each task: rounded-lg, p-4, border-l-4 (priority indicator)
-- Checkbox (w-5 h-5, rounded-md, large touch target)
-- Task title (text-base, truncate on mobile, full on desktop)
-- Assignee avatar (w-8 h-8, rounded-full)
-- Due date badge (text-xs, px-2 py-1, rounded-full)
-- Mobile: Swipe actions for quick edit/delete
+**Chat Interface** (Right Panel or Modal):
+- Header: Agent name + avatar (w-12 h-12, rounded-full) + status dot + close button
+- Message area: Full height scroll, pb-24 for input clearance
+- Message bubbles:
+  - User: right-aligned, max-w-md, rounded-2xl, px-4 py-3
+  - Agent: left-aligned, max-w-lg, rounded-2xl, px-4 py-3, avatar on left
+- Typing indicator: Three animated dots (w-2 h-2 each)
+- Input bar (fixed bottom, backdrop-blur):
+  - Textarea (auto-expand, max-h-32, rounded-xl, p-4)
+  - Attachment button (paperclip icon, left side)
+  - Send button (right side, gradient, rounded-full, w-10 h-10)
 
-**Project Detail Header**:
-- Breadcrumb navigation (text-sm, with Heroicons arrows)
-- Project title (text-3xl mobile: text-2xl, font-bold)
-- Tab navigation (horizontal scroll on mobile)
-- Action buttons (gradient primary CTA, ghost secondary)
-- Stats row (grid-cols-2 md:grid-cols-4): Completion, Budget, Team, Documents
+**Agent Configuration Panel**:
+- Tabbed interface: General, Model, Prompts, Tools, Limits
+- Form sections with border-l-2 accent, pl-6 spacing
+- Input fields: h-11, rounded-lg, px-4
+- Toggle switches for boolean settings (w-11 h-6, rounded-full with sliding dot)
+- Dropdown selects with Heroicons chevron
+- Code editor area for prompts (min-h-64, font-mono, syntax highlighting placeholder comment)
+- Save button (sticky bottom, full-width on mobile, right-aligned on desktop)
 
-**Timeline/Gantt Section**:
-- Horizontal scroll container (snap-x on mobile)
-- Month headers (sticky)
-- Project bars with gradient fills
-- Milestone markers (diamond shapes, w-4 h-4)
-- Touch-draggable for mobile timeline adjustment
-- Zoom controls (pinch-to-zoom + manual buttons)
+**Real-Time Activity Feed**:
+- Timeline layout (vertical line on left, dots for events)
+- Event cards: rounded-lg, p-4, space-y-2
+- Event type icon (w-8 h-8, rounded-full background)
+- Event description (text-sm) + timestamp (text-xs)
+- Expandable details (click to show full logs)
+- Auto-scroll with pause button when user scrolls up
+- Filter chips at top (All, Errors, Warnings, Info)
 
-**Document Management Grid**:
-- File cards (aspect-square on mobile, aspect-video on desktop)
-- Thumbnail preview area (bg-slate-lighter, rounded-t-lg)
-- File info footer (name, size, upload date)
-- Overlay actions on hover (desktop) or long-press (mobile)
-- Quick filters: All, Images, PDFs, CAD, Reports
+**System Monitoring Dashboard**:
+- Chart grid (grid-cols-2, gap-6)
+- Performance graphs: Line charts for CPU/Memory over time
+- Request volume: Bar chart (last 24 hours, hourly buckets)
+- Error rate donut chart with percentage center
+- Response time distribution histogram
+- All charts: Responsive SVG with tooltips on hover
 
-## Mobile-Specific Optimizations
+## Mobile Optimizations
 
-**Touch Targets**: All interactive elements minimum 44x44px (h-11, w-11)
+**Bottom Navigation** (Mobile only, h-16, backdrop-blur):
+- 4 core tabs: Dashboard, Agents, Chat, Settings
+- Icon + label vertical stack
+- Active state with top border indicator (h-1)
 
-**Gestures**:
-- Pull-to-refresh on lists
-- Swipe-to-delete on task items
-- Long-press for context menus
-- Pinch-to-zoom on timeline and floor plans
-
-**Input Fields**:
-- Extra padding (p-4 vs desktop p-3)
-- Large labels (text-base vs desktop text-sm)
-- Clear button visible on mobile (x icon, right side, RTL: left)
-- Native date/time pickers
-
-**Modal Behavior**:
-- Mobile: Full-screen overlay with slide-up animation
-- Desktop: Centered dialog (max-w-2xl, rounded-2xl)
-- Always include close button (top-right, RTL: top-left)
-
-## Form Layouts
-
-**Create Project Form**:
-- Section grouping (border-l-2, pl-6, RTL: border-r-2, pr-6)
-- Field spacing (space-y-6)
-- Input groups: Label (font-medium, mb-2) + Input (h-12, rounded-lg)
-- Helper text (text-sm, mt-1)
-- Multi-step on mobile (wizard with progress indicator)
-- Single scrollable form on desktop
-
-**Filter Panel**:
-- Accordion sections (collapsible on mobile)
-- Checkbox groups (space-y-3)
-- Date range picker (calendar dropdown)
-- Clear filters button (text link, text-sm)
-- Apply button (fixed bottom on mobile, sticky)
-
-## Data Visualization
-
-**Charts & Metrics**:
-- Donut charts for budget allocation (responsive svg)
-- Bar charts for task completion (horizontal on mobile)
-- Line graphs for timeline progress
-- Card-based KPIs (number + trend arrow + sparkline)
-- Mobile: Stack vertically, desktop: grid-cols-3
+**Swipe Gestures**:
+- Swipe agent cards for quick actions (edit/delete/duplicate)
+- Pull-to-refresh on agent list and activity feed
+- Swipe between chat conversations
 
 ## Icons & Assets
-**Heroicons**: Navigation (home, briefcase, clipboard), actions (plus, edit, trash), status (check, clock, alert)
+**Heroicons**: Navigation (home, chart-bar, cog), actions (plus, pencil, trash), status (check-circle, exclamation, clock), chat (chat-bubble, paper-airplane)
+
+**Font Awesome**: AI/robot icons (fa-robot), neural network patterns
 
 ## Images
-**No hero image** - This is a utility dashboard. Focus on data visualization, project thumbnails, and functional clarity.
 
-**Project Thumbnails**: Use placeholder images for construction sites, floor plans, progress photos in project cards and detail views.
+**Hero Section**: Abstract AI/neural network visualization - flowing particle connections, gradient mesh, or animated neural pathways. Low opacity overlay allows text readability. Height: h-80 desktop, h-64 mobile.
 
-## Empty States
-**No Projects**: Illustration + "Create First Project" CTA (gradient button, shadow-lg)
-**No Tasks**: Checklist icon + "Add Your First Task" prompt
-**No Team Members**: Avatar grid placeholder + "Invite Team" action
+**Agent Avatars**: Placeholder AI-themed icons/illustrations representing different agent types (analyst, writer, coder, assistant). Circular format, w-12 h-12 in cards, w-16 h-16 in chat.
 
-**Responsive Breakpoints**: Mobile-first cascade - design for 375px, enhance at 768px, optimize at 1280px. All touch targets respect 44px minimum. Sidebar transforms to bottom nav on mobile with smooth transitions (300ms ease). RTL support is mandatory throughout with proper icon mirroring and layout reversal.
+**Empty States**: 
+- No agents: Robot illustration + "Create Your First Agent" CTA
+- No messages: Chat bubble illustration + prompt suggestions
+- No activity: Flatline graph illustration + "Waiting for events"
+
+**Dashboard Accent**: Subtle grid pattern or dot matrix background for main content area (very low opacity for depth without distraction).
+
+## Special Interactions
+
+**Command Palette** (⌘K trigger):
+- Modal overlay (max-w-2xl, rounded-xl, backdrop-blur)
+- Search input (text-lg, p-4)
+- Results list (keyboard navigable, group by category)
+- Actions: Create agent, open chat, view logs, navigate
+
+**Live Status Updates**: WebSocket-powered real-time indicators - pulsing animations, smooth number transitions, toast notifications for critical events.
+
+**Animations**: Subtle scale on card hover (scale-105), fade-in for new messages, slide-in for panels. Keep under 300ms duration. Use sparingly - only for state changes and user feedback.

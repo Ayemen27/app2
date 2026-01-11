@@ -261,13 +261,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     // استخراج بيانات المستخدم بشكل صحيح مع حماية ضد null
-    const userData = result?.data?.user || result?.user;
-    const tokenData = result?.data?.tokens?.accessToken || result?.data?.accessToken || result?.tokens?.accessToken || result?.accessToken || result?.token;
-    const refreshTokenData = result?.data?.tokens?.refreshToken || result?.data?.refreshToken || result?.tokens?.refreshToken || result?.refreshToken;
+    const userData = result?.data?.user || result?.user || result;
+    const tokenData = result?.data?.tokens?.accessToken || result?.data?.accessToken || result?.tokens?.accessToken || result?.accessToken || result?.token || result?.data?.token;
+    const refreshTokenData = result?.data?.tokens?.refreshToken || result?.data?.refreshToken || result?.tokens?.refreshToken || result?.refreshToken || result?.data?.refreshToken;
 
     if (!userData || !tokenData) {
-      console.error('❌ [AuthProvider.login] الاستجابة غير مكتملة:', result);
-      throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة');
+      console.error('❌ [AuthProvider.login] الاستجابة غير مكتملة أو مفقودة:', result);
+      throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.');
     }
 
     // حفظ بيانات المستخدم

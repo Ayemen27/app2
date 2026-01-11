@@ -186,32 +186,33 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
         // التأكد من وجود جميع الجداول المطلوبة
         for (const storeName of ALL_STORES) {
           if (!db.objectStoreNames.contains(storeName)) {
-            // @ts-ignore
-            const store = db.createObjectStore(storeName, { keyPath: 'id' });
-            // @ts-ignore
-            store.createIndex('timestamp', 'timestamp');
-            // @ts-ignore
-            store.createIndex('action', 'action');
-          } else if (storeName === 'userData') {
-            // @ts-ignore
-            const store = db.createObjectStore(storeName, { keyPath: 'id' });
-            // @ts-ignore
-            store.createIndex('type', 'type');
-          } else if (storeName === 'syncMetadata') {
-            // @ts-ignore
-            db.createObjectStore(storeName, { keyPath: 'key' });
-          } else {
-            // @ts-ignore
-            const store = db.createObjectStore(storeName as any, { keyPath: 'id' });
-            // @ts-ignore
-            store.createIndex('createdAt', 'createdAt');
-            // @ts-ignore
-            store.createIndex('projectId', 'projectId');
-            // @ts-ignore
-            store.createIndex('synced', 'synced');
-            // @ts-ignore
-            store.createIndex('_pendingSync', '_pendingSync');
-          }
+            if (storeName === 'syncQueue') {
+              // @ts-ignore
+              const store = db.createObjectStore(storeName, { keyPath: 'id' });
+              // @ts-ignore
+              store.createIndex('timestamp', 'timestamp');
+              // @ts-ignore
+              store.createIndex('action', 'action');
+            } else if (storeName === 'userData') {
+              // @ts-ignore
+              const store = db.createObjectStore(storeName, { keyPath: 'id' });
+              // @ts-ignore
+              store.createIndex('type', 'type');
+            } else if (storeName === 'syncMetadata') {
+              // @ts-ignore
+              db.createObjectStore(storeName, { keyPath: 'key' });
+            } else {
+              // @ts-ignore
+              const store = db.createObjectStore(storeName as any, { keyPath: 'id' });
+              // @ts-ignore
+              store.createIndex('createdAt', 'createdAt');
+              // @ts-ignore
+              store.createIndex('projectId', 'projectId');
+              // @ts-ignore
+              store.createIndex('synced', 'synced');
+              // @ts-ignore
+              store.createIndex('_pendingSync', '_pendingSync');
+            }
           }
         }
       }

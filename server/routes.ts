@@ -73,6 +73,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  const API_DOMAIN = 'https://app2.binarjoinanelytic.info';
+
   app.get("/api/sync/full-backup", syncHandler);
   app.post("/api/sync/full-backup", syncHandler);
 
@@ -89,9 +91,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // حفظ التوكن للمستخدم الحالي
       await db.update(users)
         .set({ fcmToken: token })
-        .where(eq(users.id, req.user!.id));
+        .where(eq(users.id, req.user!.userId));
 
-      console.log(`🔔 [Push] Token registered for user ${req.user!.id}`);
+      console.log(`🔔 [Push] Token registered for user ${req.user!.userId}`);
       res.json({ success: true, message: "Token registered successfully" });
     } catch (error: any) {
       console.error('❌ [Push] Error registering token:', error);
@@ -117,7 +119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/builds/latest", requireAuth, async (req, res) => {
     try {
       const latestBuild = await db.select().from(buildDeployments)
-        .where(eq(buildDeployments.triggeredBy, req.user!.id))
+        .where(eq(buildDeployments.triggeredBy, req.user!.userId))
         .orderBy(desc(buildDeployments.startTime))
         .limit(1);
 
@@ -149,7 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🔄 [Schema] تطبيق المخطط على السيرفر الخارجي للتطبيق: ${appType} في ${timestamp}`);
       
       // محاكاة استدعاء السيرفر الخارجي
-      const externalServerUrl = process.env.EXTERNAL_SERVER_URL || (process.env.PRODUCTION_DOMAIN ? process.env.PRODUCTION_DOMAIN : 'https://app2.binarjoinanelytic.info');
+      const externalServerUrl = process.env.EXTERNAL_SERVER_URL || 'https://app2.binarjoinanelytic.info';
       
       console.log(`📡 [Schema] محاولة الاتصال بـ: ${externalServerUrl}`);
       console.log(`✅ [Schema] تم تطبيق المخطط بنجاح على السيرفر الخارجي`);
@@ -189,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         appType,
         logs: [],
         steps: [],
-        triggeredBy: req.user!.id,
+        triggeredBy: req.user!.userId,
       }).returning();
       
       buildId = newBuild.id;
@@ -205,7 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // 4. الاتصال بالسيرفر الخارجي
       logs.push({ timestamp: new Date().toLocaleTimeString('ar-SA'), message: "🔗 الاتصال بالسيرفر الخارجي...", type: "info" });
-      const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://app2.binarjoinanelytic.info';
+      const PRODUCTION_DOMAIN = 'https://app2.binarjoinanelytic.info';
       const currentExternalUrl = process.env.EXTERNAL_SERVER_URL || PRODUCTION_DOMAIN;
       const externalToken = process.env.EXTERNAL_SERVER_TOKEN || '';
       
@@ -388,19 +390,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         workerName: workers.name,
       })
       .from(transportationExpenses)
-      .leftJoin(workers, eq(transportationExpenses.workerId, workers.id))
-      .where(eq(transportationExpenses.projectId, projectId));
+      .leftJoin(workers, eq(transportationExpenses.workerId, workers.id));
+
+      let conditions = [eq(transportationExpenses.projectId, projectId)];
 
       if (date) {
-        query = query.where(eq(transportationExpenses.date, date as string)) as any;
+        conditions.push(eq(transportationExpenses.date, date as string));
       } else if (dateFrom && dateTo) {
-        query = query.where(and(
-          gte(transportationExpenses.date, dateFrom as string),
-          lte(transportationExpenses.date, dateTo as string)
-        )) as any;
+        conditions.push(gte(transportationExpenses.date, dateFrom as string));
+        conditions.push(lte(transportationExpenses.date, dateTo as string));
       }
 
-      const expenses = await query.orderBy(desc(transportationExpenses.date));
+      const expenses = await query.where(and(...conditions)).orderBy(desc(transportationExpenses.date));
       res.json({ success: true, data: expenses });
     } catch (error: any) {
       console.error('❌ [Transportation] Error fetching expenses:', error);
@@ -429,16 +430,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .leftJoin(workers, eq(transportationExpenses.workerId, workers.id))
       .leftJoin(projects, eq(transportationExpenses.projectId, projects.id));
 
+      let conditions = [];
+
       if (date) {
-        query = query.where(eq(transportationExpenses.date, date as string)) as any;
+        conditions.push(eq(transportationExpenses.date, date as string));
       } else if (dateFrom && dateTo) {
-        query = query.where(and(
-          gte(transportationExpenses.date, dateFrom as string),
-          lte(transportationExpenses.date, dateTo as string)
-        )) as any;
+        conditions.push(gte(transportationExpenses.date, dateFrom as string));
+        conditions.push(lte(transportationExpenses.date, dateTo as string));
       }
 
-      const expenses = await query.orderBy(desc(transportationExpenses.date));
+      const expenses = await (conditions.length > 0 
+        ? query.where(and(...conditions))
+        : query
+      ).orderBy(desc(transportationExpenses.date));
       res.json({ success: true, data: expenses });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
@@ -447,7 +451,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/transportation", requireAuth, async (req, res) => {
     try {
-      const expense = await storage.createTransportationExpense(req.body);
+      // @ts-ignore - Fallback for storage
+      const storageService = (global as any).storage || {
+        createTransportationExpense: async (data: any) => {
+          const [newExpense] = await db.insert(transportationExpenses).values(data).returning();
+          return newExpense;
+        }
+      };
+      const expense = await storageService.createTransportationExpense(req.body);
       res.json({ success: true, data: expense });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
@@ -457,7 +468,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/transportation/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const updated = await storage.updateTransportationExpense(id, req.body);
+      // @ts-ignore - Fallback for storage
+      const storageService = (global as any).storage || {
+        updateTransportationExpense: async (id: string, data: any) => {
+          const [updated] = await db.update(transportationExpenses).set(data).where(eq(transportationExpenses.id, id)).returning();
+          return updated;
+        }
+      };
+      const updated = await storageService.updateTransportationExpense(id, req.body);
       res.json({ success: true, data: updated });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
@@ -467,7 +485,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/transportation/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      await storage.deleteTransportationExpense(id);
+      // @ts-ignore - Fallback for storage
+      const storageService = (global as any).storage || {
+        deleteTransportationExpense: async (id: string) => {
+          await db.delete(transportationExpenses).where(eq(transportationExpenses.id, id));
+        }
+      };
+      await storageService.deleteTransportationExpense(id);
       res.json({ success: true, message: "تم حذف سجل النقل بنجاح" });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });

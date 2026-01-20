@@ -263,7 +263,7 @@ export default function ProfessionalReports() {
             idx + 1,
             format(date, 'yyyy/MM/dd'),
             format(date, 'EEEE', { locale: arSA }),
-            selectedProjectName,
+            t.projectName || selectedProjectName,
             worker?.dailyWage || 0,
             t.daysCount || 1,
             t.hoursCount || 8,
@@ -462,7 +462,7 @@ export default function ProfessionalReports() {
                         <td className="p-4 border-l text-center">{i + 1}</td>
                         <td className="p-4 border-l">{format(new Date(row.date), 'yyyy/MM/dd')}</td>
                         <td className="p-4 border-l">{format(new Date(row.date), 'EEEE', { locale: arSA })}</td>
-                        <td className="p-4 border-l">{selectedProjectName}</td>
+                        <td className="p-4 border-l">{row.projectName || selectedProjectName}</td>
                         <td className="p-4 border-l">{formatCurrency(row.dailyWage || 0)}</td>
                         <td className="p-4 border-l text-center">{row.daysCount || 1}</td>
                         <td className="p-4 border-l text-blue-600">{formatCurrency(row.amount)}</td>

@@ -148,67 +148,133 @@ export default function ProfessionalReports() {
       const worksheet = workbook.addWorksheet('كشف حساب');
       worksheet.views = [{ rightToLeft: true }];
 
-      const headerFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1e40af' } };
+      // Define standard styles
+      const headerFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1e3a8a' } }; // Deep Navy
+      const subHeaderFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'f1f5f9' } }; // Slate 100
       const whiteFont = { color: { argb: 'FFFFFF' }, bold: true, name: 'Arial', size: 12 };
-      const darkFont = { color: { argb: '1e293b' }, bold: true, name: 'Arial', size: 11 };
-      const centerAlign: any = { horizontal: 'center', vertical: 'middle' };
+      const darkFont = { color: { argb: '0f172a' }, bold: true, name: 'Arial', size: 11 };
+      const centerAlign: any = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      const borderStyle: any = {
+        top: { style: 'thin', color: { argb: 'cbd5e1' } },
+        left: { style: 'thin', color: { argb: 'cbd5e1' } },
+        bottom: { style: 'thin', color: { argb: 'cbd5e1' } },
+        right: { style: 'thin', color: { argb: 'cbd5e1' } }
+      };
 
       if (activeTab === 'workers' && workerStatement) {
         const worker = workersList.find((w: any) => w.id === selectedWorkerId);
+        
+        // --- Header Section ---
         worksheet.mergeCells('A1:E1');
         const titleCell = worksheet.getCell('A1');
-        titleCell.value = `كشف حساب عامل: ${worker?.name || 'غير معروف'}`;
+        titleCell.value = `كشف حساب تفصيلي: ${worker?.name || 'غير معروف'}`;
         titleCell.fill = headerFill;
-        titleCell.font = whiteFont;
+        titleCell.font = { ...whiteFont, size: 16 };
         titleCell.alignment = centerAlign;
-        worksheet.getRow(1).height = 35;
+        worksheet.getRow(1).height = 45;
 
-        worksheet.mergeCells('A2:E2');
+        worksheet.mergeCells('A2:B2');
         worksheet.getCell('A2').value = `المشروع: ${selectedProjectName}`;
         worksheet.getCell('A2').font = darkFont;
         
-        worksheet.mergeCells('A3:E3');
-        worksheet.getCell('A3').value = `الفترة: ${filterValues.timeRange === 'all' ? 'كامل الفترة' : 'الشهر الحالي'}`;
+        worksheet.mergeCells('C2:E2');
+        worksheet.getCell('C2').value = `تاريخ التصدير: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`;
+        worksheet.getCell('C2').alignment = { horizontal: 'left' };
+
+        // --- Summary Box ---
+        const summaryRow = 4;
+        worksheet.getCell(`A${summaryRow}`).value = 'إجمالي المستحقات';
+        worksheet.getCell(`B${summaryRow}`).value = 'إجمالي المدفوعات';
+        worksheet.getCell(`C${summaryRow}`).value = 'الرصيد المتبقي';
         
-        worksheet.getRow(4).values = ['التاريخ', 'البيان', 'مدين (عليه)', 'دائن (له)', 'الرصيد'];
-        worksheet.getRow(4).eachCell((cell) => {
+        [1, 2, 3].forEach(col => {
+          const cell = worksheet.getRow(summaryRow).getCell(col);
+          cell.fill = subHeaderFill;
+          cell.font = darkFont;
+          cell.alignment = centerAlign;
+          cell.border = borderStyle;
+        });
+
+        const dataSummaryRow = 5;
+        worksheet.getCell(`A${dataSummaryRow}`).value = workerStatement.summary.totalEarned;
+        worksheet.getCell(`B${dataSummaryRow}`).value = workerStatement.summary.totalPaid;
+        worksheet.getCell(`C${dataSummaryRow}`).value = workerStatement.summary.balance;
+        
+        [1, 2, 3].forEach(col => {
+          const cell = worksheet.getRow(dataSummaryRow).getCell(col);
+          cell.numFmt = '#,##0.00 "SAR"';
+          cell.font = { bold: true };
+          cell.alignment = centerAlign;
+          cell.border = borderStyle;
+        });
+
+        // --- Transactions Table ---
+        const tableHeaderRow = 7;
+        worksheet.getRow(tableHeaderRow).values = ['التاريخ', 'البيان', 'نوع الحركة', 'المبلغ', 'الرصيد التراكمي'];
+        worksheet.getRow(tableHeaderRow).eachCell((cell) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '334155' } };
           cell.font = whiteFont;
           cell.alignment = centerAlign;
-          cell.border = { bottom: { style: 'medium' } };
+          cell.border = borderStyle;
         });
 
         let currentBalance = 0;
         const rows = workerStatement.transactions.map((t: any) => {
-          const debit = t.type === 'expense' || t.type === 'transfer' ? t.amount : 0;
-          const credit = t.type === 'attendance' ? t.amount : 0;
-          currentBalance += (credit - debit);
+          const isCredit = t.type === 'attendance';
+          const amount = parseFloat(t.amount || 0);
+          currentBalance += isCredit ? amount : -amount;
           return [
             format(new Date(t.date), 'yyyy-MM-dd'),
-            t.description || (t.type === 'attendance' ? 'حضور يومي' : 'دفعة مالية'),
-            debit || '-',
-            credit || '-',
+            t.description || (isCredit ? 'حضور يومي' : 'دفعة مالية'),
+            isCredit ? 'مستحق (له)' : 'صرف (عليه)',
+            amount,
             currentBalance
           ];
         });
         worksheet.addRows(rows);
 
-        const lastRow = worksheet.rowCount + 2;
-        worksheet.mergeCells(`A${lastRow}:C${lastRow}`);
-        worksheet.getCell(`A${lastRow}`).value = 'إجمالي المستحقات النهائية:';
-        worksheet.getCell(`A${lastRow}`).font = { bold: true, size: 14 };
-        worksheet.getCell(`D${lastRow}`).value = workerStatement.summary.balance;
-        worksheet.getCell(`D${lastRow}`).font = { bold: true, size: 14, color: { argb: workerStatement.summary.balance < 0 ? 'ef4444' : '10b981' } };
+        // Styling the data rows
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber > tableHeaderRow) {
+            row.eachCell((cell, colNumber) => {
+              cell.border = borderStyle;
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+              if (colNumber >= 4) cell.numFmt = '#,##0.00';
+            });
+          }
+        });
+
+        worksheet.getColumn(1).width = 15;
+        worksheet.getColumn(2).width = 35;
+        worksheet.getColumn(3).width = 15;
+        worksheet.getColumn(4).width = 15;
+        worksheet.getColumn(5).width = 18;
+
       } else {
-        const dataToExport = stats?.chartData?.map((row: any) => ({
-          "التاريخ": row.date,
-          "الإجمالي": row.total,
-        })) || [];
-        worksheet.columns = [
-          { header: 'التاريخ', key: 'date', width: 20 },
-          { header: 'الإجمالي', key: 'total', width: 20 }
-        ];
-        worksheet.addRows(dataToExport.map(d => [d['التاريخ'], d['الإجمالي']]));
+        // Professional Dashboard Export
+        worksheet.mergeCells('A1:C1');
+        worksheet.getCell('A1').value = `تقرير الأداء المالي: ${selectedProjectName}`;
+        worksheet.getCell('A1').fill = headerFill;
+        worksheet.getCell('A1').font = whiteFont;
+        worksheet.getCell('A1').alignment = centerAlign;
+        
+        worksheet.getRow(3).values = ['التاريخ', 'إجمالي المنصرف اليومي', 'ملاحظات'];
+        worksheet.getRow(3).eachCell(cell => {
+          cell.fill = subHeaderFill;
+          cell.font = darkFont;
+          cell.border = borderStyle;
+        });
+
+        const rows = stats?.chartData?.map((row: any) => [
+          row.date,
+          row.total,
+          ''
+        ]) || [];
+        worksheet.addRows(rows);
+        
+        worksheet.getColumn(1).width = 20;
+        worksheet.getColumn(2).width = 25;
+        worksheet.getColumn(3).width = 30;
       }
 
       const buffer = await workbook.xlsx.writeBuffer();
@@ -494,7 +560,7 @@ export default function ProfessionalReports() {
                             </div>
                           </div>
                           <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 px-4 py-1.5 rounded-full font-black text-xs">
-                            {timeRange === 'all' ? 'الأرشيف الكامل' : 'بيانات الشهر الحالي'}
+                            {filterValues.timeRange === 'all' ? 'الأرشيف الكامل' : 'بيانات الشهر الحالي'}
                           </Badge>
                         </div>
 

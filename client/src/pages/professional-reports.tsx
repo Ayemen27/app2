@@ -406,7 +406,7 @@ export default function ProfessionalReports() {
                           </div>
                           <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                             <div 
-                              className={`h-full ${item.color} transition-all duration-[1500ms] ease-out rounded-full`} 
+                              className={`h-full ${item.color} transition-all duration-&lsqb;1500ms&rsqb; ease-out rounded-full`} 
                               style={{ width: `${Math.min(100, (item.val / (stats?.overall?.totalExpenses || 1)) * 100)}%` }}
                             />
                           </div>

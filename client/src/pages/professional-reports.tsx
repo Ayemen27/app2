@@ -557,6 +557,6 @@ export default function ProfessionalReports() {
           </p>
         </div>
       </div>
-    </LayoutShell>
+    </div>
   );
 }

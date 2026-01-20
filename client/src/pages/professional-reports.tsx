@@ -20,7 +20,8 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
-  Search
+  Search,
+  UserCheck
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout/layout-shell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";

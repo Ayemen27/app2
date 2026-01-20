@@ -111,13 +111,50 @@ export default function BackupManager() {
     onSettled: () => setIsRestoring(null)
   });
 
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteProgress, setDeleteProgress] = useState(0);
+
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest(`/api/backups/${id}`, "DELETE");
+      setDeletingId(id);
+      setDeleteProgress(10);
+      
+      const interval = setInterval(() => {
+        setDeleteProgress(prev => {
+          if (prev >= 90) return prev;
+          return prev + Math.floor(Math.random() * 15) + 5;
+        });
+      }, 150);
+
+      try {
+        await apiRequest(`/api/backups/${id}`, "DELETE");
+        clearInterval(interval);
+        setDeleteProgress(100);
+      } catch (error) {
+        clearInterval(interval);
+        throw error;
+      }
     },
     onSuccess: () => {
-      toast({ title: "تم الحذف", description: "تم حذف سجل النسخة الاحتياطية بنجاح" });
-      queryClient.invalidateQueries({ queryKey: ["/api/backups/logs"] });
+      setTimeout(() => {
+        toast({ 
+          title: "تم الحذف بنجاح", 
+          description: "تم إزالة سجل النسخة الاحتياطية وتطهير البيانات المرتبطة.",
+          className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/backups/logs"] });
+        setDeletingId(null);
+        setDeleteProgress(0);
+      }, 600);
+    },
+    onError: (error: any) => {
+      setDeletingId(null);
+      setDeleteProgress(0);
+      toast({ 
+        title: "فشل الحذف", 
+        description: error.message,
+        variant: "destructive" 
+      });
     }
   });
 
@@ -243,8 +280,37 @@ export default function BackupManager() {
             {filteredLogs.map((log) => (
               <div 
                 key={log.id} 
-                className="group relative bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3 hover:shadow-md transition-all duration-300"
+                className={`group relative bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3 hover:shadow-md transition-all duration-500 overflow-hidden ${deletingId === log.id ? 'ring-2 ring-rose-500/50 scale-[0.98]' : ''}`}
               >
+                {/* Delete Progress Overlay */}
+                {deletingId === log.id && (
+                  <div className="absolute inset-0 z-50 bg-background/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="w-full max-w-[200px] space-y-3">
+                      <div className="relative h-12 w-12 mx-auto">
+                        <div className="absolute inset-0 rounded-full border-2 border-rose-500/20"></div>
+                        <div 
+                          className="absolute inset-0 rounded-full border-2 border-rose-600 border-t-transparent animate-spin"
+                          style={{ animationDuration: '0.6s' }}
+                        ></div>
+                        <Trash2 className="absolute inset-0 m-auto h-5 w-5 text-rose-600 animate-pulse" />
+                      </div>
+                      <div className="space-y-1.5 text-center">
+                        <p className="text-[11px] font-bold text-rose-600 animate-pulse">جاري الحذف الآمن...</p>
+                        <div className="h-1.5 w-full bg-rose-100 dark:bg-rose-900/30 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-rose-500 to-rose-600 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(225,29,72,0.4)]"
+                            style={{ width: `${deleteProgress}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between items-center text-[9px] font-mono text-rose-500/70">
+                          <span>DELETING_BLOCKS</span>
+                          <span>{deleteProgress}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`p-2 rounded-lg shrink-0 ${log.status === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
@@ -297,11 +363,22 @@ export default function BackupManager() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-8 w-8 text-rose-600 hover:bg-rose-50"
+                      className="h-8 w-8 text-rose-600 hover:bg-rose-50 active-elevate-2 transition-transform active:scale-90"
+                      disabled={deletingId !== null || isRestoring !== null}
                       onClick={() => {
-                        if (window.confirm("حذف هذا السجل؟")) {
-                          deleteMutation.mutate(log.id);
-                        }
+                        toast({
+                          title: "تأكيد الحذف",
+                          description: "هل أنت متأكد من حذف هذه النسخة نهائياً؟ لا يمكن التراجع عن هذا الإجراء.",
+                          action: (
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              onClick={() => deleteMutation.mutate(log.id)}
+                            >
+                              تأكيد الحذف
+                            </Button>
+                          ),
+                        });
                       }}
                     >
                       <Trash2 className="h-4 w-4" />

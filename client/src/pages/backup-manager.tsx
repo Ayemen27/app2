@@ -45,7 +45,7 @@ export default function BackupManager() {
 
   const { data: logsResponse, isLoading, refetch } = useQuery<BackupLogsResponse>({
     queryKey: ["/api/backups/logs"],
-    refetchInterval: 30000,
+    refetchInterval: 5000,
   });
 
   const logs = useMemo(() => logsResponse?.data || [], [logsResponse]);
@@ -54,6 +54,12 @@ export default function BackupManager() {
     mutationFn: async () => {
       const res = await apiRequest("/api/backups/run", "POST");
       return res;
+    },
+    onMutate: () => {
+      toast({ 
+        title: "جاري بدء العملية", 
+        description: "يتم الآن تجهيز النسخة الاحتياطية...",
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/backups/logs"] });
@@ -155,16 +161,17 @@ export default function BackupManager() {
           setFilterValues({ status: "all" });
         }}
         onRefresh={refetch}
-        isRefreshing={isLoading}
+        isRefreshing={isLoading || backupMutation.isPending}
         searchPlaceholder="البحث في أسماء الملفات..."
         actions={[
           {
             key: "run-backup",
-            label: "نسخة فورية",
+            label: backupMutation.isPending ? "جاري النسخ..." : "نسخة فورية",
             icon: backupMutation.isPending ? RefreshCw : ShieldCheck,
             onClick: () => backupMutation.mutate(),
             disabled: backupMutation.isPending,
-            variant: "default"
+            variant: "default",
+            className: backupMutation.isPending ? "animate-pulse" : ""
           }
         ]}
       />
@@ -188,11 +195,11 @@ export default function BackupManager() {
                 headerColor={log.status === 'success' ? '#10b981' : '#ef4444'}
                 badges={[
                   { 
-                    label: log.status === 'success' ? 'ناجحة' : 'فاشلة', 
-                    variant: log.status === 'success' ? 'success' : 'destructive' 
+                    label: log.status === 'success' ? 'ناجحة' : (log.status === 'in_progress' ? 'جاري العمل' : 'فاشلة'), 
+                    variant: log.status === 'success' ? 'success' : (log.status === 'in_progress' ? 'warning' : 'destructive') 
                   },
                   { 
-                    label: `${log.size} MB`, 
+                    label: log.size ? `${log.size} MB` : '...', 
                     variant: 'outline' 
                   }
                 ]}
@@ -208,6 +215,7 @@ export default function BackupManager() {
                     icon: Database
                   }
                 ]}
+                isLoading={log.status === 'in_progress'}
                 className="hover-elevate h-full"
                 footer={
                   <div className="flex w-full gap-2 mt-2">

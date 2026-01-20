@@ -71,6 +71,7 @@ export default function ProfessionalReports() {
 
   const { data: workersList = [], isLoading: workersLoading } = useQuery({
     queryKey: ["/api/workers"],
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const res = await apiRequest("/api/workers", "GET");
       const workers = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
@@ -84,6 +85,7 @@ export default function ProfessionalReports() {
 
   const { data: workerStatement, isLoading: workerLoading } = useQuery({
     queryKey: ["/api/reports/worker-statement", selectedWorkerId, selectedProjectId, timeRange],
+    staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       if (!selectedWorkerId) return null;
       // Build query params
@@ -214,6 +216,7 @@ export default function ProfessionalReports() {
 
   const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ["/api/reports/dashboard-kpis", selectedProjectId, timeRange],
+    staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       const res = await apiRequest(`/api/reports/dashboard-kpis?projectId=${selectedProjectId}&range=${timeRange}`, "GET");
       return res.data;

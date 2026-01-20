@@ -86,19 +86,15 @@ export default function ProfessionalReports() {
 
   const filterConfig: FilterConfig[] = [
     {
-      key: "timeRange",
+      key: "dateRange",
       label: "الفترة الزمنية",
-      type: "select",
-      options: [
-        { label: "اليوم", value: "today" },
-        { label: "الشهر الحالي", value: "this-month" },
-        { label: "الكل", value: "all" },
-      ]
+      type: "date-range",
     },
     {
       key: "workerId",
       label: "العامل",
       type: "select",
+      showSearch: true,
       options: [
         { label: "جميع العمال", value: "all" },
         ...workersList.map((w: any) => ({
@@ -117,7 +113,7 @@ export default function ProfessionalReports() {
   };
 
   const { data: workerStatement, isLoading: workerLoading } = useQuery({
-    queryKey: ["/api/reports/worker-statement", selectedWorkerId, selectedProjectId, filterValues.timeRange],
+    queryKey: ["/api/reports/worker-statement", selectedWorkerId, selectedProjectId, filterValues.dateRange],
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       if (!selectedWorkerId) return null;
@@ -126,8 +122,12 @@ export default function ProfessionalReports() {
       if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
         params.append("projectId", selectedProjectId);
       }
-      if (filterValues.timeRange === 'this-month') {
-        params.append("dateFrom", format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'));
+      
+      if (filterValues.dateRange?.from) {
+        params.append("dateFrom", format(new Date(filterValues.dateRange.from), 'yyyy-MM-dd'));
+      }
+      if (filterValues.dateRange?.to) {
+        params.append("dateTo", format(new Date(filterValues.dateRange.to), 'yyyy-MM-dd'));
       }
       
       const res = await apiRequest(`/api/reports/worker-statement?${params.toString()}`, "GET");
@@ -137,11 +137,20 @@ export default function ProfessionalReports() {
   });
 
   const { data: stats, isLoading, refetch } = useQuery({
-    queryKey: ["/api/reports/dashboard-kpis", selectedProjectId, filterValues.timeRange],
+    queryKey: ["/api/reports/dashboard-kpis", selectedProjectId, filterValues.dateRange],
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
-      const url = `/api/reports/dashboard-kpis?projectId=${selectedProjectId || 'all'}&range=${filterValues.timeRange}`;
-      const res = await apiRequest(url, "GET");
+      const params = new URLSearchParams();
+      params.append("projectId", selectedProjectId || 'all');
+      
+      if (filterValues.dateRange?.from) {
+        params.append("dateFrom", format(new Date(filterValues.dateRange.from), 'yyyy-MM-dd'));
+      }
+      if (filterValues.dateRange?.to) {
+        params.append("dateTo", format(new Date(filterValues.dateRange.to), 'yyyy-MM-dd'));
+      }
+
+      const res = await apiRequest(`/api/reports/dashboard-kpis?${params.toString()}`, "GET");
       return res.data;
     }
   });
@@ -215,7 +224,7 @@ export default function ProfessionalReports() {
           onRefresh={refetch}
           onReset={() => {
             setSearchValue("");
-            setFilterValues({ timeRange: "this-month", workerId: "all" });
+            setFilterValues({ dateRange: null, workerId: "all" });
             setSelectedWorkerId(null);
           }}
           actions={[

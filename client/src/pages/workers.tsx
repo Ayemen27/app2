@@ -233,8 +233,9 @@ const WorkerCardWrapper = ({
           {
             icon: FileText,
             label: "تصدير كشف",
-            disabled: isExporting,
+            disabled: !!exportingWorkerId,
             color: "green",
+            onClick: () => {}, // Handled by dropdown
             dropdown: [
               { label: "ملف PDF جاهز", onClick: () => handleExportStatement(worker, 'pdf') },
               { label: "تصدير إلى Excel", onClick: () => handleExportStatement(worker, 'excel') },
@@ -647,6 +648,7 @@ export default function WorkersPage() {
         if (type === 'pdf') {
           window.print();
         } else {
+          // Pass the worker info along with the statement data
           await exportWorkerStatement(res.data, worker);
         }
         

@@ -3,7 +3,13 @@ import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import { Badge } from "./badge";
 import { Skeleton } from "./skeleton";
-import { Edit, Trash2, Eye, MoreVertical, LucideIcon } from "lucide-react";
+import { Edit, Trash2, Eye, MoreVertical, LucideIcon, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export interface UnifiedCardField {
   label: string;
@@ -23,6 +29,7 @@ export interface UnifiedCardAction {
   disabled?: boolean;
   hidden?: boolean;
   color?: "default" | "blue" | "green" | "yellow" | "red" | "orange";
+  dropdown?: { label: string; onClick: () => void }[];
 }
 
 export interface UnifiedCardBadge {
@@ -248,6 +255,41 @@ export function UnifiedCard({
           <div className="shrink-0 flex flex-col gap-0.5 mr-[-8px] mt-[-4px]">
             {visibleActions.map((action, idx) => {
               const ActionIcon = action.icon;
+              if (action.dropdown && action.dropdown.length > 0) {
+                return (
+                  <DropdownMenu key={idx}>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className={cn(
+                          "h-6 w-6 rounded-md",
+                          actionColorClasses[action.color || "default"]
+                        )}
+                        onClick={(e) => e.stopPropagation()}
+                        disabled={action.disabled}
+                        title={action.label}
+                      >
+                        <ActionIcon className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      {action.dropdown.map((item, i) => (
+                        <DropdownMenuItem 
+                          key={i} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            item.onClick();
+                          }}
+                          className="text-right flex items-center justify-end gap-2"
+                        >
+                          <span>{item.label}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              }
               return (
                 <Button
                   key={idx}

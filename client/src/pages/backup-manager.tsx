@@ -52,8 +52,8 @@ export default function BackupManager() {
 
   const backupMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/backups/run");
-      return res.json();
+      const res = await apiRequest("/api/backups/run", "POST");
+      return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/backups/logs"] });
@@ -73,8 +73,8 @@ export default function BackupManager() {
 
   const restoreMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest("POST", `/api/backups/restore/${id}`);
-      return res.json();
+      const res = await apiRequest(`/api/backups/restore/${id}`, "POST");
+      return res;
     },
     onSuccess: () => {
       toast({ 

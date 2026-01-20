@@ -153,6 +153,25 @@ export class BackupService {
     return await db.select().from(backupLogs).orderBy(desc(backupLogs.createdAt)).limit(50);
   }
 
+  static async deleteLog(id: number) {
+    const [log] = await db.select().from(backupLogs).where(eq(backupLogs.id, id));
+    if (!log) throw new Error("سجل النسخة الاحتياطية غير موجود");
+
+    // محاولة حذف الملف من القرص إذا كان موجوداً
+    const filepath = path.join(this.BACKUP_DIR, log.filename);
+    if (fs.existsSync(filepath)) {
+      try {
+        fs.unlinkSync(filepath);
+      } catch (e) {
+        console.warn(`⚠️ فشل حذف ملف النسخة من القرص: ${filepath}`, e);
+      }
+    }
+
+    // حذف السجل من قاعدة البيانات
+    await db.delete(backupLogs).where(eq(backupLogs.id, id));
+    return true;
+  }
+
   static async restore(logId: number) {
     const [log] = await db.select().from(backupLogs).where(eq(backupLogs.id, logId));
     if (!log || log.status !== "success") throw new Error("Invalid backup file");

@@ -91,6 +91,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ success: false, error: error.message });
     }
   });
+
+  app.delete("/api/backups/:id", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      await BackupService.deleteLog(parseInt(id));
+      res.json({ success: true, message: "تم حذف سجل النسخة الاحتياطية بنجاح" });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
   app.use("/api", authenticate);
   app.use("/api", checkWriteAccess);
 

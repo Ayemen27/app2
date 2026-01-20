@@ -62,11 +62,10 @@ import type { FilterConfig } from "@/components/ui/unified-filter-dashboard/type
 
 export default function ProfessionalReports() {
   const [activeTab, setActiveTab] = useState("overview");
-  const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
-  const [timeRange, setTimeRange] = useState("this-month");
-  const { toast } = useToast();
-  const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
-  const [workerSearch, setWorkerSearch] = useState("");
+  const [searchValue, setSearchValue] = useState("");
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({
+    timeRange: "this-month"
+  });
 
   const filterConfig: FilterConfig[] = [
     {
@@ -95,7 +94,7 @@ export default function ProfessionalReports() {
   });
 
   const { data: workerStatement, isLoading: workerLoading } = useQuery({
-    queryKey: ["/api/reports/worker-statement", selectedWorkerId, selectedProjectId, timeRange],
+    queryKey: ["/api/reports/worker-statement", selectedWorkerId, selectedProjectId, filterValues.timeRange],
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       if (!selectedWorkerId) return null;
@@ -104,7 +103,7 @@ export default function ProfessionalReports() {
       if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
         params.append("projectId", selectedProjectId);
       }
-      if (timeRange === 'this-month') {
+      if (filterValues.timeRange === 'this-month') {
         params.append("dateFrom", format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'));
       }
       
@@ -114,11 +113,11 @@ export default function ProfessionalReports() {
     enabled: !!selectedWorkerId
   });
 
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ["/api/reports/dashboard-kpis", selectedProjectId, timeRange],
+  const { data: stats, isLoading, refetch } = useQuery({
+    queryKey: ["/api/reports/dashboard-kpis", selectedProjectId, filterValues.timeRange],
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
-      const res = await apiRequest(`/api/reports/dashboard-kpis?projectId=${selectedProjectId}&range=${timeRange}`, "GET");
+      const res = await apiRequest(`/api/reports/dashboard-kpis?projectId=${selectedProjectId}&range=${filterValues.timeRange}`, "GET");
       return res.data;
     }
   });
@@ -235,13 +234,17 @@ export default function ProfessionalReports() {
       <div className="p-4 space-y-6 bg-slate-50/50 min-h-screen">
         <UnifiedFilterDashboard
           filters={filterConfig}
-          filterValues={{ timeRange }}
-          onFilterChange={(key, val) => {
-            if (key === "timeRange") setTimeRange(val);
-          }}
+          filterValues={filterValues}
+          onFilterChange={(key, val) => setFilterValues(prev => ({ ...prev, [key]: val }))}
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          searchPlaceholder="البحث في التقارير..."
           isRefreshing={isLoading}
-          onRefresh={() => {}}
-          showSearch={false}
+          onRefresh={refetch}
+          onReset={() => {
+            setSearchValue("");
+            setFilterValues({ timeRange: "this-month" });
+          }}
           actions={[
             {
               key: "print",

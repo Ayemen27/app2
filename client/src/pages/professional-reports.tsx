@@ -22,7 +22,9 @@ import {
   ChevronRight,
   Search,
   UserCheck,
-  MapPin
+  MapPin,
+  CheckCircle2,
+  PieChart as PieChartIcon
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,7 +69,7 @@ export default function ProfessionalReports() {
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
-    timeRange: "this-month",
+    dateRange: null,
     workerId: "all"
   });
 
@@ -493,7 +495,7 @@ export default function ProfessionalReports() {
               </div>
             </UnifiedCard>
 
-            <UnifiedCard title="هيكل التكاليف" titleIcon={PieChart}>
+            <UnifiedCard title="هيكل التكاليف" titleIcon={PieChartIcon}>
               <div className="h-[350px] w-full mt-6">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>

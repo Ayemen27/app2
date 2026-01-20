@@ -140,8 +140,8 @@ export function UnifiedCard({
     return <UnifiedCardSkeleton compact={compact} />;
   }
 
-  const visibleFields = fields.filter((f) => !f.hidden);
-  const visibleActions = actions.filter((a) => !a.hidden);
+  const visibleFields = (fields || []).filter((f) => !f.hidden);
+  const visibleActions = (actions || []).filter((a) => !a.hidden);
 
   return (
     <div

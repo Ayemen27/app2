@@ -61,6 +61,10 @@ import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard
 import type { FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 
 export default function ProfessionalReports() {
+  const { selectedProjectId, selectedProjectName, ALL_PROJECTS_ID, isAllProjects } = useSelectedProjectContext();
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
+  const [workerSearch, setWorkerSearch] = useState("");
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
@@ -163,7 +167,7 @@ export default function ProfessionalReports() {
         worksheet.getCell('A2').font = darkFont;
         
         worksheet.mergeCells('A3:E3');
-        worksheet.getCell('A3').value = `الفترة: ${timeRange === 'all' ? 'كامل الفترة' : 'الشهر الحالي'}`;
+        worksheet.getCell('A3').value = `الفترة: ${filterValues.timeRange === 'all' ? 'كامل الفترة' : 'الشهر الحالي'}`;
         
         worksheet.getRow(4).values = ['التاريخ', 'البيان', 'مدين (عليه)', 'دائن (له)', 'الرصيد'];
         worksheet.getRow(4).eachCell((cell) => {

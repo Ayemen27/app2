@@ -33,6 +33,8 @@ import { ExpenseLedgerService } from "./services/ExpenseLedgerService";
 import userRoutes from "./routes/modules/userRoutes";
 import { authenticate, checkWriteAccess } from "./middleware/auth";
 
+import path from "path";
+import fs from "fs";
 import { BackupService } from "./services/BackupService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -41,6 +43,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========================================
   // 💾 Backup & Restore Routes
   // ========================================
+  app.get("/api/backups/download/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const logs = await BackupService.getLogs();
+      const log = logs.find(l => l.id === parseInt(id));
+
+      if (!log || log.status !== "success") {
+        return res.status(404).json({ success: false, message: "ملف النسخة الاحتياطية غير موجود" });
+      }
+
+      const filepath = path.join(process.cwd(), "backups", log.filename);
+      if (!fs.existsSync(filepath)) {
+        return res.status(404).json({ success: false, message: "ملف النسخة الاحتياطية مفقود من السيرفر" });
+      }
+
+      res.download(filepath, log.filename);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   app.get("/api/backups/logs", requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const logs = await BackupService.getLogs();

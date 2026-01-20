@@ -221,7 +221,8 @@ export default function ProfessionalReports() {
         worksheet.getRow(infoRow).values = [
           'اسم العامل:', worker?.name, '', '',
           'المهنة:', worker?.role || 'عامل', '', '',
-          'إجمالي أيام العمل:', workerStatement.summary.totalDays || 0, '', ''
+          'إجمالي أيام العمل:', workerStatement?.summary?.totalDays || 0, '', '',
+          'رقم الهاتف:', worker?.phone || '-'
         ];
         worksheet.getRow(infoRow).font = darkFont;
         worksheet.getRow(infoRow).fill = subHeaderFill;

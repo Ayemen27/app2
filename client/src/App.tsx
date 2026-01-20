@@ -37,6 +37,7 @@ import ProjectFundCustody from "./pages/project-fund-custody";
 
 import ProjectsPage from "./pages/projects";
 import WorkersPage from "./pages/workers";
+import BackupManager from "./pages/backup-manager";
 import NotificationsPage from "./pages/notifications";
 import DailyExpenses from "./pages/daily-expenses";
 import WellsPage from "./pages/wells";
@@ -214,6 +215,11 @@ function Router() {
       </Route>
       <Route path="/daily-expenses" component={DailyExpenses} />
       <Route path="/wells" component={WellsPage} />
+      <Route path="/admin/backups">
+        <AdminRoute>
+          <BackupManager />
+        </AdminRoute>
+      </Route>
       <Route path="/settings">
         <Suspense fallback={<PageLoader />}>
           <SettingsPage />

@@ -379,6 +379,37 @@ export const workerMiscExpenses = pgTable("worker_misc_expenses", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Backup Logs Table (سجل النسخ الاحتياطي)
+export const backupLogs = pgTable("backup_logs", {
+  id: serial("id").primaryKey(),
+  filename: text("filename").notNull(),
+  size: decimal("size", { precision: 15, scale: 2 }), // بالحجم الميجابايت
+  status: text("status").notNull(), // success, failed, in_progress
+  destination: text("destination").notNull(), // local, gdrive, telegram, all
+  errorMessage: text("error_message"),
+  triggeredBy: varchar("triggered_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Backup Settings Table (إعدادات النسخ الاحتياطي)
+export const backupSettings = pgTable("backup_settings", {
+  id: serial("id").primaryKey(),
+  autoBackupEnabled: boolean("auto_backup_enabled").default(true).notNull(),
+  intervalMinutes: integer("interval_minutes").default(1440).notNull(), // افتراضي يومياً
+  telegramNotificationsEnabled: boolean("telegram_notifications_enabled").default(false).notNull(),
+  gdriveEnabled: boolean("gdrive_enabled").default(false).notNull(),
+  retentionDays: integer("retention_days").default(30).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertBackupLogSchema = createInsertSchema(backupLogs);
+export type BackupLog = typeof backupLogs.$inferSelect;
+export type InsertBackupLog = z.infer<typeof insertBackupLogSchema>;
+
+export const insertBackupSettingsSchema = createInsertSchema(backupSettings);
+export type BackupSettings = typeof backupSettings.$inferSelect;
+export type InsertBackupSettings = z.infer<typeof insertBackupSettingsSchema>;
+
 // Print Settings Table (إعدادات الطباعة)
 export const printSettings = pgTable('print_settings', {
   id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),

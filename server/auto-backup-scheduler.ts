@@ -34,8 +34,20 @@ let backupStatus: BackupStatus = {
   lastError: null
 };
 
+import { BackupService } from "./services/BackupService";
+
+const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // يومياً
+
 export function startAutoBackupScheduler(): void {
-  console.log('🕐 [AutoBackup] نظام النسخ الاحتياطي معطل في وضع الأوفلاين المطلق');
+  console.log('🕐 [AutoBackup] بدء نظام الجدولة الجديد...');
+  setInterval(async () => {
+    try {
+      console.log('🔄 [AutoBackup] بدء النسخ التلقائي المجدول...');
+      await BackupService.runBackup();
+    } catch (e) {
+      console.error('❌ [AutoBackup] فشل النسخ المجدول:', e);
+    }
+  }, BACKUP_INTERVAL_MS);
 }
 
 export function stopAutoBackupScheduler(): void {

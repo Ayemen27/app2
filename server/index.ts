@@ -388,8 +388,12 @@ console.log('📂 مجلد العمل:', process.cwd());
 console.log('🌐 المنفذ:', FINAL_PORT);
 console.log('🔧 بيئة التشغيل:', NODE_ENV);
 
+import { BackupService } from "./services/BackupService";
+
+// ... داخل الدالة الرئيسية أو عند بدء التشغيل
 (async () => {
   try {
+    await BackupService.initialize();
     const serverInstance = server.listen(FINAL_PORT, "0.0.0.0", async () => {
       log(`serving on port ${FINAL_PORT}`);
       console.log('✅ Socket.IO server متشغل');

@@ -33,8 +33,41 @@ import { ExpenseLedgerService } from "./services/ExpenseLedgerService";
 import userRoutes from "./routes/modules/userRoutes";
 import { authenticate, checkWriteAccess } from "./middleware/auth";
 
+import { BackupService } from "./services/BackupService";
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  // تطبيق المصادقة أولاً ثم حماية القراءة فقط على جميع مسارات API التي ليست GET
+  // ... (بعد الإعدادات الأولية)
+
+  // ========================================
+  // 💾 Backup & Restore Routes
+  // ========================================
+  app.get("/api/backups/logs", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const logs = await BackupService.getLogs();
+      res.json({ success: true, data: logs });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/backups/run", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const result = await BackupService.runBackup(req.user?.id, true);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/backups/restore/:id", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      await BackupService.restore(parseInt(id));
+      res.json({ success: true, message: "تمت الاستعادة بنجاح. قد يتطلب الأمر إعادة تشغيل النظام." });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
   app.use("/api", authenticate);
   app.use("/api", checkWriteAccess);
 

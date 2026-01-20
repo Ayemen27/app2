@@ -544,24 +544,24 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
     }
 
     // تطبيق الفلاتر على الاستعلامات
-    const projectFilter = projectId && projectId !== 'all' ? eq(fundTransfers.projectId, projectId as string) : sql`1=1`;
+    const projectFilter = projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(fundTransfers.projectId, projectId as string) : sql`1=1`;
     const attendanceFilter = and(
-      projectId && projectId !== 'all' ? eq(workerAttendance.projectId, projectId as string) : sql`1=1`,
+      projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(workerAttendance.projectId, projectId as string) : sql`1=1`,
       range === 'today' ? sql`DATE(${workerAttendance.attendanceDate}) = ${new Date().toISOString().split('T')[0]}` : 
       range === 'this-month' ? sql`${workerAttendance.attendanceDate} >= ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}` : sql`1=1`
     );
     const materialsFilter = and(
-      projectId && projectId !== 'all' ? eq(materialPurchases.projectId, projectId as string) : sql`1=1`,
+      projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(materialPurchases.projectId, projectId as string) : sql`1=1`,
       range === 'today' ? eq(materialPurchases.purchaseDate, new Date().toISOString().split('T')[0]) : 
       range === 'this-month' ? gte(materialPurchases.purchaseDate, new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) : sql`1=1`
     );
     const transportFilter = and(
-      projectId && projectId !== 'all' ? eq(transportationExpenses.projectId, projectId as string) : sql`1=1`,
+      projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(transportationExpenses.projectId, projectId as string) : sql`1=1`,
       range === 'today' ? eq(transportationExpenses.date, new Date().toISOString().split('T')[0]) : 
       range === 'this-month' ? gte(transportationExpenses.date, new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) : sql`1=1`
     );
     const miscFilter = and(
-      projectId && projectId !== 'all' ? eq(workerMiscExpenses.projectId, projectId as string) : sql`1=1`,
+      projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(workerMiscExpenses.projectId, projectId as string) : sql`1=1`,
       range === 'today' ? eq(workerMiscExpenses.date, new Date().toISOString().split('T')[0]) : 
       range === 'this-month' ? gte(workerMiscExpenses.date, new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) : sql`1=1`
     );

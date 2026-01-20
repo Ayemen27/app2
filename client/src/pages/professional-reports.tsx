@@ -121,7 +121,8 @@ export default function ProfessionalReports() {
     queryKey: ["/api/reports/dashboard-kpis", selectedProjectId, filterValues.timeRange],
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
-      const res = await apiRequest(`/api/reports/dashboard-kpis?projectId=${selectedProjectId}&range=${filterValues.timeRange}`, "GET");
+      const url = `/api/reports/dashboard-kpis?projectId=${selectedProjectId || 'all'}&range=${filterValues.timeRange}`;
+      const res = await apiRequest(url, "GET");
       return res.data;
     }
   });

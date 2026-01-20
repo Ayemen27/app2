@@ -46,20 +46,20 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
   let totalEarned = 0;
   let totalPaid = 0;
   
-  const attendance = data.attendance || [];
-  attendance.forEach((item: any, index: number) => {
+  const statement = data.statement || [];
+  statement.forEach((item: any, index: number) => {
     const row = worksheet.addRow([
       index + 1,
       item.date,
       new Date(item.date).toLocaleDateString('ar-YE', { weekday: 'long' }),
-      item.notes || 'العمال تم عمل...',
-      '07:00-15:00',
-      parseFloat(item.totalPay || 0),
-      parseFloat(item.paidAmount || 0)
+      item.description || 'تسجيل حضور',
+      item.type === 'عمل' ? '07:00-15:00' : '-',
+      parseFloat(item.amount || 0),
+      parseFloat(item.paid || 0)
     ]);
     
-    totalEarned += parseFloat(item.totalPay || 0);
-    totalPaid += parseFloat(item.paidAmount || 0);
+    totalEarned += parseFloat(item.amount || 0);
+    totalPaid += parseFloat(item.paid || 0);
     
     row.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     row.eachCell((cell) => {

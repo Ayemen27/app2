@@ -632,12 +632,15 @@ export default function WorkersPage() {
         });
       }, 200);
 
-      const res = await apiRequest(`/api/workers/${worker.id}/statement${projectIdForApi ? `?projectId=${projectIdForApi}` : ''}`, 'GET');
+      const url = `/api/reports/worker-statement?workerId=${worker.id}${projectIdForApi ? `&projectId=${projectIdForApi}` : ''}`;
+      const res = await apiRequest(url, 'GET');
       
       clearInterval(progressInterval);
       setExportProgress(100);
       
       if (res.success) {
+        // نستخدم البيانات القادمة من السيرفر بتنسيقها الجديد
+        // نمرر res.data مباشرة لوظيفة التصدير
         await exportWorkerStatement(res.data, worker);
         toast({
           title: "تم التصدير",

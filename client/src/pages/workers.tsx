@@ -431,12 +431,15 @@ export default function WorkersPage() {
       
       return { previousData };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "تم بنجاح",
-        description: "تم تحديث حالة العامل بنجاح",
+        description: (data as any)?.message || "تم تحديث بيانات العامل وحساباته بنجاح",
         className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
       });
+      // Invalidate both workers list and specific worker stats to force a full refresh
+      queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workers', togglingWorkerId || editingWorker?.id, 'stats'] });
     },
     onError: (error: any, _variables, context) => {
       if (context?.previousData) {

@@ -5,7 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Edit2, Trash2, Users, Clock, DollarSign, Calendar, User, Activity, Briefcase, Phone, Building, Power, CheckCircle, XCircle, Wallet, ArrowDownCircle, TrendingDown } from 'lucide-react';
+import { FileText, Edit2, Trash2, Users, Clock, DollarSign, Calendar, User, Activity, Briefcase, Phone, Building, Power, CheckCircle, XCircle, Wallet, ArrowDownCircle, TrendingDown } from 'lucide-react';
+import { exportWorkerStatement } from '@/lib/excel-exports';
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -199,6 +200,21 @@ const WorkerCardWrapper = ({
         },
       ]}
       actions={[
+        {
+          icon: FileText,
+          label: "كشف حساب",
+          onClick: async () => {
+            try {
+              const res = await apiRequest(`/api/workers/${worker.id}/statement${projectIdForApi ? `?projectId=${projectIdForApi}` : ''}`, 'GET');
+              if (res.success) {
+                exportWorkerStatement(res.data, worker);
+              }
+            } catch (error) {
+              console.error("Error exporting statement:", error);
+            }
+          },
+          color: "green",
+        },
         {
           icon: Edit2,
           label: "تعديل",

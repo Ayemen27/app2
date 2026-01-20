@@ -53,7 +53,8 @@ export class BackupService {
         requestBody: fileMetadata,
         media: media,
         fields: "id",
-      });
+        supportsAllDrives: true, // دعم المجلدات المشتركة والمشاركة الخارجية
+      } as any);
       console.log(`✅ Backup uploaded to Google Drive. File ID: ${response.data.id}`);
     } catch (e: any) {
       console.error("❌ Google Drive Upload Failed:", e.message);

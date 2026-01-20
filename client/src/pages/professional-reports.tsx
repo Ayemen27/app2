@@ -49,7 +49,7 @@ import {
   Area
 } from "recharts";
 import { apiRequest } from "@/lib/queryClient";
-import { format } from "date-fns";
+import { arSA } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { useSelectedProjectContext, ALL_PROJECTS_ID } from "@/contexts/SelectedProjectContext";
@@ -251,7 +251,7 @@ export default function ProfessionalReports() {
           const rowValues = [
             idx + 1,
             format(date, 'yyyy/MM/dd'),
-            format(date, 'EEEE', { locale: (await import('date-fns/locale')).arSA }),
+            format(date, 'EEEE', { locale: arSA }),
             selectedProjectName,
             worker?.dailyWage || 0,
             t.daysCount || 1,
@@ -448,7 +448,7 @@ export default function ProfessionalReports() {
                       <tr key={i} className="text-xs font-bold border-b hover:bg-slate-50 transition-colors">
                         <td className="p-4 border-l text-center">{i + 1}</td>
                         <td className="p-4 border-l">{format(new Date(row.date), 'yyyy/MM/dd')}</td>
-                        <td className="p-4 border-l">{format(new Date(row.date), 'EEEE', { locale: (await import('date-fns/locale')).arSA })}</td>
+                        <td className="p-4 border-l">{format(new Date(row.date), 'EEEE', { locale: arSA })}</td>
                         <td className="p-4 border-l">{selectedProjectName}</td>
                         <td className="p-4 border-l">{formatCurrency(row.dailyWage || 0)}</td>
                         <td className="p-4 border-l text-center">{row.daysCount || 1}</td>

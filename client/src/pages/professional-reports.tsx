@@ -235,7 +235,7 @@ export default function ProfessionalReports() {
 
   return (
     <LayoutShell>
-      <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-[#f8fafc] min-h-screen font-sans print:bg-white print:p-0" dir="rtl">
+      <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-[#f8fafc] min-h-screen font-sans print:bg-white print:p-0 pb-44" dir="rtl">
         {/* Top Header - Global Context Driven */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
           <div className="space-y-1">

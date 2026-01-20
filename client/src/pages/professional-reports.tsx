@@ -562,6 +562,24 @@ export default function ProfessionalReports() {
                           <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 px-4 py-1.5 rounded-full font-black text-xs">
                             {filterValues.timeRange === 'all' ? 'الأرشيف الكامل' : 'بيانات الشهر الحالي'}
                           </Badge>
+                          <div className="flex gap-2 print:hidden">
+                            <Button
+                              variant={filterValues.timeRange === 'this-month' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setFilterValues(prev => ({ ...prev, timeRange: 'this-month' }))}
+                              className="rounded-xl font-bold h-8"
+                            >
+                              الشهر الحالي
+                            </Button>
+                            <Button
+                              variant={filterValues.timeRange === 'all' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setFilterValues(prev => ({ ...prev, timeRange: 'all' }))}
+                              className="rounded-xl font-bold h-8"
+                            >
+                              كامل الفترة
+                            </Button>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

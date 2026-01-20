@@ -128,18 +128,20 @@ const WorkerCardWrapper = ({
   isToggling,
   selectedProjectId,
   isExporting,
-  exportProgress
+  exportProgress,
+  exportingWorkerId
 }: { 
   worker: Worker; 
   onEdit: () => void; 
   onDelete: () => void;
   onToggleStatus: () => void;
-  onExport: () => void;
+  onExport: (type: 'excel' | 'pdf') => void;
   formatCurrency: (amount: number) => string;
   isToggling: boolean;
   selectedProjectId: string | null;
   isExporting?: boolean;
   exportProgress?: number;
+  exportingWorkerId: string | null;
 }) => {
   const projectIdForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
   
@@ -151,8 +153,8 @@ const WorkerCardWrapper = ({
         : `/api/workers/${worker.id}/stats`;
       return apiRequest(url, 'GET');
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes (reduced from 1 hour for freshness)
-    gcTime: 10 * 60 * 1000,    // 10 minutes
+    staleTime: 5 * 60 * 1000, 
+    gcTime: 10 * 60 * 1000,   
     retry: 1,
     placeholderData: (previousData) => previousData,
     refetchOnWindowFocus: false,
@@ -235,10 +237,10 @@ const WorkerCardWrapper = ({
             label: "تصدير كشف",
             disabled: !!exportingWorkerId,
             color: "green",
-            onClick: () => {}, // Handled by dropdown
+            onClick: () => {}, 
             dropdown: [
-              { label: "ملف PDF جاهز", onClick: () => handleExportStatement(worker, 'pdf') },
-              { label: "تصدير إلى Excel", onClick: () => handleExportStatement(worker, 'excel') },
+              { label: "ملف PDF جاهز", onClick: () => onExport('pdf') },
+              { label: "تصدير إلى Excel", onClick: () => onExport('excel') },
               { label: "طباعة مباشرة", onClick: () => window.print() }
             ]
           },
@@ -285,6 +287,9 @@ export default function WorkersPage() {
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [togglingWorkerId, setTogglingWorkerId] = useState<string | null>(null);
+  const [exportingWorkerId, setExportingWorkerId] = useState<string | null>(null);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [showExportOptions, setShowExportOptions] = useState<string | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -333,11 +338,11 @@ export default function WorkersPage() {
         return [] as Worker[];
       }
     },
-    staleTime: 30000, // 30 seconds (reduced for faster UI updates)
-    gcTime: 60000,   // 1 minute
+    staleTime: 30000, 
+    gcTime: 60000,   
     retry: 2,
     placeholderData: (previousData) => previousData,
-    refetchOnWindowFocus: true, // enabled for better freshness
+    refetchOnWindowFocus: true, 
   });
 
   const { data: workerTypes = [] } = useQuery<WorkerType[]>({
@@ -345,13 +350,8 @@ export default function WorkersPage() {
     queryFn: async () => {
       try {
         const response = await fetch('/api/worker-types');
-        
-        if (!response.ok) {
-          return [] as WorkerType[];
-        }
-        
+        if (!response.ok) return [] as WorkerType[];
         const data = await response.json();
-        
         let workerTypes = [];
         if (data && typeof data === 'object') {
           if (data.success !== undefined && data.data !== undefined) {
@@ -360,18 +360,13 @@ export default function WorkersPage() {
             workerTypes = data;
           }
         }
-        
-        if (!Array.isArray(workerTypes)) {
-          workerTypes = [];
-        }
-        
-        return workerTypes as WorkerType[];
+        return (Array.isArray(workerTypes) ? workerTypes : []) as WorkerType[];
       } catch (error) {
         return [] as WorkerType[];
       }
     },
-    staleTime: 900000, // 15 minutes
-    gcTime: 1800000,  // 30 minutes
+    staleTime: 900000, 
+    gcTime: 1800000,  
     retry: 1,
     placeholderData: (previousData) => previousData,
     refetchOnWindowFocus: false,
@@ -401,13 +396,11 @@ export default function WorkersPage() {
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['/api/workers'] });
       const previousData = queryClient.getQueryData<Worker[]>(['/api/workers']);
-      
       if (Array.isArray(previousData)) {
         queryClient.setQueryData<Worker[]>(['/api/workers'], 
           previousData.filter(worker => worker.id !== id)
         );
       }
-      
       return { previousData };
     },
     onSuccess: (data) => {
@@ -421,19 +414,10 @@ export default function WorkersPage() {
       if (context?.previousData) {
         queryClient.setQueryData(['/api/workers'], context.previousData);
       }
-      
-      let title = "لا يمكن حذف العامل";
-      let description = error?.message || "حدث خطأ في حذف العامل";
-      
-      if (error?.relatedRecordsType?.includes('سجلات حضور')) {
-        title = "يجب حذف سجلات الحضور أولاً";
-      }
-      
       toast({
-        title,
-        description,
+        title: "خطأ في حذف العامل",
+        description: error?.message || "حدث خطأ في حذف العامل",
         variant: "destructive",
-        duration: 8000,
       });
     },
     onSettled: () => {
@@ -448,7 +432,6 @@ export default function WorkersPage() {
     onMutate: async ({ id, data }) => {
       await queryClient.cancelQueries({ queryKey: ['/api/workers'] });
       const previousData = queryClient.getQueryData<Worker[]>(['/api/workers']);
-      
       if (Array.isArray(previousData)) {
         queryClient.setQueryData<Worker[]>(['/api/workers'], 
           previousData.map(worker => 
@@ -456,7 +439,6 @@ export default function WorkersPage() {
           )
         );
       }
-      
       return { previousData };
     },
     onSuccess: (data) => {
@@ -465,9 +447,7 @@ export default function WorkersPage() {
         description: (data as any)?.message || "تم تحديث بيانات العامل وحساباته بنجاح",
         className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
       });
-      // Invalidate both workers list and specific worker stats to force a full refresh
       queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/workers', togglingWorkerId || editingWorker?.id, 'stats'] });
     },
     onError: (error: any, _variables, context) => {
       if (context?.previousData) {
@@ -495,7 +475,6 @@ export default function WorkersPage() {
                            (filterValues.status === 'active' && worker.isActive) ||
                            (filterValues.status === 'inactive' && !worker.isActive);
       const matchesType = filterValues.type === 'all' || worker.type === filterValues.type;
-      
       return matchesSearch && matchesStatus && matchesType;
     });
   }, [workers, searchValue, filterValues]);
@@ -514,56 +493,18 @@ export default function WorkersPage() {
       columns: 3,
       gap: 'sm',
       items: [
-        {
-          key: 'total',
-          label: 'إجمالي العمال',
-          value: stats.total,
-          icon: Users,
-          color: 'blue',
-        },
-        {
-          key: 'active',
-          label: 'العمال النشطون',
-          value: stats.active,
-          icon: Activity,
-          color: 'green',
-          showDot: true,
-          dotColor: 'bg-green-500',
-        },
-        {
-          key: 'inactive',
-          label: 'غير النشطين',
-          value: stats.inactive,
-          icon: Clock,
-          color: 'orange',
-        },
+        { key: 'total', label: 'إجمالي العمال', value: stats.total, icon: Users, color: 'blue' },
+        { key: 'active', label: 'العمال النشطون', value: stats.active, icon: Activity, color: 'green', showDot: true, dotColor: 'bg-green-500' },
+        { key: 'inactive', label: 'غير النشطين', value: stats.inactive, icon: Clock, color: 'orange' },
       ]
     },
     {
       columns: 3,
       gap: 'sm',
       items: [
-        {
-          key: 'avgWage',
-          label: 'متوسط الأجر',
-          value: formatCurrency(stats.avgWage),
-          icon: DollarSign,
-          color: 'purple',
-        },
-        {
-          key: 'totalTypes',
-          label: 'أنواع العمال',
-          value: workerTypes.length,
-          icon: Briefcase,
-          color: 'teal',
-        },
-        {
-          key: 'totalWorkDays',
-          label: 'مجموع أيام العمل',
-          value: '-',
-          icon: Calendar,
-          color: 'indigo',
-        },
+        { key: 'avgWage', label: 'متوسط الأجر', value: formatCurrency(stats.avgWage), icon: DollarSign, color: 'purple' },
+        { key: 'totalTypes', label: 'أنواع العمال', value: workerTypes.length, icon: Briefcase, color: 'teal' },
+        { key: 'totalWorkDays', label: 'مجموع أيام العمل', value: '-', icon: Calendar, color: 'indigo' },
       ]
     }
   ], [stats, workerTypes]);
@@ -587,10 +528,7 @@ export default function WorkersPage() {
       defaultValue: 'all',
       options: [
         { value: 'all', label: 'جميع الأنواع' },
-        ...(Array.isArray(workerTypes) ? workerTypes.map(type => ({
-          value: type.name,
-          label: type.name,
-        })) : []),
+        ...(Array.isArray(workerTypes) ? workerTypes.map(type => ({ value: type.name, label: type.name })) : []),
       ],
     },
   ], [workerTypes]);
@@ -616,10 +554,6 @@ export default function WorkersPage() {
     updateWorkerMutation.mutate({ id: worker.id, data: { isActive: !worker.isActive } });
   };
 
-  const [exportingWorkerId, setExportingWorkerId] = useState<string | null>(null);
-  const [exportProgress, setExportProgress] = useState(0);
-  const [showExportOptions, setShowExportOptions] = useState<string | null>(null);
-
   const handleExportStatement = async (worker: Worker, type: 'excel' | 'pdf' = 'excel') => {
     setExportingWorkerId(worker.id);
     setExportProgress(10);
@@ -627,7 +561,6 @@ export default function WorkersPage() {
     
     try {
       const projectIdForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
-      
       const progressInterval = setInterval(() => {
         setExportProgress(prev => {
           if (prev >= 90) {
@@ -648,22 +581,13 @@ export default function WorkersPage() {
         if (type === 'pdf') {
           window.print();
         } else {
-          // Pass the worker info along with the statement data
           await exportWorkerStatement(res.data, worker);
         }
-        
-        toast({
-          title: "تم التصدير",
-          description: `تم تجهيز كشف حساب ${worker.name} بنجاح`,
-        });
+        toast({ title: "تم التصدير", description: `تم تجهيز كشف حساب ${worker.name} بنجاح` });
       }
     } catch (error) {
       console.error("Error exporting statement:", error);
-      toast({
-        title: "خطأ في التصدير",
-        description: "فشل في تجهيز كشف الحساب، يرجى المحاولة لاحقاً",
-        variant: "destructive"
-      });
+      toast({ title: "خطأ في التصدير", description: "فشل في تجهيز كشف الحساب", variant: "destructive" });
     } finally {
       setTimeout(() => {
         setExportingWorkerId(null);
@@ -677,68 +601,34 @@ export default function WorkersPage() {
     return () => setFloatingAction(null);
   }, [setFloatingAction]);
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {[...Array(8)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <div className="h-1.5 bg-gray-300 dark:bg-gray-700 rounded-t-lg" />
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-3/4" />
-                  <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-1/2" />
-                  <div className="grid grid-cols-3 gap-2 mt-4">
-                    <div className="h-16 bg-gray-300 dark:bg-gray-700 rounded" />
-                    <div className="h-16 bg-gray-300 dark:bg-gray-700 rounded" />
-                    <div className="h-16 bg-gray-300 dark:bg-gray-700 rounded" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto p-4 space-y-4">
       <UnifiedFilterDashboard
+        title="إدارة العمال والموظفين"
+        subtitle="متابعة بيانات العمال، أجورهم، وحالاتهم الوظيفية بشكل متكامل"
         statsRows={statsRowsConfig}
-        searchValue={searchValue}
-        onSearchChange={setSearchValue}
-        searchPlaceholder="ابحث عن عامل (الاسم، النوع، الهاتف)..."
         filters={filtersConfig}
-        filterValues={filterValues}
         onFilterChange={handleFilterChange}
-        onReset={handleResetFilters}
+        onSearchChange={setSearchValue}
+        searchValue={searchValue}
+        onResetFilters={handleResetFilters}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
-        resultsSummary={(searchValue || filterValues.status !== 'all' || filterValues.type !== 'all') ? {
-          totalCount: workers.length,
-          filteredCount: filteredWorkers.length,
-          totalLabel: 'النتائج',
-          filteredLabel: 'من',
-        } : undefined}
       />
 
-      {filteredWorkers.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <Users className="h-12 w-12 text-gray-400 mx-auto" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mt-4">
-              لا توجد عمال
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
-              {workers.length === 0 ? 'لم يتم إضافة أي عمال بعد' : 'لا توجد عمال تطابق معايير البحث'}
-            </p>
-            {workers.length === 0 && (
-              <Button onClick={handleNewWorker} className="mt-4">
-                إضافة أول عامل
-              </Button>
-            )}
-          </CardContent>
+      {isLoading ? (
+        <UnifiedCardGrid columns={4}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <UnifiedCard key={i} title="" fields={[]} isLoading={true} compact />
+          ))}
+        </UnifiedCardGrid>
+      ) : filteredWorkers.length === 0 ? (
+        <Card className="p-12 text-center">
+          <div className="flex flex-col items-center gap-4 text-muted-foreground">
+            <Users className="h-12 w-12 opacity-20" />
+            <p className="text-lg">لا يوجد عمال يطابقون خيارات البحث</p>
+            <Button variant="outline" onClick={handleResetFilters}>مسح الفلاتر</Button>
+          </div>
         </Card>
       ) : (
         <UnifiedCardGrid columns={4}>
@@ -749,12 +639,13 @@ export default function WorkersPage() {
               onEdit={() => handleEditWorker(worker)}
               onDelete={() => handleDeleteWorker(worker)}
               onToggleStatus={() => handleToggleStatus(worker)}
-              onExport={() => handleExportStatement(worker)}
+              onExport={(type) => handleExportStatement(worker, type)}
               formatCurrency={formatCurrency}
               isToggling={togglingWorkerId === worker.id}
               selectedProjectId={selectedProjectId}
               isExporting={exportingWorkerId === worker.id}
               exportProgress={exportProgress}
+              exportingWorkerId={exportingWorkerId}
             />
           ))}
         </UnifiedCardGrid>
@@ -762,11 +653,8 @@ export default function WorkersPage() {
 
       <WorkerDialog
         worker={editingWorker}
-        onClose={() => {
-          setShowDialog(false);
-          setEditingWorker(undefined);
-        }}
         isOpen={showDialog}
+        onClose={() => setShowDialog(false)}
       />
     </div>
   );

@@ -57,6 +57,9 @@ import { UnifiedCard } from "@/components/ui/unified-card";
 
 const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+
 export default function ProfessionalReports() {
   const [activeTab, setActiveTab] = useState("overview");
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
@@ -64,6 +67,19 @@ export default function ProfessionalReports() {
   const { toast } = useToast();
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [workerSearch, setWorkerSearch] = useState("");
+
+  const filterConfig: FilterConfig[] = [
+    {
+      key: "timeRange",
+      label: "الفترة الزمنية",
+      type: "select",
+      options: [
+        { label: "اليوم", value: "today" },
+        { label: "الشهر الحالي", value: "this-month" },
+        { label: "الكل", value: "all" },
+      ]
+    }
+  ];
 
   const { data: workersList = [], isLoading: workersLoading } = useQuery({
     queryKey: ["/api/workers"],
@@ -219,38 +235,32 @@ export default function ProfessionalReports() {
   return (
     <LayoutShell showHeader={true} title="التقارير الاحترافية">
       <div className="p-4 space-y-6 bg-slate-50/50 min-h-screen pb-40" dir="rtl">
-        {/* Header - Unified Professional Style */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 self-end sm:self-auto ml-auto">
-            <div className="bg-white border border-slate-200 rounded-xl p-1 flex items-center shadow-sm">
-              <Button 
-                variant={timeRange === "today" ? "default" : "ghost"} 
-                size="sm" 
-                onClick={() => setTimeRange("today")}
-                className="h-8 px-4 text-xs font-bold rounded-lg transition-all"
-              >اليوم</Button>
-              <Button 
-                variant={timeRange === "this-month" ? "default" : "ghost"} 
-                size="sm" 
-                onClick={() => setTimeRange("this-month")}
-                className="h-8 px-4 text-xs font-bold rounded-lg transition-all"
-              >الشهر</Button>
-              <Button 
-                variant={timeRange === "all" ? "default" : "ghost"} 
-                size="sm" 
-                onClick={() => setTimeRange("all")}
-                className="h-8 px-4 text-xs font-bold rounded-lg transition-all"
-              >الكل</Button>
-            </div>
-            <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl border-slate-200 bg-white hover:bg-slate-50 shadow-sm" onClick={() => window.print()}>
-              <Printer className="h-4 w-4 text-slate-600" />
-            </Button>
-            <Button size="sm" className="h-9 gap-2 font-bold px-5 rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all" onClick={exportToProfessionalExcel}>
-              <Download className="h-4 w-4" />
-              <span>تصدير ذكي</span>
-            </Button>
-          </div>
-        </div>
+        <UnifiedFilterDashboard
+          filters={filterConfig}
+          filterValues={{ timeRange }}
+          onFilterChange={(key, val) => {
+            if (key === "timeRange") setTimeRange(val);
+          }}
+          isRefreshing={isLoading}
+          onRefresh={() => {}}
+          showSearch={false}
+          actions={[
+            {
+              key: "print",
+              label: "طباعة",
+              icon: Printer,
+              onClick: () => window.print(),
+              variant: "outline"
+            },
+            {
+              key: "export",
+              label: "تصدير ذكي",
+              icon: Download,
+              onClick: exportToProfessionalExcel,
+              variant: "default"
+            }
+          ]}
+        />
 
         {/* Executive KPIs - UnifiedStats */}
         <UnifiedStats

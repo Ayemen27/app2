@@ -161,7 +161,63 @@ export default function ProfessionalReports() {
         right: { style: 'thin', color: { argb: 'cbd5e1' } }
       };
 
-      if (activeTab === 'workers' && workerStatement) {
+      if (activeTab === 'daily') {
+        // Daily Report Export matching IMAGE format
+        worksheet.mergeCells('A1:I1');
+        const mainTitle = worksheet.getCell('A1');
+        mainTitle.value = 'كشف المصروفات اليومية التفصيلي والشامل';
+        mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1e3a8a' } };
+        mainTitle.font = { ...whiteFont, size: 16 };
+        mainTitle.alignment = centerAlign;
+        worksheet.getRow(1).height = 35;
+
+        worksheet.mergeCells('A2:D2');
+        worksheet.getCell('A2').value = `المشروع: ${selectedProjectName}`;
+        worksheet.mergeCells('E2:I2');
+        worksheet.getCell('E2').value = `التاريخ: ${format(new Date(), 'yyyy/MM/dd')}`;
+        worksheet.getRow(2).font = darkFont;
+
+        // Trust & Incomes Table
+        const trustRow = 4;
+        worksheet.mergeCells(`A${trustRow}:I${trustRow}`);
+        worksheet.getCell(`A${trustRow}`).value = 'جدول العهدة والواردات';
+        worksheet.getCell(`A${trustRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'cbd5e1' } };
+        worksheet.getCell(`A${trustRow}`).font = darkFont;
+        worksheet.getCell(`A${trustRow}`).alignment = centerAlign;
+
+        const trustHeader = trustRow + 1;
+        worksheet.getRow(trustHeader).values = ['رقم', 'المبلغ (ر.ي)', 'اسم المرسل', 'رقم الحوالة', 'نوع التحويل', 'التاريخ', 'ملاحظات', '', ''];
+        worksheet.getRow(trustHeader).eachCell(cell => {
+           cell.border = borderStyle;
+           cell.font = darkFont;
+           cell.alignment = centerAlign;
+        });
+
+        // Detail Expenses Table
+        const expRow = trustHeader + 4;
+        worksheet.mergeCells(`A${expRow}:I${expRow}`);
+        const expTitle = worksheet.getCell(`A${expRow}`);
+        expTitle.value = 'جدول المصروفات التفصيلي';
+        expTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'ef4444' } };
+        expTitle.font = whiteFont;
+        expTitle.alignment = centerAlign;
+
+        const expHeader = expRow + 1;
+        worksheet.getRow(expHeader).values = ['رقم', 'المبلغ (ر.ي)', 'اسم العامل/المادة', 'المهنة/النوع', 'الوصف', 'المورد', 'الكمية', 'تاريخ الصرف', 'ملاحظات'];
+        worksheet.getRow(expHeader).eachCell(cell => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '000000' } };
+          cell.font = whiteFont;
+          cell.border = borderStyle;
+        });
+
+        // Financial Summary at the end
+        const finalRow = expHeader + 10;
+        worksheet.mergeCells(`A${finalRow}:I${finalRow}`);
+        worksheet.getCell(`A${finalRow}`).value = 'الملخص المالي الشامل والنهائي';
+        worksheet.getCell(`A${finalRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'cbd5e1' } };
+        worksheet.getCell(`A${finalRow}`).font = darkFont;
+
+      } else if (activeTab === 'workers' && workerStatement) {
         const worker = workersList.find((w: any) => w.id === selectedWorkerId);
         
         // --- Header Section ---
@@ -359,6 +415,13 @@ export default function ProfessionalReports() {
                 <span className="whitespace-nowrap">نظرة بانورامية</span>
               </TabsTrigger>
               <TabsTrigger 
+                value="daily" 
+                className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md"
+              >
+                <Clock className="h-4 w-4" /> 
+                <span className="whitespace-nowrap">التقارير اليومية</span>
+              </TabsTrigger>
+              <TabsTrigger 
                 value="financial" 
                 className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md"
               >
@@ -425,6 +488,27 @@ export default function ProfessionalReports() {
                 </div>
               </UnifiedCard>
             </div>
+          </TabsContent>
+
+          <TabsContent value="daily" className="space-y-6 animate-in fade-in duration-500 slide-in-from-bottom-2">
+            <UnifiedCard title="معاينة التقرير اليومي الشامل" titleIcon={Clock}>
+              <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400 space-y-4">
+                <div className="p-6 bg-slate-50 rounded-full">
+                  <FileText className="h-12 w-12 text-slate-300" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-lg font-black text-slate-600">كشف المصروفات اليومية</h3>
+                  <p className="text-sm font-bold text-slate-400 max-w-xs mx-auto">سيتم تصدير التقرير بتنسيق مطابق للنماذج المعتمدة (جداول العهدة، المصروفات التفصيلية، والملخص المالي)</p>
+                </div>
+                <Button 
+                  onClick={exportToProfessionalExcel}
+                  className="rounded-xl font-black gap-2 h-11 px-8"
+                >
+                  <Download className="h-5 w-5" />
+                  تصدير التقرير اليومي (Excel)
+                </Button>
+              </div>
+            </UnifiedCard>
           </TabsContent>
 
           <TabsContent value="financial" className="space-y-6 animate-in fade-in duration-500 slide-in-from-bottom-2">

@@ -596,32 +596,48 @@ export default function ProfessionalReports() {
                       onChange={(e) => setWorkerSearch(e.target.value)}
                     />
                   </div>
-                  <ScrollArea className="h-[400px] rounded-2xl border border-slate-100 bg-white p-3 shadow-inner">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {filteredWorkers.map((worker: any) => (
-                        <button
-                          key={worker.id}
-                          onClick={() => setSelectedWorkerId(worker.id)}
-                          className={`flex items-center justify-between p-5 rounded-xl transition-all border-2 ${
-                            selectedWorkerId === worker.id 
-                            ? "bg-slate-900 text-white border-slate-900 shadow-xl shadow-slate-200 scale-[1.02]" 
-                            : "bg-white hover:bg-slate-50 text-slate-700 border-slate-100 active:scale-[0.98]"
-                          }`}
-                        >
-                          <div className="flex items-center gap-4 text-right">
-                            <div className={`p-3 rounded-lg ${selectedWorkerId === worker.id ? "bg-white/10 text-white" : "bg-primary/5 text-primary"}`}>
-                              <User className="h-6 w-6" />
-                            </div>
-                            <div className="text-right">
-                              <p className="text-base font-black truncate max-w-[140px]">{worker.name}</p>
-                              <p className={`text-xs font-bold ${selectedWorkerId === worker.id ? "text-slate-400" : "text-slate-500"}`}>{worker.type}</p>
-                            </div>
+                  
+                  {/* تحسين عرض قائمة العمال - شبكة تفاعلية */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredWorkers.map((worker: any) => (
+                      <button
+                        key={worker.id}
+                        onClick={() => setSelectedWorkerId(worker.id)}
+                        className={`group relative flex flex-col p-6 rounded-[2rem] transition-all border-2 text-right overflow-hidden ${
+                          selectedWorkerId === worker.id 
+                          ? "bg-slate-900 text-white border-slate-900 shadow-2xl shadow-slate-300 scale-[1.03] z-10" 
+                          : "bg-white hover:bg-slate-50 text-slate-700 border-slate-100 active:scale-[0.97]"
+                        }`}
+                      >
+                        {selectedWorkerId === worker.id && (
+                          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.1),transparent)] pointer-events-none" />
+                        )}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className={`p-4 rounded-2xl transition-colors ${
+                            selectedWorkerId === worker.id ? "bg-white/10 text-white" : "bg-primary/5 text-primary group-hover:bg-primary/10"
+                          }`}>
+                            <User className="h-7 w-7" />
                           </div>
-                          {selectedWorkerId === worker.id ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5 opacity-30" />}
-                        </button>
-                      ))}
+                          {selectedWorkerId === worker.id && (
+                            <div className="bg-emerald-500/20 text-emerald-400 p-1.5 rounded-full">
+                              <CheckCircle2 className="h-5 w-5" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-lg font-black tracking-tight mb-1">{worker.name}</p>
+                          <p className={`text-sm font-bold opacity-70`}>{worker.type}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {filteredWorkers.length === 0 && (
+                    <div className="text-center py-20 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
+                      <Users className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                      <p className="text-slate-500 font-bold">لم يتم العثور على عمال بهذا الاسم</p>
                     </div>
-                  </ScrollArea>
+                  )}
                 </div>
 
                 <div className="w-full">

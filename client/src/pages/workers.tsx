@@ -123,17 +123,23 @@ const WorkerCardWrapper = ({
   onEdit, 
   onDelete, 
   onToggleStatus,
+  onExport,
   formatCurrency,
   isToggling,
-  selectedProjectId
+  selectedProjectId,
+  isExporting,
+  exportProgress
 }: { 
   worker: Worker; 
   onEdit: () => void; 
   onDelete: () => void;
   onToggleStatus: () => void;
+  onExport: () => void;
   formatCurrency: (amount: number) => string;
   isToggling: boolean;
   selectedProjectId: string | null;
+  isExporting?: boolean;
+  exportProgress?: number;
 }) => {
   const projectIdForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
   
@@ -157,93 +163,110 @@ const WorkerCardWrapper = ({
   const projectsCount = stats?.projectsWorked ?? 0;
 
   return (
-    <UnifiedCard
-      title={worker.name}
-      subtitle={worker.hireDate ? new Date(worker.hireDate).toLocaleDateString('en-GB') : undefined}
-      titleIcon={User}
-      headerColor={worker.isActive ? '#22c55e' : '#ef4444'}
-      badges={[
-        {
-          label: worker.type,
-          variant: 'secondary',
-        },
-        {
-          label: worker.isActive ? 'نشط' : 'غير نشط',
-          variant: worker.isActive ? 'success' : 'destructive',
-        }
-      ]}
-      fields={[
-        {
-          label: "الأجر اليومي",
-          value: formatCurrency(parseFloat(worker.dailyWage)),
-          icon: DollarSign,
-          emphasis: true,
-          color: "success",
-        },
-        {
-          label: "الهاتف",
-          value: worker.phone || 'غير محدد',
-          icon: Phone,
-          color: worker.phone ? "success" : "muted",
-        },
-        {
-          label: "المشاريع",
-          value: statsLoading ? '...' : projectsCount > 0 ? `${projectsCount} مشروع` : 'لا يوجد',
-          icon: Building,
-          color: projectsCount > 0 ? "info" : "muted",
-        },
-        {
-          label: "أيام العمل",
-          value: statsLoading ? '...' : `${stats?.totalWorkDays ?? 0} يوم`,
-          icon: Calendar,
-          color: "warning",
-        },
-      ]}
-      actions={[
-        {
-          icon: FileText,
-          label: "كشف حساب",
-          onClick: async () => {
-            try {
-              const res = await apiRequest(`/api/workers/${worker.id}/statement${projectIdForApi ? `?projectId=${projectIdForApi}` : ''}`, 'GET');
-              if (res.success) {
-                exportWorkerStatement(res.data, worker);
-              }
-            } catch (error) {
-              console.error("Error exporting statement:", error);
-            }
+    <div className="relative group">
+      {isExporting && (
+        <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 rounded-lg border-2 border-primary animate-in fade-in zoom-in duration-300">
+          <div className="w-full space-y-4 text-center">
+            <div className="relative h-16 w-16 mx-auto">
+              <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
+              <div 
+                className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"
+              ></div>
+              <FileText className="absolute inset-0 m-auto h-6 w-6 text-primary animate-pulse" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-primary animate-pulse">جاري تجهيز كشف الحساب...</p>
+              <div className="h-2 w-full bg-primary/10 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-300 ease-out"
+                  style={{ width: `${exportProgress}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground font-mono">{exportProgress}%</p>
+            </div>
+          </div>
+        </div>
+      )}
+      <UnifiedCard
+        title={worker.name}
+        subtitle={worker.hireDate ? new Date(worker.hireDate).toLocaleDateString('en-GB') : undefined}
+        titleIcon={User}
+        headerColor={worker.isActive ? '#22c55e' : '#ef4444'}
+        badges={[
+          {
+            label: worker.type,
+            variant: 'secondary',
           },
-          color: "green",
-        },
-        {
-          icon: Edit2,
-          label: "تعديل",
-          onClick: onEdit,
-          color: "blue",
-        },
-        {
-          icon: Power,
-          label: worker.isActive ? "إيقاف" : "تفعيل",
-          onClick: onToggleStatus,
-          disabled: isToggling,
-          color: worker.isActive ? "yellow" : "green",
-        },
-        {
-          icon: Trash2,
-          label: "حذف",
-          onClick: onDelete,
-          color: "red",
-        },
-      ]}
-      footer={
-        <FinancialStatsFooter 
-          stats={stats} 
-          formatCurrency={formatCurrency} 
-          isLoading={statsLoading}
-        />
-      }
-      compact
-    />
+          {
+            label: worker.isActive ? 'نشط' : 'غير نشط',
+            variant: worker.isActive ? 'success' : 'destructive',
+          }
+        ]}
+        fields={[
+          {
+            label: "الأجر اليومي",
+            value: formatCurrency(parseFloat(worker.dailyWage)),
+            icon: DollarSign,
+            emphasis: true,
+            color: "success",
+          },
+          {
+            label: "الهاتف",
+            value: worker.phone || 'غير محدد',
+            icon: Phone,
+            color: worker.phone ? "success" : "muted",
+          },
+          {
+            label: "المشاريع",
+            value: statsLoading ? '...' : projectsCount > 0 ? `${projectsCount} مشروع` : 'لا يوجد',
+            icon: Building,
+            color: projectsCount > 0 ? "info" : "muted",
+          },
+          {
+            label: "أيام العمل",
+            value: statsLoading ? '...' : `${stats?.totalWorkDays ?? 0} يوم`,
+            icon: Calendar,
+            color: "warning",
+          },
+        ]}
+        actions={[
+          {
+            icon: FileText,
+            label: "كشف حساب",
+            onClick: onExport,
+            disabled: isExporting,
+            color: "green",
+          },
+          {
+            icon: Edit2,
+            label: "تعديل",
+            onClick: onEdit,
+            color: "blue",
+          },
+          {
+            icon: Power,
+            label: worker.isActive ? "إيقاف" : "تفعيل",
+            onClick: onToggleStatus,
+            disabled: isToggling,
+            color: worker.isActive ? "yellow" : "green",
+          },
+          {
+            icon: Trash2,
+            label: "حذف",
+            onClick: onDelete,
+            color: "red",
+          },
+        ]}
+        footer={
+          <FinancialStatsFooter 
+            stats={stats} 
+            formatCurrency={formatCurrency} 
+            isLoading={statsLoading}
+          />
+        }
+        compact
+      />
+    </div>
   );
 };
 
@@ -567,6 +590,11 @@ export default function WorkersPage() {
     },
   ], [workerTypes]);
 
+  const handleNewWorker = () => {
+    setEditingWorker(undefined);
+    setShowDialog(true);
+  };
+
   const handleEditWorker = (worker: Worker) => {
     setEditingWorker(worker);
     setShowDialog(true);
@@ -583,9 +611,52 @@ export default function WorkersPage() {
     updateWorkerMutation.mutate({ id: worker.id, data: { isActive: !worker.isActive } });
   };
 
-  const handleNewWorker = () => {
-    setEditingWorker(undefined);
-    setShowDialog(true);
+  const [exportingWorkerId, setExportingWorkerId] = useState<string | null>(null);
+  const [exportProgress, setExportProgress] = useState(0);
+
+  const handleExportStatement = async (worker: Worker) => {
+    setExportingWorkerId(worker.id);
+    setExportProgress(10);
+    
+    try {
+      const projectIdForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
+      
+      // محاكاة تقدم احترافي
+      const progressInterval = setInterval(() => {
+        setExportProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      const res = await apiRequest(`/api/workers/${worker.id}/statement${projectIdForApi ? `?projectId=${projectIdForApi}` : ''}`, 'GET');
+      
+      clearInterval(progressInterval);
+      setExportProgress(100);
+      
+      if (res.success) {
+        await exportWorkerStatement(res.data, worker);
+        toast({
+          title: "تم التصدير",
+          description: `تم تجهيز كشف حساب ${worker.name} بنجاح`,
+        });
+      }
+    } catch (error) {
+      console.error("Error exporting statement:", error);
+      toast({
+        title: "خطأ في التصدير",
+        description: "فشل في تجهيز كشف الحساب، يرجى المحاولة لاحقاً",
+        variant: "destructive"
+      });
+    } finally {
+      setTimeout(() => {
+        setExportingWorkerId(null);
+        setExportProgress(0);
+      }, 500);
+    }
   };
 
   useEffect(() => {
@@ -665,9 +736,12 @@ export default function WorkersPage() {
               onEdit={() => handleEditWorker(worker)}
               onDelete={() => handleDeleteWorker(worker)}
               onToggleStatus={() => handleToggleStatus(worker)}
+              onExport={() => handleExportStatement(worker)}
               formatCurrency={formatCurrency}
               isToggling={togglingWorkerId === worker.id}
               selectedProjectId={selectedProjectId}
+              isExporting={exportingWorkerId === worker.id}
+              exportProgress={exportProgress}
             />
           ))}
         </UnifiedCardGrid>

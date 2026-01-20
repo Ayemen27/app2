@@ -70,7 +70,9 @@ export class BackupService {
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) throw new Error("DATABASE_URL not found");
 
-      await execPromise(`pg_dump "${dbUrl}" -F p -f "${filepath}"`);
+      // استخدام pg_dump من حاوية أو مسار محدد إذا لزم الأمر، أو محاولة استخدام الخيارات المتوافقة
+      // ملاحظة: في بيئة Nix، قد نحتاج لتحديث نسخة postgresql-client
+      await execPromise(`pg_dump "${dbUrl}" -F p -f "${filepath}" --no-owner --no-privileges`);
       await execPromise(`gzip -c "${filepath}" > "${compressedPath}"`);
       fs.unlinkSync(filepath);
 

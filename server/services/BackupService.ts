@@ -33,7 +33,11 @@ export class BackupService {
       
       if (clientId && clientSecret && refreshToken) {
         // Use OAuth2 for personal accounts (Direct upload as user)
-        const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, "https://developers.google.com/oauthplayground");
+        const oauth2Client = new google.auth.OAuth2(
+          clientId, 
+          clientSecret, 
+          "https://developers.google.com/oauthplayground"
+        );
         oauth2Client.setCredentials({ refresh_token: refreshToken });
         auth = oauth2Client;
         console.log("ℹ️ Using OAuth2 for Google Drive upload (Personal Account).");

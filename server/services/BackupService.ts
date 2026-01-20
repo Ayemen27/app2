@@ -23,17 +23,32 @@ export class BackupService {
     const credentialsStr = process.env.GOOGLE_DRIVE_CREDENTIALS;
     const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
     
-    if (!credentialsStr) {
-      console.warn("⚠️ GOOGLE_DRIVE_CREDENTIALS is not set. Skipping Google Drive upload.");
-      return;
-    }
+    // OAuth2 Credentials for personal accounts
+    const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET;
+    const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
 
     try {
-      const credentials = JSON.parse(credentialsStr);
-      const auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive.install"],
-      });
+      let auth;
+      
+      if (clientId && clientSecret && refreshToken) {
+        // Use OAuth2 for personal accounts (Direct upload as user)
+        const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, "https://developers.google.com/oauthplayground");
+        oauth2Client.setCredentials({ refresh_token: refreshToken });
+        auth = oauth2Client;
+        console.log("ℹ️ Using OAuth2 for Google Drive upload (Personal Account).");
+      } else if (credentialsStr) {
+        // Fallback to Service Account
+        const credentials = JSON.parse(credentialsStr);
+        auth = new google.auth.GoogleAuth({
+          credentials,
+          scopes: ["https://www.googleapis.com/auth/drive.file"],
+        });
+        console.log("ℹ️ Using Service Account for Google Drive upload.");
+      } else {
+        console.warn("⚠️ No Google Drive credentials found. Skipping upload.");
+        return;
+      }
 
       const drive = google.drive({ version: "v3", auth });
       const fileMetadata: any = {

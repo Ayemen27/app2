@@ -34,7 +34,7 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
 
   // ترويسة الجدول
   const headerRow = worksheet.getRow(6);
-  headerRow.values = ['م', 'التاريخ', 'اليوم', 'وصف العمل', 'الساعات', 'الأجر المستحق', 'المبلغ المدفوع'];
+  headerRow.values = ['م', 'التاريخ', 'اليوم', 'الوصف / تفاصيل العمل', 'الوقت', 'المكتسب (له)', 'المنصرف (عليه)', 'المرجع'];
   headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
   headerRow.eachCell((cell) => {
@@ -52,15 +52,23 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
       index + 1,
       item.date,
       new Date(item.date).toLocaleDateString('ar-YE', { weekday: 'long' }),
-      item.description || 'تسجيل حضور',
+      item.description || (item.type === 'عمل' ? 'تسجيل حضور' : 'حوالة مالية'),
       item.type === 'عمل' ? '07:00-15:00' : '-',
       parseFloat(item.amount || 0),
-      parseFloat(item.paid || 0)
+      parseFloat(item.paid || 0),
+      item.reference || '-'
     ]);
     
     totalEarned += parseFloat(item.amount || 0);
     totalPaid += parseFloat(item.paid || 0);
     
+    // تلوين صفوف الحوالات لتمييزها
+    if (item.type === 'حوالة') {
+      row.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } };
+      });
+    }
+
     row.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     row.eachCell((cell) => {
       cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
@@ -109,6 +117,7 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
   worksheet.getColumn(5).width = 15;
   worksheet.getColumn(6).width = 15;
   worksheet.getColumn(7).width = 15;
+  worksheet.getColumn(8).width = 20;
 
   // حفظ الملف
   const buffer = await workbook.xlsx.writeBuffer();

@@ -6,10 +6,9 @@
 
 import { existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, statSync } from 'fs';
 import { join } from 'path';
+import { BackupService } from "./services/BackupService";
 
-const BACKUP_INTERVAL_MS = 30 * 60 * 1000; // 30 دقيقة
-const MAX_BACKUPS = 20;
-const BACKUP_DIR = join(process.cwd(), 'backups', 'auto');
+const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // يومياً
 
 interface BackupStatus {
   lastBackupTime: string | null;
@@ -34,13 +33,11 @@ let backupStatus: BackupStatus = {
   lastError: null
 };
 
-import { BackupService } from "./services/BackupService";
-
-const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // يومياً
-
 export function startAutoBackupScheduler(): void {
   console.log('🕐 [AutoBackup] بدء نظام الجدولة الجديد...');
-  setInterval(async () => {
+  if (schedulerInterval) clearInterval(schedulerInterval);
+  
+  schedulerInterval = setInterval(async () => {
     try {
       console.log('🔄 [AutoBackup] بدء النسخ التلقائي المجدول...');
       await BackupService.runBackup();
@@ -62,7 +59,7 @@ export function getAutoBackupStatus(): BackupStatus {
 }
 
 export async function triggerManualBackup(): Promise<any> {
-  return { success: true, message: 'Offline mode active' };
+  return await BackupService.runBackup();
 }
 
 export function listAutoBackups(): any[] {

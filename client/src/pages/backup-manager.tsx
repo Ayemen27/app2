@@ -14,13 +14,31 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Database, Download, RotateCcw, ShieldCheck } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+interface BackupLog {
+  id: number;
+  filename: string;
+  size: string;
+  status: string;
+  destination: string;
+  errorMessage?: string;
+  triggeredBy?: string;
+  createdAt: string;
+}
+
+interface BackupLogsResponse {
+  success: boolean;
+  data: BackupLog[];
+}
+
 export default function BackupManager() {
   const { toast } = useToast();
   const [isRestoring, setIsRestoring] = useState<number | null>(null);
 
-  const { data: logs, isLoading } = useQuery({
+  const { data: logsResponse, isLoading } = useQuery<BackupLogsResponse>({
     queryKey: ["/api/backups/logs"],
   });
+
+  const logs = logsResponse?.data || [];
 
   const backupMutation = useMutation({
     mutationFn: async () => {
@@ -85,7 +103,7 @@ export default function BackupManager() {
           </CardHeader>
           <CardContent>
             <div className="text-xl font-semibold">
-              {logs?.data?.[0]?.createdAt ? new Date(logs.data[0].createdAt).toLocaleDateString('ar-SA') : "لا يوجد"}
+              {logs?.[0]?.createdAt ? new Date(logs[0].createdAt).toLocaleDateString('ar-SA') : "لا يوجد"}
             </div>
           </CardContent>
         </Card>
@@ -94,7 +112,7 @@ export default function BackupManager() {
             <CardTitle className="text-sm">عدد النسخ المحفوظة</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{logs?.data?.length || 0}</div>
+            <div className="text-2xl font-bold">{logs?.length || 0}</div>
           </CardContent>
         </Card>
       </div>
@@ -118,7 +136,7 @@ export default function BackupManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {logs?.data?.map((log: any) => (
+                {logs?.map((log: BackupLog) => (
                   <TableRow key={log.id}>
                     <TableCell>{new Date(log.createdAt).toLocaleString('ar-SA')}</TableCell>
                     <TableCell className="font-mono text-xs">{log.filename}</TableCell>

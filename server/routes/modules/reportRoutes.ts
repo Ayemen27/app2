@@ -46,14 +46,14 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
 
     const dateStr = date as string;
 
-    // جلب بيانات الحضور والأجور - مع استخدام الأجر الحالي للعامل
+    // جلب بيانات الحضور والأجور - استخدام الأجر المسجل في سجل الحضور نفسه
     const attendanceData = await db
       .select({
         workerId: workerAttendance.workerId,
         workerName: workers.name,
         workerType: workers.type,
         workDays: workerAttendance.workDays,
-        dailyWage: workers.dailyWage,
+        dailyWage: workerAttendance.dailyWage, // الأجر المسجل في السجل
         actualWage: workerAttendance.actualWage,
         paidAmount: workerAttendance.paidAmount,
         remainingAmount: workerAttendance.remainingAmount,
@@ -248,12 +248,12 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const dateFromStr = dateFrom as string;
     const dateToStr = dateTo as string;
 
-    // جلب بيانات الحضور المجمعة - باستخدام الأجر الحالي للعامل
+    // جلب بيانات الحضور المجمعة - استخدام الأجر المسجل في سجل الحضور
     const attendanceSummary = await db
       .select({
         date: workerAttendance.attendanceDate,
         totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-        totalWages: sql<number>`COALESCE(SUM(CAST(${workers.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
+        totalWages: sql<number>`COALESCE(SUM(CAST(${workerAttendance.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
         totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
         workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.workerId})`
       })

@@ -21,9 +21,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  UserCheck
+  UserCheck,
+  MapPin
 } from "lucide-react";
-import { LayoutShell } from "@/components/layout/layout-shell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -221,20 +221,18 @@ export default function ProfessionalReports() {
 
   if (isLoading) {
     return (
-      <LayoutShell showHeader={false}>
-        <div className="flex items-center justify-center h-screen bg-slate-50/30">
-          <div className="flex flex-col items-center gap-4">
-            <RefreshCw className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-slate-500 font-medium animate-pulse text-lg">جاري تجهيز التقارير الذكية...</p>
-          </div>
+      <div className="flex items-center justify-center h-screen bg-slate-50/30">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-slate-500 font-medium animate-pulse text-lg">جاري تجهيز التقارير الذكية...</p>
         </div>
-      </LayoutShell>
+      </div>
     );
   }
 
   return (
-    <LayoutShell showHeader={true} title="التقارير الاحترافية">
-      <div className="p-4 space-y-6 bg-slate-50/50 min-h-screen pb-40" dir="rtl">
+    <div className="fade-in pb-40" dir="rtl">
+      <div className="p-4 space-y-6 bg-slate-50/50 min-h-screen">
         <UnifiedFilterDashboard
           filters={filterConfig}
           filterValues={{ timeRange }}
@@ -269,8 +267,10 @@ export default function ProfessionalReports() {
             { title: "إجمالي المنصرف", value: stats?.overall?.totalExpenses || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
             { title: "الرصيد التشغيلي", value: (stats?.overall?.totalFunds - stats?.overall?.totalExpenses) || 0, icon: Wallet, color: "green", formatter: formatCurrency },
             { title: "القوى العاملة", value: String(stats?.overall?.activeWorkers || 0), icon: Users, color: "purple" },
+            { title: "المواد", value: String(stats?.overall?.materialsCount || 0), icon: Package, color: "orange" },
+            { title: "الآبار", value: String(stats?.overall?.wellsCount || 0), icon: MapPin, color: "cyan" },
           ]}
-          columns={4}
+          columns={3}
           hideHeader={true}
         />
 

@@ -66,9 +66,11 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
   const tableHeaderRow = 7;
   const columns = [
     { header: 'م', key: 'id', width: 5 },
+    { header: 'المشروع', key: 'project', width: 25 },
     { header: 'التاريخ', key: 'date', width: 15 },
     { header: 'اليوم', key: 'day', width: 12 },
     { header: 'وصف العمل', key: 'description', width: 45 },
+    { header: 'أيام العمل', key: 'workDays', width: 12 },
     { header: 'الساعات', key: 'hours', width: 15 },
     { header: 'الأجر المستحق', key: 'earned', width: 15 },
     { header: 'المبلغ المدفوع', key: 'paid', width: 15 },
@@ -99,10 +101,12 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
     const row = worksheet.getRow(rowIdx);
     row.values = [
       index + 1,
+      item.projectName || '-',
       format(date, 'yyyy/MM/dd'),
       dayName,
       item.description || (item.type === 'عمل' ? 'تسجيل حضور ميداني' : 'صرف عهدة / حوالة'),
-      item.type === 'عمل' ? '07:00-15:00' : '-',
+      item.workDays || (item.type === 'عمل' ? '1' : '-'),
+      item.type === 'عمل' ? (item.hours || '07:00-15:00') : '-',
       parseFloat(item.amount || 0),
       parseFloat(item.paid || 0),
       item.reference || '-'

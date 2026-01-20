@@ -232,10 +232,15 @@ const WorkerCardWrapper = ({
         actions={[
           {
             icon: FileText,
-            label: "كشف حساب",
+            label: "تصدير كشف",
             onClick: onExport,
             disabled: isExporting,
             color: "green",
+            dropdown: [
+              { label: "ملف PDF جاهز", onClick: onExport },
+              { label: "تصدير إلى Excel", onClick: onExport },
+              { label: "طباعة مباشرة", onClick: () => window.print() }
+            ]
           },
           {
             icon: Edit2,
@@ -613,15 +618,16 @@ export default function WorkersPage() {
 
   const [exportingWorkerId, setExportingWorkerId] = useState<string | null>(null);
   const [exportProgress, setExportProgress] = useState(0);
+  const [showExportOptions, setShowExportOptions] = useState<string | null>(null);
 
-  const handleExportStatement = async (worker: Worker) => {
+  const handleExportStatement = async (worker: Worker, type: 'excel' | 'pdf' = 'excel') => {
     setExportingWorkerId(worker.id);
     setExportProgress(10);
+    setShowExportOptions(null);
     
     try {
       const projectIdForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
       
-      // محاكاة تقدم احترافي
       const progressInterval = setInterval(() => {
         setExportProgress(prev => {
           if (prev >= 90) {
@@ -639,9 +645,12 @@ export default function WorkersPage() {
       setExportProgress(100);
       
       if (res.success) {
-        // نستخدم البيانات القادمة من السيرفر بتنسيقها الجديد
-        // نمرر res.data مباشرة لوظيفة التصدير
-        await exportWorkerStatement(res.data, worker);
+        if (type === 'pdf') {
+          window.print();
+        } else {
+          await exportWorkerStatement(res.data, worker);
+        }
+        
         toast({
           title: "تم التصدير",
           description: `تم تجهيز كشف حساب ${worker.name} بنجاح`,

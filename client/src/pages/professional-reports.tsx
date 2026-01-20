@@ -380,20 +380,22 @@ export default function ProfessionalReports() {
         {selectedWorkerId && workerStatement ? (
           <div className="space-y-8 animate-in slide-in-from-bottom-6 duration-700">
             {/* Worker Identity Strip */}
-            <div className="bg-white border rounded-2xl p-6 flex flex-wrap gap-8 items-center justify-center shadow-sm">
-              <div className="flex flex-col items-center">
+            <div className="bg-white border rounded-2xl p-6 grid grid-cols-2 md:grid-cols-4 gap-4 items-center shadow-sm">
+              <div className="flex flex-col items-center border-l last:border-l-0">
                 <span className="text-xs font-bold text-slate-400">اسم العامل</span>
-                <span className="text-lg font-black text-slate-700">{workersList.find(w => w.id === selectedWorkerId)?.name}</span>
+                <span className="text-sm md:text-lg font-black text-slate-700">{workersList.find(w => w.id === selectedWorkerId)?.name || 'غير محدد'}</span>
               </div>
-              <Separator orientation="vertical" className="h-10 hidden md:block" />
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center border-l last:border-l-0">
                 <span className="text-xs font-bold text-slate-400">المهنة</span>
-                <span className="text-lg font-black text-slate-700">{workersList.find(w => w.id === selectedWorkerId)?.role || 'عامل'}</span>
+                <span className="text-sm md:text-lg font-black text-slate-700">{workersList.find(w => w.id === selectedWorkerId)?.role || 'عامل'}</span>
               </div>
-              <Separator orientation="vertical" className="h-10 hidden md:block" />
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center border-l last:border-l-0">
                 <span className="text-xs font-bold text-slate-400">إجمالي أيام العمل</span>
-                <span className="text-lg font-black text-slate-700">{workerStatement.summary.totalDays || 0}</span>
+                <span className="text-sm md:text-lg font-black text-slate-700">{workerStatement?.summary?.totalDays || 0}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-xs font-bold text-slate-400">رقم الهاتف</span>
+                <span className="text-sm md:text-lg font-black text-slate-700">{workersList.find(w => w.id === selectedWorkerId)?.phone || '-'}</span>
               </div>
             </div>
 

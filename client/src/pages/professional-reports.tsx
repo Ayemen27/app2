@@ -69,12 +69,13 @@ export default function ProfessionalReports() {
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [workerSearch, setWorkerSearch] = useState("");
 
-  const { data: workersList = [] } = useQuery({
-    queryKey: ["/api/workers", selectedProjectId],
+  const { data: workersList = [], isLoading: workersLoading } = useQuery({
+    queryKey: ["/api/workers"],
     queryFn: async () => {
       const res = await apiRequest("/api/workers", "GET");
-      const workers = res.data || [];
-      if (!isAllProjects) {
+      const workers = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
+      // Filter by project if not "all projects"
+      if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
         return workers.filter((w: any) => w.projectId === selectedProjectId);
       }
       return workers;
@@ -85,11 +86,127 @@ export default function ProfessionalReports() {
     queryKey: ["/api/reports/worker-statement", selectedWorkerId, selectedProjectId, timeRange],
     queryFn: async () => {
       if (!selectedWorkerId) return null;
-      const res = await apiRequest(`/api/reports/worker-statement?workerId=${selectedWorkerId}&projectId=${selectedProjectId}&dateFrom=${timeRange === 'this-month' ? format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd') : ''}`, "GET");
+      // Build query params
+      const params = new URLSearchParams();
+      params.append("workerId", selectedWorkerId);
+      if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
+        params.append("projectId", selectedProjectId);
+      }
+      if (timeRange === 'this-month') {
+        params.append("dateFrom", format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'));
+      }
+      
+      const res = await apiRequest(`/api/reports/worker-statement?${params.toString()}`, "GET");
       return res.data;
     },
     enabled: !!selectedWorkerId
   });
+
+  const exportToProfessionalExcel = async () => {
+    if (activeTab === 'workers' && !workerStatement) {
+      toast({
+        title: "تنبيه",
+        description: "الرجاء اختيار عامل أولاً لعرض وتصدير كشف الحساب",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({
+      title: "جاري تصدير Excel",
+      description: "يتم الآن إنشاء ملف الكشف المحاسبي الاحترافي...",
+    });
+
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('كشف حساب');
+      worksheet.views = [{ rightToLeft: true }];
+
+      // Styles
+      const headerFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1e40af' } };
+      const subHeaderFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'f1f5f9' } };
+      const whiteFont = { color: { argb: 'FFFFFF' }, bold: true, name: 'Arial', size: 12 };
+      const darkFont = { color: { argb: '1e293b' }, bold: true, name: 'Arial', size: 11 };
+      const centerAlign: any = { horizontal: 'center', vertical: 'middle' };
+
+      if (activeTab === 'workers' && workerStatement) {
+        const worker = workersList.find((w: any) => w.id === selectedWorkerId);
+        
+        // Title
+        worksheet.mergeCells('A1:E1');
+        const titleCell = worksheet.getCell('A1');
+        titleCell.value = `كشف حساب عامل: ${worker?.name || 'غير معروف'}`;
+        titleCell.fill = headerFill;
+        titleCell.font = whiteFont;
+        titleCell.alignment = centerAlign;
+        worksheet.getRow(1).height = 35;
+
+        // Info Rows
+        worksheet.mergeCells('A2:E2');
+        worksheet.getCell('A2').value = `المشروع: ${selectedProjectName}`;
+        worksheet.getCell('A2').font = darkFont;
+        
+        worksheet.mergeCells('A3:E3');
+        worksheet.getCell('A3').value = `الفترة: ${timeRange === 'all' ? 'كامل الفترة' : 'الشهر الحالي'}`;
+        
+        worksheet.getRow(4).values = ['التاريخ', 'البيان', 'مدين (عليه)', 'دائن (له)', 'الرصيد'];
+        worksheet.getRow(4).eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '334155' } };
+          cell.font = whiteFont;
+          cell.alignment = centerAlign;
+          cell.border = { bottom: { style: 'medium' } };
+        });
+
+        let currentBalance = 0;
+        const rows = workerStatement.transactions.map((t: any) => {
+          const debit = t.type === 'expense' || t.type === 'transfer' ? t.amount : 0;
+          const credit = t.type === 'attendance' ? t.amount : 0;
+          currentBalance += (credit - debit);
+          return [
+            format(new Date(t.date), 'yyyy-MM-dd'),
+            t.description || (t.type === 'attendance' ? 'حضور يومي' : 'دفعة مالية'),
+            debit || '-',
+            credit || '-',
+            currentBalance
+          ];
+        });
+
+        worksheet.addRows(rows);
+
+        // Summary
+        const lastRow = worksheet.rowCount + 2;
+        worksheet.mergeCells(`A${lastRow}:C${lastRow}`);
+        worksheet.getCell(`A${lastRow}`).value = 'إجمالي المستحقات النهائية:';
+        worksheet.getCell(`A${lastRow}`).font = { bold: true, size: 14 };
+        worksheet.getCell(`D${lastRow}`).value = workerStatement.summary.balance;
+        worksheet.getCell(`D${lastRow}`).font = { bold: true, size: 14, color: { argb: workerStatement.summary.balance < 0 ? 'ef4444' : '10b981' } };
+      } else {
+        // Global Export
+        const dataToExport = stats?.chartData?.map((row: any) => ({
+          "التاريخ": row.date,
+          "الإجمالي": row.total,
+        })) || [];
+        
+        worksheet.columns = [
+          { header: 'التاريخ', key: 'date', width: 20 },
+          { header: 'الإجمالي', key: 'total', width: 20 }
+        ];
+        worksheet.addRows(dataToExport.map(d => [d['التاريخ'], d['الإجمالي']]));
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      saveAs(new Blob([buffer]), `تقرير_${selectedProjectName}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+
+    } catch (error) {
+      console.error("Excel Export Error:", error);
+      toast({
+        title: "خطأ في التصدير",
+        description: "حدث خطأ أثناء محاولة تصدير الملف بشكل احترافي.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const filteredWorkers = useMemo(() => workersList.filter((w: any) => 
     w.name.toLowerCase().includes(workerSearch.toLowerCase())
@@ -174,32 +291,7 @@ export default function ProfessionalReports() {
               <Button 
                 size="sm"
                 className="gap-2 h-9 bg-primary hover:bg-primary/90 rounded-xl transition-all shadow-lg shadow-primary/20"
-                onClick={() => {
-                  toast({
-                    title: "جاري تصدير Excel",
-                    description: "يتم الآن إنشاء ملف الكشف المحاسبي الاحترافي...",
-                  });
-
-                  try {
-                    const dataToExport = stats?.chartData?.map((row: any) => ({
-                      "التاريخ": row.date,
-                      "الإجمالي": row.total,
-                    })) || [];
-
-                    const ws = XLSX.utils.json_to_sheet(dataToExport);
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, "التقارير");
-                    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-                    const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-                    saveAs(data, `تقرير_${selectedProjectName}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
-                  } catch (error) {
-                    toast({
-                      title: "خطأ في التصدير",
-                      description: "حدث خطأ أثناء محاولة تصدير الملف.",
-                      variant: "destructive"
-                    });
-                  }
-                }}
+                onClick={exportToProfessionalExcel}
               >
                 <Download className="h-4 w-4" />
                 <span className="font-bold hidden sm:inline">تصدير Excel</span>

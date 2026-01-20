@@ -596,28 +596,28 @@ export default function ProfessionalReports() {
                       onChange={(e) => setWorkerSearch(e.target.value)}
                     />
                   </div>
-                  <ScrollArea className="h-[250px] rounded-2xl border border-slate-100 bg-white p-3 shadow-inner">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  <ScrollArea className="h-[400px] rounded-2xl border border-slate-100 bg-white p-3 shadow-inner">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {filteredWorkers.map((worker: any) => (
                         <button
                           key={worker.id}
                           onClick={() => setSelectedWorkerId(worker.id)}
-                          className={`flex items-center justify-between p-4 rounded-xl transition-all ${
+                          className={`flex items-center justify-between p-5 rounded-xl transition-all border-2 ${
                             selectedWorkerId === worker.id 
-                            ? "bg-slate-900 text-white shadow-xl shadow-slate-200 scale-[1.02]" 
-                            : "hover:bg-slate-50 text-slate-700 active:scale-[0.98]"
+                            ? "bg-slate-900 text-white border-slate-900 shadow-xl shadow-slate-200 scale-[1.02]" 
+                            : "bg-white hover:bg-slate-50 text-slate-700 border-slate-100 active:scale-[0.98]"
                           }`}
                         >
                           <div className="flex items-center gap-4 text-right">
-                            <div className={`p-2 rounded-lg ${selectedWorkerId === worker.id ? "bg-white/10" : "bg-slate-100"}`}>
-                              <User className="h-5 w-5" />
+                            <div className={`p-3 rounded-lg ${selectedWorkerId === worker.id ? "bg-white/10 text-white" : "bg-primary/5 text-primary"}`}>
+                              <User className="h-6 w-6" />
                             </div>
                             <div className="text-right">
-                              <p className="text-sm font-black truncate max-w-[140px]">{worker.name}</p>
-                              <p className={`text-[10px] font-bold ${selectedWorkerId === worker.id ? "text-slate-400" : "text-slate-500"}`}>{worker.type}</p>
+                              <p className="text-base font-black truncate max-w-[140px]">{worker.name}</p>
+                              <p className={`text-xs font-bold ${selectedWorkerId === worker.id ? "text-slate-400" : "text-slate-500"}`}>{worker.type}</p>
                             </div>
                           </div>
-                          {selectedWorkerId === worker.id ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4 opacity-30" />}
+                          {selectedWorkerId === worker.id ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5 opacity-30" />}
                         </button>
                       ))}
                     </div>

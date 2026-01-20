@@ -54,7 +54,7 @@ export function LayoutShell({
             )}
             
             <main className="layout-main flex-1 overflow-y-auto relative overscroll-none">
-              <div className={isCustomHeaderPage ? "h-full" : "layout-content pb-32 md:pb-6 p-4 md:p-6 max-w-7xl mx-auto w-full"}>
+              <div className={isCustomHeaderPage ? "h-full" : "layout-content pb-40 md:pb-12 p-4 md:p-6 max-w-7xl mx-auto w-full"}>
                 {children}
               </div>
             </main>

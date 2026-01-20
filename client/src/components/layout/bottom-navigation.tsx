@@ -138,7 +138,7 @@ export default function BottomNavigation() {
 
   return (
     <nav 
-      className="bg-transparent flex-shrink-0 h-[84px] w-full relative z-[50] pb-[env(safe-area-inset-bottom,20px)] touch-none mb-1"
+      className="bg-transparent flex-shrink-0 h-[84px] w-full relative z-[50] pb-[env(safe-area-inset-bottom,20px)] touch-none"
       onClick={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
       onTouchMove={(e) => e.stopPropagation()}

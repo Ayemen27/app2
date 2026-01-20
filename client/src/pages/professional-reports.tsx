@@ -71,6 +71,19 @@ export default function ProfessionalReports() {
     timeRange: "this-month"
   });
 
+  const { data: workersList = [], isLoading: workersLoading } = useQuery({
+    queryKey: ["/api/workers"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const res = await apiRequest("/api/workers", "GET");
+      const workers = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
+      if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
+        return workers.filter((w: any) => w.projectId === selectedProjectId);
+      }
+      return workers;
+    }
+  });
+
   const filterConfig: FilterConfig[] = [
     {
       key: "timeRange",
@@ -102,19 +115,6 @@ export default function ProfessionalReports() {
       setSelectedWorkerId(val === "all" ? null : val);
     }
   };
-
-  const { data: workersList = [], isLoading: workersLoading } = useQuery({
-    queryKey: ["/api/workers"],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const res = await apiRequest("/api/workers", "GET");
-      const workers = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
-      if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
-        return workers.filter((w: any) => w.projectId === selectedProjectId);
-      }
-      return workers;
-    }
-  });
 
   const { data: workerStatement, isLoading: workerLoading } = useQuery({
     queryKey: ["/api/reports/worker-statement", selectedWorkerId, selectedProjectId, filterValues.timeRange],

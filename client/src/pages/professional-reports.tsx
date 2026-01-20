@@ -81,8 +81,27 @@ export default function ProfessionalReports() {
         { label: "الشهر الحالي", value: "this-month" },
         { label: "الكل", value: "all" },
       ]
+    },
+    {
+      key: "workerId",
+      label: "العامل",
+      type: "select",
+      options: [
+        { label: "جميع العمال", value: "all" },
+        ...workersList.map((w: any) => ({
+          label: w.name,
+          value: w.id
+        }))
+      ]
     }
   ];
+
+  const onFilterChange = (key: string, val: any) => {
+    setFilterValues(prev => ({ ...prev, [key]: val }));
+    if (key === "workerId") {
+      setSelectedWorkerId(val === "all" ? null : val);
+    }
+  };
 
   const { data: workersList = [], isLoading: workersLoading } = useQuery({
     queryKey: ["/api/workers"],
@@ -252,9 +271,9 @@ export default function ProfessionalReports() {
         });
 
         const dataSummaryRow = 5;
-        worksheet.getCell(`A${dataSummaryRow}`).value = workerStatement.summary.totalEarned;
-        worksheet.getCell(`B${dataSummaryRow}`).value = workerStatement.summary.totalPaid;
-        worksheet.getCell(`C${dataSummaryRow}`).value = workerStatement.summary.balance;
+        worksheet.getCell(`A${dataSummaryRow}`).value = parseFloat(workerStatement.summary.totalEarned || 0);
+        worksheet.getCell(`B${dataSummaryRow}`).value = parseFloat(workerStatement.summary.totalPaid || 0);
+        worksheet.getCell(`C${dataSummaryRow}`).value = parseFloat(workerStatement.summary.finalBalance || 0);
         
         [1, 2, 3].forEach(col => {
           const cell = worksheet.getRow(dataSummaryRow).getCell(col);
@@ -266,7 +285,7 @@ export default function ProfessionalReports() {
 
         // --- Transactions Table ---
         const tableHeaderRow = 7;
-        worksheet.getRow(tableHeaderRow).values = ['التاريخ', 'البيان', 'نوع الحركة', 'المبلغ', 'الرصيد التراكمي'];
+        worksheet.getRow(tableHeaderRow).values = ['التاريخ', 'البيان', 'نوع الحركة', 'المبلغ المستحق', 'المبلغ المدفوع', 'الرصيد التراكمي'];
         worksheet.getRow(tableHeaderRow).eachCell((cell) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '334155' } };
           cell.font = whiteFont;
@@ -274,19 +293,14 @@ export default function ProfessionalReports() {
           cell.border = borderStyle;
         });
 
-        let currentBalance = 0;
-        const rows = workerStatement.transactions.map((t: any) => {
-          const isCredit = t.type === 'attendance';
-          const amount = parseFloat(t.amount || 0);
-          currentBalance += isCredit ? amount : -amount;
-          return [
-            format(new Date(t.date), 'yyyy-MM-dd'),
-            t.description || (isCredit ? 'حضور يومي' : 'دفعة مالية'),
-            isCredit ? 'مستحق (له)' : 'صرف (عليه)',
-            amount,
-            currentBalance
-          ];
-        });
+        const rows = workerStatement.statement.map((t: any) => [
+          format(new Date(t.date), 'yyyy-MM-dd'),
+          t.description || '',
+          t.type,
+          parseFloat(t.amount || 0),
+          parseFloat(t.paid || 0),
+          parseFloat(t.balance || 0)
+        ]);
         worksheet.addRows(rows);
 
         // Styling the data rows
@@ -376,7 +390,7 @@ export default function ProfessionalReports() {
         <UnifiedFilterDashboard
           filters={filterConfig}
           filterValues={filterValues}
-          onFilterChange={(key, val) => setFilterValues(prev => ({ ...prev, [key]: val }))}
+          onFilterChange={onFilterChange}
           searchValue={searchValue}
           onSearchChange={setSearchValue}
           searchPlaceholder="البحث في التقارير..."
@@ -384,7 +398,8 @@ export default function ProfessionalReports() {
           onRefresh={refetch}
           onReset={() => {
             setSearchValue("");
-            setFilterValues({ timeRange: "this-month" });
+            setFilterValues({ timeRange: "this-month", workerId: "all" });
+            setSelectedWorkerId(null);
           }}
           actions={[
             {

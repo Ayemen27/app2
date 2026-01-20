@@ -236,6 +236,20 @@ export default function ProfessionalReports() {
   return (
     <div className="fade-in pb-40" dir="rtl">
       <div className="p-4 space-y-6 bg-slate-50/50 min-h-screen">
+        {/* Executive KPIs - UnifiedStats */}
+        <UnifiedStats
+          stats={[
+            { title: "إجمالي الوارد", value: stats?.overall?.totalFunds || 0, icon: TrendingUp, color: "blue", formatter: formatCurrency },
+            { title: "إجمالي المنصرف", value: stats?.overall?.totalExpenses || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
+            { title: "الرصيد التشغيلي", value: (stats?.overall?.totalFunds - stats?.overall?.totalExpenses) || 0, icon: Wallet, color: "green", formatter: formatCurrency },
+            { title: "القوى العاملة", value: String(stats?.overall?.activeWorkers || 0), icon: Users, color: "purple" },
+            { title: "المواد", value: String(stats?.overall?.materialsCount || 0), icon: Package, color: "orange" },
+            { title: "الآبار", value: String(stats?.overall?.wellsCount || 0), icon: MapPin, color: "cyan" },
+          ]}
+          columns={3}
+          hideHeader={true}
+        />
+
         <UnifiedFilterDashboard
           filters={filterConfig}
           filterValues={filterValues}
@@ -265,20 +279,6 @@ export default function ProfessionalReports() {
               variant: "default"
             }
           ]}
-        />
-
-        {/* Executive KPIs - UnifiedStats */}
-        <UnifiedStats
-          stats={[
-            { title: "إجمالي الوارد", value: stats?.overall?.totalFunds || 0, icon: TrendingUp, color: "blue", formatter: formatCurrency },
-            { title: "إجمالي المنصرف", value: stats?.overall?.totalExpenses || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
-            { title: "الرصيد التشغيلي", value: (stats?.overall?.totalFunds - stats?.overall?.totalExpenses) || 0, icon: Wallet, color: "green", formatter: formatCurrency },
-            { title: "القوى العاملة", value: String(stats?.overall?.activeWorkers || 0), icon: Users, color: "purple" },
-            { title: "المواد", value: String(stats?.overall?.materialsCount || 0), icon: Package, color: "orange" },
-            { title: "الآبار", value: String(stats?.overall?.wellsCount || 0), icon: MapPin, color: "cyan" },
-          ]}
-          columns={3}
-          hideHeader={true}
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

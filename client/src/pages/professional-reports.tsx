@@ -1,11 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   BarChart3, 
-  Calendar, 
   Clock, 
   Users, 
-  GitCompare, 
   Activity,
   Download,
   FileText,
@@ -13,27 +11,25 @@ import {
   RefreshCw,
   TrendingUp,
   DollarSign,
-  Briefcase,
-  Layers,
-  ArrowUpRight,
-  ArrowDownRight,
-  Filter,
-  Search,
-  ChevronDown,
-  LayoutDashboard,
-  UserCheck,
   Wallet,
   History,
-  MapPin,
-  Package
+  Package,
+  TrendingDown,
+  CreditCard,
+  Truck,
+  User,
+  ChevronLeft,
+  ChevronRight,
+  Search
 } from "lucide-react";
 import { LayoutShell } from "@/components/layout/layout-shell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import { 
   ResponsiveContainer, 
   BarChart, 
@@ -46,8 +42,6 @@ import {
   PieChart, 
   Pie, 
   Cell,
-  LineChart,
-  Line,
   AreaChart,
   Area
 } from "recharts";
@@ -56,8 +50,9 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { useSelectedProjectContext, ALL_PROJECTS_ID } from "@/contexts/SelectedProjectContext";
-import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { UnifiedStats } from "@/components/ui/unified-stats";
+import { UnifiedCard } from "@/components/ui/unified-card";
 
 const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
@@ -75,7 +70,6 @@ export default function ProfessionalReports() {
     queryFn: async () => {
       const res = await apiRequest("/api/workers", "GET");
       const workers = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
-      // Filter by project if not "all projects"
       if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
         return workers.filter((w: any) => w.projectId === selectedProjectId);
       }
@@ -88,7 +82,6 @@ export default function ProfessionalReports() {
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       if (!selectedWorkerId) return null;
-      // Build query params
       const params = new URLSearchParams();
       params.append("workerId", selectedWorkerId);
       if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
@@ -102,6 +95,15 @@ export default function ProfessionalReports() {
       return res.data;
     },
     enabled: !!selectedWorkerId
+  });
+
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["/api/reports/dashboard-kpis", selectedProjectId, timeRange],
+    staleTime: 2 * 60 * 1000,
+    queryFn: async () => {
+      const res = await apiRequest(`/api/reports/dashboard-kpis?projectId=${selectedProjectId}&range=${timeRange}`, "GET");
+      return res.data;
+    }
   });
 
   const exportToProfessionalExcel = async () => {
@@ -125,17 +127,13 @@ export default function ProfessionalReports() {
       const worksheet = workbook.addWorksheet('كشف حساب');
       worksheet.views = [{ rightToLeft: true }];
 
-      // Styles
       const headerFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1e40af' } };
-      const subHeaderFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'f1f5f9' } };
       const whiteFont = { color: { argb: 'FFFFFF' }, bold: true, name: 'Arial', size: 12 };
       const darkFont = { color: { argb: '1e293b' }, bold: true, name: 'Arial', size: 11 };
       const centerAlign: any = { horizontal: 'center', vertical: 'middle' };
 
       if (activeTab === 'workers' && workerStatement) {
         const worker = workersList.find((w: any) => w.id === selectedWorkerId);
-        
-        // Title
         worksheet.mergeCells('A1:E1');
         const titleCell = worksheet.getCell('A1');
         titleCell.value = `كشف حساب عامل: ${worker?.name || 'غير معروف'}`;
@@ -144,7 +142,6 @@ export default function ProfessionalReports() {
         titleCell.alignment = centerAlign;
         worksheet.getRow(1).height = 35;
 
-        // Info Rows
         worksheet.mergeCells('A2:E2');
         worksheet.getCell('A2').value = `المشروع: ${selectedProjectName}`;
         worksheet.getCell('A2').font = darkFont;
@@ -173,10 +170,8 @@ export default function ProfessionalReports() {
             currentBalance
           ];
         });
-
         worksheet.addRows(rows);
 
-        // Summary
         const lastRow = worksheet.rowCount + 2;
         worksheet.mergeCells(`A${lastRow}:C${lastRow}`);
         worksheet.getCell(`A${lastRow}`).value = 'إجمالي المستحقات النهائية:';
@@ -184,12 +179,10 @@ export default function ProfessionalReports() {
         worksheet.getCell(`D${lastRow}`).value = workerStatement.summary.balance;
         worksheet.getCell(`D${lastRow}`).font = { bold: true, size: 14, color: { argb: workerStatement.summary.balance < 0 ? 'ef4444' : '10b981' } };
       } else {
-        // Global Export
         const dataToExport = stats?.chartData?.map((row: any) => ({
           "التاريخ": row.date,
           "الإجمالي": row.total,
         })) || [];
-        
         worksheet.columns = [
           { header: 'التاريخ', key: 'date', width: 20 },
           { header: 'الإجمالي', key: 'total', width: 20 }
@@ -199,14 +192,9 @@ export default function ProfessionalReports() {
 
       const buffer = await workbook.xlsx.writeBuffer();
       saveAs(new Blob([buffer]), `تقرير_${selectedProjectName}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
-
     } catch (error) {
       console.error("Excel Export Error:", error);
-      toast({
-        title: "خطأ في التصدير",
-        description: "حدث خطأ أثناء محاولة تصدير الملف بشكل احترافي.",
-        variant: "destructive"
-      });
+      toast({ title: "خطأ في التصدير", description: "حدث خطأ أثناء محاولة تصدير الملف بشكل احترافي.", variant: "destructive" });
     }
   };
 
@@ -214,18 +202,9 @@ export default function ProfessionalReports() {
     w.name.toLowerCase().includes(workerSearch.toLowerCase())
   ), [workersList, workerSearch]);
 
-  const { data: stats, isLoading, refetch } = useQuery({
-    queryKey: ["/api/reports/dashboard-kpis", selectedProjectId, timeRange],
-    staleTime: 2 * 60 * 1000,
-    queryFn: async () => {
-      const res = await apiRequest(`/api/reports/dashboard-kpis?projectId=${selectedProjectId}&range=${timeRange}`, "GET");
-      return res.data;
-    }
-  });
-
   if (isLoading) {
     return (
-      <LayoutShell>
+      <LayoutShell showHeader={false}>
         <div className="flex items-center justify-center h-screen bg-slate-50/30">
           <div className="flex flex-col items-center gap-4">
             <RefreshCw className="h-10 w-10 animate-spin text-primary" />
@@ -238,461 +217,353 @@ export default function ProfessionalReports() {
 
   return (
     <LayoutShell showHeader={false}>
-      <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-[#f8fafc] min-h-screen font-sans print:bg-white print:p-0 pb-44" dir="rtl">
-        {/* Top Header - Global Context Driven */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-bold px-3 py-1 rounded-full">
-                {selectedProjectName}
-              </Badge>
-              {isAllProjects && (
-                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 font-bold px-3 py-1 rounded-full">
-                  رؤية بانورامية
-                </Badge>
-              )}
+      <div className="p-4 space-y-6 bg-slate-50/50 min-h-screen pb-40" dir="rtl">
+        {/* Header - Unified Professional Style */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 p-2.5 rounded-2xl text-primary shadow-sm border border-primary/5">
+              <BarChart3 className="h-6 w-6" />
             </div>
-            <p className="text-slate-500 text-sm font-medium">التحليلات المالية والمهنية للمشروع</p>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight">منصة التقارير التحليلية</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant="outline" className="bg-white text-slate-500 border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {selectedProjectName}
+                </Badge>
+                {isAllProjects && (
+                  <Badge variant="secondary" className="text-[10px] font-bold bg-amber-50 text-amber-600 border-amber-100 px-2 py-0.5 rounded-full">
+                    بيانات مجمعة
+                  </Badge>
+                )}
+              </div>
+            </div>
           </div>
-          
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border shadow-sm">
+
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <div className="bg-white border border-slate-200 rounded-xl p-1 flex items-center shadow-sm">
               <Button 
                 variant={timeRange === "today" ? "default" : "ghost"} 
                 size="sm" 
                 onClick={() => setTimeRange("today")}
-                className="rounded-lg h-8 px-3 text-xs sm:text-sm"
+                className="h-8 px-4 text-xs font-bold rounded-lg transition-all"
               >اليوم</Button>
               <Button 
                 variant={timeRange === "this-month" ? "default" : "ghost"} 
                 size="sm" 
                 onClick={() => setTimeRange("this-month")}
-                className="rounded-lg h-8 px-3 text-xs sm:text-sm"
+                className="h-8 px-4 text-xs font-bold rounded-lg transition-all"
               >الشهر</Button>
               <Button 
                 variant={timeRange === "all" ? "default" : "ghost"} 
                 size="sm" 
                 onClick={() => setTimeRange("all")}
-                className="rounded-lg h-8 px-3 text-xs sm:text-sm"
+                className="h-8 px-4 text-xs font-bold rounded-lg transition-all"
               >الكل</Button>
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="gap-2 bg-white h-9 border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm"
-                onClick={() => {
-                  setTimeout(() => {
-                    window.print();
-                  }, 500);
-                }}
-              >
-                <Printer className="h-4 w-4 text-slate-600" />
-                <span className="font-bold hidden sm:inline">طباعة</span>
-              </Button>
-              <Button 
-                size="sm"
-                className="gap-2 h-9 bg-primary hover:bg-primary/90 rounded-xl transition-all shadow-lg shadow-primary/20"
-                onClick={exportToProfessionalExcel}
-              >
-                <Download className="h-4 w-4" />
-                <span className="font-bold hidden sm:inline">تصدير Excel</span>
-              </Button>
-            </div>
+            <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl border-slate-200 bg-white hover:bg-slate-50 shadow-sm" onClick={() => window.print()}>
+              <Printer className="h-4 w-4 text-slate-600" />
+            </Button>
+            <Button size="sm" className="h-9 gap-2 font-bold px-5 rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all" onClick={exportToProfessionalExcel}>
+              <Download className="h-4 w-4" />
+              <span>تصدير ذكي</span>
+            </Button>
           </div>
         </div>
 
-        {/* Professional Print Header */}
-        <div className="hidden print:block mb-10 border-b-4 border-slate-900 pb-8 text-right">
-          <div className="flex justify-between items-start">
-            <div className="space-y-3">
-              <h1 className="text-4xl font-black text-slate-900">كشف حساب {activeTab === 'workers' ? 'عامل تفصيلي' : 'مشروع مالي'}</h1>
-              <p className="text-2xl font-bold text-slate-800">مشروع: {selectedProjectName}</p>
-              <p className="text-slate-600 font-bold">النطاق الزمني: {timeRange === 'all' ? 'كامل الفترة' : timeRange === 'this-month' ? 'الشهر الحالي' : 'اليوم'}</p>
-              <p className="text-slate-500 font-medium">تاريخ استخراج التقرير: {format(new Date(), "yyyy/MM/dd HH:mm")}</p>
-            </div>
-            <div className="text-left flex flex-col items-end">
-              <div className="h-20 w-20 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-4xl mb-3 shadow-lg">BJ</div>
-              <p className="font-black text-2xl text-slate-900">BinarJoin Pro</p>
-              <p className="text-slate-500 font-bold">لإدارة المشاريع الإنشائية</p>
-            </div>
-          </div>
-        </div>
+        {/* Executive KPIs - UnifiedStats */}
+        <UnifiedStats
+          stats={[
+            { title: "إجمالي الوارد", value: stats?.overall?.totalFunds || 0, icon: TrendingUp, color: "blue", formatter: formatCurrency },
+            { title: "إجمالي المنصرف", value: stats?.overall?.totalExpenses || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
+            { title: "الرصيد التشغيلي", value: (stats?.overall?.totalFunds - stats?.overall?.totalExpenses) || 0, icon: Wallet, color: "green", formatter: formatCurrency },
+            { title: "القوى العاملة", value: String(stats?.overall?.activeWorkers || 0), icon: Users, color: "purple" },
+          ]}
+          columns={4}
+          hideHeader={true}
+        />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white/50 backdrop-blur-md border p-1 h-12 shadow-sm rounded-xl w-full max-lg print:hidden">
-            <TabsTrigger value="overview" className="flex-1 gap-2 rounded-lg text-sm font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-              <Activity className="h-4 w-4" /> نظرة عامة
+          <TabsList className="bg-slate-200/50 border border-slate-200 p-1 h-12 rounded-2xl w-full sm:w-auto print:hidden">
+            <TabsTrigger value="overview" className="flex-1 sm:flex-none px-8 gap-2 font-bold text-xs data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md rounded-xl transition-all">
+              <Activity className="h-4 w-4" /> نظرة بانورامية
             </TabsTrigger>
-            <TabsTrigger value="financial" className="flex-1 gap-2 rounded-lg text-sm font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-              <DollarSign className="h-4 w-4" /> التقارير المالية
+            <TabsTrigger value="financial" className="flex-1 sm:flex-none px-8 gap-2 font-bold text-xs data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md rounded-xl transition-all">
+              <DollarSign className="h-4 w-4" /> التحليل المالي
             </TabsTrigger>
-            <TabsTrigger value="workers" className="flex-1 gap-2 rounded-lg text-sm font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-              <Users className="h-4 w-4" /> أداء العمال
+            <TabsTrigger value="workers" className="flex-1 sm:flex-none px-8 gap-2 font-bold text-xs data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md rounded-xl transition-all">
+              <UserCheck className="h-4 w-4" /> كشوفات العمال
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {/* KPI Executive Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: "إجمالي الإيرادات", val: stats?.overall?.totalFunds, icon: Layers, color: "blue" },
-                { label: "إجمالي المصروفات", val: stats?.overall?.totalExpenses, icon: DollarSign, color: "red" },
-                { label: "الرصيد التشغيلي", val: (stats?.overall?.totalFunds - stats?.overall?.totalExpenses), icon: Wallet, color: "emerald" },
-                { label: "القوى العاملة", val: stats?.overall?.activeWorkers, icon: Users, color: "indigo", unit: "عامل" }
-              ].map((kpi, i) => (
-                <Card key={i} className="border-none shadow-sm rounded-2xl bg-white overflow-hidden print:border print:shadow-none transition-transform hover:scale-[1.02]">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex flex-col gap-3">
-                      <div className={`p-2.5 w-fit bg-${kpi.color}-50 text-${kpi.color}-600 rounded-xl print:bg-white print:border`}>
-                        <kpi.icon className="h-6 w-6" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-slate-500 font-bold text-xs sm:text-sm uppercase tracking-wide">{kpi.label}</p>
-                        <h3 className="text-xl sm:text-2xl font-black text-slate-900 truncate tracking-tight">
-                          {typeof kpi.val === 'number' && kpi.val > 1000 ? formatCurrency(kpi.val) : `${kpi.val || 0} ${kpi.unit || ''}`}
-                        </h3>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
+          <TabsContent value="overview" className="space-y-6 animate-in fade-in duration-500 slide-in-from-bottom-2">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Main Spending Trend */}
-              <Card className="lg:col-span-2 border-none shadow-sm rounded-2xl bg-white print:border print:shadow-none overflow-hidden">
-                <CardHeader className="p-6 pb-0">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-xl font-black text-slate-900">الإنفاق التشغيلي الزمني</CardTitle>
-                      <CardDescription className="text-slate-500 font-bold">تحليل دقيق لتدفق السيولة والمصروفات</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6 pt-6 h-[380px]">
+              <UnifiedCard title="الإنفاق التشغيلي الزمني" titleIcon={TrendingUp} className="lg:col-span-2">
+                <div className="h-[350px] w-full mt-6">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={stats?.chartData || []}>
                       <defs>
                         <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.2}/>
+                          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.15}/>
                           <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11, fontWeight: 700}} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} tickFormatter={(v) => `${v/1000}k`} />
-                      <Tooltip 
-                        contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
-                        itemStyle={{fontWeight: 800}}
-                      />
-                      <Area type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={4} fillOpacity={1} fill="url(#colorTotal)" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10, fontWeight: 600}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} tickFormatter={(v) => `${v/1000}k`} />
+                      <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', background: '#fff'}} />
+                      <Area type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={4} fillOpacity={1} fill="url(#colorTotal)" animationDuration={1500} />
                     </AreaChart>
                   </ResponsiveContainer>
-                </CardContent>
-              </Card>
+                </div>
+              </UnifiedCard>
 
-              {/* Composition Breakdown */}
-              <Card className="border-none shadow-sm rounded-2xl bg-white print:border print:shadow-none overflow-hidden">
-                <CardHeader className="p-6 pb-0 text-center">
-                  <CardTitle className="text-xl font-black text-slate-900">هيكل تكاليف المشروع</CardTitle>
-                  <CardDescription className="text-slate-500 font-bold">توزيع المصروفات حسب الفئة</CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 h-[380px]">
+              <UnifiedCard title="هيكل تكاليف المشروع" titleIcon={PieChart} className="flex flex-col">
+                <div className="h-[350px] w-full mt-6">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={[
-                          { name: 'أجور عمال', value: stats?.overall?.wages || 0 },
-                          { name: 'فواتير مواد', value: stats?.overall?.materials || 0 },
-                          { name: 'أجور نقل', value: stats?.overall?.transport || 0 },
-                          { name: 'مصاريف نثريات', value: stats?.overall?.misc || 0 }
+                          { name: 'أجور', value: stats?.overall?.wages || 0 },
+                          { name: 'مواد', value: stats?.overall?.materials || 0 },
+                          { name: 'نقل', value: stats?.overall?.transport || 0 },
+                          { name: 'نثريات', value: stats?.overall?.misc || 0 }
                         ].filter(d => d.value > 0)}
                         cx="50%" cy="50%"
-                        innerRadius={70}
+                        innerRadius={75}
                         outerRadius={105}
-                        paddingAngle={5}
+                        paddingAngle={6}
                         dataKey="value"
+                        animationBegin={200}
+                        animationDuration={1500}
                       >
                         {COLORS.map((c, i) => <Cell key={i} fill={c} strokeWidth={0} />)}
                       </Pie>
                       <Tooltip />
-                      <Legend verticalAlign="bottom" height={40} iconType="circle" wrapperStyle={{fontSize: '13px', fontWeight: 700, paddingTop: '20px'}} />
+                      <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{fontSize: '12px', fontWeight: 700, paddingTop: '20px'}} />
                     </PieChart>
                   </ResponsiveContainer>
-                </CardContent>
-              </Card>
+                </div>
+              </UnifiedCard>
             </div>
           </TabsContent>
 
-          <TabsContent value="financial" className="space-y-6">
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="border-none shadow-sm rounded-3xl p-6 sm:p-10 bg-gradient-to-br from-blue-600 to-indigo-800 text-white overflow-hidden print:bg-white print:text-slate-900 print:border-2 print:border-slate-900">
-                  <div className="relative z-10 space-y-8">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm print:hidden">
-                        <Activity className="h-8 w-8" />
-                      </div>
-                      <div>
-                        <h2 className="text-3xl font-black tracking-tight">كشف الحساب العام</h2>
-                        <p className="text-blue-100/80 font-bold">بيانات مالية مجمعة ودقيقة</p>
-                      </div>
+          <TabsContent value="financial" className="space-y-6 animate-in fade-in duration-500 slide-in-from-bottom-2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="border-none shadow-xl rounded-[2rem] bg-gradient-to-br from-slate-900 to-slate-800 text-white overflow-hidden relative">
+                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.15),transparent)] pointer-events-none" />
+                <div className="p-10 space-y-10 relative z-10">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3.5 bg-blue-500/20 rounded-2xl border border-blue-500/20 backdrop-blur-sm">
+                      <CreditCard className="h-7 w-7 text-blue-400" />
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-8">
-                      <div className="space-y-2">
-                        <p className="text-blue-100/60 text-sm font-black uppercase tracking-widest print:text-slate-500">مجموع الوارد</p>
-                        <p className="text-3xl font-black">{formatCurrency(stats?.overall?.totalFunds)}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <p className="text-blue-100/60 text-sm font-black uppercase tracking-widest print:text-slate-500">مجموع المنصرف</p>
-                        <p className="text-3xl font-black text-red-200 print:text-red-600">{formatCurrency(stats?.overall?.totalExpenses)}</p>
-                      </div>
+                    <div>
+                      <h3 className="text-2xl font-black tracking-tight">مركز الثقل المالي</h3>
+                      <p className="text-slate-400 font-bold text-sm">تحليل تدفقات السيولة الحالية</p>
                     </div>
-
-                    <Separator className="bg-white/10 print:bg-slate-900" />
-
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                      <div className="space-y-2">
-                        <p className="text-blue-100/60 text-sm font-black uppercase tracking-widest print:text-slate-500">صافي رصيد العهدة</p>
-                        <p className="text-5xl font-black text-emerald-300 print:text-emerald-700 tracking-tighter">
-                          {formatCurrency(stats?.overall?.totalFunds - stats?.overall?.totalExpenses)}
-                        </p>
-                      </div>
-                      <div className="bg-white/10 p-5 rounded-3xl backdrop-blur-md border border-white/5 print:border-slate-900">
-                        <p className="text-sm font-bold text-blue-500 mb-1">حالة السيولة</p>
-                        <p className="text-2xl font-black text-center text-white print:text-slate-900">ممتازة</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-10">
+                    <div className="space-y-2">
+                      <p className="text-slate-500 text-xs font-black uppercase tracking-widest">إجمالي التوريدات</p>
+                      <p className="text-3xl font-black text-blue-400">{formatCurrency(stats?.overall?.totalFunds)}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-slate-500 text-xs font-black uppercase tracking-widest">إجمالي المصروفات</p>
+                      <p className="text-3xl font-black text-rose-400">{formatCurrency(stats?.overall?.totalExpenses)}</p>
+                    </div>
+                  </div>
+                  <Separator className="bg-white/5" />
+                  <div className="flex items-center justify-between bg-white/5 p-8 rounded-[1.5rem] border border-white/5">
+                    <div className="space-y-2">
+                      <p className="text-slate-400 text-xs font-black uppercase tracking-widest">الصافي المتبقي في العهدة</p>
+                      <p className="text-5xl font-black text-emerald-400 tracking-tighter">{formatCurrency(stats?.overall?.totalFunds - stats?.overall?.totalExpenses)}</p>
+                    </div>
+                    <div className="hidden sm:block">
+                      <div className="h-20 w-20 rounded-full border-[6px] border-emerald-500/20 border-t-emerald-500 flex items-center justify-center">
+                        <span className="text-emerald-400 font-black text-sm">100%</span>
                       </div>
                     </div>
                   </div>
-                </Card>
-
-                <Card className="border-none shadow-sm rounded-3xl bg-white p-6 sm:p-10 print:border-2 print:border-slate-900">
-                  <h3 className="text-2xl font-black text-slate-900 mb-8 border-r-4 border-primary pr-4">تحليل هيكل التكاليف</h3>
-                  <div className="space-y-8">
-                    {[
-                      { label: "أجور العمال والمقاولين", val: stats?.overall?.wages, color: "bg-blue-600" },
-                      { label: "مشتريات مواد البناء", val: stats?.overall?.materials, color: "bg-emerald-600" },
-                      { label: "مصاريف النقل والمعدات", val: stats?.overall?.transport, color: "bg-orange-600" },
-                      { label: "مصاريف إدارية ونثريات", val: stats?.overall?.misc, color: "bg-red-600" }
-                    ].map((item, i) => (
-                      <div key={i} className="space-y-3">
-                        <div className="flex items-center justify-between font-black">
-                          <span className="text-slate-600 text-lg">{item.label}</span>
-                          <span className="text-slate-900 text-xl">{formatCurrency(item.val)}</span>
-                        </div>
-                        <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden border print:border-slate-400">
-                          <div className={`h-full ${item.color} rounded-full transition-all duration-1000`} style={{width: `${(item.val / (stats?.overall?.totalExpenses || 1)) * 100}%`}} />
-                        </div>
-                        <p className="text-xs text-slate-400 font-bold text-left">{((item.val / (stats?.overall?.totalExpenses || 1)) * 100).toFixed(1)}% من إجمالي المصروفات</p>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-             </div>
-          </TabsContent>
-
-          <TabsContent value="workers" className="space-y-6 animate-in slide-in-from-top-4 duration-500">
-            <div className="space-y-6">
-              {/* Dropdown Worker Selection */}
-              <Card className="border-none shadow-lg rounded-2xl bg-white p-6 print:hidden">
-                <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-                  <div className="flex-1 space-y-2">
-                    <label className="flex items-center gap-2 font-black text-slate-700 text-sm">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Search className="h-4 w-4 text-primary" />
-                      </div>
-                      اختر العامل لاستعراض كشف الحساب المفصل
-                    </label>
-                    <Select value={selectedWorkerId || ""} onValueChange={setSelectedWorkerId}>
-                      <SelectTrigger className="w-full h-12 rounded-xl border-2 border-slate-200 bg-white hover:border-primary/30 focus:border-primary transition-all shadow-sm font-bold text-base">
-                        <SelectValue placeholder="ابحث واختر عامل..." />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[400px]">
-                        {filteredWorkers.length > 0 ? (
-                          filteredWorkers.map((worker: any) => (
-                            <SelectItem key={worker.id} value={worker.id} className="font-bold text-base py-3">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-black text-sm">
-                                  {worker.name.charAt(0)}
-                                </div>
-                                <span>{worker.name}</span>
-                              </div>
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="" disabled className="text-slate-400 font-bold">
-                            لا توجد عمال متاحة
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {selectedWorkerId && (
-                    <button 
-                      onClick={() => setSelectedWorkerId(null)}
-                      className="px-6 h-12 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-700 transition-colors whitespace-nowrap"
-                    >
-                      إعادة تعيين
-                    </button>
-                  )}
                 </div>
               </Card>
 
-              {/* Detailed Worker Statement */}
-              <div className="w-full space-y-6">
-                {!selectedWorkerId ? (
-                  <Card className="w-full border-2 border-dashed border-slate-200 bg-white/50 h-[600px] flex items-center justify-center rounded-3xl print:hidden backdrop-blur-sm">
-                    <div className="text-center space-y-6 max-w-sm px-6">
-                      <div className="relative inline-block">
-                        <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
-                        <div className="relative p-8 bg-white rounded-full shadow-2xl border border-slate-50">
-                          <Users className="h-16 w-16 text-primary/40" />
+              <UnifiedCard title="تفكيك هيكل التكاليف" titleIcon={BarChart3}>
+                <div className="space-y-7 mt-8 px-4 pb-4">
+                  {[
+                    { label: "أجور العمال والمقاولين", val: stats?.overall?.wages, color: "bg-blue-500", icon: Users },
+                    { label: "توريدات ومشتريات المواد", val: stats?.overall?.materials, color: "bg-emerald-500", icon: Package },
+                    { label: "النقل واللوجستيات", val: stats?.overall?.transport, color: "bg-amber-500", icon: Truck },
+                    { label: "المصاريف النثرية والإدارية", val: stats?.overall?.misc, color: "bg-purple-500", icon: FileText }
+                  ].map((item, i) => (
+                    <div key={i} className="group cursor-default">
+                      <div className="flex items-center gap-5 mb-3">
+                        <div className={`p-2.5 rounded-xl bg-slate-100 text-slate-600 group-hover:bg-primary/10 group-hover:text-primary transition-all`}>
+                          <item.icon className="h-5 w-5" />
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        <h3 className="text-2xl font-black text-slate-900">تحليل كشوفات العمال</h3>
-                        <p className="text-slate-500 font-bold text-lg leading-relaxed">
-                          الرجاء اختيار اسم العامل من القائمة المنسدلة أعلاه لاستعراض كافة العمليات المالية والجدول الزمني المرتبط به بدقة احترافية.
-                        </p>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-end mb-2">
+                            <span className="font-bold text-slate-700 text-sm">{item.label}</span>
+                            <span className="font-black text-slate-900">{formatCurrency(item.val || 0)}</span>
+                          </div>
+                          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${item.color} transition-all duration-[1500ms] ease-out rounded-full`} 
+                              style={{ width: `${Math.min(100, (item.val / (stats?.overall?.totalExpenses || 1)) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </Card>
-                ) : (
-                  <Card className="w-full border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden print:shadow-none print:border-2 print:border-slate-900 transition-all">
-                    <CardHeader className="p-8 sm:p-10 border-b bg-gradient-to-l from-slate-50/80 to-transparent print:bg-white">
-                      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
-                        <div className="flex items-center gap-6">
-                          <div className="relative">
-                            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-3xl" />
-                            <div className="relative w-24 h-24 rounded-3xl bg-primary flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-primary/20">
-                              {filteredWorkers.find(w => w.id === selectedWorkerId)?.name.charAt(0)}
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <CardTitle className="text-4xl font-black text-slate-900 tracking-tighter">
-                              {filteredWorkers.find(w => w.id === selectedWorkerId)?.name}
-                            </CardTitle>
-                            <div className="flex flex-wrap gap-2">
-                              <Badge className="bg-primary/10 text-primary border-none font-black px-4 py-1.5 rounded-xl">كشف حساب مهني</Badge>
-                              <Badge variant="outline" className="border-slate-200 text-slate-500 font-bold px-4 py-1.5 rounded-xl bg-white shadow-sm">
-                                <Clock className="h-3.5 w-3.5 ml-1.5" />
-                                محدث الآن
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                          <div className="text-right bg-white p-6 rounded-[2rem] border-2 border-slate-100 shadow-xl shadow-slate-100/50 min-w-[220px] print:border-slate-900">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-xs text-slate-400 font-black uppercase tracking-widest">صافي الاستحقاق</p>
-                              <div className="p-1.5 bg-emerald-50 rounded-lg">
-                                <TrendingUp className="h-4 w-4 text-emerald-500" />
-                              </div>
-                            </div>
-                            <p className="text-4xl font-black text-emerald-600 print:text-slate-900 tracking-tighter">
-                              {formatCurrency(workerStatement?.balance || 0)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-right border-collapse">
-                          <thead>
-                            <tr className="bg-slate-900 text-white print:bg-slate-100 print:text-slate-900">
-                              <th className="px-8 py-7 text-xs font-black uppercase tracking-[0.2em]">التاريخ</th>
-                              <th className="px-8 py-7 text-xs font-black uppercase tracking-[0.2em]">تفاصيل البيان والوصف</th>
-                              <th className="px-8 py-7 text-xs font-black uppercase tracking-[0.2em] text-center">له (+)</th>
-                              <th className="px-8 py-7 text-xs font-black uppercase tracking-[0.2em] text-center">عليه (-)</th>
-                              <th className="px-8 py-7 text-xs font-black uppercase tracking-[0.2em] bg-slate-800 print:bg-slate-200">الرصيد التراكمي</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100/80">
-                            {workerStatement?.transactions?.length > 0 ? (
-                              workerStatement.transactions.map((t: any, i: number) => (
-                                <tr key={i} className="group hover:bg-slate-50/80 transition-all duration-300">
-                                  <td className="px-8 py-7">
-                                    <div className="flex flex-col gap-1">
-                                      <span className="text-sm font-black text-slate-900 whitespace-nowrap">{format(new Date(t.date), "yyyy/MM/dd")}</span>
-                                      <span className="text-[10px] font-bold text-slate-400 uppercase">{format(new Date(t.date), "EEEE")}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-8 py-7">
-                                    <div className="flex flex-col gap-2">
-                                      <span className="text-lg font-black text-slate-900 leading-tight group-hover:text-primary transition-colors">{t.description}</span>
-                                      <div className="flex gap-2">
-                                        <Badge variant="outline" className="text-[10px] font-black px-3 py-0.5 bg-white border-slate-200 rounded-lg shadow-sm">{t.type}</Badge>
-                                        {t.projectName && (
-                                          <div className="flex items-center gap-1.5 text-[11px] font-black text-emerald-700 bg-emerald-50 px-3 py-0.5 rounded-lg border border-emerald-100">
-                                            <Building className="h-3 w-3" />
-                                            {t.projectName}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="px-8 py-7 text-center">
-                                    {t.credit > 0 ? (
-                                      <span className="inline-flex items-center justify-center px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl font-black text-base border border-emerald-100 shadow-sm">
-                                        {formatCurrency(t.credit)}
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-200 font-bold">—</span>
-                                    )}
-                                  </td>
-                                  <td className="px-8 py-7 text-center">
-                                    {t.debit > 0 ? (
-                                      <span className="inline-flex items-center justify-center px-4 py-2 bg-red-50 text-red-700 rounded-xl font-black text-base border border-red-100 shadow-sm">
-                                        {formatCurrency(t.debit)}
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-200 font-bold">—</span>
-                                    )}
-                                  </td>
-                                  <td className="px-8 py-7 bg-slate-50/50 print:bg-white">
-                                    <div className="flex flex-col items-end">
-                                      <span className="text-2xl font-black text-slate-900 tracking-tighter">{formatCurrency(t.runningBalance)}</span>
-                                      <div className={`h-1 w-12 rounded-full mt-1 ${t.runningBalance >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan={5} className="px-8 py-32 text-center">
-                                  <div className="flex flex-col items-center gap-4 opacity-30">
-                                    <History className="h-20 w-20" />
-                                    <p className="font-black text-2xl">لا توجد سجلات مالية</p>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                    <div className="p-10 bg-slate-50/50 border-t print:bg-white text-right">
-                       <div className="flex items-start gap-4">
-                         <div className="p-2 bg-slate-200 rounded-lg mt-1">
-                           <FileText className="h-5 w-5 text-slate-500" />
-                         </div>
-                         <div>
-                           <p className="text-slate-700 font-black text-lg mb-1 tracking-tight">إخلاء مسؤولية واعتماد محاسبي</p>
-                           <p className="text-slate-500 font-bold text-sm leading-relaxed max-w-2xl">
-                             تم استخراج هذا البيان المالي آلياً بواسطة محرك BinarJoin Pro المحاسبي. جميع البيانات المذكورة أعلاه تعكس العمليات المسجلة في قاعدة البيانات المركزية حتى لحظة استخراج التقرير. يعتبر هذا الكشف مرجعاً رسمياً للمشروع والعامل.
-                           </p>
-                         </div>
-                       </div>
-                    </div>
-                  </Card>
-                )}
-              </div>
+                  ))}
+                </div>
+              </UnifiedCard>
             </div>
           </TabsContent>
+
+          <TabsContent value="workers" className="space-y-6 animate-in fade-in duration-500 slide-in-from-bottom-2">
+            <UnifiedCard title="إدارة حسابات القوى العاملة" titleIcon={Users}>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mt-6">
+                <div className="md:col-span-4 space-y-5">
+                  <div className="relative group">
+                    <Search className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                    <Input 
+                      placeholder="ابحث باسم العامل أو التخصص..." 
+                      className="pr-12 h-12 border-slate-200 rounded-2xl bg-slate-50/50 focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all"
+                      value={workerSearch}
+                      onChange={(e) => setWorkerSearch(e.target.value)}
+                    />
+                  </div>
+                  <ScrollArea className="h-[500px] rounded-2xl border border-slate-100 bg-white p-3 shadow-inner">
+                    <div className="space-y-2">
+                      {filteredWorkers.map((worker: any) => (
+                        <button
+                          key={worker.id}
+                          onClick={() => setSelectedWorkerId(worker.id)}
+                          className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${
+                            selectedWorkerId === worker.id 
+                            ? "bg-slate-900 text-white shadow-xl shadow-slate-200 scale-[1.02]" 
+                            : "hover:bg-slate-50 text-slate-700 active:scale-[0.98]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-4 text-right">
+                            <div className={`p-2 rounded-lg ${selectedWorkerId === worker.id ? "bg-white/10" : "bg-slate-100"}`}>
+                              <User className="h-5 w-5" />
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-black truncate max-w-[140px]">{worker.name}</p>
+                              <p className={`text-[10px] font-bold ${selectedWorkerId === worker.id ? "text-slate-400" : "text-slate-500"}`}>{worker.type}</p>
+                            </div>
+                          </div>
+                          {selectedWorkerId === worker.id ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4 opacity-30" />}
+                        </button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+
+                <div className="md:col-span-8">
+                  {workerLoading ? (
+                    <div className="h-[500px] flex flex-col items-center justify-center gap-4 text-slate-400">
+                      <RefreshCw className="h-12 w-12 animate-spin text-primary opacity-25" />
+                      <p className="text-sm font-black tracking-tight">جاري سحب كشف الحساب...</p>
+                    </div>
+                  ) : selectedWorkerId && workerStatement ? (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500">
+                      <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm space-y-8">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                              <FileText className="h-7 w-7" />
+                            </div>
+                            <div>
+                              <h4 className="font-black text-xl text-slate-900">كشف حساب: {workersList.find((w: any) => w.id === selectedWorkerId)?.name}</h4>
+                              <p className="text-xs font-bold text-slate-400">تحليل مالي مفصل للعمليات</p>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 px-4 py-1.5 rounded-full font-black text-xs">
+                            {timeRange === 'all' ? 'الأرشيف الكامل' : 'بيانات الشهر الحالي'}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                          <div className="bg-emerald-50/50 p-6 rounded-[1.5rem] border border-emerald-100/50 group hover:bg-emerald-50 transition-colors">
+                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2">إجمالي مستحقات العمل</p>
+                            <p className="text-3xl font-black text-emerald-700 tracking-tighter">{formatCurrency(workerStatement.summary.totalEarned)}</p>
+                          </div>
+                          <div className="bg-blue-50/50 p-6 rounded-[1.5rem] border border-blue-100/50 group hover:bg-blue-50 transition-colors">
+                            <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2">إجمالي السلف والدفعات</p>
+                            <p className="text-3xl font-black text-blue-700 tracking-tighter">{formatCurrency(workerStatement.summary.totalPaid)}</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-900 text-white p-8 rounded-[1.5rem] flex items-center justify-between shadow-2xl shadow-slate-300 relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+                          <div className="relative z-10">
+                            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">صافي الرصيد المستحق</p>
+                            <p className="text-4xl font-black tracking-tighter">{formatCurrency(workerStatement.summary.balance)}</p>
+                          </div>
+                          <div className={`relative z-10 p-4 rounded-2xl ${workerStatement.summary.balance > 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"} backdrop-blur-md border border-white/5`}>
+                            {workerStatement.summary.balance > 0 ? <TrendingUp className="h-8 w-8" /> : <TrendingDown className="h-8 w-8" />}
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between px-2">
+                            <p className="text-xs font-black text-slate-900 flex items-center gap-2">
+                              <History className="h-4 w-4 text-primary" /> سجل آخر 5 عمليات
+                            </p>
+                            <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black text-primary hover:bg-primary/5 rounded-lg">عرض السجل الكامل</Button>
+                          </div>
+                          <div className="space-y-2">
+                            {workerStatement.transactions.slice(0, 5).map((t: any, i: number) => (
+                              <div key={i} className="group bg-slate-50/50 hover:bg-white px-5 py-4 rounded-2xl border border-transparent hover:border-slate-100 hover:shadow-sm flex items-center justify-between transition-all">
+                                <div className="flex items-center gap-4">
+                                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${t.type === 'attendance' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                                    {t.type === 'attendance' ? <Activity className="h-5 w-5" /> : <DollarSign className="h-5 w-5" />}
+                                  </div>
+                                  <div>
+                                    <p className="font-black text-slate-800 text-sm">{t.description || (t.type === 'attendance' ? 'إثبات حضور يومي' : 'دفعة مالية محولة')}</p>
+                                    <p className="text-[10px] text-slate-400 font-bold">{format(new Date(t.date), 'yyyy/MM/dd')}</p>
+                                  </div>
+                                </div>
+                                <span className={`text-base font-black ${t.type === 'attendance' ? 'text-emerald-600' : 'text-blue-600'}`}>
+                                  {t.type === 'attendance' ? '+' : '-'}{formatCurrency(t.amount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-[500px] flex flex-col items-center justify-center gap-6 text-slate-300 bg-white/50 rounded-[2rem] border-2 border-dashed border-slate-100 p-10">
+                      <div className="p-8 bg-white rounded-full shadow-lg shadow-slate-100">
+                        <Users className="h-16 w-16 text-slate-100" />
+                      </div>
+                      <div className="text-center space-y-2">
+                        <h3 className="text-2xl font-black text-slate-400 tracking-tight">قاعدة بيانات العمال</h3>
+                        <p className="text-sm font-bold text-slate-300 max-w-[280px]">اختر عاملاً من القائمة الجانبية لعرض وتصدير كشف الحساب التحليلي</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </UnifiedCard>
+          </TabsContent>
         </Tabs>
+
+        {/* Footer - Professional Branding */}
+        <div className="pt-12 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-6 text-slate-400 px-4">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 bg-slate-900 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-lg">BJ</div>
+            <div className="flex flex-col">
+              <span className="text-sm font-black tracking-tight text-slate-900">BinarJoin Pro <span className="text-primary">Intelligence</span></span>
+              <span className="text-[10px] font-bold text-slate-400">نظام إدارة الموارد المتطور v2.0</span>
+            </div>
+          </div>
+          <p className="text-[10px] font-bold bg-white px-4 py-2 rounded-full border border-slate-100 shadow-sm">
+            © {new Date().getFullYear()} جميع الحقوق محفوظة - تم التصميم بمعايير عالمية
+          </p>
+        </div>
       </div>
     </LayoutShell>
   );

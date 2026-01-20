@@ -501,8 +501,8 @@ export default function ProfessionalReports() {
 
           <TabsContent value="workers" className="space-y-6 animate-in fade-in duration-500 slide-in-from-bottom-2">
             <UnifiedCard title="إدارة حسابات القوى العاملة" titleIcon={Users}>
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mt-6">
-                <div className="md:col-span-4 space-y-5">
+              <div className="flex flex-col gap-8 mt-6">
+                <div className="w-full space-y-5">
                   <div className="relative group">
                     <Search className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                     <Input 
@@ -512,13 +512,13 @@ export default function ProfessionalReports() {
                       onChange={(e) => setWorkerSearch(e.target.value)}
                     />
                   </div>
-                  <ScrollArea className="h-[500px] rounded-2xl border border-slate-100 bg-white p-3 shadow-inner">
-                    <div className="space-y-2">
+                  <ScrollArea className="h-[250px] rounded-2xl border border-slate-100 bg-white p-3 shadow-inner">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       {filteredWorkers.map((worker: any) => (
                         <button
                           key={worker.id}
                           onClick={() => setSelectedWorkerId(worker.id)}
-                          className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${
+                          className={`flex items-center justify-between p-4 rounded-xl transition-all ${
                             selectedWorkerId === worker.id 
                             ? "bg-slate-900 text-white shadow-xl shadow-slate-200 scale-[1.02]" 
                             : "hover:bg-slate-50 text-slate-700 active:scale-[0.98]"
@@ -540,7 +540,7 @@ export default function ProfessionalReports() {
                   </ScrollArea>
                 </div>
 
-                <div className="md:col-span-8">
+                <div className="w-full">
                   {workerLoading ? (
                     <div className="h-[500px] flex flex-col items-center justify-center gap-4 text-slate-400">
                       <RefreshCw className="h-12 w-12 animate-spin text-primary opacity-25" />

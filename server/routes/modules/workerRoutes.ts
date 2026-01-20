@@ -352,20 +352,18 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
     // إذا تم تغيير اليومية، نقوم بتحديث جميع سجلات الحضور السابقة
     let attendanceUpdatedCount = 0;
     if (isDailyWageChanged) {
-      console.log(`💰 [API] تم تغيير اليومية من ${oldDailyWage} إلى ${newDailyWage} - جاري تحديث سجلات الحضور السابقة...`);
+      console.log(`💰 [API] تم تغيير اليومية من ${oldDailyWage} إلى ${newDailyWage} - جاري تحديث جميع سجلات الحضور السابقة...`);
       
       // تحديث سجلات الحضور: dailyWage, actualWage, totalPay, remainingAmount
-      // نستخدم work_days الفعلية المحفوظة في السجل (لا نستبدل NULL أو 0 بـ 1)
+      // نقوم بتحديث كافة السجلات بغض النظر عن قيم work_days الحالية لضمان شمولية التحديث
       const attendanceUpdateResult = await db.execute(sql`
         UPDATE worker_attendance
         SET 
           daily_wage = ${newDailyWage},
-          actual_wage = CAST(${newDailyWage} AS DECIMAL(15,2)) * work_days,
-          total_pay = CAST(${newDailyWage} AS DECIMAL(15,2)) * work_days,
-          remaining_amount = (CAST(${newDailyWage} AS DECIMAL(15,2)) * work_days) - COALESCE(paid_amount, 0)
+          actual_wage = CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
+          total_pay = CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
+          remaining_amount = (CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0)) - COALESCE(paid_amount, 0)
         WHERE worker_id = ${workerId}
-          AND work_days IS NOT NULL
-          AND work_days > 0
       `);
       
       attendanceUpdatedCount = attendanceUpdateResult.rowCount || 0;

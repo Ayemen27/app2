@@ -10,7 +10,9 @@ import {
   HardDrive,
   RefreshCw,
   FileText,
-  Loader2
+  Loader2,
+  Trash2,
+  Calendar
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -109,6 +111,16 @@ export default function BackupManager() {
     onSettled: () => setIsRestoring(null)
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest(`/api/backups/${id}`, "DELETE");
+    },
+    onSuccess: () => {
+      toast({ title: "تم الحذف", description: "تم حذف سجل النسخة الاحتياطية بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["/api/backups/logs"] });
+    }
+  });
+
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
       const matchesSearch = !searchValue || 
@@ -165,7 +177,7 @@ export default function BackupManager() {
   ];
 
   return (
-    <div className="fade-in pb-10" dir="rtl">
+    <div className="fade-in pb-32" dir="rtl">
       <UnifiedFilterDashboard
         statsRows={statsConfig}
         filters={filterConfig}
@@ -227,69 +239,84 @@ export default function BackupManager() {
             </p>
           </div>
         ) : (
-          <UnifiedCardGrid columns={4}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3">
             {filteredLogs.map((log) => (
-              <UnifiedCard
-                key={log.id}
-                title={log.filename}
-                titleIcon={FileText}
-                headerColor={log.status === 'success' ? '#10b981' : (log.status === 'in_progress' ? '#f59e0b' : '#ef4444')}
-                className="hover-elevate h-full text-xs"
-                badges={[
-                  { 
-                    label: log.status === 'success' ? 'ناجحة' : (log.status === 'in_progress' ? 'جاري' : 'فاشلة'), 
-                    variant: log.status === 'success' ? 'success' : (log.status === 'in_progress' ? 'warning' : 'destructive') 
-                  },
-                  { 
-                    label: log.size ? `${log.size} MB` : '...', 
-                    variant: 'outline' 
-                  }
-                ]}
-                fields={[
-                  {
-                    label: "التاريخ",
-                    value: formatDate(log.createdAt),
-                    icon: Clock
-                  }
-                ]}
-                isLoading={log.status === 'in_progress'}
-                footer={
-                  <div className="flex w-full gap-1 mt-1">
+              <div 
+                key={log.id} 
+                className="group relative bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3 hover:shadow-md transition-all duration-300"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`p-2 rounded-lg shrink-0 ${log.status === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate" title={log.filename}>
+                        {log.filename}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500 font-medium">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(log.createdAt)}
+                        </span>
+                        <span className="w-1 h-1 rounded-full bg-slate-300" />
+                        <span>{log.size ? `${log.size} MB` : '...'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-1 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                     <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 gap-1 h-7 text-[10px]"
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-blue-600 hover:bg-blue-50"
                       asChild
                     >
                       <a href={`/api/backups/download/${log.id}`} target="_blank" rel="noopener noreferrer">
-                        <Download className="h-3 w-3" />
-                        تحميل
+                        <Download className="h-4 w-4" />
                       </a>
                     </Button>
                     <Button 
                       variant="ghost" 
-                      size="sm" 
-                      className="flex-1 gap-1 h-7 text-[10px] text-orange-600 hover:bg-orange-50"
+                      size="icon" 
+                      className="h-8 w-8 text-orange-600 hover:bg-orange-50"
                       disabled={isRestoring !== null}
                       onClick={() => {
-                        if (window.confirm("استبدال البيانات؟")) {
+                        if (window.confirm("استبدال البيانات الحالية بهذه النسخة؟")) {
                           setIsRestoring(log.id);
                           restoreMutation.mutate(log.id);
                         }
                       }}
                     >
                       {isRestoring === log.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <RotateCcw className="h-3 w-3" />
+                        <RotateCcw className="h-4 w-4" />
                       )}
-                      استعادة
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-rose-600 hover:bg-rose-50"
+                      onClick={() => {
+                        if (window.confirm("حذف هذا السجل؟")) {
+                          deleteMutation.mutate(log.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                }
-              />
+                </div>
+                
+                {log.status !== 'success' && log.errorMessage && (
+                  <p className="mt-2 text-[10px] text-rose-500 bg-rose-50 p-1.5 rounded-md border border-rose-100 truncate">
+                    {log.errorMessage}
+                  </p>
+                )}
+              </div>
             ))}
-          </UnifiedCardGrid>
+          </div>
         )}
       </div>
     </div>

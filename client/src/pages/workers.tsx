@@ -272,25 +272,20 @@ export default function WorkersPage() {
     queryKey: ['/api/workers'],
     queryFn: async () => {
       try {
-        const data = await apiRequest('/api/workers', 'GET');
+        const res = await apiRequest('/api/workers', 'GET');
         
-        let workers = [];
-        if (data && typeof data === 'object') {
-          if (data.success !== undefined && data.data !== undefined) {
-            workers = Array.isArray(data.data) ? data.data : [];
-          } else if (Array.isArray(data)) {
-            workers = data;
-          } else if (data.id) {
-            workers = [data];
+        let workersData = [];
+        if (res && typeof res === 'object') {
+          if (res.success && Array.isArray(res.data)) {
+            workersData = res.data;
+          } else if (Array.isArray(res)) {
+            workersData = res;
           }
         }
         
-        if (!Array.isArray(workers)) {
-          workers = [];
-        }
-        
-        return workers as Worker[];
+        return workersData as Worker[];
       } catch (error) {
+        console.error("Error fetching workers:", error);
         return [] as Worker[];
       }
     },

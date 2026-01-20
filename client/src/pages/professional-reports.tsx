@@ -79,11 +79,20 @@ export default function ProfessionalReports() {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const res = await apiRequest("/api/workers", "GET");
-      const workers = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
-      if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
-        return workers.filter((w: any) => w.projectId === selectedProjectId);
+      // Handle different response formats safely
+      let workersData = [];
+      if (res && typeof res === 'object') {
+        if (res.success && Array.isArray(res.data)) {
+          workersData = res.data;
+        } else if (Array.isArray(res)) {
+          workersData = res;
+        }
       }
-      return workers;
+      
+      if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
+        return workersData.filter((w: any) => w.projectId === selectedProjectId);
+      }
+      return workersData;
     }
   });
 

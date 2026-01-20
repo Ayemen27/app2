@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useToast } from '@/hooks/use-toast';
 import { FileText, Edit2, Trash2, Users, Clock, DollarSign, Calendar, User, Activity, Briefcase, Phone, Building, Power, CheckCircle, XCircle, Wallet, ArrowDownCircle, TrendingDown } from 'lucide-react';
 import { exportWorkerStatement } from '@/lib/excel-exports';
+import { generateWorkerPDF } from '@/lib/pdf-exports';
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -579,7 +580,7 @@ export default function WorkersPage() {
       
       if (res.success) {
         if (type === 'pdf') {
-          window.print();
+          generateWorkerPDF(res.data, worker);
         } else {
           await exportWorkerStatement(res.data, worker);
         }

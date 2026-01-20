@@ -68,6 +68,7 @@ const sections = [
     items: [
       { title: "المساعد الذكي", icon: MessageSquare, url: "/ai-chat" },
       { title: "سياسات الأمان", icon: ShieldCheck, url: "/security-policies" },
+      { title: "النسخ الاحتياطي", icon: ShieldCheck, url: "/admin/backups" },
       { title: "قاعدة البيانات", icon: Database, url: "/local-db" },
     ]
   }

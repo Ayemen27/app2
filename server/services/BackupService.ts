@@ -70,9 +70,9 @@ export class BackupService {
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) throw new Error("DATABASE_URL not found");
 
-      // استخدام pg_dump من حاوية أو مسار محدد إذا لزم الأمر، أو محاولة استخدام الخيارات المتوافقة
-      // ملاحظة: في بيئة Nix، قد نحتاج لتحديث نسخة postgresql-client
-      await execPromise(`pg_dump "${dbUrl}" -F p -f "${filepath}" --no-owner --no-privileges`);
+      // استخدام pg_dump v16 بشكل صريح من المسار المتوفر في بيئة Nix
+      const pgDumpPath = "/nix/store/bgwr5i8jf8jpg75rr53rz3fqv5k8yrwp-postgresql-16.10/bin/pg_dump";
+      await execPromise(`"${pgDumpPath}" "${dbUrl}" -F p -f "${filepath}" --no-owner --no-privileges`);
       await execPromise(`gzip -c "${filepath}" > "${compressedPath}"`);
       fs.unlinkSync(filepath);
 
@@ -93,6 +93,7 @@ export class BackupService {
         triggeredBy: userId,
       }).returning();
 
+      // إشعار المستخدم بنجاح العملية وتنبيهه لمشكلة قوقل درايف إذا حدثت
       return { success: true, log };
     } catch (error: any) {
       console.error("❌ Backup Failed:", error);

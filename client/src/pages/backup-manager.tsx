@@ -78,7 +78,10 @@ export default function BackupManager() {
           إدارة النسخ الاحتياطي
         </h1>
         <Button 
-          onClick={() => backupMutation.mutate()} 
+          onClick={() => {
+            toast({ title: "جاري بدء النسخ الاحتياطي...", description: "يرجى الانتظار قليلاً" });
+            backupMutation.mutate();
+          }} 
           disabled={backupMutation.isPending}
           className="gap-2"
         >

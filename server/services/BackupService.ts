@@ -32,7 +32,10 @@ export class BackupService {
       const credentials = JSON.parse(credentialsStr);
       const auth = new google.auth.GoogleAuth({
         credentials,
-        scopes: ["https://www.googleapis.com/auth/drive.file"],
+        scopes: ["https://www.googleapis.com/auth/drive"],
+        clientOptions: {
+          subject: process.env.GOOGLE_DRIVE_IMPERSONATE_EMAIL, // البريد الذي سيتم انتحاله (صاحب المساحة)
+        },
       });
 
       const drive = google.drive({ version: "v3", auth });

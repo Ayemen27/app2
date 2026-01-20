@@ -32,21 +32,15 @@ export class BackupService {
       const credentials = JSON.parse(credentialsStr);
       const auth = new google.auth.GoogleAuth({
         credentials,
-        scopes: ["https://www.googleapis.com/auth/drive"],
-        clientOptions: {
-          subject: process.env.GOOGLE_DRIVE_IMPERSONATE_EMAIL, // البريد الذي سيتم انتحاله (صاحب المساحة)
-        },
+        scopes: ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive.install"],
       });
 
       const drive = google.drive({ version: "v3", auth });
       const fileMetadata: any = {
         name: filename,
+        parents: folderId ? [folderId] : [],
       };
       
-      if (folderId) {
-        fileMetadata.parents = [folderId];
-      }
-
       const media = {
         mimeType: "application/gzip",
         body: fs.createReadStream(filepath),
@@ -56,7 +50,7 @@ export class BackupService {
         requestBody: fileMetadata,
         media: media,
         fields: "id",
-        supportsAllDrives: true, // دعم المجلدات المشتركة والمشاركة الخارجية
+        supportsAllDrives: true,
       } as any);
       console.log(`✅ Backup uploaded to Google Drive. File ID: ${response.data.id}`);
     } catch (e: any) {

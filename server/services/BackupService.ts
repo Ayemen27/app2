@@ -74,6 +74,10 @@ export class BackupService {
       console.log(`✅ Backup uploaded to Google Drive. File ID: ${response.data.id}`);
     } catch (e: any) {
       console.error("❌ Google Drive Upload Failed:", e.message);
+      if (e.response && e.response.data) {
+        console.error("Detailed Error:", JSON.stringify(e.response.data));
+      }
+      throw e;
     }
   }
 
@@ -97,21 +101,33 @@ export class BackupService {
       const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
       // Upload to all sources
-      await Promise.allSettled([
+      const uploadResults = await Promise.allSettled([
         this.sendToTelegram(compressedPath, `${filename}.gz`, sizeMB),
         this.uploadToGDrive(compressedPath, `${filename}.gz`)
       ]);
+
+      const telegramResult = uploadResults[0];
+      const gdriveResult = uploadResults[1];
+
+      if (gdriveResult.status === 'rejected') {
+        console.error("⚠️ Google Drive upload failed but backup continues:", gdriveResult.reason);
+      }
 
       const [log] = await db.insert(backupLogs).values({
         filename: `${filename}.gz`,
         size: sizeMB,
         status: "success",
-        destination: "all",
+        destination: gdriveResult.status === 'fulfilled' ? "all" : "telegram",
         triggeredBy: userId,
+        errorMessage: gdriveResult.status === 'rejected' ? `Google Drive Error: ${gdriveResult.reason.message}` : null
       }).returning();
 
-      // إشعار المستخدم بنجاح العملية وتنبيهه لمشكلة قوقل درايف إذا حدثت
-      return { success: true, log };
+      return { 
+        success: true, 
+        log, 
+        gdriveStatus: gdriveResult.status,
+        gdriveError: gdriveResult.status === 'rejected' ? gdriveResult.reason.message : null
+      };
     } catch (error: any) {
       console.error("❌ Backup Failed:", error);
       await db.insert(backupLogs).values({

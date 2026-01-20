@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   Database, 
@@ -9,7 +9,8 @@ import {
   Clock,
   HardDrive,
   RefreshCw,
-  FileText
+  FileText,
+  Loader2
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +19,7 @@ import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { Button } from "@/components/ui/button";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
+import { Progress } from "@/components/ui/progress";
 
 interface BackupLog {
   id: number;
@@ -30,15 +32,11 @@ interface BackupLog {
   createdAt: string;
 }
 
-interface BackupLogsResponse {
-  success: boolean;
-  data: BackupLog[];
-}
-
 export default function BackupManager() {
   const { toast } = useToast();
   const [isRestoring, setIsRestoring] = useState<number | null>(null);
   const [searchValue, setSearchValue] = useState("");
+  const [backupProgress, setBackupProgress] = useState(0);
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     status: "all",
   });
@@ -56,19 +54,23 @@ export default function BackupManager() {
       return res;
     },
     onMutate: () => {
+      setBackupProgress(5);
       toast({ 
         title: "جاري بدء العملية", 
         description: "يتم الآن تجهيز النسخة الاحتياطية...",
       });
     },
     onSuccess: () => {
+      setBackupProgress(100);
       queryClient.invalidateQueries({ queryKey: ["/api/backups/logs"] });
       toast({ 
-        title: "بدأت العملية بنجاح", 
-        description: "يتم الآن تأمين بياناتك سحابياً",
+        title: "اكتملت العملية", 
+        description: "تم تأمين بياناتك سحابياً بنجاح",
       });
+      setTimeout(() => setBackupProgress(0), 3000);
     },
     onError: (error: any) => {
+      setBackupProgress(0);
       toast({ 
         title: "فشل إنشاء النسخة", 
         description: error.message,
@@ -76,6 +78,21 @@ export default function BackupManager() {
       });
     }
   });
+
+  // محاكاة تقدم النسخ الاحتياطي
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (backupMutation.isPending && backupProgress < 95) {
+      interval = setInterval(() => {
+        setBackupProgress(prev => {
+          if (prev >= 95) return prev;
+          const increment = Math.floor(Math.random() * 10) + 2;
+          return Math.min(prev + increment, 95);
+        });
+      }, 800);
+    }
+    return () => clearInterval(interval);
+  }, [backupMutation.isPending, backupProgress]);
 
   const restoreMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -85,7 +102,7 @@ export default function BackupManager() {
     onSuccess: () => {
       toast({ 
         title: "اكتملت الاستعادة", 
-        description: "تمت استعادة البيانات، جاري إعادة التشغيل...",
+        description: "تمت استعادة البيانات بنجاح",
       });
       setTimeout(() => window.location.reload(), 2000);
     },
@@ -167,7 +184,7 @@ export default function BackupManager() {
           {
             key: "run-backup",
             label: backupMutation.isPending ? "جاري النسخ..." : "نسخة فورية",
-            icon: backupMutation.isPending ? RefreshCw : ShieldCheck,
+            icon: backupMutation.isPending ? Loader2 : ShieldCheck,
             onClick: () => backupMutation.mutate(),
             disabled: backupMutation.isPending,
             variant: "default",
@@ -176,26 +193,51 @@ export default function BackupManager() {
         ]}
       />
       
+      {backupMutation.isPending && (
+        <div className="px-4 mt-4">
+          <div className="bg-card border rounded-lg p-4 shadow-sm">
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-sm font-medium">جاري معالجة النسخة الاحتياطية...</span>
+              </div>
+              <span className="text-sm font-bold text-primary">{backupProgress}%</span>
+            </div>
+            <Progress value={backupProgress} className="h-2" />
+            <p className="text-[10px] text-muted-foreground mt-2">
+              يتم الآن ضغط قاعدة البيانات، رفع الملف إلى Google Drive، وإرسال إشعار Telegram.
+            </p>
+          </div>
+        </div>
+      )}
+      
       <div className="mt-6 px-4">
-        {filteredLogs.length === 0 ? (
+        {isLoading && logs.length === 0 ? (
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="h-40 rounded-xl border bg-muted/20 animate-pulse" />
+            ))}
+          </div>
+        ) : filteredLogs.length === 0 ? (
           <div className="text-center py-20 border-2 border-dashed rounded-xl bg-slate-50/50 dark:bg-slate-900/10">
             <HardDrive className="h-16 w-16 text-muted-foreground/20 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-muted-foreground">لا توجد نتائج</h3>
+            <h3 className="text-xl font-semibold text-muted-foreground">لا توجد سجلات</h3>
             <p className="text-sm text-muted-foreground/60 max-w-sm mx-auto mt-2">
-              لم نجد أي سجلات تطابق بحثك الحالي، حاول تغيير الفلتر أو إنشاء نسخة جديدة.
+              لم يتم العثور على أي سجلات. اضغط على "نسخة فورية" للبدء.
             </p>
           </div>
         ) : (
-          <UnifiedCardGrid columns={3}>
+          <UnifiedCardGrid columns={4}>
             {filteredLogs.map((log) => (
               <UnifiedCard
                 key={log.id}
                 title={log.filename}
                 titleIcon={FileText}
-                headerColor={log.status === 'success' ? '#10b981' : '#ef4444'}
+                headerColor={log.status === 'success' ? '#10b981' : (log.status === 'in_progress' ? '#f59e0b' : '#ef4444')}
+                className="hover-elevate h-full text-xs"
                 badges={[
                   { 
-                    label: log.status === 'success' ? 'ناجحة' : (log.status === 'in_progress' ? 'جاري العمل' : 'فاشلة'), 
+                    label: log.status === 'success' ? 'ناجحة' : (log.status === 'in_progress' ? 'جاري' : 'فاشلة'), 
                     variant: log.status === 'success' ? 'success' : (log.status === 'in_progress' ? 'warning' : 'destructive') 
                   },
                   { 
@@ -208,44 +250,38 @@ export default function BackupManager() {
                     label: "التاريخ",
                     value: formatDate(log.createdAt),
                     icon: Clock
-                  },
-                  {
-                    label: "النوع",
-                    value: log.triggeredBy === 'system' ? 'تلقائي' : 'يدوي',
-                    icon: Database
                   }
                 ]}
                 isLoading={log.status === 'in_progress'}
-                className="hover-elevate h-full"
                 footer={
-                  <div className="flex w-full gap-2 mt-2">
+                  <div className="flex w-full gap-1 mt-1">
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="flex-1 gap-1 h-9"
+                      className="flex-1 gap-1 h-7 text-[10px]"
                       asChild
                     >
                       <a href={`/api/backups/download/${log.id}`} target="_blank" rel="noopener noreferrer">
-                        <Download className="h-3.5 w-3.5" />
+                        <Download className="h-3 w-3" />
                         تحميل
                       </a>
                     </Button>
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="flex-1 gap-1 h-9 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+                      className="flex-1 gap-1 h-7 text-[10px] text-orange-600 hover:bg-orange-50"
                       disabled={isRestoring !== null}
                       onClick={() => {
-                        if (window.confirm("هل أنت متأكد؟ هذا الإجراء سيقوم باستبدال كافة البيانات الحالية بالنسخة المختارة.")) {
+                        if (window.confirm("استبدال البيانات؟")) {
                           setIsRestoring(log.id);
                           restoreMutation.mutate(log.id);
                         }
                       }}
                     >
                       {isRestoring === log.id ? (
-                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
-                        <RotateCcw className="h-3.5 w-3.5" />
+                        <RotateCcw className="h-3 w-3" />
                       )}
                       استعادة
                     </Button>

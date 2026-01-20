@@ -366,14 +366,17 @@ export default function BackupManager() {
                       className="h-8 w-8 text-rose-600 hover:bg-rose-50 active-elevate-2 transition-transform active:scale-90"
                       disabled={deletingId !== null || isRestoring !== null}
                       onClick={() => {
-                        toast({
+                        const { dismiss } = toast({
                           title: "تأكيد الحذف",
                           description: "هل أنت متأكد من حذف هذه النسخة نهائياً؟ لا يمكن التراجع عن هذا الإجراء.",
                           action: (
                             <Button 
                               variant="destructive" 
                               size="sm" 
-                              onClick={() => deleteMutation.mutate(log.id)}
+                              onClick={() => {
+                                dismiss();
+                                deleteMutation.mutate(log.id);
+                              }}
                             >
                               تأكيد الحذف
                             </Button>

@@ -43,12 +43,12 @@ export default function BackupManager() {
     status: "all",
   });
 
-  const { data: logsResponse, isLoading, refetch } = useQuery<BackupLogsResponse>({
+  const { data: logsData, isLoading, refetch } = useQuery<BackupLog[]>({
     queryKey: ["/api/backups/logs"],
     refetchInterval: 5000,
   });
 
-  const logs = useMemo(() => logsResponse?.data || [], [logsResponse]);
+  const logs = useMemo(() => Array.isArray(logsData) ? logsData : [], [logsData]);
 
   const backupMutation = useMutation({
     mutationFn: async () => {

@@ -278,17 +278,31 @@ export default function ProfessionalReports() {
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-slate-200/50 border border-slate-200 p-1 h-12 rounded-2xl w-full sm:w-auto print:hidden">
-            <TabsTrigger value="overview" className="flex-1 sm:flex-none px-8 gap-2 font-bold text-xs data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md rounded-xl transition-all">
-              <Activity className="h-4 w-4" /> نظرة بانورامية
-            </TabsTrigger>
-            <TabsTrigger value="financial" className="flex-1 sm:flex-none px-8 gap-2 font-bold text-xs data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md rounded-xl transition-all">
-              <DollarSign className="h-4 w-4" /> التحليل المالي
-            </TabsTrigger>
-            <TabsTrigger value="workers" className="flex-1 sm:flex-none px-8 gap-2 font-bold text-xs data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md rounded-xl transition-all">
-              <UserCheck className="h-4 w-4" /> كشوفات العمال
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex justify-center sm:justify-start overflow-x-auto pb-1 print:hidden">
+            <TabsList className="inline-flex h-12 items-center justify-center rounded-2xl bg-slate-200/50 p-1 border border-slate-200">
+              <TabsTrigger 
+                value="overview" 
+                className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md"
+              >
+                <Activity className="h-4 w-4" /> 
+                <span className="whitespace-nowrap">نظرة بانورامية</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="financial" 
+                className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md"
+              >
+                <DollarSign className="h-4 w-4" /> 
+                <span className="whitespace-nowrap">التحليل المالي</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="workers" 
+                className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md"
+              >
+                <UserCheck className="h-4 w-4" /> 
+                <span className="whitespace-nowrap">كشوفات العمال</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="overview" className="space-y-6 animate-in fade-in duration-500 slide-in-from-bottom-2">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -525,7 +525,3 @@ export default function ProfessionalReports() {
     </div>
   );
 }
-      </div>
-    </div>
-  );
-}

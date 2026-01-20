@@ -59,16 +59,27 @@ export default function BackupManager() {
       setBackupProgress(5);
       toast({ 
         title: "جاري بدء العملية", 
-        description: "يتم الآن تجهيز النسخة الاحتياطية...",
+        description: "يتم الآن تجهيز النسخة الاحتياطية وتوجيهك لتسجيل الدخول إذا لزم الأمر...",
       });
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setBackupProgress(100);
       queryClient.invalidateQueries({ queryKey: ["/api/backups/logs"] });
-      toast({ 
-        title: "اكتملت العملية", 
-        description: "تم تأمين بياناتك سحابياً بنجاح",
-      });
+      
+      if (data.gdriveStatus === 'rejected' && data.gdriveError?.includes('invalid_grant')) {
+        toast({
+          title: "تنبيه: Google Drive غير متصل",
+          description: "تم النسخ إلى Telegram بنجاح، ولكن فشل الرفع إلى Drive. يرجى إعادة تسجيل الدخول.",
+          variant: "destructive"
+        });
+      } else {
+        toast({ 
+          title: "اكتملت العملية", 
+          description: data.gdriveStatus === 'fulfilled' 
+            ? "تم تأمين بياناتك في Google Drive و Telegram بنجاح"
+            : "تم النسخ إلى Telegram، وفشل Drive مؤقتاً.",
+        });
+      }
       setTimeout(() => setBackupProgress(0), 3000);
     },
     onError: (error: any) => {
@@ -80,6 +91,16 @@ export default function BackupManager() {
       });
     }
   });
+
+  const handleGDriveAuth = () => {
+    // توجيه المستخدم لصفحة الإعدادات أو فتح نافذة الصلاحيات
+    toast({
+      title: "صلاحيات الوصول",
+      description: "سيتم توجيهك الآن لمنح النظام صلاحيات التخزين على Google Drive...",
+    });
+    // ملاحظة: بما أن التكامل يتم عبر Replit Connect، يتم التعامل مع التوجيه عبر الرابط المخصص
+    window.open('https://replit.com/integrations', '_blank');
+  };
 
   // محاكاة تقدم النسخ الاحتياطي
   useEffect(() => {
@@ -230,6 +251,14 @@ export default function BackupManager() {
         isRefreshing={isLoading || backupMutation.isPending}
         searchPlaceholder="البحث في أسماء الملفات..."
         actions={[
+          {
+            key: "auth-gdrive",
+            label: "ربط Google Drive",
+            icon: HardDrive,
+            onClick: handleGDriveAuth,
+            variant: "outline",
+            className: "border-primary text-primary"
+          },
           {
             key: "run-backup",
             label: backupMutation.isPending ? "جاري النسخ..." : "نسخة فورية",

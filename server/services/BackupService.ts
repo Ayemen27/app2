@@ -36,7 +36,7 @@ export class BackupService {
         const oauth2Client = new google.auth.OAuth2(
           clientId, 
           clientSecret, 
-          "https://developers.google.com/oauthplayground"
+          process.env.GOOGLE_DRIVE_REDIRECT_URI || "https://developers.google.com/oauthplayground"
         );
         oauth2Client.setCredentials({ refresh_token: refreshToken });
         auth = oauth2Client;

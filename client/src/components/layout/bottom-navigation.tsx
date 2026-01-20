@@ -260,7 +260,7 @@ export default function BottomNavigation() {
 
             {/* قائمة الصفحات */}
             <ScrollArea className="h-[calc(90vh-180px)]">
-              <div className="px-4 pb-8">
+              <div className="px-4 pb-24">
                 {filteredPages.length > 0 ? (
                   <div className="space-y-6">
                     <AnimatePresence mode="wait">

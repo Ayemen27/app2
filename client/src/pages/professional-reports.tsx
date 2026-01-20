@@ -217,30 +217,11 @@ export default function ProfessionalReports() {
   }
 
   return (
-    <LayoutShell showHeader={false}>
+    <LayoutShell showHeader={true} title="التقارير الاحترافية">
       <div className="p-4 space-y-6 bg-slate-50/50 min-h-screen pb-40" dir="rtl">
         {/* Header - Unified Professional Style */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/10 p-2.5 rounded-2xl text-primary shadow-sm border border-primary/5">
-              <BarChart3 className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">منصة التقارير التحليلية</h1>
-              <div className="flex items-center gap-2 mt-0.5">
-                <Badge variant="outline" className="bg-white text-slate-500 border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  {selectedProjectName}
-                </Badge>
-                {isAllProjects && (
-                  <Badge variant="secondary" className="text-[10px] font-bold bg-amber-50 text-amber-600 border-amber-100 px-2 py-0.5 rounded-full">
-                    بيانات مجمعة
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-end sm:self-auto">
+          <div className="flex items-center gap-2 self-end sm:self-auto ml-auto">
             <div className="bg-white border border-slate-200 rounded-xl p-1 flex items-center shadow-sm">
               <Button 
                 variant={timeRange === "today" ? "default" : "ghost"} 

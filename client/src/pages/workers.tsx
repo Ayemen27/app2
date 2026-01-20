@@ -144,12 +144,12 @@ const WorkerCardWrapper = ({
         : `/api/workers/${worker.id}/stats`;
       return apiRequest(url, 'GET');
     },
-    staleTime: 3600000, // ساعة كاملة
-    gcTime: 7200000,    // ساعتان
+    staleTime: 5 * 60 * 1000, // 5 minutes (reduced from 1 hour for freshness)
+    gcTime: 10 * 60 * 1000,    // 10 minutes
     retry: 1,
     placeholderData: (previousData) => previousData,
     refetchOnWindowFocus: false,
-    enabled: worker.isActive, // عدم جلب إحصائيات العمال غير النشطين تلقائياً
+    enabled: worker.isActive,
   });
 
   const stats = statsData?.data;
@@ -289,11 +289,11 @@ export default function WorkersPage() {
         return [] as Worker[];
       }
     },
-    staleTime: 600000, // 10 minutes
-    gcTime: 1200000,  // 20 minutes
+    staleTime: 30000, // 30 seconds (reduced for faster UI updates)
+    gcTime: 60000,   // 1 minute
     retry: 2,
     placeholderData: (previousData) => previousData,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true, // enabled for better freshness
   });
 
   const { data: workerTypes = [] } = useQuery<WorkerType[]>({

@@ -59,7 +59,12 @@ export function getAutoBackupStatus(): BackupStatus {
 }
 
 export async function triggerManualBackup(): Promise<any> {
-  return await BackupService.runBackup();
+  try {
+    return await BackupService.runBackup();
+  } catch (error) {
+    console.error('Manual backup failed:', error);
+    throw error;
+  }
 }
 
 export function listAutoBackups(): any[] {

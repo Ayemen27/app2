@@ -20,33 +20,43 @@ export class BackupService {
   }
 
   private static async uploadToGDrive(filepath: string, filename: string) {
-    const credentials = process.env.GOOGLE_DRIVE_CREDENTIALS;
-    if (!credentials) return;
+    const credentialsStr = process.env.GOOGLE_DRIVE_CREDENTIALS;
+    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+    
+    if (!credentialsStr) {
+      console.warn("⚠️ GOOGLE_DRIVE_CREDENTIALS is not set. Skipping Google Drive upload.");
+      return;
+    }
 
     try {
+      const credentials = JSON.parse(credentialsStr);
       const auth = new google.auth.GoogleAuth({
-        credentials: JSON.parse(credentials),
+        credentials,
         scopes: ["https://www.googleapis.com/auth/drive.file"],
       });
 
       const drive = google.drive({ version: "v3", auth });
-      const fileMetadata = {
+      const fileMetadata: any = {
         name: filename,
-        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID || ""],
       };
+      
+      if (folderId) {
+        fileMetadata.parents = [folderId];
+      }
+
       const media = {
         mimeType: "application/gzip",
         body: fs.createReadStream(filepath),
       };
 
-      await drive.files.create({
+      const response = await drive.files.create({
         requestBody: fileMetadata,
         media: media,
         fields: "id",
       });
-      console.log("✅ Backup uploaded to Google Drive");
-    } catch (e) {
-      console.error("Google Drive Upload Failed", e);
+      console.log(`✅ Backup uploaded to Google Drive. File ID: ${response.data.id}`);
+    } catch (e: any) {
+      console.error("❌ Google Drive Upload Failed:", e.message);
     }
   }
 

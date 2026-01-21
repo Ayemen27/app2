@@ -483,6 +483,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         workDescription: workerAttendance.workDescription,
         actualWage: workerAttendance.actualWage,
         paidAmount: workerAttendance.paidAmount,
+        workDays: workerAttendance.workDays,
         projectName: projects.name
       })
       .from(workerAttendance)
@@ -511,6 +512,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         description: a.workDescription || 'تسجيل حضور',
         amount: parseFloat(a.actualWage || '0'),
         paid: parseFloat(a.paidAmount || '0'),
+        workDays: parseFloat(a.workDays || '0'),
         projectName: a.projectName || '-',
         reference: 'حضور'
       })),
@@ -520,6 +522,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         description: `حوالة لـ ${t.recipientName}`,
         amount: 0,
         paid: parseFloat(t.amount || '0'),
+        workDays: 0,
         projectName: t.projectName || '-',
         reference: t.transferNumber || 'حوالة'
       }))
@@ -528,12 +531,11 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
     // حساب الرصيد التراكمي
     let runningBalance = 0;
     const finalStatement = statement.map(item => {
-      // إذا كان الرصيد يحسب من البداية، يجب التأكد من تصفير الرصيد أو استخدام الرصيد السابق
       runningBalance += (item.amount - item.paid);
       return { ...item, balance: runningBalance };
     });
 
-    const totalWorkDays = finalStatement.reduce((sum, i) => sum + (parseFloat(i.workDays || 0)), 0);
+    const totalWorkDays = finalStatement.reduce((sum, i) => sum + i.workDays, 0);
 
     res.json({
       success: true,

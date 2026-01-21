@@ -215,7 +215,7 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
                   <td class="col-day">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
                   <td class="col-project">${item.projectName || item.project_name || '-'}</td>
                   <td class="col-desc">${item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل الموكلة')}</td>
-                  <td class="col-days-count">${item.type === 'عمل' ? (item.workDays || item.work_days || '1.00') : '-'}</td>
+                  <td class="col-days-count">${item.type === 'عمل' ? (item.workDays !== undefined ? parseFloat(item.workDays).toFixed(2) : '1.00') : '-'}</td>
                   <td class="col-hours">${item.type === 'عمل' ? (item.hours || '07:00-15:00') : '-'}</td>
                   <td class="col-earned">${parseFloat(item.amount || 0).toLocaleString()}</td>
                   <td class="col-paid">${parseFloat(item.paid || 0).toLocaleString()}</td>

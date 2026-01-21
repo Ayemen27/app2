@@ -35,7 +35,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     // البحث عن المستخدم في قاعدة البيانات (case insensitive)
     const userResult = await db.execute(sql`
-      SELECT id, email, password, first_name, last_name, email_verified_at, created_at
+      SELECT id, email, password, role, first_name, last_name, email_verified_at, created_at, is_active
       FROM users 
       WHERE LOWER(email) = LOWER(${email})
     `);

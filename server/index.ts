@@ -67,7 +67,7 @@ app.use((req, res, next) => {
 const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_ENVIRONMENT === 'production';
 const REPLIT_DOMAIN = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : process.env.DOMAIN;
 const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://app2.binarjoinanelytic.info';
-const PORT = 5000;
+const PORT = isProduction ? 6000 : 5000;
 
 // ✅ DYNAMIC CORS Configuration
 const getAllowedOrigins = (req?: Request) => {
@@ -380,7 +380,7 @@ app.use('/api/*', (req, res) => {
 
 // تم تعريف PORT في الأعلى بناءً على البيئة
 // في Replit، يتم تجاهل PORT المخصص أحياناً، لذا نتحقق من متغير البيئة أولاً
-const FINAL_PORT = 5000;
+const FINAL_PORT = Number(process.env.PORT) || PORT;
 const NODE_ENV = process.env.NODE_ENV || (isProduction ? 'production' : 'development');
 
 console.log('🚀 بدء تشغيل الخادم...');

@@ -845,21 +845,45 @@
   background-clip: text;
 }
 
-/* Fix for transparency in Sidebar, Dropdowns, and Modals */
+/* Fix for transparency in Sidebar, Dropdowns, Selects, and Modals */
 [data-sidebar] {
   background-color: hsl(var(--sidebar-background)) !important;
 }
 
 [role="menu"], 
+[role="listbox"],
 [role="dialog"],
-.popover-content {
+.popover-content,
+.dropdown-content,
+.select-content {
   background-color: hsl(var(--popover)) !important;
   opacity: 1 !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
 }
 
 .modal-content, 
-.dialog-content {
+.dialog-content,
+[data-state="open"] {
   background-color: hsl(var(--background)) !important;
+  opacity: 1 !important;
+}
+
+/* Ensure all shadcn popover/select/dropdown variants have solid backgrounds */
+[data-radix-popper-content-wrapper] {
+  z-index: 100 !important;
+}
+
+.bg-popover {
+  background-color: hsl(var(--popover)) !important;
+}
+
+.bg-background {
+  background-color: hsl(var(--background)) !important;
+}
+
+.bg-card {
+  background-color: hsl(var(--card)) !important;
 }
 
 /* ⚡ Performance Optimizations */

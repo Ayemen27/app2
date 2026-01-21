@@ -5,6 +5,7 @@
 
 import { Request, Response } from 'express';
 import { envManager } from '../utils/env-manager';
+import { envConfig } from '../utils/unified-env';
 
 // فحص حالة متغيرات البيئة
 export async function checkEnvironmentStatus(req: Request, res: Response) {
@@ -14,7 +15,9 @@ export async function checkEnvironmentStatus(req: Request, res: Response) {
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development',
+      environment: envConfig.NODE_ENV,
+      isReplit: envConfig.isReplit,
+      port: envConfig.PORT,
       status
     });
 

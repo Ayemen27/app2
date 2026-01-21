@@ -108,8 +108,9 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
           .col-desc { width: auto; text-align: right; padding-right: 8px; font-size: 9px; line-height: 1.4; }
           .col-days-count { width: 45px; }
           .col-hours { width: 85px; }
-          .col-earned { width: 75px; background-color: #E2F0D9; font-weight: 700; }
-          .col-paid { width: 75px; background-color: #FBE2D5; font-weight: 700; }
+          .col-earned { width: 70px; background-color: #E2F0D9; font-weight: 700; }
+          .col-paid { width: 70px; background-color: #FBE2D5; font-weight: 700; }
+          .col-balance { width: 70px; background-color: #DEEAF6; font-weight: 700; }
 
           .totals-row td {
             background-color: #00B050;
@@ -176,7 +177,7 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
           <table>
             <thead>
               <tr>
-                <th colspan="9" style="padding: 0; border: none; background: none;">
+                <th colspan="10" style="padding: 0; border: none; background: none;">
                   <div class="report-header-content">
                     <div class="main-title-bar">كشف حساب العامل التفصيلي والشامل</div>
                     <div class="header-info-grid">
@@ -203,6 +204,7 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
                 <th class="col-hours">الساعات</th>
                 <th class="col-earned">الأجر المستحق</th>
                 <th class="col-paid">المبلغ المدفوع</th>
+                <th class="col-balance">المتبقي</th>
               </tr>
             </thead>
             <tbody>
@@ -217,12 +219,14 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
                   <td class="col-hours">${item.hours || '07:00-15:00'}</td>
                   <td class="col-earned">${parseFloat(item.amount || item.earned_amount || 0).toLocaleString()}</td>
                   <td class="col-paid">${parseFloat(item.paid || item.paid_amount || 0).toLocaleString()}</td>
+                  <td class="col-balance">${parseFloat(item.balance || 0).toLocaleString()}</td>
                 </tr>
               `).join('')}
               <tr class="totals-row">
                 <td colspan="7" style="text-align: center;">الإجماليــــــــــــــــــــــــات</td>
                 <td>${totalEarned.toLocaleString()}</td>
                 <td>${totalPaid.toLocaleString()}</td>
+                <td>${finalBalance.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>

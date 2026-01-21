@@ -112,7 +112,12 @@ export class BackupService {
         }
       }
 
-      console.log(`[BACKUP] Using pg_dump path: ${pgDumpPath}`);
+      console.log(`[BACKUP_DEBUG_FINAL] Selected pg_dump path: ${pgDumpPath}`);
+      // ضمان أن المسار المستخدم ليس مسار Nix القديم
+      if (pgDumpPath.includes("/nix/store/")) {
+        pgDumpPath = "/usr/bin/pg_dump";
+      }
+
       await execPromise(`"${pgDumpPath}" "${dbUrl}" -F p -f "${filepath}" --no-owner --no-privileges`);
       await execPromise(`gzip -c "${filepath}" > "${compressedPath}"`);
       fs.unlinkSync(filepath);

@@ -200,9 +200,11 @@ export class BackupService {
    */
   static startAutoBackupScheduler() {
     console.log("⏰ بدء جدولة النسخ الاحتياطي التلقائي (كل 6 ساعات)");
-    // تنفيذ أول باكاب بعد دقيقة من التشغيل
+    
+    // تنفيذ أول باكاب بعد دقيقة من التشغيل لضمان استقرار النظام
     setTimeout(async () => {
       try {
+        console.log("🔄 جاري تنفيذ أول نسخ احتياطي تلقائي...");
         await BackupService.runBackup(undefined, false);
         console.log("✅ تم تنفيذ النسخ الاحتياطي التلقائي الأول بنجاح");
       } catch (error) {
@@ -213,7 +215,8 @@ export class BackupService {
     // جدولة دورية كل 6 ساعات
     setInterval(async () => {
       try {
-        console.log("🔄 جاري تنفيذ النسخ الاحتياطي الدوري...");
+        const now = new Date();
+        console.log(`🔄 [${now.toLocaleTimeString()}] جاري تنفيذ النسخ الاحتياطي الدوري...`);
         await BackupService.runBackup(undefined, false);
       } catch (error) {
         console.error("❌ فشل النسخ الاحتياطي الدوري:", error);

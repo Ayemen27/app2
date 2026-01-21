@@ -5609,6 +5609,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ✅ معالج شامل للأخطاء 404 - سيتم إضافته بعد الملفات الثابتة
   // تم نقل هذا المعالج إلى server/index.ts ليكون بعد إعداد الملفات الثابتة
 
+  // ✅ [PRO] Intelligent Diagnostic System
+  app.get("/api/system/diagnostics", requireAuth, async (req, res) => {
+    try {
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'صلاحيات غير كافية' });
+      }
+      const { IntelligentTestEngine } = await import('./services/TestEngine');
+      const results = await IntelligentTestEngine.runFullDiagnostic();
+      const allPassed = results.every(r => r.status !== 'failed');
+      
+      res.json({
+        success: true,
+        systemHealthy: allPassed,
+        results,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // ✅ معالج شامل للأخطاء العامة
   app.use((error: any, req: any, res: any, next: any) => {
     console.error(`💥 [خطأ خادم] ${req.method} ${req.originalUrl}:`, error);

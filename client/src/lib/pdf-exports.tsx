@@ -209,11 +209,10 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
             </thead>
             <tbody>
               ${(() => {
-                let runningBalance = 0;
                 return (data?.statement || []).map((item: any, idx: number) => {
                   const amount = parseFloat(item.amount || 0);
                   const paid = parseFloat(item.paid || 0);
-                  runningBalance += (amount - paid);
+                  const balance = amount - paid;
                   
                   return `
                     <tr>
@@ -226,7 +225,7 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
                       <td class="col-hours">${item.type === 'عمل' ? (item.hours || '07:00-15:00') : '-'}</td>
                       <td class="col-earned">${amount.toLocaleString()}</td>
                       <td class="col-paid">${paid.toLocaleString()}</td>
-                      <td class="col-balance">${runningBalance.toLocaleString()}</td>
+                      <td class="col-balance">${balance.toLocaleString()}</td>
                     </tr>
                   `;
                 }).join('');

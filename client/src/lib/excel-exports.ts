@@ -118,7 +118,7 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
     
     const amount = parseFloat(item.amount || 0);
     const paid = parseFloat(item.paid || 0);
-    runningBalance += (amount - paid);
+    const balance = amount - paid;
 
     row.values = [
       index + 1,
@@ -130,7 +130,7 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
       item.hours || (item.type === 'عمل' ? '8h' : '-'),
       amount,
       paid,
-      runningBalance
+      balance
     ];
 
     row.eachCell((cell, colNum) => {

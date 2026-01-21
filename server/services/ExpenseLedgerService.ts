@@ -90,14 +90,14 @@ export class ExpenseLedgerService {
       const cleanDateTo = dateTo && dateTo.trim() !== "" ? dateTo : null;
 
       // تصحيح الفلترة لضمان عدم ظهور بيانات من تواريخ أخرى عند وجود فلتر
-      // تم استخدام NULLIF(column, '') للتعامل مع السلاسل الفارغة المخزنة في قاعدة البيانات وقائياً
-      const dateFilterMp = cleanDate ? sql`AND NULLIF(purchase_date, '')::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND NULLIF(purchase_date, '')::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterWa = cleanDate ? sql`AND NULLIF(attendance_date, '')::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND NULLIF(attendance_date, '')::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterTe = cleanDate ? sql`AND NULLIF(date, '')::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND NULLIF(date, '')::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterWt = cleanDate ? sql`AND NULLIF(transfer_date, '')::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND NULLIF(transfer_date, '')::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterMwe = cleanDate ? sql`AND NULLIF(date, '')::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND NULLIF(date, '')::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterFt = cleanDate ? sql`AND NULLIF(transfer_date, '')::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND NULLIF(transfer_date, '')::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterPft = cleanDate ? sql`AND NULLIF(transfer_date, '')::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND NULLIF(transfer_date, '')::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      // تم استخدام CASE WHEN للتعامل الأكثر صرامة مع السلاسل الفارغة أو غير الصالحة
+      const dateFilterMp = cleanDate ? sql`AND (CASE WHEN purchase_date IS NULL OR purchase_date = '' THEN NULL ELSE purchase_date::date END) = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND (CASE WHEN purchase_date IS NULL OR purchase_date = '' THEN NULL ELSE purchase_date::date END) BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterWa = cleanDate ? sql`AND (CASE WHEN attendance_date IS NULL OR attendance_date = '' THEN NULL ELSE attendance_date::date END) = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND (CASE WHEN attendance_date IS NULL OR attendance_date = '' THEN NULL ELSE attendance_date::date END) BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterTe = cleanDate ? sql`AND (CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND (CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterWt = cleanDate ? sql`AND (CASE WHEN transfer_date IS NULL OR transfer_date = '' THEN NULL ELSE transfer_date::date END) = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND (CASE WHEN transfer_date IS NULL OR transfer_date = '' THEN NULL ELSE transfer_date::date END) BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterMwe = cleanDate ? sql`AND (CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND (CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterFt = cleanDate ? sql`AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END) = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END) BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterPft = cleanDate ? sql`AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END) = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END) BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
 
       // إذا لم يكن هناك تاريخ محدد، نعتبره عرض تراكمي ونلغي فلاتر التواريخ لضمان جلب كل شيء
       const isCumulative = !cleanDate && !cleanDateFrom && !cleanDateTo;
@@ -129,9 +129,9 @@ export class ExpenseLedgerService {
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM (
-            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} AND NULLIF(transfer_date, '')::date < ${startDateStr}::date
+            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END) < ${startDateStr}::date
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId} AND NULLIF(transfer_date, '')::date < ${startDateStr}::date
+            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId} AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END) < ${startDateStr}::date
           ) as prev_income
         `),
         db.execute(sql`
@@ -144,17 +144,17 @@ export class ExpenseLedgerService {
                 ELSE 0
               END as amount 
             FROM material_purchases 
-            WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND NULLIF(purchase_date, '')::date < ${startDateStr}::date
+            WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CASE WHEN purchase_date IS NULL OR purchase_date = '' THEN NULL ELSE purchase_date::date END) < ${startDateStr}::date
             UNION ALL
-            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND NULLIF(attendance_date, '')::date < ${startDateStr}::date AND CAST(paid_amount AS DECIMAL) > 0
+            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND (CASE WHEN attendance_date IS NULL OR attendance_date = '' THEN NULL ELSE attendance_date::date END) < ${startDateStr}::date AND CAST(paid_amount AS DECIMAL) > 0
             UNION ALL
-            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND NULLIF(date, '')::date < ${startDateStr}::date
+            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND (CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) < ${startDateStr}::date
             UNION ALL
-            SELECT amount FROM worker_transfers WHERE project_id = ${projectId} AND NULLIF(transfer_date, '')::date < ${startDateStr}::date
+            SELECT amount FROM worker_transfers WHERE project_id = ${projectId} AND (CASE WHEN transfer_date IS NULL OR transfer_date = '' THEN NULL ELSE transfer_date::date END) < ${startDateStr}::date
             UNION ALL
-            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId} AND NULLIF(date, '')::date < ${startDateStr}::date
+            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId} AND (CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) < ${startDateStr}::date
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId} AND NULLIF(transfer_date, '')::date < ${startDateStr}::date
+            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId} AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END) < ${startDateStr}::date
           ) as prev_expenses
         `)
       ]);

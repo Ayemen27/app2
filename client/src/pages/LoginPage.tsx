@@ -158,6 +158,7 @@ export default function AuthPage() {
   // نماذج التحقق
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    mode: "onChange",
     defaultValues: {
       email: "",
       password: "",
@@ -167,6 +168,7 @@ export default function AuthPage() {
 
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    mode: "onChange",
     defaultValues: {
       name: "",
       email: "",
@@ -553,7 +555,7 @@ export default function AuthPage() {
                                     placeholder="كلمة المرور"
                                     validator={passwordValidator}
                                     fieldType="password"
-                                    showValidation={false}
+                                    showValidation={true}
                                     enableMemory={true}
                                     memoryKey="login-password"
                                     className="enhanced-input"

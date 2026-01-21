@@ -15,8 +15,7 @@
     "test": "vitest run",
     "test:ui": "vitest --ui",
     "lint": "eslint . --max-warnings 0",
-    "pre-publish": "npm run lint && npm run test"
-  },
+    "pre-publish": "npm run lint && npm run test",
     "android:deploy": "bash scripts/build-and-deploy.sh",
     "android:sync-version": "node scripts/sync-version.js",
     "android:build": "npm run android:sync-version && cd android && chmod +x gradlew && ./gradlew assembleDebug",

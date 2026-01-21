@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import { envConfig } from "./utils/unified-env";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -38,7 +39,7 @@ export function serveStatic(app: Express) {
     }
   }
 
-  console.log(`[Static] NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`[Static] NODE_ENV: ${envConfig.NODE_ENV}`);
   console.log(`[Static] Selected distPath: ${distPath}`);
   console.log(`[Static] Index exists: ${indexExists}`);
 
@@ -98,7 +99,7 @@ export function serveStatic(app: Express) {
             <div style="margin: 20px; padding: 20px; background: #fff; border-radius: 8px; display: inline-block; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: left;">
               <strong>Status:</strong> Preparing Assets... <br/>
               <strong>Database:</strong> ${process.env.DATABASE_URL ? "Connected ✅" : "Config Error ❌"} <br/>
-              <strong>Environment:</strong> ${process.env.NODE_ENV} <br/>
+              <strong>Environment:</strong> ${envConfig.NODE_ENV} <br/>
               <strong>Dist Path:</strong> ${distPath}
             </div>
             <p>This page will refresh automatically every 5 seconds.</p>

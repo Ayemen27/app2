@@ -3,6 +3,7 @@ import { Pool, Client } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 import { getCredential, isSupabaseConfigured } from '../config/credentials';
+import { envConfig } from '../utils/unified-env';
 import fs from 'fs';
 
 /**
@@ -19,7 +20,7 @@ export class SmartConnectionManager {
     local: false,
     supabase: false
   };
-  private isProduction = process.env.NODE_ENV === 'production';
+  private isProduction = envConfig.isProduction;
 
   private constructor() {
     this.initialize();

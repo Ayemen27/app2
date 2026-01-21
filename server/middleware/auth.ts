@@ -5,6 +5,7 @@ import { users, authUserSessions } from '../../shared/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import rateLimit from 'express-rate-limit';
 import { JWT_SHARED_SECRET } from '../auth/jwt-utils';
+import { envConfig } from '../utils/unified-env';
 
 // تم إزالة express-slow-down لأنه غير مستخدم حالياً
 
@@ -79,7 +80,7 @@ const verifyToken = async (token: string): Promise<any> => {
         ignoreExpiration: true
       });
     } catch (verifyError: any) {
-      if (process.env.NODE_ENV === 'development' && verifyError.name === 'JsonWebTokenError') {
+      if (!envConfig.isProduction && verifyError.name === 'JsonWebTokenError') {
         console.warn('⚠️ [JWT-DEV] Invalid signature detected, performing emergency decode');
         const decoded = jwt.decode(token) as any;
         if (decoded && decoded.userId) return decoded;

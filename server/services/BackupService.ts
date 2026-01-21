@@ -91,31 +91,16 @@ export class BackupService {
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) throw new Error("DATABASE_URL not found");
 
-      // التحقق من وجود pg_dump في مسارات النظام أو مسار محدد
-      let pgDumpPath = "pg_dump";
+      // استخدام مسار صريح ومباشر للسيرفر الخارجي لتجنب أي تعارض مع بيئة Nix
+      const pgDumpPath = "/usr/bin/pg_dump";
       
-      // محاولة استخدام المسارات الشائعة في بيئات مختلفة
-      const possiblePaths = [
-        "/usr/bin/pg_dump",
-        "/usr/local/bin/pg_dump",
-        "pg_dump"
-      ];
-
-      for (const p of possiblePaths) {
-        try {
-          if (p.startsWith("/") && fs.existsSync(p)) {
-            pgDumpPath = p;
-            break;
-          }
-        } catch (e) {
-          // تجاهل الخطأ والمتابعة
-        }
-      }
-
-      console.log(`[BACKUP_DEBUG_FINAL] Selected pg_dump path: ${pgDumpPath}`);
-      // ضمان أن المسار المستخدم ليس مسار Nix القديم
-      if (pgDumpPath.includes("/nix/store/")) {
-        pgDumpPath = "/usr/bin/pg_dump";
+      console.log(`[BACKUP_PRODUCTION_FIX] Attempting backup with path: ${pgDumpPath}`);
+      
+      // التأكد من أن الملف قابل للتنفيذ فعلياً
+      try {
+        await execPromise(`test -x ${pgDumpPath}`);
+      } catch (e) {
+        console.warn(`⚠️ [BACKUP] ${pgDumpPath} is not executable, falling back to 'pg_dump'`);
       }
 
       await execPromise(`"${pgDumpPath}" "${dbUrl}" -F p -f "${filepath}" --no-owner --no-privileges`);

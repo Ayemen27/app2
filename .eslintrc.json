@@ -22,12 +22,6 @@
             "target": "./shared",
             "from": "./server",
             "message": "Cannot import from server into shared."
-          },
-          {
-            "target": "./client/src/pages",
-            "from": "./client/src/components/ui",
-            "allow": ["@/components/ui/*"],
-            "message": "Pages should use unified UI components from @/components/ui."
           }
         ]
       }

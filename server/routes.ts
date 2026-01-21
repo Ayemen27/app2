@@ -36,6 +36,8 @@ import { authenticate, checkWriteAccess } from "./middleware/auth";
 import path from "path";
 import fs from "fs";
 import { BackupService } from "./services/BackupService";
+import mobileSyncRouter from "./modules/mobile/sync";
+import authRouter from "./modules/identity/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ... (بعد الإعدادات الأولية)
@@ -184,10 +186,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========================================
   // 📱 Mobile & Android Integration (Unified)
   // ========================================
-  import mobileSyncRouter from "./modules/mobile/sync";
   app.use("/api/mobile/sync", mobileSyncRouter);
 
-  // ... (rest of the routes)
+  // دمج مسارات المصادقة الموحدة
+  app.use("/api/auth", authRouter);
 
   // ========================================
   // 🔔 Push Notifications (FCM)

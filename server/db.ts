@@ -7,11 +7,18 @@ const { Pool } = pg;
 
 // دالة لجلب DATABASE_URL بشكل آمن وديناميكي
 function getDatabaseUrl() {
-  const dbUrl = (process.env.DATABASE_URL || envLoader.get("DATABASE_URL") || "").replace(/["']/g, "").trim();
+  // الأولوية دائماً لـ DATABASE_URL الموجود في Secrets (بيئة النظام)
+  const dbUrl = (process.env.DATABASE_URL || "").replace(/["']/g, "").trim();
+  
   if (!dbUrl) {
-    console.warn("⚠️ [PostgreSQL] DATABASE_URL is not defined or empty. Connection will fail.");
+    console.warn("⚠️ [PostgreSQL] DATABASE_URL is not defined in Secrets. Connection will fail.");
   } else {
-    console.log("✅ [PostgreSQL] DATABASE_URL found and loaded");
+    // التحقق إذا كان الرابط يشير لـ localhost ومحاولة تنبيه المستخدم إذا كان يتوقع سيرفر خارجي
+    if (dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1')) {
+      console.log("ℹ️ [PostgreSQL] Connecting to local database. Ensure this is intended.");
+    } else {
+      console.log("✅ [PostgreSQL] Connecting to EXTERNAL database server.");
+    }
   }
   return dbUrl;
 }

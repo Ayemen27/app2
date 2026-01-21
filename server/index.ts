@@ -380,7 +380,7 @@ app.use('/api/*', (req, res) => {
 
 // تم تعريف PORT في الأعلى بناءً على البيئة
 // في Replit، يتم تجاهل PORT المخصص أحياناً، لذا نتحقق من متغير البيئة أولاً
-const FINAL_PORT = Number(process.env.PORT) || PORT;
+const FINAL_PORT = 6000;
 const NODE_ENV = process.env.NODE_ENV || (isProduction ? 'production' : 'development');
 
 console.log('🚀 بدء تشغيل الخادم...');

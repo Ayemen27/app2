@@ -16,7 +16,7 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
     const workerType = worker?.type || 'عامل';
     const dailyWage = worker?.dailyWage ? `${parseFloat(worker.dailyWage).toLocaleString()} ر.ي` : '-';
     const reportDate = format(new Date(), 'yyyy/MM/dd');
-    const projectName = data?.projectName || 'جميع المشاريع';
+    const projectNameStr = data?.projectName || 'جميع المشاريع';
     const totalEarned = parseFloat(data?.summary?.totalEarned || 0);
     const totalPaid = parseFloat(data?.summary?.totalPaid || 0);
     const finalBalance = parseFloat(data?.summary?.finalBalance || 0);
@@ -84,7 +84,7 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
             color: white;
             border: 1px solid #16365C;
             padding: 8px 4px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             text-align: center;
           }
@@ -92,27 +92,29 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
           td {
             border: 1px solid #BFBFBF;
             padding: 6px 4px;
-            font-size: 11px;
+            font-size: 10px;
             text-align: center;
             vertical-align: middle;
             word-wrap: break-word;
           }
 
           /* ألوان الأعمدة الخاصة */
-          .col-m { width: 40px; }
-          .col-date { width: 90px; }
-          .col-day { width: 70px; }
-          .col-desc { width: auto; text-align: right; padding-right: 8px; font-size: 10px; line-height: 1.4; }
-          .col-hours { width: 100px; }
-          .col-earned { width: 80px; background-color: #E2F0D9; font-weight: 700; }
-          .col-paid { width: 80px; background-color: #FBE2D5; font-weight: 700; }
+          .col-m { width: 30px; }
+          .col-date { width: 80px; }
+          .col-day { width: 60px; }
+          .col-project { width: 90px; }
+          .col-desc { width: auto; text-align: right; padding-right: 8px; font-size: 9px; line-height: 1.4; }
+          .col-days-count { width: 45px; }
+          .col-hours { width: 85px; }
+          .col-earned { width: 75px; background-color: #E2F0D9; font-weight: 700; }
+          .col-paid { width: 75px; background-color: #FBE2D5; font-weight: 700; }
 
           /* صف الإجماليات داخل الجدول */
           .totals-row td {
             background-color: #00B050;
             color: white;
             font-weight: 800;
-            font-size: 13px;
+            font-size: 12px;
             border: 1px solid #00803A;
           }
 
@@ -179,7 +181,7 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
               <div class="info-row"><span class="info-label">الأجر اليومي:</span><span class="info-value">${dailyWage}</span></div>
             </div>
             <div class="info-col">
-              <div class="info-row"><span class="info-label">المشروع:</span><span class="info-value">${projectName}</span></div>
+              <div class="info-row"><span class="info-label">المشروع:</span><span class="info-value">${projectNameStr}</span></div>
               <div class="info-row"><span class="info-label">تاريخ الإصدار:</span><span class="info-value">${reportDate}</span></div>
             </div>
           </div>
@@ -190,7 +192,9 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
                 <th class="col-m">م</th>
                 <th class="col-date">التاريخ</th>
                 <th class="col-day">اليوم</th>
+                <th class="col-project">المشروع</th>
                 <th class="col-desc">وصف العمل</th>
+                <th class="col-days-count">الأيام</th>
                 <th class="col-hours">الساعات</th>
                 <th class="col-earned">الأجر المستحق</th>
                 <th class="col-paid">المبلغ المدفوع</th>
@@ -202,14 +206,16 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
                   <td class="col-m">${idx + 1}</td>
                   <td class="col-date">${item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</td>
                   <td class="col-day">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
+                  <td class="col-project">${item.projectName || projectNameStr}</td>
                   <td class="col-desc">${item.description || 'تنفيذ مهام العمل الموكلة'}</td>
+                  <td class="col-days-count">${item.workDays || '1.00'}</td>
                   <td class="col-hours">${item.hours || '07:00-15:00'}</td>
                   <td class="col-earned">${parseFloat(item.amount || 0).toLocaleString()}</td>
                   <td class="col-paid">${parseFloat(item.paid || 0).toLocaleString()}</td>
                 </tr>
               `).join('')}
               <tr class="totals-row">
-                <td colspan="5" style="text-align: center;">الإجماليــــــــــــــــــــــــات</td>
+                <td colspan="7" style="text-align: center;">الإجماليــــــــــــــــــــــــات</td>
                 <td>${totalEarned.toLocaleString()}</td>
                 <td>${totalPaid.toLocaleString()}</td>
               </tr>

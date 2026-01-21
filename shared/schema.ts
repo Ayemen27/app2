@@ -600,22 +600,15 @@ export const permissionAuditLogs = pgTable("permission_audit_logs", {
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true });
 export const insertWorkerSchema = createInsertSchema(workers).omit({ id: true, createdAt: true });
 export const insertFundTransferSchema = createInsertSchema(fundTransfers).omit({ id: true, createdAt: true }).extend({
-  transferDate: z.coerce.date(),
-});
-  amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
-  transferDate: z.coerce.date(), // تحويل string إلى Date تلقائياً
+  transferDate: dateStringSchema,
 });
 export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance).omit({ id: true, createdAt: true }).extend({
   attendanceDate: dateStringSchema,
-});
-  attendanceDate: z.string().optional(), // Allow optional to match incoming field
-  date: z.string().optional(),
-  workDays: z.number().min(0).max(2.0).default(1.0),
-  dailyWage: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
-  actualWage: z.coerce.string().optional(), // nullable في قاعدة البيانات
-  totalPay: z.coerce.string(), // إجمالي الدفع المطلوب
-  paidAmount: z.coerce.string().optional(), // تحويل إلى string للتوافق مع نوع decimal - nullable
-  remainingAmount: z.coerce.string().optional(), // تحويل إلى string للتوافق مع نوع decimal - nullable
+  dailyWage: z.coerce.string(),
+  actualWage: z.coerce.string().optional(),
+  totalPay: z.coerce.string(),
+  paidAmount: z.coerce.string().optional(),
+  remainingAmount: z.coerce.string().optional(),
   paymentType: z.string().optional().default("partial"), // نوع الدفع
   hoursWorked: z.coerce.string().optional(), // ساعات العمل
   overtime: z.coerce.string().optional(), // ساعات إضافية
@@ -645,7 +638,6 @@ export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance)
 export const insertMaterialSchema = createInsertSchema(materials).omit({ id: true, createdAt: true });
 export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({ id: true, createdAt: true }).extend({
   purchaseDate: dateStringSchema,
-});
   quantity: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
   unit: z.string().min(1, "وحدة القياس مطلوبة").default("كيس"), // وحدة القياس المطلوبة مع قيمة افتراضية
   unitPrice: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
@@ -656,25 +648,14 @@ export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases
 });
 export const insertTransportationExpenseSchema = createInsertSchema(transportationExpenses).omit({ id: true, createdAt: true }).extend({
   date: dateStringSchema,
-});
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
-  date: z.string().optional(),
-  selectedDate: z.string().optional(),
 });
 export const insertWorkerTransferSchema = createInsertSchema(workerTransfers).omit({ id: true, createdAt: true }).extend({
   transferDate: dateStringSchema,
-});
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal في قاعدة البيانات
-});
-export const insertWorkerBalanceSchema = createInsertSchema(workerBalances).omit({ id: true, createdAt: true, lastUpdated: true }).extend({
-  totalEarned: z.coerce.string().optional(),
-  totalPaid: z.coerce.string().optional(),
-  totalTransferred: z.coerce.string().optional(),
-  currentBalance: z.coerce.string().optional(),
 });
 export const insertProjectFundTransferSchema = createInsertSchema(projectFundTransfers).omit({ id: true, createdAt: true }).extend({
   transferDate: dateStringSchema,
-});
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
 });
 export const insertDailyExpenseSummarySchema = createInsertSchema(dailyExpenseSummaries).omit({ id: true, createdAt: true, updatedAt: true });
@@ -682,7 +663,6 @@ export const insertWorkerTypeSchema = createInsertSchema(workerTypes).omit({ id:
 export const insertAutocompleteDataSchema = createInsertSchema(autocompleteData).omit({ id: true, createdAt: true, lastUsed: true });
 export const insertWorkerMiscExpenseSchema = createInsertSchema(workerMiscExpenses).omit({ id: true, createdAt: true }).extend({
   date: dateStringSchema,
-});
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
 });
 

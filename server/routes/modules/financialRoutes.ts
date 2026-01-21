@@ -136,7 +136,7 @@ financialRouter.get('/fund-transfers', async (req: Request, res: Response) => {
       })
       .from(fundTransfers)
       .leftJoin(projects, eq(fundTransfers.projectId, projects.id))
-      .orderBy(desc(fundTransfers.transferDate));
+      .orderBy(desc(sql`(CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END)`));
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل عهدة في ${duration}ms`);
@@ -417,7 +417,7 @@ financialRouter.get('/daily-project-transfers', async (req: Request, res: Respon
       .where(
         and(
           sql`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
-          eq(projectFundTransfers.transferDate, date as string)
+          sql`(CASE WHEN ${projectFundTransfers.transferDate} IS NULL OR ${projectFundTransfers.transferDate}::text = '' THEN NULL ELSE ${projectFundTransfers.transferDate}::date END) = ${date}::date`
         )
       )
       .orderBy(desc(projectFundTransfers.createdAt));
@@ -517,9 +517,9 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
       const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
       transfers = await baseQuery
         .where(whereClause)
-        .orderBy(desc(projectFundTransfers.transferDate));
+        .orderBy(desc(sql`(CASE WHEN ${projectFundTransfers.transferDate} IS NULL OR ${projectFundTransfers.transferDate}::text = '' THEN NULL ELSE ${projectFundTransfers.transferDate}::date END)`));
     } else {
-      transfers = await baseQuery.orderBy(desc(projectFundTransfers.transferDate));
+      transfers = await baseQuery.orderBy(desc(sql`(CASE WHEN ${projectFundTransfers.transferDate} IS NULL OR ${projectFundTransfers.transferDate}::text = '' THEN NULL ELSE ${projectFundTransfers.transferDate}::date END)`));
     }
 
     const duration = Date.now() - startTime;

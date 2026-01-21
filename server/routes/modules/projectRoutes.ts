@@ -154,7 +154,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       projectsList
     ] = await Promise.all([
       date
-        ? db.select().from(fundTransfers).where(sql`DATE(${fundTransfers.transferDate}) = ${date}`).orderBy(desc(fundTransfers.transferDate))
+        ? db.select().from(fundTransfers).where(sql`(CASE WHEN transfer_date IS NULL OR transfer_date = '' THEN NULL ELSE transfer_date::date END) = ${date}`).orderBy(desc(fundTransfers.transferDate))
         : db.select().from(fundTransfers).orderBy(desc(fundTransfers.transferDate)),
 
       date
@@ -195,7 +195,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
         : db.select().from(transportationExpenses).orderBy(desc(transportationExpenses.date)),
 
       date
-        ? db.select().from(workerTransfers).where(sql`DATE(${workerTransfers.transferDate}) = ${date}`).orderBy(desc(workerTransfers.transferDate))
+        ? db.select().from(workerTransfers).where(sql`(CASE WHEN transfer_date IS NULL OR transfer_date = '' THEN NULL ELSE transfer_date::date END) = ${date}`).orderBy(desc(workerTransfers.transferDate))
         : db.select().from(workerTransfers).orderBy(desc(workerTransfers.transferDate)),
 
       date

@@ -292,7 +292,7 @@ export class DatabaseActions {
         .from(workerAttendance)
         .where(and(
           eq(workerAttendance.projectId, projectId),
-          sql`CAST(attendance_date AS DATE) = ${date}`
+          sql`(CASE WHEN attendance_date IS NULL OR attendance_date = '' THEN NULL ELSE attendance_date::date END) = ${date}`
         ));
 
       const purchases = await db
@@ -300,7 +300,7 @@ export class DatabaseActions {
         .from(materialPurchases)
         .where(and(
           eq(materialPurchases.projectId, projectId),
-          sql`CAST(purchase_date AS DATE) = ${date}`
+          sql`(CASE WHEN purchase_date IS NULL OR purchase_date = '' THEN NULL ELSE purchase_date::date END) = ${date}`
         ));
 
       const transport = await db
@@ -308,7 +308,7 @@ export class DatabaseActions {
         .from(transportationExpenses)
         .where(and(
           eq(transportationExpenses.projectId, projectId),
-          sql`CAST(date AS DATE) = ${date}`
+          sql`(CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) = ${date}`
         ));
 
       const misc = await db
@@ -316,7 +316,7 @@ export class DatabaseActions {
         .from(workerMiscExpenses)
         .where(and(
           eq(workerMiscExpenses.projectId, projectId),
-          sql`CAST(date AS DATE) = ${date}`
+          sql`(CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) = ${date}`
         ));
 
       const totalItems = (wages.length || 0) + (purchases.length || 0) + (transport.length || 0) + (misc.length || 0);

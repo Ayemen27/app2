@@ -43,6 +43,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========================================
   // 💾 Backup & Restore Routes
   // ========================================
+  app.get("/api/auth/google/url", requireAuth, requireRole("admin"), async (req, res) => {
+    try {
+      const { google } = await import("googleapis");
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_DRIVE_CLIENT_ID,
+        process.env.GOOGLE_DRIVE_CLIENT_SECRET,
+        process.env.GOOGLE_DRIVE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/google/callback`
+      );
+
+      const url = oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        prompt: 'consent',
+        scope: ['https://www.googleapis.com/auth/drive.file']
+      });
+
+      res.json({ success: true, url });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/auth/google/callback", async (req, res) => {
+    try {
+      const { code } = req.query;
+      if (!code) throw new Error("Code not found");
+
+      const { google } = await import("googleapis");
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_DRIVE_CLIENT_ID,
+        process.env.GOOGLE_DRIVE_CLIENT_SECRET,
+        process.env.GOOGLE_DRIVE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/google/callback`
+      );
+
+      const { tokens } = await oauth2Client.getToken(code as string);
+      
+      // هنا يجب حفظ الـ refresh_token في المتغيرات البيئية أو قاعدة البيانات
+      // في Replit، يفضل إرشاد المستخدم لإضافته كـ Secret إذا لم يكن لدينا واجهة لضبطه
+      console.log("✅ Google Auth Tokens received:", tokens);
+      
+      if (tokens.refresh_token) {
+        // يمكننا محاولة تحديثه تلقائياً إذا كان لدينا صلاحية الوصول لـ Replit API أو إظهاره للمستخدم
+        res.send(`
+          <html>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+              <h2 style="color: #10b981;">✅ تم الحصول على صلاحيات الوصول بنجاح</h2>
+              <p>يرجى نسخ الرمز التالي ووضعه في متغير <b>GOOGLE_DRIVE_REFRESH_TOKEN</b> في إعدادات Secrets:</p>
+              <code style="background: #f1f5f9; padding: 10px; border-radius: 5px; display: block; margin: 20px 0; word-break: break-all;">${tokens.refresh_token}</code>
+              <button onclick="window.close()" style="padding: 10px 20px; cursor: pointer;">إغلاق النافذة</button>
+            </body>
+          </html>
+        `);
+      } else {
+        res.send("✅ تم الاتصال بنجاح (لم يتم إصدار refresh_token جديد، قد يكون الحساب مرتبكاً بالفعل).");
+      }
+    } catch (error: any) {
+      res.status(500).send(`Error: ${error.message}`);
+    }
+  });
+
   app.get("/api/backups/download/:id", async (req, res) => {
     try {
       const { id } = req.params;

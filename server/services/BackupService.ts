@@ -103,7 +103,8 @@ export class BackupService {
         console.warn(`⚠️ [BACKUP] ${pgDumpPath} is not executable, falling back to 'pg_dump'`);
       }
 
-      await execPromise(`"${pgDumpPath}" "${dbUrl}" -F p -f "${filepath}" --no-owner --no-privileges`);
+      const env = { ...process.env, PGPASSWORD: new URL(dbUrl).password };
+      await execPromise(`"${pgDumpPath}" "${dbUrl}" -F p -f "${filepath}" --no-owner --no-privileges`, { env });
       await execPromise(`gzip -c "${filepath}" > "${compressedPath}"`);
       fs.unlinkSync(filepath);
 

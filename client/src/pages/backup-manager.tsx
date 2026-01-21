@@ -92,14 +92,28 @@ export default function BackupManager() {
     }
   });
 
-  const handleGDriveAuth = () => {
-    // توجيه المستخدم لصفحة الإعدادات أو فتح نافذة الصلاحيات
-    toast({
-      title: "صلاحيات الوصول",
-      description: "سيتم توجيهك الآن لمنح النظام صلاحيات التخزين على Google Drive...",
-    });
-    // ملاحظة: بما أن التكامل يتم عبر Replit Connect، يتم التعامل مع التوجيه عبر الرابط المخصص
-    window.open('https://replit.com/integrations', '_blank');
+  const handleGDriveAuth = async () => {
+    try {
+      toast({
+        title: "صلاحيات الوصول",
+        description: "جاري توليد رابط المصادقة مع Google Drive...",
+      });
+      
+      const res = await fetch('/api/auth/google/url');
+      const data = await res.json();
+      
+      if (data.success && data.url) {
+        window.open(data.url, '_blank');
+      } else {
+        throw new Error(data.error || "فشل في الحصول على رابط المصادقة");
+      }
+    } catch (error: any) {
+      toast({
+        title: "خطأ في الربط",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   // محاكاة تقدم النسخ الاحتياطي

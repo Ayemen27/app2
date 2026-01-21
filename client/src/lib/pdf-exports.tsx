@@ -135,13 +135,13 @@ const WorkerStatementDocument = ({ data, worker }: any) => (
 
       <View style={styles.infoGrid}>
         <View style={styles.infoItem}>
-          <Text><Text style={styles.label}>اسم الموظف: </Text>{worker.name}</Text>
+          <Text><Text style={styles.label}>اسم الموظف: </Text>{worker?.name || '-'}</Text>
         </View>
         <View style={styles.infoItem}>
-          <Text><Text style={styles.label}>المشروع: </Text>{data.projectName || 'جميع المشاريع'}</Text>
+          <Text><Text style={styles.label}>المشروع: </Text>{data?.projectName || 'جميع المشاريع'}</Text>
         </View>
         <View style={styles.infoItem}>
-          <Text><Text style={styles.label}>المسمى الوظيفي: </Text>{worker.type || 'عامل'}</Text>
+          <Text><Text style={styles.label}>المسمى الوظيفي: </Text>{worker?.type || 'عامل'}</Text>
         </View>
         <View style={styles.infoItem}>
           <Text><Text style={styles.label}>تاريخ التقرير: </Text>{format(new Date(), 'yyyy/MM/dd')}</Text>
@@ -158,14 +158,14 @@ const WorkerStatementDocument = ({ data, worker }: any) => (
           <Text style={styles.tableHeaderCell}>التاريخ</Text>
         </View>
         
-        {data.statement.map((item: any, index: number) => (
+        {(data?.statement || []).map((item: any, index: number) => (
           <View key={index} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: '#F8FAFC' } : {}]}>
             <Text style={[styles.tableCell, { color: '#F43F5E', fontWeight: 'bold' }]}>{parseFloat(item.paid || 0).toLocaleString()}</Text>
             <Text style={[styles.tableCell, { color: '#10B981', fontWeight: 'bold' }]}>{parseFloat(item.amount || 0).toLocaleString()}</Text>
             <Text style={[styles.tableCell, { flex: 2, textAlign: 'right' }]}>{item.description || 'تنفيذ مهام العمل'}</Text>
             <Text style={styles.tableCell}>{item.projectName || '-'}</Text>
-            <Text style={styles.tableCell}>{format(new Date(item.date), 'EEEE', { locale: arSA })}</Text>
-            <Text style={styles.tableCell}>{format(new Date(item.date), 'yyyy/MM/dd')}</Text>
+            <Text style={styles.tableCell}>{item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</Text>
+            <Text style={styles.tableCell}>{item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</Text>
           </View>
         ))}
       </View>
@@ -173,15 +173,15 @@ const WorkerStatementDocument = ({ data, worker }: any) => (
       <View style={styles.summarySection}>
         <View style={styles.summaryBox}>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryValue, { color: '#10B981' }]}>{parseFloat(data.summary.totalEarned || 0).toLocaleString()} ر.ي</Text>
+            <Text style={[styles.summaryValue, { color: '#10B981' }]}>{parseFloat(data?.summary?.totalEarned || 0).toLocaleString()} ر.ي</Text>
             <Text style={styles.summaryLabel}>إجمالي المستحقات:</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryValue, { color: '#F43F5E' }]}>{parseFloat(data.summary.totalPaid || 0).toLocaleString()} ر.ي</Text>
+            <Text style={[styles.summaryValue, { color: '#F43F5E' }]}>{parseFloat(data?.summary?.totalPaid || 0).toLocaleString()} ر.ي</Text>
             <Text style={styles.summaryLabel}>إجمالي المدفوعات:</Text>
           </View>
           <View style={[styles.summaryRow, { backgroundColor: '#DBEAFE', borderBottomWidth: 0 }]}>
-            <Text style={[styles.summaryValue, { color: '#1E3A8A', fontWeight: 'bold' }]}>{parseFloat(data.summary.finalBalance || 0).toLocaleString()} ر.ي</Text>
+            <Text style={[styles.summaryValue, { color: '#1E3A8A', fontWeight: 'bold' }]}>{parseFloat(data?.summary?.finalBalance || 0).toLocaleString()} ر.ي</Text>
             <Text style={styles.summaryLabel}>الرصيد المتبقي:</Text>
           </View>
         </View>
@@ -196,11 +196,14 @@ const WorkerStatementDocument = ({ data, worker }: any) => (
 
 export const generateWorkerPDF = async (data: any, worker: any) => {
   try {
+    if (!data || !data.statement) {
+       console.error("No data provided for PDF generation");
+       return;
+    }
     const blob = await pdf(<WorkerStatementDocument data={data} worker={worker} />).toBlob();
-    saveAs(blob, `كشف_حساب_${worker.name.replace(/\s+/g, '_')}.pdf`);
+    saveAs(blob, `كشف_حساب_${(worker?.name || 'عامل').replace(/\s+/g, '_')}.pdf`);
   } catch (error) {
-    console.error("PDF Generation Error:", error);
-    // fallback
-    window.print();
+    console.error("PDF Generation Error Details:", error);
+    // Fallback logic could go here if needed
   }
 };

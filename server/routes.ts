@@ -2231,7 +2231,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('📋 [API] بيانات مصروف المواصلات المرسلة:', req.body);
       
       // Validation باستخدام insert schema
-      const validationResult = insertTransportationExpenseSchema.safeParse(req.body);
+      const expenseData = {
+        ...req.body,
+        date: req.body.date || req.body.selectedDate
+      };
+      const validationResult = insertTransportationExpenseSchema.safeParse(expenseData);
       
       if (!validationResult.success) {
         const duration = Date.now() - startTime;

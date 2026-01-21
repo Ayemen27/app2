@@ -601,8 +601,9 @@ export const insertFundTransferSchema = createInsertSchema(fundTransfers).omit({
   transferDate: z.coerce.date(), // تحويل string إلى Date تلقائياً
 });
 export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance).omit({ id: true, createdAt: true }).extend({
-  attendanceDate: z.string(), // اسم الحقل الصحيح
-  workDays: z.number().min(0).max(2.0).default(1.0), // عدد أيام العمل من 0 إلى 2.0 (السماح بـ 0 للسحب المقدم)
+  attendanceDate: z.string().optional(), // Allow optional to match incoming field
+  date: z.string().optional(),
+  workDays: z.number().min(0).max(2.0).default(1.0),
   dailyWage: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
   actualWage: z.coerce.string().optional(), // nullable في قاعدة البيانات
   totalPay: z.coerce.string(), // إجمالي الدفع المطلوب
@@ -646,6 +647,8 @@ export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases
 });
 export const insertTransportationExpenseSchema = createInsertSchema(transportationExpenses).omit({ id: true, createdAt: true }).extend({
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
+  date: z.string().optional(),
+  selectedDate: z.string().optional(),
 });
 export const insertWorkerTransferSchema = createInsertSchema(workerTransfers).omit({ id: true, createdAt: true }).extend({
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal في قاعدة البيانات

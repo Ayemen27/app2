@@ -78,24 +78,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { tokens } = await oauth2Client.getToken(code as string);
       
-      // هنا يجب حفظ الـ refresh_token في المتغيرات البيئية أو قاعدة البيانات
-      // في Replit، يفضل إرشاد المستخدم لإضافته كـ Secret إذا لم يكن لدينا واجهة لضبطه
       console.log("✅ Google Auth Tokens received:", tokens);
       
       if (tokens.refresh_token) {
-        // يمكننا محاولة تحديثه تلقائياً إذا كان لدينا صلاحية الوصول لـ Replit API أو إظهاره للمستخدم
         res.send(`
           <html>
-            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
-              <h2 style="color: #10b981;">✅ تم الحصول على صلاحيات الوصول بنجاح</h2>
-              <p>يرجى نسخ الرمز التالي ووضعه في متغير <b>GOOGLE_DRIVE_REFRESH_TOKEN</b> في إعدادات Secrets:</p>
-              <code style="background: #f1f5f9; padding: 10px; border-radius: 5px; display: block; margin: 20px 0; word-break: break-all;">${tokens.refresh_token}</code>
-              <button onclick="window.close()" style="padding: 10px 20px; cursor: pointer;">إغلاق النافذة</button>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px; background: #f8fafc;">
+              <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+                <h2 style="color: #10b981;">✅ تم ربط الحساب بنجاح</h2>
+                <p style="color: #475569;">يرجى نسخ الرمز (Refresh Token) أدناه وتحديثه في إعدادات النظام (Secrets):</p>
+                <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 20px 0;">
+                  <code style="word-break: break-all; font-family: monospace; font-size: 14px; color: #1e293b;">${tokens.refresh_token}</code>
+                </div>
+                <p style="font-size: 13px; color: #64748b;">اسم المتغير المطلوب: <b style="color: #ef4444;">GOOGLE_DRIVE_REFRESH_TOKEN</b></p>
+                <div style="margin-top: 30px; display: flex; gap: 10px; justify-content: center;">
+                  <button onclick="navigator.clipboard.writeText('${tokens.refresh_token}').then(() => alert('تم النسخ!'))" style="background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">نسخ الرمز</button>
+                  <button onclick="window.close()" style="background: #94a3b8; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">إغلاق النافذة</button>
+                </div>
+              </div>
             </body>
           </html>
         `);
       } else {
-        res.send("✅ تم الاتصال بنجاح (لم يتم إصدار refresh_token جديد، قد يكون الحساب مرتبكاً بالفعل).");
+        res.send(`
+          <html>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+              <h2 style="color: #f59e0b;">⚠️ تنبيه</h2>
+              <p>تم الاتصال بنجاح ولكن لم يتم إصدار رمز تحديث (Refresh Token) جديد.</p>
+              <p>إذا كنت بحاجة لرمز جديد، يرجى إلغاء صلاحية التطبيق من إعدادات حساب Google الخاص بك أولاً ثم المحاولة مجدداً.</p>
+              <button onclick="window.close()" style="padding: 10px 20px; cursor: pointer;">إغلاق النافذة</button>
+            </body>
+          </html>
+        `);
       }
     } catch (error: any) {
       res.status(500).send(`Error: ${error.message}`);

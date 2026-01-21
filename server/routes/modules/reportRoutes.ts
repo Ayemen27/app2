@@ -482,6 +482,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         attendanceDate: workerAttendance.attendanceDate,
         workDescription: workerAttendance.workDescription,
         actualWage: workerAttendance.actualWage,
+        dailyWage: workerAttendance.dailyWage,
         paidAmount: workerAttendance.paidAmount,
         workDays: workerAttendance.workDays,
         projectName: projects.name
@@ -506,16 +507,23 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
     
     // تجميع الحركات في كشف واحد
     const statement = [
-      ...attendance.map(a => ({
-        date: a.attendanceDate,
-        type: 'عمل',
-        description: a.workDescription || 'تسجيل حضور',
-        amount: parseFloat(a.actualWage || '0'),
-        paid: parseFloat(a.paidAmount || '0'),
-        workDays: parseFloat(a.workDays || '0'),
-        projectName: a.projectName || '-',
-        reference: 'حضور'
-      })),
+      ...attendance.map(a => {
+        const days = parseFloat(a.workDays || '0');
+        const wage = parseFloat(a.dailyWage || '0');
+        // الحساب الصحيح: الأجر اليومي المسجل في السجل مضروباً في عدد الأيام
+        const earnedAmount = days * wage;
+        
+        return {
+          date: a.attendanceDate,
+          type: 'عمل',
+          description: a.workDescription || 'تسجيل حضور',
+          amount: earnedAmount,
+          paid: parseFloat(a.paidAmount || '0'),
+          workDays: days,
+          projectName: a.projectName || '-',
+          reference: 'حضور'
+        };
+      }),
       ...transfers.map(t => ({
         date: t.transferDate,
         type: 'حوالة',

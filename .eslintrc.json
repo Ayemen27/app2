@@ -22,6 +22,12 @@
             "target": "./shared",
             "from": "./server",
             "message": "Cannot import from server into shared."
+          },
+          {
+            "target": "./client/src/pages",
+            "from": "./client/src/components/ui",
+            "allow": ["@/components/ui/*"],
+            "message": "Pages should use unified UI components from @/components/ui."
           }
         ]
       }
@@ -37,7 +43,23 @@
             "patterns": [
               {
                 "group": ["node:*", "express", "react", "framer-motion"],
-                "message": "Shared folder must remain environment-agnostic (no Node.js or UI libraries)."
+                "message": "Shared folder must remain environment-agnostic."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["client/src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@radix-ui/react-slot",
+                "message": "Use unified components from @/components/ui instead of direct Radix primitives."
               }
             ]
           }

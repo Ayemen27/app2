@@ -14,7 +14,7 @@ export default defineConfig({
     allowedHosts: true,
   },
   build: {
-    outDir: '../dist/public',
+    outDir: '../www',
     emptyOutDir: true,
     target: 'es2020',
     minify: false,

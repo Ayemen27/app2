@@ -29,15 +29,21 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
   try {
     const { projectId, date, dateFrom, dateTo } = req.query;
     
-    console.log('📊 [API] جلب الملخص المالي الموحد', { projectId, date, dateFrom, dateTo });
+    // تنظيف المدخلات لمنع أرسال سلاسل نصية فارغة
+    const cleanProjectId = projectId && projectId !== "" ? projectId as string : "all";
+    const cleanDate = date && date !== "" ? date as string : undefined;
+    const cleanDateFrom = dateFrom && dateFrom !== "" ? dateFrom as string : undefined;
+    const cleanDateTo = dateTo && dateTo !== "" ? dateTo as string : undefined;
 
-    if (projectId && projectId !== 'all') {
+    console.log('📊 [API] جلب الملخص المالي الموحد', { projectId: cleanProjectId, date: cleanDate, dateFrom: cleanDateFrom, dateTo: cleanDateTo });
+
+    if (cleanProjectId && cleanProjectId !== 'all') {
       // تمرير معاملات التاريخ دائماً للخدمة لضمان احترام الفلترة في جميع الحالات
       const summary = await ExpenseLedgerService.getProjectFinancialSummary(
-        projectId as string, 
-        date as string, 
-        dateFrom as string, 
-        dateTo as string
+        cleanProjectId, 
+        cleanDate, 
+        cleanDateFrom, 
+        cleanDateTo
       );
 
       const duration = Date.now() - startTime;
@@ -51,9 +57,9 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
       });
     } else {
       const summaries = await ExpenseLedgerService.getAllProjectsStats(
-        date as string,
-        dateFrom as string,
-        dateTo as string
+        cleanDate,
+        cleanDateFrom,
+        cleanDateTo
       );
       
       const totalSummary = summaries.reduce((acc, s) => ({

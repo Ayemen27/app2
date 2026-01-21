@@ -208,20 +208,29 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
               </tr>
             </thead>
             <tbody>
-              ${(data?.statement || []).map((item: any, idx: number) => `
-                <tr>
-                  <td class="col-m">${idx + 1}</td>
-                  <td class="col-date">${item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</td>
-                  <td class="col-day">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
-                  <td class="col-project">${item.projectName || item.project_name || '-'}</td>
-                  <td class="col-desc">${item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل الموكلة')}</td>
-                  <td class="col-days-count">${item.type === 'عمل' ? (item.workDays !== undefined ? parseFloat(item.workDays).toFixed(2) : '1.00') : '-'}</td>
-                  <td class="col-hours">${item.type === 'عمل' ? (item.hours || '07:00-15:00') : '-'}</td>
-                  <td class="col-earned">${parseFloat(item.amount || 0).toLocaleString()}</td>
-                  <td class="col-paid">${parseFloat(item.paid || 0).toLocaleString()}</td>
-                  <td class="col-balance">${parseFloat(item.balance || 0).toLocaleString()}</td>
-                </tr>
-              `).join('')}
+              ${(() => {
+                let runningBalance = 0;
+                return (data?.statement || []).map((item: any, idx: number) => {
+                  const amount = parseFloat(item.amount || 0);
+                  const paid = parseFloat(item.paid || 0);
+                  runningBalance += (amount - paid);
+                  
+                  return `
+                    <tr>
+                      <td class="col-m">${idx + 1}</td>
+                      <td class="col-date">${item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</td>
+                      <td class="col-day">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
+                      <td class="col-project">${item.projectName || item.project_name || '-'}</td>
+                      <td class="col-desc">${item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل الموكلة')}</td>
+                      <td class="col-days-count">${item.type === 'عمل' ? (item.workDays !== undefined ? parseFloat(item.workDays).toFixed(2) : '1.00') : '-'}</td>
+                      <td class="col-hours">${item.type === 'عمل' ? (item.hours || '07:00-15:00') : '-'}</td>
+                      <td class="col-earned">${amount.toLocaleString()}</td>
+                      <td class="col-paid">${paid.toLocaleString()}</td>
+                      <td class="col-balance">${runningBalance.toLocaleString()}</td>
+                    </tr>
+                  `;
+                }).join('');
+              })()}
               <tr class="totals-row">
                 <td colspan="5" style="text-align: center;">الإجماليــــــــــــــــــــــــات</td>
                 <td>${parseFloat(data?.summary?.totalWorkDays || 0).toLocaleString()}</td>

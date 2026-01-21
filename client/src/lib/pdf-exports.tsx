@@ -16,38 +16,40 @@ const styles = StyleSheet.create({
   page: {
     padding: 30,
     fontFamily: 'Cairo',
+    flexDirection: 'column',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     backgroundColor: '#1E3A8A',
-    padding: 20,
+    padding: 15,
     borderRadius: 5,
     marginBottom: 20,
     textAlign: 'center',
   },
   companyName: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: 2,
     textAlign: 'center',
   },
   reportTitle: {
     color: '#E2E8F0',
-    fontSize: 14,
+    fontSize: 12,
     textAlign: 'center',
   },
   infoGrid: {
-    marginBottom: 20,
+    marginBottom: 15,
     borderBottom: 1,
     borderBottomColor: '#E2E8F0',
-    paddingBottom: 10,
-    flexDirection: 'row',
+    paddingBottom: 8,
+    flexDirection: 'row-reverse', // RTL Support
     flexWrap: 'wrap',
   },
   infoItem: {
     width: '50%',
-    padding: 5,
-    fontSize: 10,
+    padding: 3,
+    fontSize: 9,
     textAlign: 'right',
   },
   label: {
@@ -56,72 +58,75 @@ const styles = StyleSheet.create({
   },
   table: {
     width: '100%',
-    marginTop: 10,
+    marginTop: 5,
+    flexDirection: 'column',
   },
   tableHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse', // RTL Support
     backgroundColor: '#334155',
-    padding: 8,
+    padding: 6,
     borderBottom: 1,
     borderBottomColor: '#E2E8F0',
   },
   tableHeaderCell: {
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: 'bold',
     textAlign: 'center',
     flex: 1,
   },
   tableRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse', // RTL Support
     borderBottom: 1,
     borderBottomColor: '#F1F5F9',
-    padding: 6,
+    padding: 5,
+    minHeight: 25,
+    alignItems: 'center',
   },
   tableCell: {
-    fontSize: 8,
+    fontSize: 7,
     textAlign: 'center',
     flex: 1,
     color: '#1E293B',
   },
   summarySection: {
-    marginTop: 30,
-    flexDirection: 'row',
+    marginTop: 20,
+    flexDirection: 'row-reverse', // RTL Support
     justifyContent: 'flex-start',
   },
   summaryBox: {
-    width: 200,
+    width: 180,
     border: 1,
     borderColor: '#1E3A8A',
     borderRadius: 4,
   },
   summaryRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse', // RTL Support
     justifyContent: 'space-between',
-    padding: 8,
+    padding: 6,
     borderBottom: 1,
     borderBottomColor: '#E2E8F0',
   },
   summaryLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 'bold',
     textAlign: 'right',
   },
   summaryValue: {
-    fontSize: 10,
+    fontSize: 9,
     textAlign: 'left',
   },
   footer: {
     position: 'absolute',
-    bottom: 30,
+    bottom: 20,
     left: 30,
     right: 30,
     textAlign: 'center',
-    fontSize: 8,
+    fontSize: 7,
     color: '#94A3B8',
     borderTop: 1,
     borderTopColor: '#E2E8F0',
-    paddingTop: 10,
+    paddingTop: 8,
   }
 });
 
@@ -150,44 +155,44 @@ const WorkerStatementDocument = ({ data, worker }: any) => (
 
       <View style={styles.table}>
         <View style={styles.tableHeader}>
-          <Text style={styles.tableHeaderCell}>مدفوع (-)</Text>
-          <Text style={styles.tableHeaderCell}>مستحق (+)</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 2 }]}>تفاصيل العمل</Text>
-          <Text style={styles.tableHeaderCell}>المشروع</Text>
-          <Text style={styles.tableHeaderCell}>اليوم</Text>
           <Text style={styles.tableHeaderCell}>التاريخ</Text>
+          <Text style={styles.tableHeaderCell}>اليوم</Text>
+          <Text style={styles.tableHeaderCell}>المشروع</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 2 }]}>تفاصيل العمل</Text>
+          <Text style={styles.tableHeaderCell}>مستحق (+)</Text>
+          <Text style={styles.tableHeaderCell}>مدفوع (-)</Text>
         </View>
         
-        {(data?.statement || []).map((item: any, index: number) => (
-          <View key={index} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: '#F8FAFC' } : {}]}>
-            <Text style={[styles.tableCell, { color: '#F43F5E', fontWeight: 'bold' }]}>{parseFloat(item.paid || 0).toLocaleString()}</Text>
-            <Text style={[styles.tableCell, { color: '#10B981', fontWeight: 'bold' }]}>{parseFloat(item.amount || 0).toLocaleString()}</Text>
-            <Text style={[styles.tableCell, { flex: 2, textAlign: 'right' }]}>{item.description || 'تنفيذ مهام العمل'}</Text>
-            <Text style={styles.tableCell}>{item.projectName || '-'}</Text>
-            <Text style={styles.tableCell}>{item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</Text>
+        {(data?.statement || []).slice(0, 100).map((item: any, index: number) => (
+          <View key={index} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: '#F8FAFC' } : {}]} wrap={false}>
             <Text style={styles.tableCell}>{item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</Text>
+            <Text style={styles.tableCell}>{item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</Text>
+            <Text style={styles.tableCell}>{item.projectName || '-'}</Text>
+            <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', paddingRight: 5 }]}>{item.description || 'تنفيذ مهام العمل'}</Text>
+            <Text style={[styles.tableCell, { color: '#10B981', fontWeight: 'bold' }]}>{parseFloat(item.amount || 0).toLocaleString()}</Text>
+            <Text style={[styles.tableCell, { color: '#F43F5E', fontWeight: 'bold' }]}>{parseFloat(item.paid || 0).toLocaleString()}</Text>
           </View>
         ))}
       </View>
 
-      <View style={styles.summarySection}>
+      <View style={styles.summarySection} wrap={false}>
         <View style={styles.summaryBox}>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryValue, { color: '#10B981' }]}>{parseFloat(data?.summary?.totalEarned || 0).toLocaleString()} ر.ي</Text>
             <Text style={styles.summaryLabel}>إجمالي المستحقات:</Text>
+            <Text style={[styles.summaryValue, { color: '#10B981' }]}>{parseFloat(data?.summary?.totalEarned || 0).toLocaleString()} ر.ي</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryValue, { color: '#F43F5E' }]}>{parseFloat(data?.summary?.totalPaid || 0).toLocaleString()} ر.ي</Text>
             <Text style={styles.summaryLabel}>إجمالي المدفوعات:</Text>
+            <Text style={[styles.summaryValue, { color: '#F43F5E' }]}>{parseFloat(data?.summary?.totalPaid || 0).toLocaleString()} ر.ي</Text>
           </View>
           <View style={[styles.summaryRow, { backgroundColor: '#DBEAFE', borderBottomWidth: 0 }]}>
-            <Text style={[styles.summaryValue, { color: '#1E3A8A', fontWeight: 'bold' }]}>{parseFloat(data?.summary?.finalBalance || 0).toLocaleString()} ر.ي</Text>
             <Text style={styles.summaryLabel}>الرصيد المتبقي:</Text>
+            <Text style={[styles.summaryValue, { color: '#1E3A8A', fontWeight: 'bold' }]}>{parseFloat(data?.summary?.finalBalance || 0).toLocaleString()} ر.ي</Text>
           </View>
         </View>
       </View>
 
-      <Text style={styles.footer}>
+      <Text style={styles.footer} fixed>
         تم توليد هذا التقرير آلياً عبر نظام إدارة شركة الفتيني. تاريخ الاستخراج: {format(new Date(), 'yyyy/MM/dd HH:mm')}
       </Text>
     </Page>
@@ -201,19 +206,19 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
        return;
     }
     
-    const doc = <WorkerStatementDocument data={data} worker={worker} />;
-    const asBlob = await pdf(doc).toBlob();
+    console.log("Starting PDF generation for:", worker?.name);
     
-    // إنشاء اسم ملف نظيف
+    // استخدام pdf().toBlob() مباشرة لتقليل استهلاك الذاكرة
+    const blob = await pdf(<WorkerStatementDocument data={data} worker={worker} />).toBlob();
+    
     const fileName = `كشف_حساب_${(worker?.name || 'عامل').replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
     
-    // استخدام saveAs مع Blob لضمان التنزيل المتوافق مع الجوال
-    saveAs(asBlob, fileName);
-    
+    saveAs(blob, fileName);
     console.log("PDF download triggered successfully");
   } catch (error) {
-    console.error("PDF Generation Error Details:", error);
-    // محاولة فتح نافذة طباعة كحل أخير إذا فشل التنزيل التلقائي
+    console.error("Critical PDF Generation Error:", error);
+    // إذا فشل كل شيء، نستخدم الطباعة العادية
+    alert("عذراً، حدث خطأ أثناء إنشاء ملف PDF. سيتم فتح نافذة الطباعة العادية.");
     window.print();
   }
 };

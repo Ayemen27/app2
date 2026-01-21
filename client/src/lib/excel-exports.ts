@@ -110,7 +110,7 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
     { width: 16 }  // المتبقي
   ];
 
-  let runningBalance = 0;
+  const statement = data.statement || [];
   statement.forEach((item: any, index: number) => {
     const row = worksheet.getRow(currentRow);
     const date = new Date(item.date);
@@ -120,13 +120,15 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
     const paid = parseFloat(item.paid || 0);
     const balance = amount - paid;
 
+    const workDaysVal = item.workDays !== undefined ? parseFloat(item.workDays) : (item.type === 'عمل' ? 1 : 0);
+
     row.values = [
       index + 1,
       format(date, 'yyyy/MM/dd'),
       format(date, 'EEEE', { locale: arSA }),
       item.projectName || '-',
       item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل الموكلة بالموقع'),
-      item.workDays !== undefined ? parseFloat(item.workDays) : (item.type === 'عمل' ? 1 : 0),
+      workDaysVal,
       item.hours || (item.type === 'عمل' ? '8h' : '-'),
       amount,
       paid,

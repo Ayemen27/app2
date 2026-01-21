@@ -1,7 +1,12 @@
 /**
- * نظام موحد لبيئة التشغيل (Unified Environment System)
- * يتولى اكتشاف البيئة وتحديد المنافذ والدومينات بشكل ذكي
+ * نظام موحد وذكي لبيئة التشغيل (Unified & Intelligent Environment System)
+ * يدمج جميع الوظائف السابقة في نقطة تحكم واحدة
  */
+import dotenv from "dotenv";
+import path from "path";
+
+// تحميل متغيرات البيئة تلقائياً عند استدعاء الموديول
+dotenv.config();
 
 export const isReplit = !!process.env.REPLIT_ID || 
                         !!process.env.REPLIT_ENVIRONMENT || 
@@ -9,10 +14,10 @@ export const isReplit = !!process.env.REPLIT_ID ||
 
 export const isProduction = process.env.NODE_ENV === 'production' && !isReplit;
 
-// تحديد المنفذ الذكي
+// تحديد المنفذ الذكي مع مراعاة الأولويات
 export const PORT = Number(process.env.PORT) || (isReplit ? 5000 : (isProduction ? 6000 : 5000));
 
-// تحديد الدومينات
+// تحديد الدومينات بشكل ديناميكي
 export const REPLIT_DOMAIN = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : process.env.DOMAIN;
 export const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://app2.binarjoinanelytic.info';
 
@@ -25,7 +30,10 @@ export const envConfig = {
   REPLIT_DOMAIN,
   PRODUCTION_DOMAIN,
   CURRENT_DOMAIN,
-  NODE_ENV: process.env.NODE_ENV || (isProduction ? 'production' : 'development')
+  NODE_ENV: process.env.NODE_ENV || (isProduction ? 'production' : 'development'),
+  DATABASE_URL: process.env.DATABASE_URL
 };
+
+console.log(`🚀 [UnifiedEnv] تم تحميل البيئة بنجاح: ${envConfig.NODE_ENV} على المنفذ ${PORT}`);
 
 export default envConfig;

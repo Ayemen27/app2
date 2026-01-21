@@ -62,5 +62,29 @@
 }
 ```
 
+## 6. التدقيق الأمني (Security Audit & Protection)
+
+تم تنفيذ استراتيجية أمنية متعددة الطبقات لحماية النظام والبيانات:
+
+### أ. فحص الثغرات (Vulnerability Scanning)
+- **الأدوات:** تم استخدام \`npm audit\` لفحص تبعيات الطرف الثالث.
+- **النتائج:** تم تحديد وإصلاح الثغرات الحرجة (مثل \`jspdf\` و \`nodemailer\`) عبر تحديث الإصدارات. تبقى بعض الثغرات في حزم الأدوات (مثل \`scp2\`) وهي تحت المراقبة لأنها لا تؤثر على بيئة الإنتاج مباشرة.
+
+### ب. الحماية من الهجمات الشائعة (OWASP Top 10)
+- **Rate Limiting:** مفعل عبر \`express-rate-limit\` في \`server/middleware/auth.ts\` (يحد من محاولات تسجيل الدخول والعمليات الحساسة).
+- **Security Headers:** استخدام \`helmet\` لفرض سياسات أمان المتصفح (HSTS, CSP, XSS Protection).
+- **SQL Injection:** يتم منعها تقنياً عبر استخدام **Drizzle ORM** الذي يقوم بمعالجة البيانات تلقائياً (Parameterization).
+- **XSS & CSRF:** تم تفعيل \`securityHeaders\` middleware لفرض \`X-Content-Type-Options\` و \`X-Frame-Options\`.
+
+### ج. إدارة الأسرار (Secrets Management)
+- **الآلية:** يتم استخدام \`SecretsManager.ts\` لإدارة المفاتيح السرية (JWT, Encryption Keys).
+- **التخزين:** تعتمد المنصة على **Environment Variables** (تُخزن مشفرة في Replit Secrets) ولا يتم تخزينها في الكود نهائياً.
+- **المسارات المتأثرة:** \`server/services/SecretsManager.ts\`.
+
+### د. نظام الصلاحيات (RBAC - Role Based Access Control)
+- **التطبيق:** مُطبق عبر \`authenticate\` و \`requireAdmin\` middlewares في \`server/middleware/auth.ts\`.
+- **السياسات:** يتم التحقق من دور المستخدم (\`admin\`, \`super_admin\`, \`user\`) في كل طلب محمي.
+- **القراءة فقط:** ميزة \`checkWriteAccess\` تمنع المستخدمين العاديين من إجراء أي تعديلات (POST/PUT/DELETE).
+
 ---
 *تم تحديث هذا التوثيق بتاريخ 21 يناير 2026.*

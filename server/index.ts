@@ -390,6 +390,7 @@ import { BackupService } from "./services/BackupService";
       // تعديل: تشغيل النسخ الاحتياطي بعد فترة أطول لتقليل الحمل عند بدء التشغيل
       setTimeout(() => {
         try {
+          console.log("⏰ بدء جدولة النسخ الاحتياطي التلقائي (كل 6 ساعات)");
           BackupService.startAutoBackupScheduler();
         } catch (e) {
           console.error("❌ Failed to start scheduler:", e);

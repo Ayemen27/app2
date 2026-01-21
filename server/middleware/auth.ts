@@ -151,7 +151,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     let token: string | null = null;
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
 
-    console.log(`🔍 [AUTH] فحص متقدم - المسار: ${req.method} ${req.originalUrl} | IP: ${ip}`);
+    // console.log(`🔍 [AUTH] فحص متقدم - المسار: ${req.method} ${req.originalUrl} | IP: ${ip}`);
 
     // محاولة استخراج التوكن من مصادر متعددة
     const authHeader = req.headers.authorization;
@@ -165,7 +165,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
 
     // التحقق من وجود الـ token
     if (!token) {
-      console.log('❌ [AUTH] لا يوجد token في الطلب');
+      // console.log('❌ [AUTH] لا يوجد token في الطلب');
       return res.status(401).json({
         success: false,
         message: 'غير مصرح لك بالوصول - لا يوجد رمز مصادقة',

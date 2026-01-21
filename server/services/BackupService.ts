@@ -103,7 +103,6 @@ export class BackupService {
 
       for (const p of possiblePaths) {
         try {
-          // اختبار وجود الملف إذا كان مساراً مطلقاً
           if (p.startsWith("/") && fs.existsSync(p)) {
             pgDumpPath = p;
             break;
@@ -113,7 +112,7 @@ export class BackupService {
         }
       }
 
-      console.log(`ℹ️ Using pg_dump path: ${pgDumpPath}`);
+      console.log(`[BACKUP] Using pg_dump path: ${pgDumpPath}`);
       await execPromise(`"${pgDumpPath}" "${dbUrl}" -F p -f "${filepath}" --no-owner --no-privileges`);
       await execPromise(`gzip -c "${filepath}" > "${compressedPath}"`);
       fs.unlinkSync(filepath);

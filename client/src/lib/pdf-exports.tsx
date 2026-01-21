@@ -40,8 +40,21 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
           .print-container { width: 100%; padding: 0; }
 
           /* تكرار الرأس في كل صفحة */
-          .header-group {
-            display: table-header-group;
+          table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 20px;
+            table-layout: fixed;
+          }
+          
+          thead { display: table-header-group; }
+          tbody { display: table-row-group; }
+          
+          /* تصميم ترويسة التقرير */
+          .report-header-content {
+            padding: 0;
+            margin: 0;
+            width: 100%;
           }
 
           .main-title-bar {
@@ -60,7 +73,7 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
-            margin: 0 10px 20px 10px;
+            margin: 0 10px 15px 10px;
             font-size: 13px;
           }
           
@@ -68,17 +81,6 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
           .info-row { display: flex; justify-content: flex-start; align-items: baseline; }
           .info-label { font-weight: 700; width: 100px; color: #333; }
           .info-value { font-weight: 400; color: #000; }
-
-          table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-bottom: 20px;
-            table-layout: fixed;
-          }
-          
-          /* السحر لتكرار الرأس */
-          thead { display: table-header-group; }
-          tbody { display: table-row-group; }
           
           th {
             background-color: #1F4E79;
@@ -102,7 +104,7 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
           .col-m { width: 30px; }
           .col-date { width: 80px; }
           .col-day { width: 60px; }
-          .col-project { width: 90px; }
+          .col-project { width: 110px; }
           .col-desc { width: auto; text-align: right; padding-right: 8px; font-size: 9px; line-height: 1.4; }
           .col-days-count { width: 45px; }
           .col-hours { width: 85px; }
@@ -165,9 +167,7 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
 
           @media print {
             thead { display: table-header-group; }
-            tfoot { display: table-footer-group; }
             button { display: none; }
-            body { margin: 0; }
           }
         </style>
       </head>
@@ -177,16 +177,18 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
             <thead>
               <tr>
                 <th colspan="9" style="padding: 0; border: none; background: none;">
-                  <div class="main-title-bar">كشف حساب العامل التفصيلي والشامل</div>
-                  <div class="header-info-grid">
-                    <div class="info-col">
-                      <div class="info-row"><span class="info-label">اسم العامل:</span><span class="info-value">${workerName}</span></div>
-                      <div class="info-row"><span class="info-label">نوع العامل:</span><span class="info-value">${workerType}</span></div>
-                      <div class="info-row"><span class="info-label">الأجر اليومي:</span><span class="info-value">${dailyWage}</span></div>
-                    </div>
-                    <div class="info-col">
-                      <div class="info-row"><span class="info-label">المشروع الحالي:</span><span class="info-value">${data?.projectName || 'تعدد مشاريع'}</span></div>
-                      <div class="info-row"><span class="info-label">تاريخ الإصدار:</span><span class="info-value">${reportDate}</span></div>
+                  <div class="report-header-content">
+                    <div class="main-title-bar">كشف حساب العامل التفصيلي والشامل</div>
+                    <div class="header-info-grid">
+                      <div class="info-col">
+                        <div class="info-row"><span class="info-label">اسم العامل:</span><span class="info-value">${workerName}</span></div>
+                        <div class="info-row"><span class="info-label">نوع العامل:</span><span class="info-value">${workerType}</span></div>
+                        <div class="info-row"><span class="info-label">الأجر اليومي:</span><span class="info-value">${dailyWage}</span></div>
+                      </div>
+                      <div class="info-col">
+                        <div class="info-row"><span class="info-label">حالة المشروع:</span><span class="info-value">${data?.projectName || 'تعدد مشاريع'}</span></div>
+                        <div class="info-row"><span class="info-label">تاريخ الإصدار:</span><span class="info-value">${reportDate}</span></div>
+                      </div>
                     </div>
                   </div>
                 </th>
@@ -209,12 +211,12 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
                   <td class="col-m">${idx + 1}</td>
                   <td class="col-date">${item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</td>
                   <td class="col-day">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
-                  <td class="col-project">${item.projectName || '-'}</td>
+                  <td class="col-project">${item.projectName || item.project_name || '-'}</td>
                   <td class="col-desc">${item.description || 'تنفيذ مهام العمل الموكلة'}</td>
-                  <td class="col-days-count">${item.workDays || '1.00'}</td>
+                  <td class="col-days-count">${item.workDays || item.work_days || '1.00'}</td>
                   <td class="col-hours">${item.hours || '07:00-15:00'}</td>
-                  <td class="col-earned">${parseFloat(item.amount || 0).toLocaleString()}</td>
-                  <td class="col-paid">${parseFloat(item.paid || 0).toLocaleString()}</td>
+                  <td class="col-earned">${parseFloat(item.amount || item.earned_amount || 0).toLocaleString()}</td>
+                  <td class="col-paid">${parseFloat(item.paid || item.paid_amount || 0).toLocaleString()}</td>
                 </tr>
               `).join('')}
               <tr class="totals-row">

@@ -10,15 +10,11 @@ import path from "path";
 import { serveStatic, log } from "./static";
 import { envConfig } from "./utils/unified-env";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات
-import authRoutes from './routes/auth.js';
-import { permissionsRouter } from './routes/permissions';
-import { initializeRouteOrganizer } from './routes/routerOrganizer.js';
 import { registerRoutes } from "./routes.js";
 // sshRoutes removed - not needed
 import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middleware/compression";
 import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth } from "./middleware/auth";
 import { runSchemaCheck, getAutoPushStatus } from './auto-schema-push';
-import { startAutoBackupScheduler, getAutoBackupStatus, triggerManualBackup, listAutoBackups } from './auto-backup-scheduler';
 import { db } from './db.js';
 import { users } from '@shared/schema';
 import http from 'http';
@@ -267,7 +263,6 @@ app.post("/api/backups/trigger", requireAuth, async (req: Request, res: Response
 
 // Use auth routes
 console.log('🔗 [Server] تسجيل مسارات المصادقة على /api/auth');
-app.use("/api/auth", authRoutes);
 
 // ✅ تسجيل مسارات المزامنة بأولوية مطلقة قبل أي توجيه آخر
 import { sql } from 'drizzle-orm';
@@ -290,13 +285,10 @@ app.all("/api/sync/full-backup", async (req, res) => {
 });
 
 // Use permissions routes
-app.use("/api/permissions", permissionsRouter);
-
 // Register old routes for compatibility
 registerRoutes(app);
 
 // Initialize route organizer
-initializeRouteOrganizer(app);
 
 // ✅ تسجيل مسار قائمة المستخدمين (للاستخدام في اختيار المهندس)
 app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {

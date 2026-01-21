@@ -111,6 +111,7 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
   ];
 
   const statement = data.statement || [];
+  let currentRow = 10; // تأكيد قيمة البداية لـ currentRow
   statement.forEach((item: any, index: number) => {
     const row = worksheet.getRow(currentRow);
     const date = new Date(item.date);

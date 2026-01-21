@@ -142,10 +142,11 @@ export const trackSuspiciousActivity = (req: Request, res: Response, next: NextF
 
 // Middleware المصادقة الأساسي
 export const authenticate = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  // السماح بمسار المزامنة في بيئة التطوير لتجنب مشاكل الـ Token حالياً
-  if (req.path === '/api/sync/full-backup') {
-    return next();
-  }
+    // ✅ فحص استثناءات المصادقة (المسارات العامة)
+    const publicPaths = ['/api/auth/login', '/api/auth/register', '/api/sync/full-backup', '/api/health'];
+    if (publicPaths.includes(req.path) || req.originalUrl.includes('/api/auth/login')) {
+      return next();
+    }
   try {
     const startTime = Date.now();
     let token: string | null = null;

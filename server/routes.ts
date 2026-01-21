@@ -176,12 +176,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ success: false, error: error.message });
     }
   });
-  app.use("/api", authenticate);
-  app.use("/api", checkWriteAccess);
-
   // مسار إدارة المستخدمين
-  app.use("/api/users", userRoutes);
-
+  app.use("/api/users", authenticate, userRoutes);
 
   // ========================================
   // 📱 Mobile & Android Integration (Unified)

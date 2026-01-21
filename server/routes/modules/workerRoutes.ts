@@ -1288,7 +1288,12 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       req.body.workDays = 0.001; // قيمة صغيرة جداً لتمرير الـ validation
     }
 
-    const validationResult = insertWorkerAttendanceSchema.safeParse(req.body);
+    const attendanceData = {
+      ...req.body,
+      attendanceDate: req.body.attendanceDate || req.body.selectedDate,
+      date: req.body.date || req.body.selectedDate
+    };
+    const validationResult = insertWorkerAttendanceSchema.safeParse(attendanceData);
 
     if (!validationResult.success) {
       const duration = Date.now() - startTime;

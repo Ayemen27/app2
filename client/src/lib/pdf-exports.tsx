@@ -1,224 +1,140 @@
-import { Document, Page, Text, View, StyleSheet, Font, pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
 
-// تسجيل خط يدعم اللغة العربية (Cairo)
-Font.register({
-  family: 'Cairo',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/cairo/v28/SLXGc1nu6Hxc33eS9mFb.ttf', fontWeight: 'normal' },
-    { src: 'https://fonts.gstatic.com/s/cairo/v28/SLXGc1nu6Hxc33eS9mFb.ttf', fontWeight: 'bold' }
-  ]
-});
-
-const styles = StyleSheet.create({
-  page: {
-    padding: 30,
-    fontFamily: 'Cairo',
-    flexDirection: 'column',
-    backgroundColor: '#FFFFFF',
-  },
-  header: {
-    backgroundColor: '#1E3A8A',
-    padding: 15,
-    borderRadius: 5,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  companyName: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 2,
-    textAlign: 'center',
-  },
-  reportTitle: {
-    color: '#E2E8F0',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  infoGrid: {
-    marginBottom: 15,
-    borderBottom: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingBottom: 8,
-    flexDirection: 'row-reverse', // RTL Support
-    flexWrap: 'wrap',
-  },
-  infoItem: {
-    width: '50%',
-    padding: 3,
-    fontSize: 9,
-    textAlign: 'right',
-  },
-  label: {
-    color: '#1E3A8A',
-    fontWeight: 'bold',
-  },
-  table: {
-    width: '100%',
-    marginTop: 5,
-    flexDirection: 'column',
-  },
-  tableHeader: {
-    flexDirection: 'row-reverse', // RTL Support
-    backgroundColor: '#334155',
-    padding: 6,
-    borderBottom: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  tableHeaderCell: {
-    color: '#FFFFFF',
-    fontSize: 8,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    flex: 1,
-  },
-  tableRow: {
-    flexDirection: 'row-reverse', // RTL Support
-    borderBottom: 1,
-    borderBottomColor: '#F1F5F9',
-    padding: 5,
-    minHeight: 25,
-    alignItems: 'center',
-  },
-  tableCell: {
-    fontSize: 7,
-    textAlign: 'center',
-    flex: 1,
-    color: '#1E293B',
-  },
-  summarySection: {
-    marginTop: 20,
-    flexDirection: 'row-reverse', // RTL Support
-    justifyContent: 'flex-start',
-  },
-  summaryBox: {
-    width: 180,
-    border: 1,
-    borderColor: '#1E3A8A',
-    borderRadius: 4,
-  },
-  summaryRow: {
-    flexDirection: 'row-reverse', // RTL Support
-    justifyContent: 'space-between',
-    padding: 6,
-    borderBottom: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  summaryLabel: {
-    fontSize: 9,
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
-  summaryValue: {
-    fontSize: 9,
-    textAlign: 'left',
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 30,
-    right: 30,
-    textAlign: 'center',
-    fontSize: 7,
-    color: '#94A3B8',
-    borderTop: 1,
-    borderTopColor: '#E2E8F0',
-    paddingTop: 8,
-  }
-});
-
-const WorkerStatementDocument = ({ data, worker }: any) => (
-  <Document>
-    <Page size="A4" style={styles.page}>
-      <View style={styles.header}>
-        <Text style={styles.companyName}>شركة الفتيني للمقاولات العامة</Text>
-        <Text style={styles.reportTitle}>كشف حساب مالي تفصيلي للموظف</Text>
-      </View>
-
-      <View style={styles.infoGrid}>
-        <View style={styles.infoItem}>
-          <Text><Text style={styles.label}>اسم الموظف: </Text>{worker?.name || '-'}</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text><Text style={styles.label}>المشروع: </Text>{data?.projectName || 'جميع المشاريع'}</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text><Text style={styles.label}>المسمى الوظيفي: </Text>{worker?.type || 'عامل'}</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text><Text style={styles.label}>تاريخ التقرير: </Text>{format(new Date(), 'yyyy/MM/dd')}</Text>
-        </View>
-      </View>
-
-      <View style={styles.table}>
-        <View style={styles.tableHeader}>
-          <Text style={styles.tableHeaderCell}>التاريخ</Text>
-          <Text style={styles.tableHeaderCell}>اليوم</Text>
-          <Text style={styles.tableHeaderCell}>المشروع</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 2 }]}>تفاصيل العمل</Text>
-          <Text style={styles.tableHeaderCell}>مستحق (+)</Text>
-          <Text style={styles.tableHeaderCell}>مدفوع (-)</Text>
-        </View>
-        
-        {(data?.statement || []).slice(0, 100).map((item: any, index: number) => (
-          <View key={index} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: '#F8FAFC' } : {}]} wrap={false}>
-            <Text style={styles.tableCell}>{item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</Text>
-            <Text style={styles.tableCell}>{item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</Text>
-            <Text style={styles.tableCell}>{item.projectName || '-'}</Text>
-            <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', paddingRight: 5 }]}>{item.description || 'تنفيذ مهام العمل'}</Text>
-            <Text style={[styles.tableCell, { color: '#10B981', fontWeight: 'bold' }]}>{parseFloat(item.amount || 0).toLocaleString()}</Text>
-            <Text style={[styles.tableCell, { color: '#F43F5E', fontWeight: 'bold' }]}>{parseFloat(item.paid || 0).toLocaleString()}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.summarySection} wrap={false}>
-        <View style={styles.summaryBox}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>إجمالي المستحقات:</Text>
-            <Text style={[styles.summaryValue, { color: '#10B981' }]}>{parseFloat(data?.summary?.totalEarned || 0).toLocaleString()} ر.ي</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>إجمالي المدفوعات:</Text>
-            <Text style={[styles.summaryValue, { color: '#F43F5E' }]}>{parseFloat(data?.summary?.totalPaid || 0).toLocaleString()} ر.ي</Text>
-          </View>
-          <View style={[styles.summaryRow, { backgroundColor: '#DBEAFE', borderBottomWidth: 0 }]}>
-            <Text style={styles.summaryLabel}>الرصيد المتبقي:</Text>
-            <Text style={[styles.summaryValue, { color: '#1E3A8A', fontWeight: 'bold' }]}>{parseFloat(data?.summary?.finalBalance || 0).toLocaleString()} ر.ي</Text>
-          </View>
-        </View>
-      </View>
-
-      <Text style={styles.footer} fixed>
-        تم توليد هذا التقرير آلياً عبر نظام إدارة شركة الفتيني. تاريخ الاستخراج: {format(new Date(), 'yyyy/MM/dd HH:mm')}
-      </Text>
-    </Page>
-  </Document>
-);
-
+/**
+ * دالة بسيطة لتوليد ملف HTML وتحويله إلى PDF عبر متصفح العميل (الطباعة)
+ * هذا الحل هو الأكثر استقراراً للمتصفحات الجوالة (Safari/Chrome on Mobile)
+ */
 export const generateWorkerPDF = async (data: any, worker: any) => {
   try {
     if (!data || !data.statement) {
-       console.error("No data provided for PDF generation");
-       return;
+      console.error("No data provided for PDF generation");
+      return;
     }
-    
-    console.log("Starting PDF generation for:", worker?.name);
-    
-    // استخدام pdf().toBlob() مباشرة لتقليل استهلاك الذاكرة
-    const blob = await pdf(<WorkerStatementDocument data={data} worker={worker} />).toBlob();
-    
-    const fileName = `كشف_حساب_${(worker?.name || 'عامل').replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
-    
-    saveAs(blob, fileName);
-    console.log("PDF download triggered successfully");
+
+    const workerName = worker?.name || 'عامل';
+    const reportDate = format(new Date(), 'yyyy/MM/dd');
+    const projectName = data?.projectName || 'جميع المشاريع';
+    const workerType = worker?.type || 'عامل';
+
+    // بناء محتوى التقرير بنظام HTML احترافي
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+          body { font-family: 'Cairo', sans-serif; padding: 20px; color: #1e293b; line-height: 1.6; }
+          .header { background: #1e3a8a; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 30px; }
+          .header h1 { margin: 0; font-size: 24px; }
+          .header p { margin: 5px 0 0; opacity: 0.9; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
+          .info-item { font-size: 14px; }
+          .info-item span { font-weight: bold; color: #1e3a8a; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+          th { background: #334155; color: white; padding: 12px; text-align: center; }
+          td { border-bottom: 1px solid #f1f5f9; padding: 10px; text-align: center; }
+          tr:nth-child(even) { background: #f8fafc; }
+          .amount-earned { color: #10b981; font-weight: bold; }
+          .amount-paid { color: #f43f5e; font-weight: bold; }
+          .summary-section { margin-top: 40px; display: flex; justify-content: flex-start; }
+          .summary-box { border: 2px solid #1e3a8a; border-radius: 8px; width: 300px; overflow: hidden; }
+          .summary-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #e2e8f0; }
+          .summary-row:last-child { border-bottom: none; background: #dbeafe; }
+          .summary-label { font-weight: bold; }
+          .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; paddingTop: 20px; }
+          @media print {
+            .no-print { display: none; }
+            body { padding: 0; }
+            .header { border-radius: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>شركة الفتيني للمقاولات العامة</h1>
+          <p>كشف حساب مالي تفصيلي للموظف</p>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-item"><span>اسم الموظف:</span> ${workerName}</div>
+          <div class="info-item"><span>المشروع:</span> ${projectName}</div>
+          <div class="info-item"><span>المسمى الوظيفي:</span> ${workerType}</div>
+          <div class="info-item"><span>تاريخ التقرير:</span> ${reportDate}</div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>اليوم</th>
+              <th>المشروع</th>
+              <th style="width: 30%">تفاصيل العمل</th>
+              <th>مستحق (+)</th>
+              <th>مدفوع (-)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(data?.statement || []).map((item: any) => `
+              <tr>
+                <td>${item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</td>
+                <td>${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
+                <td>${item.projectName || '-'}</td>
+                <td style="text-align: right">${item.description || 'تنفيذ مهام العمل'}</td>
+                <td class="amount-earned">${parseFloat(item.amount || 0).toLocaleString()}</td>
+                <td class="amount-paid">${parseFloat(item.paid || 0).toLocaleString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="summary-section">
+          <div class="summary-box">
+            <div class="summary-row">
+              <span class="summary-label">إجمالي المستحقات:</span>
+              <span class="amount-earned">${parseFloat(data?.summary?.totalEarned || 0).toLocaleString()} ر.ي</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">إجمالي المدفوعات:</span>
+              <span class="amount-paid">${parseFloat(data?.summary?.totalPaid || 0).toLocaleString()} ر.ي</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">الرصيد المتبقي:</span>
+              <span style="color: #1e3a8a; font-weight: bold;">${parseFloat(data?.summary?.finalBalance || 0).toLocaleString()} ر.ي</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          تم توليد هذا التقرير آلياً عبر نظام إدارة شركة الفتيني. تاريخ الاستخراج: ${format(new Date(), 'yyyy/MM/dd HH:mm')}
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 500);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    // فتح نافذة جديدة وطباعتها مباشرة (هذا الحل يحل مشكلة الشاشة البيضاء والتعليق في الجوال)
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+    } else {
+      // إذا تم حظر النافذة المنبثقة، نستخدم الطريقة البديلة
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      saveAs(blob, `كشف_حساب_${workerName.replace(/\s+/g, '_')}.html`);
+      alert("يرجى السماح بالنوافذ المنبثقة لعرض التقرير، أو قم بفتح ملف الـ HTML الذي تم تنزيله.");
+    }
+
   } catch (error) {
-    console.error("Critical PDF Generation Error:", error);
-    // إذا فشل كل شيء، نستخدم الطباعة العادية
-    alert("عذراً، حدث خطأ أثناء إنشاء ملف PDF. سيتم فتح نافذة الطباعة العادية.");
-    window.print();
+    console.error("Critical PDF/Print Error:", error);
+    alert("عذراً، تعذر إنشاء التقرير. يرجى المحاولة مرة أخرى.");
   }
 };

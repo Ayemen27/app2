@@ -169,7 +169,7 @@ const ALL_STORES = [
   'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
   'approvals', 'transactions', 'transactionLines', 'journals', 'accounts',
   'accountBalances', 'financePayments', 'financeEvents', 'reportTemplates', 
-  'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'autocompleteData'
+  'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData'
 ] as const;
 
 // فتح أو إنشاء قاعدة البيانات المحلية (مرآة 100% من الخادم)

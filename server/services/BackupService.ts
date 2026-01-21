@@ -55,6 +55,21 @@ export class BackupService {
       }
 
       const drive = google.drive({ version: "v3", auth });
+      
+      // التحقق من وجود المجلد وصلاحية الوصول إليه قبل الرفع
+      if (folderId) {
+        try {
+          await drive.files.get({ 
+            fileId: folderId, 
+            fields: 'id, name' 
+          });
+          console.log(`✅ Google Drive folder verified: ${folderId}`);
+        } catch (folderError: any) {
+          console.error(`❌ Google Drive Folder Access Failed: ${folderError.message}`);
+          throw new Error(`Folder ID ${folderId} not found or access denied. Please share the folder with the service account/user.`);
+        }
+      }
+
       const fileMetadata: any = {
         name: filename,
         parents: folderId ? [folderId] : [],

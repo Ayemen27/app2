@@ -338,6 +338,28 @@ export class DatabaseActions {
     }
   }
 
+  /**
+   * جلب معلومات مالية لمشروع محدد بدقة من ExpenseLedgerService
+   */
+  async getProjectFinancialData(projectId: string, date?: string): Promise<ActionResult> {
+    try {
+      const { ExpenseLedgerService } = await import("../ExpenseLedgerService");
+      const summary = await ExpenseLedgerService.getProjectFinancialSummary(projectId, date);
+      return {
+        success: true,
+        message: `تم جلب البيانات المالية للمشروع: ${summary.projectName}`,
+        data: summary,
+        action: "get_financial_data"
+      };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        message: `فشل جلب البيانات المالية: ${error.message}`,
+        action: "get_financial_data"
+      };
+    }
+  }
+
   // ==================== عمليات الإضافة ====================
 
   async createProject(data: { name: string; status?: string; engineerId?: string }): Promise<ActionResult> {

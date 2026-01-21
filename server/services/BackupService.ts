@@ -106,20 +106,13 @@ export class BackupService {
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) throw new Error("DATABASE_URL not found");
 
-      // استخدام مسار صريح ومباشر للسيرفر الخارجي لتجنب أي تعارض مع بيئة Nix
-      const pgDumpPath = "/usr/bin/pg_dump";
+      // استخدام pg_dump مباشرة بدون مسار مطلق لضمان التوافق مع بيئة Replit
+      const pgDumpCommand = "pg_dump";
       
-      console.log(`[BACKUP_PRODUCTION_FIX] Attempting backup with path: ${pgDumpPath}`);
+      console.log(`[BACKUP_REPLIT_FIX] Attempting backup with command: ${pgDumpCommand}`);
       
-      // التأكد من أن الملف قابل للتنفيذ فعلياً
-      try {
-        await execPromise(`test -x ${pgDumpPath}`);
-      } catch (e) {
-        console.warn(`⚠️ [BACKUP] ${pgDumpPath} is not executable, falling back to 'pg_dump'`);
-      }
-
       const env = { ...process.env, PGPASSWORD: new URL(dbUrl).password };
-      await execPromise(`"${pgDumpPath}" "${dbUrl}" -F p -f "${filepath}" --no-owner --no-privileges`, { env });
+      await execPromise(`"${pgDumpCommand}" "${dbUrl}" -F p -f "${filepath}" --no-owner --no-privileges`, { env });
       await execPromise(`gzip -c "${filepath}" > "${compressedPath}"`);
       fs.unlinkSync(filepath);
 

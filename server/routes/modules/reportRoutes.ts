@@ -476,9 +476,32 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
       transferFilters.push(lte(workerTransfers.transferDate, dateTo as string));
     }
 
-    // جلب البيانات
-    const attendance = await db.select().from(workerAttendance).where(and(...filters)).orderBy(asc(workerAttendance.attendanceDate));
-    const transfers = await db.select().from(workerTransfers).where(and(...transferFilters)).orderBy(asc(workerTransfers.transferDate));
+    // جلب البيانات مع أسماء المشاريع
+    const attendance = await db
+      .select({
+        attendanceDate: workerAttendance.attendanceDate,
+        workDescription: workerAttendance.workDescription,
+        actualWage: workerAttendance.actualWage,
+        paidAmount: workerAttendance.paidAmount,
+        projectName: projects.name
+      })
+      .from(workerAttendance)
+      .leftJoin(projects, eq(workerAttendance.projectId, projects.id))
+      .where(and(...filters))
+      .orderBy(asc(workerAttendance.attendanceDate));
+
+    const transfers = await db
+      .select({
+        transferDate: workerTransfers.transferDate,
+        recipientName: workerTransfers.recipientName,
+        amount: workerTransfers.amount,
+        transferNumber: workerTransfers.transferNumber,
+        projectName: projects.name
+      })
+      .from(workerTransfers)
+      .leftJoin(projects, eq(workerTransfers.projectId, projects.id))
+      .where(and(...transferFilters))
+      .orderBy(asc(workerTransfers.transferDate));
     
     // تجميع الحركات في كشف واحد
     const statement = [
@@ -488,6 +511,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         description: a.workDescription || 'تسجيل حضور',
         amount: parseFloat(a.actualWage || '0'),
         paid: parseFloat(a.paidAmount || '0'),
+        projectName: a.projectName || '-',
         reference: 'حضور'
       })),
       ...transfers.map(t => ({
@@ -496,6 +520,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         description: `حوالة لـ ${t.recipientName}`,
         amount: 0,
         paid: parseFloat(t.amount || '0'),
+        projectName: t.projectName || '-',
         reference: t.transferNumber || 'حوالة'
       }))
     ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());

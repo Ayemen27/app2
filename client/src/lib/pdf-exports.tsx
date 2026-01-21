@@ -214,11 +214,11 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
                   <td class="col-date">${item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</td>
                   <td class="col-day">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
                   <td class="col-project">${item.projectName || item.project_name || '-'}</td>
-                  <td class="col-desc">${item.description || 'تنفيذ مهام العمل الموكلة'}</td>
-                  <td class="col-days-count">${item.workDays || item.work_days || '1.00'}</td>
-                  <td class="col-hours">${item.hours || '07:00-15:00'}</td>
-                  <td class="col-earned">${parseFloat(item.amount || item.earned_amount || 0).toLocaleString()}</td>
-                  <td class="col-paid">${parseFloat(item.paid || item.paid_amount || 0).toLocaleString()}</td>
+                  <td class="col-desc">${item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل الموكلة')}</td>
+                  <td class="col-days-count">${item.type === 'عمل' ? (item.workDays || item.work_days || '1.00') : '-'}</td>
+                  <td class="col-hours">${item.type === 'عمل' ? (item.hours || '07:00-15:00') : '-'}</td>
+                  <td class="col-earned">${parseFloat(item.amount || 0).toLocaleString()}</td>
+                  <td class="col-paid">${parseFloat(item.paid || 0).toLocaleString()}</td>
                   <td class="col-balance">${parseFloat(item.balance || 0).toLocaleString()}</td>
                 </tr>
               `).join('')}

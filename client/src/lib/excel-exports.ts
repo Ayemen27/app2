@@ -122,9 +122,9 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
       format(date, 'yyyy/MM/dd'),
       format(date, 'EEEE', { locale: arSA }),
       item.projectName || '-',
-      item.description || 'تنفيذ مهام العمل الموكلة بالموقع',
-      item.workDays || '1',
-      item.hours || '8h',
+      item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل الموكلة بالموقع'),
+      item.workDays || (item.type === 'عمل' ? '1' : '-'),
+      item.hours || (item.type === 'عمل' ? '8h' : '-'),
       parseFloat(item.amount || 0),
       parseFloat(item.paid || 0),
       parseFloat(item.balance || 0)

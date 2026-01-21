@@ -389,7 +389,11 @@ import { BackupService } from "./services/BackupService";
       // ✅ تشغيل نظام النسخ الاحتياطي التلقائي
       // تعديل: تشغيل النسخ الاحتياطي بعد فترة أطول لتقليل الحمل عند بدء التشغيل
       setTimeout(() => {
-        BackupService.startAutoBackupScheduler();
+        try {
+          BackupService.startAutoBackupScheduler();
+        } catch (e) {
+          console.error("❌ Failed to start scheduler:", e);
+        }
       }, 60000); // الانتظار دقيقة كاملة قبل بدء الجدولة
 
       // ✅ نظام فحص المخطط - يعمل بوضع القراءة فقط مع timeout

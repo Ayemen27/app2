@@ -351,6 +351,26 @@ export class ModelManager {
     const chat = genModel.startChat({ history });
 
     const lastMessage = messages[messages.length - 1];
+    
+    // محاولة استخدام الجسر أولاً لطلبات تحليل البيانات
+    if (lastMessage.content.includes("مصروف") || lastMessage.content.includes("تحليل") || lastMessage.content.includes("تضارب")) {
+      try {
+        const { execSync } = require("child_process");
+        const result = execSync(`python3 agent_bridge.py "${lastMessage.content.replace(/"/g, '\\"')}"`, { encoding: 'utf8' });
+        const parsed = JSON.parse(result);
+        if (parsed.message) {
+          return {
+            content: parsed.message,
+            model: "agent-bridge",
+            provider: "openai",
+            tokensUsed: 0
+          };
+        }
+      } catch (e) {
+        console.error("Bridge failure, falling back to Gemini:", e);
+      }
+    }
+
     const result = await chat.sendMessage(lastMessage.content);
     const response = result.response;
 

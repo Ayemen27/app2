@@ -79,13 +79,13 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
             totalBalance: summary.totalBalance,
             activeWorkers: summary.workers.activeWorkers,
             completedDays: summary.workers.completedDays,
-            materialPurchases: summary.counts.materialPurchases,
-            materialExpensesCredit: summary.expenses.materialExpensesCredit,
-            totalTransportation: summary.expenses.totalTransportation,
-            totalMiscExpenses: summary.expenses.totalMiscExpenses,
-            totalWorkerWages: summary.expenses.totalWorkerWages,
-            totalFundTransfers: summary.expenses.totalFundTransfers,
-            totalWorkerTransfers: summary.expenses.totalWorkerTransfers,
+            materialPurchases: summary.counts?.materialPurchases || 0,
+            materialExpensesCredit: summary.expenses?.materialExpensesCredit || 0,
+            totalTransportation: summary.expenses?.totalTransportation || 0,
+            totalMiscExpenses: summary.expenses?.totalMiscExpenses || 0,
+            totalWorkerWages: summary.expenses?.totalWorkerWages || 0,
+            totalFundTransfers: summary.expenses?.totalFundTransfers || 0,
+            totalWorkerTransfers: summary.expenses?.totalWorkerTransfers || 0,
             lastActivity: project.createdAt.toISOString()
           }
         };
@@ -476,6 +476,28 @@ projectRouter.post('/', async (req: Request, res: Response) => {
       message: error.error,
       processingTime: duration
     });
+  }
+});
+
+/**
+ * 📊 جلب الملخص اليومي للمشروع
+ * GET /api/projects/:id/daily-summary/:date
+ */
+projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response) => {
+  try {
+    const { id, date } = req.params;
+    console.log(`📊 [API] طلب جلب الملخص اليومي للمشروع: ${id} للتاريخ: ${date}`);
+
+    if (id === 'all') {
+      const summary = await ExpenseLedgerService.getAllProjectsDailySummary(date);
+      return res.json({ success: true, data: summary });
+    }
+
+    const summary = await ExpenseLedgerService.getProjectFinancialSummary(id, date);
+    res.json({ success: true, data: summary });
+  } catch (error: any) {
+    console.error('❌ [API] خطأ في جلب الملخص اليومي:', error);
+    res.status(500).json({ success: false, message: "فشل في جلب الملخص اليومي" });
   }
 });
 

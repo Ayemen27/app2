@@ -298,6 +298,10 @@ export class ExpenseLedgerService {
     }
   }
 
+  static async getAllProjectsDailySummary(date: string): Promise<any> {
+    return await this.getTotalDailyFinancialSummary(date);
+  }
+
   static async getTotalDailyFinancialSummary(date: string): Promise<any> {
     try {
       const projects = await this.getAllProjectsStats(date);

@@ -91,8 +91,29 @@ export class BackupService {
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) throw new Error("DATABASE_URL not found");
 
-      // استخدام pg_dump v16 بشكل صريح من المسار المتوفر في بيئة Nix
-      const pgDumpPath = "/nix/store/bgwr5i8jf8jpg75rr53rz3fqv5k8yrwp-postgresql-16.10/bin/pg_dump";
+      // التحقق من وجود pg_dump في مسارات النظام أو مسار محدد
+      let pgDumpPath = "pg_dump";
+      
+      // محاولة استخدام المسارات الشائعة في بيئات مختلفة
+      const possiblePaths = [
+        "/usr/bin/pg_dump",
+        "/usr/local/bin/pg_dump",
+        "pg_dump"
+      ];
+
+      for (const p of possiblePaths) {
+        try {
+          // اختبار وجود الملف إذا كان مساراً مطلقاً
+          if (p.startsWith("/") && fs.existsSync(p)) {
+            pgDumpPath = p;
+            break;
+          }
+        } catch (e) {
+          // تجاهل الخطأ والمتابعة
+        }
+      }
+
+      console.log(`ℹ️ Using pg_dump path: ${pgDumpPath}`);
       await execPromise(`"${pgDumpPath}" "${dbUrl}" -F p -f "${filepath}" --no-owner --no-privileges`);
       await execPromise(`gzip -c "${filepath}" > "${compressedPath}"`);
       fs.unlinkSync(filepath);

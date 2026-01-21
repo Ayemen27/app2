@@ -77,6 +77,12 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
   styleInfoBox(6, 'A', '● الأجر الأساسي:', `${worker.dailyWage} ر.ي / يوم`, accentBlue);
   styleInfoBox(6, 'D', '● رقم القيد:', `W-${worker.id.toString().slice(-4).toUpperCase()}`, accentBlue);
 
+  // تنسيق أعمدة المعلومات لضمان عدم التداخل
+  worksheet.getColumn('A').width = 18;
+  worksheet.getColumn('B').width = 25;
+  worksheet.getColumn('D').width = 18;
+  worksheet.getColumn('E').width = 25;
+
   // 4. جدول البيانات الرئيسي (Main Data Grid)
   const tableHeaderRow = 8;
   const headers = ['م', 'التاريخ', 'اليوم', 'المشروع المرتبط', 'وصف العمل والتفاصيل', 'أيام', 'ساعات', 'مستحق (+)', 'مدفوع (-)'];

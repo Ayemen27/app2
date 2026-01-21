@@ -195,6 +195,32 @@ export class BackupService {
     return await db.select().from(backupLogs).orderBy(desc(backupLogs.createdAt)).limit(50);
   }
 
+  /**
+   * دالة جدولة النسخ الاحتياطي التلقائي
+   */
+  static startAutoBackupScheduler() {
+    console.log("⏰ بدء جدولة النسخ الاحتياطي التلقائي (كل 6 ساعات)");
+    // تنفيذ أول باكاب بعد دقيقة من التشغيل
+    setTimeout(async () => {
+      try {
+        await BackupService.runBackup(undefined, false);
+        console.log("✅ تم تنفيذ النسخ الاحتياطي التلقائي الأول بنجاح");
+      } catch (error) {
+        console.error("❌ فشل النسخ الاحتياطي التلقائي الأول:", error);
+      }
+    }, 60000);
+
+    // جدولة دورية كل 6 ساعات
+    setInterval(async () => {
+      try {
+        console.log("🔄 جاري تنفيذ النسخ الاحتياطي الدوري...");
+        await BackupService.runBackup(undefined, false);
+      } catch (error) {
+        console.error("❌ فشل النسخ الاحتياطي الدوري:", error);
+      }
+    }, 6 * 60 * 60 * 1000);
+  }
+
   static async deleteLog(id: number) {
     const [log] = await db.select().from(backupLogs).where(eq(backupLogs.id, id));
     if (!log) throw new Error("سجل النسخة الاحتياطية غير موجود");

@@ -181,41 +181,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/users", userRoutes);
 
 
-  // مسار المزامنة العام (قبل أي حماية) - تم رفعه لأعلى أولوية
-  const syncHandler = async (req: any, res: any) => {
-    try {
-      console.log(`🔄 [Sync] طلب تحميل النسخة الاحتياطية الكاملة (${req.method})`);
-      const startTime = Date.now();
-      const tables = ['projects', 'workers', 'materials', 'suppliers', 'worker_attendance', 'material_purchases', 'transportation_expenses', 'fund_transfers', 'wells', 'project_types', 'users'];
-      const results: any = {};
-      for (const table of tables) {
-        try {
-          const queryResult = await db.execute(sql.raw(`SELECT * FROM ${table} LIMIT 50000`));
-          results[table] = queryResult.rows;
-        } catch (e) { results[table] = []; }
-      }
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      return res.status(200).json({ 
-        success: true, 
-        data: results, 
-        metadata: { 
-          timestamp: Date.now(), 
-          duration: Date.now() - startTime,
-          version: "2.1-final-priority"
-        } 
-      });
-    } catch (error: any) {
-      console.error('❌ [Sync] Error:', error.message);
-      res.setHeader('Content-Type', 'application/json');
-      return res.status(500).json({ success: false, error: error.message });
-    }
-  };
+  // ========================================
+  // 📱 Mobile & Android Integration (Unified)
+  // ========================================
+  import mobileSyncRouter from "./modules/mobile/sync";
+  app.use("/api/mobile/sync", mobileSyncRouter);
 
-  const API_DOMAIN = 'https://app2.binarjoinanelytic.info';
-
-  app.get("/api/sync/full-backup", syncHandler);
-  app.post("/api/sync/full-backup", syncHandler);
+  // ... (rest of the routes)
 
   // ========================================
   // 🔔 Push Notifications (FCM)

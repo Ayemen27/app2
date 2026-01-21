@@ -85,7 +85,7 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
 
   // 4. جدول البيانات الرئيسي (Main Data Grid)
   const tableHeaderRow = 8;
-  const headers = ['م', 'التاريخ', 'اليوم', 'المشروع المرتبط', 'وصف العمل والتفاصيل', 'أيام', 'ساعات', 'مستحق (+)', 'مدفوع (-)'];
+  const headers = ['م', 'التاريخ', 'اليوم', 'المشروع المرتبط', 'وصف العمل والتفاصيل', 'أيام', 'ساعات', 'مستحق (+)', 'مدفوع (-)', 'المتبقي'];
   const headerRow = worksheet.getRow(tableHeaderRow);
   headers.forEach((h, i) => {
     const cell = headerRow.getCell(i + 1);
@@ -106,7 +106,8 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
     { width: 8 },  // أيام
     { width: 12 }, // ساعات
     { width: 16 }, // مستحق
-    { width: 16 }  // مدفوع
+    { width: 16 }, // مدفوع
+    { width: 16 }  // المتبقي
   ];
 
   let currentRow = tableHeaderRow + 1;
@@ -125,7 +126,8 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
       item.workDays || '1',
       item.hours || '8h',
       parseFloat(item.amount || 0),
-      parseFloat(item.paid || 0)
+      parseFloat(item.paid || 0),
+      parseFloat(item.balance || 0)
     ];
 
     row.eachCell((cell, colNum) => {
@@ -135,10 +137,11 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
       if (isEven) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
       
       // تنسيق المبالغ
-      if (colNum === 8 || colNum === 9) {
+      if (colNum === 8 || colNum === 9 || colNum === 10) {
         cell.numFmt = '#,##0.00 "ر.ي"';
         if (colNum === 8) cell.font = { ...darkText, color: { argb: emeraldGreen }, bold: true };
         if (colNum === 9 && parseFloat(item.paid || 0) > 0) cell.font = { ...darkText, color: { argb: roseRed }, bold: true };
+        if (colNum === 10) cell.font = { ...darkText, color: { argb: accentBlue }, bold: true };
       }
     });
     currentRow++;
@@ -155,10 +158,12 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
 
   const sumEarned = worksheet.getCell(`H${currentRow}`);
   const sumPaid = worksheet.getCell(`I${currentRow}`);
+  const finalBalanceCell = worksheet.getCell(`J${currentRow}`);
   sumEarned.value = parseFloat(data.summary.totalEarned || 0);
   sumPaid.value = parseFloat(data.summary.totalPaid || 0);
+  finalBalanceCell.value = parseFloat(data.summary.finalBalance || 0);
   
-  [sumEarned, sumPaid].forEach(c => {
+  [sumEarned, sumPaid, finalBalanceCell].forEach(c => {
     c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
     c.font = whiteText;
     c.numFmt = '#,##0.00 "ر.ي"';

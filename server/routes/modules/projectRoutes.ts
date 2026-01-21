@@ -154,7 +154,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       projectsList
     ] = await Promise.all([
       date
-        ? db.select().from(fundTransfers).where(sql`(CASE WHEN transfer_date IS NULL OR transfer_date = '' THEN NULL ELSE transfer_date::date END) = ${date}`).orderBy(desc(fundTransfers.transferDate))
+        ? db.select().from(fundTransfers).where(sql`(CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) = ${date}::date`).orderBy(desc(fundTransfers.transferDate))
         : db.select().from(fundTransfers).orderBy(desc(fundTransfers.transferDate)),
 
       date
@@ -195,7 +195,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
         : db.select().from(transportationExpenses).orderBy(desc(transportationExpenses.date)),
 
       date
-        ? db.select().from(workerTransfers).where(sql`(CASE WHEN transfer_date IS NULL OR transfer_date = '' THEN NULL ELSE transfer_date::date END) = ${date}`).orderBy(desc(workerTransfers.transferDate))
+        ? db.select().from(workerTransfers).where(sql`(CASE WHEN transfer_date IS NULL OR transfer_date = '' OR transfer_date !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) = ${date}::date`).orderBy(desc(workerTransfers.transferDate))
         : db.select().from(workerTransfers).orderBy(desc(workerTransfers.transferDate)),
 
       date
@@ -2028,7 +2028,7 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
       projectInfo
     ] = await Promise.all([
       db.select().from(fundTransfers)
-        .where(and(eq(fundTransfers.projectId, projectId), gte(fundTransfers.transferDate, sql`${date}::date`), lt(fundTransfers.transferDate, sql`(${date}::date + interval '1 day')`))),
+        .where(and(eq(fundTransfers.projectId, projectId), gte(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`${date}::date`), lt(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`(${date}::date + interval '1 day')`))),
       db.select({
         id: workerAttendance.id,
         workerId: workerAttendance.workerId,
@@ -2556,9 +2556,9 @@ async function calculateCumulativeBalance(projectId: string, fromDate: string | 
     const whereConditions = [eq(fundTransfers.projectId, projectId)];
 
     if (fromDate) {
-      whereConditions.push(gte(fundTransfers.transferDate, sql`${fromDate}::date`));
+      whereConditions.push(gte(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`${fromDate}::date`));
     }
-    whereConditions.push(lt(fundTransfers.transferDate, sql`(${toDate}::date + interval '1 day')`));
+    whereConditions.push(lt(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`(${toDate}::date + interval '1 day')`));
 
     // جلب جميع البيانات المالية للفترة المحددة
     const [

@@ -155,7 +155,7 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
       .where(
         and(
           eq(fundTransfers.projectId, projectId as string),
-          sql`DATE(${fundTransfers.transferDate}) = ${dateStr}`
+          sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END) = ${dateStr}::date`
         )
       );
 
@@ -309,7 +309,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     // جلب بيانات تحويلات العهدة
     const fundTransfersSummary = await db
       .select({
-        date: sql<string>`DATE(${fundTransfers.transferDate})`,
+        date: sql<string>`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`,
         totalAmount: sql<number>`COALESCE(SUM(CAST(${fundTransfers.amount} AS DECIMAL)), 0)`,
         transferCount: sql<number>`COUNT(*)`
       })
@@ -317,12 +317,12 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
       .where(
         and(
           eq(fundTransfers.projectId, projectId as string),
-          gte(sql`DATE(${fundTransfers.transferDate})`, dateFromStr),
-          lte(sql`DATE(${fundTransfers.transferDate})`, dateToStr)
+          gte(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, dateFromStr),
+          lte(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, dateToStr)
         )
       )
-      .groupBy(sql`DATE(${fundTransfers.transferDate})`)
-      .orderBy(asc(sql`DATE(${fundTransfers.transferDate})`));
+      .groupBy(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`)
+      .orderBy(asc(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`));
 
     // جلب بيانات النثريات المجمعة (مصاريف العمال المتنوعة)
     const miscExpensesSummary = await db
@@ -575,7 +575,7 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
     let dateFilter = sql`1=1`;
     if (range === 'today') {
       const today = new Date().toISOString().split('T')[0];
-      dateFilter = sql`DATE(${workerAttendance.attendanceDate}) = ${today}`;
+      dateFilter = sql`(CASE WHEN ${workerAttendance.attendanceDate} IS NULL OR ${workerAttendance.attendanceDate} = '' OR ${workerAttendance.attendanceDate} !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${workerAttendance.attendanceDate}::date END) = ${today}::date`;
     } else if (range === 'this-month') {
       const now = new Date();
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
@@ -586,7 +586,7 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
     const projectFilter = projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(fundTransfers.projectId, projectId as string) : sql`1=1`;
     const attendanceFilter = and(
       projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(workerAttendance.projectId, projectId as string) : sql`1=1`,
-      range === 'today' ? sql`DATE(${workerAttendance.attendanceDate}) = ${new Date().toISOString().split('T')[0]}` : 
+      range === 'today' ? sql`(CASE WHEN ${workerAttendance.attendanceDate} IS NULL OR ${workerAttendance.attendanceDate} = '' OR ${workerAttendance.attendanceDate} !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${workerAttendance.attendanceDate}::date END) = ${new Date().toISOString().split('T')[0]}::date` : 
       range === 'this-month' ? sql`${workerAttendance.attendanceDate} >= ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}` : sql`1=1`
     );
     const materialsFilter = and(
@@ -606,8 +606,8 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
     );
     const fundsTimeFilter = and(
       projectFilter,
-      range === 'today' ? sql`DATE(${fundTransfers.transferDate}) = ${new Date().toISOString().split('T')[0]}` : 
-      range === 'this-month' ? sql`DATE(${fundTransfers.transferDate}) >= ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}` : sql`1=1`
+      range === 'today' ? sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END) = ${new Date().toISOString().split('T')[0]}::date` : 
+      range === 'this-month' ? sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END) >= ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}::date` : sql`1=1`
     );
 
     const [totalFunds] = await db.select({ sum: sql<string>`SUM(CAST(${fundTransfers.amount} AS DECIMAL))` }).from(fundTransfers).where(fundsTimeFilter);

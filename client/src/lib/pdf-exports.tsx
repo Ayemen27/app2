@@ -200,10 +200,20 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
        console.error("No data provided for PDF generation");
        return;
     }
-    const blob = await pdf(<WorkerStatementDocument data={data} worker={worker} />).toBlob();
-    saveAs(blob, `كشف_حساب_${(worker?.name || 'عامل').replace(/\s+/g, '_')}.pdf`);
+    
+    const doc = <WorkerStatementDocument data={data} worker={worker} />;
+    const asBlob = await pdf(doc).toBlob();
+    
+    // إنشاء اسم ملف نظيف
+    const fileName = `كشف_حساب_${(worker?.name || 'عامل').replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+    
+    // استخدام saveAs مع Blob لضمان التنزيل المتوافق مع الجوال
+    saveAs(asBlob, fileName);
+    
+    console.log("PDF download triggered successfully");
   } catch (error) {
     console.error("PDF Generation Error Details:", error);
-    // Fallback logic could go here if needed
+    // محاولة فتح نافذة طباعة كحل أخير إذا فشل التنزيل التلقائي
+    window.print();
   }
 };

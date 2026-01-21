@@ -16,7 +16,6 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
     const workerType = worker?.type || 'عامل';
     const dailyWage = worker?.dailyWage ? `${parseFloat(worker.dailyWage).toLocaleString()} ر.ي` : '-';
     const reportDate = format(new Date(), 'yyyy/MM/dd');
-    const projectNameStr = data?.projectName || 'جميع المشاريع';
     const totalEarned = parseFloat(data?.summary?.totalEarned || 0);
     const totalPaid = parseFloat(data?.summary?.totalPaid || 0);
     const finalBalance = parseFloat(data?.summary?.finalBalance || 0);
@@ -33,15 +32,18 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
           * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
           body { font-family: 'Cairo', sans-serif; margin: 0; padding: 0; color: #000; background: #fff; }
           
-          /* تصميم الصفحة للطباعة وتكرار الرأس */
           @page {
             size: A4;
-            margin: 15mm 10mm 15mm 10mm;
+            margin: 10mm 5mm 15mm 5mm;
           }
           
           .print-container { width: 100%; padding: 0; }
 
-          /* العنوان العلوي الأزرق العريض */
+          /* تكرار الرأس في كل صفحة */
+          .header-group {
+            display: table-header-group;
+          }
+
           .main-title-bar {
             background-color: #1F4E79;
             color: white;
@@ -54,7 +56,6 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
             border-bottom: 2px solid #16365C;
           }
 
-          /* شبكة المعلومات العلوية */
           .header-info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -68,7 +69,6 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
           .info-label { font-weight: 700; width: 100px; color: #333; }
           .info-value { font-weight: 400; color: #000; }
 
-          /* تكرار رأس الجدول في كل صفحة */
           table { 
             width: 100%; 
             border-collapse: collapse; 
@@ -76,8 +76,9 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
             table-layout: fixed;
           }
           
+          /* السحر لتكرار الرأس */
           thead { display: table-header-group; }
-          tfoot { display: table-footer-group; }
+          tbody { display: table-row-group; }
           
           th {
             background-color: #1F4E79;
@@ -98,7 +99,6 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
             word-wrap: break-word;
           }
 
-          /* ألوان الأعمدة الخاصة */
           .col-m { width: 30px; }
           .col-date { width: 80px; }
           .col-day { width: 60px; }
@@ -109,7 +109,6 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
           .col-earned { width: 75px; background-color: #E2F0D9; font-weight: 700; }
           .col-paid { width: 75px; background-color: #FBE2D5; font-weight: 700; }
 
-          /* صف الإجماليات داخل الجدول */
           .totals-row td {
             background-color: #00B050;
             color: white;
@@ -118,7 +117,6 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
             border: 1px solid #00803A;
           }
 
-          /* صندوق الملخص المالي السفلي */
           .summary-wrapper {
             display: flex;
             justify-content: flex-start;
@@ -152,7 +150,6 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
           .summary-label { font-weight: 700; }
           .summary-val { font-family: sans-serif; }
 
-          /* تذييل الصفحة */
           .page-footer {
             position: fixed;
             bottom: 0;
@@ -163,31 +160,37 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
             color: #7F7F7F;
             padding: 5px;
             border-top: 1px solid #EEE;
+            background: white;
           }
 
           @media print {
-            .no-print { display: none; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            button { display: none; }
+            body { margin: 0; }
           }
         </style>
       </head>
       <body>
         <div class="print-container">
-          <div class="main-title-bar">كشف حساب العامل التفصيلي والشامل</div>
-
-          <div class="header-info-grid">
-            <div class="info-col">
-              <div class="info-row"><span class="info-label">اسم العامل:</span><span class="info-value">${workerName}</span></div>
-              <div class="info-row"><span class="info-label">نوع العامل:</span><span class="info-value">${workerType}</span></div>
-              <div class="info-row"><span class="info-label">الأجر اليومي:</span><span class="info-value">${dailyWage}</span></div>
-            </div>
-            <div class="info-col">
-              <div class="info-row"><span class="info-label">المشروع:</span><span class="info-value">${projectNameStr}</span></div>
-              <div class="info-row"><span class="info-label">تاريخ الإصدار:</span><span class="info-value">${reportDate}</span></div>
-            </div>
-          </div>
-
           <table>
             <thead>
+              <tr>
+                <th colspan="9" style="padding: 0; border: none; background: none;">
+                  <div class="main-title-bar">كشف حساب العامل التفصيلي والشامل</div>
+                  <div class="header-info-grid">
+                    <div class="info-col">
+                      <div class="info-row"><span class="info-label">اسم العامل:</span><span class="info-value">${workerName}</span></div>
+                      <div class="info-row"><span class="info-label">نوع العامل:</span><span class="info-value">${workerType}</span></div>
+                      <div class="info-row"><span class="info-label">الأجر اليومي:</span><span class="info-value">${dailyWage}</span></div>
+                    </div>
+                    <div class="info-col">
+                      <div class="info-row"><span class="info-label">المشروع الحالي:</span><span class="info-value">${data?.projectName || 'تعدد مشاريع'}</span></div>
+                      <div class="info-row"><span class="info-label">تاريخ الإصدار:</span><span class="info-value">${reportDate}</span></div>
+                    </div>
+                  </div>
+                </th>
+              </tr>
               <tr>
                 <th class="col-m">م</th>
                 <th class="col-date">التاريخ</th>
@@ -206,7 +209,7 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
                   <td class="col-m">${idx + 1}</td>
                   <td class="col-date">${item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</td>
                   <td class="col-day">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
-                  <td class="col-project">${item.projectName || projectNameStr}</td>
+                  <td class="col-project">${item.projectName || '-'}</td>
                   <td class="col-desc">${item.description || 'تنفيذ مهام العمل الموكلة'}</td>
                   <td class="col-days-count">${item.workDays || '1.00'}</td>
                   <td class="col-hours">${item.hours || '07:00-15:00'}</td>

@@ -1335,11 +1335,15 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
 
     // حساب actualWage و totalPay = dailyWage * workDays وتحويل workDays إلى string
     const attendanceDate = req.body.attendanceDate || req.body.date;
-    const actualWageValue = parseFloat(validationResult.data.dailyWage) * validationResult.data.workDays;
+    const dailyWage = parseFloat(validationResult.data.dailyWage || "0");
+    const workDays = validationResult.data.workDays || 0;
+    const actualWageValue = dailyWage * workDays;
+    
     const dataWithCalculatedFields = {
       ...validationResult.data,
+      dailyWage: dailyWage.toString(),
       date: attendanceDate, // التأكد من تعيين التاريخ
-      workDays: validationResult.data.workDays.toString(), // تحويل إلى string للتوافق مع decimal
+      workDays: workDays.toString(), // تحويل إلى string للتوافق مع decimal
       actualWage: actualWageValue.toString(),
       totalPay: actualWageValue.toString(), // totalPay = actualWage
       notes: req.body.notes || validationResult.data.notes || "" // تأكد من جلب الملاحظات من جسم الطلب

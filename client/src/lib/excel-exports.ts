@@ -91,7 +91,7 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
     const cell = headerRow.getCell(i + 1);
     cell.value = h;
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; // Slate 700
-    cell.font = whiteText;
+    cell.font = { ...whiteText, color: { argb: 'FFFFFFFF' } }; // Force pure white for contrast
     cell.alignment = centerAlign;
     cell.border = borderLight;
   });

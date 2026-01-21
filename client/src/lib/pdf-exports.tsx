@@ -84,11 +84,11 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
           
           th {
             background-color: #1F4E79;
-            color: white;
+            color: #FFFFFF;
             border: 1px solid #16365C;
             padding: 8px 4px;
             font-size: 11px;
-            font-weight: 700;
+            font-weight: 800;
             text-align: center;
           }
 

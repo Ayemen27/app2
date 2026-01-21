@@ -38,8 +38,11 @@ import fs from "fs";
 import { BackupService } from "./services/BackupService";
 import mobileSyncRouter from "./modules/mobile/sync";
 import authRouter from "./modules/identity/auth";
+import { registerOrganizedRoutes } from "./routes/modules/index";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // تسجيل المسارات المنظمة الجديدة (بما فيها مسارات الـ AI)
+  registerOrganizedRoutes(app);
   // ... (بعد الإعدادات الأولية)
 
   // ========================================

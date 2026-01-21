@@ -84,17 +84,22 @@ export class ExpenseLedgerService {
 
   static async getProjectFinancialSummary(projectId: string, date?: string, dateFrom?: string, dateTo?: string): Promise<any> {
     try {
+      // تنظيف المدخلات لمنع أخطاء التواريخ الفارغة
+      const cleanDate = date && date.trim() !== "" ? date : null;
+      const cleanDateFrom = dateFrom && dateFrom.trim() !== "" ? dateFrom : null;
+      const cleanDateTo = dateTo && dateTo.trim() !== "" ? dateTo : null;
+
       // تصحيح الفلترة لضمان عدم ظهور بيانات من تواريخ أخرى عند وجود فلتر
-      const dateFilterMp = date ? sql`AND purchase_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND purchase_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
-      const dateFilterWa = date ? sql`AND attendance_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND attendance_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
-      const dateFilterTe = date ? sql`AND date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
-      const dateFilterWt = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
-      const dateFilterMwe = date ? sql`AND date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
-      const dateFilterFt = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
-      const dateFilterPft = date ? sql`AND transfer_date::date = ${date}::date` : (dateFrom && dateTo ? sql`AND transfer_date::date BETWEEN ${dateFrom}::date AND ${dateTo}::date` : sql`AND 1=1`);
+      const dateFilterMp = cleanDate ? sql`AND purchase_date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND purchase_date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterWa = cleanDate ? sql`AND attendance_date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND attendance_date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterTe = cleanDate ? sql`AND date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterWt = cleanDate ? sql`AND transfer_date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND transfer_date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterMwe = cleanDate ? sql`AND date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterFt = cleanDate ? sql`AND transfer_date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND transfer_date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
+      const dateFilterPft = cleanDate ? sql`AND transfer_date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND transfer_date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
 
       // إذا لم يكن هناك تاريخ محدد، نعتبره عرض تراكمي ونلغي فلاتر التواريخ لضمان جلب كل شيء
-      const isCumulative = !date && !dateFrom && !dateTo;
+      const isCumulative = !cleanDate && !cleanDateFrom && !cleanDateTo;
       
       const finalFilterMp = isCumulative ? sql`` : dateFilterMp;
       const finalFilterWa = isCumulative ? sql`` : dateFilterWa;
@@ -104,9 +109,9 @@ export class ExpenseLedgerService {
       const finalFilterFt = isCumulative ? sql`` : dateFilterFt;
       const finalFilterPft = isCumulative ? sql`` : dateFilterPft;
 
-      console.log(`🔍 [ExpenseLedger] تطبيق الفلترة لـ ${projectId}:`, { date, dateFrom, dateTo, isCumulative });
+      console.log(`🔍 [ExpenseLedger] تطبيق الفلترة لـ ${projectId}:`, { date: cleanDate, dateFrom: cleanDateFrom, dateTo: cleanDateTo, isCumulative });
 
-      const startDateStr = date || dateFrom || new Date().toISOString().split('T')[0];
+      const startDateStr = cleanDate || cleanDateFrom || new Date().toISOString().split('T')[0];
       
       // في حالة الفلترة المحددة، الرصيد المرحل يجب أن يكون من قبل تاريخ البداية
       // تم تعديل المنطق ليكون تراكمياً لكل ما قبل التاريخ المحدد لضمان صحة المتبقي من سابق

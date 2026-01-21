@@ -318,10 +318,34 @@ export class AIAgentService {
     const actionMatch = response.match(/\[ACTION:([^\]]+)\]/);
     const proposeMatch = response.match(/\[PROPOSE:([^\]]+)\]/);
     const confirmMatch = response.match(/\[CONFIRM:([^\]]+)\]/);
+    const alertMatch = response.match(/\[ALERT:([^\]]+)\]/);
 
     let processedResponse = response;
     let result: ActionResult | ReportResult | null = null;
     let action: string | undefined;
+
+    // معالجة أوامر التنبيه الذكي
+    if (alertMatch) {
+      const alertParts = alertMatch[1].split(":");
+      const alertType = alertParts[0];
+      const alertMsg = alertParts[1];
+      const projectId = alertParts[2];
+      
+      try {
+        const notificationService = new (await import("../NotificationService")).NotificationService();
+        await notificationService.createNotification({
+          type: "system",
+          title: `تنبيه ذكي: ${alertType}`,
+          body: alertMsg,
+          projectId: projectId,
+          priority: 4, // High
+          recipients: "admin"
+        });
+        processedResponse = processedResponse.replace(/\[ALERT:[^\]]+\]\s*/g, "*(تم إرسال تنبيه للنظام)* ");
+      } catch (e) {
+        console.error("Error creating AI alert:", e);
+      }
+    }
 
     // معالجة أوامر القراءة
     if (actionMatch) {

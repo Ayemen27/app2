@@ -56,7 +56,7 @@ app.use((req, res, next) => {
   // Add dynamic domain to connect-src if in production
   if (process.env.DOMAIN) {
     const domain = process.env.DOMAIN.replace(/\/$/, '');
-    cspConfig[5] = `${cspConfig[5]} ${domain} ${domain}:6000`;
+    cspConfig[5] = `${cspConfig[5]} ${domain} ${domain}:${PORT}`;
   }
 
   res.setHeader('Content-Security-Policy', cspConfig.join('; ') + ';');
@@ -64,10 +64,14 @@ app.use((req, res, next) => {
 });
 
 // اكتشاف البيئة تلقائياً
-const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_ENVIRONMENT === 'production';
+const isReplit = !!process.env.REPLIT_ID || !!process.env.REPLIT_ENVIRONMENT || !!process.env.REPLIT_DEV_DOMAIN;
+const isProduction = process.env.NODE_ENV === 'production' && !isReplit;
+
+// المنفذ: 5000 لـ Replit و 6000 للإنتاج الخارجي
+const PORT = isReplit ? 5000 : (isProduction ? 6000 : 5000);
+
 const REPLIT_DOMAIN = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : process.env.DOMAIN;
 const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://app2.binarjoinanelytic.info';
-const PORT = isProduction ? 6000 : 5000;
 
 // ✅ DYNAMIC CORS Configuration
 const getAllowedOrigins = (req?: Request) => {
@@ -374,13 +378,11 @@ app.use('/api/*', (req, res) => {
 });
 
 // ALWAYS serve the app on the port specified in the environment variable PORT
-// Other ports are firewalled. Default to 5000 if not specified.
+// Other ports are firewalled. Default to the detected port based on environment.
 // this serves both the API and the client.
 // It is the only port that is not firewalled.
 
-// تم تعريف PORT في الأعلى بناءً على البيئة
-// في Replit، يتم تجاهل PORT المخصص أحياناً، لذا نتحقق من متغير البيئة أولاً
-const FINAL_PORT = 6000;
+const FINAL_PORT = Number(process.env.PORT) || PORT;
 const NODE_ENV = process.env.NODE_ENV || (isProduction ? 'production' : 'development');
 
 console.log('🚀 بدء تشغيل الخادم...');

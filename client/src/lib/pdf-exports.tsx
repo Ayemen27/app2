@@ -223,7 +223,9 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
                 </tr>
               `).join('')}
               <tr class="totals-row">
-                <td colspan="7" style="text-align: center;">الإجماليــــــــــــــــــــــــات</td>
+                <td colspan="5" style="text-align: center;">الإجماليــــــــــــــــــــــــات</td>
+                <td>${parseFloat(data?.summary?.totalWorkDays || 0).toLocaleString()}</td>
+                <td>-</td>
                 <td>${totalEarned.toLocaleString()}</td>
                 <td>${totalPaid.toLocaleString()}</td>
                 <td>${finalBalance.toLocaleString()}</td>

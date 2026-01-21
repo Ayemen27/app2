@@ -528,9 +528,12 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
     // حساب الرصيد التراكمي
     let runningBalance = 0;
     const finalStatement = statement.map(item => {
+      // إذا كان الرصيد يحسب من البداية، يجب التأكد من تصفير الرصيد أو استخدام الرصيد السابق
       runningBalance += (item.amount - item.paid);
       return { ...item, balance: runningBalance };
     });
+
+    const totalWorkDays = finalStatement.reduce((sum, i) => sum + (parseFloat(i.workDays || 0)), 0);
 
     res.json({
       success: true,
@@ -540,6 +543,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         summary: {
           totalEarned: finalStatement.reduce((sum, i) => sum + i.amount, 0),
           totalPaid: finalStatement.reduce((sum, i) => sum + i.paid, 0),
+          totalWorkDays: totalWorkDays,
           finalBalance: runningBalance
         }
       }

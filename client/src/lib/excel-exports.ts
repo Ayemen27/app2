@@ -149,24 +149,31 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
 
   // 5. صف الإجماليات الذكي
   const totalsRow = worksheet.getRow(currentRow);
-  worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
+  worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
   const totalsLabel = worksheet.getCell(`A${currentRow}`);
   totalsLabel.value = 'إجماليات الحساب النهائية';
   totalsLabel.font = whiteText;
   totalsLabel.alignment = centerAlign;
   totalsLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
 
+  const sumDays = worksheet.getCell(`F${currentRow}`);
   const sumEarned = worksheet.getCell(`H${currentRow}`);
   const sumPaid = worksheet.getCell(`I${currentRow}`);
   const finalBalanceCell = worksheet.getCell(`J${currentRow}`);
+
+  sumDays.value = parseFloat(data.summary.totalWorkDays || 0);
   sumEarned.value = parseFloat(data.summary.totalEarned || 0);
   sumPaid.value = parseFloat(data.summary.totalPaid || 0);
   finalBalanceCell.value = parseFloat(data.summary.finalBalance || 0);
   
-  [sumEarned, sumPaid, finalBalanceCell].forEach(c => {
+  [sumDays, sumEarned, sumPaid, finalBalanceCell].forEach(c => {
     c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
     c.font = whiteText;
-    c.numFmt = '#,##0.00 "ر.ي"';
+    if (c.address.startsWith('F')) {
+      c.numFmt = '#,##0.00';
+    } else {
+      c.numFmt = '#,##0.00 "ر.ي"';
+    }
     c.alignment = centerAlign;
   });
   totalsRow.height = 25;

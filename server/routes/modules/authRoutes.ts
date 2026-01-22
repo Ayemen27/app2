@@ -108,9 +108,21 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       emailVerified: !!user.email_verified_at
     });
 
-    res.json({
+    const responseData = {
       success: true,
       message: 'تم تسجيل الدخول بنجاح',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+        role: user.role || 'user',
+        createdAt: user.created_at,
+        emailVerified: true
+      },
+      tokens: {
+        accessToken: tokenPair.accessToken,
+        refreshToken: tokenPair.refreshToken
+      },
       data: {
         user: {
           id: user.id,
@@ -125,7 +137,9 @@ authRouter.post('/login', async (req: Request, res: Response) => {
           refreshToken: tokenPair.refreshToken
         }
       }
-    });
+    };
+
+    res.json(responseData);
 
   } catch (error: any) {
     console.error('❌ [AUTH] خطأ في تسجيل الدخول:', error);

@@ -206,9 +206,20 @@ export default function AuthPage() {
     onSuccess: async (result: any) => {
       console.log('🎉 [AuthPage.loginMutation] نجح تسجيل الدخول:', result);
       
-      // استخراج بيانات المستخدم مع حماية كاملة ضد القيم الفارغة
+      // استخراج بيانات المستخدم والتوكنات بشكل صحيح من الهيكل الموحد
       const userData = result?.data?.user || result?.user || result;
+      const tokens = result?.data?.tokens || result?.tokens;
       const userName = userData?.name || userData?.fullName || 'مستخدم';
+      
+      if (!userData || !tokens?.accessToken) {
+        console.error('❌ [AuthPage.loginMutation] بيانات المستخدم أو التوكنات مفقودة من الاستجابة:', result);
+        toast({
+          title: "فشل تسجيل الدخول",
+          description: "بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.",
+          variant: "destructive",
+        });
+        return;
+      }
       
       // 🔐 ترقية حاسمة: حفظ بيانات المستخدم في نظام الطوارئ (Offline Login) فوراً
       if (userData && (userData.id || userData.email)) {

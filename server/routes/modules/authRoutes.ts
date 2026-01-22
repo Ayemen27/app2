@@ -328,13 +328,16 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
       console.log('✅ [AUTH] تم تجديد Access Token بنجاح:', { userId: user.id });
 
-      res.json({
-        success: true,
-        message: 'تم تجديد Access Token بنجاح',
-        data: {
-          accessToken: newAccessToken
-        }
-      });
+      const responseData = {
+      success: true,
+      message: 'تم تجديد Access Token بنجاح',
+      accessToken: newAccessToken, // لضمان التوافق مع تطبيق الاندرويد (Flat)
+      data: {
+        accessToken: newAccessToken
+      }
+    };
+
+    res.json(responseData);
 
     } catch (tokenError: any) {
       console.log('❌ [AUTH] Refresh token غير صالح:', tokenError.message);

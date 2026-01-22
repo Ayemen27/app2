@@ -114,16 +114,22 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       message: 'تم تسجيل الدخول بنجاح',
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
-      token: tokenPair.accessToken, // إضافة حقل token لزيادة التوافق
+      token: tokenPair.accessToken,
+      userId: user.id, // إضافة حقول مسطحة إضافية
+      email: user.email,
+      name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+      role: user.role || 'user',
       user: {
         id: user.id,
         email: user.email,
+        userId: user.id, // تكرار المعرف للتوافق
         name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         role: user.role || 'user',
         emailVerified: true
       },
       tokens: {
         accessToken: tokenPair.accessToken,
+        token: tokenPair.accessToken,
         refreshToken: tokenPair.refreshToken
       },
       data: {

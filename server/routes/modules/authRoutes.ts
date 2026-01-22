@@ -112,6 +112,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       success: true,
       status: "success",
       message: 'تم تسجيل الدخول بنجاح',
+      accessToken: tokenPair.accessToken, // For Android compatibility
+      refreshToken: tokenPair.refreshToken,
       data: {
         user: {
           id: user.id,

@@ -123,7 +123,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
       token: tokenPair.accessToken,
-      expiresIn: 900, // 15 minutes in seconds
+      expiresIn: 900,
       id: user.id,
       userId: user.id,
       email: user.email,
@@ -136,17 +136,14 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         role: user.role || 'user',
         emailVerified: true
-      },
-      tokens: {
-        accessToken: tokenPair.accessToken,
-        refreshToken: tokenPair.refreshToken
       }
     };
 
     console.log('📤 [AUTH] إرسال الاستجابة النهائية للعميل:', { 
       userId: user.id, 
       hasAccessToken: !!responseData.accessToken,
-      timestamp: responseData.timestamp 
+      accessTokenPreview: responseData.accessToken.substring(0, 10) + '...',
+      timestamp: new Date().toISOString()
     });
 
     res.json(responseData);

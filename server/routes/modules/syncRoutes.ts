@@ -51,11 +51,13 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/json');
     const response = {
       success: true,
+      status: "success",
+      message: "تم تجهيز البيانات بنجاح",
       data: results,
-      ...results, // لضمان التوافق مع تطبيق الاندرويد (Flat structure)
+      timestamp: new Date().toISOString(),
       metadata: {
         timestamp: Date.now(),
-        version: '1.3-fix-json',
+        version: '1.4-standard-structure',
         duration,
         tablesCount: tables.length
       }

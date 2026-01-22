@@ -143,9 +143,10 @@ financialRouter.get('/fund-transfers', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: transfers,
-      fundTransfers: transfers, // التوافق مع الهيكل المسطح للأندرويد
+      status: "success",
       message: `تم جلب ${transfers.length} تحويل عهدة بنجاح`,
+      data: transfers,
+      timestamp: new Date().toISOString(),
       processingTime: duration
     });
   } catch (error: any) {

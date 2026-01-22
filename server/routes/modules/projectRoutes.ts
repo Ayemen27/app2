@@ -39,9 +39,10 @@ projectRouter.get('/', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
+      status: "success",
+      message: `تم جلب ${projectsList.length} مشروع بنجاح`,
       data: projectsList,
-      projects: projectsList, // التوافق مع الهيكل المسطح للأندرويد
-      message: `تم جلب ${projectsList.length} مشروع بنجاح`
+      timestamp: new Date().toISOString()
     });
   } catch (error: any) {
     console.error('❌ [API] خطأ في جلب المشاريع:', error);

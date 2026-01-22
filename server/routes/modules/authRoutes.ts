@@ -110,19 +110,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     const responseData = {
       success: true,
+      status: "success",
       message: 'تم تسجيل الدخول بنجاح',
-      user: {
-        id: user.id,
-        email: user.email,
-        name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-        role: user.role || 'user',
-        createdAt: user.created_at,
-        emailVerified: true
-      },
-      tokens: {
-        accessToken: tokenPair.accessToken,
-        refreshToken: tokenPair.refreshToken
-      },
       data: {
         user: {
           id: user.id,
@@ -136,7 +125,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
           accessToken: tokenPair.accessToken,
           refreshToken: tokenPair.refreshToken
         }
-      }
+      },
+      timestamp: new Date().toISOString()
     };
 
     res.json(responseData);

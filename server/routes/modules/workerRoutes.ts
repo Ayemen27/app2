@@ -57,9 +57,10 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
 
     res.json({ 
       success: true, 
+      status: "success",
+      message: `تم جلب ${workersList.length} عامل بنجاح`,
       data: workersList, 
-      workers: workersList, // التوافق مع الهيكل المسطح للأندرويد
-      message: `تم جلب ${workersList.length} عامل بنجاح` 
+      timestamp: new Date().toISOString()
     });
   } catch (error: any) {
     console.error('❌ [API] خطأ في جلب العمال:', error);

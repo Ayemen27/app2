@@ -221,20 +221,24 @@ export default function AuthPage() {
       const userName = userData?.name || userData?.fullName || 'مستخدم';
       
       // التحقق مما إذا كان لدينا توكن (سواء من الاستجابة أو من التخزين المحلي)
-      if (!tokens?.accessToken) {
+      if (!tokens?.accessToken && !result?.token && !result?.accessToken) {
         console.error('❌ [AuthPage.loginMutation] التوكن مفقود:', { result, savedAccessToken });
         toast({
           title: "فشل تسجيل الدخول",
-          description: "رمز الدخول مفقود. يرجى المحاولة مرة أخرى.",
+          description: "رمز الدخول مفقود من استجابة الخادم. يرجى التواصل مع الدعم الفني.",
           variant: "destructive",
         });
         return;
       }
       
+      const finalAccessToken = tokens?.accessToken || result?.token || result?.accessToken || savedAccessToken;
+
       // حفظ التوكنات يدوياً كاحتياط إضافي إذا لم يقم AuthProvider بذلك
-      if (tokens.accessToken) {
-        localStorage.setItem('accessToken', tokens.accessToken);
-        if (tokens.refreshToken) localStorage.setItem('refreshToken', tokens.refreshToken);
+      if (finalAccessToken) {
+        localStorage.setItem('accessToken', finalAccessToken);
+        if (tokens?.refreshToken || result?.refreshToken) {
+          localStorage.setItem('refreshToken', tokens?.refreshToken || result?.refreshToken);
+        }
         if (userData) localStorage.setItem('user', JSON.stringify(userData));
       }
 

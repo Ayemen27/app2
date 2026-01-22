@@ -112,20 +112,21 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       success: true,
       status: "success",
       message: 'تم تسجيل الدخول بنجاح',
-      accessToken: tokenPair.accessToken, // For Android compatibility
+      accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
-      user: { // Flat structure for compatibility
+      token: tokenPair.accessToken, // إضافة حقل token لزيادة التوافق
+      user: {
         id: user.id,
         email: user.email,
         name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         role: user.role || 'user',
         emailVerified: true
       },
-      tokens: { // Some clients expect tokens here
+      tokens: {
         accessToken: tokenPair.accessToken,
         refreshToken: tokenPair.refreshToken
       },
-      data: { // Standard structure for Web frontend
+      data: {
         user: {
           id: user.id,
           email: user.email,

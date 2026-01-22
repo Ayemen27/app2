@@ -122,7 +122,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       message: 'تم تسجيل الدخول بنجاح',
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
-      token: tokenPair.accessToken, // Some apps use 'token'
+      token: tokenPair.accessToken,
+      expiresIn: 900, // 15 minutes in seconds
       id: user.id,
       userId: user.id,
       email: user.email,
@@ -139,22 +140,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       tokens: {
         accessToken: tokenPair.accessToken,
         refreshToken: tokenPair.refreshToken
-      },
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-          role: user.role || 'user',
-          createdAt: user.created_at,
-          emailVerified: true
-        },
-        tokens: {
-          accessToken: tokenPair.accessToken,
-          refreshToken: tokenPair.refreshToken
-        }
-      },
-      timestamp: new Date().toISOString()
+      }
     };
 
     console.log('📤 [AUTH] إرسال الاستجابة النهائية للعميل:', { 
@@ -348,34 +334,41 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
       const user = userResult.rows[0] as any;
 
-      // إنشاء access token جديد
-      const newAccessToken = generateAccessToken({
-        userId: String(user.id),
-        email: String(user.email),
-        role: String(user.role || 'user')
-      });
+      // إنشاء رموز جديدة (تدوير الرموز)
+      const tokenPair = await generateTokenPair(
+        String(user.id),
+        String(user.email),
+        String(user.role || 'user'),
+        req.ip,
+        req.get('user-agent'),
+        { deviceId: 'mobile-rotation' }
+      );
 
-      console.log('✅ [AUTH] تم تجديد Access Token بنجاح:', { userId: user.id });
+      console.log('✅ [AUTH] تم تجديد الرموز بنجاح (تدوير):', { userId: user.id });
 
-      // إذا كان الطلب من الويب (بواسطة الكوكيز)، نقوم بتحديث الكوكي أيضاً إذا رغبنا في تدويره
+      // إذا كان الطلب من الويب (بواسطة الكوكيز)، نقوم بتحديث الكوكي أيضاً
       if (cookieToken) {
-        res.cookie('refreshToken', refreshToken, {
+        res.cookie('refreshToken', tokenPair.refreshToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
-          maxAge: 90 * 24 * 60 * 60 * 1000
+          maxAge: 30 * 24 * 60 * 60 * 1000
         });
       }
 
       const responseData = {
-      success: true,
-      message: 'تم تجديد Access Token بنجاح',
-      accessToken: newAccessToken, 
-      refreshToken: !cookieToken ? refreshToken : undefined, // إرجاعه للموبايل فقط إذا لم يكن كوكيز
-      data: {
-        accessToken: newAccessToken
-      }
-    };
+        success: true,
+        message: 'تم تجديد الرموز بنجاح',
+        accessToken: tokenPair.accessToken,
+        refreshToken: tokenPair.refreshToken,
+        expiresIn: 900,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          role: user.role || 'user'
+        }
+      };
 
     res.json(responseData);
 

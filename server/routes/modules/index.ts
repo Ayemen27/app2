@@ -94,7 +94,6 @@ export function registerOrganizedRoutes(app: Express) {
   app.use(globalErrorHandler);
 
   console.log('✅ [OrganizedRoutes] تم تسجيل جميع المسارات المنظمة بنجاح');
-}
 
   // طباعة ملخص المسارات المسجلة
   const routeSummary = {

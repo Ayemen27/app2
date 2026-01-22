@@ -455,44 +455,77 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
  * POST /api/auth/resend-verification
  */
 authRouter.post('/resend-verification', async (req: Request, res: Response) => {
+  // ... existing code
+});
+
+/**
+ * 🔍 التحقق من صحة حقل (البريد الإلكتروني أو كلمة المرور)
+ * POST /api/auth/validate-field
+ */
+authRouter.post('/validate-field', async (req: Request, res: Response) => {
   try {
-    console.log('🔄 [AUTH] طلب إعادة إرسال رمز التحقق');
+    const { field, value, context } = req.body;
 
-    const { userId, email } = req.body;
+    if (field === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!value || !emailRegex.test(value)) {
+        return res.json({
+          success: true,
+          isValid: false,
+          message: 'تنسيق البريد الإلكتروني غير صحيح'
+        });
+      }
 
-    if (!userId || !email) {
-      return res.status(400).json({
-        success: false,
-        message: 'معرف المستخدم والبريد الإلكتروني مطلوبان'
+      // التحقق من وجود البريد في قاعدة البيانات إذا كان السياق هو التسجيل
+      if (context === 'register') {
+        const existingUser = await db.execute(sql`
+          SELECT id FROM users WHERE LOWER(email) = LOWER(${value})
+        `);
+
+        if (existingUser.rows.length > 0) {
+          return res.json({
+            success: true,
+            isValid: false,
+            message: 'هذا البريد الإلكتروني مسجل مسبقاً'
+          });
+        }
+      }
+
+      return res.json({
+        success: true,
+        isValid: true,
+        message: 'البريد الإلكتروني متاح وصحيح'
       });
     }
 
-    // إرسال رمز تحقق جديد في الخلفية (بدون انتظار)
-    void sendVerificationEmail(
-      userId,
-      email,
-      req.ip,
-      req.get('user-agent')
-    ).then(result => {
-      console.log('✅ [AUTH] تم إعادة إرسال رمز التحقق بنجاح:', { userId, email, success: result.success });
-    }).catch(error => {
-      console.error('❌ [AUTH] فشل في إعادة إرسال رمز التحقق:', error);
-    });
+    if (field === 'password') {
+      if (!value || value.length < 8) {
+        return res.json({
+          success: true,
+          isValid: false,
+          message: 'كلمة المرور قصيرة جداً (8 أحرف على الأقل)',
+          strength: 1
+        });
+      }
 
-    // الرد فوراً دون انتظار
-    console.log('🚀 [AUTH] تم استلام طلب إعادة الإرسال، سيتم الإرسال في الخلفية');
-    res.json({
-      success: true,
-      message: 'تم استلام طلبك. سيتم إرسال رمز التحقق إلى بريدك الإلكتروني خلال لحظات'
-    });
+      let strength = 0;
+      if (value.length >= 8) strength++;
+      if (/[A-Z]/.test(value)) strength++;
+      if (/[a-z]/.test(value)) strength++;
+      if (/\d/.test(value)) strength++;
+      
+      return res.json({
+        success: true,
+        isValid: true,
+        message: strength >= 3 ? 'كلمة مرور قوية' : 'كلمة مرور مقبولة',
+        strength: Math.min(strength, 4)
+      });
+    }
 
+    return res.status(400).json({ success: false, message: 'حقل غير مدعوم' });
   } catch (error: any) {
-    console.error('❌ [AUTH] خطأ في إعادة إرسال رمز التحقق:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطأ في الخادم أثناء إعادة الإرسال',
-      error: error.message
-    });
+    console.error('❌ [AUTH] خطأ في التحقق من الحقل:', error);
+    res.status(500).json({ success: false, message: 'خطأ في الخادم' });
   }
 });
 

@@ -57,7 +57,7 @@ const useInteractiveValidation = (
     }
 
     // التحقق المحلي أولاً
-    if (validator && !fieldType) {
+    if (validator) {
       setValidation(prev => ({ ...prev, isValidating: true }));
       
       const timeoutId = setTimeout(() => {
@@ -70,6 +70,19 @@ const useInteractiveValidation = (
 
     // التحقق مع الخادم للحقول المدعومة
     if (fieldType && (fieldType === 'email' || fieldType === 'password')) {
+      // التحقق المحلي السريع أولاً قبل طلب الخادم
+      if (fieldType === 'email') {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (value && !emailRegex.test(value)) {
+          setValidation({
+            isValid: false,
+            message: 'تنسيق البريد الإلكتروني غير صحيح',
+            isValidating: false
+          });
+          return;
+        }
+      }
+
       setValidation(prev => ({ ...prev, isValidating: true }));
       
       const timeoutId = setTimeout(async () => {

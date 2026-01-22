@@ -206,9 +206,11 @@ export default function AuthPage() {
     onSuccess: async (result: any) => {
       console.log('🎉 [AuthPage.loginMutation] نجح تسجيل الدخول:', result);
       
-      // استخراج بيانات المستخدم والتوكنات بشكل صحيح من الهيكل الموحد
-      const userData = result?.data?.user || result?.user || result;
-      const tokens = result?.data?.tokens || result?.tokens;
+      // استخراج بيانات المستخدم والتوكنات بشكل صحيح من الهيكل القياسي العالمي
+      // نتحقق من وجود "data" أو استخدام الجذر مباشرة لضمان التوافق
+      const apiData = result?.data || result;
+      const userData = apiData?.user || result?.user;
+      const tokens = apiData?.tokens || result?.tokens;
       const userName = userData?.name || userData?.fullName || 'مستخدم';
       
       if (!userData || !tokens?.accessToken) {

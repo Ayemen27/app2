@@ -455,7 +455,45 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
  * POST /api/auth/resend-verification
  */
 authRouter.post('/resend-verification', async (req: Request, res: Response) => {
-  // ... existing code
+  try {
+    console.log('🔄 [AUTH] طلب إعادة إرسال رمز التحقق');
+
+    const { userId, email } = req.body;
+
+    if (!userId || !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'معرف المستخدم والبريد الإلكتروني مطلوبان'
+      });
+    }
+
+    // إرسال رمز تحقق جديد في الخلفية (بدون انتظار)
+    void sendVerificationEmail(
+      userId,
+      email,
+      req.ip,
+      req.get('user-agent')
+    ).then(result => {
+      console.log('✅ [AUTH] تم إعادة إرسال رمز التحقق بنجاح:', { userId, email, success: result.success });
+    }).catch(error => {
+      console.error('❌ [AUTH] فشل في إعادة إرسال رمز التحقق:', error);
+    });
+
+    // الرد فوراً دون انتظار
+    console.log('🚀 [AUTH] تم استلام طلب إعادة الإرسال، سيتم الإرسال في الخلفية');
+    res.json({
+      success: true,
+      message: 'تم استلام طلبك. سيتم إرسال رمز التحقق إلى بريدك الإلكتروني خلال لحظات'
+    });
+
+  } catch (error: any) {
+    console.error('❌ [AUTH] خطأ في إعادة إرسال رمز التحقق:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في الخادم أثناء إعادة الإرسال',
+      error: error.message
+    });
+  }
 });
 
 /**

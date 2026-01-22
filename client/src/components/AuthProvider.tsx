@@ -345,6 +345,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     prefetchCoreData().catch(console.warn);
 
     console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');
+    return result;
   };
 
   // تسجيل الخروج

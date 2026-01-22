@@ -206,18 +206,23 @@ export default function AuthPage() {
     onSuccess: async (result: any) => {
       console.log('🎉 [AuthPage.loginMutation] نجح تسجيل الدخول:', result);
       
-      // استخراج البيانات بمرونة عالية (Flexible extraction)
-      const userData = result?.user || result?.data?.user;
+      // إذا نجح AuthProvider في تسجيل الدخول، فقد نجد البيانات في localStorage بالفعل
+      const savedAccessToken = localStorage.getItem('accessToken');
+      const savedUserStr = localStorage.getItem('user');
+      const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+
+      // استخراج البيانات بمرونة عالية
+      const userData = result?.user || result?.data?.user || savedUser;
       const tokens = result?.tokens || result?.data?.tokens || { 
-        accessToken: result?.accessToken, 
-        refreshToken: result?.refreshToken 
+        accessToken: result?.accessToken || savedAccessToken, 
+        refreshToken: result?.refreshToken || localStorage.getItem('refreshToken')
       };
       
       const userName = userData?.name || userData?.fullName || 'مستخدم';
       
-      // التحقق الأساسي فقط لضمان المرونة
+      // التحقق مما إذا كان لدينا توكن (سواء من الاستجابة أو من التخزين المحلي)
       if (!tokens?.accessToken) {
-        console.error('❌ [AuthPage.loginMutation] التوكن مفقود من الاستجابة:', result);
+        console.error('❌ [AuthPage.loginMutation] التوكن مفقود:', { result, savedAccessToken });
         toast({
           title: "فشل تسجيل الدخول",
           description: "رمز الدخول مفقود. يرجى المحاولة مرة أخرى.",

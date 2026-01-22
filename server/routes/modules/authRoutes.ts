@@ -95,11 +95,19 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     const tokenPair = await generateTokenPair(
       String(user.id),
       String(user.email),
-      'user', // افتراضي
+      String(user.role || 'user'),
       req.ip,
       req.get('user-agent'),
       { deviceId: 'web-browser' }
     );
+
+    // تعيين Refresh Token في Cookie محمية (للوقت الحالي ونسخة الويب)
+    res.cookie('refreshToken', tokenPair.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 90 * 24 * 60 * 60 * 1000 // 90 يوم
+    });
 
     console.log('✅ [AUTH] تم تسجيل الدخول بنجاح:', { 
       userId: user.id, 
@@ -255,6 +263,9 @@ authRouter.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: R
 
     // في المستقبل يمكن إضافة blacklist للـ tokens
     // أو إلغاء refresh token من قاعدة البيانات
+    
+    // مسح الكوكيز عند تسجيل الخروج
+    res.clearCookie('refreshToken');
 
     res.json({
       success: true,
@@ -279,7 +290,9 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
   try {
     console.log('🔄 [AUTH] طلب تجديد Access Token');
 
-    const { refreshToken } = req.body;
+    const { refreshToken: bodyToken } = req.body;
+    const cookieToken = req.cookies?.refreshToken;
+    const refreshToken = cookieToken || bodyToken;
 
     if (!refreshToken) {
       return res.status(401).json({
@@ -308,7 +321,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
       // البحث عن المستخدم مرة أخرى للتأكد
       const userResult = await db.execute(sql`
-        SELECT id, email, first_name, last_name, created_at
+        SELECT id, email, role, first_name, last_name, created_at
         FROM users 
         WHERE id = ${decoded.userId || decoded.id}
       `);
@@ -326,15 +339,26 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
       const newAccessToken = generateAccessToken({
         userId: String(user.id),
         email: String(user.email),
-        role: 'user'
+        role: String(user.role || 'user')
       });
 
       console.log('✅ [AUTH] تم تجديد Access Token بنجاح:', { userId: user.id });
 
+      // إذا كان الطلب من الويب (بواسطة الكوكيز)، نقوم بتحديث الكوكي أيضاً إذا رغبنا في تدويره
+      if (cookieToken) {
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 90 * 24 * 60 * 60 * 1000
+        });
+      }
+
       const responseData = {
       success: true,
       message: 'تم تجديد Access Token بنجاح',
-      accessToken: newAccessToken, // لضمان التوافق مع تطبيق الاندرويد (Flat)
+      accessToken: newAccessToken, 
+      refreshToken: !cookieToken ? refreshToken : undefined, // إرجاعه للموبايل فقط إذا لم يكن كوكيز
       data: {
         accessToken: newAccessToken
       }

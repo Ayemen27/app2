@@ -160,10 +160,15 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       token = authHeader.substring(7);
     } else if (req.headers['x-auth-token']) {
       token = req.headers['x-auth-token'] as string;
-    } else if (req.cookies?.token) {
-      token = req.cookies.token;
+    } else if (req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
     } else if (req.query?.token) {
       token = req.query.token as string;
+    }
+
+    // محاولة استخراج التوكن من الهيدر الأساسي في بعض حالات الموبايل
+    if (!token && req.headers['token']) {
+      token = req.headers['token'] as string;
     }
 
     // سجل إضافي لتشخيص مشاكل الموبايل

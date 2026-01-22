@@ -141,8 +141,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     console.log('📤 [AUTH] إرسال الاستجابة النهائية للعميل:', { 
       userId: user.id, 
-      hasAccessToken: !!responseData.accessToken,
-      accessTokenPreview: responseData.accessToken.substring(0, 10) + '...',
+      accessToken: tokenPair.accessToken,
+      refreshToken: tokenPair.refreshToken,
       timestamp: new Date().toISOString()
     });
 

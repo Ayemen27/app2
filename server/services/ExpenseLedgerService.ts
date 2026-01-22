@@ -121,22 +121,20 @@ export class ExpenseLedgerService {
         prevDateFilter = sql`AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) < ${startDateStr}::date`;
       }
 
-      // تم تصحيح منطق حساب الرصيد المرحل ليكون أكثر دقة ويمنع الازدواجية
       const [prevIncome, prevExpenses] = isCumulative ? [
         { rows: [{ total: 0 }] },
         { rows: [{ total: 0 }] }
       ] : await Promise.all([
         db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
-          FROM (
-            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END) < ${startDateStr}::date
+          WITH prev_income AS (
+            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId} AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END) < ${startDateStr}::date
-          ) as prev_income
+            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
+          )
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM prev_income
         `),
         db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
-          FROM (
+          WITH prev_expenses AS (
             SELECT 
               CASE 
                 WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL)
@@ -144,18 +142,19 @@ export class ExpenseLedgerService {
                 ELSE 0
               END as amount 
             FROM material_purchases 
-            WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CASE WHEN purchase_date IS NULL OR purchase_date = '' THEN NULL ELSE purchase_date::date END) < ${startDateStr}::date
+            WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date < ${startDateStr}::date
             UNION ALL
-            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND (CASE WHEN attendance_date IS NULL OR attendance_date = '' THEN NULL ELSE attendance_date::date END) < ${startDateStr}::date AND CAST(paid_amount AS DECIMAL) > 0
+            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND attendance_date::date < ${startDateStr}::date AND CAST(paid_amount AS DECIMAL) > 0
             UNION ALL
-            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND (CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) < ${startDateStr}::date
+            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND date::date < ${startDateStr}::date
             UNION ALL
-            SELECT amount FROM worker_transfers WHERE project_id = ${projectId} AND (CASE WHEN transfer_date IS NULL OR transfer_date = '' THEN NULL ELSE transfer_date::date END) < ${startDateStr}::date
+            SELECT amount FROM worker_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
             UNION ALL
-            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId} AND (CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) < ${startDateStr}::date
+            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId} AND date::date < ${startDateStr}::date
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId} AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END) < ${startDateStr}::date
-          ) as prev_expenses
+            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
+          )
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM prev_expenses
         `)
       ]);
 

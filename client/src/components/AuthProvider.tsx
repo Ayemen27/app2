@@ -300,29 +300,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     setUser(userToSave);
 
-    // 3. بدء مزامنة البيانات (دون انتظار انتهاء العملية)
+    // 3. بدء مزامنة البيانات (دون انتظار انتهاء العملية وبحماية شاملة)
     const performInitialDataPull = async () => {
       try {
+        console.log('🔄 [AuthProvider] محاولة بدء المزامنة...');
         const syncModule = await import('../offline/sync');
-        // @ts-ignore - التحقق من وجود الدالة ديناميكياً
-        if (syncModule.startSync) {
-          await syncModule.startSync();
-        } else if ((syncModule as any).default && (syncModule as any).default.startSync) {
-          await (syncModule as any).default.startSync();
+        const startSync = syncModule.startSync || (syncModule as any).default?.startSync;
+        if (typeof startSync === 'function') {
+          await startSync();
         }
       } catch (err) {
-        console.error('Error in initial pull:', err);
+        console.warn('⚠️ [AuthProvider] فشل المزامنة الأولية، سيتم المتابعة:', err);
       }
     };
 
+    // تشغيل المزامنة في الخلفية
     performInitialDataPull().then(() => {
-      console.log('✅ [AuthProvider] اكتمل سحب البيانات الأولي');
+      console.log('✅ [AuthProvider] اكتملت محاولة المزامنة');
       queryClient.invalidateQueries();
-    }).catch(err => {
-      console.error('❌ [AuthProvider] فشل سحب البيانات الأولي:', err);
-    });
+    }).catch(() => {});
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 50));
     prefetchCoreData().catch(console.warn);
 
     console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');

@@ -22,7 +22,7 @@ import activityRouter from './activityRoutes.js';
 import aiRouter from './aiRoutes.js';
 import syncRouter from './syncRoutes.js';
 import securityRouter from './securityRoutes.js'; // إضافة مسارات الأمان
-// authRouter moved to main routes/auth.ts to avoid duplication
+import { globalErrorHandler } from '../../middleware/api-response.js';
 
 /**
  * تسجيل جميع الـ routers المنظمة
@@ -90,7 +90,11 @@ export function registerOrganizedRoutes(app: Express) {
   app.use('/api/security', securityRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الأمان: /api/security');
 
+  // تفعيل معالج الأخطاء العالمي في النهاية لجميع المسارات المسجلة أعلاه
+  app.use(globalErrorHandler);
+
   console.log('✅ [OrganizedRoutes] تم تسجيل جميع المسارات المنظمة بنجاح');
+}
 
   // طباعة ملخص المسارات المسجلة
   const routeSummary = {

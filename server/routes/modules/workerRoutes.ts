@@ -47,29 +47,14 @@ workerRouter.use(requireAuth);
  * 👷 جلب قائمة العمال
  * GET /api/workers
  */
+import { sendSuccess, sendError } from '../../middleware/api-response.js';
+
 workerRouter.get('/workers', async (req: Request, res: Response) => {
   try {
-    console.log('👷 [API] جلب قائمة العمال من قاعدة البيانات');
-
     const workersList = await db.select().from(workers).orderBy(workers.createdAt);
-
-    console.log(`✅ [API] تم جلب ${workersList.length} عامل من قاعدة البيانات`);
-
-    res.json({ 
-      success: true, 
-      status: "success",
-      message: `تم جلب ${workersList.length} عامل بنجاح`,
-      data: workersList, 
-      timestamp: new Date().toISOString()
-    });
+    return sendSuccess(res, workersList, `تم جلب ${workersList.length} عامل بنجاح`);
   } catch (error: any) {
-    console.error('❌ [API] خطأ في جلب العمال:', error);
-    res.status(500).json({ 
-      success: false, 
-      data: [], 
-      error: error.message,
-      message: "فشل في جلب قائمة العمال" 
-    });
+    return sendError(res, "فشل في جلب قائمة العمال", 500, [{ message: error.message }]);
   }
 });
 

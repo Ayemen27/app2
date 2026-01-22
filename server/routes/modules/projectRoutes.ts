@@ -29,29 +29,14 @@ projectRouter.use(requireAuth);
  * 📊 جلب قائمة المشاريع
  * GET /api/projects
  */
+import { sendSuccess, sendError } from '../../middleware/api-response.js';
+
 projectRouter.get('/', async (req: Request, res: Response) => {
   try {
-    console.log('📊 [API] جلب قائمة المشاريع من قاعدة البيانات');
-
     const projectsList = await db.select().from(projects).orderBy(projects.createdAt);
-
-    console.log(`✅ [API] تم جلب ${projectsList.length} مشروع من قاعدة البيانات`);
-
-    res.json({
-      success: true,
-      status: "success",
-      message: `تم جلب ${projectsList.length} مشروع بنجاح`,
-      data: projectsList,
-      timestamp: new Date().toISOString()
-    });
+    return sendSuccess(res, projectsList, `تم جلب ${projectsList.length} مشروع بنجاح`);
   } catch (error: any) {
-    console.error('❌ [API] خطأ في جلب المشاريع:', error);
-    res.status(500).json({
-      success: false,
-      data: [],
-      error: error.error,
-      message: "فشل في جلب قائمة المشاريع"
-    });
+    return sendError(res, "فشل في جلب قائمة المشاريع", 500, [{ message: error.message }]);
   }
 });
 

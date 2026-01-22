@@ -24,6 +24,8 @@ financialRouter.use(requireAuth);
  * Unified Financial Summary - Single Source of Truth
  * GET /api/financial-summary
  */
+import { sendSuccess, sendError } from '../../middleware/api-response.js';
+
 financialRouter.get('/financial-summary', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
@@ -46,15 +48,7 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
         cleanDateTo
       );
 
-      const duration = Date.now() - startTime;
-      console.log(`✅ [API] تم جلب الملخص المالي للمشروع ${projectId} في ${duration}ms`);
-
-      res.json({
-        success: true,
-        data: summary,
-        message: 'تم جلب الملخص المالي بنجاح',
-        processingTime: duration
-      });
+      return sendSuccess(res, summary, 'تم جلب الملخص المالي بنجاح', { processingTime: Date.now() - startTime });
     } else {
       const summaries = await ExpenseLedgerService.getAllProjectsStats(
         cleanDate,
@@ -84,29 +78,14 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
         carriedForwardBalance: 0
       });
 
-      const duration = Date.now() - startTime;
-      console.log(`✅ [API] تم جلب الملخص المالي لجميع المشاريع (${summaries.length}) في ${duration}ms`);
-
-      res.json({
-        success: true,
-        data: {
-          projects: summaries,
-          totals: totalSummary,
-          projectsCount: summaries.length
-        },
-        message: `تم جلب الملخص المالي لـ ${summaries.length} مشروع`,
-        processingTime: duration
-      });
+      return sendSuccess(res, {
+        projects: summaries,
+        totals: totalSummary,
+        projectsCount: summaries.length
+      }, `تم جلب الملخص المالي لـ ${summaries.length} مشروع`, { processingTime: Date.now() - startTime });
     }
   } catch (error: any) {
-    const duration = Date.now() - startTime;
-    console.error('❌ [API] خطأ في جلب الملخص المالي:', error);
-    res.status(500).json({
-      success: false,
-      error: 'فشل في جلب الملخص المالي',
-      message: error.message,
-      processingTime: duration
-    });
+    return sendError(res, 'فشل في جلب الملخص المالي', 500, [{ message: error.message }]);
   }
 });
 

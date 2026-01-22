@@ -264,17 +264,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const responseData = result?.data || result;
     const userData = responseData?.user || result?.user;
     
-    const tokenData = responseData?.tokens?.accessToken || 
-                     result?.tokens?.accessToken ||
-                     responseData?.accessToken || 
-                     result?.accessToken ||
-                     result?.data?.accessToken;
+    // دعم جميع أشكال التوكنات الممكنة بمرونة قصوى
+    let tokenData = responseData?.tokens?.accessToken || 
+                    result?.tokens?.accessToken ||
+                    responseData?.accessToken || 
+                    result?.accessToken ||
+                    result?.data?.accessToken ||
+                    responseData?.token ||
+                    result?.token;
                      
-    const refreshTokenData = responseData?.tokens?.refreshToken || 
-                            result?.tokens?.refreshToken ||
-                            responseData?.refreshToken || 
-                            result?.refreshToken ||
-                            result?.data?.refreshToken;
+    let refreshTokenData = responseData?.tokens?.refreshToken || 
+                           result?.tokens?.refreshToken ||
+                           responseData?.refreshToken || 
+                           result?.refreshToken ||
+                           result?.data?.refreshToken;
+
+    // إذا كان التوكن مفقوداً، نحاول استخراجه من استجابة السيرفر المباشرة إذا كانت موجودة
+    if (!tokenData && result && typeof result === 'object') {
+       // البحث عن أي حقل يشبه التوكن
+       const possibleTokenKeys = ['accessToken', 'token', 'jwt', 'auth_token'];
+       for (const key of possibleTokenKeys) {
+         if (result[key]) {
+           tokenData = result[key];
+           break;
+         }
+       }
+    }
+
+    console.log('🛡️ [AuthProvider.login] فحص البيانات المستخرجة:', { 
+      hasUser: !!userData, 
+      hasToken: !!tokenData,
+      tokenType: typeof tokenData
+    });
 
     if (!tokenData) {
       console.error('❌ [AuthProvider.login] التوكن مفقود من الاستجابة:', result);

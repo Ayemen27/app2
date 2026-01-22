@@ -115,14 +115,14 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
       token: tokenPair.accessToken,
-      userId: user.id, // إضافة حقول مسطحة إضافية
+      userId: user.id,
       email: user.email,
       name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
       role: user.role || 'user',
       user: {
         id: user.id,
         email: user.email,
-        userId: user.id, // تكرار المعرف للتوافق
+        userId: user.id,
         name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         role: user.role || 'user',
         emailVerified: true
@@ -147,6 +147,13 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         }
       }
     };
+
+    // تسجيل الاستجابة النهائية للتأكد من وصولها للسجلات
+    console.log('📤 [AUTH] إرسال الاستجابة النهائية للعميل:', { 
+      userId: responseData.userId, 
+      hasToken: !!responseData.token,
+      timestamp: new Date().toISOString() 
+    });
 
     res.json(responseData);
 

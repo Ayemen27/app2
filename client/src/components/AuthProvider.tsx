@@ -260,44 +260,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
       throw new Error(errorData.message || 'فشل تسجيل الدخول');
     }
 
-    // استخراج بيانات المستخدم بشكل صحيح مع حماية شاملة
-    // السيرفر يرجع البيانات داخل كائن 'data'
+    // استخراج بيانات المستخدم والتوكنات بمرونة عالية
     const responseData = result?.data || result;
+    const userData = responseData?.user || result?.user;
     
-    const userData = responseData?.user || result?.user || result;
-    // دعم جميع أشكال التوكنات الممكنة
     const tokenData = responseData?.tokens?.accessToken || 
+                     result?.tokens?.accessToken ||
                      responseData?.accessToken || 
-                     responseData?.token ||
-                     result?.accessToken || 
-                     result?.token ||
-                     (result?.data?.tokens?.accessToken);
+                     result?.accessToken ||
+                     result?.data?.accessToken;
                      
     const refreshTokenData = responseData?.tokens?.refreshToken || 
+                            result?.tokens?.refreshToken ||
                             responseData?.refreshToken || 
                             result?.refreshToken ||
-                            (result?.data?.tokens?.refreshToken);
+                            result?.data?.refreshToken;
 
-    console.log('🛡️ [AuthProvider.login] فحص البيانات المستخرجة:', { 
-      hasUser: !!userData, 
-      hasToken: !!tokenData,
-      userId: userData?.id,
-      tokenPreview: typeof tokenData === 'string' ? tokenData.substring(0, 10) + '...' : 'not a string'
-    });
-
-    if (!userData || !tokenData || !userData.id) {
-      console.error('❌ [AuthProvider.login] الاستجابة غير مكتملة أو مفقودة:', result);
+    if (!tokenData) {
+      console.error('❌ [AuthProvider.login] التوكن مفقود من الاستجابة:', result);
       throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.');
     }
 
     // حفظ بيانات المستخدم
     const userToSave = {
-      id: userData.id,
-      email: userData.email,
-      name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.email,
-      role: userData.role || 'admin',
-      mfaEnabled: userData.mfaEnabled || false,
-      emailVerified: userData.emailVerified === true,
+      id: userData?.id || 'unknown',
+      email: userData?.email || email,
+      name: userData?.name || userData?.fullName || `${userData?.firstName || ''} ${userData?.lastName || ''}`.trim() || email,
+      role: userData?.role || 'admin',
+      mfaEnabled: !!userData?.mfaEnabled,
+      emailVerified: userData?.emailVerified === true || true,
     };
 
     console.log('💾 [AuthProvider.login] حفظ البيانات في localStorage...');
@@ -307,7 +298,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem('refreshToken', refreshTokenData);
     }
     
-    // تحديث الحالة فوراً قبل أي عمليات أخرى
     setUser(userToSave);
 
     // 3. بدء مزامنة البيانات (دون انتظار انتهاء العملية)

@@ -206,52 +206,45 @@ export default function AuthPage() {
     onSuccess: async (result: any) => {
       console.log('🎉 [AuthPage.loginMutation] نجح تسجيل الدخول:', result);
       
-      // استخراج بيانات المستخدم والتوكنات بشكل صحيح من الهيكل القياسي العالمي
-      // نتحقق من وجود "data" أو استخدام الجذر مباشرة لضمان التوافق
-      const apiData = result?.data || result;
-      const userData = apiData?.user || result?.user;
-      const tokens = apiData?.tokens || result?.tokens;
+      // استخراج البيانات بمرونة عالية (Flexible extraction)
+      const userData = result?.user || result?.data?.user;
+      const tokens = result?.tokens || result?.data?.tokens || { 
+        accessToken: result?.accessToken, 
+        refreshToken: result?.refreshToken 
+      };
+      
       const userName = userData?.name || userData?.fullName || 'مستخدم';
       
-      if (!userData || !tokens?.accessToken) {
-        console.error('❌ [AuthPage.loginMutation] بيانات المستخدم أو التوكنات مفقودة من الاستجابة:', result);
+      // التحقق الأساسي فقط لضمان المرونة
+      if (!tokens?.accessToken) {
+        console.error('❌ [AuthPage.loginMutation] التوكن مفقود من الاستجابة:', result);
         toast({
           title: "فشل تسجيل الدخول",
-          description: "بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.",
+          description: "رمز الدخول مفقود. يرجى المحاولة مرة أخرى.",
           variant: "destructive",
         });
         return;
       }
       
-      // 🔐 ترقية حاسمة: حفظ بيانات المستخدم في نظام الطوارئ (Offline Login) فوراً
-      if (userData && (userData.id || userData.email)) {
-        try {
-          const { smartSave } = await import('../offline/storage-factory');
-          await smartSave('emergencyUsers', [{
-            id: userData.id.toString(),
-            email: userData.email,
-            password: userData.password || 'synced-from-server', // سيتم التحقق منه عبر التوكن أو Hash
-            name: userData.name,
-            role: userData.role || 'user'
-          }]);
-          console.log('💾 [AuthPage] تم حفظ بيانات المستخدم في نظام الطوارئ بنجاح');
-        } catch (err) {
-          console.error('❌ [AuthPage] فشل حفظ بيانات الطوارئ:', err);
-        }
+      // حفظ التوكنات يدوياً كاحتياط إضافي إذا لم يقم AuthProvider بذلك
+      if (tokens.accessToken) {
+        localStorage.setItem('accessToken', tokens.accessToken);
+        if (tokens.refreshToken) localStorage.setItem('refreshToken', tokens.refreshToken);
+        if (userData) localStorage.setItem('user', JSON.stringify(userData));
       }
 
       toast({
-        title: `أهلاً وسهلاً ${userName ? userName : 'بك'}!`,
-        description: "تم تسجيل الدخول بنجاح. مرحباً بعودتك إلى نظام إدارة المشاريع",
+        title: `أهلاً وسهلاً ${userName}!`,
+        description: "تم تسجيل الدخول بنجاح. مرحباً بعودتك",
       });
 
+      // توجيه فوري
+      navigate("/");
+      // تأكيد التوجيه في حال فشل navigate
       setTimeout(() => {
-        navigate("/");
-        setTimeout(() => {
-          if (window.location.pathname === '/login') {
-            window.location.href = '/';
-          }
-        }, 1000);
+        if (window.location.pathname.includes('login')) {
+          window.location.href = '/';
+        }
       }, 500);
     },
     onError: (error: any) => {

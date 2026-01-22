@@ -183,37 +183,8 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: {
-        project: projectInfo[0] || null,
-        date: dateStr,
-        summary: {
-          totalWorkers: attendanceData.length,
-          totalWorkDays,
-          totalWorkerWages,
-          totalPaidWages,
-          totalMaterials,
-          totalTransport,
-          totalMiscExpenses,
-          totalTransfers,
-          totalFundTransfers,
-          totalExpenses,
-          balance
-        },
-        kpis: {
-          averageWagePerDay: totalWorkDays > 0 ? totalWorkerWages / totalWorkDays : 0,
-          materialsPercentage: totalExpenses > 0 ? (totalMaterials / totalExpenses) * 100 : 0,
-          wagesPercentage: totalExpenses > 0 ? (totalPaidWages / totalExpenses) * 100 : 0,
-          transportPercentage: totalExpenses > 0 ? (totalTransport / totalExpenses) * 100 : 0
-        },
-        details: {
-          attendance: attendanceData,
-          materials: materialsData,
-          transport: transportData,
-          miscExpenses: miscExpensesData,
-          workerTransfers: transfersData,
-          fundTransfers: fundTransfersData
-        }
-      },
+      data: reportData,
+      report: reportData, // التوافق مع الهيكل المسطح للأندرويد
       processingTime: duration
     });
 

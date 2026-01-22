@@ -40,6 +40,7 @@ projectRouter.get('/', async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: projectsList,
+      projects: projectsList, // التوافق مع الهيكل المسطح للأندرويد
       message: `تم جلب ${projectsList.length} مشروع بنجاح`
     });
   } catch (error: any) {

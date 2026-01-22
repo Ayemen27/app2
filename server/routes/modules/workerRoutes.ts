@@ -58,6 +58,7 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
     res.json({ 
       success: true, 
       data: workersList, 
+      workers: workersList, // التوافق مع الهيكل المسطح للأندرويد
       message: `تم جلب ${workersList.length} عامل بنجاح` 
     });
   } catch (error: any) {

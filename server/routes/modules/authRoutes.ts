@@ -123,7 +123,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
       token: tokenPair.accessToken, // Some apps use 'token'
-      id: user.id, // Flat structure
+      id: user.id,
       userId: user.id,
       email: user.email,
       name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
@@ -157,10 +157,10 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString()
     };
 
-    console.log('📤 [AUTH] إرسال الاستجابة النهائية:', { 
+    console.log('📤 [AUTH] إرسال الاستجابة النهائية للعميل:', { 
+      userId: user.id, 
       hasAccessToken: !!responseData.accessToken,
-      hasUserId: !!responseData.userId,
-      email: responseData.email
+      timestamp: responseData.timestamp 
     });
 
     res.json(responseData);

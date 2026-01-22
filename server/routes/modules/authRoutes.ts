@@ -98,8 +98,14 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       String(user.role || 'user'),
       req.ip,
       req.get('user-agent'),
-      { deviceId: 'web-browser' }
+      { deviceId: 'mobile-diagnostic' }
     );
+
+    console.log('✅ [AUTH-DEBUG] تم توليد زوج الرموز بنجاح:', {
+      userId: user.id,
+      accessTokenLength: tokenPair.accessToken?.length || 0,
+      refreshTokenLength: tokenPair.refreshToken?.length || 0
+    });
 
     // تعيين Refresh Token في Cookie محمية (للوقت الحالي ونسخة الويب)
     res.cookie('refreshToken', tokenPair.refreshToken, {
@@ -107,13 +113,6 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 90 * 24 * 60 * 60 * 1000 // 90 يوم
-    });
-
-    console.log('✅ [AUTH] تم تسجيل الدخول بنجاح:', { 
-      userId: user.id, 
-      email: user.email,
-      fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-      emailVerified: !!user.email_verified_at
     });
 
     const responseData = {
@@ -139,10 +138,10 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       }
     };
 
-    console.log('📤 [AUTH] إرسال الاستجابة النهائية للعميل:', { 
-      userId: user.id, 
-      accessToken: tokenPair.accessToken,
-      refreshToken: tokenPair.refreshToken,
+    console.log('📤 [AUTH-DEBUG] إرسال الاستجابة النهائية:', {
+      userId: user.id,
+      hasToken: !!responseData.accessToken,
+      accessTokenPreview: responseData.accessToken ? (responseData.accessToken.substring(0, 10) + '...') : 'null',
       timestamp: new Date().toISOString()
     });
 

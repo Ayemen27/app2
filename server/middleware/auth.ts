@@ -67,27 +67,44 @@ export const sensitiveOperationsRateLimit = rateLimit({
 
 // تم إزالة speedLimiter مؤقتاً - يمكن إضافته لاحقاً عند الحاجة
 
+// دالة مساعدة موحدة لاستخراج التوكن من الطلب
+function extractTokenFromReq(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader && typeof authHeader === 'string') {
+    const parts = authHeader.split(' ');
+    if (parts.length === 2 && /^Bearer$/i.test(parts[0])) return parts[1];
+  }
+  if (req.headers['x-auth-token']) return req.headers['x-auth-token'] as string;
+  if (req.headers['token']) return req.headers['token'] as string;
+  
+  // الكوكيز: التحقق من الأسماء الشائعة
+  if (req.cookies?.accessToken) return req.cookies.accessToken;
+  if (req.cookies?.access_token) return req.cookies.access_token;
+  if (req.cookies?.token) return req.cookies.token;
+  
+  // Query parameter (للدعم السريع أو الروابط)
+  if (req.query?.token) return req.query.token as string;
+  
+  return null;
+}
+
 // التحقق من صحة الـ Token
 const verifyToken = async (token: string): Promise<any> => {
   try {
     const secret = JWT_SHARED_SECRET;
     const issuer = 'construction-management-app-v2';
     
-    try {
-      return jwt.verify(token, secret, {
-        issuer: issuer,
-        algorithms: ['HS256'],
-        ignoreExpiration: true
-      });
-    } catch (verifyError: any) {
-      if (!envConfig.isProduction && verifyError.name === 'JsonWebTokenError') {
-        console.warn('⚠️ [JWT-DEV] Invalid signature detected, performing emergency decode');
-        const decoded = jwt.decode(token) as any;
-        if (decoded && decoded.userId) return decoded;
-      }
-      throw verifyError;
-    }
+    // التحقق الصارم من التوكن وصلاحيته
+    return jwt.verify(token, secret, {
+      issuer: issuer,
+      algorithms: ['HS256'],
+      ignoreExpiration: false // لا نتجاهل انتهاء الصلاحية أبداً في الإنتاج
+    });
   } catch (error: any) {
+    if (error.name === 'TokenExpiredError') {
+      console.log('⚠️ [JWT-VERIFY] Token expired');
+      throw error;
+    }
     console.error(`❌ [JWT-VERIFY] Error: ${error.name}, Message: ${error.message}`);
     throw error;
   }
@@ -154,21 +171,8 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
 
     // console.log(`🔍 [AUTH] فحص متقدم - المسار: ${req.method} ${req.originalUrl} | IP: ${ip}`);
 
-    // محاولة استخراج التوكن من مصادر متعددة
-    const authHeader = req.headers.authorization;
-    if (authHeader && (authHeader.startsWith('Bearer ') || authHeader.startsWith('bearer '))) {
-      token = authHeader.substring(7);
-    } else if (req.headers['x-auth-token']) {
-      token = req.headers['x-auth-token'] as string;
-    } else if (req.headers['token']) {
-      token = req.headers['token'] as string;
-    } else if (req.cookies?.accessToken) {
-      token = req.cookies.accessToken;
-    } else if (req.cookies?.token) {
-      token = req.cookies.token;
-    } else if (req.query?.token) {
-      token = req.query.token as string;
-    }
+    // محاولة استخراج التوكن من مصادر متعددة باستخدام الدالة الموحدة
+    token = extractTokenFromReq(req);
 
     // سجل إضافي لتشخيص مشاكل الموبايل
     if (!token && (req.get('user-agent')?.includes('Android') || req.get('user-agent')?.includes('okhttp'))) {
@@ -327,10 +331,9 @@ export function checkWriteAccess(req: AuthenticatedRequest, res: Response, next:
 // Middleware للطلبات الاختيارية (لا تتطلب مصادقة إجبارية)
 export const optionalAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = extractTokenFromReq(req);
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
+    if (token) {
       const decoded = await verifyToken(token);
       const session = await verifySession(decoded.userId, decoded.sessionId);
 
@@ -356,8 +359,8 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
         }
       }
     }
-  } catch (error) {
-    console.log('⚠️ [AUTH] خطأ في المصادقة الاختيارية:', error);
+  } catch (error: any) {
+    console.log('⚠️ [AUTH] خطأ في المصادقة الاختيارية:', error?.message || error);
   }
 
   next();

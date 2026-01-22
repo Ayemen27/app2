@@ -156,12 +156,19 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
 
     // محاولة استخراج التوكن من مصادر متعددة
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    if (authHeader && (authHeader.startsWith('Bearer ') || authHeader.startsWith('bearer '))) {
       token = authHeader.substring(7);
     } else if (req.headers['x-auth-token']) {
       token = req.headers['x-auth-token'] as string;
+    } else if (req.cookies?.token) {
+      token = req.cookies.token;
     } else if (req.query?.token) {
       token = req.query.token as string;
+    }
+
+    // سجل إضافي لتشخيص مشاكل الموبايل
+    if (!token && (req.get('user-agent')?.includes('Android') || req.get('user-agent')?.includes('okhttp'))) {
+      console.warn(`⚠️ [AUTH-MOBILE] محاولة وصول بدون توكن من جهاز أندرويد | المسار: ${req.originalUrl}`);
     }
 
     // التحقق من وجود الـ token

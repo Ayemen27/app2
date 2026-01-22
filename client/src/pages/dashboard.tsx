@@ -343,20 +343,32 @@ export default function Dashboard() {
 
   // الإحصائيات الحالية - من ExpenseLedgerService فقط (مصدر موحد للحقيقة)
   const currentStats = useMemo(() => {
+    if (!currentTotals?.totals) {
+      return {
+        totalIncome: 0,
+        totalExpenses: 0,
+        currentBalance: 0,
+        activeWorkers: "0",
+        completedDays: "0",
+        materialPurchases: "0 ر.ي",
+        transportExpenses: 0
+      };
+    }
+
     // التوريد الصافي: تحويلات العهدة فقط (بدون التدوير بين المشاريع لتجنب التكرار في الإجمالي)
-    const rawIncome = currentTotals.totals?.totalIncome || 0;
+    const rawIncome = currentTotals.totals.totalIncome || 0;
     
     // المنصرف الصافي: ما خرج فعلياً للسوق (بدون التدوير بين المشاريع)
-    const rawExpenses = currentTotals.totals?.totalCashExpenses || 0;
+    const rawExpenses = currentTotals.totals.totalAllExpenses || 0;
     
     return {
       totalIncome: rawIncome,
       totalExpenses: rawExpenses,
-      currentBalance: rawIncome - rawExpenses,
-      activeWorkers: String(currentTotals.totals?.activeWorkers || 0),
-      completedDays: String(currentTotals.totals?.completedDays || 0), 
-      materialPurchases: formatCurrency(currentTotals.totals?.materialExpensesCredit || 0),
-      transportExpenses: currentTotals.totals?.transportExpenses || 0
+      currentBalance: currentTotals.totals.totalBalance || (rawIncome - rawExpenses),
+      activeWorkers: String(currentTotals.totals.activeWorkers || 0),
+      completedDays: String(currentTotals.totals.completedDays || 0), 
+      materialPurchases: formatCurrency(currentTotals.totals.materialExpensesCredit || 0),
+      transportExpenses: currentTotals.totals.transportExpenses || 0
     };
   }, [currentTotals]);
 

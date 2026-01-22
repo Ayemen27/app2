@@ -49,16 +49,18 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
     
     // إرسال الاستجابة مع التأكد من أنها JSON 100%
     res.setHeader('Content-Type', 'application/json');
-    return res.status(200).send(JSON.stringify({
+    const response = {
       success: true,
       data: results,
+      ...results, // لضمان التوافق مع تطبيق الاندرويد (Flat structure)
       metadata: {
         timestamp: Date.now(),
         version: '1.3-fix-json',
         duration,
         tablesCount: tables.length
       }
-    }));
+    };
+    return res.status(200).send(JSON.stringify(response));
   } catch (error: any) {
     console.error('❌ [Sync] خطأ فادح في المزامنة:', error);
     res.setHeader('Content-Type', 'application/json');

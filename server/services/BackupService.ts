@@ -132,37 +132,70 @@ export class BackupService {
         const commands = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);
         console.log(`📊 [BackupService] جاري تنفيذ ${commands.length} أمر SQL...`);
         
-        // استخدام dbInstance مباشرة لتجنب محاولات الاتصال بـ PostgreSQL في وضع الطوارئ
-        const currentDb = db; 
+        const { sqliteInstance: globalSqlite } = await import("../db");
+        const targetInstance = globalSqlite || new Database(path.resolve(process.cwd(), "local.db"), { timeout: 120000 });
         
-        // تعطيل الفهارس مؤقتاً لتسريع الاستعادة
-        await currentDb.execute(sql.raw("PRAGMA foreign_keys = OFF; BEGIN TRANSACTION;"));
+        // استخدام .exec() المباشر لسرعة فائقة ودعم أوامر متعددة
+        targetInstance.pragma("foreign_keys = OFF");
+        targetInstance.pragma("journal_mode = OFF");
+        targetInstance.pragma("synchronous = OFF");
+        targetInstance.pragma("busy_timeout = 300000"); // 5 دقائق
         
-        for (const command of commands) {
-          try {
-            let sqliteCommand = command
-              .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
-              .replace(/SERIAL PRIMARY KEY/g, "INTEGER PRIMARY KEY AUTOINCREMENT")
-              .replace(/TIMESTAMP WITH TIME ZONE/g, "DATETIME")
-              .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP")
-              .replace(/::text/g, "")
-              .replace(/::jsonb/g, "");
-            
-            if (sqliteCommand.trim().startsWith("CREATE SCHEMA") || 
-                sqliteCommand.trim().startsWith("SET ") ||
-                sqliteCommand.trim().startsWith("SELECT pg_catalog")) {
-              continue;
+        try {
+          // محاولة معالجة الأوامر التي قد لا تتوافق مع SQLite
+          const filteredSql = sqlContent
+            .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
+            .replace(/SERIAL PRIMARY KEY/g, "INTEGER PRIMARY KEY AUTOINCREMENT")
+            .replace(/TIMESTAMP WITH TIME ZONE/g, "DATETIME")
+            .replace(/TIMESTAMP WITHOUT TIME ZONE/g, "DATETIME")
+            .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP")
+            .replace(/::text/g, "")
+            .replace(/::jsonb/g, "")
+            .replace(/::json/g, "")
+            .replace(/::integer/g, "")
+            .replace(/::boolean/g, "")
+            .replace(/RETURNING [^;]+/gi, "")
+            .replace(/ON CONFLICT[^;]+DO NOTHING/gi, "OR IGNORE")
+            .replace(/ON CONFLICT[^;]+DO UPDATE[^;]+/gi, "OR REPLACE");
+
+          targetInstance.exec("BEGIN TRANSACTION;");
+          targetInstance.exec(filteredSql);
+          targetInstance.exec("COMMIT;");
+        } catch (transError: any) {
+          try { targetInstance.exec("ROLLBACK;"); } catch (e) {}
+          console.error("❌ SQL Error during batch execution:", transError.message);
+          
+          // Fallback: تقسيم الملف الكبير إلى أجزاء أصغر لتجنب تجميد المحرك
+          console.log("🔄 Fallback: Executing statements in batches...");
+          const sqlParts = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);
+          
+          for (let i = 0; i < sqlParts.length; i += 50) {
+            const batch = sqlParts.slice(i, i + 50);
+            targetInstance.exec("BEGIN TRANSACTION;");
+            for (const cmd of batch) {
+              try {
+                const sqliteCmd = cmd
+                  .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
+                  .replace(/SERIAL PRIMARY KEY/g, "INTEGER PRIMARY KEY AUTOINCREMENT")
+                  .replace(/TIMESTAMP WITH TIME ZONE/g, "DATETIME")
+                  .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP")
+                  .replace(/::text/g, "")
+                  .replace(/::jsonb/g, "");
+                
+                const trimmed = sqliteCmd.trim();
+                if (trimmed.startsWith("CREATE SCHEMA") || trimmed.startsWith("SET ") || 
+                    trimmed.startsWith("SELECT pg_catalog") || trimmed.startsWith("COMMENT ON")) continue;
+                
+                targetInstance.exec(trimmed);
+              } catch (e) {}
             }
-            
-            await currentDb.execute(sql.raw(sqliteCommand));
-          } catch (e: any) {
-            // تجاهل أخطاء الجداول الموجودة مسبقاً
-            if (!e.message.includes("already exists")) {
-              // console.warn("⚠️ [BackupService] SQL Warning:", e.message);
-            }
+            targetInstance.exec("COMMIT;");
           }
         }
-        await currentDb.execute(sql.raw("COMMIT; PRAGMA foreign_keys = ON;"));
+        
+        targetInstance.pragma("journal_mode = DELETE");
+        targetInstance.pragma("synchronous = FULL");
+        targetInstance.pragma("foreign_keys = ON");
       } else {
         console.log("🔄 جاري استعادة البيانات إلى القاعدة السحابية...");
         const env = { ...process.env, PGPASSWORD: new URL(dbUrl).password };

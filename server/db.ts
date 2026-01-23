@@ -26,7 +26,9 @@ export const pool = new Pool({
   connectionString: dbUrl,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 30000, // زيادة المهلة لـ 30 ثانية للاتصالات البعيدة
+  connectionTimeoutMillis: 300000, // 5 دقائق للاتصالات البعيدة
+  query_timeout: 300000,
+  statement_timeout: 300000,
   // إضافة معالجة للخطأ ENOTFOUND hostname: 'base'
   ssl: dbUrl.includes("supabase.co") || dbUrl.includes("rlwy.net") ? { rejectUnauthorized: false } : {
     rejectUnauthorized: false, // السماح بالاتصالات المشفرة غير الموثقة لتجنب مشاكل الشهادات
@@ -36,24 +38,27 @@ export const pool = new Pool({
 // تهيئة قاعدة البيانات المناسبة مع إدارة ذكية
 let dbInstance: any;
 let isEmergencyMode = false;
+let sqliteInstance: Database.Database | null = null;
 
 try {
   if (isAndroid) {
-    dbInstance = drizzleSqlite(new Database(sqliteDbPath), { schema });
+    sqliteInstance = new Database(sqliteDbPath, { timeout: 120000 });
+    dbInstance = drizzleSqlite(sqliteInstance, { schema });
     console.log("✅ [SQLite] Using local database for Android.");
   } else {
-    // محاولة الاتصال بـ Postgres مع مهلة زمنية قصيرة
+    // محاولة الاتصال بـ Postgres مع مهلة زمنية أطول للاتصالات البعيدة
     dbInstance = drizzle(pool, { schema });
     console.log("✅ [PostgreSQL] Initialized with SmartConnectionManager.");
   }
 } catch (e) {
   console.error("🚨 [Emergency] Failed to initialize primary DB, switching to local SQLite:", e);
-  dbInstance = drizzleSqlite(new Database(sqliteDbPath), { schema });
+  sqliteInstance = new Database(sqliteDbPath, { timeout: 120000 });
+  dbInstance = drizzleSqlite(sqliteInstance, { schema });
   isEmergencyMode = true;
 }
 
 export const db = dbInstance;
-export { isEmergencyMode };
+export { isEmergencyMode, sqliteInstance };
 
 // إضافة متغير عالمي لحالة تكامل البيانات
 (global as any).lastIntegrityCheck = {

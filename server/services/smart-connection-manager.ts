@@ -261,7 +261,9 @@ export class SmartConnectionManager {
           ssl: sslConfig,
           max: 10,
           idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 60000, // 60 ثانية
+          connectionTimeoutMillis: 300000, // 5 دقائق
+          statement_timeout: 300000,
+          query_timeout: 300000,
           keepAlive: true,
           keepAliveInitialDelayMillis: 10000
         });

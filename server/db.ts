@@ -4,11 +4,13 @@ import pg from "pg";
 
 const { Pool } = pg;
 
-// استخدام DATABASE_URL من Replit مباشرة
-const dbUrl = process.env.DATABASE_URL || "";
+// الأولوية لـ Supabase ثم Replit
+const dbUrl = process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL || "";
 
 if (!dbUrl) {
   console.error("❌ [PostgreSQL] DATABASE_URL is not defined!");
+} else if (process.env.DATABASE_URL_SUPABASE) {
+  console.log("✅ [PostgreSQL] Using Supabase cloud database.");
 } else {
   console.log("✅ [PostgreSQL] Using Replit database.");
 }

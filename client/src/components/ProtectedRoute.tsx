@@ -51,10 +51,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     console.log('🚫 [ProtectedRoute] غير مصادق، توجيه إلى /check');
     
     // التحقق من الحالة الذكية قبل أي شيء
-    if (window.location.pathname !== '/check' && 
-        window.location.pathname !== '/permissions' && 
-        window.location.pathname !== '/setup') {
-      return <Redirect to="/check" />;
+    if (window.location.pathname === '/check' || 
+        window.location.pathname === '/permissions' || 
+        window.location.pathname === '/setup') {
+      return null;
     }
 
     if (window.location.pathname === '/login') {

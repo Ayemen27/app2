@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { backupLogs } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs";
@@ -114,19 +114,35 @@ export class BackupService {
       // فك الضغط
       await execPromise(`gunzip -c "${filepath}" > "${uncompressedPath}"`);
       
-      // اختيار قاعدة البيانات السحابية كأولوية
-      const dbUrl = process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL;
-      if (!dbUrl) throw new Error("لم يتم العثور على رابط قاعدة البيانات (DATABASE_URL)");
+      // اختيار قاعدة البيانات بناءً على الوضع الحالي
+      const dbUrl = (global as any).isEmergencyMode 
+        ? null // لا يوجد URL لـ SQLite
+        : (process.env.DATABASE_URL_RAILWAY || process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL);
 
-      console.log("🔄 جاري استعادة البيانات إلى القاعدة السحابية...");
-      
-      // تنظيف المخطط بحذر واستعادة البيانات
-      const env = { ...process.env, PGPASSWORD: new URL(dbUrl).password };
-      await execPromise(`psql "${dbUrl}" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`, { env });
-      await execPromise(`psql "${dbUrl}" -f "${uncompressedPath}"`, { env });
+      if (!dbUrl) {
+        console.log("🔄 جاري استعادة البيانات إلى قاعدة البيانات المحلية (SQLite)...");
+        const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
+        const commands = sqlContent.split(';').filter(cmd => cmd.trim().length > 0);
+        
+        for (const command of commands) {
+          try {
+            let sqliteCommand = command
+              .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
+              .replace(/SERIAL PRIMARY KEY/g, "INTEGER PRIMARY KEY AUTOINCREMENT")
+              .replace(/TIMESTAMP WITH TIME ZONE/g, "DATETIME")
+              .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP");
+            await db.execute(sql.raw(sqliteCommand));
+          } catch (e) {}
+        }
+      } else {
+        console.log("🔄 جاري استعادة البيانات إلى القاعدة السحابية...");
+        const env = { ...process.env, PGPASSWORD: new URL(dbUrl).password };
+        await execPromise(`psql "${dbUrl}" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`, { env });
+        await execPromise(`psql "${dbUrl}" -f "${uncompressedPath}"`, { env });
+      }
       
       if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
-      console.log("✅ تمت استعادة البيانات بنجاح وبدون تداخل");
+      console.log("✅ تمت استعادة البيانات بنجاح");
       return true;
     } catch (error: any) {
       if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);

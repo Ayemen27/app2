@@ -1,10 +1,14 @@
 
 import { Pool, Client } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { drizzle as drizzleSqlite } from 'drizzle-orm/better-sqlite3';
+import Database from 'better-sqlite3';
+import { sql } from 'drizzle-orm';
 import * as schema from "@shared/schema";
 import { getCredential, isSupabaseConfigured } from '../config/credentials';
 import { envConfig } from '../utils/unified-env';
 import fs from 'fs';
+import path from 'path';
 
 /**
  * 🧠 مدير الاتصالات الذكي
@@ -61,11 +65,14 @@ export class SmartConnectionManager {
       console.log('🔄 [Emergency] جاري تفعيل وضع الطوارئ التلقائي...');
       const backupDir = path.join(process.cwd(), "backups");
       const emergencyBackup = path.join(backupDir, "emergency-latest.sql.gz");
+      const sqliteDbPath = path.join(process.cwd(), "local.db");
+      
+      const sqliteInstance = new Database(sqliteDbPath);
+      const emergencyDb = drizzleSqlite(sqliteInstance, { schema });
       
       if (fs.existsSync(emergencyBackup)) {
         console.log('📦 [Emergency] تم العثور على نسخة طوارئ حديثة، بدء الاستعادة إلى SQLite...');
         
-        // فك الضغط وقراءة ملف SQL
         const uncompressedPath = emergencyBackup.replace(".gz", "");
         const { promisify } = require("util");
         const { exec } = require("child_process");
@@ -74,37 +81,56 @@ export class SmartConnectionManager {
         await execPromise(`gunzip -c "${emergencyBackup}" > "${uncompressedPath}"`);
         const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
         
-        // تنفيذ الـ SQL على قاعدة SQLite
-        const sqliteDb = this.localDb; 
-        
-        // تقسيم ملف الـ SQL إلى أوامر فردية وتنفيذها
-        const commands = sqlContent.split(';').filter(cmd => cmd.trim().length > 0);
+        const commands = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);
         console.log(`📜 [Emergency] تنفيذ ${commands.length} أمر SQL في قاعدة SQLite...`);
+        
+        sqliteInstance.exec("PRAGMA foreign_keys = OFF;");
         
         for (const command of commands) {
           try {
-            // تحويل بعض صيغ Postgres إلى SQLite (مثل gen_random_uuid)
+            if (command.trim().startsWith("CREATE SCHEMA") || 
+                command.trim().startsWith("SET ") ||
+                command.trim().startsWith("SELECT pg_catalog") ||
+                command.trim().startsWith("COMMENT ON") ||
+                command.trim().startsWith("ALTER TABLE") && command.includes("OWNER TO")) {
+              continue;
+            }
+            
             let sqliteCommand = command
               .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
               .replace(/SERIAL PRIMARY KEY/g, "INTEGER PRIMARY KEY AUTOINCREMENT")
               .replace(/TIMESTAMP WITH TIME ZONE/g, "DATETIME")
-              .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP");
+              .replace(/TIMESTAMP WITHOUT TIME ZONE/g, "DATETIME")
+              .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP")
+              .replace(/::text/g, "")
+              .replace(/::jsonb/g, "")
+              .replace(/::json/g, "")
+              .replace(/::integer/g, "")
+              .replace(/::boolean/g, "")
+              .replace(/RETURNING [^;]+/gi, "")
+              .replace(/ON CONFLICT[^;]+DO NOTHING/gi, "OR IGNORE")
+              .replace(/ON CONFLICT[^;]+DO UPDATE[^;]+/gi, "OR REPLACE");
             
-            await db.execute(sql.raw(sqliteCommand));
+            sqliteInstance.exec(sqliteCommand);
           } catch (cmdError: any) {
-            // تجاهل أخطاء التكرار البسيطة أثناء الاستعادة
-            if (!cmdError.message.includes('already exists')) {
-              console.warn(`⚠️ [Emergency] تنبيه في أمر SQL: ${cmdError.message}`);
+            if (!cmdError.message.includes('already exists') && 
+                !cmdError.message.includes('UNIQUE constraint failed')) {
+              console.warn(`⚠️ [Emergency] تنبيه في أمر SQL: ${cmdError.message.substring(0, 100)}`);
             }
           }
         }
+        
+        sqliteInstance.exec("PRAGMA foreign_keys = ON;");
         
         if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
         
         console.log('✅ [Emergency] تمت استعادة البيانات إلى SQLite بنجاح');
         (global as any).isEmergencyMode = true;
+        (global as any).emergencyDb = emergencyDb;
       } else {
-        console.warn('⚠️ [Emergency] لا توجد نسخة احتياطية محلية للاستعادة');
+        console.warn('⚠️ [Emergency] لا توجد نسخة احتياطية محلية، إنشاء قاعدة بيانات فارغة...');
+        (global as any).isEmergencyMode = true;
+        (global as any).emergencyDb = emergencyDb;
       }
     } catch (e: any) {
       console.error('❌ [Emergency] فشل تفعيل وضع الطوارئ:', e.message);

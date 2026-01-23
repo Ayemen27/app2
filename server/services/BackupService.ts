@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { backupLogs } from "@shared/schema";
+import { backupLogs, users } from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { exec } from "child_process";
 import { promisify } from "util";

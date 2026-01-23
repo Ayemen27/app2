@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, Database, Bell } from "lucide-react";
+import { Database, Bell } from "lucide-react";
 import { useLocation } from "wouter";
+import { requestAllPermissions } from "@/services/capacitorPush";
+import { Capacitor } from "@capacitor/core";
 
 export default function PermissionsPage() {
   const [, setLocation] = useLocation();
@@ -10,12 +12,18 @@ export default function PermissionsPage() {
 
   const requestPermissions = async () => {
     setLoading(true);
-    // محاكاة طلب الصلاحيات
-    setTimeout(() => {
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const result = await requestAllPermissions();
+        console.log('📱 [Permissions] نتيجة طلب الصلاحيات:', result);
+      }
       localStorage.setItem("permissions_granted", "true");
-      setLoading(false);
       setLocation("/setup");
-    }, 2000);
+    } catch (err) {
+      console.error('❌ [Permissions] فشل طلب الصلاحيات:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

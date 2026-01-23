@@ -39,9 +39,24 @@ export default function SmartCheckPage() {
       }
       setChecks(prev => ({ ...prev, database: { ...prev.database, status: "success" } }));
 
-      // 3. فحص البيانات
+      // 3. فحص البيانات والاتصال
       setChecks(prev => ({ ...prev, data: { ...prev.data, status: "checking" } }));
-      await new Promise(r => setTimeout(r, 1000));
+      try {
+        // محاولة التحقق من الاتصال بالسيرفر
+        const response = await fetch("/api/health").catch(() => ({ ok: false }));
+        
+        if (!response.ok) {
+          console.log("🚨 [SmartCheck] فشل الاتصال بالسيرفر، تفعيل وضع الطوارئ...");
+          // في وضع الطوارئ، نتحقق من وجود نسخة احتياطية محلية
+          const hasLocalData = await initializeDB();
+          if (!hasLocalData) {
+             console.log("🔄 [SmartCheck] لا توجد بيانات محلية، بدء استعادة اضطرارية...");
+             await loadFullBackup();
+          }
+        }
+      } catch (e) {
+        console.error("⚠️ [SmartCheck] خطأ أثناء فحص البيانات:", e);
+      }
       setChecks(prev => ({ ...prev, data: { ...prev.data, status: "success" } }));
 
       // النجاح النهائي

@@ -281,13 +281,21 @@ import PermissionsPage from "./pages/PermissionsPage";
 import SetupPage from "./pages/SetupPage";
 import SmartCheckPage from "./pages/SmartCheckPage";
 
-function Router() {
-  useWebSocketSync();
-  // ... rest of Router code ...
-}
-
 function App() {
-  // ... existing useEffect ...
+  useEffect(() => {
+    initSilentSyncObserver();
+    
+    if (Capacitor.isNativePlatform()) {
+      const initNativeFeatures = async () => {
+        try {
+          console.log('📱 [Native] بدء تهيئة الميزات الأصلية...');
+        } catch (err) {
+          console.error('❌ خطأ حرج في تهيئة الميزات الأصلية:', err);
+        }
+      };
+      initNativeFeatures();
+    }
+  }, []);
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>

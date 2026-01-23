@@ -25,6 +25,32 @@ export class SmartConnectionManager {
     supabase: false
   };
   private isProduction = envConfig.isProduction;
+  
+  // 📊 تتبع محاولات الاتصال والإحصائيات
+  private connectionMetrics = {
+    local: {
+      totalAttempts: 0,
+      successfulAttempts: 0,
+      failedAttempts: 0,
+      lastAttemptTime: null as number | null,
+      lastFailureTime: null as number | null,
+      averageLatency: 0,
+      latencyHistory: [] as number[]
+    },
+    supabase: {
+      totalAttempts: 0,
+      successfulAttempts: 0,
+      failedAttempts: 0,
+      lastAttemptTime: null as number | null,
+      lastFailureTime: null as number | null,
+      averageLatency: 0,
+      latencyHistory: [] as number[]
+    }
+  };
+  
+  private autoReconnectInterval: NodeJS.Timeout | null = null;
+  private lastReconnectAttempt = 0;
+  private readonly MIN_RECONNECT_INTERVAL = 5000; // مسافة زمنية دنيا 5 ثواني
 
   private constructor() {
     this.initialize();
@@ -153,18 +179,25 @@ export class SmartConnectionManager {
   }
 
   /**
-   * 🏠 تهيئة الاتصال المحلي مع إعادة المحاولة
+   * 🏠 تهيئة الاتصال المحلي مع إعادة المحاولة الذكية
+   * استخدام exponential backoff مع jitter
    */
   private async initializeLocalConnection(retries = 3): Promise<void> {
     let lastError: any;
+    const metrics = this.connectionMetrics.local;
     
     for (let attempt = 1; attempt <= retries; attempt++) {
+      const startTime = Date.now();
+      metrics.totalAttempts++;
+      metrics.lastAttemptTime = startTime;
+      
       try {
         // محاولة جلب المتغير مباشرة من الـ loader لضمان التحديث
         const databaseUrl = process.env.DATABASE_URL || (global as any).envLoader?.get('DATABASE_URL');
         
         if (!databaseUrl) {
-          console.warn('⚠️ [Local DB] DATABASE_URL غير موجود');
+          console.warn('⚠️ [Local DB] DATABASE_URL غير موجود - تحقق من ملف البيئة');
+          metrics.failedAttempts++;
           return;
         }
 
@@ -172,7 +205,7 @@ export class SmartConnectionManager {
           console.log(`🔄 [Local DB] محاولة الاتصال ${attempt}/${retries}...`);
         }
 
-        // SSL configuration for local connection
+        // تحديد نوع الاتصال (محلي أم بعيد)
         const isLocalConnection = databaseUrl.includes('localhost') || 
                                  databaseUrl.includes('127.0.0.1') ||
                                  databaseUrl.includes('@localhost/');
@@ -194,37 +227,61 @@ export class SmartConnectionManager {
 
         this.localDb = drizzle(this.localPool, { schema });
 
-        // اختبار الاتصال
+        // اختبار الاتصال مع قياس الزمن
         const client = await this.localPool.connect();
-        const result = await client.query('SELECT current_database(), current_user');
+        const result = await client.query('SELECT current_database(), current_user, now()');
         client.release();
 
+        const latency = Date.now() - startTime;
         this.connectionStatus.local = true;
+        metrics.successfulAttempts++;
+        
+        // تحديث قياسات الأداء
+        this.updateMetrics('local', latency);
+        
         if (!this.isProduction) {
           console.log('✅ [Local DB] اتصال محلي نجح:', {
             database: result.rows[0].current_database,
             user: result.rows[0].current_user,
-            attempt: attempt
+            latency: `${latency}ms`,
+            attempt: attempt,
+            successRate: `${((metrics.successfulAttempts / metrics.totalAttempts) * 100).toFixed(1)}%`
           });
         }
         return; // نجح الاتصال
 
       } catch (error: any) {
         lastError = error;
+        metrics.failedAttempts++;
+        metrics.lastFailureTime = Date.now();
         
         if (attempt < retries) {
-          const waitTime = attempt * 2000; // انتظار متزايد: 2s, 4s, 6s
+          // exponential backoff مع jitter: 2^attempt * 500ms + random jitter
+          const baseWaitTime = Math.pow(2, attempt) * 500;
+          const jitter = Math.random() * 1000;
+          const totalWaitTime = baseWaitTime + jitter;
+          
           if (!this.isProduction) {
-            console.log(`⏳ [Local DB] إعادة المحاولة بعد ${waitTime/1000} ثانية...`);
+            console.log(`⏳ [Local DB] محاولة ${attempt} فشلت: ${error.message?.substring(0, 80)}`);
+            console.log(`🔁 [Local DB] إعادة المحاولة بعد ${(totalWaitTime/1000).toFixed(2)} ثانية (محاولة ${attempt + 1}/${retries})`);
           }
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+          await new Promise(resolve => setTimeout(resolve, totalWaitTime));
         }
       }
     }
 
-    // فشلت جميع المحاولات
+    // فشلت جميع المحاولات - تسجيل مفصل
+    metrics.failedAttempts++;
     if (!this.isProduction) {
-      console.error('❌ [Local DB] فشل الاتصال المحلي بعد', retries, 'محاولات:', lastError.message);
+      console.error('❌ [Local DB] فشل الاتصال المحلي بعد', retries, 'محاولات');
+      console.error('📊 [Local DB] الإحصائيات:', {
+        totalAttempts: metrics.totalAttempts,
+        successfulAttempts: metrics.successfulAttempts,
+        failedAttempts: metrics.failedAttempts,
+        lastError: lastError.message?.substring(0, 100),
+        errorCode: lastError.code,
+        suggestions: this.getSuggestions(lastError)
+      });
     }
     this.connectionStatus.local = false;
   }
@@ -301,6 +358,60 @@ export class SmartConnectionManager {
       }
       this.connectionStatus.supabase = false;
     }
+  }
+
+  /**
+   * 📊 تحديث قياسات الأداء
+   */
+  private updateMetrics(target: 'local' | 'supabase', latency: number): void {
+    const metrics = this.connectionMetrics[target];
+    metrics.latencyHistory.push(latency);
+    
+    // الاحتفاظ بـ آخر 100 قياس فقط
+    if (metrics.latencyHistory.length > 100) {
+      metrics.latencyHistory.shift();
+    }
+    
+    // حساب متوسط الزمن
+    metrics.averageLatency = metrics.latencyHistory.length > 0
+      ? Math.round(metrics.latencyHistory.reduce((a, b) => a + b, 0) / metrics.latencyHistory.length)
+      : 0;
+  }
+
+  /**
+   * 💡 اقتراحات لحل الأخطاء الشائعة
+   */
+  private getSuggestions(error: any): string[] {
+    const suggestions: string[] = [];
+    const message = error.message?.toLowerCase() || '';
+    const code = error.code || '';
+
+    if (message.includes('enotfound') || code === 'ENOTFOUND') {
+      suggestions.push('تحقق من اسم المضيف ومعلومات الاتصال');
+      suggestions.push('تأكد من توفر الشبكة والإنترنت');
+    }
+
+    if (message.includes('econnrefused') || code === 'ECONNREFUSED') {
+      suggestions.push('قد لا تكون قاعدة البيانات قيد التشغيل');
+      suggestions.push('تحقق من المنفذ والخادم');
+    }
+
+    if (message.includes('timeout')) {
+      suggestions.push('زيادة المهلة الزمنية للاتصال');
+      suggestions.push('التحقق من أداء الشبكة والخادم');
+    }
+
+    if (message.includes('ssl') || message.includes('certificate')) {
+      suggestions.push('تحقق من شهادة SSL والتكوين');
+      suggestions.push('حاول تعطيل التحقق من شهادة SSL إذا كانت الشهادة موثوقة');
+    }
+
+    if (message.includes('authentication') || message.includes('password')) {
+      suggestions.push('تحقق من اسم المستخدم وكلمة المرور');
+      suggestions.push('تأكد من صحة بيانات المصادقة في متغيرات البيئة');
+    }
+
+    return suggestions.length > 0 ? suggestions : ['تحقق من إعدادات قاعدة البيانات والاتصال'];
   }
 
   /**
@@ -389,16 +500,71 @@ export class SmartConnectionManager {
   }
 
   /**
-   * 📊 حالة الاتصالات
+   * 📊 حالة الاتصالات المفصلة
    */
   getConnectionStatus(): {
     local: boolean;
     supabase: boolean;
     totalConnections: number;
+    emergencyMode: boolean;
+    metrics?: any;
   } {
     return {
       ...this.connectionStatus,
-      totalConnections: Object.values(this.connectionStatus).filter(Boolean).length
+      totalConnections: Object.values(this.connectionStatus).filter(Boolean).length,
+      emergencyMode: (global as any).isEmergencyMode || false,
+      metrics: this.getMetrics()
+    };
+  }
+
+  /**
+   * 📈 الحصول على قياسات الاتصال المفصلة
+   */
+  getMetrics(): {
+    local: any;
+    supabase: any;
+    healthScore: number;
+  } {
+    const localMetrics = this.connectionMetrics.local;
+    const supabaseMetrics = this.connectionMetrics.supabase;
+
+    // حساب النسبة المئوية للنجاح
+    const localSuccessRate = localMetrics.totalAttempts > 0
+      ? (localMetrics.successfulAttempts / localMetrics.totalAttempts) * 100
+      : 0;
+
+    const supabaseSuccessRate = supabaseMetrics.totalAttempts > 0
+      ? (supabaseMetrics.successfulAttempts / supabaseMetrics.totalAttempts) * 100
+      : 0;
+
+    // حساب درجة الصحة الكلية (0-100)
+    const connectionHealthScore = (
+      (this.connectionStatus.local ? 50 : 0) +
+      (this.connectionStatus.supabase ? 50 : 0)
+    );
+
+    return {
+      local: {
+        connected: this.connectionStatus.local,
+        totalAttempts: localMetrics.totalAttempts,
+        successfulAttempts: localMetrics.successfulAttempts,
+        failedAttempts: localMetrics.failedAttempts,
+        successRate: `${localSuccessRate.toFixed(1)}%`,
+        averageLatency: `${localMetrics.averageLatency}ms`,
+        lastAttemptTime: localMetrics.lastAttemptTime ? new Date(localMetrics.lastAttemptTime).toISOString() : null,
+        lastFailureTime: localMetrics.lastFailureTime ? new Date(localMetrics.lastFailureTime).toISOString() : null
+      },
+      supabase: {
+        connected: this.connectionStatus.supabase,
+        totalAttempts: supabaseMetrics.totalAttempts,
+        successfulAttempts: supabaseMetrics.successfulAttempts,
+        failedAttempts: supabaseMetrics.failedAttempts,
+        successRate: `${supabaseSuccessRate.toFixed(1)}%`,
+        averageLatency: `${supabaseMetrics.averageLatency}ms`,
+        lastAttemptTime: supabaseMetrics.lastAttemptTime ? new Date(supabaseMetrics.lastAttemptTime).toISOString() : null,
+        lastFailureTime: supabaseMetrics.lastFailureTime ? new Date(supabaseMetrics.lastFailureTime).toISOString() : null
+      },
+      healthScore: connectionHealthScore
     };
   }
 

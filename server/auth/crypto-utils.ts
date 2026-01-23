@@ -12,9 +12,19 @@ const CRYPTO_CONFIG = {
   saltRounds: 10, // قوة تشفير bcrypt محسنة للأداء (10 = ~100ms, 12 = ~1.5s)
   totpWindow: 2, // نافزة TOTP (عدد الفترات الزمنية المقبولة)
   totpStep: 30, // خطوة TOTP بالثواني
-  encryptionKey: process.env.ENCRYPTION_KEY || 'construction-app-encryption-key-2025-very-secret',
+  encryptionKey: process.env.ENCRYPTION_KEY,
+  encryptionSalt: process.env.ENCRYPTION_SALT,
   algorithm: 'aes-256-gcm',
 };
+
+// تحقق من وجود مفاتيح التشفير المطلوبة
+if (!CRYPTO_CONFIG.encryptionKey || !CRYPTO_CONFIG.encryptionSalt) {
+  console.error('❌ [CRYPTO] مفاتيح التشفير المطلوبة غير موجودة في متغيرات البيئة');
+  console.error('❌ [CRYPTO] يجب تعيين: ENCRYPTION_KEY و ENCRYPTION_SALT');
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('فشل التهيئة: مفاتيح التشفير مفقودة');
+  }
+}
 
 /**
  * تشفير كلمة المرور باستخدام bcrypt
@@ -93,9 +103,13 @@ export function encryptSensitiveData(data: string): {
   authTag: string;
 } {
   try {
+    if (!CRYPTO_CONFIG.encryptionKey || !CRYPTO_CONFIG.encryptionSalt) {
+      throw new Error('مفاتيح التشفير غير مهيأة بشكل صحيح');
+    }
+    
     const iv = crypto.randomBytes(16);
-    // إنشاء مفتاح ثابت 256-بت من ENCRYPTION_KEY
-    const key = crypto.pbkdf2Sync(CRYPTO_CONFIG.encryptionKey, 'construction-salt-2025', 100000, 32, 'sha256');
+    // إنشاء مفتاح ثابت 256-بت من ENCRYPTION_KEY والملح
+    const key = crypto.pbkdf2Sync(CRYPTO_CONFIG.encryptionKey, CRYPTO_CONFIG.encryptionSalt, 100000, 32, 'sha256');
     const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
     
     let encrypted = cipher.update(data, 'utf8', 'hex');
@@ -119,8 +133,12 @@ export function encryptSensitiveData(data: string): {
  */
 export function decryptSensitiveData(encrypted: string, iv: string, authTag: string): string {
   try {
+    if (!CRYPTO_CONFIG.encryptionKey || !CRYPTO_CONFIG.encryptionSalt) {
+      throw new Error('مفاتيح التشفير غير مهيأة بشكل صحيح');
+    }
+    
     // إنشاء نفس المفتاح المستخدم في التشفير
-    const key = crypto.pbkdf2Sync(CRYPTO_CONFIG.encryptionKey, 'construction-salt-2025', 100000, 32, 'sha256');
+    const key = crypto.pbkdf2Sync(CRYPTO_CONFIG.encryptionKey, CRYPTO_CONFIG.encryptionSalt, 100000, 32, 'sha256');
     const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'hex'));
     
     decipher.setAuthTag(Buffer.from(authTag, 'hex'));

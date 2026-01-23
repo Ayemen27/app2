@@ -12,6 +12,7 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken, generate
 import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
 import { users } from '@shared/schema'; // استيراد جدول المستخدمين
 import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js'; // استيراد middleware المصادقة
+import { EmergencyAuthService } from '../../services/emergency-auth-service.js';
 
 const authRouter = express.Router();
 
@@ -739,6 +740,112 @@ authRouter.post('/users/:userId/toggle-status', requireAuth, async (req: Authent
   }
 });
 
+/**
+ * 🚨 مسارات المصادقة في وضع الطوارئ
+ * Emergency Mode Authentication Routes
+ */
+
+/**
+ * تسجيل دخول الطوارئ
+ * POST /api/auth/emergency/login
+ */
+authRouter.post('/emergency/login', async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'البريد الإلكتروني وكلمة المرور مطلوبان'
+      });
+    }
+
+    const result = await EmergencyAuthService.loginEmergencyUser(email, password);
+
+    if (result.success) {
+      console.log('✅ [EMERGENCY] تسجيل دخول ناجح في وضع الطوارئ:', { email });
+      res.json(result);
+    } else {
+      console.warn('⚠️ [EMERGENCY] محاولة تسجيل دخول فاشلة:', { email, reason: result.message });
+      res.status(401).json(result);
+    }
+
+  } catch (error: any) {
+    console.error('❌ [EMERGENCY] خطأ في تسجيل دخول الطوارئ:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في نظام الطوارئ',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * حالة نظام الطوارئ
+ * GET /api/auth/emergency/status
+ */
+authRouter.get('/emergency/status', async (req: Request, res: Response) => {
+  try {
+    const isEmergencyMode = (global as any).isEmergencyMode || false;
+    const adminCreds = EmergencyAuthService.getEmergencyAdminCredentials();
+
+    res.json({
+      success: true,
+      data: {
+        isEmergencyMode,
+        hasEmergencyAdmin: !!adminCreds,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ [EMERGENCY] خطأ في جلب حالة الطوارئ:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب حالة الطوارئ'
+    });
+  }
+});
+
+/**
+ * إنشاء مستخدم طارئ جديد (للمسؤولين فقط)
+ * POST /api/auth/emergency/create-user
+ */
+authRouter.post('/emergency/create-user', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // تحقق من صلاحيات المسؤول
+    if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مصرح - يتطلب صلاحيات المسؤول'
+      });
+    }
+
+    const { email, password, name, role } = req.body;
+
+    const result = await EmergencyAuthService.createEmergencyUser({
+      email,
+      password,
+      name,
+      role: role || 'admin'
+    });
+
+    if (result.success) {
+      console.log('✅ [EMERGENCY] تم إنشاء مستخدم طارئ جديد:', { email, name });
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+
+  } catch (error: any) {
+    console.error('❌ [EMERGENCY] خطأ في إنشاء مستخدم طارئ:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في إنشاء المستخدم الطارئ',
+      error: error.message
+    });
+  }
+});
+
 // ملاحظة: تم حذف endpoint /me من هنا لتجنب التضارب مع النسخة المحمية في routes/auth.ts
 
 console.log('🔐 [AuthRouter] تم تهيئة مسارات المصادقة');
@@ -754,6 +861,10 @@ console.log('  - GET /users');
 console.log('  - PUT /users/:userId');
 console.log('  - DELETE /users/:userId');
 console.log('  - POST /users/:userId/toggle-status');
+console.log('📋 [AuthRouter] مسارات الطوارئ:');
+console.log('  - POST /emergency/login');
+console.log('  - GET /emergency/status');
+console.log('  - POST /emergency/create-user (إدارة فقط)');
 
 export { authRouter };
 export default authRouter;

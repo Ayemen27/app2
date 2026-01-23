@@ -13,6 +13,9 @@ import {
   type WorkerTransfer, type WorkerBalance, type AutocompleteData, type WorkerType, type WorkerMiscExpense, type User,
   type Supplier, type SupplierPayment, type PrintSettings, type ProjectFundTransfer,
   type ReportTemplate,
+  // Wells Management Types
+  type Well, type WellTask, type WellTaskAccount, type WellExpense, type WellAuditLog,
+  type InsertWell, type InsertWellTask, type InsertWellTaskAccount, type InsertWellExpense, type InsertWellAuditLog,
   // Equipment types (النظام المبسط)
   // Notifications types
   type Notification, type InsertNotification,
@@ -26,6 +29,8 @@ import {
   type Equipment, type InsertEquipment, type EquipmentMovement, type InsertEquipmentMovement,
   projects as projectsTable, workers, fundTransfers, workerAttendance, materials, materialPurchases, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerBalances, autocompleteData, workerTypes, workerMiscExpenses, users, suppliers, supplierPayments, printSettings, projectFundTransfers, reportTemplates, emergencyUsers,
+  // Wells tables
+  wells, wellTasks, wellTaskAccounts, wellExpenses, wellAuditLogs,
   // Equipment tables (النظام المبسط)
   equipment, equipmentMovements,
   // Notifications tables
@@ -289,6 +294,38 @@ export interface IStorage {
   markNotificationAsRead(userId: string, notificationId: string, notificationType: string): Promise<void>;
   markAllNotificationsAsRead(userId: string): Promise<void>;
   getReadNotifications(userId: string, notificationType?: string): Promise<NotificationReadState[]>;
+
+  // =====================================================
+  // Wells Management System (نظام إدارة الآبار)
+  // =====================================================
+
+  // Well Tasks
+  getWellTasks(wellId: number): Promise<WellTask[]>;
+  getWellTask(id: number): Promise<WellTask | undefined>;
+  createWellTask(task: InsertWellTask): Promise<WellTask>;
+  updateWellTask(id: number, task: Partial<InsertWellTask>): Promise<WellTask | undefined>;
+  deleteWellTask(id: number): Promise<void>;
+
+  // Well Task Accounts
+  getWellTaskAccount(taskId: number): Promise<WellTaskAccount | undefined>;
+  createWellTaskAccount(account: InsertWellTaskAccount): Promise<WellTaskAccount>;
+  updateWellTaskAccount(id: number, account: Partial<InsertWellTaskAccount>): Promise<WellTaskAccount | undefined>;
+  deleteWellTaskAccount(id: number): Promise<void>;
+  getWellTaskAccountsByWell(wellId: number): Promise<WellTaskAccount[]>;
+
+  // Well Expenses
+  getWellExpenses(wellId: number, dateFrom?: string, dateTo?: string): Promise<WellExpense[]>;
+  getWellExpense(id: number): Promise<WellExpense | undefined>;
+  createWellExpense(expense: InsertWellExpense): Promise<WellExpense>;
+  updateWellExpense(id: number, expense: Partial<InsertWellExpense>): Promise<WellExpense | undefined>;
+  deleteWellExpense(id: number): Promise<void>;
+  getWellExpensesByType(wellId: number, expenseType: string): Promise<WellExpense[]>;
+
+  // Well Audit Logs
+  getWellAuditLogs(wellId?: number, taskId?: number, limit?: number): Promise<WellAuditLog[]>;
+  getWellAuditLog(id: number): Promise<WellAuditLog | undefined>;
+  createWellAuditLog(log: InsertWellAuditLog): Promise<WellAuditLog>;
+  deleteWellAuditLog(id: number): Promise<void>;
 
   // =====================================================
   // AI System Methods - تم حذف النظام
@@ -3604,6 +3641,281 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error getting read notifications:', error);
       return [];
+    }
+  }
+
+  // =====================================================
+  // Wells Management System Implementation (تنفيذ نظام إدارة الآبار)
+  // =====================================================
+
+  // Well Tasks
+  async getWellTasks(wellId: number): Promise<WellTask[]> {
+    try {
+      return await db.select()
+        .from(wellTasks)
+        .where(eq(wellTasks.wellId, wellId))
+        .orderBy(wellTasks.taskOrder);
+    } catch (error) {
+      console.error('Error getting well tasks:', error);
+      return [];
+    }
+  }
+
+  async getWellTask(id: number): Promise<WellTask | undefined> {
+    try {
+      const [task] = await db.select()
+        .from(wellTasks)
+        .where(eq(wellTasks.id, id));
+      return task || undefined;
+    } catch (error) {
+      console.error('Error getting well task:', error);
+      return undefined;
+    }
+  }
+
+  async createWellTask(task: InsertWellTask): Promise<WellTask> {
+    try {
+      const [newTask] = await db
+        .insert(wellTasks)
+        .values(task)
+        .returning();
+      return newTask;
+    } catch (error) {
+      console.error('Error creating well task:', error);
+      throw error;
+    }
+  }
+
+  async updateWellTask(id: number, task: Partial<InsertWellTask>): Promise<WellTask | undefined> {
+    try {
+      const [updated] = await db
+        .update(wellTasks)
+        .set({ ...task, updatedAt: new Date() })
+        .where(eq(wellTasks.id, id))
+        .returning();
+      return updated || undefined;
+    } catch (error) {
+      console.error('Error updating well task:', error);
+      return undefined;
+    }
+  }
+
+  async deleteWellTask(id: number): Promise<void> {
+    try {
+      await db.delete(wellTasks)
+        .where(eq(wellTasks.id, id));
+    } catch (error) {
+      console.error('Error deleting well task:', error);
+      throw error;
+    }
+  }
+
+  // Well Task Accounts
+  async getWellTaskAccount(taskId: number): Promise<WellTaskAccount | undefined> {
+    try {
+      const [account] = await db.select()
+        .from(wellTaskAccounts)
+        .where(eq(wellTaskAccounts.taskId, taskId));
+      return account || undefined;
+    } catch (error) {
+      console.error('Error getting well task account:', error);
+      return undefined;
+    }
+  }
+
+  async createWellTaskAccount(account: InsertWellTaskAccount): Promise<WellTaskAccount> {
+    try {
+      const [newAccount] = await db
+        .insert(wellTaskAccounts)
+        .values(account)
+        .returning();
+      return newAccount;
+    } catch (error) {
+      console.error('Error creating well task account:', error);
+      throw error;
+    }
+  }
+
+  async updateWellTaskAccount(id: number, account: Partial<InsertWellTaskAccount>): Promise<WellTaskAccount | undefined> {
+    try {
+      const [updated] = await db
+        .update(wellTaskAccounts)
+        .set(account)
+        .where(eq(wellTaskAccounts.id, id))
+        .returning();
+      return updated || undefined;
+    } catch (error) {
+      console.error('Error updating well task account:', error);
+      return undefined;
+    }
+  }
+
+  async deleteWellTaskAccount(id: number): Promise<void> {
+    try {
+      await db.delete(wellTaskAccounts)
+        .where(eq(wellTaskAccounts.id, id));
+    } catch (error) {
+      console.error('Error deleting well task account:', error);
+      throw error;
+    }
+  }
+
+  async getWellTaskAccountsByWell(wellId: number): Promise<WellTaskAccount[]> {
+    try {
+      return await db.select()
+        .from(wellTaskAccounts)
+        .innerJoin(wellTasks, eq(wellTaskAccounts.taskId, wellTasks.id))
+        .where(eq(wellTasks.wellId, wellId))
+        .then(results => results.map(r => r.well_task_accounts));
+    } catch (error) {
+      console.error('Error getting well task accounts by well:', error);
+      return [];
+    }
+  }
+
+  // Well Expenses
+  async getWellExpenses(wellId: number, dateFrom?: string, dateTo?: string): Promise<WellExpense[]> {
+    try {
+      let query = db.select()
+        .from(wellExpenses)
+        .where(eq(wellExpenses.wellId, wellId));
+
+      if (dateFrom) {
+        query = query.andWhere(gte(wellExpenses.expenseDate, dateFrom));
+      }
+      if (dateTo) {
+        query = query.andWhere(lte(wellExpenses.expenseDate, dateTo));
+      }
+
+      return await query.orderBy(desc(wellExpenses.expenseDate));
+    } catch (error) {
+      console.error('Error getting well expenses:', error);
+      return [];
+    }
+  }
+
+  async getWellExpense(id: number): Promise<WellExpense | undefined> {
+    try {
+      const [expense] = await db.select()
+        .from(wellExpenses)
+        .where(eq(wellExpenses.id, id));
+      return expense || undefined;
+    } catch (error) {
+      console.error('Error getting well expense:', error);
+      return undefined;
+    }
+  }
+
+  async createWellExpense(expense: InsertWellExpense): Promise<WellExpense> {
+    try {
+      const [newExpense] = await db
+        .insert(wellExpenses)
+        .values(expense)
+        .returning();
+      return newExpense;
+    } catch (error) {
+      console.error('Error creating well expense:', error);
+      throw error;
+    }
+  }
+
+  async updateWellExpense(id: number, expense: Partial<InsertWellExpense>): Promise<WellExpense | undefined> {
+    try {
+      const [updated] = await db
+        .update(wellExpenses)
+        .set(expense)
+        .where(eq(wellExpenses.id, id))
+        .returning();
+      return updated || undefined;
+    } catch (error) {
+      console.error('Error updating well expense:', error);
+      return undefined;
+    }
+  }
+
+  async deleteWellExpense(id: number): Promise<void> {
+    try {
+      await db.delete(wellExpenses)
+        .where(eq(wellExpenses.id, id));
+    } catch (error) {
+      console.error('Error deleting well expense:', error);
+      throw error;
+    }
+  }
+
+  async getWellExpensesByType(wellId: number, expenseType: string): Promise<WellExpense[]> {
+    try {
+      return await db.select()
+        .from(wellExpenses)
+        .where(and(
+          eq(wellExpenses.wellId, wellId),
+          eq(wellExpenses.expenseType, expenseType)
+        ))
+        .orderBy(desc(wellExpenses.expenseDate));
+    } catch (error) {
+      console.error('Error getting well expenses by type:', error);
+      return [];
+    }
+  }
+
+  // Well Audit Logs
+  async getWellAuditLogs(wellId?: number, taskId?: number, limit?: number): Promise<WellAuditLog[]> {
+    try {
+      let query = db.select()
+        .from(wellAuditLogs);
+
+      if (wellId) {
+        query = query.where(eq(wellAuditLogs.wellId, wellId));
+      }
+      if (taskId) {
+        query = query.where(eq(wellAuditLogs.taskId, taskId));
+      }
+
+      query = query.orderBy(desc(wellAuditLogs.createdAt));
+
+      if (limit) {
+        query = query.limit(limit);
+      }
+
+      return await query;
+    } catch (error) {
+      console.error('Error getting well audit logs:', error);
+      return [];
+    }
+  }
+
+  async getWellAuditLog(id: number): Promise<WellAuditLog | undefined> {
+    try {
+      const [log] = await db.select()
+        .from(wellAuditLogs)
+        .where(eq(wellAuditLogs.id, id));
+      return log || undefined;
+    } catch (error) {
+      console.error('Error getting well audit log:', error);
+      return undefined;
+    }
+  }
+
+  async createWellAuditLog(log: InsertWellAuditLog): Promise<WellAuditLog> {
+    try {
+      const [newLog] = await db
+        .insert(wellAuditLogs)
+        .values(log)
+        .returning();
+      return newLog;
+    } catch (error) {
+      console.error('Error creating well audit log:', error);
+      throw error;
+    }
+  }
+
+  async deleteWellAuditLog(id: number): Promise<void> {
+    try {
+      await db.delete(wellAuditLogs)
+        .where(eq(wellAuditLogs.id, id));
+    } catch (error) {
+      console.error('Error deleting well audit log:', error);
+      throw error;
     }
   }
 

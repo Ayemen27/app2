@@ -277,7 +277,6 @@ import { initSilentSyncObserver } from "./offline/silent-sync";
 import { initializeNativePush, requestAllPermissions } from "./services/capacitorPush";
 import { Capacitor } from "@capacitor/core";
 
-import PermissionsPage from "./pages/PermissionsPage";
 import SystemCheckPage from "./pages/SystemCheckPage";
 
 function App() {
@@ -306,7 +305,7 @@ function App() {
                   <Switch>
                     <Route path="/check" component={SystemCheckPage} />
                     <Route path="/setup" component={SystemCheckPage} />
-                    <Route path="/permissions" component={PermissionsPage} />
+                    <Route path="/permissions" component={SystemCheckPage} />
                     <Route path="/login" component={LoginPage} />
                     <Route path="/verify-email" component={EmailVerificationPage} />
                     <Route path="/reset-password" component={ResetPasswordPage} />

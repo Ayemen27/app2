@@ -5,6 +5,7 @@ import pg from "pg";
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import { SmartConnectionManager } from "./services/smart-connection-manager";
 
 const { Pool } = pg;
 
@@ -18,6 +19,9 @@ const rawDbUrl = process.env.DATABASE_URL_RAILWAY || process.env.DATABASE_URL_SU
 // ✅ تنظيف الرابط من أي مسافات أو علامات اقتباس زائدة قد تسبب خطأ ENOTFOUND
 const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "");
 
+// تهيئة مدير الاتصالات الذكي
+const smartConnectionManager = SmartConnectionManager.getInstance();
+
 export const pool = new Pool({
   connectionString: dbUrl,
   max: 20,
@@ -27,7 +31,7 @@ export const pool = new Pool({
   ssl: dbUrl.includes("supabase.co") || dbUrl.includes("rlwy.net") ? { rejectUnauthorized: false } : false
 });
 
-// تهيئة قاعدة البيانات المناسبة
+// تهيئة قاعدة البيانات المناسبة مع إدارة ذكية
 let dbInstance: any;
 let isEmergencyMode = false;
 
@@ -38,7 +42,7 @@ try {
   } else {
     // محاولة الاتصال بـ Postgres مع مهلة زمنية قصيرة
     dbInstance = drizzle(pool, { schema });
-    console.log("✅ [PostgreSQL] Initialized.");
+    console.log("✅ [PostgreSQL] Initialized with SmartConnectionManager.");
   }
 } catch (e) {
   console.error("🚨 [Emergency] Failed to initialize primary DB, switching to local SQLite:", e);
@@ -56,18 +60,42 @@ export { isEmergencyMode };
   issues: []
 };
 
-pool.on('error', (err) => {
-  console.error('⚠️ [PostgreSQL] Pool Error:', err.message);
+// معالج أخطاء Pool مع تسجيل محسّن
+pool.on('error', (err: any) => {
+  console.error('⚠️ [PostgreSQL Pool] Error detected:', {
+    message: err.message,
+    code: err.code,
+    severity: err.severity || 'unknown'
+  });
+  
+  // تفعيل وضع الطوارئ إذا حدث خطأ حرج
+  if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+    console.error('🚨 [PostgreSQL Pool] Connection error detected, triggering smart reconnection...');
+    smartConnectionManager.reconnect('both').catch(e => {
+      console.error('❌ [Smart Connection] Reconnection attempt failed:', e.message);
+    });
+  }
 });
 
-// دالة مساعدة للتحقق من حالة الاتصال
+// دالة مساعدة للتحقق من حالة الاتصال مع تحسينات ذكية
 export async function checkDBConnection() {
   if (isAndroid || (global as any).isEmergencyMode) return true; // SQLite always connected or already in emergency
   
+  const startTime = Date.now();
+  
   try {
     const client = await pool.connect();
+    const result = await client.query('SELECT current_database(), current_user, now()');
     client.release();
-    console.log("✅ [PostgreSQL] Connection successful!");
+    
+    const latency = Date.now() - startTime;
+    
+    // Log successful connection
+    if (latency > 1000) {
+      console.warn(`⚠️ [PostgreSQL] Connection successful but slow (${latency}ms)`);
+    } else if (!isEmergencyMode) {
+      console.log(`✅ [PostgreSQL] Connection healthy (${latency}ms)`);
+    }
     
     // إذا كان في وضع طوارئ، نقوم بتعطيله فوراً
     if ((global as any).isEmergencyMode) {
@@ -77,31 +105,80 @@ export async function checkDBConnection() {
     }
     return true;
   } catch (err: any) {
-    console.error("❌ [PostgreSQL] Connection failed:", err.message);
+    const latency = Date.now() - startTime;
+    
+    // تسجيل مفصل للخطأ
+    console.error("❌ [PostgreSQL] Connection failed:", {
+      message: err.message?.substring(0, 150),
+      code: err.code,
+      latency: `${latency}ms`,
+      timestamp: new Date().toISOString()
+    });
     
     // تفعيل وضع الطوارئ فوراً عند فشل الاتصال
     if (!(global as any).isEmergencyMode) {
-      console.error("🚨 [Emergency] Activating emergency mode protocol.");
+      console.error("🚨 [Emergency] Activating emergency mode protocol immediately.");
       (global as any).isEmergencyMode = true;
       isEmergencyMode = true;
       
       // محاولة استعادة أحدث نسخة احتياطية حقيقية فوراً عند تفعيل وضع الطوارئ
+      // مع معالجة أفضل للأخطاء
       import("./services/BackupService").then(({ BackupService }) => {
-        console.log("🔄 [Emergency] محاولة استعادة البيانات تلقائياً من أحدث نسخة احتياطية...");
+        console.log("🔄 [Emergency] Attempting automatic data recovery from latest backup...");
         BackupService.initialize().then(async () => {
           const emergencyFile = path.join(process.cwd(), "backups", "emergency-latest.sql.gz");
           if (fs.existsSync(emergencyFile)) {
-             console.log("📂 [Emergency] استخدام ملف emergency-latest.sql.gz للاستعادة...");
+             console.log("📂 [Emergency] Found emergency backup, initiating restore to local database...");
              try {
+               const stats = fs.statSync(emergencyFile);
+               console.log(`📦 [Emergency] Backup file size: ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
+               
                await BackupService.restoreFromFile(emergencyFile);
-               console.log("✅ [Emergency] تم تحميل أحدث البيانات الحقيقية في وضع الطوارئ بنجاح");
+               console.log("✅ [Emergency] Successfully loaded latest data in emergency mode");
              } catch (e: any) {
-               console.error("❌ [Emergency] فشل تحميل النسخة الاحتياطية التلقائي:", e.message);
+               console.error("❌ [Emergency] Failed to restore from backup:", {
+                 message: e.message?.substring(0, 150),
+                 code: e.code
+               });
              }
+          } else {
+            console.warn("⚠️ [Emergency] No backup file found, starting with empty local database");
           }
+        }).catch(e => {
+          console.error("❌ [Emergency] Failed to initialize backup service:", e.message);
         });
+      }).catch(e => {
+        console.error("❌ [Emergency] Failed to import BackupService:", e.message);
       });
     }
     return false;
   }
+}
+
+/**
+ * 🔄 إعادة محاولة الاتصال الذكية
+ * يتم استدعاؤها عند الكشف عن فشل الاتصال
+ */
+export async function smartReconnect(target: 'local' | 'supabase' | 'both' = 'both'): Promise<boolean> {
+  console.log(`🔄 [Smart Reconnect] Initiating smart reconnection for: ${target}`);
+  
+  try {
+    await smartConnectionManager.reconnect(target);
+    
+    // فحص الحالة بعد إعادة المحاولة
+    const status = smartConnectionManager.getConnectionStatus();
+    console.log('📊 [Smart Reconnect] Connection status after reconnection:', status);
+    
+    return status.totalConnections > 0;
+  } catch (error: any) {
+    console.error('❌ [Smart Reconnect] Reconnection failed:', error.message);
+    return false;
+  }
+}
+
+/**
+ * 📊 الحصول على حالة الاتصال المفصلة
+ */
+export function getConnectionHealthStatus() {
+  return smartConnectionManager.getConnectionStatus();
 }

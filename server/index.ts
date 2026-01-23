@@ -15,11 +15,13 @@ import { registerRoutes } from "./routes.js";
 import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middleware/compression";
 import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth } from "./middleware/auth";
 import { runSchemaCheck, getAutoPushStatus } from './auto-schema-push';
-import { db, checkDBConnection } from './db.js';
+import { db, checkDBConnection, getConnectionHealthStatus, smartReconnect } from './db.js';
 import { users } from '@shared/schema';
 import http from 'http';
 import { Server } from 'socket.io';
 import compression from "compression"; // Import compression
+import { smartConnectionManager } from './services/smart-connection-manager';
+import { healthMonitor } from './services/HealthMonitor';
 
 // Assume setupSession is defined elsewhere and imported
 // For demonstration purposes, let's define a placeholder if it's not in the original snippet
@@ -169,13 +171,207 @@ io.on('connection', (socket) => {
 
 // ✅ **Routes Registration**
 app.get("/api/health", (req: Request, res: Response) => {
+  const connectionStatus = getConnectionHealthStatus();
+  
   res.json({
-    status: "healthy",
+    status: connectionStatus.totalConnections > 0 ? "healthy" : "degraded",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: "2.0.0-organized"
+    version: "2.0.0-organized",
+    connections: {
+      local: connectionStatus.local,
+      supabase: connectionStatus.supabase,
+      emergency: connectionStatus.emergencyMode,
+      total: connectionStatus.totalConnections
+    }
   });
 });
+
+/**
+ * 📊 نقطة نهاية صحة الاتصال المفصلة
+ */
+app.get("/api/connection-health", requireAuth, (req: Request, res: Response) => {
+  try {
+    const connectionStatus = getConnectionHealthStatus();
+    const metrics = connectionStatus.metrics;
+    
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      connectionStatus: {
+        local: connectionStatus.local,
+        supabase: connectionStatus.supabase,
+        emergencyMode: connectionStatus.emergencyMode,
+        totalConnections: connectionStatus.totalConnections
+      },
+      metrics: {
+        local: metrics?.local,
+        supabase: metrics?.supabase,
+        healthScore: metrics?.healthScore
+      },
+      recommendations: generateRecommendations(connectionStatus, metrics)
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * 🏥 نقطة نهاية مراقب الصحة الشامل
+ */
+app.get("/api/health-monitor", requireAuth, (req: Request, res: Response) => {
+  try {
+    const lastStatus = healthMonitor.getLastStatus();
+    const metrics = healthMonitor.getMetrics();
+    const connectionStatus = getConnectionHealthStatus();
+    
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      systemHealth: {
+        status: lastStatus?.status || 'unknown',
+        emergencyMode: lastStatus?.emergencyMode || false,
+        uptime: `${Math.floor(process.uptime() / 60)} minutes`
+      },
+      databaseConnections: {
+        local: connectionStatus.local,
+        supabase: connectionStatus.supabase,
+        healthy: connectionStatus.totalConnections > 0
+      },
+      performanceMetrics: {
+        databaseLatency: {
+          average: `${connectionStatus.metrics?.local?.averageLatency}`,
+          successRate: connectionStatus.metrics?.local?.successRate
+        },
+        memoryUsage: {
+          heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+          heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`
+        }
+      },
+      healthMetrics: {
+        totalChecks: metrics.totalChecks,
+        healthyChecks: metrics.healthyChecks,
+        degradedChecks: metrics.degradedChecks,
+        criticalChecks: metrics.criticalChecks,
+        averageLatency: `${metrics.averageLatency}ms`
+      },
+      recommendations: generateRecommendations(connectionStatus, connectionStatus.metrics)
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * 🔄 نقطة نهاية إعادة الاتصال الحية
+ */
+app.post("/api/connection/reconnect", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { target } = req.body;
+    const validTargets = ['local', 'supabase', 'both'];
+    const reconnectTarget = validTargets.includes(target) ? target : 'both';
+    
+    console.log(`🔄 [API] Manual reconnection requested for: ${reconnectTarget}`);
+    
+    await smartConnectionManager.reconnect(reconnectTarget as any);
+    
+    const status = smartConnectionManager.getConnectionStatus();
+    
+    res.json({
+      success: true,
+      message: `إعادة الاتصال ل ${reconnectTarget} اكتملت`,
+      connectionStatus: {
+        local: status.local,
+        supabase: status.supabase,
+        totalConnections: status.totalConnections
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * 🧪 نقطة نهاية اختبار الاتصال
+ */
+app.get("/api/connection/test", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const results = await smartConnectionManager.runConnectionTest();
+    
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      testResults: {
+        local: {
+          connected: results.local.status,
+          details: results.local.details,
+          error: results.local.error
+        },
+        supabase: {
+          connected: results.supabase.status,
+          details: results.supabase.details,
+          error: results.supabase.error
+        }
+      },
+      summary: {
+        allHealthy: results.local.status && results.supabase.status,
+        connectedCount: (results.local.status ? 1 : 0) + (results.supabase.status ? 1 : 0)
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * 💡 دالة مساعدة لإنشاء توصيات بناءً على حالة الاتصال
+ */
+function generateRecommendations(connectionStatus: any, metrics: any): string[] {
+  const recommendations: string[] = [];
+  
+  if (!connectionStatus.local && !connectionStatus.supabase) {
+    recommendations.push('⚠️ جميع الاتصالات معطلة - النظام في وضع الطوارئ');
+    recommendations.push('تحقق من إعدادات قاعدة البيانات');
+  }
+  
+  if (connectionStatus.emergencyMode) {
+    recommendations.push('ℹ️ النظام يعمل في وضع الطوارئ مع قاعدة بيانات محلية');
+    recommendations.push('استعيد الاتصال بقاعدة البيانات الأساسية');
+  }
+  
+  if (metrics?.local?.averageLatency && parseInt(metrics.local.averageLatency) > 5000) {
+    recommendations.push('⚠️ زمن استجابة البيانات عالي جداً');
+    recommendations.push('تحقق من أداء الشبكة والخادم');
+  }
+  
+  if (metrics?.local?.successRate && parseFloat(metrics.local.successRate) < 80) {
+    recommendations.push('⚠️ معدل نجاح الاتصال منخفض');
+    recommendations.push('حاول إعادة الاتصال يدوياً');
+  }
+  
+  if (recommendations.length === 0) {
+    recommendations.push('✅ النظام يعمل بكفاءة عالية');
+  }
+  
+  return recommendations;
+}
 
 // ✅ **Schema Status Endpoint**
 app.get("/api/schema-status", requireAuth, (req: Request, res: Response) => {

@@ -124,13 +124,27 @@ export async function checkDBConnection() {
       isEmergencyMode = true;
       
       // محاولة استعادة أحدث نسخة احتياطية حقيقية فوراً عند تفعيل وضع الطوارئ
-      // مع معالجة أفضل للأخطاء
+      // مع معالجة أفضل للأخطاء والبحث عن أحدث ملف
       import("./services/BackupService").then(({ BackupService }) => {
         console.log("🔄 [Emergency] Attempting automatic data recovery from latest backup...");
         BackupService.initialize().then(async () => {
-          const emergencyFile = path.join(process.cwd(), "backups", "emergency-latest.sql.gz");
+          const backupsDir = path.join(process.cwd(), "backups");
+          let emergencyFile = path.join(backupsDir, "emergency-latest.sql.gz");
+          
+          // إذا لم يجد ملف الطوارئ الثابت، يبحث عن أحدث ملف متاح
+          if (!fs.existsSync(emergencyFile) && fs.existsSync(backupsDir)) {
+            const files = fs.readdirSync(backupsDir)
+              .filter(f => f.endsWith(".sql.gz"))
+              .sort((a, b) => fs.statSync(path.join(backupsDir, b)).mtimeMs - fs.statSync(path.join(backupsDir, a)).mtimeMs);
+            
+            if (files.length > 0) {
+              emergencyFile = path.join(backupsDir, files[0]);
+              console.log(`📂 [Emergency] No fixed emergency file, selected latest: ${files[0]}`);
+            }
+          }
+
           if (fs.existsSync(emergencyFile)) {
-             console.log("📂 [Emergency] Found emergency backup, initiating restore to local database...");
+             console.log(`📂 [Emergency] Found backup at ${path.basename(emergencyFile)}, initiating restore...`);
              try {
                const stats = fs.statSync(emergencyFile);
                console.log(`📦 [Emergency] Backup file size: ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
@@ -144,7 +158,7 @@ export async function checkDBConnection() {
                });
              }
           } else {
-            console.warn("⚠️ [Emergency] No backup file found, starting with empty local database");
+            console.warn("⚠️ [Emergency] No backup files found in directory, starting with empty local database");
           }
         }).catch(e => {
           console.error("❌ [Emergency] Failed to initialize backup service:", e.message);

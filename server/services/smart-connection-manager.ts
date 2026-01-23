@@ -203,22 +203,6 @@ export class SmartConnectionManager {
       console.error('❌ [Emergency] خطأ حرج في وضع الطوارئ:', e.message);
     }
   }
-        console.warn('⚠️ [Emergency] لم تنجح محاولات البحث، إنشاء قاعدة بيانات فارغة');
-        (global as any).isEmergencyMode = true;
-        (global as any).emergencyDb = emergencyDb;
-      }
-    } catch (e: any) {
-      console.error('❌ [Emergency] خطأ حرج في وضع الطوارئ:', e.message);
-    }
-  }
-        console.warn('⚠️ [Emergency] لا توجد نسخة احتياطية محلية، إنشاء قاعدة بيانات فارغة...');
-        (global as any).isEmergencyMode = true;
-        (global as any).emergencyDb = emergencyDb;
-      }
-    } catch (e: any) {
-      console.error('❌ [Emergency] فشل تفعيل وضع الطوارئ:', e.message);
-    }
-  }
 
   /**
    * 🔄 فحص استعادة الاتصال والمزامنة العكسية

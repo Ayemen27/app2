@@ -4,11 +4,13 @@ import pg from "pg";
 
 const { Pool } = pg;
 
-// DATABASE_URL_SUPABASE is preferred for production/external DB
-const dbUrl = process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL || "";
+// DATABASE_URL_RAILWAY is preferred for Railway database
+const dbUrl = process.env.DATABASE_URL_RAILWAY || process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL || "";
 
 if (!dbUrl) {
   console.error("❌ [PostgreSQL] DATABASE_URL is not defined!");
+} else if (dbUrl.includes("rlwy.net")) {
+  console.log("✅ [PostgreSQL] Using Railway cloud database.");
 } else if (dbUrl.includes("supabase.co") || dbUrl.includes("pooler.supabase.com")) {
   console.log("✅ [PostgreSQL] Using Supabase cloud database.");
 } else {

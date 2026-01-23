@@ -125,60 +125,71 @@ export class SmartConnectionManager {
         const { exec } = require("child_process");
         const execPromise = promisify(exec);
         
-        if (chosenBackup.endsWith(".gz")) {
-          await execPromise(`gunzip -c "${chosenBackup}" > "${uncompressedPath}"`);
-        } else {
-          fs.copyFileSync(chosenBackup, uncompressedPath);
-        }
-        
-        const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
-        
-        const commands = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);
-        console.log(`📜 [Emergency] تنفيذ ${commands.length} أمر SQL في قاعدة SQLite...`);
-        
-        sqliteInstance.exec("PRAGMA foreign_keys = OFF;");
-        
-        for (const command of commands) {
-          try {
-            if (command.trim().startsWith("CREATE SCHEMA") || 
-                command.trim().startsWith("SET ") ||
-                command.trim().startsWith("SELECT pg_catalog") ||
-                command.trim().startsWith("COMMENT ON") ||
-                command.trim().startsWith("ALTER TABLE") && command.includes("OWNER TO")) {
-              continue;
-            }
-            
-            let sqliteCommand = command
-              .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
-              .replace(/SERIAL PRIMARY KEY/g, "INTEGER PRIMARY KEY AUTOINCREMENT")
-              .replace(/TIMESTAMP WITH TIME ZONE/g, "DATETIME")
-              .replace(/TIMESTAMP WITHOUT TIME ZONE/g, "DATETIME")
-              .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP")
-              .replace(/::text/g, "")
-              .replace(/::jsonb/g, "")
-              .replace(/::json/g, "")
-              .replace(/::integer/g, "")
-              .replace(/::boolean/g, "")
-              .replace(/RETURNING [^;]+/gi, "")
-              .replace(/ON CONFLICT[^;]+DO NOTHING/gi, "OR IGNORE")
-              .replace(/ON CONFLICT[^;]+DO UPDATE[^;]+/gi, "OR REPLACE");
-            
-            sqliteInstance.exec(sqliteCommand);
-          } catch (cmdError: any) {
-            if (!cmdError.message.includes('already exists') && 
-                !cmdError.message.includes('UNIQUE constraint failed')) {
-              console.warn(`⚠️ [Emergency] تنبيه في أمر SQL: ${cmdError.message.substring(0, 100)}`);
+        try {
+          if (chosenBackup.endsWith(".gz")) {
+            console.log(`📂 [Emergency] فك ضغط ${chosenBackup}...`);
+            await execPromise(`gunzip -c "${chosenBackup}" > "${uncompressedPath}"`);
+          } else {
+            console.log(`📂 [Emergency] نسخ ${chosenBackup}...`);
+            fs.copyFileSync(chosenBackup, uncompressedPath);
+          }
+          
+          if (!fs.existsSync(uncompressedPath)) {
+            throw new Error(`Uncompressed file not found at ${uncompressedPath}`);
+          }
+
+          const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
+          
+          const commands = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);
+          console.log(`📜 [Emergency] تنفيذ ${commands.length} أمر SQL في قاعدة SQLite...`);
+          
+          sqliteInstance.exec("PRAGMA foreign_keys = OFF;");
+          
+          for (const command of commands) {
+            try {
+              if (command.trim().startsWith("CREATE SCHEMA") || 
+                  command.trim().startsWith("SET ") ||
+                  command.trim().startsWith("SELECT pg_catalog") ||
+                  command.trim().startsWith("COMMENT ON") ||
+                  (command.trim().startsWith("ALTER TABLE") && command.includes("OWNER TO"))) {
+                continue;
+              }
+              
+              let sqliteCommand = command
+                .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
+                .replace(/SERIAL PRIMARY KEY/g, "INTEGER PRIMARY KEY AUTOINCREMENT")
+                .replace(/TIMESTAMP WITH TIME ZONE/g, "DATETIME")
+                .replace(/TIMESTAMP WITHOUT TIME ZONE/g, "DATETIME")
+                .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP")
+                .replace(/::text/g, "")
+                .replace(/::jsonb/g, "")
+                .replace(/::json/g, "")
+                .replace(/::integer/g, "")
+                .replace(/::boolean/g, "")
+                .replace(/RETURNING [^;]+/gi, "")
+                .replace(/ON CONFLICT[^;]+DO NOTHING/gi, "OR IGNORE")
+                .replace(/ON CONFLICT[^;]+DO UPDATE[^;]+/gi, "OR REPLACE");
+              
+              sqliteInstance.exec(sqliteCommand);
+            } catch (cmdError: any) {
+              if (!cmdError.message.includes('already exists') && 
+                  !cmdError.message.includes('UNIQUE constraint failed')) {
+                // console.warn(`⚠️ [Emergency] تنبيه في أمر SQL: ${cmdError.message.substring(0, 100)}`);
+              }
             }
           }
+          
+          sqliteInstance.exec("PRAGMA foreign_keys = ON;");
+          
+          if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
+          
+          console.log('✅ [Emergency] تمت استعادة البيانات إلى SQLite بنجاح');
+          (global as any).isEmergencyMode = true;
+          (global as any).emergencyDb = emergencyDb;
+        } catch (restoreError: any) {
+          console.error(`❌ [Emergency] Restore failed: ${restoreError.message}`);
+          throw restoreError;
         }
-        
-        sqliteInstance.exec("PRAGMA foreign_keys = ON;");
-        
-        if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
-        
-        console.log('✅ [Emergency] تمت استعادة البيانات إلى SQLite بنجاح');
-        (global as any).isEmergencyMode = true;
-        (global as any).emergencyDb = emergencyDb;
       } else {
         console.warn('⚠️ [Emergency] لا توجد نسخة احتياطية محلية، إنشاء قاعدة بيانات فارغة...');
         (global as any).isEmergencyMode = true;

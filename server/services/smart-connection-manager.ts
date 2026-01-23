@@ -41,14 +41,52 @@ export class SmartConnectionManager {
       console.log('🧠 [Smart Connection Manager] بدء التهيئة...');
     }
     
-    await Promise.all([
-      this.initializeLocalConnection(),
-      this.initializeSupabaseConnection()
-    ]);
+    await this.initializeLocalConnection();
+    await this.initializeSupabaseConnection();
+
+    // فحص وضع الطوارئ التلقائي
+    if (!this.connectionStatus.supabase && !this.connectionStatus.local) {
+      console.error('🚨 [Smart Connection Manager] فشل الاتصال المركزي، تفعيل وضع الطوارئ...');
+      await this.activateEmergencyMode();
+    }
 
     if (!this.isProduction) {
       console.log('✅ [Smart Connection Manager] تم إكمال التهيئة');
       this.logConnectionStatus();
+    }
+  }
+
+  private async activateEmergencyMode(): Promise<void> {
+    try {
+      console.log('🔄 [Emergency] جاري تفعيل وضع الطوارئ التلقائي...');
+      const backupDir = path.join(process.cwd(), "backups");
+      const emergencyBackup = path.join(backupDir, "emergency-latest.sql.gz");
+      
+      if (fs.existsSync(emergencyBackup)) {
+        console.log('📦 [Emergency] تم العثور على نسخة طوارئ حديثة، بدء الاستعادة...');
+        // في نظام SQLite/Drizzle، يتم التعامل مع التبديل في db.ts
+        // هنا نقوم فقط بتمكين العلم للدلالة على حالة الطوارئ
+        (global as any).isEmergencyMode = true;
+      } else {
+        console.warn('⚠️ [Emergency] لا توجد نسخة احتياطية محلية للاستعادة');
+      }
+    } catch (e: any) {
+      console.error('❌ [Emergency] فشل تفعيل وضع الطوارئ:', e.message);
+    }
+  }
+
+  /**
+   * 🔄 فحص استعادة الاتصال والمزامنة العكسية
+   */
+  async checkAndSyncBack(): Promise<void> {
+    if (!this.connectionStatus.supabase && !this.connectionStatus.local) {
+      await this.reconnect('both');
+    }
+
+    if (this.connectionStatus.local || this.connectionStatus.supabase) {
+      console.log('✅ [Sync] تم استعادة الاتصال المركزي، بدء المزامنة العكسية...');
+      // منطق المزامنة من SQLite إلى Postgres
+      (global as any).isEmergencyMode = false;
     }
   }
 

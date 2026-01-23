@@ -54,6 +54,11 @@ export class BackupService {
       const sizeMB = (fs.statSync(compressedPath).size / (1024 * 1024)).toFixed(2);
       await Promise.allSettled([this.sendToTelegram(compressedPath, `${filename}.gz`, sizeMB), this.uploadToGDrive(compressedPath, `${filename}.gz`)]);
       const [log] = await db.insert(backupLogs).values({ filename: `${filename}.gz`, size: sizeMB, status: "success", destination: "all", triggeredBy: userId }).returning();
+      
+      // مزامنة تلقائية مع المجلد المحلي لحالات الطوارئ
+      const emergencyPath = path.join(process.cwd(), "backups", "emergency-latest.sql.gz");
+      fs.copyFileSync(compressedPath, emergencyPath);
+      
       return { success: true, log };
     } catch (error: any) {
       await db.insert(backupLogs).values({ filename, status: "failed", destination: "all", errorMessage: error.message, triggeredBy: userId });

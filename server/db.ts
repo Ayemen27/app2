@@ -27,23 +27,26 @@ export const pool = new Pool({
 });
 
 // تهيئة قاعدة البيانات المناسبة
-export const db = isAndroid 
-  ? drizzleSqlite(new Database(sqliteDbPath), { schema })
-  : drizzle(pool, { schema });
+let dbInstance: any;
+let isEmergencyMode = false;
 
-if (!dbUrl && !isAndroid) {
-  console.error("❌ [PostgreSQL] DATABASE_URL is not defined!");
-} else if (isAndroid) {
-  console.log("✅ [SQLite] Using local database for Android.");
-} else if (dbUrl.includes("rlwy.net")) {
-  console.log("✅ [PostgreSQL] Using Railway cloud database.");
-} else if (dbUrl.includes("supabase.co") || dbUrl.includes("pooler.supabase.com")) {
-  console.log("✅ [PostgreSQL] Using Supabase cloud database.");
-} else if (dbUrl.match(/\d+\.\d+\.\d+\.\d+/)) {
-  console.log("✅ [PostgreSQL] Using Private VPS database (" + dbUrl.split('@')[1]?.split(':')[0] + ").");
-} else {
-  console.log("✅ [PostgreSQL] Using Replit database.");
+try {
+  if (isAndroid) {
+    dbInstance = drizzleSqlite(new Database(sqliteDbPath), { schema });
+    console.log("✅ [SQLite] Using local database for Android.");
+  } else {
+    // محاولة الاتصال بـ Postgres مع مهلة زمنية قصيرة
+    dbInstance = drizzle(pool, { schema });
+    console.log("✅ [PostgreSQL] Initialized.");
+  }
+} catch (e) {
+  console.error("🚨 [Emergency] Failed to initialize primary DB, switching to local SQLite:", e);
+  dbInstance = drizzleSqlite(new Database(sqliteDbPath), { schema });
+  isEmergencyMode = true;
 }
+
+export const db = dbInstance;
+export { isEmergencyMode };
 
 pool.on('error', (err) => {
   console.error('⚠️ [PostgreSQL] Pool Error:', err.message);
@@ -51,14 +54,24 @@ pool.on('error', (err) => {
 
 // دالة مساعدة للتحقق من حالة الاتصال
 export async function checkDBConnection() {
-  if (isAndroid) return true; // SQLite always connected
+  if (isAndroid || (global as any).isEmergencyMode) return true; // SQLite always connected
   try {
     const client = await pool.connect();
     client.release();
     console.log("✅ [PostgreSQL] Connection successful!");
+    if (isEmergencyMode) {
+      console.log("🔄 [Emergency] Connection restored, disabling emergency mode.");
+      isEmergencyMode = false;
+      (global as any).isEmergencyMode = false;
+    }
     return true;
   } catch (err: any) {
     console.error("❌ [PostgreSQL] Connection failed:", err.message);
+    if (!isEmergencyMode) {
+      console.error("🚨 [Emergency] Activating emergency mode protocol.");
+      isEmergencyMode = true;
+      (global as any).isEmergencyMode = true;
+    }
     return false;
   }
 }

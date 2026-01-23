@@ -382,6 +382,14 @@ import { BackupService } from "./services/BackupService";
 (async () => {
   try {
     await BackupService.initialize();
+    
+    // فحص الاتصال وتفعيل وضع الطوارئ قبل تشغيل المسارات
+    const isConnected = await checkDBConnection();
+    if (!isConnected) {
+      console.log("⚠️ [Server] فشل الاتصال الأولي، تفعيل بروتوكول الطوارئ التلقائي...");
+      // سيقوم db.ts و smartConnectionManager بالتبديل تلقائياً
+    }
+
     const serverInstance = server.listen(FINAL_PORT, "0.0.0.0", async () => {
       log(`serving on port ${FINAL_PORT}`);
       console.log('✅ Socket.IO server متشغل');

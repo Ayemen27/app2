@@ -8,7 +8,7 @@ import path from "path";
 const { Pool } = pg;
 
 // التحقق من البيئة (أندرويد أو محلي)
-const isAndroid = process.env.PLATFORM === 'android';
+const isAndroid = process.env.PLATFORM === 'android' || process.env.NODE_ENV === 'production';
 const sqliteDbPath = path.resolve(process.cwd(), "local.db");
 
 // DATABASE_URL_RAILWAY is preferred for Railway database
@@ -42,10 +42,9 @@ pool.on('error', (err) => {
   console.error('⚠️ [PostgreSQL] Pool Error:', err.message);
 });
 
-export const db = drizzle(pool, { schema });
-
 // دالة مساعدة للتحقق من حالة الاتصال
 export async function checkDBConnection() {
+  if (isAndroid) return true; // SQLite always connected
   try {
     const client = await pool.connect();
     client.release();

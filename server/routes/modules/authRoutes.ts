@@ -115,20 +115,15 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       maxAge: 90 * 24 * 60 * 60 * 1000 // 90 يوم
     });
 
+    // هيكلة استجابة متوافقة تماماً مع Android و Web
     const responseData = {
       success: true,
       status: "success",
       message: 'تم تسجيل الدخول بنجاح',
+      token: tokenPair.accessToken, // الحقل الأساسي الذي يتوقعه الأندرويد عادة
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
-      token: tokenPair.accessToken,
       expiresIn: 900,
-      id: user.id,
-      userId: user.id,
-      email: user.email,
-      name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-      role: user.role || 'user',
-      fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
       user: {
         id: user.id,
         email: user.email,
@@ -140,8 +135,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     console.log('📤 [AUTH-DEBUG] إرسال الاستجابة النهائية:', {
       userId: user.id,
-      hasToken: !!responseData.accessToken,
-      accessTokenPreview: responseData.accessToken ? (responseData.accessToken.substring(0, 10) + '...') : 'null',
+      hasToken: !!responseData.token,
+      tokenPreview: responseData.token ? (responseData.token.substring(0, 10) + '...') : 'null',
       timestamp: new Date().toISOString()
     });
 

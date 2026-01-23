@@ -26,9 +26,11 @@ export const pool = new Pool({
   connectionString: dbUrl,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 30000, // زيادة المهلة لـ 30 ثانية للاتصالات البعيدة
   // إضافة معالجة للخطأ ENOTFOUND hostname: 'base'
-  ssl: dbUrl.includes("supabase.co") || dbUrl.includes("rlwy.net") ? { rejectUnauthorized: false } : false
+  ssl: dbUrl.includes("supabase.co") || dbUrl.includes("rlwy.net") ? { rejectUnauthorized: false } : {
+    rejectUnauthorized: false, // السماح بالاتصالات المشفرة غير الموثقة لتجنب مشاكل الشهادات
+  }
 });
 
 // تهيئة قاعدة البيانات المناسبة مع إدارة ذكية

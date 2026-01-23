@@ -46,20 +46,16 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // ✅ الحالة 2: غير مسجل دخول - توجيه فوري لصفحة الدخول
+  // ✅ الحالة 2: غير مسجل دخول - السماح بالمرور للمسارات المستثناة لتجنب الحلقات اللانهائية
   if (!isAuthenticated || !user) {
-    console.log('🚫 [ProtectedRoute] غير مصادق، توجيه إلى /check');
+    const excludedPaths = ['/check', '/permissions', '/setup', '/login', '/verify-email', '/reset-password'];
     
-    // التحقق من الحالة الذكية قبل أي شيء
-    if (window.location.pathname === '/check' || 
-        window.location.pathname === '/permissions' || 
-        window.location.pathname === '/setup') {
-      return null;
+    if (excludedPaths.includes(window.location.pathname)) {
+      console.log('🏁 [ProtectedRoute] مسار مستثنى، السماح بالمرور');
+      return <>{children}</>;
     }
 
-    if (window.location.pathname === '/login') {
-      return null;
-    }
+    console.log('🚫 [ProtectedRoute] غير مصادق، توجيه إلى /login');
     return <Redirect to="/login" />;
   }
 

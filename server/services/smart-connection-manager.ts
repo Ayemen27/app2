@@ -75,10 +75,29 @@ export class SmartConnectionManager {
         const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
         
         // تنفيذ الـ SQL على قاعدة SQLite
-        // ملاحظة: قد تحتاج لتعديل بسيط في الصيغة بين Postgres و SQLite
-        // ولكن للسرعة سنقوم بتنفيذ الأوامر الأساسية
         const sqliteDb = this.localDb; 
-        sqliteDb.run(sqlContent);
+        
+        // تقسيم ملف الـ SQL إلى أوامر فردية وتنفيذها
+        const commands = sqlContent.split(';').filter(cmd => cmd.trim().length > 0);
+        console.log(`📜 [Emergency] تنفيذ ${commands.length} أمر SQL في قاعدة SQLite...`);
+        
+        for (const command of commands) {
+          try {
+            // تحويل بعض صيغ Postgres إلى SQLite (مثل gen_random_uuid)
+            let sqliteCommand = command
+              .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
+              .replace(/SERIAL PRIMARY KEY/g, "INTEGER PRIMARY KEY AUTOINCREMENT")
+              .replace(/TIMESTAMP WITH TIME ZONE/g, "DATETIME")
+              .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP");
+            
+            await db.execute(sql.raw(sqliteCommand));
+          } catch (cmdError: any) {
+            // تجاهل أخطاء التكرار البسيطة أثناء الاستعادة
+            if (!cmdError.message.includes('already exists')) {
+              console.warn(`⚠️ [Emergency] تنبيه في أمر SQL: ${cmdError.message}`);
+            }
+          }
+        }
         
         if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
         

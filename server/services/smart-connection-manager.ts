@@ -89,73 +89,73 @@ export class SmartConnectionManager {
   private async activateEmergencyMode(): Promise<void> {
     try {
       console.log('🔄 [Emergency] جاري تفعيل وضع الطوارئ التلقائي...');
-      const backupDir = path.resolve(process.cwd(), "backups");
-      const sqliteDbPath = path.resolve(process.cwd(), "local.db");
+      // استخدام المسار المطلق بشكل صريح
+      const backupPath = "/home/runner/workspace/backups";
+      const sqliteDbPath = "/home/runner/workspace/local.db";
       
       const sqliteInstance = new Database(sqliteDbPath);
       const emergencyDb = drizzleSqlite(sqliteInstance, { schema });
       
       // البحث عن أحدث نسخة احتياطية صالحة
       let chosenBackup = null;
-      const emergencyBackup = path.join(backupDir, "emergency-latest.sql.gz");
+      const emergencyBackup = path.join(backupPath, "emergency-latest.sql.gz");
       
-      console.log(`📂 [Emergency] Checking backup directory: ${backupDir}`);
+      console.log(`📂 [Emergency] Scanning backup directory: ${backupPath}`);
       
       if (fs.existsSync(emergencyBackup) && fs.statSync(emergencyBackup).size > 100) {
         chosenBackup = emergencyBackup;
-      } else {
-        if (fs.existsSync(backupDir)) {
-          // البحث في المجلد عن أحدث ملف sql.gz أو sql
-          const files = fs.readdirSync(backupDir)
-            .filter(f => (f.endsWith(".sql.gz") || f.endsWith(".sql")) && fs.statSync(path.join(backupDir, f)).size > 1000)
-            .sort((a, b) => fs.statSync(path.join(backupDir, b)).mtimeMs - fs.statSync(path.join(backupDir, a)).mtimeMs);
-          
-          if (files.length > 0) {
-            chosenBackup = path.join(backupDir, files[0]);
-            console.log(`📂 [Emergency] تم العثور على بديل: ${files[0]}`);
-          } else {
-            console.error('❌ [Emergency] No valid backup files found in directory');
-          }
+      } else if (fs.existsSync(backupPath)) {
+        // البحث في المجلد عن أحدث ملف sql.gz أو sql
+        const files = fs.readdirSync(backupPath)
+          .filter(f => (f.endsWith(".sql.gz") || f.endsWith(".sql")) && fs.statSync(path.join(backupPath, f)).size > 1000)
+          .sort((a, b) => fs.statSync(path.join(backupPath, b)).mtimeMs - fs.statSync(path.join(backupPath, a)).mtimeMs);
+        
+        if (files.length > 0) {
+          chosenBackup = path.join(backupPath, files[0]);
+          console.log(`📂 [Emergency] البديل المختار: ${files[0]} (الحجم: ${fs.statSync(chosenBackup).size} بايت)`);
         } else {
-          console.error(`❌ [Emergency] Backup directory not found at ${backupDir}`);
+          console.error('❌ [Emergency] لم يتم العثور على أي ملفات صالحة في المجلد');
         }
+      } else {
+        console.error(`❌ [Emergency] المجلد غير موجود: ${backupPath}`);
       }
 
       if (chosenBackup) {
         console.log(`📦 [Emergency] بدء الاستعادة من: ${path.basename(chosenBackup)}`);
         
-        const uncompressedPath = path.join(backupDir, "temp-restore.sql");
+        const uncompressedPath = path.join(backupPath, "temp-restore.sql");
         const { promisify } = require("util");
         const { exec } = require("child_process");
         const execPromise = promisify(exec);
         
         try {
           if (chosenBackup.endsWith(".gz")) {
-            console.log(`📂 [Emergency] فك ضغط ${chosenBackup}...`);
+            console.log(`📂 [Emergency] جاري فك ضغط ${chosenBackup}...`);
             await execPromise(`gunzip -c "${chosenBackup}" > "${uncompressedPath}"`);
           } else {
-            console.log(`📂 [Emergency] نسخ ${chosenBackup}...`);
+            console.log(`📂 [Emergency] جاري نسخ ${chosenBackup}...`);
             fs.copyFileSync(chosenBackup, uncompressedPath);
           }
           
           if (!fs.existsSync(uncompressedPath)) {
-            throw new Error(`Uncompressed file not found at ${uncompressedPath}`);
+            throw new Error(`تعذر العثور على الملف المفكوك في ${uncompressedPath}`);
           }
 
           const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
           
           const commands = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);
-          console.log(`📜 [Emergency] تنفيذ ${commands.length} أمر SQL في قاعدة SQLite...`);
+          console.log(`📜 [Emergency] جاري تنفيذ ${commands.length} أمر SQL في SQLite...`);
           
           sqliteInstance.exec("PRAGMA foreign_keys = OFF;");
           
           for (const command of commands) {
             try {
-              if (command.trim().startsWith("CREATE SCHEMA") || 
-                  command.trim().startsWith("SET ") ||
-                  command.trim().startsWith("SELECT pg_catalog") ||
-                  command.trim().startsWith("COMMENT ON") ||
-                  (command.trim().startsWith("ALTER TABLE") && command.includes("OWNER TO"))) {
+              const trimmedCmd = command.trim();
+              if (trimmedCmd.startsWith("CREATE SCHEMA") || 
+                  trimmedCmd.startsWith("SET ") ||
+                  trimmedCmd.startsWith("SELECT pg_catalog") ||
+                  trimmedCmd.startsWith("COMMENT ON") ||
+                  (trimmedCmd.startsWith("ALTER TABLE") && trimmedCmd.includes("OWNER TO"))) {
                 continue;
               }
               
@@ -178,7 +178,7 @@ export class SmartConnectionManager {
             } catch (cmdError: any) {
               if (!cmdError.message.includes('already exists') && 
                   !cmdError.message.includes('UNIQUE constraint failed')) {
-                // console.warn(`⚠️ [Emergency] تنبيه في أمر SQL: ${cmdError.message.substring(0, 100)}`);
+                // صامت للسرعة
               }
             }
           }
@@ -187,14 +187,30 @@ export class SmartConnectionManager {
           
           if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
           
-          console.log('✅ [Emergency] تمت استعادة البيانات إلى SQLite بنجاح');
+          console.log('✅ [Emergency] اكتملت الاستعادة بنجاح');
           (global as any).isEmergencyMode = true;
           (global as any).emergencyDb = emergencyDb;
         } catch (restoreError: any) {
-          console.error(`❌ [Emergency] Restore failed: ${restoreError.message}`);
+          console.error(`❌ [Emergency] فشل الاستعادة الفعلي: ${restoreError.message}`);
           throw restoreError;
         }
       } else {
+        console.warn('⚠️ [Emergency] لم تنجح محاولات البحث، إنشاء قاعدة بيانات فارغة');
+        (global as any).isEmergencyMode = true;
+        (global as any).emergencyDb = emergencyDb;
+      }
+    } catch (e: any) {
+      console.error('❌ [Emergency] خطأ حرج في وضع الطوارئ:', e.message);
+    }
+  }
+        console.warn('⚠️ [Emergency] لم تنجح محاولات البحث، إنشاء قاعدة بيانات فارغة');
+        (global as any).isEmergencyMode = true;
+        (global as any).emergencyDb = emergencyDb;
+      }
+    } catch (e: any) {
+      console.error('❌ [Emergency] خطأ حرج في وضع الطوارئ:', e.message);
+    }
+  }
         console.warn('⚠️ [Emergency] لا توجد نسخة احتياطية محلية، إنشاء قاعدة بيانات فارغة...');
         (global as any).isEmergencyMode = true;
         (global as any).emergencyDb = emergencyDb;

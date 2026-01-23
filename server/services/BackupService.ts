@@ -100,15 +100,33 @@ export class BackupService {
 
   static async restore(logId: number) {
     const [log] = await db.select().from(backupLogs).where(eq(backupLogs.id, logId));
-    if (!log || log.status !== "success") throw new Error("Invalid backup file");
+    if (!log || log.status !== "success") throw new Error("ملف نسخة احتياطية غير صالح");
+    
     const filepath = path.join(this.BACKUP_DIR, log.filename);
     const uncompressedPath = filepath.replace(".gz", "");
-    await execPromise(`gunzip -c "${filepath}" > "${uncompressedPath}"`);
-    const dbUrl = process.env.DATABASE_URL;
-    if (!dbUrl) throw new Error("DATABASE_URL not found");
-    await execPromise(`psql "${dbUrl}" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`);
-    await execPromise(`psql "${dbUrl}" -f "${uncompressedPath}"`);
-    fs.unlinkSync(uncompressedPath);
-    return true;
+    
+    try {
+      // فك الضغط
+      await execPromise(`gunzip -c "${filepath}" > "${uncompressedPath}"`);
+      
+      // اختيار قاعدة البيانات السحابية كأولوية
+      const dbUrl = process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL;
+      if (!dbUrl) throw new Error("لم يتم العثور على رابط قاعدة البيانات (DATABASE_URL)");
+
+      console.log("🔄 جاري استعادة البيانات إلى القاعدة السحابية...");
+      
+      // تنظيف المخطط بحذر واستعادة البيانات
+      const env = { ...process.env, PGPASSWORD: new URL(dbUrl).password };
+      await execPromise(`psql "${dbUrl}" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`, { env });
+      await execPromise(`psql "${dbUrl}" -f "${uncompressedPath}"`, { env });
+      
+      if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
+      console.log("✅ تمت استعادة البيانات بنجاح وبدون تداخل");
+      return true;
+    } catch (error: any) {
+      if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
+      console.error("❌ فشل استعادة البيانات:", error.message);
+      throw new Error(`فشل الاستعادة: ${error.message}`);
+    }
   }
 }

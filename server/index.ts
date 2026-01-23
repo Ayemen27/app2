@@ -368,7 +368,7 @@ app.use('/api/*', (req, res) => {
 // this serves both the API and the client.
 // It is the only port that is not firewalled.
 
-const FINAL_PORT = parseInt(process.env.PORT || "8080");
+const FINAL_PORT = parseInt(process.env.PORT || "5000");
 const NODE_ENV = envConfig.NODE_ENV;
 
 console.log('🚀 بدء تشغيل الخادم...');

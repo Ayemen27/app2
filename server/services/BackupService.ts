@@ -132,8 +132,11 @@ export class BackupService {
         const commands = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);
         console.log(`📊 [BackupService] جاري تنفيذ ${commands.length} أمر SQL...`);
         
+        // استخدام dbInstance مباشرة لتجنب محاولات الاتصال بـ PostgreSQL في وضع الطوارئ
+        const currentDb = db; 
+        
         // تعطيل الفهارس مؤقتاً لتسريع الاستعادة
-        await db.execute(sql.raw("PRAGMA foreign_keys = OFF; BEGIN TRANSACTION;"));
+        await currentDb.execute(sql.raw("PRAGMA foreign_keys = OFF; BEGIN TRANSACTION;"));
         
         for (const command of commands) {
           try {
@@ -151,7 +154,7 @@ export class BackupService {
               continue;
             }
             
-            await db.execute(sql.raw(sqliteCommand));
+            await currentDb.execute(sql.raw(sqliteCommand));
           } catch (e: any) {
             // تجاهل أخطاء الجداول الموجودة مسبقاً
             if (!e.message.includes("already exists")) {
@@ -159,7 +162,7 @@ export class BackupService {
             }
           }
         }
-        await db.execute(sql.raw("COMMIT; PRAGMA foreign_keys = ON;"));
+        await currentDb.execute(sql.raw("COMMIT; PRAGMA foreign_keys = ON;"));
       } else {
         console.log("🔄 جاري استعادة البيانات إلى القاعدة السحابية...");
         const env = { ...process.env, PGPASSWORD: new URL(dbUrl).password };
@@ -190,20 +193,25 @@ export class BackupService {
     };
 
     try {
+      const isEmergency = (global as any).isEmergencyMode;
+      const currentDb = db;
+
       const tables = ['projects', 'workers', 'users', 'wells'];
       for (const table of tables) {
         try {
-          await db.execute(sql.raw(`SELECT count(*) FROM ${table} LIMIT 1`));
+          await currentDb.execute(sql.raw(`SELECT count(*) FROM ${table} LIMIT 1`));
         } catch (e: any) {
           checkResult.status = "warning";
           checkResult.issues.push(`جدول مفقود أو غير قابل للقراءة: ${table}`);
         }
       }
 
-      const userCount = await db.select().from(users).limit(1);
-      if (userCount.length === 0) {
-        checkResult.status = "warning";
-        checkResult.issues.push("لم يتم العثور على مستخدمين في قاعدة البيانات الحالية");
+      if (!isEmergency) {
+        const userCount = await currentDb.select().from(users).limit(1);
+        if (userCount.length === 0) {
+          checkResult.status = "warning";
+          checkResult.issues.push("لم يتم العثور على مستخدمين في قاعدة البيانات الحالية");
+        }
       }
 
       (global as any).lastIntegrityCheck = checkResult;

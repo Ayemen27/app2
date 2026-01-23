@@ -96,7 +96,7 @@ export class SmartConnectionManager {
       const sqliteInstance = new Database(sqliteDbPath);
       const emergencyDb = drizzleSqlite(sqliteInstance, { schema });
       
-      if (fs.existsSync(emergencyBackup)) {
+      if (fs.existsSync(emergencyBackup) && fs.statSync(emergencyBackup).size > 0) {
         console.log('📦 [Emergency] تم العثور على نسخة طوارئ حديثة، بدء الاستعادة إلى SQLite...');
         
         const uncompressedPath = emergencyBackup.replace(".gz", "");

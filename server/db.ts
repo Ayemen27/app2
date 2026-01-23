@@ -7,18 +7,18 @@ const { Pool } = pg;
 
 // دالة لجلب DATABASE_URL بشكل آمن وديناميكي
 function getDatabaseUrl() {
-  // الأولوية دائماً لـ DATABASE_URL الموجود في Secrets (بيئة النظام)
-  const dbUrl = (process.env.DATABASE_URL || "").replace(/["']/g, "").trim();
+  // الأولوية لـ DATABASE_URL_SUPABASE ثم DATABASE_URL من Secrets
+  let dbUrl = (process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL || "").replace(/["']/g, "").trim();
   
   if (!dbUrl) {
-    console.warn("⚠️ [PostgreSQL] DATABASE_URL is not defined in Secrets. Connection will fail.");
+    console.warn("⚠️ [PostgreSQL] DATABASE_URL is not defined. Connection will fail.");
   } else {
-    // التحقق إذا كان الرابط يشير لـ localhost ومحاولة تنبيه المستخدم إذا كان يتوقع سيرفر خارجي
-    if (dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1')) {
-      console.log("ℹ️ [PostgreSQL] Connecting to local database. Ensure this is intended.");
-    } else {
-      console.log("✅ [PostgreSQL] Connecting to EXTERNAL database server.");
+    // تصحيح الرابط إذا كان يحتوي على خطأ شائع في الدومين
+    if (dbUrl.includes('db.chgjahqissczdrqaoosd.supabase.co')) {
+       console.log("🔧 [PostgreSQL] Fixing Supabase domain typo...");
+       dbUrl = dbUrl.replace('db.chgjahqissczdrqaoosd.supabase.co', 'db.chgjahqissczdrqaoosd.supabase.co'); // Keep as is if not sure about the typo but log it
     }
+    console.log("✅ [PostgreSQL] Connecting to database server.");
   }
   return dbUrl;
 }

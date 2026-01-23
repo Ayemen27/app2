@@ -247,9 +247,18 @@ export class SmartConnectionManager {
   getSmartConnection(operationType: 'read' | 'write' | 'backup' | 'sync' = 'read'): {
     pool: Pool | null;
     db: any;
-    source: 'local' | 'supabase' | null;
+    source: 'local' | 'supabase' | 'emergency' | null;
   } {
-    // قواعد التوجيه الذكي
+    // التحقق من وضع الطوارئ أولاً
+    if ((global as any).isEmergencyMode) {
+      return {
+        pool: null,
+        db: this.localDb, // في Replit، القاعدة المحلية هي SQLite
+        source: 'emergency'
+      };
+    }
+
+    // قواعد التوجيه الذكي المعتادة
     switch (operationType) {
       case 'write':
         // الكتابة دائماً في قاعدة البيانات المحلية

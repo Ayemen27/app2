@@ -54,23 +54,28 @@ pool.on('error', (err) => {
 
 // دالة مساعدة للتحقق من حالة الاتصال
 export async function checkDBConnection() {
-  if (isAndroid || (global as any).isEmergencyMode) return true; // SQLite always connected
+  if (isAndroid) return true; // SQLite always connected
+  
   try {
     const client = await pool.connect();
     client.release();
     console.log("✅ [PostgreSQL] Connection successful!");
-    if (isEmergencyMode) {
+    
+    // إذا كان في وضع طوارئ، نقوم بتعطيله فوراً
+    if ((global as any).isEmergencyMode) {
       console.log("🔄 [Emergency] Connection restored, disabling emergency mode.");
-      isEmergencyMode = false;
       (global as any).isEmergencyMode = false;
+      isEmergencyMode = false;
     }
     return true;
   } catch (err: any) {
     console.error("❌ [PostgreSQL] Connection failed:", err.message);
-    if (!isEmergencyMode) {
+    
+    // تفعيل وضع الطوارئ فوراً عند فشل الاتصال
+    if (!(global as any).isEmergencyMode) {
       console.error("🚨 [Emergency] Activating emergency mode protocol.");
-      isEmergencyMode = true;
       (global as any).isEmergencyMode = true;
+      isEmergencyMode = true;
     }
     return false;
   }

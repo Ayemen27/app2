@@ -107,11 +107,15 @@ export class BackupService {
     const [log] = await db.select().from(backupLogs).where(eq(backupLogs.id, logId));
     if (!log || log.status !== "success") throw new Error("ملف نسخة احتياطية غير صالح");
     
-    const filepath = path.join(this.BACKUP_DIR, log.filename);
+    return await this.restoreFromFile(path.join(this.BACKUP_DIR, log.filename));
+  }
+
+  static async restoreFromFile(filepath: string) {
     const uncompressedPath = filepath.replace(".gz", "");
     
     try {
       // فك الضغط
+      console.log(`📂 [BackupService] فك ضغط الملف: ${filepath}`);
       await execPromise(`gunzip -c "${filepath}" > "${uncompressedPath}"`);
       
       // اختيار قاعدة البيانات بناءً على الوضع الحالي
@@ -122,7 +126,13 @@ export class BackupService {
       if (!dbUrl) {
         console.log("🔄 جاري استعادة البيانات إلى قاعدة البيانات المحلية (SQLite)...");
         const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
-        const commands = sqlContent.split(';').filter(cmd => cmd.trim().length > 0);
+        
+        // تحسين تقسيم الأوامر للتعامل مع النسخ الكبيرة
+        const commands = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);
+        console.log(`📊 [BackupService] جاري تنفيذ ${commands.length} أمر SQL...`);
+        
+        // تعطيل الفهارس مؤقتاً لتسريع الاستعادة
+        await db.execute(sql.raw("PRAGMA foreign_keys = OFF; BEGIN TRANSACTION;"));
         
         for (const command of commands) {
           try {
@@ -130,10 +140,25 @@ export class BackupService {
               .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
               .replace(/SERIAL PRIMARY KEY/g, "INTEGER PRIMARY KEY AUTOINCREMENT")
               .replace(/TIMESTAMP WITH TIME ZONE/g, "DATETIME")
-              .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP");
+              .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP")
+              .replace(/::text/g, "")
+              .replace(/::jsonb/g, "");
+            
+            if (sqliteCommand.trim().startsWith("CREATE SCHEMA") || 
+                sqliteCommand.trim().startsWith("SET ") ||
+                sqliteCommand.trim().startsWith("SELECT pg_catalog")) {
+              continue;
+            }
+            
             await db.execute(sql.raw(sqliteCommand));
-          } catch (e) {}
+          } catch (e: any) {
+            // تجاهل أخطاء الجداول الموجودة مسبقاً
+            if (!e.message.includes("already exists")) {
+              // console.warn("⚠️ [BackupService] SQL Warning:", e.message);
+            }
+          }
         }
+        await db.execute(sql.raw("COMMIT; PRAGMA foreign_keys = ON;"));
       } else {
         console.log("🔄 جاري استعادة البيانات إلى القاعدة السحابية...");
         const env = { ...process.env, PGPASSWORD: new URL(dbUrl).password };

@@ -4,6 +4,7 @@ import { drizzle as drizzleSqlite } from "drizzle-orm/better-sqlite3";
 import pg from "pg";
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 
 const { Pool } = pg;
 
@@ -54,7 +55,7 @@ pool.on('error', (err) => {
 
 // دالة مساعدة للتحقق من حالة الاتصال
 export async function checkDBConnection() {
-  if (isAndroid) return true; // SQLite always connected
+  if (isAndroid || (global as any).isEmergencyMode) return true; // SQLite always connected or already in emergency
   
   try {
     const client = await pool.connect();
@@ -76,6 +77,23 @@ export async function checkDBConnection() {
       console.error("🚨 [Emergency] Activating emergency mode protocol.");
       (global as any).isEmergencyMode = true;
       isEmergencyMode = true;
+      
+      // محاولة استعادة أحدث نسخة احتياطية حقيقية فوراً عند تفعيل وضع الطوارئ
+      import("./services/BackupService").then(({ BackupService }) => {
+        console.log("🔄 [Emergency] محاولة استعادة البيانات تلقائياً من أحدث نسخة احتياطية...");
+        BackupService.initialize().then(async () => {
+          const emergencyFile = path.join(process.cwd(), "backups", "emergency-latest.sql.gz");
+          if (fs.existsSync(emergencyFile)) {
+             console.log("📂 [Emergency] استخدام ملف emergency-latest.sql.gz للاستعادة...");
+             try {
+               await BackupService.restoreFromFile(emergencyFile);
+               console.log("✅ [Emergency] تم تحميل أحدث البيانات الحقيقية في وضع الطوارئ بنجاح");
+             } catch (e: any) {
+               console.error("❌ [Emergency] فشل تحميل النسخة الاحتياطية التلقائي:", e.message);
+             }
+          }
+        });
+      });
     }
     return false;
   }

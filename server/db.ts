@@ -9,7 +9,7 @@ const dbUrl = process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL || "
 
 if (!dbUrl) {
   console.error("❌ [PostgreSQL] DATABASE_URL is not defined!");
-} else if (process.env.DATABASE_URL_SUPABASE) {
+} else if (dbUrl.includes("supabase.co") || dbUrl.includes("pooler.supabase.com")) {
   console.log("✅ [PostgreSQL] Using Supabase cloud database.");
 } else {
   console.log("✅ [PostgreSQL] Using Replit database.");

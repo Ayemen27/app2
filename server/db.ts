@@ -1,21 +1,18 @@
 import * as schema from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { drizzle as drizzleSqlite } from "drizzle-orm/better-sqlite3";
 import pg from "pg";
+import Database from "better-sqlite3";
+import path from "path";
 
 const { Pool } = pg;
 
+// التحقق من البيئة (أندرويد أو محلي)
+const isAndroid = process.env.PLATFORM === 'android';
+const sqliteDbPath = path.resolve(process.cwd(), "local.db");
+
 // DATABASE_URL_RAILWAY is preferred for Railway database
 const dbUrl = process.env.DATABASE_URL_RAILWAY || process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL || "";
-
-if (!dbUrl) {
-  console.error("❌ [PostgreSQL] DATABASE_URL is not defined!");
-} else if (dbUrl.includes("rlwy.net")) {
-  console.log("✅ [PostgreSQL] Using Railway cloud database.");
-} else if (dbUrl.includes("supabase.co") || dbUrl.includes("pooler.supabase.com")) {
-  console.log("✅ [PostgreSQL] Using Supabase cloud database.");
-} else {
-  console.log("✅ [PostgreSQL] Using Replit database.");
-}
 
 export const pool = new Pool({
   connectionString: dbUrl,
@@ -23,6 +20,23 @@ export const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000
 });
+
+// تهيئة قاعدة البيانات المناسبة
+export const db = isAndroid 
+  ? drizzleSqlite(new Database(sqliteDbPath), { schema })
+  : drizzle(pool, { schema });
+
+if (!dbUrl && !isAndroid) {
+  console.error("❌ [PostgreSQL] DATABASE_URL is not defined!");
+} else if (isAndroid) {
+  console.log("✅ [SQLite] Using local database for Android.");
+} else if (dbUrl.includes("rlwy.net")) {
+  console.log("✅ [PostgreSQL] Using Railway cloud database.");
+} else if (dbUrl.includes("supabase.co") || dbUrl.includes("pooler.supabase.com")) {
+  console.log("✅ [PostgreSQL] Using Supabase cloud database.");
+} else {
+  console.log("✅ [PostgreSQL] Using Replit database.");
+}
 
 pool.on('error', (err) => {
   console.error('⚠️ [PostgreSQL] Pool Error:', err.message);

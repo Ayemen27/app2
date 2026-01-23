@@ -90,21 +90,38 @@ export class SmartConnectionManager {
     try {
       console.log('🔄 [Emergency] جاري تفعيل وضع الطوارئ التلقائي...');
       const backupDir = path.join(process.cwd(), "backups");
-      const emergencyBackup = path.join(backupDir, "emergency-latest.sql.gz");
       const sqliteDbPath = path.join(process.cwd(), "local.db");
       
       const sqliteInstance = new Database(sqliteDbPath);
       const emergencyDb = drizzleSqlite(sqliteInstance, { schema });
       
+      // البحث عن أحدث نسخة احتياطية صالحة
+      let chosenBackup = null;
+      const emergencyBackup = path.join(backupDir, "emergency-latest.sql.gz");
+      
       if (fs.existsSync(emergencyBackup) && fs.statSync(emergencyBackup).size > 100) {
-        console.log('📦 [Emergency] تم العثور على نسخة طوارئ حديثة، بدء الاستعادة إلى SQLite...');
+        chosenBackup = emergencyBackup;
+      } else {
+        // البحث في المجلد عن أحدث ملف sql.gz
+        const files = fs.readdirSync(backupDir)
+          .filter(f => f.endsWith(".sql.gz") && fs.statSync(path.join(backupDir, f)).size > 1000)
+          .sort((a, b) => fs.statSync(path.join(backupDir, b)).mtimeMs - fs.statSync(path.join(backupDir, a)).mtimeMs);
         
-        const uncompressedPath = emergencyBackup.replace(".gz", "");
+        if (files.length > 0) {
+          chosenBackup = path.join(backupDir, files[0]);
+          console.log(`📂 [Emergency] تم العثور على بديل: ${files[0]}`);
+        }
+      }
+
+      if (chosenBackup) {
+        console.log(`📦 [Emergency] بدء الاستعادة من: ${path.basename(chosenBackup)}`);
+        
+        const uncompressedPath = path.join(backupDir, "temp-restore.sql");
         const { promisify } = require("util");
         const { exec } = require("child_process");
         const execPromise = promisify(exec);
         
-        await execPromise(`gunzip -c "${emergencyBackup}" > "${uncompressedPath}"`);
+        await execPromise(`gunzip -c "${chosenBackup}" > "${uncompressedPath}"`);
         const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
         
         const commands = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);

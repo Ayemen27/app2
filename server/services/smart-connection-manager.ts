@@ -99,17 +99,21 @@ export class SmartConnectionManager {
       let chosenBackup = null;
       const emergencyBackup = path.join(backupDir, "emergency-latest.sql.gz");
       
+      console.log(`📂 [Emergency] Checking backup directory: ${backupDir}`);
+      
       if (fs.existsSync(emergencyBackup) && fs.statSync(emergencyBackup).size > 100) {
         chosenBackup = emergencyBackup;
       } else {
-        // البحث في المجلد عن أحدث ملف sql.gz
+        // البحث في المجلد عن أحدث ملف sql.gz أو sql
         const files = fs.readdirSync(backupDir)
-          .filter(f => f.endsWith(".sql.gz") && fs.statSync(path.join(backupDir, f)).size > 1000)
+          .filter(f => (f.endsWith(".sql.gz") || f.endsWith(".sql")) && fs.statSync(path.join(backupDir, f)).size > 1000)
           .sort((a, b) => fs.statSync(path.join(backupDir, b)).mtimeMs - fs.statSync(path.join(backupDir, a)).mtimeMs);
         
         if (files.length > 0) {
           chosenBackup = path.join(backupDir, files[0]);
           console.log(`📂 [Emergency] تم العثور على بديل: ${files[0]}`);
+        } else {
+          console.error('❌ [Emergency] No valid backup files found in directory');
         }
       }
 
@@ -121,7 +125,12 @@ export class SmartConnectionManager {
         const { exec } = require("child_process");
         const execPromise = promisify(exec);
         
-        await execPromise(`gunzip -c "${chosenBackup}" > "${uncompressedPath}"`);
+        if (chosenBackup.endsWith(".gz")) {
+          await execPromise(`gunzip -c "${chosenBackup}" > "${uncompressedPath}"`);
+        } else {
+          fs.copyFileSync(chosenBackup, uncompressedPath);
+        }
+        
         const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
         
         const commands = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);

@@ -133,7 +133,7 @@ export class BackupService {
         console.log(`📊 [BackupService] جاري تنفيذ ${commands.length} أمر SQL...`);
         
         const { sqliteInstance: globalSqlite } = await import("../db");
-        const targetInstance = globalSqlite || new Database(path.resolve(process.cwd(), "local.db"), { timeout: 120000 });
+        const targetInstance = globalSqlite || new Database(path.resolve(process.cwd(), "local.db"), { timeout: 300000 });
         
         // استخدام .exec() المباشر لسرعة فائقة ودعم أوامر متعددة
         targetInstance.pragma("foreign_keys = OFF");

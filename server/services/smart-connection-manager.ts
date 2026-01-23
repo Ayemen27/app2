@@ -9,6 +9,10 @@ import { getCredential, isSupabaseConfigured } from '../config/credentials';
 import { envConfig } from '../utils/unified-env';
 import fs from 'fs';
 import path from 'path';
+import { promisify } from "util";
+import { exec } from "child_process";
+
+const execPromise = promisify(exec);
 
 /**
  * 🧠 مدير الاتصالات الذكي
@@ -124,9 +128,6 @@ export class SmartConnectionManager {
         console.log(`📦 [Emergency] بدء الاستعادة من: ${path.basename(chosenBackup)}`);
         
         const uncompressedPath = path.join(backupPath, "temp-restore.sql");
-        const { promisify } = require("util");
-        const { exec } = require("child_process");
-        const execPromise = promisify(exec);
         
         try {
           if (chosenBackup.endsWith(".gz")) {
@@ -147,6 +148,9 @@ export class SmartConnectionManager {
           console.log(`📜 [Emergency] جاري تنفيذ ${commands.length} أمر SQL في SQLite...`);
           
           sqliteInstance.exec("PRAGMA foreign_keys = OFF;");
+          sqliteInstance.exec("PRAGMA journal_mode = OFF;");
+          sqliteInstance.exec("PRAGMA synchronous = OFF;");
+          sqliteInstance.exec("BEGIN TRANSACTION;");
           
           for (const command of commands) {
             try {
@@ -183,6 +187,9 @@ export class SmartConnectionManager {
             }
           }
           
+          sqliteInstance.exec("COMMIT;");
+          sqliteInstance.exec("PRAGMA journal_mode = DELETE;");
+          sqliteInstance.exec("PRAGMA synchronous = FULL;");
           sqliteInstance.exec("PRAGMA foreign_keys = ON;");
           
           if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
@@ -191,6 +198,7 @@ export class SmartConnectionManager {
           (global as any).isEmergencyMode = true;
           (global as any).emergencyDb = emergencyDb;
         } catch (restoreError: any) {
+          try { sqliteInstance.exec("ROLLBACK;"); } catch (e) {}
           console.error(`❌ [Emergency] فشل الاستعادة الفعلي: ${restoreError.message}`);
           throw restoreError;
         }

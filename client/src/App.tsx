@@ -279,24 +279,15 @@ import { Capacitor } from "@capacitor/core";
 
 import PermissionsPage from "./pages/PermissionsPage";
 import SetupPage from "./pages/SetupPage";
+import SmartCheckPage from "./pages/SmartCheckPage";
+
+function Router() {
+  useWebSocketSync();
+  // ... rest of Router code ...
+}
 
 function App() {
-  useEffect(() => {
-    initSilentSyncObserver();
-    
-    // طلب الصلاحيات الأساسية في الأندرويد
-    if (Capacitor.isNativePlatform()) {
-      const initNativeFeatures = async () => {
-        try {
-          console.log('📱 [Native] بدء تهيئة الميزات الأصلية...');
-          // تم نقل طلب الصلاحيات إلى PermissionsPage
-        } catch (err) {
-          console.error('❌ خطأ حرج في تهيئة الميزات الأصلية:', err);
-        }
-      };
-      initNativeFeatures();
-    }
-  }, []);
+  // ... existing useEffect ...
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -306,6 +297,7 @@ function App() {
               <div dir="rtl">
                 <ErrorBoundary>
                   <Switch>
+                    <Route path="/check" component={SmartCheckPage} />
                     <Route path="/permissions" component={PermissionsPage} />
                     <Route path="/setup" component={SetupPage} />
                     <Route path="/login" component={LoginPage} />

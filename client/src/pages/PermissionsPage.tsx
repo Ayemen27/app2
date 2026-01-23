@@ -166,22 +166,22 @@ export default function PermissionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Progress Bar */}
-      <div className="h-1 bg-muted">
+      <div className="h-1 bg-muted flex-shrink-0">
         <div 
           className="h-full bg-primary transition-all duration-500 ease-out"
           style={{ width: `${progress}%` }}
         />
       </div>
 
-      <div className="flex-1 flex flex-col max-w-lg mx-auto w-full px-6 py-12">
+      <div className="flex-1 flex flex-col max-w-lg mx-auto w-full px-6 py-6 overflow-hidden">
         {/* Header */}
-        <div className="text-center space-y-3 mb-12">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-            <Shield className="w-8 h-8 text-primary" />
+        <div className="text-center space-y-2 mb-6 flex-shrink-0">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+            <Shield className="w-7 h-7 text-primary" />
           </div>
-          <h1 className="text-2xl font-semibold text-foreground">
+          <h1 className="text-xl font-semibold text-foreground">
             الصلاحيات المطلوبة
           </h1>
           <p className="text-muted-foreground text-sm leading-relaxed max-w-sm mx-auto">
@@ -190,7 +190,7 @@ export default function PermissionsPage() {
         </div>
 
         {/* Permissions List */}
-        <div className="flex-1 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
           {permissions.map((perm, idx) => {
             const Icon = perm.icon;
             const isActive = loading && currentStep === idx;
@@ -249,10 +249,10 @@ export default function PermissionsPage() {
         </div>
 
         {/* Actions */}
-        <div className="mt-8 space-y-3">
+        <div className="mt-4 space-y-2 flex-shrink-0">
           <Button
             data-testid="btn-grant"
-            className="w-full h-12 text-base font-medium"
+            className="w-full h-11 text-sm font-medium"
             onClick={allRequired ? () => setLocation("/setup") : handleRequest}
             disabled={loading}
           >
@@ -275,7 +275,7 @@ export default function PermissionsPage() {
             <Button
               data-testid="btn-skip"
               variant="ghost"
-              className="w-full h-10 text-sm text-muted-foreground"
+              className="w-full h-9 text-sm text-muted-foreground"
               onClick={() => {
                 localStorage.setItem("permissions_granted", "true");
                 setLocation("/setup");
@@ -288,7 +288,7 @@ export default function PermissionsPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground mt-8">
+        <p className="text-center text-xs text-muted-foreground mt-4 flex-shrink-0">
           بياناتك محمية ولن يتم مشاركتها مع أي طرف خارجي
         </p>
       </div>

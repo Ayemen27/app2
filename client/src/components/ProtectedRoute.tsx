@@ -48,9 +48,16 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   // ✅ الحالة 2: غير مسجل دخول - توجيه فوري لصفحة الدخول
   if (!isAuthenticated || !user) {
-    console.log('🚫 [ProtectedRoute] غير مصادق، توجيه إلى /login');
-    // لتجنب حلقة التوجيه في الأندرويد، نتأكد أننا لسنا في صفحة الدخول أصلاً
-    if (window.location.pathname === '/login') {
+    console.log('🚫 [ProtectedRoute] غير مصادق، توجيه إلى /permissions');
+    
+    const hasPermissions = localStorage.getItem("permissions_granted");
+    const isSetupComplete = localStorage.getItem("setup_complete");
+
+    if (!hasPermissions) {
+      return <Redirect to="/permissions" />;
+    } else if (!isSetupComplete) {
+      return <Redirect to="/setup" />;
+    } else if (window.location.pathname === '/login') {
       return null;
     }
     return <Redirect to="/login" />;

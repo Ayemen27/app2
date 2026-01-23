@@ -277,6 +277,9 @@ import { initSilentSyncObserver } from "./offline/silent-sync";
 import { initializeNativePush, requestAllPermissions } from "./services/capacitorPush";
 import { Capacitor } from "@capacitor/core";
 
+import PermissionsPage from "./pages/PermissionsPage";
+import SetupPage from "./pages/SetupPage";
+
 function App() {
   useEffect(() => {
     initSilentSyncObserver();
@@ -286,24 +289,7 @@ function App() {
       const initNativeFeatures = async () => {
         try {
           console.log('📱 [Native] بدء تهيئة الميزات الأصلية...');
-          
-          // 🛠️ طلب جميع الصلاحيات المطلوبة (تخزين، موقع، كاميرا) فور التشغيل
-          // نستخدم try-catch لكل عملية لضمان عدم توقف التطبيق
-          try {
-            await requestAllPermissions();
-            console.log('✅ تم طلب جميع الصلاحيات المطلوبة');
-          } catch (pErr) {
-            console.error('⚠️ فشل طلب الصلاحيات:', pErr);
-          }
-
-          try {
-            // تهيئة الإشعارات وطلب صلاحياتها
-            await initializeNativePush('app-user');
-            console.log('✅ تم تهيئة نظام الإشعارات الأصلي');
-          } catch (nErr) {
-            console.error('⚠️ فشل تهيئة الإشعارات:', nErr);
-          }
-          
+          // تم نقل طلب الصلاحيات إلى PermissionsPage
         } catch (err) {
           console.error('❌ خطأ حرج في تهيئة الميزات الأصلية:', err);
         }
@@ -320,6 +306,8 @@ function App() {
               <div dir="rtl">
                 <ErrorBoundary>
                   <Switch>
+                    <Route path="/permissions" component={PermissionsPage} />
+                    <Route path="/setup" component={SetupPage} />
                     <Route path="/login" component={LoginPage} />
                     <Route path="/verify-email" component={EmailVerificationPage} />
                     <Route path="/reset-password" component={ResetPasswordPage} />

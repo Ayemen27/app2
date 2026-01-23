@@ -119,11 +119,12 @@ export class BackupService {
       await execPromise(`gunzip -c "${filepath}" > "${uncompressedPath}"`);
       
       // اختيار قاعدة البيانات بناءً على الوضع الحالي
-      const dbUrl = (global as any).isEmergencyMode 
+      const isEmergency = (global as any).isEmergencyMode || !process.env.DATABASE_URL;
+      const dbUrl = isEmergency 
         ? null // لا يوجد URL لـ SQLite
         : (process.env.DATABASE_URL_RAILWAY || process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL);
 
-      if (!dbUrl) {
+      if (isEmergency || !dbUrl) {
         console.log("🔄 جاري استعادة البيانات إلى قاعدة البيانات المحلية (SQLite)...");
         const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
         

@@ -40,9 +40,23 @@ import mobileSyncRouter from "./modules/mobile/sync";
 import authRouter from "./modules/identity/auth";
 import { registerOrganizedRoutes } from "./routes/modules/index";
 
+import { syncData } from "./sync";
+import { encrypt, decrypt } from "./encryption";
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // تسجيل المسارات المنظمة الجديدة (بما فيها مسارات الـ AI)
   registerOrganizedRoutes(app);
+
+  app.post("/api/sync", async (req, res) => {
+    try {
+      // فك التشفير إذا كانت البيانات مشفرة (مثال)
+      const data = req.body.encrypted ? JSON.parse(decrypt(req.body.data)) : req.body;
+      await syncData(data);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   // ... (بعد الإعدادات الأولية)
 
   // ========================================

@@ -169,11 +169,51 @@ export class BackupService {
       
       if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
       console.log("✅ تمت استعادة البيانات بنجاح");
+      
+      // تشغيل فحص التكامل فوراً بعد الاستعادة
+      await this.runIntegrityCheck();
+      
       return true;
     } catch (error: any) {
       if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
       console.error("❌ فشل استعادة البيانات:", error.message);
       throw new Error(`فشل الاستعادة: ${error.message}`);
+    }
+  }
+
+  static async runIntegrityCheck() {
+    console.log("🔍 [BackupService] بدء فحص تكامل البيانات...");
+    const checkResult: any = {
+      status: "success",
+      lastChecked: new Date().toISOString(),
+      issues: []
+    };
+
+    try {
+      const tables = ['projects', 'workers', 'users', 'wells'];
+      for (const table of tables) {
+        try {
+          await db.execute(sql.raw(`SELECT count(*) FROM ${table} LIMIT 1`));
+        } catch (e: any) {
+          checkResult.status = "warning";
+          checkResult.issues.push(`جدول مفقود أو غير قابل للقراءة: ${table}`);
+        }
+      }
+
+      const userCount = await db.select().from(users).limit(1);
+      if (userCount.length === 0) {
+        checkResult.status = "warning";
+        checkResult.issues.push("لم يتم العثور على مستخدمين في قاعدة البيانات الحالية");
+      }
+
+      (global as any).lastIntegrityCheck = checkResult;
+      console.log(`✅ [BackupService] اكتمل فحص التكامل بحالة: ${checkResult.status}`);
+      return checkResult;
+    } catch (error: any) {
+      checkResult.status = "failed";
+      checkResult.issues.push(`خطأ فني أثناء الفحص: ${error.message}`);
+      (global as any).lastIntegrityCheck = checkResult;
+      return checkResult;
     }
   }
 }

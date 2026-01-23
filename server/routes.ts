@@ -165,6 +165,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/backups/integrity-status", requireAuth, (req, res) => {
+    const status = (global as any).lastIntegrityCheck || { status: "unknown" };
+    res.json({ success: true, data: status });
+  });
+
+  app.get("/api/system/emergency-status", (req, res) => {
+    res.json({
+      success: true,
+      data: {
+        isEmergencyMode: (global as any).isEmergencyMode || false,
+        dbType: (global as any).isEmergencyMode ? "SQLite (Local)" : "PostgreSQL (Cloud)",
+        lastBackupFile: "emergency-latest.sql.gz",
+        integrity: (global as any).lastIntegrityCheck || { status: "pending" }
+      }
+    });
+  });
+
   app.post("/api/backups/run", requireAuth, requireRole("admin"), async (req, res) => {
     try {
       const result = await BackupService.runBackup(req.user?.id, true);

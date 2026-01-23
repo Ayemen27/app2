@@ -49,6 +49,13 @@ try {
 export const db = dbInstance;
 export { isEmergencyMode };
 
+// إضافة متغير عالمي لحالة تكامل البيانات
+(global as any).lastIntegrityCheck = {
+  status: "pending",
+  lastChecked: null,
+  issues: []
+};
+
 pool.on('error', (err) => {
   console.error('⚠️ [PostgreSQL] Pool Error:', err.message);
 });

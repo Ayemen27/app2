@@ -204,24 +204,29 @@ export default function BackupManager() {
 
   const lastBackup = logs.find(l => l.status === 'success');
 
+  const { data: emergencyStatus } = useQuery<any>({
+    queryKey: ["/api/system/emergency-status"],
+    refetchInterval: 10000,
+  });
+
   const statsConfig: StatsRowConfig[] = [
     {
       items: [
         {
           key: "status",
           label: "حالة النظام",
-          value: "نشط",
+          value: emergencyStatus?.data?.isEmergencyMode ? "وضع الطوارئ" : "نشط (سحابي)",
           icon: ShieldCheck,
-          color: "green",
-          subLabel: "النسخ التلقائي مبرمج"
+          color: emergencyStatus?.data?.isEmergencyMode ? "orange" : "green",
+          subLabel: emergencyStatus?.data?.dbType || "النسخ التلقائي مبرمج"
         },
         {
-          key: "last_backup",
-          label: "آخر نسخة ناجحة",
-          value: lastBackup ? formatDate(lastBackup.createdAt) : "لا يوجد",
-          icon: Clock,
-          color: "blue",
-          subLabel: lastBackup ? lastBackup.filename : "في انتظار النسخة الأولى"
+          key: "integrity",
+          label: "سلامة البيانات",
+          value: emergencyStatus?.data?.integrity?.status === "success" ? "سليمة" : "تحتاج فحص",
+          icon: Database,
+          color: emergencyStatus?.data?.integrity?.status === "success" ? "green" : "rose",
+          subLabel: `آخر فحص: ${emergencyStatus?.data?.integrity?.lastChecked ? formatDate(emergencyStatus.data.integrity.lastChecked) : 'غير متوفر'}`
         },
         {
           key: "total_logs",

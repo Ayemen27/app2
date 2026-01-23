@@ -89,8 +89,8 @@ export class SmartConnectionManager {
   private async activateEmergencyMode(): Promise<void> {
     try {
       console.log('🔄 [Emergency] جاري تفعيل وضع الطوارئ التلقائي...');
-      const backupDir = path.join(process.cwd(), "backups");
-      const sqliteDbPath = path.join(process.cwd(), "local.db");
+      const backupDir = path.resolve(process.cwd(), "backups");
+      const sqliteDbPath = path.resolve(process.cwd(), "local.db");
       
       const sqliteInstance = new Database(sqliteDbPath);
       const emergencyDb = drizzleSqlite(sqliteInstance, { schema });
@@ -104,16 +104,20 @@ export class SmartConnectionManager {
       if (fs.existsSync(emergencyBackup) && fs.statSync(emergencyBackup).size > 100) {
         chosenBackup = emergencyBackup;
       } else {
-        // البحث في المجلد عن أحدث ملف sql.gz أو sql
-        const files = fs.readdirSync(backupDir)
-          .filter(f => (f.endsWith(".sql.gz") || f.endsWith(".sql")) && fs.statSync(path.join(backupDir, f)).size > 1000)
-          .sort((a, b) => fs.statSync(path.join(backupDir, b)).mtimeMs - fs.statSync(path.join(backupDir, a)).mtimeMs);
-        
-        if (files.length > 0) {
-          chosenBackup = path.join(backupDir, files[0]);
-          console.log(`📂 [Emergency] تم العثور على بديل: ${files[0]}`);
+        if (fs.existsSync(backupDir)) {
+          // البحث في المجلد عن أحدث ملف sql.gz أو sql
+          const files = fs.readdirSync(backupDir)
+            .filter(f => (f.endsWith(".sql.gz") || f.endsWith(".sql")) && fs.statSync(path.join(backupDir, f)).size > 1000)
+            .sort((a, b) => fs.statSync(path.join(backupDir, b)).mtimeMs - fs.statSync(path.join(backupDir, a)).mtimeMs);
+          
+          if (files.length > 0) {
+            chosenBackup = path.join(backupDir, files[0]);
+            console.log(`📂 [Emergency] تم العثور على بديل: ${files[0]}`);
+          } else {
+            console.error('❌ [Emergency] No valid backup files found in directory');
+          }
         } else {
-          console.error('❌ [Emergency] No valid backup files found in directory');
+          console.error(`❌ [Emergency] Backup directory not found at ${backupDir}`);
         }
       }
 

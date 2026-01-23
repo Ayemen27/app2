@@ -43,16 +43,27 @@ export default function SmartCheckPage() {
       setChecks(prev => ({ ...prev, data: { ...prev.data, status: "checking" } }));
       try {
         // محاولة التحقق من الاتصال بالسيرفر
+        // نستخدم /api/auth/users كفحص حقيقي لقاعدة البيانات
         const response = await fetch("/api/health").catch(() => ({ ok: false }));
         
-        if (!response.ok) {
-          console.log("🚨 [SmartCheck] فشل الاتصال بالسيرفر، تفعيل وضع الطوارئ...");
+        // التحقق الإضافي من قاعدة البيانات عبر محاولة طلب بسيط
+        const dbCheck = await fetch("/api/auth/login", { 
+          method: "POST", 
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: "check@system.local", password: "check" })
+        }).catch(() => ({ status: 503 }));
+
+        if (!response.ok || dbCheck.status === 503 || dbCheck.status === 500) {
+          console.log("🚨 [SmartCheck] فشل الاتصال بالسيرفر أو قاعدة البيانات (VPS)، تفعيل وضع الطوارئ...");
           // في وضع الطوارئ، نتحقق من وجود نسخة احتياطية محلية
           const hasLocalData = await initializeDB();
           if (!hasLocalData) {
              console.log("🔄 [SmartCheck] لا توجد بيانات محلية، بدء استعادة اضطرارية...");
              await loadFullBackup();
           }
+          
+          // تأخير بسيط للتأكد من تهيئة كل شيء
+          await new Promise(r => setTimeout(r, 1000));
         }
       } catch (e) {
         console.error("⚠️ [SmartCheck] خطأ أثناء فحص البيانات:", e);

@@ -201,6 +201,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (response.ok) {
         result = await response.json();
+      } else if (response.status === 503 || response.status === 500) {
+        console.warn(`📡 [AuthProvider] السيرفر أو قاعدة البيانات غير متاحة (${response.status})، تفعيل وضع الطوارئ فوراً...`);
+        // لا نضبط result هنا لنسمح لمنطق الطوارئ بالعمل أدناه
       } else {
         console.warn(`📡 [AuthProvider] السيرفر استجاب بخطأ ${response.status}، محاولة تسجيل الدخول أوفلاين...`);
       }

@@ -12,13 +12,18 @@ const isAndroid = process.env.PLATFORM === 'android' || process.env.NODE_ENV ===
 const sqliteDbPath = path.resolve(process.cwd(), "local.db");
 
 // DATABASE_URL_RAILWAY is preferred for Railway database
-const dbUrl = process.env.DATABASE_URL_RAILWAY || process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL || "";
+const rawDbUrl = process.env.DATABASE_URL_RAILWAY || process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL || "";
+
+// ✅ تنظيف الرابط من أي مسافات أو علامات اقتباس زائدة قد تسبب خطأ ENOTFOUND
+const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "");
 
 export const pool = new Pool({
   connectionString: dbUrl,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000
+  connectionTimeoutMillis: 10000,
+  // إضافة معالجة للخطأ ENOTFOUND hostname: 'base'
+  ssl: dbUrl.includes("supabase.co") || dbUrl.includes("rlwy.net") ? { rejectUnauthorized: false } : false
 });
 
 // تهيئة قاعدة البيانات المناسبة
@@ -34,6 +39,8 @@ if (!dbUrl && !isAndroid) {
   console.log("✅ [PostgreSQL] Using Railway cloud database.");
 } else if (dbUrl.includes("supabase.co") || dbUrl.includes("pooler.supabase.com")) {
   console.log("✅ [PostgreSQL] Using Supabase cloud database.");
+} else if (dbUrl.match(/\d+\.\d+\.\d+\.\d+/)) {
+  console.log("✅ [PostgreSQL] Using Private VPS database (" + dbUrl.split('@')[1]?.split(':')[0] + ").");
 } else {
   console.log("✅ [PostgreSQL] Using Replit database.");
 }

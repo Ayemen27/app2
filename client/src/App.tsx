@@ -278,8 +278,7 @@ import { initializeNativePush, requestAllPermissions } from "./services/capacito
 import { Capacitor } from "@capacitor/core";
 
 import PermissionsPage from "./pages/PermissionsPage";
-import SetupPage from "./pages/SetupPage";
-import SmartCheckPage from "./pages/SmartCheckPage";
+import SystemCheckPage from "./pages/SystemCheckPage";
 
 function App() {
   useEffect(() => {
@@ -305,9 +304,9 @@ function App() {
               <div dir="rtl">
                 <ErrorBoundary>
                   <Switch>
-                    <Route path="/check" component={SmartCheckPage} />
+                    <Route path="/check" component={SystemCheckPage} />
+                    <Route path="/setup" component={SystemCheckPage} />
                     <Route path="/permissions" component={PermissionsPage} />
-                    <Route path="/setup" component={SetupPage} />
                     <Route path="/login" component={LoginPage} />
                     <Route path="/verify-email" component={EmailVerificationPage} />
                     <Route path="/reset-password" component={ResetPasswordPage} />

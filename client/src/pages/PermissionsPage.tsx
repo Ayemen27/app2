@@ -116,46 +116,50 @@ export default function PermissionsPage() {
   const allGranted = permissions.filter(p => p.required).every(p => p.granted);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex flex-col overflow-y-auto">
-      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 py-8">
-        <div className="w-full max-w-lg">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-primary to-blue-600 mb-6 shadow-lg shadow-primary/30">
-              <Shield className="w-10 h-10 text-white" />
+    <div className="h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center p-3 sm:p-4 overflow-hidden">
+        <div className="w-full max-w-lg flex flex-col max-h-full overflow-hidden">
+          {/* Header Section - Fixed */}
+          <div className="text-center mb-3 sm:mb-4 flex-shrink-0">
+            <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-primary to-blue-600 mb-3 shadow-lg shadow-primary/30">
+              <Shield className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
               إعداد الصلاحيات
             </h1>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-muted-foreground text-sm sm:text-base">
               نحتاج بعض الصلاحيات لضمان عمل التطبيق بشكل مثالي
             </p>
           </div>
 
-          <div className="flex items-center justify-center gap-2 mb-6">
+          {/* Platform Badge - Fixed */}
+          <div className="flex items-center justify-center gap-2 mb-3 flex-shrink-0">
             <span className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium",
+              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
               platform === 'android' 
                 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                 : platform === 'ios'
                   ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                   : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
             )}>
-              {platform === 'android' && <Smartphone className="w-4 h-4" />}
-              {platform === 'ios' && <Smartphone className="w-4 h-4" />}
-              {platform === 'web' && <Globe className="w-4 h-4" />}
+              {platform === 'android' && <Smartphone className="w-3.5 h-3.5" />}
+              {platform === 'ios' && <Smartphone className="w-3.5 h-3.5" />}
+              {platform === 'web' && <Globe className="w-3.5 h-3.5" />}
               {platform === 'android' ? 'أندرويد' : platform === 'ios' ? 'iOS' : 'متصفح ويب'}
             </span>
           </div>
 
-          <Card className="border-0 shadow-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="space-y-3">
+          {/* Main Card - Scrollable Content */}
+          <Card className="border-0 shadow-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex-1 min-h-0 flex flex-col overflow-hidden">
+            <CardContent className="p-3 sm:p-4 flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* Permissions List - Scrollable */}
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-2 sm:space-y-2.5 pb-2">
                 {permissions.map((permission, index) => (
                   <div
                     key={permission.id}
                     data-testid={`permission-item-${permission.id}`}
                     className={cn(
-                      "flex items-center gap-4 p-4 rounded-xl transition-all duration-300",
+                      "flex items-center gap-3 p-3 rounded-lg transition-all duration-300",
                       permission.granted
                         ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
                         : loading && currentStep === index
@@ -164,65 +168,66 @@ export default function PermissionsPage() {
                     )}
                   >
                     <div className={cn(
-                      "flex items-center justify-center w-12 h-12 rounded-xl transition-colors",
+                      "flex items-center justify-center w-10 h-10 rounded-lg transition-colors flex-shrink-0",
                       permission.granted
                         ? "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400"
                         : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
                     )}>
                       {permission.granted ? (
-                        <CheckCircle2 className="w-6 h-6" />
+                        <CheckCircle2 className="w-5 h-5" />
                       ) : (
-                        permission.icon
+                        <span className="[&>svg]:w-5 [&>svg]:h-5">{permission.icon}</span>
                       )}
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-foreground">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="font-semibold text-foreground text-sm">
                           {permission.title}
                         </h3>
                         {permission.required && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                             مطلوب
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                         {permission.description}
                       </p>
                     </div>
 
                     {permission.granted && (
-                      <div className="text-green-500">
-                        <CheckCircle2 className="w-5 h-5" />
+                      <div className="text-green-500 flex-shrink-0">
+                        <CheckCircle2 className="w-4 h-4" />
                       </div>
                     )}
                   </div>
                 ))}
               </div>
 
-              <div className="mt-6 space-y-3">
+              {/* Actions - Fixed at bottom */}
+              <div className="mt-3 space-y-2 flex-shrink-0">
                 <Button
                   data-testid="button-grant-permissions"
-                  className="w-full h-14 text-lg font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all"
+                  className="w-full h-11 sm:h-12 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all"
                   onClick={requestPermissions}
                   disabled={loading || allGranted}
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       جاري منح الصلاحيات...
                     </span>
                   ) : allGranted ? (
                     <span className="flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5" />
+                      <CheckCircle2 className="w-4 h-4" />
                       تم منح جميع الصلاحيات
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">
-                      <Lock className="w-5 h-5" />
+                      <Lock className="w-4 h-4" />
                       منح الصلاحيات المطلوبة
-                      <ChevronRight className="w-5 h-5" />
+                      <ChevronRight className="w-4 h-4" />
                     </span>
                   )}
                 </Button>
@@ -231,7 +236,7 @@ export default function PermissionsPage() {
                   <Button
                     data-testid="button-skip-permissions"
                     variant="ghost"
-                    className="w-full text-muted-foreground"
+                    className="w-full h-9 text-sm text-muted-foreground"
                     onClick={skipPermissions}
                   >
                     تخطي (للمتصفح فقط)
@@ -239,31 +244,28 @@ export default function PermissionsPage() {
                 )}
               </div>
 
-              <div className="mt-6 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
-                <div className="flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                      خصوصيتك محمية
-                    </p>
-                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                      بياناتك مشفرة ومحفوظة محلياً على جهازك. لا يتم مشاركة أي معلومات حساسة مع أطراف خارجية.
-                    </p>
-                  </div>
+              {/* Privacy Notice - Compact */}
+              <div className="mt-3 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    <span className="font-medium text-blue-900 dark:text-blue-100">خصوصيتك محمية</span> - بياناتك مشفرة ومحفوظة محلياً
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <div className="mt-6 flex justify-center gap-2">
+          {/* Step Indicators - Fixed */}
+          <div className="mt-3 flex justify-center gap-1.5 flex-shrink-0">
             {[0, 1, 2].map((step) => (
               <div
                 key={step}
                 className={cn(
-                  "w-2 h-2 rounded-full transition-colors",
+                  "h-1.5 rounded-full transition-colors",
                   step === 0 
-                    ? "bg-primary w-6" 
-                    : "bg-slate-300 dark:bg-slate-600"
+                    ? "bg-primary w-5" 
+                    : "bg-slate-300 dark:bg-slate-600 w-1.5"
                 )}
               />
             ))}

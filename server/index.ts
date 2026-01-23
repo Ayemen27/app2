@@ -15,7 +15,7 @@ import { registerRoutes } from "./routes.js";
 import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middleware/compression";
 import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth } from "./middleware/auth";
 import { runSchemaCheck, getAutoPushStatus } from './auto-schema-push';
-import { db } from './db.js';
+import { db, checkDBConnection } from './db.js';
 import { users } from '@shared/schema';
 import http from 'http';
 import { Server } from 'socket.io';

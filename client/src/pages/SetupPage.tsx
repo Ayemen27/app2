@@ -1,107 +1,224 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Database, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
+import { 
+  Database, 
+  RefreshCw, 
+  CheckCircle2, 
+  AlertCircle,
+  Loader2,
+  Server
+} from "lucide-react";
 import { useLocation } from "wouter";
 import { initializeDB } from "@/offline/db";
 import { loadFullBackup } from "@/offline/sync";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+type StepStatus = 'pending' | 'loading' | 'success' | 'error';
+
+interface Step {
+  id: string;
+  title: string;
+  status: StepStatus;
+  message?: string;
+}
 
 export default function SetupPage() {
   const [, setLocation] = useLocation();
-  const [step, setStep] = useState(0);
-  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+  const [steps, setSteps] = useState<Step[]>([
+    { id: 'db', title: 'تهيئة قاعدة البيانات', status: 'pending' },
+    { id: 'sync', title: 'مزامنة البيانات', status: 'pending' },
+    { id: 'ready', title: 'جاهز للعمل', status: 'pending' }
+  ]);
 
-  const steps = [
-    { name: "تهيئة قاعدة البيانات المحلية", icon: Database },
-    { name: "استعادة البيانات من النسخة الاحتياطية", icon: RefreshCw },
-    { name: "جاهز للعمل", icon: CheckCircle2 }
-  ];
+  const updateStep = (id: string, updates: Partial<Step>) => {
+    setSteps(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  };
 
   useEffect(() => {
-    const runSetup = async () => {
-      try {
-        setError(null);
-        // الخطوة 1: تهيئة قاعدة البيانات
-        setStep(0);
-        setProgress(20);
-        await initializeDB();
-        setProgress(100);
-        await new Promise(r => setTimeout(r, 500));
-
-        // الخطوة 2: استعادة البيانات
-        setStep(1);
-        setProgress(20);
-        try {
-          // محاولة استعادة البيانات من قوقل درايف أو النسخة الاحتياطية الأخيرة
-          await loadFullBackup();
-        } catch (e) {
-          console.warn("⚠️ [Setup] فشل استعادة النسخة الاحتياطية، قد تكون أول مرة:", e);
-        }
-        setProgress(100);
-        await new Promise(r => setTimeout(r, 500));
-
-        // الخطوة 3: النهاية
-        setStep(2);
-        setProgress(100);
-        localStorage.setItem("setup_complete", "true");
-        setTimeout(() => setLocation("/login"), 1000);
-      } catch (err: any) {
-        console.error("❌ [Setup] فشل الإعداد:", err);
-        setError(err.message || "حدث خطأ غير متوقع أثناء إعداد النظام");
+    const check = async () => {
+      const setup = localStorage.getItem("setup_complete") === "true";
+      const emergency = localStorage.getItem("emergency_mode") === "true";
+      
+      if (setup || emergency) {
+        setLocation("/login");
+        return;
       }
+      
+      try {
+        const res = await fetch('/api/health', { signal: AbortSignal.timeout(3000) });
+        if (!res.ok) throw new Error();
+      } catch {
+        // السيرفر غير متاح - تشغيل وضع الطوارئ
+        localStorage.setItem("emergency_mode", "true");
+        setLocation("/login");
+        return;
+      }
+      
+      setCheckingStatus(false);
     };
-
-    runSetup();
+    
+    check();
   }, [setLocation]);
 
-  const CurrentIcon = steps[step].icon;
+  useEffect(() => {
+    if (checkingStatus) return;
+    
+    const run = async () => {
+      try {
+        // الخطوة 1: قاعدة البيانات
+        updateStep('db', { status: 'loading' });
+        await initializeDB();
+        updateStep('db', { status: 'success', message: 'تم بنجاح' });
+        
+        // الخطوة 2: المزامنة
+        updateStep('sync', { status: 'loading' });
+        try {
+          await loadFullBackup();
+          updateStep('sync', { status: 'success', message: 'تم بنجاح' });
+        } catch (e) {
+          updateStep('sync', { status: 'success', message: 'لا توجد بيانات سابقة' });
+        }
+        
+        // الخطوة 3: جاهز
+        updateStep('ready', { status: 'success', message: 'النظام جاهز' });
+        localStorage.setItem("setup_complete", "true");
+        
+        setTimeout(() => setLocation("/login"), 1000);
+      } catch (err: any) {
+        setError(err.message || "حدث خطأ أثناء الإعداد");
+      }
+    };
+    
+    run();
+  }, [checkingStatus, setLocation]);
+
+  const getIcon = (step: Step) => {
+    if (step.status === 'loading') return <Loader2 className="w-5 h-5 animate-spin" />;
+    if (step.status === 'success') return <CheckCircle2 className="w-5 h-5" />;
+    if (step.status === 'error') return <AlertCircle className="w-5 h-5" />;
+    
+    switch (step.id) {
+      case 'db': return <Database className="w-5 h-5" />;
+      case 'sync': return <RefreshCw className="w-5 h-5" />;
+      default: return <CheckCircle2 className="w-5 h-5" />;
+    }
+  };
+
+  const completedSteps = steps.filter(s => s.status === 'success').length;
+  const progress = (completedSteps / steps.length) * 100;
+
+  if (checkingStatus) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 p-4">
-      <Card className="w-full max-w-md border-none shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">إعداد النظام الاحترافي</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-8 py-8">
-          {error ? (
-            <div className="space-y-4 text-center">
-              <div className="p-4 bg-destructive/10 rounded-full w-16 h-16 mx-auto flex items-center justify-center">
-                <AlertCircle className="w-8 h-8 text-destructive" />
-              </div>
-              <p className="text-destructive font-medium">{error}</p>
-              <Button onClick={() => window.location.reload()} variant="outline" className="w-full">إعادة المحاولة</Button>
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <div className="p-4 bg-primary/10 rounded-full animate-pulse">
-                  <CurrentIcon className="w-12 h-12 text-primary" />
-                </div>
-                <p className="text-xl font-medium text-center">{steps[step].name}</p>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>تقدم العملية</span>
-                  <span>{progress}%</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Progress Bar */}
+      <div className="h-1 bg-muted">
+        <div 
+          className="h-full bg-primary transition-all duration-500 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
 
-              <div className="space-y-2">
-                {steps.map((s, idx) => (
-                  <div key={idx} className={`flex items-center gap-2 text-sm ${idx <= step ? "text-primary font-medium" : "text-muted-foreground"}`}>
-                    <div className={`w-2 h-2 rounded-full ${idx < step ? "bg-primary" : idx === step ? "bg-primary animate-ping" : "bg-muted"}`} />
-                    <span>{s.name}</span>
+      <div className="flex-1 flex flex-col max-w-lg mx-auto w-full px-6 py-12">
+        {/* Header */}
+        <div className="text-center space-y-3 mb-12">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+            <Server className="w-8 h-8 text-primary" />
+          </div>
+          <h1 className="text-2xl font-semibold text-foreground">
+            إعداد النظام
+          </h1>
+          <p className="text-muted-foreground text-sm leading-relaxed max-w-sm mx-auto">
+            جاري تجهيز النظام للاستخدام
+          </p>
+        </div>
+
+        {/* Error State */}
+        {error ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
+              <AlertCircle className="w-8 h-8 text-destructive" />
+            </div>
+            <h2 className="text-lg font-medium text-foreground mb-2">
+              حدث خطأ
+            </h2>
+            <p className="text-sm text-muted-foreground mb-6 max-w-xs">
+              {error}
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              إعادة المحاولة
+            </Button>
+          </div>
+        ) : (
+          <>
+            {/* Steps */}
+            <div className="flex-1 space-y-3">
+              {steps.map((step, idx) => (
+                <div
+                  key={step.id}
+                  data-testid={`setup-step-${step.id}`}
+                  className={cn(
+                    "flex items-center gap-4 p-4 rounded-xl border transition-all duration-300",
+                    step.status === 'success'
+                      ? "border-primary/20 bg-primary/5"
+                      : step.status === 'loading'
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-card"
+                  )}
+                >
+                  <div className={cn(
+                    "w-11 h-11 rounded-xl flex items-center justify-center transition-colors",
+                    step.status === 'success'
+                      ? "bg-primary text-primary-foreground"
+                      : step.status === 'loading'
+                        ? "bg-primary/20 text-primary"
+                        : step.status === 'error'
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-muted text-muted-foreground"
+                  )}>
+                    {getIcon(step)}
                   </div>
-                ))}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+                  
+                  <div className="flex-1 min-w-0">
+                    <span className={cn(
+                      "font-medium text-sm",
+                      step.status === 'success' ? "text-primary" : "text-foreground"
+                    )}>
+                      {step.title}
+                    </span>
+                    {step.message && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {step.message}
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Step Number */}
+                  <span className="text-xs text-muted-foreground">
+                    {idx + 1}/{steps.length}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer Message */}
+            <p className="text-center text-xs text-muted-foreground mt-8">
+              {completedSteps === steps.length 
+                ? "اكتمل الإعداد - جاري التحويل..."
+                : "الرجاء الانتظار..."
+              }
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import pg from "pg";
 
 const { Pool } = pg;
 
-// الأولوية لـ Supabase ثم Replit
+// DATABASE_URL_SUPABASE is preferred for production/external DB
 const dbUrl = process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL || "";
 
 if (!dbUrl) {

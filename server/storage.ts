@@ -331,11 +331,12 @@ export interface IStorage {
   // AI System Methods - تم حذف النظام
   // =====================================================
 
-  // =====================================================
-  // Monitoring Methods
-  // =====================================================
-  getIncidents(): Promise<Incident[]>;
-  getMetricsSummary(): Promise<any>;
+  // Database Administration
+  getDatabaseTables(): Promise<any[]>;
+  toggleTableRLS(tableName: string, enable: boolean): Promise<any>;
+  getTablePolicies(tableName: string): Promise<any[]>;
+  analyzeSecurityThreats(): Promise<any>;
+
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4084,26 +4085,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getIncidents(): Promise<Incident[]> {
-    return await db.select().from(incidents).orderBy(desc(incidents.lastOccurrence));
-  }
-
-  async getMetricsSummary(): Promise<any> {
-    return {
-      crashFree: "99.96%",
-      coldStart: "1.1s",
-      exceptions: 12,
-      throughput: "4.5k"
-    };
-  }
-
-  async createIncident(incident: InsertIncident): Promise<Incident> {
-    const [newIncident] = await db
-      .insert(incidents)
-      .values(incident)
-      .returning();
-    return newIncident;
-  }
 }
 
 export const storage = new DatabaseStorage();

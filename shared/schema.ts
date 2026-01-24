@@ -2152,3 +2152,50 @@ export type InsertWellAuditLog = z.infer<typeof insertWellAuditLogSchema>;
 
 export type MaterialCategory = typeof materialCategories.$inferSelect;
 export type InsertMaterialCategory = z.infer<typeof insertMaterialCategorySchema>;
+export const equipment = pgTable("equipment", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type"),
+  status: text("status").default("active"),
+  projectId: varchar("project_id").references(() => projects.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const equipmentMovements = pgTable("equipment_movements", {
+  id: serial("id").primaryKey(),
+  equipmentId: integer("equipment_id").references(() => equipment.id),
+  fromProjectId: varchar("from_project_id").references(() => projects.id),
+  toProjectId: varchar("to_project_id").references(() => projects.id),
+  movementDate: timestamp("movement_date").defaultNow(),
+  notes: text("notes"),
+});
+
+export type Equipment = typeof equipment.$inferSelect;
+export const insertEquipmentSchema = createInsertSchema(equipment).omit({ id: true, createdAt: true });
+export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
+
+export type EquipmentMovement = typeof equipmentMovements.$inferSelect;
+export const insertEquipmentMovementSchema = createInsertSchema(equipmentMovements).omit({ id: true });
+export type InsertEquipmentMovement = z.infer<typeof insertEquipmentMovementSchema>;
+
+export const incidents = pgTable("incidents", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  severity: text("severity", { enum: ["critical", "warning", "info"] }).notNull(),
+  status: text("status", { enum: ["open", "resolved", "investigating"] }).notNull(),
+  affectedDevices: integer("affected_devices").default(0),
+  appVersion: text("app_version").notNull(),
+  lastOccurrence: timestamp("last_occurrence").defaultNow(),
+  details: jsonb("details"),
+});
+
+export const monitoringMetrics = pgTable("monitoring_metrics", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  value: text("value").notNull(),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export const insertIncidentSchema = createInsertSchema(incidents).omit({ id: true, lastOccurrence: true });
+export type InsertIncident = z.infer<typeof insertIncidentSchema>;
+export type Incident = typeof incidents.$inferSelect;

@@ -101,13 +101,15 @@ export class ExpenseLedgerService {
       // إذا لم يكن هناك تاريخ محدد، نعتبره عرض تراكمي ونلغي فلاتر التواريخ لضمان جلب كل شيء
       const isCumulative = !cleanDate && !cleanDateFrom && !cleanDateTo;
       
-      const finalFilterMp = isCumulative ? sql`` : dateFilterMp;
-      const finalFilterWa = isCumulative ? sql`` : dateFilterWa;
-      const finalFilterTe = isCumulative ? sql`` : dateFilterTe;
-      const finalFilterWt = isCumulative ? sql`` : dateFilterWt;
-      const finalFilterMwe = isCumulative ? sql`` : dateFilterMwe;
-      const finalFilterFt = isCumulative ? sql`` : dateFilterFt;
-      const finalFilterPft = isCumulative ? sql`` : dateFilterPft;
+      // استخدام sql`AND 1=1` بدلاً من sql`` لتجنب خطأ inlineParams في Drizzle ORM
+      const emptyFilter = sql`AND 1=1`;
+      const finalFilterMp = isCumulative ? emptyFilter : dateFilterMp;
+      const finalFilterWa = isCumulative ? emptyFilter : dateFilterWa;
+      const finalFilterTe = isCumulative ? emptyFilter : dateFilterTe;
+      const finalFilterWt = isCumulative ? emptyFilter : dateFilterWt;
+      const finalFilterMwe = isCumulative ? emptyFilter : dateFilterMwe;
+      const finalFilterFt = isCumulative ? emptyFilter : dateFilterFt;
+      const finalFilterPft = isCumulative ? emptyFilter : dateFilterPft;
 
       console.log(`🔍 [ExpenseLedger] تطبيق الفلترة لـ ${projectId}:`, { date: cleanDate, dateFrom: cleanDateFrom, dateTo: cleanDateTo, isCumulative });
 

@@ -1,179 +1,82 @@
-import { db } from "../db";
-import { backupLogs, users } from "@shared/schema";
-import * as schema from "@shared/schema";
-import { eq, desc, sql } from "drizzle-orm";
-import { exec } from "child_process";
-import { promisify } from "util";
-import fs from "fs";
-import path from "path";
-import Database from "better-sqlite3";
-
-const execPromise = promisify(exec);
+import fs from 'fs';
+import path from 'path';
+import sqlite3 from 'better-sqlite3';
+import zlib from 'zlib';
 
 export class BackupService {
-  private static BACKUP_DIR = path.join(process.cwd(), "backups");
+  private static readonly LOCAL_DB_PATH = path.resolve(process.cwd(), 'local.db');
 
-  static async initialize() {
-    if (!fs.existsSync(this.BACKUP_DIR)) {
-      fs.mkdirSync(this.BACKUP_DIR, { recursive: true });
-    }
-  }
-
-  static async restoreFromFile(filepath: string) {
-    const uncompressedPath = filepath.replace(".gz", "");
+  static async restoreFromFile(filePath: string): Promise<boolean> {
     try {
-      console.log(`📂 [BackupService] فك ضغط الملف: ${filepath}`);
-      await execPromise(`gunzip -c "${filepath}" > "${uncompressedPath}"`);
-      
-      const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
-      const sqliteDbPath = path.resolve(process.cwd(), "local.db");
-      
-      if (fs.existsSync(sqliteDbPath)) fs.unlinkSync(sqliteDbPath);
+      console.log(`📂 [BackupService] فك ضغط الملف: ${filePath}`);
+      const compressedContent = fs.readFileSync(filePath);
+      const sqlContent = zlib.gunzipSync(compressedContent).toString('utf-8');
 
-      console.log("🏗️ [BackupService] تهيئة SQLite...");
-      const targetInstance = new Database(sqliteDbPath);
+      console.log(`🏗️ [BackupService] تهيئة SQLite...`);
+      const targetInstance = new sqlite3(this.LOCAL_DB_PATH);
       
       targetInstance.pragma("foreign_keys = OFF");
       targetInstance.pragma("journal_mode = OFF");
       targetInstance.pragma("synchronous = OFF");
 
-      // تحسين تقسيم الأوامر: ملف الـ dump يحتوي على أوامر INSERT متعددة الأسطر
-      // سنستخدم تعبير منتظم لتقسيم الأوامر بناءً على الفاصلة المنقوطة في نهاية السطر
-      const commands = sqlContent
-        .split(/;\s*$/m)
-        .map(cmd => cmd.trim())
-        .filter(cmd => cmd.length > 0);
-      
-      console.log(`📊 [BackupService] تنفيذ ${commands.length} أمر SQL...`);
+      const tables = targetInstance.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as {name: string}[];
+      for (const table of tables) {
+        if (table.name !== 'sqlite_sequence') {
+          targetInstance.exec(`DROP TABLE IF EXISTS "${table.name}"`);
+        }
+      }
 
       targetInstance.exec("BEGIN TRANSACTION;");
-      let success = 0;
-      let fail = 0;
 
-      for (let cmd of commands) {
-        // Handle COPY command (PostgreSQL format)
-        if (cmd.toUpperCase().startsWith("COPY")) {
-          const match = cmd.match(/COPY (?:public\.)?`?([a-zA-Z0-9_]+)`?\s+\((.*?)\)/i);
-          if (match) {
-            const currentCopyTable = match[1];
-            const copyColumns = match[2].split(',').map(c => c.trim().replace(/[`"]/g, ''));
-            
-            // Extract data between stdin and \.
-            const dataPart = cmd.split(/FROM stdin;/i)[1]?.split(/\\\./)[0];
-            if (dataPart) {
-              const lines = dataPart.trim().split('\n');
-              for (const line of lines) {
-                const vals = line.split('\t').map(v => v === '\\N' ? null : v.replace(/\\t/g, '\t').replace(/\\n/g, '\n').replace(/\\\\/g, '\\'));
-                if (vals.length !== copyColumns.length) continue;
-                
-                const placeholders = vals.map(() => '?').join(',');
-                const cols = copyColumns.map(c => `\`${c}\``).join(',');
-                try {
-                  targetInstance.prepare(`INSERT INTO \`${currentCopyTable}\` (${cols}) VALUES (${placeholders})`).run(...vals);
-                  success++;
-                } catch (e) { fail++; }
-              }
-            }
-            continue;
-          }
-        }
-
-        let converted = cmd
+      const createTableRegex = /CREATE TABLE\s+(?:public\.)?(\w+)\s+\((.*?)\);/gs;
+      let match;
+      while ((match = createTableRegex.exec(sqlContent)) !== null) {
+        const tableName = match[1];
+        const body = match[2];
+        let converted = `CREATE TABLE "${tableName}" (${body});`
           .replace(/"public"\./g, "")
-          .replace(/"([a-zA-Z_][a-zA-Z0-9_]*)"/g, "`$1`")
+          .replace(/"/g, "`")
+          .replace(/character varying(\(\d+\))?/gi, "TEXT")
+          .replace(/timestamp( without time zone)?/gi, "TEXT")
+          .replace(/numeric\(\d+,\d+\)/gi, "NUMERIC")
+          .replace(/boolean/gi, "INTEGER")
+          .replace(/uuid/gi, "TEXT")
+          .replace(/jsonb/gi, "TEXT")
+          .replace(/DEFAULT gen_random_uuid\(\)/gi, "PRIMARY KEY")
+          .replace(/DEFAULT now\(\)/gi, "DEFAULT CURRENT_TIMESTAMP")
           .replace(/'t'/g, "1")
           .replace(/'f'/g, "0")
           .replace(/::[a-z0-9]+/gi, "")
-          .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
-          .replace(/NOW\(\)/gi, "CURRENT_TIMESTAMP")
-          .replace(/character varying/gi, "TEXT");
-
-        const upper = converted.toUpperCase();
+          .replace(/WITH\s+\([^)]+\)/gi, "");
         
-        if (upper.startsWith("SET ") || 
-            upper.startsWith("SELECT ") ||
-            upper.startsWith("CREATE EXTENSION") ||
-            upper.startsWith("COMMENT ON") ||
-            upper.startsWith("GRANT ") ||
-            upper.startsWith("REVOKE ") ||
-            upper.includes("OWNER TO") ||
-            upper.startsWith("ALTER TABLE ONLY") ||
-            upper.startsWith("CREATE FUNCTION") ||
-            upper.startsWith("CREATE TRIGGER")) {
-          continue;
-        }
+        try { targetInstance.exec(converted); } catch (e) { }
+      }
 
-        try {
-          if (upper.startsWith("CREATE TABLE")) {
-            converted = converted
-              .replace(/\bSERIAL\b/gi, "INTEGER PRIMARY KEY AUTOINCREMENT")
-              .replace(/\bBIGSERIAL\b/gi, "INTEGER PRIMARY KEY AUTOINCREMENT")
-              .replace(/\bTIMESTAMP\b/gi, "TEXT")
-              .replace(/\bJSONB\b/gi, "TEXT")
-              .replace(/\bBOOLEAN\b/gi, "INTEGER")
-              .replace(/\bVARCHAR\(\d+\)\b/gi, "TEXT")
-              .replace(/\bUUID\b/gi, "TEXT")
-              .replace(/PRIMARY KEY\s*\(`id`\)/gi, "PRIMARY KEY (`id`)")
-              .replace(/CONSTRAINT\s+`[^`]+`\s+/gi, "")
-              .replace(/WITH\s+\([^)]+\)/gi, "")
-              .replace(/NOT NULL\s+DEFAULT\s+gen_random_uuid\(\)/gi, "PRIMARY KEY")
-              .replace(/DEFAULT\s+'[^']+'::numeric/gi, "DEFAULT 0")
-              .replace(/DEFAULT\s+'[^']+'::text/gi, (match) => match.split('::')[0]);
-          }
-          
-          targetInstance.exec(converted + ";");
-          success++;
-        } catch (e: any) {
-          if (upper.startsWith("INSERT INTO")) {
-             try { targetInstance.exec(converted + ";"); success++; continue; } catch {}
-          }
-          fail++;
+      const copyRegex = /COPY (?:public\.)?(\w+)\s+\((.*?)\)\s+FROM stdin;(.*?)\\\./gs;
+      while ((match = copyRegex.exec(sqlContent)) !== null) {
+        const tableName = match[1];
+        const cols = match[2].replace(/"/g, "`");
+        const data = match[3].strip ? match[3].trim() : match[3];
+        if (!data) continue;
+
+        const lines = data.split('\n');
+        const placeholders = cols.split(',').map(() => '?').join(',');
+        const insertStmt = targetInstance.prepare(`INSERT INTO "${tableName}" (${cols}) VALUES (${placeholders})`);
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          const vals = line.split('\t').map(v => v === '\\N' ? null : v);
+          try { insertStmt.run(...vals); } catch (e) { }
         }
       }
-      
+
       targetInstance.exec("COMMIT;");
-      
-      const tables = targetInstance.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
-      console.log(`✅ [BackupService] الجداول: ${tables.map((t:any) => t.name).join(', ')}`);
-      
-      for (const t of tables as any[]) {
-        const count = (targetInstance.prepare(`SELECT count(*) as count FROM \`${t.name}\``).get() as any).count;
-        console.log(`📊 [BackupService] الجدول \`${t.name}\`: ${count} سجل`);
-      }
-
-      targetInstance.pragma("journal_mode = DELETE");
-      targetInstance.pragma("synchronous = FULL");
-      targetInstance.pragma("foreign_keys = ON");
       targetInstance.close();
-
-      if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
       return true;
-    } catch (error: any) {
-      console.error("❌ [BackupService] فشل الاستعادة:", error.message);
-      if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
-      throw error;
+    } catch (error) {
+      console.error('❌ [BackupService] خطأ في الاستعادة:', error);
+      return false;
     }
   }
-
-  static async startAutoBackupScheduler() {
-    console.log("⏰ [BackupService] الجدولة نشطة");
-  }
-
-  static async runBackup(userId?: string, manual = false): Promise<any> {
-    return { success: true };
-  }
-
-  static async runIntegrityCheck() {
-    return { status: "success" };
-  }
-}
-
-export function getAutoBackupStatus() {
-  return { enabled: true, lastBackup: new Date().toISOString(), nextBackupIn: 21600000, lastBackupSize: 0 };
-}
-
-export function listAutoBackups() { return []; }
-
-export async function triggerManualBackup() {
-  return { success: true, file: "manual", size: 0, tablesCount: 0, rowsCount: 0, duration: 0 };
 }

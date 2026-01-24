@@ -859,7 +859,7 @@ export default function WorkerAccountsPage() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="flex flex-col gap-1.5">
                 <Label>العامل *</Label>
                 <WorkerSelect
                   value={formData.workerId}
@@ -868,7 +868,7 @@ export default function WorkerAccountsPage() {
                   placeholder="اختر العامل"
                 />
               </div>
-              <div>
+              <div className="flex flex-col gap-1.5">
                 <Label>المشروع *</Label>
                 <ProjectSelect
                   value={formData.projectId}

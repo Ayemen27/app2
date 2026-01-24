@@ -126,7 +126,7 @@ export function SearchableSelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent 
-          className={cn('w-[var(--radix-popover-trigger-width)] p-0', contentClassName)}
+          className={cn('w-[var(--radix-popover-trigger-width)] p-0 z-[500]', contentClassName)}
           align="start"
           onKeyDown={handleKeyDown}
         >

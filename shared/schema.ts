@@ -72,6 +72,26 @@ export const authUserSessions = pgTable("auth_user_sessions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Daily expense summaries (ملخص المصروفات اليومية)
+export const dailyExpenseSummaries = pgTable("daily_expense_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  date: text("date").notNull(), // YYYY-MM-DD format
+  carriedForwardAmount: decimal("carried_forward_amount", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalFundTransfers: decimal("total_fund_transfers", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalWorkerWages: decimal("total_worker_wages", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalMaterialCosts: decimal("total_material_costs", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalTransportationCosts: decimal("total_transportation_costs", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalWorkerTransfers: decimal("total_worker_transfers", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalWorkerMiscExpenses: decimal("total_worker_misc_expenses", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalIncome: decimal("total_income", { precision: 15, scale: 2 }).notNull(),
+  totalExpenses: decimal("total_expenses", { precision: 15, scale: 2 }).notNull(),
+  remainingBalance: decimal("remaining_balance", { precision: 15, scale: 2 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Autocomplete data table (بيانات الإكمال التلقائي)
 export const autocompleteData = pgTable("autocomplete_data", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -32,14 +32,53 @@ const dbSource = process.env.DATABASE_URL_CENTRAL ? 'CENTRAL' :
                  process.env.DATABASE_URL_SUPABASE ? 'SUPABASE/EXTERNAL' :
                  process.env.DATABASE_URL_RAILWAY ? 'RAILWAY' : 'NONE';
 
-// تحذير إذا لم توجد قاعدة مركزية
-if (!rawDbUrl) {
-  console.error('🚫 [DB] لا توجد قاعدة بيانات مركزية! يرجى تعيين DATABASE_URL_CENTRAL أو DATABASE_URL_SUPABASE');
-} else if (rawDbUrl.includes('helium') || rawDbUrl.includes('heliumdb')) {
-  console.error('🚫 [DB] تم رفض الاتصال بقاعدة Replit (heliumdb)');
-} else {
-  console.log(`🔗 [DB Source] استخدام قاعدة البيانات: ${dbSource}`);
+// استخراج اسم القاعدة من الرابط
+function extractDbName(url: string): string {
+  try {
+    const match = url.match(/\/([^/?]+)(\?|$)/);
+    return match ? match[1] : 'غير معروف';
+  } catch {
+    return 'غير معروف';
+  }
 }
+
+// عرض حالة جميع القواعد
+console.log('═══════════════════════════════════════════════════════════');
+console.log('📊 [DB Status] حالة قواعد البيانات:');
+console.log('───────────────────────────────────────────────────────────');
+
+const databases = [
+  { name: 'DATABASE_URL_CENTRAL', url: process.env.DATABASE_URL_CENTRAL, priority: 1 },
+  { name: 'DATABASE_URL_SUPABASE', url: process.env.DATABASE_URL_SUPABASE, priority: 2 },
+  { name: 'DATABASE_URL_RAILWAY', url: process.env.DATABASE_URL_RAILWAY, priority: 3 },
+  { name: 'DATABASE_URL (Replit)', url: process.env.DATABASE_URL, priority: 4, blocked: true },
+];
+
+let activeDb = '';
+databases.forEach(db => {
+  const dbName = db.url ? extractDbName(db.url) : 'غير مُعيّن';
+  const isActive = db.url && db.url === rawDbUrl && !db.blocked;
+  const isBlocked = db.blocked && db.url;
+  
+  if (isActive) {
+    activeDb = dbName;
+    console.log(`  ✅ [أولوية ${db.priority}] ${db.name}: ${dbName} (متصل - نشط)`);
+  } else if (isBlocked) {
+    console.log(`  🚫 [أولوية ${db.priority}] ${db.name}: ${dbName} (محظور - heliumdb)`);
+  } else if (db.url) {
+    console.log(`  ⏸️  [أولوية ${db.priority}] ${db.name}: ${dbName} (متاح - غير نشط)`);
+  } else {
+    console.log(`  ❌ [أولوية ${db.priority}] ${db.name}: غير مُعيّن`);
+  }
+});
+
+console.log('───────────────────────────────────────────────────────────');
+if (activeDb) {
+  console.log(`🎯 [DB Active] القاعدة النشطة: ${activeDb} (${dbSource})`);
+} else {
+  console.error('🚫 [DB] لا توجد قاعدة بيانات نشطة!');
+}
+console.log('═══════════════════════════════════════════════════════════');
 
 // ✅ تنظيف الرابط من أي مسافات أو علامات اقتباس زائدة قد تسبب خطأ ENOTFOUND
 const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "");

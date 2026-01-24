@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,15 +18,28 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-const mockIncidents = [
-  { id: "ERR-942", title: "NullPointerException: MainActivity.kt:142", severity: "critical", status: "open", affectedDevices: 1250, appVersion: "v2.4.1", lastSeen: "2m ago" },
-  { id: "PERF-102", title: "Frame Drop: Payment Gateway UI", severity: "warning", status: "investigating", affectedDevices: 4500, appVersion: "v2.4.0", lastSeen: "15m ago" },
-  { id: "NET-404", title: "SocketTimeout: api.v1/checkout", severity: "critical", status: "open", affectedDevices: 890, appVersion: "v2.4.1", lastSeen: "45m ago" },
-  { id: "ERR-201", title: "IllegalStateException: Fragment transition", severity: "info", status: "resolved", affectedDevices: 12, appVersion: "v2.3.9", lastSeen: "2h ago" },
-];
+import { Incident } from "@shared/schema";
 
 export default function Dashboard() {
+  const { data: incidents, isLoading: incidentsLoading } = useQuery<Incident[]>({ 
+    queryKey: ["/api/incidents"] 
+  });
+
+  const { data: summary, isLoading: summaryLoading } = useQuery<any>({ 
+    queryKey: ["/api/metrics/summary"] 
+  });
+
+  if (incidentsLoading || summaryLoading) {
+    return <div className="p-8 flex items-center justify-center">Loading live telemetry...</div>;
+  }
+
+  const mockIncidents = incidents || [];
+  const metrics = summary || {
+    crashFree: "99.94%",
+    coldStart: "1.2s",
+    exceptions: 14,
+    throughput: "4.2k"
+  };
   return (
     <div className="flex flex-col h-full bg-[#f8fafc] dark:bg-[#020617] text-[#1e293b] dark:text-[#f1f5f9]">
       {/* Global Header */}

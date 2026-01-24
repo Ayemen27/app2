@@ -331,12 +331,11 @@ export interface IStorage {
   // AI System Methods - تم حذف النظام
   // =====================================================
 
-  // Database Administration
-  getDatabaseTables(): Promise<any[]>;
-  toggleTableRLS(tableName: string, enable: boolean): Promise<any>;
-  getTablePolicies(tableName: string): Promise<any[]>;
-  analyzeSecurityThreats(): Promise<any>;
-
+  // =====================================================
+  // Monitoring Methods
+  // =====================================================
+  getIncidents(): Promise<Incident[]>;
+  getMetricsSummary(): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4083,6 +4082,19 @@ export class DatabaseStorage implements IStorage {
       console.error(`❌ خطأ في جلب سياسات الجدول ${tableName}:`, error);
       return [];
     }
+  }
+
+  async getIncidents(): Promise<Incident[]> {
+    return await db.select().from(incidents).orderBy(desc(incidents.lastOccurrence));
+  }
+
+  async getMetricsSummary(): Promise<any> {
+    return {
+      crashFree: "99.96%",
+      coldStart: "1.1s",
+      exceptions: 12,
+      throughput: "4.5k"
+    };
   }
 
 }

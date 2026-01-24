@@ -119,32 +119,31 @@ try {
           return async (query: any) => {
             if (!query) throw new Error("A query must have either text or a name.");
             
-            // التعامل مع كائنات استعلام Drizzle (sql`...`)
-            if (typeof query.toQuery === 'function' || (query.sql && query.params)) {
-              try {
-                // محاولة استخراج النص والمعاملات
-                const text = query.sql || (typeof query.toQuery === 'function' ? query.toQuery().text : '');
-                const values = query.params || (typeof query.toQuery === 'function' ? query.params : []);
-                
-                if (!text) throw new Error("Could not extract SQL text from query object");
-                
-                const result = await pool.query(text, values);
-                return { rows: result.rows || result };
-              } catch (err) {
-                console.error("❌ [DB Proxy] Error extracting/executing Drizzle query:", err);
-                throw err;
-              }
-            }
-            
-            // التعامل مع الاستعلامات النصية الخام أو كائنات pg.QueryConfig
             try {
-              const result = await pool.query(query);
-              if (!result.rows && Array.isArray(result)) {
-                return { rows: result };
+              let text = '';
+              let values = [];
+              
+              if (typeof query === 'string') {
+                text = query;
+              } else if (query && typeof query.toQuery === 'function') {
+                const q = query.toQuery();
+                text = q.text;
+                values = q.values;
+              } else if (query && query.sql && query.params) {
+                text = query.sql;
+                values = query.params;
+              } else if (query && query.text) {
+                text = query.text;
+                values = query.values || [];
+              } else {
+                // FALLBACK: Attempt to use the object directly
+                return pool.query(query);
               }
-              return result;
+              
+              const result = await pool.query(text, values);
+              return { rows: result.rows || result };
             } catch (err) {
-              console.error("❌ [DB Proxy] Error executing raw query:", err);
+              console.error("❌ [DB Proxy] Error executing query:", err);
               throw err;
             }
           };

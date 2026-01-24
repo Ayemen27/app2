@@ -45,12 +45,13 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
       console.log(`🔍 [AUTH] محاولة البحث عن مستخدم: ${email}`);
       
-      // ✅ استخدام Drizzle ORM مع التحويل المناسب
-      // تجنب استخدام sql داخل eq إذا كان يسبب مشاكل، سنستخدم استعلام بسيط
-      const usersList = await db.select().from(schema.users).where(eq(schema.users.email, email));
+      // ✅ استخدام استعلام SQL خام مباشر لتجنب تعقيدات ORM حالياً
+      const rawResult = await db.execute({
+        text: 'SELECT * FROM users WHERE LOWER(email) = LOWER($1)',
+        values: [email]
+      });
       
-      // توحيد شكل النتيجة لتكون مصفوفة في حقل rows
-      userResult = { rows: Array.isArray(usersList) ? usersList : [] };
+      userResult = { rows: rawResult.rows || [] };
       console.log(`✅ [AUTH] نتيجة البحث: ${userResult.rows.length} مستخدم`);
     } catch (dbError: any) {
       console.error('🚨 [AUTH] فشل الاتصال بالقاعدة المركزية، جاري الانتقال للطوارئ:', dbError.message);

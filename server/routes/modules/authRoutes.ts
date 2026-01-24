@@ -35,11 +35,50 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     }
 
     // البحث عن المستخدم في قاعدة البيانات (case insensitive)
-    const userResult = await db.execute(sql`
-      SELECT id, email, password, first_name, last_name, email_verified_at, created_at
-      FROM users 
-      WHERE LOWER(email) = LOWER(${email})
-    `);
+    let userResult;
+    try {
+      userResult = await db.execute(sql`
+        SELECT id, email, password, first_name, last_name, email_verified_at, created_at, role
+        FROM users 
+        WHERE LOWER(email) = LOWER(${email})
+      `);
+    } catch (dbError: any) {
+      console.error('🚨 [AUTH] فشل الاتصال بقاعدة البيانات المركزية:', dbError.message);
+      
+      // محاولة تسجيل الدخول عبر خدمة الطوارئ
+      const emergencyResult = await EmergencyAuthService.loginEmergencyUser(email, password);
+      if (emergencyResult.success && emergencyResult.data) {
+        // تعيين Refresh Token في Cookie
+        res.cookie('refreshToken', emergencyResult.data.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 90 * 24 * 60 * 60 * 1000
+        });
+
+        return res.json({
+          success: true,
+          status: "success",
+          message: emergencyResult.message,
+          token: emergencyResult.data.accessToken,
+          accessToken: emergencyResult.data.accessToken,
+          refreshToken: emergencyResult.data.refreshToken,
+          user: {
+            id: emergencyResult.data.userId,
+            email: emergencyResult.data.email,
+            name: emergencyResult.data.name,
+            role: emergencyResult.data.role,
+            emailVerified: true
+          }
+        });
+      }
+
+      return res.status(503).json({
+        success: false,
+        message: 'السيرفر المركزي غير متاح حالياً. يرجى تفعيل وضع الأوفلاين.',
+        error: dbError.message
+      });
+    }
 
     if (userResult.rows.length === 0) {
       console.log('❌ [AUTH] المستخدم غير موجود:', email);

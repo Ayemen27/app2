@@ -1,0 +1,6 @@
+{
+	"appId": "com.replit.agentforge",
+	"appName": "AgentForge",
+	"webDir": "www",
+	"bundledWebRuntime": false
+}

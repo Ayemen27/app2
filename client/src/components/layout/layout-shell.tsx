@@ -23,7 +23,7 @@ export function LayoutShell({
   const [location] = useLocation();
   
   // الصفحات التي تحتوي على شريط خاص بها وتحتاج إلى إخفاء الشريط العام
-  const pagesWithCustomHeader = ['/ai-chat'];
+  const pagesWithCustomHeader = ['/ai-chat', '/admin/data-health'];
   const isCustomHeaderPage = pagesWithCustomHeader.some(page => location === page);
   
   // الصفحات التي تحتاج إلى إخفاء شريط التنقل السفلي

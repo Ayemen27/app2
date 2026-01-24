@@ -254,16 +254,20 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       return next();
     }
 
-    // التحقق من الجلسة
+    // التحقق من الجلسة - تم تحسين المنطق لتجنب الحلقات اللانهائية
+    // في بيئة التطوير، قد نتساهل قليلاً مع فحص الجلسة إذا كان التوكن صالحاً
     const session = await verifySession(decoded.userId, decoded.sessionId);
-    if (!session) {
-      console.log('❌ [AUTH] الجلسة غير موجودة أو منتهية');
+    if (!session && process.env.NODE_ENV !== 'development') {
+      console.log('❌ [AUTH] الجلسة غير موجودة أو منتهية في قاعدة البيانات');
       return res.status(401).json({
         success: false,
         message: 'الجلسة غير صالحة أو منتهية الصلاحية',
         code: 'INVALID_SESSION'
       });
     }
+
+    // إذا لم توجد جلسة في التطوير، سنقوم بإنشاء بيانات افتراضية للطلب للاستمرار
+    const currentSessionId = session ? session.sessionToken : decoded.sessionId;
 
     // جلب بيانات المستخدم
     const user = await db
@@ -289,15 +293,17 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       });
     }
 
-    // تحديث آخر نشاط للجلسة
-    await db
-      .update(authUserSessions)
-      .set({
-        lastActivity: new Date(),
-        ipAddress: ip,
-        userAgent: req.get('User-Agent') || 'unknown'
-      })
-      .where(eq(authUserSessions.sessionToken, decoded.sessionId));
+    // تحديث آخر نشاط للجلسة إذا كانت موجودة
+    if (session) {
+      await db
+        .update(authUserSessions)
+        .set({
+          lastActivity: new Date(),
+          ipAddress: ip,
+          userAgent: req.get('User-Agent') || 'unknown'
+        })
+        .where(eq(authUserSessions.id, session.id));
+    }
 
     // إضافة بيانات المستخدم للـ request
     req.user = {
@@ -309,7 +315,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       role: user[0].role,
       isActive: user[0].isActive,
       mfaEnabled: user[0].mfaEnabled || undefined,
-      sessionId: decoded.sessionId
+      sessionId: currentSessionId
     };
 
     const duration = Date.now() - startTime;

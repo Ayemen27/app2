@@ -51,6 +51,33 @@ export class BackupService {
       let fail = 0;
 
       for (let cmd of commands) {
+        // Handle COPY command (PostgreSQL format)
+        if (cmd.toUpperCase().startsWith("COPY")) {
+          const match = cmd.match(/COPY (?:public\.)?`?([a-zA-Z0-9_]+)`?\s+\((.*?)\)/i);
+          if (match) {
+            const currentCopyTable = match[1];
+            const copyColumns = match[2].split(',').map(c => c.trim().replace(/`/g, ''));
+            
+            // Extract data between stdin and \.
+            const dataPart = cmd.split(/FROM stdin;/i)[1]?.split(/\\\./)[0];
+            if (dataPart) {
+              const lines = dataPart.trim().split('\n');
+              for (const line of lines) {
+                const vals = line.split('\t').map(v => v === '\\N' ? null : v.replace(/\\t/g, '\t').replace(/\\n/g, '\n').replace(/\\\\/g, '\\'));
+                if (vals.length !== copyColumns.length) continue;
+                
+                const placeholders = vals.map(() => '?').join(',');
+                const cols = copyColumns.map(c => `\`${c}\``).join(',');
+                try {
+                  targetInstance.prepare(`INSERT INTO \`${currentCopyTable}\` (${cols}) VALUES (${placeholders})`).run(...vals);
+                  success++;
+                } catch (e) { fail++; }
+              }
+            }
+            continue;
+          }
+        }
+
         let converted = cmd
           .replace(/"public"\./g, "")
           .replace(/"([a-zA-Z_][a-zA-Z0-9_]*)"/g, "`$1`")
@@ -69,6 +96,7 @@ export class BackupService {
             upper.startsWith("GRANT ") ||
             upper.startsWith("REVOKE ") ||
             upper.includes("OWNER TO") ||
+            upper.startsWith("ALTER TABLE ONLY") ||
             upper.startsWith("CREATE FUNCTION") ||
             upper.startsWith("CREATE TRIGGER")) {
           continue;
@@ -84,8 +112,9 @@ export class BackupService {
               .replace(/\bBOOLEAN\b/gi, "INTEGER")
               .replace(/\bVARCHAR\(\d+\)\b/gi, "TEXT")
               .replace(/\bUUID\b/gi, "TEXT")
-              .replace(/PRIMARY KEY\s*\(`id`\)/gi, "PRIMARY KEY (`id` AUTOINCREMENT)")
-              .replace(/CONSTRAINT\s+`[^`]+`\s+/gi, "");
+              .replace(/PRIMARY KEY\s*\(`id`\)/gi, "PRIMARY KEY (`id`)")
+              .replace(/CONSTRAINT\s+`[^`]+`\s+/gi, "")
+              .replace(/WITH\s+\([^)]+\)/gi, "");
           }
           
           targetInstance.exec(converted + ";");

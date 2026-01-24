@@ -98,7 +98,9 @@ const verifyToken = async (token: string): Promise<any> => {
     return jwt.verify(token, secret, {
       issuer: issuer,
       algorithms: ['HS256'],
-      ignoreExpiration: false // لا نتجاهل انتهاء الصلاحية أبداً في الإنتاج
+      ignoreExpiration: false,
+      // For production, we might want to be more lenient with issued at if clocks are slightly out of sync
+      clockTolerance: 60 
     });
   } catch (error: any) {
     if (error.name === 'TokenExpiredError') {
@@ -177,6 +179,14 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     // سجل إضافي لتشخيص مشاكل الموبايل
     if (!token && (req.get('user-agent')?.includes('Android') || req.get('user-agent')?.includes('okhttp'))) {
       console.warn(`⚠️ [AUTH-MOBILE] محاولة وصول بدون توكن من جهاز أندرويد | المسار: ${req.originalUrl}`);
+      
+      // Allow mobile apps to access refresh endpoint with refreshToken in body/cookies if no Authorization header
+      if (req.path === '/api/auth/refresh') {
+        token = req.body.refreshToken || req.cookies?.refreshToken;
+        if (token) {
+          console.log('✅ [AUTH-MOBILE] تم استخراج Refresh Token من الجسم/الكوكيز للجوال');
+        }
+      }
     }
 
     // التحقق من وجود الـ token

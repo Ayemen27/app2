@@ -111,8 +111,17 @@ try {
     console.log("✅ [SQLite] Using local database for Android.");
   } else {
     // محاولة الاتصال بـ Postgres مع مهلة زمنية أطول للاتصالات البعيدة
-    dbInstance = drizzle(pool, { schema });
-    console.log("✅ [PostgreSQL] Initialized with SmartConnectionManager.");
+    const drizzleDb = drizzle(pool, { schema });
+    // Proxy for database to support both .query and .execute (for raw SQL)
+    dbInstance = new Proxy(drizzleDb, {
+      get(target, prop, receiver) {
+        if (prop === 'execute') {
+          return (query: any) => pool.query(query);
+        }
+        return Reflect.get(target, prop, receiver);
+      }
+    });
+    console.log("✅ [PostgreSQL] Initialized with SmartConnectionManager and execute support.");
   }
 } catch (e) {
   console.error("🚨 [Emergency] Failed to initialize primary DB, switching to local SQLite:", e);

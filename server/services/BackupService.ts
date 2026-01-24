@@ -56,7 +56,6 @@ export class BackupService {
       await Promise.allSettled([this.sendToTelegram(compressedPath, `${filename}.gz`, sizeMB), this.uploadToGDrive(compressedPath, `${filename}.gz`)]);
       const [log] = await db.insert(backupLogs).values({ filename: `${filename}.gz`, size: sizeMB, status: "success", destination: "all", triggeredBy: userId }).returning();
       
-      // مزامنة تلقائية مع المجلد المحلي لحالات الطوارئ
       const emergencyPath = path.join(process.cwd(), "backups", "emergency-latest.sql.gz");
       fs.copyFileSync(compressedPath, emergencyPath);
       
@@ -115,111 +114,62 @@ export class BackupService {
     const uncompressedPath = filepath.replace(".gz", "");
     
     try {
-      // فك الضغط
       console.log(`📂 [BackupService] فك ضغط الملف: ${filepath}`);
       await execPromise(`gunzip -c "${filepath}" > "${uncompressedPath}"`);
       
-      // اختيار قاعدة البيانات بناءً على الوضع الحالي
       const isEmergency = (global as any).isEmergencyMode || !process.env.DATABASE_URL;
       const dbUrl = isEmergency 
-        ? null // لا يوجد URL لـ SQLite
+        ? null 
         : (process.env.DATABASE_URL_RAILWAY || process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL);
 
       if (isEmergency || !dbUrl) {
         console.log("🔄 جاري استعادة البيانات إلى قاعدة البيانات المحلية (SQLite)...");
         const sqlContent = fs.readFileSync(uncompressedPath, 'utf8');
         
-        // تحسين تقسيم الأوامر للتعامل مع النسخ الكبيرة
-        const commands = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);
-        console.log(`📊 [BackupService] جاري تنفيذ ${commands.length} أمر SQL...`);
-        
         const { sqliteInstance: globalSqlite } = await import("../db");
-        const targetInstance = globalSqlite || new Database(path.resolve(process.cwd(), "local.db"), { timeout: 300000 });
+        const targetInstance = globalSqlite || new Database(path.resolve(process.cwd(), "local.db"), { timeout: 30000 });
         
-        // استخدام .exec() المباشر لسرعة فائقة ودعم أوامر متعددة
         targetInstance.pragma("foreign_keys = OFF");
-        targetInstance.pragma("journal_mode = OFF");
+        targetInstance.pragma("journal_mode = MEMORY");
         targetInstance.pragma("synchronous = OFF");
-        targetInstance.pragma("busy_timeout = 300000"); // 5 دقائق
         
         try {
-          // محاولة معالجة الأوامر التي قد لا تتوافق مع SQLite
           const filteredSql = sqlContent
-            // تحويل علامات الاقتباس المزدوجة PostgreSQL إلى backticks SQLite
             .replace(/"([a-zA-Z_][a-zA-Z0-9_]*)"/g, "`$1`")
-            // تحويلات PostgreSQL -> SQLite
             .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
             .replace(/SERIAL PRIMARY KEY/gi, "INTEGER PRIMARY KEY AUTOINCREMENT")
-            .replace(/BIGSERIAL PRIMARY KEY/gi, "INTEGER PRIMARY KEY AUTOINCREMENT")
             .replace(/TIMESTAMP WITH TIME ZONE/gi, "DATETIME")
-            .replace(/TIMESTAMP WITHOUT TIME ZONE/gi, "DATETIME")
-            .replace(/TIMESTAMPTZ/gi, "DATETIME")
             .replace(/NOW\(\)/gi, "CURRENT_TIMESTAMP")
-            .replace(/CURRENT_TIMESTAMP AT TIME ZONE[^,)]+/gi, "CURRENT_TIMESTAMP")
-            .replace(/::text/g, "")
-            .replace(/::jsonb/g, "")
-            .replace(/::json/g, "")
-            .replace(/::integer/g, "")
-            .replace(/::boolean/g, "")
-            .replace(/::varchar(\(\d+\))?/g, "")
-            .replace(/::numeric(\(\d+,\d+\))?/g, "")
-            .replace(/RETURNING [^;]+/gi, "")
-            .replace(/ON CONFLICT[^;]+DO NOTHING/gi, "OR IGNORE")
-            .replace(/ON CONFLICT[^;]+DO UPDATE[^;]+/gi, "OR REPLACE")
-            // إزالة أوامر PostgreSQL غير المدعومة
-            .replace(/CREATE EXTENSION[^;]*;/gi, "")
-            .replace(/SET [^;]+;/gi, "")
-            .replace(/SELECT pg_catalog[^;]+;/gi, "")
-            .replace(/COMMENT ON[^;]+;/gi, "")
-            .replace(/ALTER TABLE[^;]*OWNER TO[^;]*;/gi, "")
-            .replace(/GRANT [^;]+;/gi, "")
-            .replace(/REVOKE [^;]+;/gi, "");
+            .split(/;\s*$/m)
+            .filter(cmd => {
+              const c = cmd.trim().toUpperCase();
+              return c.length > 0 && 
+                     !c.startsWith("SET ") && 
+                     !c.startsWith("SELECT PG_CATALOG") && 
+                     !c.startsWith("CREATE EXTENSION") &&
+                     !c.startsWith("COMMENT ON") &&
+                     !c.startsWith("ALTER TABLE") &&
+                     !c.startsWith("GRANT ") &&
+                     !c.startsWith("REVOKE ");
+            })
+            .join(";\n");
 
           targetInstance.exec("BEGIN TRANSACTION;");
           targetInstance.exec(filteredSql);
           targetInstance.exec("COMMIT;");
         } catch (transError: any) {
           try { targetInstance.exec("ROLLBACK;"); } catch (e) {}
-          console.error("❌ SQL Error during batch execution:", transError.message);
-          
-          // Fallback: تقسيم الملف الكبير إلى أجزاء أصغر لتجنب تجميد المحرك
-          console.log("🔄 Fallback: Executing statements in batches...");
-          const sqlParts = sqlContent.split(/;\s*$/m).filter(cmd => cmd.trim().length > 0);
-          
-          for (let i = 0; i < sqlParts.length; i += 50) {
-            const batch = sqlParts.slice(i, i + 50);
-            targetInstance.exec("BEGIN TRANSACTION;");
-            for (const cmd of batch) {
-              try {
-                const sqliteCmd = cmd
-                  // تحويل علامات الاقتباس المزدوجة PostgreSQL
-                  .replace(/"([a-zA-Z_][a-zA-Z0-9_]*)"/g, "`$1`")
-                  .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
-                  .replace(/SERIAL PRIMARY KEY/gi, "INTEGER PRIMARY KEY AUTOINCREMENT")
-                  .replace(/BIGSERIAL PRIMARY KEY/gi, "INTEGER PRIMARY KEY AUTOINCREMENT")
-                  .replace(/TIMESTAMP WITH TIME ZONE/gi, "DATETIME")
-                  .replace(/TIMESTAMP WITHOUT TIME ZONE/gi, "DATETIME")
-                  .replace(/TIMESTAMPTZ/gi, "DATETIME")
-                  .replace(/NOW\(\)/gi, "CURRENT_TIMESTAMP")
-                  .replace(/::text/g, "")
-                  .replace(/::jsonb/g, "")
-                  .replace(/::json/g, "")
-                  .replace(/::integer/g, "")
-                  .replace(/::boolean/g, "")
-                  .replace(/::varchar(\(\d+\))?/g, "")
-                  .replace(/RETURNING [^;]+/gi, "");
-                
-                const trimmed = sqliteCmd.trim();
-                if (trimmed.startsWith("CREATE SCHEMA") || trimmed.startsWith("SET ") || 
-                    trimmed.startsWith("SELECT pg_catalog") || trimmed.startsWith("COMMENT ON") ||
-                    trimmed.startsWith("CREATE EXTENSION") || trimmed.startsWith("ALTER TABLE") && trimmed.includes("OWNER TO") ||
-                    trimmed.startsWith("GRANT ") || trimmed.startsWith("REVOKE ")) continue;
-                
-                targetInstance.exec(trimmed);
-              } catch (e) {}
-            }
-            targetInstance.exec("COMMIT;");
+          console.warn("⚠️ [BackupService] فشل التنفيذ الدفعي، المحاولة بشكل فردي سريع...");
+          const sqlParts = sqlContent.split(/;\s*$/m);
+          targetInstance.exec("BEGIN TRANSACTION;");
+          for (const cmd of sqlParts) {
+            try {
+              const trimmed = cmd.trim();
+              if (trimmed.length < 5) continue;
+              targetInstance.exec(trimmed);
+            } catch (e) {}
           }
+          targetInstance.exec("COMMIT;");
         }
         
         targetInstance.pragma("journal_mode = DELETE");
@@ -234,10 +184,7 @@ export class BackupService {
       
       if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
       console.log("✅ تمت استعادة البيانات بنجاح");
-      
-      // تشغيل فحص التكامل فوراً بعد الاستعادة
       await this.runIntegrityCheck();
-      
       return true;
     } catch (error: any) {
       if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
@@ -256,12 +203,10 @@ export class BackupService {
 
     try {
       const isEmergency = (global as any).isEmergencyMode;
-      const currentDb = db;
-
       const tables = ['projects', 'workers', 'users', 'wells'];
       for (const table of tables) {
         try {
-          await currentDb.execute(sql.raw(`SELECT count(*) FROM ${table} LIMIT 1`));
+          await db.execute(sql.raw(`SELECT count(*) FROM ${table} LIMIT 1`));
         } catch (e: any) {
           checkResult.status = "warning";
           checkResult.issues.push(`جدول مفقود أو غير قابل للقراءة: ${table}`);
@@ -269,7 +214,7 @@ export class BackupService {
       }
 
       if (!isEmergency) {
-        const userCount = await currentDb.select().from(users).limit(1);
+        const userCount = await db.select().from(users).limit(1);
         if (userCount.length === 0) {
           checkResult.status = "warning";
           checkResult.issues.push("لم يتم العثور على مستخدمين في قاعدة البيانات الحالية");

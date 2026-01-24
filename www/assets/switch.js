@@ -1,4 +1,4 @@
-import { r as reactExports, br as useComposedRefs, bs as useControllableState, j as jsxRuntimeExports, bt as createContextScope, bu as Primitive, bv as composeEventHandlers, bw as usePrevious, bx as useSize, aU as cn } from "./index-BD1Qzn1x.js";
+import { r as reactExports, br as useComposedRefs, bs as useControllableState, j as jsxRuntimeExports, bt as createContextScope, bu as Primitive, bv as composeEventHandlers, bw as usePrevious, bx as useSize, aU as cn } from "./index-BeuLVmQp.js";
 var SWITCH_NAME = "Switch";
 var [createSwitchContext] = createContextScope(SWITCH_NAME);
 var [SwitchProvider, useSwitchContext] = createSwitchContext(SWITCH_NAME);

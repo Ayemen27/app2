@@ -1,4 +1,4 @@
-import { a as useToast, b as useQueryClient, r as reactExports, c as useFloatingButton, f as useQuery, g as useMutation, j as jsxRuntimeExports, l as Card, a6 as CardHeader, a7 as CardTitle, a8 as Database, m as CardContent, a9 as ChartColumn, aa as Clock, ab as Shield, ac as Activity, ad as Tabs, ae as TabsList, af as TabsTrigger, ag as Settings, ah as TabsContent, T as TrendingUp, ai as Badge, aj as Progress, Z as CircleAlert, B as Button, q as Trash2, ak as RefreshCw, al as Separator, V as apiRequest } from "./index-BD1Qzn1x.js";
+import { a as useToast, b as useQueryClient, r as reactExports, c as useFloatingButton, f as useQuery, g as useMutation, j as jsxRuntimeExports, l as Card, a6 as CardHeader, a7 as CardTitle, a8 as Database, m as CardContent, a9 as ChartColumn, aa as Clock, ab as Shield, ac as Activity, ad as Tabs, ae as TabsList, af as TabsTrigger, ag as Settings, ah as TabsContent, T as TrendingUp, ai as Badge, aj as Progress, Z as CircleAlert, B as Button, q as Trash2, ak as RefreshCw, al as Separator, V as apiRequest } from "./index-BeuLVmQp.js";
 function AutocompleteAdminPage() {
   const { toast } = useToast();
   useQueryClient();

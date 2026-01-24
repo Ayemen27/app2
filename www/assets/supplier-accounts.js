@@ -1,5 +1,5 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/index-BD1Qzn1x.js","assets/index.css"])))=>i.map(i=>d[i]);
-import { r as reactExports, c as useFloatingButton, d as useSelectedProject, a as useToast, f as useQuery, h as useFinancialSummary, U as Users, W as Wallet, C as CreditCard, Z as CircleAlert, a0 as Package, D as DollarSign, a1 as ShoppingCart, T as TrendingUp, a2 as TrendingDown, a3 as Receipt, a4 as FileText, j as jsxRuntimeExports, i as UnifiedFilterDashboard, k as Download, o as UnifiedCard, v as Phone, $ as MapPin, a5 as Building2, l as Card, m as CardContent, n as UnifiedCardGrid, s as Calendar, p as Pen, q as Trash2, V as apiRequest, _ as __vitePreload, R as downloadExcelFile } from "./index-BD1Qzn1x.js";
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/index-BeuLVmQp.js","assets/index.css"])))=>i.map(i=>d[i]);
+import { r as reactExports, c as useFloatingButton, d as useSelectedProject, a as useToast, f as useQuery, h as useFinancialSummary, U as Users, W as Wallet, C as CreditCard, Z as CircleAlert, a0 as Package, D as DollarSign, a1 as ShoppingCart, T as TrendingUp, a2 as TrendingDown, a3 as Receipt, a4 as FileText, j as jsxRuntimeExports, i as UnifiedFilterDashboard, k as Download, o as UnifiedCard, v as Phone, $ as MapPin, a5 as Building2, l as Card, m as CardContent, n as UnifiedCardGrid, s as Calendar, p as Pen, q as Trash2, V as apiRequest, _ as __vitePreload, R as downloadExcelFile } from "./index-BeuLVmQp.js";
 function SupplierAccountsPage() {
   const [selectedSupplierId, setSelectedSupplierId] = reactExports.useState("all");
   const [dateFrom, setDateFrom] = reactExports.useState("");
@@ -178,7 +178,7 @@ function SupplierAccountsPage() {
   const exportToExcel = async () => {
     if (purchases.length === 0) return;
     const ExcelJS = (await __vitePreload(async () => {
-      const { default: __vite_default__ } = await import("./index-BD1Qzn1x.js").then((n) => n.e);
+      const { default: __vite_default__ } = await import("./index-BeuLVmQp.js").then((n) => n.e);
       return { default: __vite_default__ };
     }, true ? __vite__mapDeps([0,1]) : void 0)).default;
     const workbook = new ExcelJS.Workbook();

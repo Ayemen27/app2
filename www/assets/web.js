@@ -1,4 +1,4 @@
-import { bQ as WebPlugin } from "./index-BD1Qzn1x.js";
+import { bQ as WebPlugin } from "./index-BeuLVmQp.js";
 class CapacitorSQLiteWeb extends WebPlugin {
   constructor() {
     super(...arguments);

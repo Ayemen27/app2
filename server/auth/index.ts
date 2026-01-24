@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
+import bcrypt from "bcryptjs";
 
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
@@ -19,7 +20,7 @@ export function setupAuth(app: Express) {
   passport.use(new LocalStrategy({ usernameField: "email" }, async (email, password, done) => {
     try {
       const user = await storage.getUserByEmail(email);
-      if (!user || user.password !== password) {
+      if (!user || !(await bcrypt.compare(password, user.password))) {
         return done(null, false, { message: "Invalid email or password" });
       }
       return done(null, user);

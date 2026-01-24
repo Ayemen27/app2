@@ -214,6 +214,22 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       
       // ✅ Allow refresh requests even if access token is expired
       if (error.name === 'TokenExpiredError' && req.path === '/api/auth/refresh') {
+        // We still need decoded info for refresh logic if it was just expired
+        try {
+          // Use jwt.decode safely here
+          const rawDecoded = jwt.decode(token) as any;
+          if (rawDecoded && rawDecoded.userId && rawDecoded.sessionId) {
+            req.user = {
+              userId: rawDecoded.userId,
+              sessionId: rawDecoded.sessionId,
+              email: rawDecoded.email || '',
+              role: rawDecoded.role || 'user'
+            } as any;
+            return next();
+          }
+        } catch (e) {
+          console.error('❌ [AUTH] Failed to decode expired token for refresh:', e);
+        }
         return next();
       }
 
@@ -231,6 +247,11 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
         message: 'رمز المصادقة غير صالح',
         code: 'INVALID_TOKEN'
       });
+    }
+
+    // ✅ Skip session check for refresh requests to avoid INVALID_SESSION loop
+    if (req.path === '/api/auth/refresh') {
+      return next();
     }
 
     // التحقق من الجلسة

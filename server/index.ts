@@ -579,16 +579,24 @@ import { BackupService } from "./services/BackupService";
   try {
     await BackupService.initialize();
     
-    // فحص الاتصال وتفعيل وضع الطوارئ قبل تشغيل المسارات
-    const isConnected = await checkDBConnection();
-    if (!isConnected) {
-      console.log("⚠️ [Server] فشل الاتصال الأولي، تفعيل بروتوكول الطوارئ التلقائي...");
-      // سيقوم db.ts و smartConnectionManager بالتبديل تلقائياً
-    }
-
+    // ✅ تشغيل الخادم أولاً لضمان فتح المنفذ فوراً
     const serverInstance = server.listen(FINAL_PORT, "0.0.0.0", async () => {
       log(`serving on port ${FINAL_PORT}`);
       console.log('✅ Socket.IO server متشغل');
+      
+      // ✅ فحص الاتصال بقاعدة البيانات في الخلفية (بدون حظر)
+      setTimeout(async () => {
+        try {
+          const isConnected = await checkDBConnection();
+          if (!isConnected) {
+            console.log("⚠️ [Server] فشل الاتصال بقاعدة البيانات، النظام في وضع الطوارئ...");
+          } else {
+            console.log("✅ [Server] الاتصال بقاعدة البيانات ناجح");
+          }
+        } catch (e: any) {
+          console.log("⚠️ [Server] تعذر فحص الاتصال:", e.message);
+        }
+      }, 1000);
 
       // ✅ تشغيل نظام النسخ الاحتياطي التلقائي
       // تعديل: تشغيل النسخ الاحتياطي بعد فترة أطول لتقليل الحمل عند بدء التشغيل

@@ -43,6 +43,7 @@ import DailyExpenses from "./pages/daily-expenses";
 import WellsPage from "./pages/wells";
 import WellCostReport from "./pages/well-cost-report";
 import WellAccounting from "./pages/well-accounting";
+import DataHealthPage from "./pages/DataHealthPage";
 import DatabaseManager from "./pages/DatabaseManager";
 
 import { LayoutShell } from "./components/layout/layout-shell";
@@ -261,6 +262,11 @@ function Router() {
           <Suspense fallback={<PageLoader />}>
             <SyncComparisonPage />
           </Suspense>
+        </AdminRoute>
+      </Route>
+      <Route path="/admin/data-health">
+        <AdminRoute>
+          <DataHealthPage />
         </AdminRoute>
       </Route>
       <Route path="/local-db">

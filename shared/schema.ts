@@ -72,5 +72,12 @@ export const authUserSessions = pgTable("auth_user_sessions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ... (remaining existing tables should be preserved)
-// I will only add the new tables at the top for now to avoid overwriting 2000 lines blindly in fast mode.
+// Autocomplete data table (بيانات الإكمال التلقائي)
+export const autocompleteData = pgTable("autocomplete_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  category: text("category").notNull(), // نوع البيانات: senderNames, recipientNames, etc
+  value: text("value").notNull(), // القيمة المحفوظة
+  usageCount: integer("usage_count").default(1).notNull(), // عدد مرات الاستخدام
+  lastUsed: timestamp("last_used").defaultNow().notNull(), // آخر استخدام
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

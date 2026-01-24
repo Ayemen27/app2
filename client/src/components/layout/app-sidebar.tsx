@@ -107,7 +107,7 @@ export function AppSidebar() {
           <Collapsible key={section.title} defaultOpen className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-2 text-white/40 hover:text-white transition-colors group-data-[collapsible=icon]:hidden">
+                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-2 text-white/70 hover:text-white transition-colors group-data-[collapsible=icon]:hidden">
                   <span className="text-[11px] font-bold uppercase tracking-wider">{section.title}</span>
                   <ChevronDown className="h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
                 </CollapsibleTrigger>
@@ -144,13 +144,13 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border bg-sidebar/50 p-2 mt-auto">
-        <div className="px-4 py-2 flex items-center gap-3 group-data-[collapsible=icon]:hidden border-b border-white/5 mb-2">
+        <div className="px-4 py-2 flex items-center gap-3 group-data-[collapsible=icon]:hidden border-b border-white/10 mb-2">
           <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs uppercase">
             {user?.name?.charAt(0) || "U"}
           </div>
           <div className="flex flex-col overflow-hidden text-right">
             <span className="text-sm font-bold text-white truncate">{user?.name || "المستخدم"}</span>
-            <span className="text-[10px] text-white/40 truncate">{user?.email}</span>
+            <span className="text-[10px] text-white/60 truncate">{user?.email}</span>
           </div>
         </div>
         <SidebarMenu>

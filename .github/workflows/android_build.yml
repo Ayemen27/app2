@@ -19,13 +19,24 @@ jobs:
           cache: gradle
 
       - name: Grant execute permission for gradlew
-        run: chmod +x android/gradlew
+        run: |
+          if [ -f "android/gradlew" ]; then
+            chmod +x android/gradlew
+          else
+            echo "gradlew not found at android/gradlew"
+          fi
         continue-on-error: true
 
       - name: Build with Gradle
         run: |
           if [ -d "android" ]; then
-            cd android && ./gradlew assembleRelease
+            cd android
+            if [ -f "gradlew" ]; then
+              ./gradlew assembleRelease
+            else
+              echo "gradlew not found in android directory. Listing contents:"
+              ls -R
+            fi
           else
             echo "Android directory not found. Skipping build."
           fi

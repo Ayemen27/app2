@@ -145,19 +145,35 @@ export class BackupService {
         try {
           // محاولة معالجة الأوامر التي قد لا تتوافق مع SQLite
           const filteredSql = sqlContent
+            // تحويل علامات الاقتباس المزدوجة PostgreSQL إلى backticks SQLite
+            .replace(/"([a-zA-Z_][a-zA-Z0-9_]*)"/g, "`$1`")
+            // تحويلات PostgreSQL -> SQLite
             .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
-            .replace(/SERIAL PRIMARY KEY/g, "INTEGER PRIMARY KEY AUTOINCREMENT")
-            .replace(/TIMESTAMP WITH TIME ZONE/g, "DATETIME")
-            .replace(/TIMESTAMP WITHOUT TIME ZONE/g, "DATETIME")
-            .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP")
+            .replace(/SERIAL PRIMARY KEY/gi, "INTEGER PRIMARY KEY AUTOINCREMENT")
+            .replace(/BIGSERIAL PRIMARY KEY/gi, "INTEGER PRIMARY KEY AUTOINCREMENT")
+            .replace(/TIMESTAMP WITH TIME ZONE/gi, "DATETIME")
+            .replace(/TIMESTAMP WITHOUT TIME ZONE/gi, "DATETIME")
+            .replace(/TIMESTAMPTZ/gi, "DATETIME")
+            .replace(/NOW\(\)/gi, "CURRENT_TIMESTAMP")
+            .replace(/CURRENT_TIMESTAMP AT TIME ZONE[^,)]+/gi, "CURRENT_TIMESTAMP")
             .replace(/::text/g, "")
             .replace(/::jsonb/g, "")
             .replace(/::json/g, "")
             .replace(/::integer/g, "")
             .replace(/::boolean/g, "")
+            .replace(/::varchar(\(\d+\))?/g, "")
+            .replace(/::numeric(\(\d+,\d+\))?/g, "")
             .replace(/RETURNING [^;]+/gi, "")
             .replace(/ON CONFLICT[^;]+DO NOTHING/gi, "OR IGNORE")
-            .replace(/ON CONFLICT[^;]+DO UPDATE[^;]+/gi, "OR REPLACE");
+            .replace(/ON CONFLICT[^;]+DO UPDATE[^;]+/gi, "OR REPLACE")
+            // إزالة أوامر PostgreSQL غير المدعومة
+            .replace(/CREATE EXTENSION[^;]*;/gi, "")
+            .replace(/SET [^;]+;/gi, "")
+            .replace(/SELECT pg_catalog[^;]+;/gi, "")
+            .replace(/COMMENT ON[^;]+;/gi, "")
+            .replace(/ALTER TABLE[^;]*OWNER TO[^;]*;/gi, "")
+            .replace(/GRANT [^;]+;/gi, "")
+            .replace(/REVOKE [^;]+;/gi, "");
 
           targetInstance.exec("BEGIN TRANSACTION;");
           targetInstance.exec(filteredSql);
@@ -176,16 +192,28 @@ export class BackupService {
             for (const cmd of batch) {
               try {
                 const sqliteCmd = cmd
+                  // تحويل علامات الاقتباس المزدوجة PostgreSQL
+                  .replace(/"([a-zA-Z_][a-zA-Z0-9_]*)"/g, "`$1`")
                   .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
-                  .replace(/SERIAL PRIMARY KEY/g, "INTEGER PRIMARY KEY AUTOINCREMENT")
-                  .replace(/TIMESTAMP WITH TIME ZONE/g, "DATETIME")
-                  .replace(/NOW\(\)/g, "CURRENT_TIMESTAMP")
+                  .replace(/SERIAL PRIMARY KEY/gi, "INTEGER PRIMARY KEY AUTOINCREMENT")
+                  .replace(/BIGSERIAL PRIMARY KEY/gi, "INTEGER PRIMARY KEY AUTOINCREMENT")
+                  .replace(/TIMESTAMP WITH TIME ZONE/gi, "DATETIME")
+                  .replace(/TIMESTAMP WITHOUT TIME ZONE/gi, "DATETIME")
+                  .replace(/TIMESTAMPTZ/gi, "DATETIME")
+                  .replace(/NOW\(\)/gi, "CURRENT_TIMESTAMP")
                   .replace(/::text/g, "")
-                  .replace(/::jsonb/g, "");
+                  .replace(/::jsonb/g, "")
+                  .replace(/::json/g, "")
+                  .replace(/::integer/g, "")
+                  .replace(/::boolean/g, "")
+                  .replace(/::varchar(\(\d+\))?/g, "")
+                  .replace(/RETURNING [^;]+/gi, "");
                 
                 const trimmed = sqliteCmd.trim();
                 if (trimmed.startsWith("CREATE SCHEMA") || trimmed.startsWith("SET ") || 
-                    trimmed.startsWith("SELECT pg_catalog") || trimmed.startsWith("COMMENT ON")) continue;
+                    trimmed.startsWith("SELECT pg_catalog") || trimmed.startsWith("COMMENT ON") ||
+                    trimmed.startsWith("CREATE EXTENSION") || trimmed.startsWith("ALTER TABLE") && trimmed.includes("OWNER TO") ||
+                    trimmed.startsWith("GRANT ") || trimmed.startsWith("REVOKE ")) continue;
                 
                 targetInstance.exec(trimmed);
               } catch (e) {}

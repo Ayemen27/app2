@@ -78,10 +78,16 @@ export class SmartConnectionManager {
     await this.initializeLocalConnection();
     await this.initializeSupabaseConnection();
 
-    // فحص وضع الطوارئ التلقائي
+    // فحص وضع الطوارئ التلقائي - لا يتم التفعيل إلا إذا فشلت كل الاتصالات المركزية
     if (!this.connectionStatus.supabase && !this.connectionStatus.local) {
-      console.error('🚨 [Smart Connection Manager] فشل الاتصال المركزي، تفعيل وضع الطوارئ...');
-      await this.activateEmergencyMode();
+      const isAndroid = process.env.PLATFORM === 'android';
+      if (isAndroid) {
+         console.log('📱 [Smart Connection Manager] بيئة أندرويد مكتشفة، استخدام SQLite افتراضياً.');
+         await this.activateEmergencyMode();
+      } else {
+         console.error('🚨 [Smart Connection Manager] فشل الاتصال المركزي، تفعيل وضع الطوارئ كحل أخير...');
+         await this.activateEmergencyMode();
+      }
     }
 
     if (!this.isProduction) {

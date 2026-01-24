@@ -10,7 +10,8 @@ import { SmartConnectionManager } from "./services/smart-connection-manager";
 const { Pool } = pg;
 
 // التحقق من البيئة (أندرويد أو محلي)
-const isAndroid = process.env.PLATFORM === 'android' || process.env.NODE_ENV === 'production';
+const isAndroid = process.env.PLATFORM === 'android';
+const isServerProduction = process.env.NODE_ENV === 'production' && !process.env.PLATFORM;
 const sqliteDbPath = path.resolve(process.cwd(), "local.db");
 
 // DATABASE_URL_RAILWAY is preferred for Railway database

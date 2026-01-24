@@ -14,8 +14,32 @@ const isAndroid = process.env.PLATFORM === 'android';
 const isServerProduction = process.env.NODE_ENV === 'production' && !process.env.PLATFORM;
 const sqliteDbPath = path.resolve(process.cwd(), "local.db");
 
-// DATABASE_URL_RAILWAY is preferred for Railway database
-const rawDbUrl = process.env.DATABASE_URL_RAILWAY || process.env.DATABASE_URL_SUPABASE || process.env.DATABASE_URL || "";
+/**
+ * 🔗 ترتيب أولوية متغيرات الاتصال بقاعدة البيانات:
+ * 1. DATABASE_URL_CENTRAL - القاعدة المركزية الرئيسية (الأولوية القصوى)
+ * 2. DATABASE_URL_SUPABASE - قاعدة Supabase/External
+ * 3. DATABASE_URL_RAILWAY - قاعدة Railway
+ * ❌ يتم تجاهل DATABASE_URL (Replit Helium) لمنع الاتصال بها
+ */
+const rawDbUrl = 
+  process.env.DATABASE_URL_CENTRAL ||
+  process.env.DATABASE_URL_SUPABASE || 
+  process.env.DATABASE_URL_RAILWAY || 
+  "";
+
+// تسجيل القاعدة المستخدمة
+const dbSource = process.env.DATABASE_URL_CENTRAL ? 'CENTRAL' :
+                 process.env.DATABASE_URL_SUPABASE ? 'SUPABASE/EXTERNAL' :
+                 process.env.DATABASE_URL_RAILWAY ? 'RAILWAY' : 'NONE';
+
+// تحذير إذا لم توجد قاعدة مركزية
+if (!rawDbUrl) {
+  console.error('🚫 [DB] لا توجد قاعدة بيانات مركزية! يرجى تعيين DATABASE_URL_CENTRAL أو DATABASE_URL_SUPABASE');
+} else if (rawDbUrl.includes('helium') || rawDbUrl.includes('heliumdb')) {
+  console.error('🚫 [DB] تم رفض الاتصال بقاعدة Replit (heliumdb)');
+} else {
+  console.log(`🔗 [DB Source] استخدام قاعدة البيانات: ${dbSource}`);
+}
 
 // ✅ تنظيف الرابط من أي مسافات أو علامات اقتباس زائدة قد تسبب خطأ ENOTFOUND
 const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "");

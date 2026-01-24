@@ -247,14 +247,37 @@ export class SmartConnectionManager {
       metrics.lastAttemptTime = startTime;
       
       try {
-        // محاولة جلب المتغير مباشرة من الـ loader لضمان التحديث
-        const databaseUrl = process.env.DATABASE_URL || (global as any).envLoader?.get('DATABASE_URL');
+        /**
+         * 🔗 ترتيب أولوية الاتصال:
+         * 1. DATABASE_URL_CENTRAL - القاعدة المركزية الرئيسية
+         * 2. DATABASE_URL_SUPABASE - قاعدة Supabase/External
+         * 3. DATABASE_URL_RAILWAY - قاعدة Railway
+         * ❌ يتم تجاهل DATABASE_URL (Replit Helium) لمنع الاتصال بها
+         */
+        const databaseUrl = 
+          process.env.DATABASE_URL_CENTRAL ||
+          process.env.DATABASE_URL_SUPABASE || 
+          process.env.DATABASE_URL_RAILWAY;
+        
+        // تسجيل مصدر القاعدة
+        const dbSource = process.env.DATABASE_URL_CENTRAL ? 'CENTRAL' :
+                        process.env.DATABASE_URL_SUPABASE ? 'SUPABASE' :
+                        process.env.DATABASE_URL_RAILWAY ? 'RAILWAY' : 'NONE';
         
         if (!databaseUrl) {
-          console.warn('⚠️ [Local DB] DATABASE_URL غير موجود - تحقق من ملف البيئة');
+          console.warn('⚠️ [Local DB] لا توجد قاعدة بيانات مركزية - تحقق من DATABASE_URL_CENTRAL أو DATABASE_URL_SUPABASE');
           metrics.failedAttempts++;
           return;
         }
+        
+        // منع الاتصال بقاعدة Replit (heliumdb)
+        if (databaseUrl.includes('helium') || databaseUrl.includes('heliumdb')) {
+          console.warn('🚫 [Local DB] تم منع الاتصال بقاعدة Replit (heliumdb) - استخدم القاعدة المركزية');
+          metrics.failedAttempts++;
+          return;
+        }
+        
+        console.log(`🔗 [Local DB] الاتصال بقاعدة ${dbSource}`);
 
         if (!this.isProduction && attempt > 1) {
           console.log(`🔄 [Local DB] محاولة الاتصال ${attempt}/${retries}...`);

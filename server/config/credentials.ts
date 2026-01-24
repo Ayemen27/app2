@@ -3,12 +3,23 @@
  * جميع البيانات الحساسة يجب تحميلها من متغيرات البيئة (Secrets)
  */
 
-// المفاتيح المطلوبة - يتم تحميلها من متغيرات البيئة فقط
+/**
+ * المفاتيح المطلوبة - يتم تحميلها من متغيرات البيئة فقط
+ * 
+ * 🔗 قواعد البيانات (بترتيب الأولوية):
+ * 1. DATABASE_URL_CENTRAL - القاعدة المركزية الرئيسية
+ * 2. DATABASE_URL_SUPABASE - قاعدة Supabase/External  
+ * 3. DATABASE_URL_RAILWAY - قاعدة Railway
+ * 4. DATABASE_URL - القاعدة الافتراضية (Replit)
+ */
 type CredentialKey = 
   | 'JWT_ACCESS_SECRET'
   | 'JWT_REFRESH_SECRET'
   | 'ENCRYPTION_KEY'
   | 'DATABASE_URL'
+  | 'DATABASE_URL_CENTRAL'
+  | 'DATABASE_URL_SUPABASE'
+  | 'DATABASE_URL_RAILWAY'
   | 'SUPABASE_URL'
   | 'SUPABASE_ANON_KEY'
   | 'SUPABASE_SERVICE_ROLE_KEY'

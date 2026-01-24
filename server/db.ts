@@ -116,9 +116,27 @@ try {
     dbInstance = new Proxy(drizzleDb, {
       get(target, prop, receiver) {
         if (prop === 'execute') {
-          return (query: any) => {
+          return async (query: any) => {
             if (!query) throw new Error("A query must have either text or a name.");
-            return pool.query(query);
+            
+            // التعامل مع كائنات استعلام Drizzle
+            if (typeof query.toQuery === 'function') {
+              const { text, values } = query.toQuery();
+              return pool.query(text, values);
+            }
+            
+            // التعامل مع الاستعلامات النصية الخام أو كائنات pg.QueryConfig
+            try {
+              const result = await pool.query(query);
+              // تأمين وجود خاصية rows للتوافق مع التوقعات في authRoutes
+              if (!result.rows && Array.isArray(result)) {
+                return { rows: result };
+              }
+              return result;
+            } catch (err) {
+              console.error("❌ [DB Proxy] Error executing query:", err);
+              throw err;
+            }
           };
         }
         return Reflect.get(target, prop, receiver);

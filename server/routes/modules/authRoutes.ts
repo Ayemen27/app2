@@ -10,7 +10,8 @@ import bcrypt from 'bcryptjs';
 import { sql, eq, and, desc, gte, lte, or, like } from 'drizzle-orm';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, generateTokenPair } from '../../auth/jwt-utils.js';
 import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
-import { users } from '@shared/schema'; // استيراد جدول المستخدمين
+import * as schema from '@shared/schema'; // استيراد المخطط بالكامل
+import { users } from '@shared/schema'; // استيراد جدول المستخدمين للمرجع المباشر
 import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js'; // استيراد middleware المصادقة
 import { EmergencyAuthService } from '../../services/emergency-auth-service.js';
 
@@ -44,13 +45,11 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
       console.log(`🔍 [AUTH] محاولة البحث عن مستخدم: ${email}`);
       
-      // استخدام Drizzle ORM للبحث عن المستخدم لضمان الأمان والموثوقية
-      // تم تصحيح الاستعلام لاستخدام schema.users بشكل صحيح
-      const users = await db.select().from(schema.users).where(sql`LOWER(${schema.users.email}) = LOWER(${email})`);
+      // ✅ استخدام Drizzle ORM بشكل صحيح مع التحويل المناسب
+      const usersList = await db.select().from(schema.users).where(eq(sql`LOWER(${schema.users.email})`, email.toLowerCase()));
       
-      // تحويل النتيجة لتتوافق مع التوقعات (rows array)
-      userResult = { rows: users || [] };
-      
+      // توحيد شكل النتيجة لتكون مصفوفة في حقل rows
+      userResult = { rows: Array.isArray(usersList) ? usersList : [] };
       console.log(`✅ [AUTH] نتيجة البحث: ${userResult.rows.length} مستخدم`);
     } catch (dbError: any) {
       console.error('🚨 [AUTH] فشل الاتصال بالقاعدة المركزية، جاري الانتقال للطوارئ:', dbError.message);

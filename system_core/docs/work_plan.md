@@ -3,9 +3,9 @@
 
 نظرًا لأن الوكلاء يعملون بوضع **الفاست مود** فقط، تم تقسيم الخطة إلى مهام ذرية (Atomic Tasks) مركزة ومباشرة لضمان الإنجاز السريع والدقيق.
 
-### المرحلة 1: التأسيس والبنية التحتية (Infrastructure Setup) [تم اختيار SigNoz]
+### المرحلة 1: التأسيس والبنية التحتية (Infrastructure Setup) [تم اختيار SigNoz - مكتمل]
 *   **المهمة 1.1:** إعداد SigNoz باستخدام Docker Compose.
-    *   *الإجراء:* إنشاء ملف `docker-compose.signoz.yaml` وتهيئة ملفات الإعداد لـ OTEL Collector.
+    *   *الإجراء:* إنشاء ملف `docker-compose.signoz.yaml` وتهيئة ملفات الإعداد لـ OTEL Collector و Alertmanager و Query Service.
 *   **المهمة 1.2:** إعداد قواعد البيانات والمراقبة المركزية.
     *   *الإجراء:* تثبيت Prometheus و Grafana لمراقبة المقاييس (Metrics).
 

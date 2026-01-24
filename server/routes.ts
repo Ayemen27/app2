@@ -2,11 +2,15 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import TelegramBot from "node-telegram-bot-api";
+import { setupAuth } from "./auth/index";
 
 const bot = process.env.TELEGRAM_BOT_TOKEN ? new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false }) : null;
 const chatId = process.env.TELEGRAM_CHAT_ID;
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup Authentication First
+  setupAuth(app);
+
   app.get("/api/incidents", async (_req, res) => {
     const incidents = await storage.getIncidents();
     res.json(incidents);

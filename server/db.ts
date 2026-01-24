@@ -116,7 +116,10 @@ try {
     dbInstance = new Proxy(drizzleDb, {
       get(target, prop, receiver) {
         if (prop === 'execute') {
-          return (query: any) => pool.query(query);
+          return (query: any) => {
+            if (!query) throw new Error("A query must have either text or a name.");
+            return pool.query(query);
+          };
         }
         return Reflect.get(target, prop, receiver);
       }

@@ -42,11 +42,12 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         throw new Error('البريد الإلكتروني غير صالح');
       }
 
-      userResult = await db.execute(sql`
-        SELECT id, email, password, first_name, last_name, email_verified_at, created_at, role
-        FROM users 
-        WHERE LOWER(email) = LOWER(${email})
-      `);
+      console.log(`🔍 [AUTH] محاولة البحث عن مستخدم: ${email}`);
+      
+      // استخدام Drizzle ORM للبحث عن المستخدم لضمان الأمان والموثوقية
+      const users = await db.select().from(schema.users).where(sql`LOWER(${schema.users.email}) = LOWER(${email})`);
+      
+      userResult = { rows: users };
     } catch (dbError: any) {
       console.error('🚨 [AUTH] فشل الاتصال بالقاعدة المركزية، جاري الانتقال للطوارئ:', dbError.message);
       

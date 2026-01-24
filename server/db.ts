@@ -119,22 +119,32 @@ try {
           return async (query: any) => {
             if (!query) throw new Error("A query must have either text or a name.");
             
-            // التعامل مع كائنات استعلام Drizzle
-            if (typeof query.toQuery === 'function') {
-              const { text, values } = query.toQuery();
-              return pool.query(text, values);
+            // التعامل مع كائنات استعلام Drizzle (sql`...`)
+            if (typeof query.toQuery === 'function' || (query.sql && query.params)) {
+              try {
+                // محاولة استخراج النص والمعاملات
+                const text = query.sql || (typeof query.toQuery === 'function' ? query.toQuery().text : '');
+                const values = query.params || (typeof query.toQuery === 'function' ? query.params : []);
+                
+                if (!text) throw new Error("Could not extract SQL text from query object");
+                
+                const result = await pool.query(text, values);
+                return { rows: result.rows || result };
+              } catch (err) {
+                console.error("❌ [DB Proxy] Error extracting/executing Drizzle query:", err);
+                throw err;
+              }
             }
             
             // التعامل مع الاستعلامات النصية الخام أو كائنات pg.QueryConfig
             try {
               const result = await pool.query(query);
-              // تأمين وجود خاصية rows للتوافق مع التوقعات في authRoutes
               if (!result.rows && Array.isArray(result)) {
                 return { rows: result };
               }
               return result;
             } catch (err) {
-              console.error("❌ [DB Proxy] Error executing query:", err);
+              console.error("❌ [DB Proxy] Error executing raw query:", err);
               throw err;
             }
           };

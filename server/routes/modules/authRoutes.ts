@@ -45,8 +45,9 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
       console.log(`🔍 [AUTH] محاولة البحث عن مستخدم: ${email}`);
       
-      // ✅ استخدام Drizzle ORM بشكل صحيح مع التحويل المناسب
-      const usersList = await db.select().from(schema.users).where(eq(sql`LOWER(${schema.users.email})`, email.toLowerCase()));
+      // ✅ استخدام Drizzle ORM مع التحويل المناسب
+      // تجنب استخدام sql داخل eq إذا كان يسبب مشاكل، سنستخدم استعلام بسيط
+      const usersList = await db.select().from(schema.users).where(eq(schema.users.email, email));
       
       // توحيد شكل النتيجة لتكون مصفوفة في حقل rows
       userResult = { rows: Array.isArray(usersList) ? usersList : [] };

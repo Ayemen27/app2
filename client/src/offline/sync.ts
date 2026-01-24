@@ -3,9 +3,27 @@ import { getDB, saveSyncedData } from './db';
 import { clearAllLocalData } from './data-cleanup';
 import { detectConflict, resolveConflict, logConflict } from './conflict-resolver';
 import { apiRequest } from '../lib/api-client';
-import { smartSave } from './storage-factory';
+import { smartSave, smartGetAll } from './storage-factory';
 import { intelligentMonitor } from './intelligent-monitor';
 import { ENV } from '../lib/env';
+
+export const ALL_SYNC_TABLES = [
+  'users', 'emergency_users', 'auth_user_sessions', 'email_verification_tokens', 'password_reset_tokens',
+  'project_types', 'projects', 'workers', 'wells',
+  'fund_transfers', 'worker_attendance', 'suppliers', 'materials', 'material_purchases',
+  'supplier_payments', 'transportation_expenses', 'worker_transfers', 'worker_balances',
+  'daily_expense_summaries', 'worker_types', 'autocomplete_data', 'worker_misc_expenses',
+  'backup_logs', 'backup_settings', 'print_settings', 'project_fund_transfers',
+  'security_policies', 'security_policy_suggestions', 'security_policy_implementations', 'security_policy_violations',
+  'user_project_permissions', 'permission_audit_logs',
+  'report_templates', 'tool_categories', 'tools', 'tool_stock', 'tool_movements',
+  'tool_maintenance_logs', 'tool_usage_analytics', 'tool_purchase_items', 'maintenance_schedules', 'maintenance_tasks',
+  'tool_cost_tracking', 'tool_reservations', 'system_notifications', 'notification_read_states', 'build_deployments',
+  'tool_notifications', 'approvals', 'channels', 'messages', 'actions', 'system_events',
+  'accounts', 'transactions', 'transaction_lines', 'journals', 'finance_payments', 'finance_events', 'account_balances',
+  'notifications', 'ai_chat_sessions', 'ai_chat_messages', 'ai_usage_stats',
+  'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories'
+] as const;
 
 const MAX_RETRIES = 5;
 const INITIAL_SYNC_DELAY = 2000; 
@@ -360,4 +378,136 @@ export function startBackgroundSync(): void {
   syncOfflineData().catch(err => {
     console.error('❌ [Sync] فشل المزامنة الخلفية:', err);
   });
+}
+
+/**
+ * ⚡ المزامنة الفورية (Instant Sync)
+ * مزامنة فورية لجداول محددة أو جميع الجداول
+ */
+export async function performInstantSync(tables?: string[], lastSyncTime?: number): Promise<{
+  success: boolean;
+  totalRecords: number;
+  duration: number;
+}> {
+  try {
+    console.log('⚡ [Sync] بدء المزامنة الفورية...');
+    const startTime = Date.now();
+    
+    const result = await apiRequest('/api/sync/instant-sync', 'POST', {
+      tables: tables || [],
+      lastSyncTime
+    }, 60000);
+    
+    if (!result || !result.success || !result.data) {
+      throw new Error('Instant sync failed');
+    }
+    
+    const { data } = result;
+    let totalSaved = 0;
+    
+    for (const [tableName, records] of Object.entries(data)) {
+      if (Array.isArray(records) && records.length > 0) {
+        await smartSave(tableName, records);
+        totalSaved += records.length;
+      }
+    }
+    
+    const duration = Date.now() - startTime;
+    console.log(`⚡ [Sync] المزامنة الفورية اكتملت: ${totalSaved} سجل في ${duration}ms`);
+    
+    updateSyncState({ lastSync: Date.now() });
+    
+    return {
+      success: true,
+      totalRecords: totalSaved,
+      duration
+    };
+  } catch (error) {
+    console.error('❌ [Sync] خطأ في المزامنة الفورية:', error);
+    return {
+      success: false,
+      totalRecords: 0,
+      duration: 0
+    };
+  }
+}
+
+/**
+ * ✅ التحقق من التطابق مع الخادم
+ * مقارنة عدد السجلات بين العميل والخادم
+ */
+export async function verifySyncStatus(): Promise<{
+  isMatched: boolean;
+  differences: Array<{ table: string; serverCount: number; clientCount: number; diff: number }>;
+  summary: { totalServerRecords: number; totalClientRecords: number; matchedTables: number; mismatchedTables: number };
+}> {
+  try {
+    console.log('✅ [Sync] بدء التحقق من التطابق...');
+    
+    const clientCounts: Record<string, number> = {};
+    
+    for (const tableName of ALL_SYNC_TABLES) {
+      try {
+        const records = await smartGetAll(tableName);
+        clientCounts[tableName] = records?.length || 0;
+      } catch {
+        clientCounts[tableName] = 0;
+      }
+    }
+    
+    const result = await apiRequest('/api/sync/verify-sync', 'POST', { clientCounts }, 30000);
+    
+    if (!result || !result.success) {
+      throw new Error('Verify sync failed');
+    }
+    
+    console.log(`✅ [Sync] التحقق اكتمل: ${result.isMatched ? 'متطابق ✓' : `${result.differences?.length || 0} اختلاف`}`);
+    
+    return {
+      isMatched: result.isMatched,
+      differences: result.differences || [],
+      summary: result.summary || {
+        totalServerRecords: 0,
+        totalClientRecords: 0,
+        matchedTables: 0,
+        mismatchedTables: 0
+      }
+    };
+  } catch (error) {
+    console.error('❌ [Sync] خطأ في التحقق:', error);
+    return {
+      isMatched: false,
+      differences: [],
+      summary: {
+        totalServerRecords: 0,
+        totalClientRecords: 0,
+        matchedTables: 0,
+        mismatchedTables: 0
+      }
+    };
+  }
+}
+
+/**
+ * 📊 الحصول على إحصائيات المزامنة
+ */
+export async function getSyncStats(): Promise<{
+  stats: Record<string, number>;
+  totalRecords: number;
+}> {
+  try {
+    const result = await apiRequest('/api/sync/stats', 'GET', undefined, 30000);
+    
+    if (!result || !result.success) {
+      return { stats: {}, totalRecords: 0 };
+    }
+    
+    return {
+      stats: result.stats || {},
+      totalRecords: result.summary?.totalRecords || 0
+    };
+  } catch (error) {
+    console.error('❌ [Sync] خطأ في جلب الإحصائيات:', error);
+    return { stats: {}, totalRecords: 0 };
+  }
 }

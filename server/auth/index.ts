@@ -5,9 +5,11 @@ import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { JWT_SHARED_SECRET } from "./jwt-utils";
 
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "access_secret_key_123";
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "refresh_secret_key_456";
+const JWT_ACCESS_SECRET = JWT_SHARED_SECRET;
+const JWT_REFRESH_SECRET = JWT_SHARED_SECRET;
+const JWT_ISSUER = 'construction-management-app-v2';
 
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
@@ -44,23 +46,26 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/auth/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: any, info: any) => {
+    passport.authenticate("local", async (err: any, user: any, info: any) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info?.message || "فشل تسجيل الدخول" });
 
-      req.logIn(user, (err) => {
+      req.logIn(user, async (err) => {
         if (err) return next(err);
 
+        // Generate a session ID (mimicking the expectations of the middleware)
+        const sessionId = Math.random().toString(36).substring(2);
+
         const accessToken = jwt.sign(
-          { id: user.id, email: user.email, role: user.role },
+          { userId: user.id, email: user.email, role: user.role, sessionId },
           JWT_ACCESS_SECRET,
-          { expiresIn: "1h" }
+          { expiresIn: "1h", issuer: JWT_ISSUER }
         );
 
         const refreshToken = jwt.sign(
-          { id: user.id },
+          { userId: user.id, sessionId },
           JWT_REFRESH_SECRET,
-          { expiresIn: "7d" }
+          { expiresIn: "7d", issuer: JWT_ISSUER }
         );
 
         res.json({
@@ -85,21 +90,21 @@ export function setupAuth(app: Express) {
     if (!refreshToken) return res.status(400).json({ message: "Refresh token مطلوب" });
 
     try {
-      const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as { id: string };
-      const user = await storage.getUser(decoded.id);
+      const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET, { issuer: JWT_ISSUER }) as { userId: string, sessionId: string };
+      const user = await storage.getUser(decoded.userId);
       if (!user) return res.status(401).json({ message: "مستخدم غير موجود" });
 
       const newAccessToken = jwt.sign(
-        { id: user.id, email: user.email, role: user.role },
+        { userId: user.id, email: user.email, role: user.role, sessionId: decoded.sessionId },
         JWT_ACCESS_SECRET,
-        { expiresIn: "1h" }
+        { expiresIn: "1h", issuer: JWT_ISSUER }
       );
 
       res.json({
         success: true,
         tokens: {
           accessToken: newAccessToken,
-          refreshToken // Re-use old or generate new one
+          refreshToken
         }
       });
     } catch (err) {
@@ -108,20 +113,31 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/auth/me", (req, res) => {
-    // التحقق من الجلسة أو التوكن
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       try {
-        const decoded = jwt.verify(token, JWT_ACCESS_SECRET) as any;
-        return res.json({ user: decoded });
+        const decoded = jwt.verify(token, JWT_ACCESS_SECRET, { issuer: JWT_ISSUER }) as any;
+        return res.json({
+          success: true,
+          user: {
+            id: decoded.userId,
+            userId: decoded.userId,
+            email: decoded.email,
+            role: decoded.role,
+            sessionId: decoded.sessionId
+          }
+        });
       } catch (err) {
-        // Fallback to session
+        // Fallback
       }
     }
 
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "غير مصرح" });
-    res.json({ user: req.user });
+    if (req.isAuthenticated()) {
+      return res.json({ success: true, user: req.user });
+    }
+
+    res.status(401).json({ success: false, message: "غير مصرح" });
   });
 
   app.post("/api/auth/logout", (req, res, next) => {

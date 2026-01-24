@@ -45,9 +45,13 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       console.log(`🔍 [AUTH] محاولة البحث عن مستخدم: ${email}`);
       
       // استخدام Drizzle ORM للبحث عن المستخدم لضمان الأمان والموثوقية
+      // تم تصحيح الاستعلام لاستخدام schema.users بشكل صحيح
       const users = await db.select().from(schema.users).where(sql`LOWER(${schema.users.email}) = LOWER(${email})`);
       
-      userResult = { rows: users };
+      // تحويل النتيجة لتتوافق مع التوقعات (rows array)
+      userResult = { rows: users || [] };
+      
+      console.log(`✅ [AUTH] نتيجة البحث: ${userResult.rows.length} مستخدم`);
     } catch (dbError: any) {
       console.error('🚨 [AUTH] فشل الاتصال بالقاعدة المركزية، جاري الانتقال للطوارئ:', dbError.message);
       

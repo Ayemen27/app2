@@ -56,7 +56,7 @@ export class BackupService {
           const match = cmd.match(/COPY (?:public\.)?`?([a-zA-Z0-9_]+)`?\s+\((.*?)\)/i);
           if (match) {
             const currentCopyTable = match[1];
-            const copyColumns = match[2].split(',').map(c => c.trim().replace(/`/g, ''));
+            const copyColumns = match[2].split(',').map(c => c.trim().replace(/[`"]/g, ''));
             
             // Extract data between stdin and \.
             const dataPart = cmd.split(/FROM stdin;/i)[1]?.split(/\\\./)[0];
@@ -85,7 +85,8 @@ export class BackupService {
           .replace(/'f'/g, "0")
           .replace(/::[a-z0-9]+/gi, "")
           .replace(/gen_random_uuid\(\)/g, "hex(randomblob(16))")
-          .replace(/NOW\(\)/gi, "CURRENT_TIMESTAMP");
+          .replace(/NOW\(\)/gi, "CURRENT_TIMESTAMP")
+          .replace(/character varying/gi, "TEXT");
 
         const upper = converted.toUpperCase();
         
@@ -114,7 +115,10 @@ export class BackupService {
               .replace(/\bUUID\b/gi, "TEXT")
               .replace(/PRIMARY KEY\s*\(`id`\)/gi, "PRIMARY KEY (`id`)")
               .replace(/CONSTRAINT\s+`[^`]+`\s+/gi, "")
-              .replace(/WITH\s+\([^)]+\)/gi, "");
+              .replace(/WITH\s+\([^)]+\)/gi, "")
+              .replace(/NOT NULL\s+DEFAULT\s+gen_random_uuid\(\)/gi, "PRIMARY KEY")
+              .replace(/DEFAULT\s+'[^']+'::numeric/gi, "DEFAULT 0")
+              .replace(/DEFAULT\s+'[^']+'::text/gi, (match) => match.split('::')[0]);
           }
           
           targetInstance.exec(converted + ";");

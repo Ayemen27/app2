@@ -785,14 +785,6 @@ export type SupplierPayment = typeof supplierPayments.$inferSelect;
 export type PrintSettings = typeof printSettings.$inferSelect;
 export type ProjectFundTransfer = typeof projectFundTransfers.$inferSelect;
 
-export const insertWorkerBalanceSchema = createInsertSchema(workerBalances).omit({ id: true, createdAt: true, lastUpdated: true });
-export const insertDailyExpenseSummarySchema = createInsertSchema(dailyExpenseSummaries).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertWorkerTypeSchema = createInsertSchema(workerTypes).omit({ id: true, createdAt: true, lastUsed: true });
-export const insertAutocompleteDataSchema = createInsertSchema(autocompleteData).omit({ id: true, createdAt: true, lastUsed: true });
-export const insertWorkerMiscExpenseSchema = createInsertSchema(workerMiscExpenses).omit({ id: true, createdAt: true });
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertProjectFundTransferSchema = createInsertSchema(projectFundTransfers).omit({ id: true, createdAt: true });
-
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
 export type InsertWorker = z.infer<typeof insertWorkerSchema>;

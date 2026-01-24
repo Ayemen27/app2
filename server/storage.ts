@@ -180,6 +180,7 @@ export interface IStorage {
   // Users
   getUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
+  getEmergencyUser(id: string): Promise<EmergencyUser | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
@@ -2580,6 +2581,16 @@ export class DatabaseStorage implements IStorage {
       return user || undefined;
     } catch (error) {
       console.error('Error getting user:', error);
+      return undefined;
+    }
+  }
+
+  async getEmergencyUser(id: string): Promise<EmergencyUser | undefined> {
+    try {
+      const [user] = await db.select().from(emergencyUsers).where(eq(emergencyUsers.id, id));
+      return user || undefined;
+    } catch (error) {
+      console.error('Error getting emergency user:', error);
       return undefined;
     }
   }

@@ -93,9 +93,9 @@ export class SmartConnectionManager {
   private async activateEmergencyMode(): Promise<void> {
     try {
       console.log('🔄 [Emergency] جاري تفعيل وضع الطوارئ التلقائي...');
-      // استخدام المسار المطلق بشكل صريح
-      const backupPath = "/home/runner/workspace/backups";
-      const sqliteDbPath = "/home/runner/workspace/local.db";
+      const workDir = process.cwd();
+      const backupPath = path.join(workDir, "backups");
+      const sqliteDbPath = path.join(workDir, "local.db");
       
       const sqliteInstance = new Database(sqliteDbPath);
       const emergencyDb = drizzleSqlite(sqliteInstance, { schema });

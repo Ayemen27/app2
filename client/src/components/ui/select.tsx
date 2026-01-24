@@ -82,6 +82,12 @@ const SelectContent = React.forwardRef<
         className
       )}
       position={position}
+      onPointerDownOutside={(e) => {
+        // Prevent dismissal if clicking within a portal or dialog that should be interactive
+        if (e.target instanceof Element && e.target.closest('[data-radix-popper-content-wrapper]')) {
+          e.preventDefault();
+        }
+      }}
       {...props}
     >
       <SelectScrollUpButton />

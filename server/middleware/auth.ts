@@ -206,6 +206,11 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     } catch (error: any) {
       console.log('❌ [AUTH] token غير صالح:', error.message);
       
+      // ✅ Allow refresh requests even if access token is expired
+      if (error.name === 'TokenExpiredError' && req.path === '/api/auth/refresh') {
+        return next();
+      }
+
       // إذا كان الرمز منتهي الصلاحية، نعيد كود خاص للجبهة الأمامية لمحاولة التجديد
       if (error.name === 'TokenExpiredError') {
         return res.status(401).json({

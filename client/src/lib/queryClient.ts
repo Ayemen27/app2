@@ -131,6 +131,7 @@ export async function apiRequest(
           const apiBase = ENV.getApiBaseUrl();
           const refreshUrl = `${apiBase}/api/auth/refresh`;
           
+          console.log('🔄 [apiRequest] Attempting silent refresh...');
           const refreshResponse = await fetch(refreshUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -140,10 +141,22 @@ export async function apiRequest(
           if (refreshResponse.ok) {
             const refreshData = await refreshResponse.json();
             const newAccessToken = refreshData.data?.accessToken || refreshData.accessToken;
+            const newRefreshToken = refreshData.data?.refreshToken || refreshData.refreshToken;
+            
             if (newAccessToken) {
+              console.log('✅ [apiRequest] Refresh successful, retrying request');
               localStorage.setItem("accessToken", newAccessToken);
+              if (newRefreshToken) localStorage.setItem("refreshToken", newRefreshToken);
+              
+              // Retry the original request with the new token
+              const retryHeaders = {
+                ...headers as Record<string, string>,
+                'Authorization': `Bearer ${newAccessToken}`
+              };
               return apiRequest(endpoint, method, data, retryCount + 1);
             }
+          } else {
+            console.error('❌ [apiRequest] Refresh response not OK:', refreshResponse.status);
           }
         } catch (e) {
           console.error('❌ [apiRequest] Refresh failed:', e);

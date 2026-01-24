@@ -67,6 +67,11 @@ const DropdownMenuContent = React.forwardRef<
         "bg-popover opacity-100", // Force solid background
         className
       )}
+      onPointerDownOutside={(e) => {
+        if (e.target instanceof Element && e.target.closest('[data-radix-popper-content-wrapper]')) {
+          e.preventDefault();
+        }
+      }}
       {...props}
     />
   </DropdownMenuPrimitive.Portal>

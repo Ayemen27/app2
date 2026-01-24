@@ -457,10 +457,37 @@ app.post("/api/backups/trigger", requireAuth, async (req: Request, res: Response
   }
 });
 
-// Use auth routes
-console.log('🔗 [Server] تسجيل مسارات المصادقة على /api/auth');
+  app.use((req, res, next) => {
+    const start = Date.now();
+    const path = req.path;
+    let resBody: any;
+    const oldJson = res.json;
+    res.json = function(body) {
+      resBody = body;
+      return oldJson.apply(res, arguments as any);
+    };
 
-// ✅ تسجيل مسارات المزامنة بأولوية مطلقة قبل أي توجيه آخر
+    res.on("finish", () => {
+      const duration = Date.now() - start;
+      if (path.startsWith("/api")) {
+        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+        if (res.statusCode >= 400) {
+          console.log(`🚨 [API Error] ${logLine}`);
+          console.log(`📦 Request Body: ${JSON.stringify(req.body)}`);
+          console.log(`📦 Response Body: ${JSON.stringify(resBody)}`);
+        } else {
+          console.log(`🟢 [API] ${logLine}`);
+        }
+      }
+    });
+
+    next();
+  });
+
+  // Use auth routes
+  console.log('🔗 [Server] تسجيل مسارات المصادقة على /api/auth');
+
+  // ✅ تسجيل مسارات المزامنة بأولوية مطلقة قبل أي توجيه آخر
 import { sql } from 'drizzle-orm';
 import { pool } from './db';
 app.all("/api/sync/full-backup", async (req, res) => {

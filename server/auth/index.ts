@@ -39,8 +39,31 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/auth/login", passport.authenticate("local"), (req, res) => {
-    res.json(req.user);
+  app.post("/api/auth/login", (req, res, next) => {
+    console.log(`📡 [Auth] محاولة تسجيل دخول: ${req.body.email}`);
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        console.error("❌ [Auth] خطأ أثناء المصادقة:", err);
+        return next(err);
+      }
+      if (!user) {
+        console.warn("⚠️ [Auth] فشل المصادقة:", info?.message);
+        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+      }
+      req.logIn(user, (err) => {
+        if (err) {
+          console.error("❌ [Auth] خطأ أثناء إنشاء الجلسة:", err);
+          return next(err);
+        }
+        console.log(`✅ [Auth] نجح تسجيل الدخول: ${user.email}`);
+        // إرسال كائن يحتوي على التوكن (حتى لو كان وهمياً للجلسة) لإرضاء الفروينت آند
+        res.json({
+          user,
+          accessToken: "session-active", // الفروينت آند يتوقع وجود توكن
+          message: "Login successful"
+        });
+      });
+    })(req, res, next);
   });
 
   app.post("/api/auth/logout", (req, res, next) => {

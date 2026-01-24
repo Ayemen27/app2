@@ -47,11 +47,13 @@ export function setupAuth(app: Express) {
       }
 
       if (!user) {
-        return done(new Error("Failed to deserialize user: user not found"));
+        console.log(`⚠️ [DESERIALIZE] User not found: ${id}`);
+        return done(null, false);
       }
 
       done(null, user);
     } catch (err) {
+      console.error(`❌ [DESERIALIZE] Error for user ${id}:`, err);
       done(err);
     }
   });

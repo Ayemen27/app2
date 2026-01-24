@@ -93,6 +93,8 @@ export const pool = new Pool({
   connectionTimeoutMillis: 300000, // 5 دقائق للاتصالات البعيدة
   query_timeout: 300000,
   statement_timeout: 300000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
   // إضافة معالجة للخطأ ENOTFOUND hostname: 'base'
   ssl: dbUrl.includes("supabase.co") || dbUrl.includes("rlwy.net") ? { rejectUnauthorized: false } : {
     rejectUnauthorized: false, // السماح بالاتصالات المشفرة غير الموثقة لتجنب مشاكل الشهادات

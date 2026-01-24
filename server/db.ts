@@ -86,8 +86,12 @@ pool.on('error', (err: any) => {
 
 // دالة مساعدة للتحقق من حالة الاتصال مع تحسينات ذكية
 export async function checkDBConnection() {
-  if (isAndroid || (global as any).isEmergencyMode) return true; // SQLite always connected or already in emergency
+  if (isAndroid || (global as any).isEmergencyMode) return true; 
   
+  // إذا كنا في وضع الطوارئ، نقلل وتيرة المحاولات لتجنب البطء
+  if ((global as any).inConnectionRetry) return false;
+  (global as any).inConnectionRetry = true;
+
   const startTime = Date.now();
   
   try {
@@ -96,6 +100,7 @@ export async function checkDBConnection() {
     client.release();
     
     const latency = Date.now() - startTime;
+    (global as any).inConnectionRetry = false;
     
     // Log successful connection
     if (latency > 1000) {
@@ -113,6 +118,7 @@ export async function checkDBConnection() {
     return true;
   } catch (err: any) {
     const latency = Date.now() - startTime;
+    (global as any).inConnectionRetry = false;
     
     // تسجيل مفصل للخطأ
     console.error("❌ [PostgreSQL] Connection failed:", {
@@ -129,14 +135,12 @@ export async function checkDBConnection() {
       isEmergencyMode = true;
       
       // محاولة استعادة أحدث نسخة احتياطية حقيقية فوراً عند تفعيل وضع الطوارئ
-      // مع معالجة أفضل للأخطاء والبحث عن أحدث ملف
       import("./services/BackupService").then(({ BackupService }) => {
         console.log("🔄 [Emergency] Attempting automatic data recovery from latest backup...");
         BackupService.initialize().then(async () => {
           const backupsDir = path.join(process.cwd(), "backups");
           let emergencyFile = path.join(backupsDir, "emergency-latest.sql.gz");
           
-          // إذا لم يجد ملف الطوارئ الثابت، يبحث عن أحدث ملف متاح
           if (!fs.existsSync(emergencyFile) && fs.existsSync(backupsDir)) {
             const files = fs.readdirSync(backupsDir)
               .filter(f => f.endsWith(".sql.gz"))
@@ -151,25 +155,13 @@ export async function checkDBConnection() {
           if (fs.existsSync(emergencyFile)) {
              console.log(`📂 [Emergency] Found backup at ${path.basename(emergencyFile)}, initiating restore...`);
              try {
-               const stats = fs.statSync(emergencyFile);
-               console.log(`📦 [Emergency] Backup file size: ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
-               
                await BackupService.restoreFromFile(emergencyFile);
                console.log("✅ [Emergency] Successfully loaded latest data in emergency mode");
              } catch (e: any) {
-               console.error("❌ [Emergency] Failed to restore from backup:", {
-                 message: e.message?.substring(0, 150),
-                 code: e.code
-               });
+               console.error("❌ [Emergency] Failed to restore from backup:", e.message);
              }
-          } else {
-            console.warn("⚠️ [Emergency] No backup files found in directory, starting with empty local database");
           }
-        }).catch(e => {
-          console.error("❌ [Emergency] Failed to initialize backup service:", e.message);
         });
-      }).catch(e => {
-        console.error("❌ [Emergency] Failed to import BackupService:", e.message);
       });
     }
     return false;

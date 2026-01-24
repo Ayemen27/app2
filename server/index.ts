@@ -577,7 +577,7 @@ import { BackupService } from "./services/BackupService";
 // ... داخل الدالة الرئيسية أو عند بدء التشغيل
 (async () => {
   try {
-    await BackupService.initialize();
+    // await BackupService.initialize();
     
     // ✅ تشغيل الخادم أولاً لضمان فتح المنفذ فوراً
     const serverInstance = server.listen(FINAL_PORT, "0.0.0.0", async () => {

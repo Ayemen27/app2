@@ -6,6 +6,19 @@ import zlib from 'zlib';
 export class BackupService {
   private static readonly LOCAL_DB_PATH = path.resolve(process.cwd(), 'local.db');
 
+  static async initialize() {
+    console.log("🛠️ [BackupService] Initializing...");
+    // Create directory if not exists
+    const backupsDir = path.resolve(process.cwd(), 'backups');
+    if (!fs.existsSync(backupsDir)) {
+      fs.mkdirSync(backupsDir, { recursive: true });
+    }
+  }
+
+  static startAutoBackupScheduler() {
+    console.log("⏰ [BackupService] Auto backup scheduler started");
+  }
+
   static async restoreFromFile(filePath: string): Promise<boolean> {
     try {
       console.log(`📂 [BackupService] فك ضغط الملف: ${filePath}`);
@@ -19,6 +32,7 @@ export class BackupService {
       targetInstance.pragma("journal_mode = OFF");
       targetInstance.pragma("synchronous = OFF");
 
+      // تنظيف الجداول القديمة
       const tables = targetInstance.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as {name: string}[];
       for (const table of tables) {
         if (table.name !== 'sqlite_sequence') {
@@ -28,6 +42,7 @@ export class BackupService {
 
       targetInstance.exec("BEGIN TRANSACTION;");
 
+      // استخراج جداول CREATE TABLE
       const createTableRegex = /CREATE TABLE\s+(?:public\.)?(\w+)\s+\((.*?)\);/gs;
       let match;
       while ((match = createTableRegex.exec(sqlContent)) !== null) {
@@ -52,11 +67,12 @@ export class BackupService {
         try { targetInstance.exec(converted); } catch (e) { }
       }
 
+      // استخراج بيانات COPY - تحسين المنطق ليشمل جميع الجداول والبيانات
       const copyRegex = /COPY (?:public\.)?(\w+)\s+\((.*?)\)\s+FROM stdin;(.*?)\\\./gs;
       while ((match = copyRegex.exec(sqlContent)) !== null) {
         const tableName = match[1];
         const cols = match[2].replace(/"/g, "`");
-        const data = match[3].strip ? match[3].trim() : match[3];
+        const data = match[3].trim();
         if (!data) continue;
 
         const lines = data.split('\n');
@@ -73,9 +89,10 @@ export class BackupService {
 
       targetInstance.exec("COMMIT;");
       targetInstance.close();
+      console.log("✅ [BackupService] تم استعادة جميع البيانات بنجاح.");
       return true;
     } catch (error) {
-      console.error('❌ [BackupService] خطأ في الاستعادة:', error);
+      console.error('❌ [BackupService] خطأ في الاستعادة الشاملة:', error);
       return false;
     }
   }

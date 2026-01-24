@@ -62,6 +62,11 @@ export const PUBLIC_ROUTES: RouteGroup[] = [
         path: "/api/auth/logout",
         methods: ["POST"],
         description: "تسجيل الخروج"
+      },
+      {
+        path: "/api/auth/verify-email",
+        methods: ["GET", "POST"],
+        description: "التحقق من البريد الإلكتروني"
       }
     ],
     globalRateLimit: {

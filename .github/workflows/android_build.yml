@@ -29,16 +29,25 @@ jobs:
 
       - name: Build with Gradle
         run: |
+          # محاولة اكتشاف هيكل المشروع أو توفير ملفات Gradle الأساسية
           if [ -d "android" ]; then
             cd android
             if [ -f "gradlew" ]; then
+              chmod +x gradlew
               ./gradlew assembleRelease
             else
-              echo "gradlew not found in android directory. Listing contents:"
-              ls -R
+              echo "⚠️ gradlew not found. Attempting to generate wrapper..."
+              gradle wrapper || echo "Gradle not installed on runner"
+              if [ -f "gradlew" ]; then
+                chmod +x gradlew
+                ./gradlew assembleRelease
+              else
+                echo "❌ Build failed: No gradle wrapper found."
+                ls -R
+              fi
             fi
           else
-            echo "Android directory not found. Skipping build."
+            echo "❌ Android directory not found. Skipping build."
           fi
         continue-on-error: true
 

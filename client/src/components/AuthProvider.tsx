@@ -215,34 +215,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!result || (response && !response.ok)) {
       console.log('🔍 [AuthProvider] محاولة تسجيل الدخول أوفلاين/طوارئ...');
       
-      // 1. البحث في جدول الطوارئ أولاً (مستخدمين مثبتين مسبقاً)
-      const emergencyUsers = await smartGetAll('emergencyUsers');
-      const emergencyUser = emergencyUsers.find((u: any) => u.email === email && u.password === password);
-      
-      if (emergencyUser) {
-        console.log('🚨 [AuthProvider] تم الدخول بواسطة مستخدم الطوارئ');
-        result = {
-          success: true,
-          data: {
-            user: { ...emergencyUser, emailVerified: true },
-            tokens: { accessToken: 'emergency-token', refreshToken: 'emergency-refresh' }
-          }
-        };
-      } else if (!response || (response.status !== 401 && response.status !== 403)) { 
-        // 2. البحث في جداول المستخدمين المحليين فقط إذا لم يكن هناك خطأ صريح بكلمة المرور من السيرفر
-        const localUsers = await smartGetAll('users');
-        const localUser = localUsers.find((u: any) => u.email === email);
+      try {
+        const { smartGetAll } = await import('../offline/storage-factory');
         
-        if (localUser) {
-          console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (تسجيل دخول أوفلاين)');
+        // 1. البحث في جدول الطوارئ أولاً (مستخدمين مثبتين مسبقاً)
+        const emergencyUsers = await smartGetAll('emergencyUsers');
+        console.log(`🛡️ [AuthProvider] فحص ${emergencyUsers.length} مستخدم طوارئ`);
+        
+        const emergencyUser = emergencyUsers.find((u: any) => 
+          u.email.toLowerCase() === email.toLowerCase() && u.password === password
+        );
+        
+        if (emergencyUser) {
+          console.log('🚨 [AuthProvider] تم الدخول بواسطة مستخدم الطوارئ');
           result = {
             success: true,
             data: {
-              user: localUser,
-              tokens: { accessToken: 'offline-token', refreshToken: 'offline-refresh' }
+              user: { ...emergencyUser, emailVerified: true },
+              tokens: { accessToken: 'emergency-token', refreshToken: 'emergency-refresh' }
             }
           };
+        } else {
+          // 2. البحث في جداول المستخدمين المحليين
+          const localUsers = await smartGetAll('users');
+          console.log(`📱 [AuthProvider] فحص ${localUsers.length} مستخدم محلي`);
+          
+          const localUser = localUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
+          
+          if (localUser) {
+            console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (أوفلاين)');
+            result = {
+              success: true,
+              data: {
+                user: localUser,
+                tokens: { accessToken: 'offline-token', refreshToken: 'offline-refresh' }
+              }
+            };
+          }
         }
+      } catch (offlineError) {
+        console.error('❌ [AuthProvider] خطأ في منطق الأوفلاين:', offlineError);
       }
     }
 

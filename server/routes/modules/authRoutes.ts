@@ -37,45 +37,55 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     // البحث عن المستخدم في قاعدة البيانات (case insensitive)
     let userResult;
     try {
+      // التحقق من صحة البريد قبل الاستعلام
+      if (!email || typeof email !== 'string') {
+        throw new Error('البريد الإلكتروني غير صالح');
+      }
+
       userResult = await db.execute(sql`
         SELECT id, email, password, first_name, last_name, email_verified_at, created_at, role
         FROM users 
         WHERE LOWER(email) = LOWER(${email})
       `);
     } catch (dbError: any) {
-      console.error('🚨 [AUTH] فشل الاتصال بقاعدة البيانات المركزية:', dbError.message);
+      console.error('🚨 [AUTH] فشل الاتصال بالقاعدة المركزية، جاري الانتقال للطوارئ:', dbError.message);
       
-      // محاولة تسجيل الدخول عبر خدمة الطوارئ
-      const emergencyResult = await EmergencyAuthService.loginEmergencyUser(email, password);
-      if (emergencyResult.success && emergencyResult.data) {
-        // تعيين Refresh Token في Cookie
-        res.cookie('refreshToken', emergencyResult.data.refreshToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 90 * 24 * 60 * 60 * 1000
-        });
+      // محاولة تسجيل الدخول عبر خدمة الطوارئ (الأوفلاين)
+      try {
+        const emergencyResult = await EmergencyAuthService.loginEmergencyUser(email, password);
+        if (emergencyResult.success && emergencyResult.data) {
+          console.log('🛡️ [AUTH] تم تسجيل الدخول بنجاح عبر وضع الطوارئ');
+          
+          res.cookie('refreshToken', emergencyResult.data.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 90 * 24 * 60 * 60 * 1000
+          });
 
-        return res.json({
-          success: true,
-          status: "success",
-          message: emergencyResult.message,
-          token: emergencyResult.data.accessToken,
-          accessToken: emergencyResult.data.accessToken,
-          refreshToken: emergencyResult.data.refreshToken,
-          user: {
-            id: emergencyResult.data.userId,
-            email: emergencyResult.data.email,
-            name: emergencyResult.data.name,
-            role: emergencyResult.data.role,
-            emailVerified: true
-          }
-        });
+          return res.json({
+            success: true,
+            status: "success",
+            message: emergencyResult.message,
+            token: emergencyResult.data.accessToken,
+            accessToken: emergencyResult.data.accessToken,
+            refreshToken: emergencyResult.data.refreshToken,
+            user: {
+              id: emergencyResult.data.userId,
+              email: emergencyResult.data.email,
+              name: emergencyResult.data.name,
+              role: emergencyResult.data.role,
+              emailVerified: true
+            }
+          });
+        }
+      } catch (emergencyError: any) {
+        console.error('🚨 [AUTH] فشل حتى في وضع الطوارئ:', emergencyError.message);
       }
 
       return res.status(503).json({
         success: false,
-        message: 'السيرفر المركزي غير متاح حالياً. يرجى تفعيل وضع الأوفلاين.',
+        message: 'عذراً، السيرفر المركزي معطل حالياً ولم نتمكن من التحقق من هويتك في وضع الطوارئ. يرجى المحاولة لاحقاً.',
         error: dbError.message
       });
     }

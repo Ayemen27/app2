@@ -1,7 +1,7 @@
 import { 
   Home, Building2, Users, Package, Truck, 
   UserCheck, Calculator, Settings, LogOut,
-  ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare
+  ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare, Activity
 } from "lucide-react";
 import { 
   Sidebar,
@@ -68,6 +68,7 @@ const sections = [
     items: [
       { title: "المساعد الذكي", icon: MessageSquare, url: "/ai-chat" },
       { title: "سياسات الأمان", icon: ShieldCheck, url: "/security-policies" },
+      { title: "صحة البيانات", icon: Activity, url: "/admin/data-health" },
       { title: "النسخ الاحتياطي", icon: ShieldCheck, url: "/admin/backups" },
       { title: "قاعدة البيانات", icon: Database, url: "/local-db" },
     ]

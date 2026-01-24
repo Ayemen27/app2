@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import TelegramBot from "node-telegram-bot-api";
 import { setupAuth } from "./auth/index";
+import { registerOrganizedRoutes } from "./routes/modules/index.js";
 
 const bot = process.env.TELEGRAM_BOT_TOKEN ? new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false }) : null;
 const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -10,6 +11,9 @@ const chatId = process.env.TELEGRAM_CHAT_ID;
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup Authentication First
   setupAuth(app);
+
+  // Register Organized Routes (Projects, Financial, etc.)
+  registerOrganizedRoutes(app);
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });

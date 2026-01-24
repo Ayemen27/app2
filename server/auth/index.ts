@@ -4,6 +4,10 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "access_secret_key_123";
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "refresh_secret_key_456";
 
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
@@ -21,7 +25,7 @@ export function setupAuth(app: Express) {
     try {
       const user = await storage.getUserByEmail(email);
       if (!user || !(await bcrypt.compare(password, user.password))) {
-        return done(null, false, { message: "Invalid email or password" });
+        return done(null, false, { message: "البريد الإلكتروني أو كلمة المرور غير صحيحة" });
       }
       return done(null, user);
     } catch (err) {
@@ -40,41 +44,90 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/auth/login", (req, res, next) => {
-    console.log(`📡 [Auth] محاولة تسجيل دخول: ${req.body.email}`);
     passport.authenticate("local", (err: any, user: any, info: any) => {
-      if (err) {
-        console.error("❌ [Auth] خطأ أثناء المصادقة:", err);
-        return next(err);
-      }
-      if (!user) {
-        console.warn("⚠️ [Auth] فشل المصادقة:", info?.message);
-        return res.status(401).json({ message: info?.message || "Invalid credentials" });
-      }
+      if (err) return next(err);
+      if (!user) return res.status(401).json({ message: info?.message || "فشل تسجيل الدخول" });
+
       req.logIn(user, (err) => {
-        if (err) {
-          console.error("❌ [Auth] خطأ أثناء إنشاء الجلسة:", err);
-          return next(err);
-        }
-        console.log(`✅ [Auth] نجح تسجيل الدخول: ${user.email}`);
-        // إرسال كائن يحتوي على التوكن (حتى لو كان وهمياً للجلسة) لإرضاء الفروينت آند
+        if (err) return next(err);
+
+        const accessToken = jwt.sign(
+          { id: user.id, email: user.email, role: user.role },
+          JWT_ACCESS_SECRET,
+          { expiresIn: "1h" }
+        );
+
+        const refreshToken = jwt.sign(
+          { id: user.id },
+          JWT_REFRESH_SECRET,
+          { expiresIn: "7d" }
+        );
+
         res.json({
-          user,
-          accessToken: "session-active", // الفروينت آند يتوقع وجود توكن
-          message: "Login successful"
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+            role: user.role
+          },
+          tokens: {
+            accessToken,
+            refreshToken
+          }
         });
       });
     })(req, res, next);
   });
 
+  app.post("/api/auth/refresh", async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) return res.status(400).json({ message: "Refresh token مطلوب" });
+
+    try {
+      const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as { id: string };
+      const user = await storage.getUser(decoded.id);
+      if (!user) return res.status(401).json({ message: "مستخدم غير موجود" });
+
+      const newAccessToken = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        JWT_ACCESS_SECRET,
+        { expiresIn: "1h" }
+      );
+
+      res.json({
+        success: true,
+        tokens: {
+          accessToken: newAccessToken,
+          refreshToken // Re-use old or generate new one
+        }
+      });
+    } catch (err) {
+      res.status(401).json({ message: "Refresh token غير صالح" });
+    }
+  });
+
+  app.get("/api/auth/me", (req, res) => {
+    // التحقق من الجلسة أو التوكن
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, JWT_ACCESS_SECRET) as any;
+        return res.json({ user: decoded });
+      } catch (err) {
+        // Fallback to session
+      }
+    }
+
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "غير مصرح" });
+    res.json({ user: req.user });
+  });
+
   app.post("/api/auth/logout", (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
-      res.sendStatus(200);
+      res.json({ success: true, message: "تم تسجيل الخروج بنجاح" });
     });
-  });
-
-  app.get("/api/auth/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(req.user);
   });
 }

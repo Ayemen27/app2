@@ -6,7 +6,7 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { sql } from 'drizzle-orm';
-import { db } from '../../db.js';
+import { db, pool } from '../../db.js';
 
 export const syncRouter = express.Router();
 
@@ -34,7 +34,7 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
         // محاولة جلب البيانات مباشرة. إذا فشل عمود معين (مثل is_local)، سنلتقط الخطأ.
         // ملاحظة: SELECT * قد تفشل إذا كان هناك خطأ في أحد الأعمدة في بعض إصدارات برامج التشغيل، 
         // لذا سنقوم بجلب الأعمدة بشكل ديناميكي أو التعامل مع الخطأ.
-        const queryResult = await db.execute(sql.raw(`SELECT * FROM ${table} LIMIT 50000`));
+        const queryResult = await pool.query(`SELECT * FROM ${table} LIMIT 50000`);
         results[table] = queryResult.rows;
       } catch (e: any) {
         console.error(`⚠️ [Sync] خطأ في جلب الجدول ${table}:`, e.message);

@@ -7,7 +7,7 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { sql } from 'drizzle-orm';
-import { db } from '../../db.js';
+import { db, pool } from '../../db.js';
 import { ALL_SYNC_TABLES, getAllTablesData, verifySync } from '../../sync.js';
 
 export const syncRouter = express.Router();
@@ -46,7 +46,7 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
     
     for (const table of ALL_DATABASE_TABLES) {
       try {
-        const queryResult = await db.execute(sql.raw(`SELECT * FROM ${table} LIMIT 50000`));
+        const queryResult = await pool.query(`SELECT * FROM ${table} LIMIT 50000`);
         results[table] = queryResult.rows;
         successCount++;
       } catch (e: any) {
@@ -102,7 +102,7 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
     
     for (const table of ALL_DATABASE_TABLES) {
       try {
-        const queryResult = await db.execute(sql.raw(`SELECT * FROM ${table} LIMIT 50000`));
+        const queryResult = await pool.query(`SELECT * FROM ${table} LIMIT 50000`);
         results[table] = queryResult.rows;
         successCount++;
       } catch (e: any) {
@@ -170,12 +170,12 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
         
         query += ' LIMIT 10000';
         
-        const queryResult = await db.execute(sql.raw(query));
+        const queryResult = await pool.query(query);
         results[table] = queryResult.rows;
         totalRecords += queryResult.rows.length;
       } catch (e: any) {
         try {
-          const fallbackResult = await db.execute(sql.raw(`SELECT * FROM ${table} LIMIT 10000`));
+          const fallbackResult = await pool.query(`SELECT * FROM ${table} LIMIT 10000`);
           results[table] = fallbackResult.rows;
           totalRecords += fallbackResult.rows.length;
         } catch {
@@ -236,7 +236,7 @@ syncRouter.post('/verify-sync', async (req: Request, res: Response) => {
     
     for (const table of ALL_DATABASE_TABLES) {
       try {
-        const countResult = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM ${table}`));
+        const countResult = await pool.query(`SELECT COUNT(*) as count FROM ${table}`);
         const serverCount = Number(countResult.rows[0]?.count || 0);
         serverCounts[table] = serverCount;
         totalServerRecords += serverCount;
@@ -303,7 +303,7 @@ syncRouter.get('/stats', async (req: Request, res: Response) => {
     
     for (const table of ALL_DATABASE_TABLES) {
       try {
-        const countResult = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM ${table}`));
+        const countResult = await pool.query(`SELECT COUNT(*) as count FROM ${table}`);
         const count = Number(countResult.rows[0]?.count || 0);
         stats[table] = count;
         totalRecords += count;

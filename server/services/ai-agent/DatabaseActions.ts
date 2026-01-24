@@ -4,7 +4,7 @@
  * صلاحيات كاملة: قراءة، إضافة، تعديل، حذف
  */
 
-import { db } from "../../db";
+import { db, pool } from "../../db";
 import { eq, and, sql, desc, like, gte, lte } from "drizzle-orm";
 import {
   projects,
@@ -726,7 +726,7 @@ export class DatabaseActions {
     }
 
     try {
-      const result = await db.execute(sql.raw(query));
+      const result = await pool.query(query);
       return {
         success: true,
         data: result,

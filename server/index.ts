@@ -462,13 +462,14 @@ console.log('🔗 [Server] تسجيل مسارات المصادقة على /api/
 
 // ✅ تسجيل مسارات المزامنة بأولوية مطلقة قبل أي توجيه آخر
 import { sql } from 'drizzle-orm';
+import { pool } from './db';
 app.all("/api/sync/full-backup", async (req, res) => {
   try {
     const tables = ['projects', 'workers', 'materials', 'suppliers', 'worker_attendance', 'material_purchases', 'transportation_expenses', 'fund_transfers', 'wells', 'project_types', 'users'];
     const results: any = {};
     for (const table of tables) {
       try {
-        const queryResult = await db.execute(sql.raw(`SELECT * FROM ${table} LIMIT 50000`));
+        const queryResult = await pool.query(`SELECT * FROM ${table} LIMIT 50000`);
         results[table] = queryResult.rows;
       } catch (e) { results[table] = []; }
     }

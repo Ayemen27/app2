@@ -37,7 +37,7 @@ import {
   notifications, notificationReadStates,
   // AI System tables (النظام الذكي) - تم حذف النظام
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { and, eq, isNull, or, gte, lte, desc, ilike, like, isNotNull, asc, count, sum, ne, max, sql, inArray, gt } from 'drizzle-orm';
 
 export interface IStorage {
@@ -4032,7 +4032,7 @@ export class DatabaseStorage implements IStorage {
       
       // تنفيذ عملية تفعيل/تعطيل RLS
       const operation = enable ? 'ENABLE' : 'DISABLE';
-      await db.execute(sql.raw(`ALTER TABLE ${tableName} ${operation} ROW LEVEL SECURITY`));
+      await pool.query(`ALTER TABLE ${tableName} ${operation} ROW LEVEL SECURITY`);
       
       console.log(`✅ تم ${enable ? 'تفعيل' : 'تعطيل'} RLS للجدول ${tableName} بنجاح`);
       

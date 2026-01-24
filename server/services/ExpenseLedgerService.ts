@@ -3,7 +3,7 @@
  * Unified Expense Ledger Service
  */
 
-import { db } from '../db';
+import { db, pool } from '../db';
 import { sql } from 'drizzle-orm';
 
 export interface ExpenseSummary {
@@ -89,52 +89,39 @@ export class ExpenseLedgerService {
       const cleanDateFrom = dateFrom && dateFrom.trim() !== "" ? dateFrom : null;
       const cleanDateTo = dateTo && dateTo.trim() !== "" ? dateTo : null;
 
-      // تحسين فلاتر التواريخ لتقليل العمليات الحسابية داخل SQL
-      const dateFilterMp = cleanDate ? sql`AND purchase_date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND purchase_date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterWa = cleanDate ? sql`AND attendance_date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND attendance_date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterTe = cleanDate ? sql`AND date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterWt = cleanDate ? sql`AND transfer_date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND transfer_date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterMwe = cleanDate ? sql`AND date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterFt = cleanDate ? sql`AND transfer_date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND transfer_date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-      const dateFilterPft = cleanDate ? sql`AND transfer_date::date = ${cleanDate}::date` : (cleanDateFrom && cleanDateTo ? sql`AND transfer_date::date BETWEEN ${cleanDateFrom}::date AND ${cleanDateTo}::date` : sql`AND 1=1`);
-
-      // إذا لم يكن هناك تاريخ محدد، نعتبره عرض تراكمي ونلغي فلاتر التواريخ لضمان جلب كل شيء
+      // إذا لم يكن هناك تاريخ محدد، نعتبره عرض تراكمي
       const isCumulative = !cleanDate && !cleanDateFrom && !cleanDateTo;
       
-      // استخدام sql`AND 1=1` بدلاً من sql`` لتجنب خطأ inlineParams في Drizzle ORM
-      const emptyFilter = sql`AND 1=1`;
-      const finalFilterMp = isCumulative ? emptyFilter : dateFilterMp;
-      const finalFilterWa = isCumulative ? emptyFilter : dateFilterWa;
-      const finalFilterTe = isCumulative ? emptyFilter : dateFilterTe;
-      const finalFilterWt = isCumulative ? emptyFilter : dateFilterWt;
-      const finalFilterMwe = isCumulative ? emptyFilter : dateFilterMwe;
-      const finalFilterFt = isCumulative ? emptyFilter : dateFilterFt;
-      const finalFilterPft = isCumulative ? emptyFilter : dateFilterPft;
+      // بناء فلاتر التواريخ كسلاسل نصية لاستخدامها مع pool.query
+      const buildDateFilter = (dateColumn: string): string => {
+        if (cleanDate) {
+          return `AND ${dateColumn}::date = $2::date`;
+        } else if (cleanDateFrom && cleanDateTo) {
+          return `AND ${dateColumn}::date BETWEEN $2::date AND $3::date`;
+        }
+        return '';
+      };
 
       console.log(`🔍 [ExpenseLedger] تطبيق الفلترة لـ ${projectId}:`, { date: cleanDate, dateFrom: cleanDateFrom, dateTo: cleanDateTo, isCumulative });
 
       const startDateStr = cleanDate || cleanDateFrom || new Date().toISOString().split('T')[0];
       
-      // في حالة الفلترة المحددة، الرصيد المرحل يجب أن يكون من قبل تاريخ البداية
-      // تم تعديل المنطق ليكون تراكمياً لكل ما قبل التاريخ المحدد لضمان صحة المتبقي من سابق
-      let prevDateFilter = sql`AND 1=1`;
+      // حساب الرصيد المرحل
+      let carriedForwardBalance = 0;
+      
       if (!isCumulative) {
-        prevDateFilter = sql`AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) < ${startDateStr}::date`;
-      }
-
-      const [prevIncome, prevExpenses] = isCumulative ? [
-        { rows: [{ total: 0 }] },
-        { rows: [{ total: 0 }] }
-      ] : await Promise.all([
-        db.execute(sql`
+        // حساب الدخل قبل التاريخ المحدد
+        const prevIncomeResult = await pool.query(`
           WITH prev_income AS (
-            SELECT amount FROM fund_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
+            SELECT amount FROM fund_transfers WHERE project_id = $1 AND transfer_date::date < $2::date
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
+            SELECT amount FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date < $2::date
           )
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM prev_income
-        `),
-        db.execute(sql`
+        `, [projectId, startDateStr]);
+
+        // حساب المصروفات قبل التاريخ المحدد
+        const prevExpensesResult = await pool.query(`
           WITH prev_expenses AS (
             SELECT 
               CASE 
@@ -143,76 +130,114 @@ export class ExpenseLedgerService {
                 ELSE 0
               END as amount 
             FROM material_purchases 
-            WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date < ${startDateStr}::date
+            WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date < $2::date
             UNION ALL
-            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND attendance_date::date < ${startDateStr}::date AND CAST(paid_amount AS DECIMAL) > 0
+            SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = $1 AND attendance_date::date < $2::date AND CAST(paid_amount AS DECIMAL) > 0
             UNION ALL
-            SELECT amount FROM transportation_expenses WHERE project_id = ${projectId} AND date::date < ${startDateStr}::date
+            SELECT amount FROM transportation_expenses WHERE project_id = $1 AND date::date < $2::date
             UNION ALL
-            SELECT amount FROM worker_transfers WHERE project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
+            SELECT amount FROM worker_transfers WHERE project_id = $1 AND transfer_date::date < $2::date
             UNION ALL
-            SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId} AND date::date < ${startDateStr}::date
+            SELECT amount FROM worker_misc_expenses WHERE project_id = $1 AND date::date < $2::date
             UNION ALL
-            SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId} AND transfer_date::date < ${startDateStr}::date
+            SELECT amount FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date < $2::date
           )
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM prev_expenses
-        `)
-      ]);
+        `, [projectId, startDateStr]);
 
-      // تحديث الملخصات المالية المتأثرة في قاعدة البيانات لضمان عدم وجود بيانات قديمة خاطئة
-      if (!isCumulative) {
-        // حذف الملخص المالي القديم لهذا اليوم إذا كان موجوداً لإجبار النظام على إعادة الحساب والتحديث
-        await db.execute(sql`
+        const cleanTotalIncome = this.cleanDbValue(prevIncomeResult.rows[0]?.total);
+        const cleanTotalExpenses = this.cleanDbValue(prevExpensesResult.rows[0]?.total);
+        carriedForwardBalance = cleanTotalIncome - cleanTotalExpenses;
+        
+        if (Math.abs(carriedForwardBalance) < 1) {
+          carriedForwardBalance = 0;
+        }
+
+        // حذف الملخص المالي القديم لهذا اليوم
+        await pool.query(`
           DELETE FROM daily_expense_summaries 
-          WHERE project_id = ${projectId} AND date = ${startDateStr}
-        `);
+          WHERE project_id = $1 AND date = $2
+        `, [projectId, startDateStr]);
       }
 
-      const cleanTotalIncome = this.cleanDbValue(prevIncome.rows[0]?.total);
-      const cleanTotalExpenses = this.cleanDbValue(prevExpenses.rows[0]?.total);
-      
-      // حساب الرصيد المرحل بشكل مباشر وصريح
-      let carriedForwardBalance = isCumulative ? 0 : (cleanTotalIncome - cleanTotalExpenses);
-      
-      // تصحيح فوري: إذا كان الرصيد قريباً جداً من الصفر (بسبب الكسور العشرية) نعتبره صفراً
-      if (Math.abs(carriedForwardBalance) < 1) {
-        carriedForwardBalance = 0;
+      // جلب معلومات المشروع
+      const projectInfo = await pool.query(
+        `SELECT name, status, description FROM projects WHERE id = $1`,
+        [projectId]
+      );
+
+      // بناء الاستعلامات بناءً على نوع الفلترة
+      let materialCashStats, materialCreditStats, workerWagesStats, transportStats;
+      let workerTransfersStats, miscExpensesStats, fundTransfersStats;
+      let outgoingTransfersStats, incomingTransfersStats, workersStatsResult;
+
+      if (isCumulative) {
+        // استعلامات بدون فلتر تاريخ
+        [materialCashStats, materialCreditStats, workerWagesStats, transportStats,
+         workerTransfersStats, miscExpensesStats, fundTransfersStats,
+         outgoingTransfersStats, incomingTransfersStats, workersStatsResult] = await Promise.all([
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(
+            CASE 
+              WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL)
+              WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN CAST(total_amount AS DECIMAL)
+              ELSE 0
+            END
+          ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد')`, [projectId]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL) - CAST(paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل')`, [projectId]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND CAST(paid_amount AS DECIMAL) > 0`, [projectId]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = $1`, [projectId]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = $1`, [projectId]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_misc_expenses WHERE project_id = $1`, [projectId]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM fund_transfers WHERE project_id = $1`, [projectId]),
+          pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1`, [projectId]),
+          pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1`, [projectId]),
+          pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1`, [projectId])
+        ]);
+      } else if (cleanDate) {
+        // استعلامات مع فلتر تاريخ محدد
+        [materialCashStats, materialCreditStats, workerWagesStats, transportStats,
+         workerTransfersStats, miscExpensesStats, fundTransfersStats,
+         outgoingTransfersStats, incomingTransfersStats, workersStatsResult] = await Promise.all([
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(
+            CASE 
+              WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL)
+              WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN CAST(total_amount AS DECIMAL)
+              ELSE 0
+            END
+          ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date = $2::date`, [projectId, cleanDate]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL) - CAST(paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل') AND purchase_date::date = $2::date`, [projectId, cleanDate]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND CAST(paid_amount AS DECIMAL) > 0 AND attendance_date::date = $2::date`, [projectId, cleanDate]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = $1 AND date::date = $2::date`, [projectId, cleanDate]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date = $2::date`, [projectId, cleanDate]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_misc_expenses WHERE project_id = $1 AND date::date = $2::date`, [projectId, cleanDate]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM fund_transfers WHERE project_id = $1 AND transfer_date::date = $2::date`, [projectId, cleanDate]),
+          pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date = $2::date`, [projectId, cleanDate]),
+          pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date = $2::date`, [projectId, cleanDate]),
+          pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1 AND wa.attendance_date::date = $2::date`, [projectId, cleanDate])
+        ]);
+      } else {
+        // استعلامات مع نطاق تاريخ
+        [materialCashStats, materialCreditStats, workerWagesStats, transportStats,
+         workerTransfersStats, miscExpensesStats, fundTransfersStats,
+         outgoingTransfersStats, incomingTransfersStats, workersStatsResult] = await Promise.all([
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(
+            CASE 
+              WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL)
+              WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN CAST(total_amount AS DECIMAL)
+              ELSE 0
+            END
+          ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL) - CAST(paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل') AND purchase_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND CAST(paid_amount AS DECIMAL) > 0 AND attendance_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = $1 AND date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_misc_expenses WHERE project_id = $1 AND date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM fund_transfers WHERE project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1 AND wa.attendance_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo])
+        ]);
       }
-
-      const finalCarriedForward = carriedForwardBalance;
-
-      const [
-        projectInfo,
-        materialCashStats,
-        materialCreditStats,
-        workerWagesStats,
-        transportStats,
-        workerTransfersStats,
-        miscExpensesStats,
-        fundTransfersStats,
-        outgoingTransfersStats,
-        incomingTransfersStats,
-        workersStatsResult
-      ] = await Promise.all([
-        db.execute(sql`SELECT name, status, description FROM projects WHERE id = ${projectId}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(
-          CASE 
-            WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL)
-            WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN CAST(total_amount AS DECIMAL)
-            ELSE 0
-          END
-        ), 0) as total FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') ${finalFilterMp}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL) - CAST(paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = ${projectId} AND (purchase_type = 'آجل' OR purchase_type = 'اجل') ${finalFilterMp}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = ${projectId} AND CAST(paid_amount AS DECIMAL) > 0 ${finalFilterWa}`),
-
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = ${projectId} ${finalFilterTe}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = ${projectId} ${finalFilterWt}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_misc_expenses WHERE project_id = ${projectId} ${finalFilterMwe}`),
-        db.execute(sql`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM fund_transfers WHERE project_id = ${projectId} ${finalFilterFt}`),
-        db.execute(sql`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE from_project_id = ${projectId} ${finalFilterPft}`),
-        db.execute(sql`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE to_project_id = ${projectId} ${finalFilterPft}`),
-        db.execute(sql`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = ${projectId} ${finalFilterWa}`)
-      ]);
 
       const projectName = String(projectInfo.rows[0]?.name || 'مشروع غير معروف');
       const projectStatus = String(projectInfo.rows[0]?.status || 'active');
@@ -228,16 +253,14 @@ export class ExpenseLedgerService {
       const outgoingProjectTransfers = this.cleanDbValue(outgoingTransfersStats.rows[0]?.total);
       const incomingProjectTransfers = this.cleanDbValue(incomingTransfersStats.rows[0]?.total);
 
-      // 4. إجمالي المصروفات النقدية
-      // التوريد (Income) يحسب تحويلات العهدة والوارد من مشاريع
-      // المنصرف (Expenses) يحسب ما خرج فعلياً للسوق أو العمال
+      // إجمالي المصروفات النقدية
       const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
       
-      // 5. الرصيد النقدي لليوم (الدخل - المصروفات)
+      // الرصيد النقدي لليوم
       const totalIncome = fundTransfers + incomingProjectTransfers;
       const cashBalance = totalIncome - totalCashExpenses;
       
-      // 6. الرصيد التراكمي الشامل
+      // الرصيد التراكمي الشامل
       const totalIncomeWithCarried = totalIncome + carriedForwardBalance;
       const totalBalance = totalIncomeWithCarried - totalCashExpenses;
       const totalAllExpenses = totalCashExpenses + materialExpensesCredit; 
@@ -269,7 +292,7 @@ export class ExpenseLedgerService {
         },
         cashBalance, 
         totalBalance,
-        transportExpenses, // حقل إضافي لضمان الوصول السهل
+        transportExpenses,
         lastUpdated: new Date().toISOString()
       };
     } catch (error) {
@@ -285,7 +308,7 @@ export class ExpenseLedgerService {
 
   static async getAllProjectsStats(date?: string, dateFrom?: string, dateTo?: string): Promise<ProjectFinancialSummary[]> {
     try {
-      const projectsList = await db.execute(sql`SELECT id, name FROM projects WHERE is_active = true ORDER BY created_at`);
+      const projectsList = await pool.query(`SELECT id, name FROM projects WHERE is_active = true ORDER BY created_at`);
       const results: ProjectFinancialSummary[] = [];
       for (const project of projectsList.rows) {
         const summary = await this.getProjectFinancialSummary(project.id as string, date, dateFrom, dateTo);

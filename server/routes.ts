@@ -1640,11 +1640,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM (
             SELECT amount FROM fund_transfers WHERE project_id = ${projectId} 
-            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql``}
+            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql`AND 1=1`}
             AND transfer_date::date <= ${toDate}::date
             UNION ALL
             SELECT amount FROM project_fund_transfers WHERE to_project_id = ${projectId}
-            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql``}
+            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql`AND 1=1`}
             AND transfer_date::date <= ${toDate}::date
           ) as income_sum
         `),
@@ -1659,27 +1659,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
               END as amount 
             FROM material_purchases 
             WHERE project_id = ${projectId}
-            ${fromDate ? sql`AND purchase_date::date >= ${fromDate}::date` : sql``}
+            ${fromDate ? sql`AND purchase_date::date >= ${fromDate}::date` : sql`AND 1=1`}
             AND purchase_date::date <= ${toDate}::date
             UNION ALL
             SELECT CAST(paid_amount AS DECIMAL) as amount FROM worker_attendance WHERE project_id = ${projectId} AND CAST(paid_amount AS DECIMAL) > 0
-            ${fromDate ? sql`AND attendance_date::date >= ${fromDate}::date` : sql``}
+            ${fromDate ? sql`AND attendance_date::date >= ${fromDate}::date` : sql`AND 1=1`}
             AND attendance_date::date <= ${toDate}::date
             UNION ALL
             SELECT amount FROM transportation_expenses WHERE project_id = ${projectId}
-            ${fromDate ? sql`AND date::date >= ${fromDate}::date` : sql``}
+            ${fromDate ? sql`AND date::date >= ${fromDate}::date` : sql`AND 1=1`}
             AND date::date <= ${toDate}::date
             UNION ALL
             SELECT amount FROM worker_transfers WHERE project_id = ${projectId}
-            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql``}
+            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql`AND 1=1`}
             AND transfer_date::date <= ${toDate}::date
             UNION ALL
             SELECT amount FROM worker_misc_expenses WHERE project_id = ${projectId}
-            ${fromDate ? sql`AND date::date >= ${fromDate}::date` : sql``}
+            ${fromDate ? sql`AND date::date >= ${fromDate}::date` : sql`AND 1=1`}
             AND date::date <= ${toDate}::date
             UNION ALL
             SELECT amount FROM project_fund_transfers WHERE from_project_id = ${projectId}
-            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql``}
+            ${fromDate ? sql`AND transfer_date::date >= ${fromDate}::date` : sql`AND 1=1`}
             AND transfer_date::date <= ${toDate}::date
           ) as expenses_sum
         `)

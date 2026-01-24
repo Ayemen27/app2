@@ -36,11 +36,10 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     // البحث عن المستخدم في قاعدة البيانات (case insensitive)
     let userResult;
     try {
-      userResult = await db.execute(sql`
-        SELECT id, email, password, role, first_name, last_name, email_verified_at, created_at, is_active
-        FROM users 
-        WHERE LOWER(email) = LOWER(${email})
-      `);
+      userResult = await db.execute({
+        text: 'SELECT id, email, password, role, first_name, last_name, email_verified_at, created_at, is_active FROM users WHERE LOWER(email) = LOWER($1)',
+        values: [email]
+      });
     } catch (dbError: any) {
       console.error('🚨 [AUTH] فشل الاتصال بقاعدة البيانات المركزية:', dbError.message);
       
@@ -62,6 +61,16 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     }
 
     const user = userResult.rows[0] as any;
+    
+    // Debug: Log the user data received from database
+    console.log('🔍 [AUTH-DEBUG] User data:', { 
+      id: user.id, 
+      email: user.email, 
+      hasPassword: !!user.password,
+      passwordLength: user.password?.length,
+      passwordPrefix: user.password?.substring(0, 15),
+      email_verified_at: user.email_verified_at
+    });
 
     // التحقق من تفعيل البريد الإلكتروني - منع الدخول نهائياً
     if (!user.email_verified_at) {

@@ -157,6 +157,14 @@ export async function checkDBConnection() {
              try {
                await BackupService.restoreFromFile(emergencyFile);
                console.log("✅ [Emergency] Successfully loaded latest data in emergency mode");
+
+               // تحديث dbInstance ليشير إلى SQLite بعد الاستعادة
+               if (sqliteInstance) {
+                 const { drizzle: drizzleSqlite } = await import("drizzle-orm/better-sqlite3");
+                 dbInstance = drizzleSqlite(sqliteInstance, { schema });
+                 (global as any).db = dbInstance; // التأكد من التحديث العالمي
+                 console.log("🔄 [Emergency] dbInstance updated to SQLite effectively.");
+               }
              } catch (e: any) {
                console.error("❌ [Emergency] Failed to restore from backup:", e.message);
              }

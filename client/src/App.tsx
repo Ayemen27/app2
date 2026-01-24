@@ -61,6 +61,7 @@ import { SyncStatusIndicator } from "./components/sync-status";
 
 const WorkerAccountsPage = lazy(() => import("./pages/worker-accounts"));
 const SuppliersProPage = lazy(() => import("./pages/suppliers-professional"));
+const CustomersPage = lazy(() => import("./pages/customers"));
 const SupplierAccountsPage = lazy(() => import("./pages/supplier-accounts"));
 const AutocompleteAdminPage = lazy(() => import("./pages/autocomplete-admin"));
 const EquipmentManagement = lazy(() => import("./pages/equipment-management").then(m => ({ default: m.EquipmentManagement })));
@@ -153,6 +154,11 @@ function Router() {
       <Route path="/suppliers-pro">
         <Suspense fallback={<PageLoader />}>
           <SuppliersProPage />
+        </Suspense>
+      </Route>
+      <Route path="/customers">
+        <Suspense fallback={<PageLoader />}>
+          <CustomersPage />
         </Suspense>
       </Route>
       <Route path="/supplier-accounts">

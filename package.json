@@ -112,6 +112,7 @@
     "memoizee": "^0.4.17",
     "mustache": "^4.2.0",
     "nanoid": "^5.1.5",
+    "node-telegram-bot-api": "^0.67.0",
     "nodemailer": "^7.0.12",
     "openai": "^6.10.0",
     "openid-client": "^6.6.4",

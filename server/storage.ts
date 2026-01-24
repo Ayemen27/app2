@@ -4097,6 +4097,13 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async createIncident(incident: InsertIncident): Promise<Incident> {
+    const [newIncident] = await db
+      .insert(incidents)
+      .values(incident)
+      .returning();
+    return newIncident;
+  }
 }
 
 export const storage = new DatabaseStorage();

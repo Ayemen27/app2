@@ -89,30 +89,30 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l-0 bg-white dark:bg-[#0f172a] text-slate-900 dark:text-white">
-      <SidebarHeader className="border-b border-slate-100 dark:border-white/5 bg-white dark:bg-[#0f172a] px-4 py-4 flex-shrink-0">
+    <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l-0 bg-white dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-500">
+      <SidebarHeader className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-4 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-lg shadow-slate-900/20">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg shadow-slate-900/20 dark:shadow-white/10 transition-colors">
             <div className="relative flex items-center justify-center">
               <ShieldCheck className="h-7 w-7" strokeWidth={1.5} />
               <div className="absolute inset-0 flex items-center justify-center pt-0.5">
-                <span className="text-white font-black text-[10px]">O</span>
+                <span className="text-white dark:text-slate-900 font-black text-[10px]">O</span>
               </div>
             </div>
           </div>
           <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden text-right">
             <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white uppercase">Orax</span>
-            <span className="text-[10px] text-slate-500 dark:text-white/50 truncate font-medium uppercase tracking-wider">Operations Management</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-medium uppercase tracking-wider">Operations Management</span>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="bg-white dark:bg-[#0f172a] gap-0 pt-2 custom-scrollbar overflow-y-auto overflow-x-hidden flex-1 scrolling-touch">
+      <SidebarContent className="bg-white dark:bg-slate-950 gap-0 pt-2 custom-scrollbar overflow-y-auto overflow-x-hidden flex-1 scrolling-touch">
         {sections.map((section) => (
           <Collapsible key={section.title} defaultOpen className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-2 text-slate-400 dark:text-white/40 hover:text-slate-600 dark:hover:text-white transition-colors group-data-[collapsible=icon]:hidden">
+                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors group-data-[collapsible=icon]:hidden">
                   <span className="text-[11px] font-bold uppercase tracking-wider">{section.title}</span>
                   <ChevronDown className="h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
                 </CollapsibleTrigger>
@@ -125,7 +125,7 @@ export function AppSidebar() {
                         <SidebarMenuButton 
                           asChild 
                           isActive={location === item.url}
-                          className="h-10 px-4 mx-2 w-[calc(100%-16px)] rounded-lg transition-all duration-200 data-[active=true]:bg-slate-900 data-[active=true]:text-white hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-white/70"
+                          className="h-10 px-4 mx-2 w-[calc(100%-16px)] rounded-lg transition-all duration-200 data-[active=true]:bg-slate-900 dark:data-[active=true]:bg-white data-[active=true]:text-white dark:data-[active=true]:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
                         >
                           <a 
                             href={item.url} 
@@ -150,20 +150,20 @@ export function AppSidebar() {
         <div className="h-24 w-full" aria-hidden="true" />
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-[#0f172a] p-2 flex-shrink-0">
-        <div className="px-4 py-3 flex items-center gap-3 group-data-[collapsible=icon]:hidden border-b border-slate-200/50 dark:border-white/5 mb-2">
-          <div className="h-9 w-9 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-sm uppercase border border-white/10 shadow-sm">
+      <SidebarFooter className="border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2 flex-shrink-0">
+        <div className="px-4 py-3 flex items-center gap-3 group-data-[collapsible=icon]:hidden border-b border-slate-200/50 dark:border-slate-800 mb-2">
+          <div className="h-9 w-9 rounded-full bg-slate-900 dark:bg-white flex items-center justify-center text-white dark:text-slate-900 font-bold text-sm uppercase border border-white/10 shadow-sm transition-colors">
             {user?.name?.charAt(0) || "U"}
           </div>
           <div className="flex flex-col overflow-hidden text-right">
             <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.name || "المستخدم"}</span>
-            <span className="text-[10px] text-slate-500 dark:text-white/40 truncate">{user?.email}</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</span>
           </div>
         </div>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
-              className="h-10 px-4 mx-2 w-[calc(100%-16px)] rounded-lg hover:bg-slate-200 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-white/70"
+              className="h-10 px-4 mx-2 w-[calc(100%-16px)] rounded-lg hover:bg-slate-200 dark:hover:bg-slate-900 transition-colors text-slate-700 dark:text-slate-300"
               onClick={() => handleNavigation("/settings")}
             >
               <Settings className="h-5 w-5 opacity-60" />
@@ -185,7 +185,7 @@ export function AppSidebar() {
         </SidebarMenu>
         {/* إضافة معلومات البيئة في الأسفل */}
         <div className="px-4 py-2 group-data-[collapsible=icon]:hidden">
-           <div className="text-[10px] text-slate-500 dark:text-white/30 text-center border border-slate-200 dark:border-white/5 rounded py-1 bg-slate-100 dark:bg-white/5">
+           <div className="text-[10px] text-slate-500 dark:text-slate-500 text-center border border-slate-200 dark:border-slate-800 rounded py-1 bg-slate-100 dark:bg-slate-900/50">
              البيئة: {process.env.NODE_ENV === 'production' ? 'الإنتاج' : 'التطوير'}
            </div>
         </div>

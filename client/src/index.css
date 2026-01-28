@@ -13,23 +13,23 @@
 
 :root {
   --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
+  --foreground: 222 47% 11.2%;
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card-foreground: 222 47% 11.2%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --sidebar-background: 222 47% 11%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-primary: 221 83% 53%;
+  --popover-foreground: 222 47% 11.2%;
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 222 47% 11.2%;
+  --sidebar-primary: 222.2 47.4% 11.2%;
   --sidebar-primary-foreground: 210 40% 98%;
-  --sidebar-accent: 217 33% 17%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-border: 217 33% 17%;
+  --sidebar-accent: 210 40% 96.1%;
+  --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+  --sidebar-border: 214.3 31.8% 91.4%;
   --sidebar-ring: 221.2 83.2% 53.3%;
-  --primary: 221 83% 53%;
+  --primary: 222.2 47.4% 11.2%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 215 25% 27%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
   --muted: 210 40% 96.1%;
   --muted-foreground: 215.4 16.3% 46.9%;
   --accent: 210 40% 96.1%;
@@ -38,8 +38,8 @@
   --destructive-foreground: 210 40% 98%;
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
-  --ring: 221.2 83.2% 53.3%;
-  --radius: 0.6rem;
+  --ring: 222.2 47.4% 11.2%;
+  --radius: 0.75rem;
 
   /* Layout Tokens */
   --header-height: 64px;
@@ -62,7 +62,7 @@
   --sidebar-accent-foreground: 210 40% 98%;
   --sidebar-border: 217.2 32.6% 17.5%;
   --sidebar-ring: 224.3 76.3% 48%;
-  --primary: 217.2 91.2% 59.8%;
+  --primary: 210 40% 98%;
   --primary-foreground: 222.2 47.4% 11.2%;
   --secondary: 217.2 32.6% 17.5%;
   --secondary-foreground: 210 40% 98%;
@@ -74,7 +74,7 @@
   --destructive-foreground: 210 40% 98%;
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
+  --ring: 212.7 26.8% 83.9%;
 }
 
 @layer base {

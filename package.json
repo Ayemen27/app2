@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "npm run build:client && npm run build:server",
-    "build:client": "vite build --logLevel=error && rm -rf dist/public && mkdir -p dist/public && cp -r dist/* dist/public/",
+    "build:client": "vite build --logLevel=error && temp_dir=$(mktemp -d) && cp -r dist/* \"$temp_dir\" && rm -rf dist/public && mkdir -p dist/public && cp -r \"$temp_dir\"/* dist/public/ && rm -rf \"$temp_dir\"",
     "build:server": "esbuild server/index.ts --keep-names --platform=node --bundle --format=esm --packages=external --banner:js=\"import { createRequire } from 'module';const require = createRequire(import.meta.url);\" --outfile=dist/index.js --log-level=error --external:lightningcss --external:@babel/core && esbuild server/vite.ts --platform=node --format=esm --outfile=dist/vite.js --log-level=error && cp vite.config.ts dist/vite.config.ts",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",

@@ -31,8 +31,6 @@ import {
   Search,
   X,
   Lock,
-  Eye,
-  EyeOff,
   Loader2
 } from "lucide-react";
 
@@ -78,8 +76,6 @@ export default function RegisterPage() {
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isGenderDialogOpen, setIsGenderDialogOpen] = useState(false);
 
   const filteredCountries = countries.filter(c => 
@@ -150,7 +146,7 @@ export default function RegisterPage() {
 
           {/* Form */}
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => console.log(data))} className="space-y-2">
+            <form onSubmit={form.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-2">
               <FormField
                 control={form.control}
                 name="fullName"
@@ -274,27 +270,12 @@ export default function RegisterPage() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            type={showPassword ? "text" : "password"}
+                            type="password"
                             placeholder="كلمة المرور"
                             className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
+                            showValidation={false}
                           />
                         </FormControl>
-                        <button 
-                          type="button" 
-                          onClick={() => setShowPassword(!showPassword)} 
-                          className="mr-2 flex items-center justify-center min-w-[24px] hover:opacity-80 transition-opacity"
-                        >
-                          <div className="relative flex items-center justify-center">
-                            {showPassword ? (
-                              <Eye className="w-5 h-5 text-red-500" />
-                            ) : (
-                              <div className="relative flex items-center justify-center">
-                                <EyeOff className="w-5 h-5 text-[#006699]" />
-                                <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />
-                              </div>
-                            )}
-                          </div>
-                        </button>
                         <Lock className="w-5 h-5 text-[#006699] mr-1" />
                       </div>
                       {form.formState.errors.password && (
@@ -314,27 +295,12 @@ export default function RegisterPage() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            type={showConfirmPassword ? "text" : "password"}
+                            type="password"
                             placeholder="تأكيد الكلمة"
                             className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
+                            showValidation={false}
                           />
                         </FormControl>
-                        <button 
-                          type="button" 
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
-                          className="mr-2 flex items-center justify-center min-w-[24px] hover:opacity-80 transition-opacity"
-                        >
-                          <div className="relative flex items-center justify-center">
-                            {showConfirmPassword ? (
-                              <Eye className="w-5 h-5 text-red-500" />
-                            ) : (
-                              <div className="relative flex items-center justify-center">
-                                <EyeOff className="w-5 h-5 text-[#006699]" />
-                                <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />
-                              </div>
-                            )}
-                          </div>
-                        </button>
                         <Lock className="w-5 h-5 text-[#006699] mr-1" />
                       </div>
                       {form.formState.errors.confirmPassword && (

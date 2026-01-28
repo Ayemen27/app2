@@ -34,8 +34,6 @@ import {
   CheckCircle,
   Lock,
   KeyRound,
-  EyeOff,
-  Eye,
   Shield,
   AlertTriangle
 } from "lucide-react";
@@ -72,8 +70,6 @@ export default function ResetPasswordPage() {
   const { toast } = useToast();
   const [isSuccess, setIsSuccess] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
 
   const form = useForm<ResetPasswordFormData>({
@@ -363,21 +359,15 @@ export default function ResetPasswordPage() {
                         <FormLabel className="text-gray-700 font-medium">كلمة المرور الجديدة</FormLabel>
                         <FormControl>
                           <div className="relative group">
-                            <Lock className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-red-500 transition-colors" />
+                            <Lock className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-red-500 transition-colors z-10" />
                             <Input 
                               {...field} 
-                              type={showPassword ? "text" : "password"}
+                              type="password"
                               placeholder="أدخل كلمة مرور قوية"
-                              className="pr-10 pl-10 enhanced-input"
+                              className="pr-10 enhanced-input"
                               data-testid="input-new-password"
+                              showValidation={false}
                             />
-                            <button
-                              type="button"
-                              className="absolute left-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600"
-                              onClick={() => setShowPassword(!showPassword)}
-                            >
-                              {showPassword ? <EyeOff /> : <Eye />}
-                            </button>
                           </div>
                         </FormControl>
                         <PasswordStrengthIndicator password={field.value} />
@@ -394,21 +384,15 @@ export default function ResetPasswordPage() {
                         <FormLabel className="text-gray-700 font-medium">تأكيد كلمة المرور</FormLabel>
                         <FormControl>
                           <div className="relative group">
-                            <Shield className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-red-500 transition-colors" />
+                            <Shield className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-red-500 transition-colors z-10" />
                             <Input 
                               {...field} 
-                              type={showConfirmPassword ? "text" : "password"}
+                              type="password"
                               placeholder="أعد إدخال كلمة المرور"
-                              className="pr-10 pl-10 enhanced-input"
+                              className="pr-10 enhanced-input"
                               data-testid="input-confirm-password"
+                              showValidation={false}
                             />
-                            <button
-                              type="button"
-                              className="absolute left-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600"
-                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            >
-                              {showConfirmPassword ? <EyeOff /> : <Eye />}
-                            </button>
                           </div>
                         </FormControl>
                         <FormMessage />

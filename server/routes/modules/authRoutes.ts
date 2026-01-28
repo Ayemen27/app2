@@ -252,9 +252,10 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     }
 
     // التحقق من وجود المستخدم مسبقاً (case insensitive)
-    const existingUser = await db.execute(sql`
-      SELECT id FROM users WHERE LOWER(email) = LOWER(${email})
-    `);
+    const existingUser = await db.execute({
+      text: 'SELECT id FROM users WHERE LOWER(email) = LOWER($1)',
+      values: [email]
+    });
 
     if (existingUser.rows.length > 0) {
       console.log('❌ [AUTH] المستخدم موجود مسبقاً:', email);
@@ -273,19 +274,20 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     const firstName = names[0] || '';
     const lastName = names.slice(1).join(' ') || '';
 
-    const newUserResult = await db.execute(sql`
-      INSERT INTO users (
+    const newUserResult = await db.execute({
+      text: `INSERT INTO users (
         email, password, first_name, last_name, full_name, 
         phone, birth_date, birth_place, gender, 
         role, is_active, created_at
       )
       VALUES (
-        ${email}, ${hashedPassword}, ${firstName}, ${lastName}, ${fullName}, 
-        ${phone}, ${birthDate}, ${birthPlace}, ${gender}, 
+        $1, $2, $3, $4, $5, 
+        $6, $7, $8, $9, 
         'user', true, NOW()
       )
-      RETURNING id, email, full_name, created_at
-    `);
+      RETURNING id, email, full_name, created_at`,
+      values: [email, hashedPassword, firstName, lastName, fullName, phone || null, birthDate || null, birthPlace || null, gender || null]
+    });
 
     const newUser = newUserResult.rows[0] as any;
 

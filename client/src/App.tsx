@@ -24,6 +24,7 @@ import Dashboard from "./pages/dashboard";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import EmailVerificationPage from "./pages/EmailVerificationPage";
 import { useWebSocketSync } from "./hooks/useWebSocketSync";
 
@@ -318,6 +319,7 @@ function App() {
                     <Route path="/login" component={LoginPage} />
                     <Route path="/register" component={RegisterPage} />
                     <Route path="/verify-email" component={EmailVerificationPage} />
+                    <Route path="/forgot-password" component={ForgotPasswordPage} />
                     <Route path="/reset-password" component={ResetPasswordPage} />
                     <Route path="*" component={() => (
                       <ProtectedRoute>

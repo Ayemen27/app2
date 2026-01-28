@@ -209,7 +209,7 @@ export default function LoginPage() {
               />
 
               <div className="flex justify-start px-1">
-                <button type="button" className="text-[10px] font-bold text-gray-400">هل نسيت كلمة المرور؟</button>
+                <button type="button" onClick={() => navigate('/forgot-password')} className="text-[10px] font-bold text-gray-400">هل نسيت كلمة المرور؟</button>
               </div>
 
               <div className="space-y-1.5 pt-1">

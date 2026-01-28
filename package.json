@@ -26,7 +26,7 @@
     "@babel/core": "^7.28.3",
     "@capacitor-community/sqlite": "^7.0.2",
     "@capacitor/android": "7.0.0",
-    "@capacitor/cli": "7.0.0",
+    "@capacitor/cli": "8.0.2",
     "@capacitor/core": "7.0.0",
     "@capacitor/push-notifications": "7.0.3",
     "@google/generative-ai": "^0.24.1",

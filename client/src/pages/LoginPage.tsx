@@ -81,10 +81,24 @@ export default function LoginPage() {
       });
       navigate("/");
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
+      // التحقق من حالة عدم تفعيل البريد الإلكتروني
+      if (error.requireEmailVerification || error.status === 403) {
+        toast({
+          title: "يجب التحقق من البريد الإلكتروني",
+          description: "تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني",
+          variant: "default",
+        });
+        // التوجيه إلى صفحة التحقق من البريد مع المعلومات اللازمة
+        const userId = error.userId || error.data?.userId;
+        const email = error.email || error.data?.email || form.getValues('email');
+        navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(email)}`);
+        return;
+      }
+      
       toast({
         title: "فشل تسجيل الدخول",
-        description: error.message,
+        description: error.message || "حدث خطأ أثناء تسجيل الدخول",
         variant: "destructive",
       });
     },

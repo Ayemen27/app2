@@ -119,12 +119,15 @@ export default function RegisterPage() {
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
-        title: "تم إنشاء الحساب",
-        description: "يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب",
+        title: "تم إنشاء الحساب بنجاح",
+        description: "تم إرسال رمز التحقق إلى بريدك الإلكتروني",
       });
-      navigate("/login");
+      // التوجيه إلى صفحة التحقق من البريد الإلكتروني مع المعلومات اللازمة
+      const userId = data?.data?.user?.id;
+      const email = data?.data?.user?.email || form.getValues('email');
+      navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(email)}`);
     },
     onError: (error: Error) => {
       toast({

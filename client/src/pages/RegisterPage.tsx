@@ -19,11 +19,13 @@ import {
   Calendar,
   MapPin,
   ChevronDown,
-  User
+  User,
+  Mail
 } from "lucide-react";
 
 const registerSchema = z.object({
   fullName: z.string().min(1, "الاسم الرباعي مطلوب"),
+  email: z.string().email("البريد الإلكتروني غير صحيح"),
   phone: z.string().min(9, "رقم الهاتف غير صحيح"),
   birthDate: z.string().min(1, "تاريخ الميلاد مطلوب"),
   birthPlace: z.string().min(1, "مكان الميلاد مطلوب"),
@@ -40,6 +42,7 @@ export default function RegisterPage() {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       fullName: "",
+      email: "",
       phone: "",
       birthDate: "",
       birthPlace: "",
@@ -75,7 +78,6 @@ export default function RegisterPage() {
 
           <div className="text-center mb-4">
             <p className="text-sm font-bold text-gray-600">قم بإنشاء حسابك</p>
-            <p className="text-sm font-bold text-gray-600">في محفظة فلوسك</p>
           </div>
 
           {/* Form */}
@@ -94,6 +96,26 @@ export default function RegisterPage() {
                           className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
                         />
                       </FormControl>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          type="email"
+                          placeholder="البريد الإلكتروني"
+                          className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                        />
+                      </FormControl>
+                      <Mail className="w-5 h-5 text-[#006699] mr-2" />
                     </div>
                   </FormItem>
                 )}

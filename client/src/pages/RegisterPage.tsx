@@ -29,7 +29,10 @@ import {
   User,
   Mail,
   Search,
-  X
+  X,
+  Lock,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 const countries = [
@@ -56,10 +59,15 @@ const registerSchema = z.object({
   fullName: z.string().min(1, "الاسم الرباعي مطلوب"),
   email: z.string().email("البريد الإلكتروني غير صحيح"),
   phone: z.string().min(9, "رقم الهاتف غير صحيح"),
+  password: z.string().min(6, "كلمة المرور يجب أن لا تقل عن 6 أحرف"),
+  confirmPassword: z.string().min(1, "تأكيد كلمة المرور مطلوب"),
   birthDate: z.string().min(1, "تاريخ الميلاد مطلوب"),
   birthPlace: z.string().min(1, "مكان الميلاد مطلوب"),
   gender: z.string().min(1, "الجنس مطلوب"),
   terms: z.boolean().refine(v => v === true, "يجب الموافقة على الشروط"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "كلمات المرور غير متطابقة",
+  path: ["confirmPassword"],
 });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
@@ -69,6 +77,9 @@ export default function RegisterPage() {
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isGenderDialogOpen, setIsGenderDialogOpen] = useState(false);
 
   const filteredCountries = countries.filter(c => 
     c.name.includes(searchQuery) || c.code.includes(searchQuery)
@@ -80,6 +91,8 @@ export default function RegisterPage() {
       fullName: "",
       email: "",
       phone: "",
+      password: "",
+      confirmPassword: "",
       birthDate: "",
       birthPlace: "",
       gender: "ذكر",
@@ -235,6 +248,63 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-2">
                 <FormField
                   control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type={showPassword ? "text" : "password"}
+                            placeholder="كلمة المرور"
+                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                          />
+                        </FormControl>
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="mr-2">
+                          {showPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                        </button>
+                        <Lock className="w-4 h-4 text-[#006699] mr-1" />
+                      </div>
+                      {form.formState.errors.password && (
+                        <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
+                          {form.formState.errors.password.message}
+                        </p>
+                      )}
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="تأكيد الكلمة"
+                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                          />
+                        </FormControl>
+                        <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="mr-2">
+                          {showConfirmPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                        </button>
+                        <Lock className="w-4 h-4 text-[#006699] mr-1" />
+                      </div>
+                      {form.formState.errors.confirmPassword && (
+                        <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
+                          {form.formState.errors.confirmPassword.message}
+                        </p>
+                      )}
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <FormField
+                  control={form.control}
                   name="birthPlace"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -285,16 +355,42 @@ export default function RegisterPage() {
                 name="gender"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4 justify-between">
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                      <div className="flex items-center gap-2">
-                        <div className="flex flex-col items-end">
-                           <span className="text-[8px] text-gray-400">الجنس</span>
-                           <span className="text-sm font-bold text-gray-800">ذكر</span>
+                    <Dialog open={isGenderDialogOpen} onOpenChange={setIsGenderDialogOpen}>
+                      <DialogTrigger asChild>
+                        <button type="button" className="w-full bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4 justify-between hover:bg-gray-50 transition-colors">
+                          <ChevronDown className="w-4 h-4 text-gray-400" />
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-col items-end">
+                               <span className="text-[8px] text-gray-400">الجنس</span>
+                               <span className="text-sm font-bold text-gray-800">{field.value}</span>
+                            </div>
+                            <User className="w-5 h-5 text-[#006699]" />
+                          </div>
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-[300px] w-[90%] p-2 rounded-2xl border-none shadow-2xl" dir="rtl">
+                        <div className="flex flex-col gap-1">
+                          {["ذكر", "أنثى"].map((g) => (
+                            <button
+                              key={g}
+                              type="button"
+                              onClick={() => {
+                                field.onChange(g);
+                                setIsGenderDialogOpen(false);
+                              }}
+                              className={`w-full p-4 text-right font-bold rounded-xl transition-colors ${field.value === g ? 'bg-[#EBF5FF] text-[#006699]' : 'hover:bg-gray-50 text-gray-700'}`}
+                            >
+                              {g}
+                            </button>
+                          ))}
                         </div>
-                        <User className="w-5 h-5 text-[#006699]" />
-                      </div>
-                    </div>
+                      </DialogContent>
+                    </Dialog>
+                    {form.formState.errors.gender && (
+                      <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
+                        {form.formState.errors.gender.message}
+                      </p>
+                    )}
                   </FormItem>
                 )}
               />

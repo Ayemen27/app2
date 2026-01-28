@@ -198,7 +198,7 @@ export default function ResetPasswordPage() {
     return (
       <div className="min-h-screen relative overflow-hidden" dir="rtl">
         <AnimatedBackground />
-        <div className="absolute inset-0 bg-gradient-to-br from-red-50/80 via-white/90 to-pink-50/80 backdrop-blur-sm"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-red-50/80 dark:from-red-950/40 via-white/90 dark:via-slate-900/90 to-pink-50/80 dark:to-pink-950/40 backdrop-blur-sm"></div>
         
         <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
           <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl max-w-md w-full">
@@ -220,9 +220,9 @@ export default function ResetPasswordPage() {
             </CardHeader>
             
             <CardContent className="space-y-1">
-              <Alert className="border-red-200 bg-red-50">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-                <AlertDescription className="text-red-800">
+              <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                <AlertDescription className="text-red-800 dark:text-red-200">
                   قد يكون الرابط منتهي الصلاحية أو تم استخدامه مسبقاً. يرجى طلب رابط جديد لاسترجاع كلمة المرور.
                 </AlertDescription>
               </Alert>
@@ -257,7 +257,7 @@ export default function ResetPasswordPage() {
     return (
       <div className="min-h-screen relative overflow-hidden" dir="rtl">
         <AnimatedBackground />
-        <div className="absolute inset-0 bg-gradient-to-br from-green-50/80 via-white/90 to-emerald-50/80 backdrop-blur-sm"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-green-50/80 dark:from-green-950/40 via-white/90 dark:via-slate-900/90 to-emerald-50/80 dark:to-emerald-950/40 backdrop-blur-sm"></div>
         
         <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
           <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl max-w-md w-full">
@@ -279,9 +279,9 @@ export default function ResetPasswordPage() {
             </CardHeader>
             
             <CardContent className="space-y-1">
-              <Alert className="border-green-200 bg-green-50">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">
+              <Alert className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertDescription className="text-green-800 dark:text-green-200">
                   تم تحديث كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول باستخدام كلمة المرور الجديدة.
                 </AlertDescription>
               </Alert>
@@ -306,7 +306,7 @@ export default function ResetPasswordPage() {
       <AnimatedBackground />
       
       {/* تأثير التدرج */}
-      <div className="absolute inset-0 bg-gradient-to-br from-red-50/80 via-white/90 to-pink-50/80 backdrop-blur-sm"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-red-50/80 dark:from-red-950/40 via-white/90 dark:via-slate-900/90 to-pink-50/80 dark:to-pink-950/40 backdrop-blur-sm"></div>
       
       {/* المحتوى الرئيسي */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
@@ -467,13 +467,13 @@ export default function ResetPasswordPage() {
           </Card>
 
           {/* تعليمات الأمان */}
-          <Card className="bg-blue-50 border-blue-200">
+          <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
             <CardContent className="p-4">
               <div className="flex items-start space-x-3 rtl:space-x-reverse">
                 <Shield className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-800">
+                <div className="text-sm text-blue-800 dark:text-blue-200">
                   <p className="font-medium">نصائح الأمان:</p>
-                  <ul className="mt-1 space-y-1 text-blue-700">
+                  <ul className="mt-1 space-y-1 text-blue-700 dark:text-blue-300">
                     <li>• استخدم كلمة مرور قوية ومعقدة</li>
                     <li>• تجنب استخدام معلومات شخصية</li>
                     <li>• احتفظ بكلمة المرور في مكان آمن</li>

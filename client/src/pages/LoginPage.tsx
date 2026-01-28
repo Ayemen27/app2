@@ -110,7 +110,7 @@ export default function LoginPage() {
   });
 
   return (
-    <div className="h-screen w-full bg-[#F5F7F9] dark:bg-slate-950 flex flex-col items-center overflow-hidden font-sans select-none relative transition-colors duration-500" dir="rtl">
+    <div className="h-screen w-full bg-background dark:bg-slate-950 flex flex-col items-center overflow-hidden font-sans select-none relative transition-colors duration-500" dir="rtl">
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none z-0" 
            style={{ 
@@ -139,7 +139,7 @@ export default function LoginPage() {
           {/* Logo Section - Scaled Down */}
           <div className="flex flex-col items-center justify-center mb-2 animate-in zoom-in duration-700 delay-150 fill-mode-both">
             <div className="relative mb-2 group cursor-pointer">
-              <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-gray-100 dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
+              <div className="w-16 h-16 bg-card dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-border dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
                 <div className="w-13 h-13 bg-slate-900 dark:bg-white rounded-[16px] flex items-center justify-center">
                   <div className="relative">
                     <ShieldCheck className="w-8 h-8 text-white dark:text-slate-900" strokeWidth={1.5} />
@@ -161,7 +161,7 @@ export default function LoginPage() {
             <button 
               type="button"
               onClick={() => setLoginMode('offline')}
-              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-14 shadow-sm active:scale-95 ${loginMode === 'offline' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white ring-2 ring-slate-900/10' : 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 text-gray-500'}`}
+              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-14 shadow-sm active:scale-95 ${loginMode === 'offline' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white ring-2 ring-slate-900/10' : 'bg-card dark:bg-slate-900 border-border dark:border-slate-800 text-gray-500'}`}
             >
               <div className="flex flex-col items-start leading-none text-right w-full">
                 <span className={`text-[8px] font-bold ${loginMode === 'offline' ? 'text-slate-300 dark:text-slate-600' : 'text-gray-400'}`}>الدخول</span>
@@ -175,7 +175,7 @@ export default function LoginPage() {
             <button 
               type="button"
               onClick={() => setLoginMode('online')}
-              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-14 shadow-sm active:scale-95 ${loginMode === 'online' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white ring-2 ring-slate-900/10' : 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 text-gray-500'}`}
+              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-14 shadow-sm active:scale-95 ${loginMode === 'online' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white ring-2 ring-slate-900/10' : 'bg-card dark:bg-slate-900 border-border dark:border-slate-800 text-gray-500'}`}
             >
               <div className="flex flex-col items-start leading-none text-right w-full">
                 <span className={`text-[8px] font-bold ${loginMode === 'online' ? 'text-slate-300 dark:text-slate-600' : 'text-gray-400'}`}>الدخول</span>
@@ -195,7 +195,7 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <div className={`bg-white dark:bg-slate-900 rounded-xl border shadow-sm h-16 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5 ${form.formState.errors.email ? 'border-red-500' : 'border-gray-100 dark:border-slate-800'}`}>
+                    <div className={`bg-card dark:bg-slate-900 rounded-xl border shadow-sm h-16 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5 ${form.formState.errors.email ? 'border-red-500' : 'border-border dark:border-slate-800'}`}>
                       <div className="flex-1 flex flex-col justify-center">
                         <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Identity / البريد</span>
                         <FormControl>
@@ -222,7 +222,7 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <div className={`bg-white dark:bg-slate-900 rounded-xl border shadow-sm h-16 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5 ${form.formState.errors.password ? 'border-red-500' : 'border-gray-100 dark:border-slate-800'}`}>
+                    <div className={`bg-card dark:bg-slate-900 rounded-xl border shadow-sm h-16 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5 ${form.formState.errors.password ? 'border-red-500' : 'border-border dark:border-slate-800'}`}>
                       <div className="flex-1 flex flex-col justify-center">
                         <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Security / كلمة المرور</span>
                         <FormControl>
@@ -302,7 +302,7 @@ export default function LoginPage() {
                 onClick={() => {
                   alert(`${label} feature coming soon on Orax Mobile.`);
                 }}
-                className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-600 hover:text-slate-900 dark:hover:text-white hover:shadow-md transition-all active:scale-90"
+                className="w-12 h-12 bg-card dark:bg-slate-900 rounded-2xl shadow-sm border border-border dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-600 hover:text-slate-900 dark:hover:text-white hover:shadow-md transition-all active:scale-90"
                 data-testid={testId}
               >
                 <Icon className="w-5 h-5" strokeWidth={1.5} />

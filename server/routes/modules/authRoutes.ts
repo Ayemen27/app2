@@ -179,6 +179,10 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       token: tokenPair.accessToken, // الحقل الأساسي الذي يتوقعه الأندرويد عادة
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
+      tokens: {
+        accessToken: tokenPair.accessToken,
+        refreshToken: tokenPair.refreshToken
+      },
       expiresIn: 900,
       user: {
         id: user.id,
@@ -186,6 +190,16 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         role: user.role || 'user',
         emailVerified: true
+      },
+      data: {
+        token: tokenPair.accessToken,
+        accessToken: tokenPair.accessToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          role: user.role || 'user'
+        }
       }
     };
 

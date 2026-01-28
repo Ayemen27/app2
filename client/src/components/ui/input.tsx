@@ -213,12 +213,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             type={inputType}
             className={cn(
-              "flex h-11 w-full rounded-xl border-2 bg-background/50 backdrop-blur-sm px-4 py-2.5 text-sm ring-offset-background transition-all duration-300",
+              "flex h-11 w-full rounded-xl border-2 bg-transparent px-4 py-2.5 text-sm ring-offset-background transition-all duration-300",
               "file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground",
               "placeholder:text-muted-foreground/70",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              "hover:bg-background/80",
               hasLeftIcon && "pr-11",
               hasRightIcon && "pl-11",
               getValidationColor(),

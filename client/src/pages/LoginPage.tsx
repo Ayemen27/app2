@@ -234,25 +234,14 @@ export default function LoginPage() {
           </Form>
         </div>
 
-        {/* Footer - Compact */}
         <div className="flex flex-col items-center gap-3 pb-2 relative">
-          {/* Notification Message */}
-          <div className="w-full px-2 animate-in fade-in slide-in-from-bottom-2 duration-300 mb-2">
-            <div className="bg-[#006699] h-10 rounded-xl flex items-center justify-between px-4 shadow-lg border border-white/20">
-              <span className="text-white text-[11px] font-bold">لا توجد لديك حسابات أخرى لتغييرها</span>
-              <button className="w-5 h-5 bg-white rounded-full flex items-center justify-center">
-                <X className="w-3 h-3 text-[#006699]" strokeWidth={3} />
-              </button>
-            </div>
-          </div>
-
           <button className="relative w-14 h-14 flex items-center justify-center transition-all active:scale-90 bg-white rounded-full shadow-md border border-gray-50">
              <Fingerprint className="w-10 h-10 text-[#006699]" strokeWidth={1} />
           </button>
 
           <div className="flex gap-4">
             {[Scan, Smartphone, HeadphonesIcon].map((Icon, idx) => (
-              <button key={idx} className="w-11 h-11 bg-white rounded-xl shadow-sm border border-gray-50 flex items-center justify-center text-gray-300">
+              <button key={idx} className="w-11 h-11 bg-white rounded-xl shadow-sm border border-gray-50 flex items-center justify-center text-gray-400">
                 <Icon className="w-5 h-5" />
               </button>
             ))}
@@ -260,6 +249,16 @@ export default function LoginPage() {
 
           <div className="w-full flex justify-center text-gray-400 text-[10px] font-bold">
             <span>الإصدار: 391</span>
+          </div>
+
+          {/* Toast/Notification Overlay - Positioned exactly like original */}
+          <div className="absolute bottom-10 left-0 right-0 px-2 pointer-events-none">
+            <div className="bg-[#01689b] h-11 rounded-md flex items-center justify-between px-4 shadow-xl border border-white/10 pointer-events-auto">
+              <span className="text-white text-xs font-medium">لا توجد لديك حسابات أخرى لتغييرها</span>
+              <button className="w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-sm">
+                <X className="w-4 h-4 text-[#01689b]" strokeWidth={3} />
+              </button>
+            </div>
           </div>
         </div>
       </div>

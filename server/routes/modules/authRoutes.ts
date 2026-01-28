@@ -242,12 +242,12 @@ authRouter.post('/register', async (req: Request, res: Response) => {
   try {
     console.log('📝 [AUTH] محاولة تسجيل حساب جديد:', { email: req.body.email });
 
-    const { email, password, fullName } = req.body;
+    const { email, password, fullName, phone, birthDate, birthPlace, gender } = req.body;
 
     if (!email || !password || !fullName) {
       return res.status(400).json({
         success: false,
-        message: 'جميع الحقول مطلوبة (البريد، كلمة المرور، الاسم الكامل)'
+        message: 'الحقول الأساسية (البريد، كلمة المرور، الاسم الكامل) مطلوبة'
       });
     }
 
@@ -268,15 +268,23 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     const hashedPassword = await hashPassword(password);
 
     // إنشاء المستخدم الجديد
-    // تقسيم fullName إلى first_name و last_name
+    // تقسيم fullName إلى first_name و last_name (للتوافق مع الحقول القديمة)
     const names = fullName.trim().split(/\s+/);
     const firstName = names[0] || '';
     const lastName = names.slice(1).join(' ') || '';
 
     const newUserResult = await db.execute(sql`
-      INSERT INTO users (email, password, first_name, last_name, role, is_active, created_at)
-      VALUES (${email}, ${hashedPassword}, ${firstName}, ${lastName}, 'user', true, NOW())
-      RETURNING id, email, first_name, last_name, created_at
+      INSERT INTO users (
+        email, password, first_name, last_name, full_name, 
+        phone, birth_date, birth_place, gender, 
+        role, is_active, created_at
+      )
+      VALUES (
+        ${email}, ${hashedPassword}, ${firstName}, ${lastName}, ${fullName}, 
+        ${phone}, ${birthDate}, ${birthPlace}, ${gender}, 
+        'user', true, NOW()
+      )
+      RETURNING id, email, full_name, created_at
     `);
 
     const newUser = newUserResult.rows[0] as any;
@@ -308,7 +316,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
         user: {
           id: newUser.id,
           email: newUser.email,
-          fullName: `${newUser.first_name || ''} ${newUser.last_name || ''}`.trim(),
+          fullName: newUser.full_name,
           createdAt: newUser.created_at
         }
       }

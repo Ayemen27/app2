@@ -32,7 +32,8 @@ import {
   X,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2
 } from "lucide-react";
 
 const countries = [
@@ -97,6 +98,24 @@ export default function RegisterPage() {
       birthPlace: "",
       gender: "ذكر",
       terms: false,
+    },
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: async (data: RegisterFormData) => {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "فشل إنشاء الحساب");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      navigate("/login");
     },
   });
 
@@ -452,8 +471,9 @@ export default function RegisterPage() {
               <Button 
                 type="submit" 
                 className="w-full h-12 bg-[#006699] hover:bg-[#005580] text-white text-lg font-bold rounded-xl shadow-md border-none transition-all active:scale-95"
+                disabled={registerMutation.isPending}
               >
-                إنشاء حساب
+                {registerMutation.isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "إنشاء حساب"}
               </Button>
 
               <div className="text-center pt-2">

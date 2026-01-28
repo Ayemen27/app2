@@ -18,6 +18,11 @@ export const users = pgTable("users", {
   passwordAlgo: text("password_algo").default("argon2id").notNull(), // argon2id, legacy
   firstName: text("first_name"),
   lastName: text("last_name"),
+  fullName: text("full_name"),
+  phone: text("phone"),
+  birthDate: text("birth_date"),
+  birthPlace: text("birth_place"),
+  gender: text("gender"),
   role: text("role").notNull().default("admin"), 
   isActive: boolean("is_active").default(true).notNull(),
   emailVerifiedAt: timestamp("email_verified_at"), 

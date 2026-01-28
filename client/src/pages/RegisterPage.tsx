@@ -14,29 +14,53 @@ import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import { 
   ShieldCheck,
   Smartphone,
   Calendar,
   MapPin,
   ChevronDown,
   User,
-  Mail
+  Mail,
+  Search,
+  X
 } from "lucide-react";
 
-const registerSchema = z.object({
-  fullName: z.string().min(1, "الاسم الرباعي مطلوب"),
-  email: z.string().email("البريد الإلكتروني غير صحيح"),
-  phone: z.string().min(9, "رقم الهاتف غير صحيح"),
-  birthDate: z.string().min(1, "تاريخ الميلاد مطلوب"),
-  birthPlace: z.string().min(1, "مكان الميلاد مطلوب"),
-  gender: z.string().min(1, "الجنس مطلوب"),
-  terms: z.boolean().refine(v => v === true, "يجب الموافقة على الشروط"),
-});
-
-type RegisterFormData = z.infer<typeof registerSchema>;
+const countries = [
+  { name: "اليمن", code: "+967", flag: "https://flagcdn.com/w20/ye.png" },
+  { name: "أفغانستان", code: "+93", flag: "https://flagcdn.com/w20/af.png" },
+  { name: "جزر أولاند", code: "+358", flag: "https://flagcdn.com/w20/ax.png" },
+  { name: "ألبانيا", code: "+355", flag: "https://flagcdn.com/w20/al.png" },
+  { name: "الجزائر", code: "+213", flag: "https://flagcdn.com/w20/dz.png" },
+  { name: "ساموا الأمريكية", code: "+1", flag: "https://flagcdn.com/w20/as.png" },
+  { name: "أندورا", code: "+376", flag: "https://flagcdn.com/w20/ad.png" },
+  { name: "أنغولا", code: "+244", flag: "https://flagcdn.com/w20/ao.png" },
+  { name: "أنغويلا", code: "+1", flag: "https://flagcdn.com/w20/ai.png" },
+  { name: "أنتيغوا وبربودا", code: "+1", flag: "https://flagcdn.com/w20/ag.png" },
+  { name: "الأرجنتين", code: "+54", flag: "https://flagcdn.com/w20/ar.png" },
+  { name: "أرمينيا", code: "+374", flag: "https://flagcdn.com/w20/am.png" },
+  { name: "أروبا", code: "+297", flag: "https://flagcdn.com/w20/aw.png" },
+  { name: "جزيرة أسنسيون", code: "+247", flag: "https://flagcdn.com/w20/sh.png" },
+  { name: "النمسا", code: "+61", flag: "https://flagcdn.com/w20/at.png" },
+  { name: "أستراليا", code: "+43", flag: "https://flagcdn.com/w20/au.png" },
+  { name: "أذربيجان", code: "+994", flag: "https://flagcdn.com/w20/az.png" },
+];
 
 export default function RegisterPage() {
   const [, navigate] = useLocation();
+  const [selectedCountry, setSelectedCountry] = useState(countries[0]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const filteredCountries = countries.filter(c => 
+    c.name.includes(searchQuery) || c.code.includes(searchQuery)
+  );
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -122,12 +146,46 @@ export default function RegisterPage() {
               />
 
               <div className="grid grid-cols-[100px_1fr] gap-2">
-                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-2 justify-between">
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-bold text-gray-800" dir="ltr">+967</span>
-                    <img src="https://flagcdn.com/w20/ye.png" alt="YE" className="w-5 h-auto rounded-sm" />
-                 </div>
-                 <FormField
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <button type="button" className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-2 justify-between hover:bg-gray-50 transition-colors">
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm font-bold text-gray-800" dir="ltr">{selectedCountry.code}</span>
+                      <img src={selectedCountry.flag} alt={selectedCountry.name} className="w-5 h-auto rounded-sm" />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-[400px] w-[95%] p-0 rounded-t-3xl sm:rounded-3xl border-none shadow-2xl overflow-hidden" dir="rtl">
+                    <div className="bg-white p-4">
+                      <div className="relative mb-4">
+                        <Input
+                          placeholder="بحث"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full h-12 bg-gray-50 border-none rounded-xl text-right pr-10 pl-4 text-sm font-bold focus-visible:ring-0"
+                        />
+                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      </div>
+                      <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+                        {filteredCountries.map((country) => (
+                          <button
+                            key={country.name + country.code}
+                            onClick={() => {
+                              setSelectedCountry(country);
+                              setIsDialogOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors mb-1"
+                          >
+                            <img src={country.flag} alt={country.name} className="w-6 h-auto rounded-sm shadow-sm" />
+                            <span className="text-sm font-bold text-gray-800 flex-1 text-right px-4" dir="ltr">{country.code}</span>
+                            <span className="text-sm font-bold text-gray-600 min-w-[100px] text-left">{country.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <FormField
                   control={form.control}
                   name="phone"
                   render={({ field }) => (

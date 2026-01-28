@@ -93,7 +93,7 @@
   }
 
   body {
-    background-color: hsl(var(--background));
+    background-color: #F8F9FA;
     color: hsl(var(--foreground));
     direction: rtl;
     font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -101,9 +101,8 @@
     padding: 0;
     width: 100%;
     /* منع التمرير على مستوى الـ body بالكامل */
-    overflow: hidden !important;
-    position: fixed !important;
-    inset: 0 !important;
+    overflow: auto !important;
+    position: relative !important;
     -webkit-overflow-scrolling: touch;
   }
 

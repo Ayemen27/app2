@@ -2612,7 +2612,9 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     try {
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      // بحث غير حساس لحالة الأحرف (case-insensitive)
+      const normalizedEmail = email.toLowerCase().trim();
+      const [user] = await db.select().from(users).where(sql`LOWER(${users.email}) = ${normalizedEmail}`);
       return user || undefined;
     } catch (error) {
       console.error('Error getting user by email:', error);

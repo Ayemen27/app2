@@ -496,15 +496,18 @@ export async function sendPasswordResetEmail(
   userAgent?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('🔑 [EmailService] بدء إرسال رابط استرجاع كلمة المرور للبريد:', email);
+    // تحويل البريد إلى حروف صغيرة للبحث (case-insensitive)
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log('🔑 [EmailService] بدء إرسال رابط استرجاع كلمة المرور للبريد:', normalizedEmail);
 
-    // البحث عن المستخدم
+    // البحث عن المستخدم (بدون حساسية لحالة الأحرف)
     const userResult = await db.select()
       .from(users)
-      .where(eq(users.email, email))
+      .where(sql`LOWER(${users.email}) = ${normalizedEmail}`)
       .limit(1);
 
     if (userResult.length === 0) {
+      console.log('⚠️ [EmailService] المستخدم غير موجود:', normalizedEmail);
       // لأغراض الأمان، نرسل نفس الرسالة حتى لو لم يوجد المستخدم
       return {
         success: true,
@@ -513,19 +516,24 @@ export async function sendPasswordResetEmail(
     }
 
     const user = userResult[0];
+    console.log('✅ [EmailService] تم العثور على المستخدم:', user.id);
 
     // التحقق من إعداد البريد الإلكتروني
+    console.log('🔧 [EmailService] التحقق من إعداد SMTP...');
     const isConfigValid = await verifyEmailConfiguration();
     if (!isConfigValid) {
+      console.error('❌ [EmailService] فشل التحقق من إعداد SMTP');
       return {
         success: false,
         message: 'خطأ في إعداد خدمة البريد الإلكتروني'
       };
     }
+    console.log('✅ [EmailService] إعداد SMTP صحيح');
 
     // حذف رموز الاسترجاع القديمة للمستخدم
     await db.delete(passwordResetTokens)
       .where(eq(passwordResetTokens.userId, user.id));
+    console.log('🗑️ [EmailService] تم حذف رموز الاسترجاع القديمة');
 
     // إنشاء رمز استرجاع جديد
     const resetToken = generateSecureToken();
@@ -550,13 +558,17 @@ export async function sendPasswordResetEmail(
       ipAddress,
       userAgent
     });
+    console.log('💾 [EmailService] تم حفظ رمز الاسترجاع في قاعدة البيانات');
 
     // إرسال البريد الإلكتروني
+    console.log('📧 [EmailService] بدء إرسال البريد الفعلي...');
     const transporter = getEmailTransporter();
     const emailTemplate = emailTemplates.passwordReset(resetLink, email);
 
     const cleanEmail = process.env.SMTP_USER?.trim().replace(/\s+/g, '') || '';
-    await transporter.sendMail({
+    console.log('📧 [EmailService] المرسل:', cleanEmail, '→ المستلم:', email);
+    
+    const sendResult = await transporter.sendMail({
       from: `"نظام إدارة المشاريع" <${cleanEmail}>`,
       to: email,
       subject: emailTemplate.subject,
@@ -564,15 +576,29 @@ export async function sendPasswordResetEmail(
       text: emailTemplate.text
     });
 
+    console.log('📬 [EmailService] نتيجة الإرسال:', {
+      messageId: sendResult.messageId,
+      accepted: sendResult.accepted,
+      rejected: sendResult.rejected,
+      response: sendResult.response
+    });
+
     console.log('✅ [EmailService] تم إرسال رابط استرجاع كلمة المرور بنجاح إلى:', email);
 
     return {
       success: true,
-      message: 'إذا كان البريد الإلكتروني مسجل في النظام، ستحصل على رابط استرجاع كلمة المرور'
+      message: 'تم إرسال رابط استرجاع كلمة المرور إلى بريدك الإلكتروني'
     };
 
-  } catch (error) {
-    console.error('❌ [EmailService] فشل في إرسال رابط استرجاع كلمة المرور:', error);
+  } catch (error: any) {
+    console.error('❌ [EmailService] فشل في إرسال رابط استرجاع كلمة المرور:', {
+      message: error?.message,
+      code: error?.code,
+      command: error?.command,
+      responseCode: error?.responseCode,
+      response: error?.response,
+      stack: error?.stack?.substring(0, 500)
+    });
     return {
       success: false,
       message: 'فشل في إرسال رابط الاسترجاع. يرجى المحاولة لاحقاً'

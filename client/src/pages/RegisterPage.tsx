@@ -78,6 +78,7 @@ export default function RegisterPage() {
 
           <div className="text-center mb-4">
             <p className="text-sm font-bold text-gray-600">قم بإنشاء حسابك</p>
+            <p className="text-sm font-bold text-gray-600">في محفظة فلوسك</p>
           </div>
 
           {/* Form */}
@@ -88,12 +89,13 @@ export default function RegisterPage() {
                 name="fullName"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
+                    <div className="bg-[#EAECEF] rounded-xl h-14 flex flex-col justify-center px-4 relative">
+                      <span className="text-[10px] text-gray-500 font-bold text-right absolute top-2 right-4">اسمك الرباعي</span>
                       <FormControl>
                         <Input 
                           {...field} 
-                          placeholder="اسمك الرباعي"
-                          className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent shadow-none ring-0"
+                          placeholder="عمار محمد"
+                          className="border-none p-0 h-8 text-lg font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-400 bg-transparent shadow-none ring-0 mt-3"
                         />
                       </FormControl>
                     </div>
@@ -105,42 +107,35 @@ export default function RegisterPage() {
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                  <FormItem>
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          type="email"
-                          placeholder="البريد الإلكتروني"
-                          className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent shadow-none ring-0"
-                        />
-                      </FormControl>
-                      <Mail className="w-5 h-5 text-[#006699] mr-2" />
-                    </div>
+                  <FormItem className="hidden">
+                    <Input {...field} />
                   </FormItem>
                 )}
               />
 
               <div className="grid grid-cols-[100px_1fr] gap-2">
-                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-2 justify-between">
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-bold text-gray-800" dir="ltr">+967</span>
-                    <img src="https://flagcdn.com/w20/ye.png" alt="YE" className="w-5 h-auto rounded-sm" />
+                 <div className="bg-[#EAECEF] rounded-xl h-14 flex items-center px-2 justify-between">
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                    <span className="text-lg font-bold text-gray-800" dir="ltr">+967</span>
+                    <img src="https://flagcdn.com/w20/ye.png" alt="YE" className="w-6 h-auto rounded-sm" />
                  </div>
                  <FormField
                   control={form.control}
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            placeholder="أدخل رقم الهاتف"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent shadow-none ring-0"
-                          />
-                        </FormControl>
-                        <Smartphone className="w-5 h-5 text-[#006699] mr-2" />
+                      <div className="bg-[#EAECEF] rounded-xl h-14 flex flex-col justify-center px-4 relative">
+                        <span className="text-[10px] text-gray-500 font-bold text-right absolute top-2 right-4">أدخل رقم الهاتف</span>
+                        <div className="flex items-center justify-between mt-3">
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="772293228"
+                              className="border-none p-0 h-8 text-lg font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-400 bg-transparent shadow-none ring-0 flex-1"
+                            />
+                          </FormControl>
+                          <Smartphone className="w-6 h-6 text-[#006699] mr-2 p-1 border-2 border-[#006699] rounded-md" />
+                        </div>
                       </div>
                     </FormItem>
                   )}
@@ -150,35 +145,39 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-2">
                 <FormField
                   control={form.control}
-                  name="birthPlace"
+                  name="birthDate"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            placeholder="مكان الميلاد"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent shadow-none ring-0"
-                          />
-                        </FormControl>
+                      <div className="bg-[#EAECEF] rounded-xl h-14 flex flex-col justify-center px-4 relative">
+                        <span className="text-[10px] text-gray-500 font-bold text-right absolute top-2 right-4">تاريخ الميلاد</span>
+                        <div className="flex items-center justify-between mt-3">
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="1999-12-04"
+                              className="border-none p-0 h-8 text-lg font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-400 bg-transparent shadow-none ring-0 flex-1"
+                            />
+                          </FormControl>
+                          <Calendar className="w-5 h-5 text-[#006699] mr-2" />
+                        </div>
                       </div>
                     </FormItem>
                   )}
                 />
                 <FormField
                   control={form.control}
-                  name="birthDate"
+                  name="birthPlace"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
+                      <div className="bg-[#EAECEF] rounded-xl h-14 flex flex-col justify-center px-4 relative">
+                        <span className="text-[10px] text-gray-500 font-bold text-right absolute top-2 right-4">مكان الميلاد</span>
                         <FormControl>
                           <Input 
                             {...field} 
-                            placeholder="تاريخ الميلاد"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent shadow-none ring-0"
+                            placeholder="صنعاء"
+                            className="border-none p-0 h-8 text-lg font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-400 bg-transparent shadow-none ring-0 mt-3"
                           />
                         </FormControl>
-                        <Calendar className="w-4 h-4 text-[#006699] mr-2" />
                       </div>
                     </FormItem>
                   )}
@@ -190,30 +189,30 @@ export default function RegisterPage() {
                 name="gender"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4 justify-between">
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    <div className="bg-[#EAECEF] rounded-xl h-14 flex items-center px-4 justify-between relative">
+                      <ChevronDown className="w-5 h-5 text-gray-500" />
                       <div className="flex items-center gap-2">
                         <div className="flex flex-col items-end">
-                           <span className="text-[8px] text-gray-400">الجنس</span>
-                           <span className="text-sm font-bold text-gray-800">ذكر</span>
+                           <span className="text-[10px] text-gray-500 font-bold absolute top-2 right-12">الجنس</span>
+                           <span className="text-lg font-bold text-gray-800 mt-3">ذكر</span>
                         </div>
-                        <User className="w-5 h-5 text-[#006699]" />
+                        <User className="w-6 h-6 text-red-600" />
                       </div>
                     </div>
                   </FormItem>
                 )}
               />
 
-              <div className="flex items-center justify-center gap-2 py-2">
-                <Checkbox id="terms" className="rounded-sm border-gray-300" />
-                <label htmlFor="terms" className="text-[11px] font-bold text-gray-600">
+              <div className="flex items-center justify-start gap-2 py-2 px-1">
+                <Checkbox id="terms" className="rounded-md border-gray-400 w-5 h-5 data-[state=checked]:bg-[#006699]" />
+                <label htmlFor="terms" className="text-[13px] font-bold text-gray-800">
                   أوافق على <span className="text-[#006699] underline">الشروط والأحكام</span>
                 </label>
               </div>
 
               <Button 
                 type="button" 
-                className="w-full h-12 bg-[#006699] hover:bg-[#005580] text-white text-lg font-bold rounded-xl shadow-md border-none"
+                className="w-full h-14 bg-[#006699] hover:bg-[#005580] text-white text-xl font-bold rounded-xl shadow-lg border-none active:scale-[0.98] transition-all"
               >
                 إنشاء حساب
               </Button>
@@ -222,9 +221,9 @@ export default function RegisterPage() {
                 <button 
                   type="button"
                   onClick={() => navigate('/login')}
-                  className="text-xs font-bold text-gray-600"
+                  className="text-sm font-bold text-gray-600"
                 >
-                  لديك حساب؟ <span className="text-[#C8102E]">تسجيل الدخول</span>
+                  لديك حساب؟ <span className="text-red-600">تسجيل الدخول</span>
                 </button>
               </div>
             </form>

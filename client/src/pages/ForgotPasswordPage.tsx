@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
+import { useToast } from "../hooks/use-toast";
 import {
   Form,
   FormControl,
@@ -28,6 +29,7 @@ type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
 export default function ForgotPasswordPage() {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [isSuccess, setIsSuccess] = useState(false);
 
   const form = useForm<ForgotPasswordFormData>({
@@ -52,6 +54,17 @@ export default function ForgotPasswordPage() {
     },
     onSuccess: () => {
       setIsSuccess(true);
+      toast({
+        title: "تم إرسال الرابط",
+        description: "يرجى التحقق من بريدك الإلكتروني لاستكمال استعادة كلمة المرور",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "فشل إرسال الرابط",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 

@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "../components/AuthProvider";
+import { useToast } from "../hooks/use-toast";
 import {
   Form,
   FormControl,
@@ -55,6 +56,7 @@ const AppLogo = () => (
 
 export default function LoginPage() {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const { login } = useAuth();
   const [loginMode, setLoginMode] = useState<'online' | 'offline'>('online');
   const [showPassword, setShowPassword] = useState(false);
@@ -72,7 +74,20 @@ export default function LoginPage() {
     mutationFn: async (data: LoginFormData) => {
       return await login(data.email, data.password);
     },
-    onSuccess: () => navigate("/"),
+    onSuccess: () => {
+      toast({
+        title: "تم تسجيل الدخول",
+        description: "مرحباً بك في نظام فلوسك",
+      });
+      navigate("/");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "فشل تسجيل الدخول",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   return (

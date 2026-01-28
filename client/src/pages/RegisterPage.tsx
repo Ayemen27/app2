@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
+import { useToast } from "../hooks/use-toast";
 import {
   Form,
   FormControl,
@@ -74,6 +75,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -118,7 +120,18 @@ export default function RegisterPage() {
       return response.json();
     },
     onSuccess: () => {
+      toast({
+        title: "تم إنشاء الحساب",
+        description: "يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب",
+      });
       navigate("/login");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "فشل إنشاء الحساب",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 

@@ -31,7 +31,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       console.log('❌ [AUTH] بيانات ناقصة - البريد أو كلمة المرور مفقودة');
       return res.status(400).json({
         success: false,
-        message: 'البريد الإلكتروني وكلمة المرور مطلوبان'
+        message: 'يرجى إدخال البريد الإلكتروني وكلمة المرور للمتابعة.'
       });
     }
 
@@ -100,7 +100,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       console.log('❌ [AUTH] المستخدم غير موجود:', email);
       return res.status(401).json({
         success: false,
-        message: 'بيانات تسجيل الدخول غير صحيحة'
+        message: 'عذراً، البريد الإلكتروني أو كلمة المرور التي أدخلتها غير صحيحة. يرجى التأكد والمحاولة مرة أخرى.'
       });
     }
 
@@ -261,7 +261,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       console.log('❌ [AUTH] المستخدم موجود مسبقاً:', email);
       return res.status(409).json({
         success: false,
-        message: 'المستخدم موجود بالفعل بهذا البريد الإلكتروني'
+        message: 'البريد الإلكتروني الذي أدخلته مسجل مسبقاً في النظام. يرجى تسجيل الدخول أو استخدام خيار استعادة كلمة المرور.'
       });
     }
 

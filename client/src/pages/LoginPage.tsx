@@ -163,10 +163,11 @@ export default function LoginPage() {
                             autoComplete="off"
                             placeholder="أدخل رقم الهاتف"
                             className="border-none p-0 h-5 text-base font-bold text-gray-800 focus-visible:ring-0 placeholder:text-gray-200 text-right bg-transparent"
+                            data-testid="input-email"
                           />
                         </FormControl>
                       </div>
-                      <button type="button" onClick={() => setShowAccountMessage(true)} className="flex items-center justify-center ml-2 text-gray-300">
+                      <button type="button" onClick={() => setShowAccountMessage(true)} className="flex items-center justify-center ml-2 text-gray-300" data-testid="button-switch-account">
                         <Users className="w-5 h-5" strokeWidth={1.5} />
                       </button>
                     </div>
@@ -189,6 +190,7 @@ export default function LoginPage() {
                             autoComplete="off"
                             placeholder="كلمة المرور"
                             className="border-none p-0 h-5 text-base font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-200 bg-transparent"
+                            data-testid="input-password"
                           />
                         </FormControl>
                       </div>
@@ -196,6 +198,7 @@ export default function LoginPage() {
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         className="flex items-center justify-center ml-2 transition-colors"
+                        data-testid="button-toggle-password"
                       >
                         <div className="relative flex items-center justify-center">
                           <EyeOff className={`w-5 h-5 ${showPassword ? 'hidden' : 'text-[#006699]'}`} />
@@ -209,7 +212,7 @@ export default function LoginPage() {
               />
 
               <div className="flex justify-start px-1">
-                <button type="button" onClick={() => navigate('/forgot-password')} className="text-[10px] font-bold text-gray-400">هل نسيت كلمة المرور؟</button>
+                <button type="button" onClick={() => navigate('/forgot-password')} className="text-[10px] font-bold text-gray-400" data-testid="link-forgot-password">هل نسيت كلمة المرور؟</button>
               </div>
 
               <div className="space-y-1.5 pt-1">
@@ -217,6 +220,7 @@ export default function LoginPage() {
                   type="submit" 
                   className="w-full h-11 bg-[#006699] hover:bg-[#005580] text-white text-base font-bold rounded-xl shadow-md transition-all active:scale-[0.98] border-none"
                   disabled={loginMutation.isPending}
+                  data-testid="button-login"
                 >
                   {loginMutation.isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "تسجيل الدخول"}
                 </Button>
@@ -226,6 +230,7 @@ export default function LoginPage() {
                   variant="ghost"
                   className="w-full h-9 text-[#006699] text-sm font-bold rounded-xl hover:bg-transparent"
                   onClick={() => navigate('/register')}
+                  data-testid="button-create-account"
                 >
                   إنشاء حساب جديد
                 </Button>
@@ -236,13 +241,35 @@ export default function LoginPage() {
 
         {/* Footer - Compact */}
         <div className="flex flex-col items-center gap-2 pb-2 relative">
-          <button className="relative w-12 h-12 flex items-center justify-center transition-all active:scale-90 bg-white rounded-full shadow-md border border-gray-50">
+          <button 
+            type="button"
+            onClick={() => {
+              // Biometric authentication placeholder
+              // Note: Full biometric auth requires native mobile APIs (e.g., Capacitor Biometric plugin)
+              alert('تسجيل الدخول بالبصمة غير متوفر حالياً. هذه الميزة تتطلب تطبيق الهاتف المحمول.');
+            }}
+            className="relative w-12 h-12 flex items-center justify-center transition-all active:scale-90 bg-white rounded-full shadow-md border border-gray-50"
+            data-testid="button-fingerprint"
+          >
              <Fingerprint className="w-8 h-8 text-[#006699]" strokeWidth={1} />
           </button>
 
           <div className="flex gap-4">
-            {[Scan, Smartphone, HeadphonesIcon].map((Icon, idx) => (
-              <button key={idx} className="w-10 h-10 bg-white rounded-xl shadow-sm border border-gray-50 flex items-center justify-center text-gray-300">
+            {[
+              { Icon: Scan, label: 'مسح QR', testId: 'button-scan-qr' },
+              { Icon: Smartphone, label: 'تطبيق الهاتف', testId: 'button-mobile-app' },
+              { Icon: HeadphonesIcon, label: 'الدعم الفني', testId: 'button-support' }
+            ].map(({ Icon, label, testId }, idx) => (
+              <button 
+                key={idx} 
+                type="button"
+                onClick={() => {
+                  // Placeholder handlers for footer actions
+                  alert(`${label} - قريباً`);
+                }}
+                className="w-10 h-10 bg-white rounded-xl shadow-sm border border-gray-50 flex items-center justify-center text-gray-300"
+                data-testid={testId}
+              >
                 <Icon className="w-5 h-5" />
               </button>
             ))}

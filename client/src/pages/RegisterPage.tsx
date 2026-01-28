@@ -158,6 +158,7 @@ export default function RegisterPage() {
                           {...field} 
                           placeholder="اسمك الرباعي"
                           className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                          data-testid="input-fullname"
                         />
                       </FormControl>
                     </div>
@@ -182,6 +183,7 @@ export default function RegisterPage() {
                           type="email"
                           placeholder="البريد الإلكتروني"
                           className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                          data-testid="input-email"
                         />
                       </FormControl>
                       <Mail className="w-5 h-5 text-[#006699] mr-2" />
@@ -246,6 +248,7 @@ export default function RegisterPage() {
                             {...field} 
                             placeholder="أدخل رقم الهاتف"
                             className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                            data-testid="input-phone"
                           />
                         </FormControl>
                         <Smartphone className="w-5 h-5 text-[#006699] mr-2" />
@@ -274,6 +277,7 @@ export default function RegisterPage() {
                             placeholder="كلمة المرور"
                             className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
                             showValidation={false}
+                            data-testid="input-password"
                           />
                         </FormControl>
                         <Lock className="w-5 h-5 text-[#006699] mr-1" />
@@ -299,6 +303,7 @@ export default function RegisterPage() {
                             placeholder="تأكيد الكلمة"
                             className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
                             showValidation={false}
+                            data-testid="input-confirm-password"
                           />
                         </FormControl>
                         <Lock className="w-5 h-5 text-[#006699] mr-1" />
@@ -438,6 +443,7 @@ export default function RegisterPage() {
                 type="submit" 
                 className="w-full h-12 bg-[#006699] hover:bg-[#005580] text-white text-lg font-bold rounded-xl shadow-md border-none transition-all active:scale-95"
                 disabled={registerMutation.isPending}
+                data-testid="button-register"
               >
                 {registerMutation.isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "إنشاء حساب"}
               </Button>
@@ -447,6 +453,7 @@ export default function RegisterPage() {
                   type="button"
                   onClick={() => navigate('/login')}
                   className="text-xs font-bold text-gray-600"
+                  data-testid="link-login"
                 >
                   لديك حساب؟ <span className="text-[#C8102E]">تسجيل الدخول</span>
                 </button>

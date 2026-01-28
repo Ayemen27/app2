@@ -178,12 +178,18 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       message: 'تم تسجيل الدخول بنجاح',
       token: tokenPair.accessToken, // الحقل الأساسي الذي يتوقعه الأندرويد عادة
       accessToken: tokenPair.accessToken,
+      access_token: tokenPair.accessToken, // التنسيق القياسي لبعض مكتبات الأندرويد
       refreshToken: tokenPair.refreshToken,
+      refresh_token: tokenPair.refreshToken, // التنسيق القياسي لبعض مكتبات الأندرويد
       tokens: {
         accessToken: tokenPair.accessToken,
-        refreshToken: tokenPair.refreshToken
+        access_token: tokenPair.accessToken,
+        refreshToken: tokenPair.refreshToken,
+        refresh_token: tokenPair.refreshToken
       },
       expiresIn: 900,
+      expires_in: 900,
+      token_type: "Bearer",
       // بيانات المستخدم المسطحة لضمان التوافق مع الأندرويد
       userId: user.id,
       email: user.email,
@@ -199,6 +205,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       data: {
         token: tokenPair.accessToken,
         accessToken: tokenPair.accessToken,
+        access_token: tokenPair.accessToken,
         user: {
           id: user.id,
           email: user.email,

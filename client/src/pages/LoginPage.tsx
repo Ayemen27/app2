@@ -24,11 +24,14 @@ import {
   HeadphonesIcon,
   HelpCircle,
   Scan,
-  MoreHorizontal
+  MoreHorizontal,
+  Mail,
+  Users,
+  X
 } from "lucide-react";
 
 const loginSchema = z.object({
-  phone: z.string().min(9, "رقم الهاتف يجب أن يكون 9 أرقام على الأقل"),
+  email: z.string().email("البريد الإلكتروني غير صحيح"),
   password: z.string().min(1, "كلمة المرور مطلوبة"),
 });
 
@@ -59,14 +62,14 @@ export default function LoginPage() {
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      phone: "772293228",
+      email: "example@floosak.com",
       password: "",
     },
   });
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
-      return await login(data.phone, data.password);
+      return await login(data.email, data.password);
     },
     onSuccess: () => navigate("/"),
   });
@@ -146,22 +149,23 @@ export default function LoginPage() {
             <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-2">
               <FormField
                 control={form.control}
-                name="phone"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-16 flex items-center px-4 group">
                       <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[10px] text-gray-400 font-bold text-right">أدخل رقم الهاتف</span>
+                        <span className="text-[10px] text-gray-400 font-bold text-right">أدخل البريد الإلكتروني</span>
                         <FormControl>
                           <Input 
                             {...field} 
-                            placeholder="772293228"
+                            type="email"
+                            placeholder="example@floosak.com"
                             className="border-none p-0 h-6 text-lg font-bold text-gray-800 focus-visible:ring-0 placeholder:text-gray-200 text-right"
                           />
                         </FormControl>
                       </div>
                       <div className="flex items-center justify-center ml-2 text-gray-300">
-                        <Smartphone className="w-5 h-5" strokeWidth={1.5} />
+                        <Mail className="w-5 h-5" strokeWidth={1.5} />
                       </div>
                     </div>
                   </FormItem>
@@ -188,9 +192,16 @@ export default function LoginPage() {
                       <button 
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="flex items-center justify-center ml-2 text-gray-300"
+                        className="flex items-center justify-center ml-2 transition-colors"
                       >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        {showPassword ? (
+                          <EyeOff className="w-5 h-5 text-red-500" />
+                        ) : (
+                          <div className="relative">
+                            <Eye className="w-5 h-5 text-[#006699]" />
+                            <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white" />
+                          </div>
+                        )}
                       </button>
                     </div>
                   </FormItem>
@@ -224,7 +235,17 @@ export default function LoginPage() {
         </div>
 
         {/* Footer - Compact */}
-        <div className="flex flex-col items-center gap-3 pb-2">
+        <div className="flex flex-col items-center gap-3 pb-2 relative">
+          {/* Notification Message */}
+          <div className="w-full px-2 animate-in fade-in slide-in-from-bottom-2 duration-300 mb-2">
+            <div className="bg-[#006699] h-10 rounded-xl flex items-center justify-between px-4 shadow-lg border border-white/20">
+              <span className="text-white text-[11px] font-bold">لا توجد لديك حسابات أخرى لتغييرها</span>
+              <button className="w-5 h-5 bg-white rounded-full flex items-center justify-center">
+                <X className="w-3 h-3 text-[#006699]" strokeWidth={3} />
+              </button>
+            </div>
+          </div>
+
           <button className="relative w-14 h-14 flex items-center justify-center transition-all active:scale-90 bg-white rounded-full shadow-md border border-gray-50">
              <Fingerprint className="w-10 h-10 text-[#006699]" strokeWidth={1} />
           </button>

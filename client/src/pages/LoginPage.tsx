@@ -122,7 +122,7 @@ export default function LoginPage() {
       <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-4 pt-safe justify-between">
         <div className="flex flex-col flex-1 gap-1">
           {/* Header - Compact */}
-          <div className="flex justify-between items-center mb-1 animate-in slide-in-from-top duration-500 fill-mode-both">
+          <div className="flex justify-between items-center mb-1 animate-in slide-in-from-top duration-500 fill-mode-both" dir="rtl">
             <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full bg-slate-900 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform">
               <div className="flex gap-0.5">
                 <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
@@ -130,7 +130,7 @@ export default function LoginPage() {
                 <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
               </div>
             </Button>
-            <div className="text-right">
+            <div className="text-right flex flex-col items-end">
               <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">مرحباً بعودتك</h2>
               <span className="text-[8px] text-gray-300 dark:text-slate-600 font-bold">WELCOME BACK</span>
             </div>
@@ -204,7 +204,7 @@ export default function LoginPage() {
                             type="text"
                             autoComplete="off"
                             placeholder="username@orax.system"
-                            className="border-none p-0 h-6 text-base font-black text-slate-900 dark:text-white focus-visible:ring-0 placeholder:text-gray-200 dark:placeholder:text-slate-700 text-right bg-transparent"
+                            className="border-none p-0 h-6 text-base font-black text-slate-900 dark:text-white focus-visible:ring-0 placeholder:text-gray-200 dark:placeholder:text-slate-700 text-right bg-transparent shadow-none"
                             data-testid="input-email"
                           />
                         </FormControl>
@@ -231,7 +231,7 @@ export default function LoginPage() {
                             type={showPassword ? "text" : "password"}
                             autoComplete="off"
                             placeholder="••••••••"
-                            className="border-none p-0 h-6 text-base font-black text-slate-900 dark:text-white text-right focus-visible:ring-0 placeholder:text-gray-200 dark:placeholder:text-slate-700 bg-transparent"
+                            className="border-none p-0 h-6 text-base font-black text-slate-900 dark:text-white text-right focus-visible:ring-0 placeholder:text-gray-200 dark:placeholder:text-slate-700 bg-transparent shadow-none"
                             data-testid="input-password"
                             hidePasswordToggle={true}
                           />

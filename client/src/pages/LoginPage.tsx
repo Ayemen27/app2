@@ -151,8 +151,8 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">أوركس</h1>
-              <span className="text-blue-600 dark:text-blue-400 text-[10px] font-black tracking-[0.3em] uppercase block mt-1">ORAX SYSTEM</span>
+              <h1 className="text-2xl font-black text-foreground tracking-tighter leading-none">أوركس</h1>
+              <span className="text-primary text-[10px] font-black tracking-[0.3em] uppercase block mt-1">ORAX SYSTEM</span>
             </div>
           </div>
 
@@ -204,7 +204,7 @@ export default function LoginPage() {
                             type="text"
                             autoComplete="off"
                             placeholder="username@orax.system"
-                            className="border-none p-0 h-6 text-base font-black text-slate-900 dark:text-white focus-visible:ring-0 placeholder:text-gray-200 dark:placeholder:text-slate-700 text-right bg-transparent shadow-none"
+                            className="border-none p-0 h-6 text-base font-black text-foreground focus-visible:ring-0 placeholder:text-muted-foreground/30 text-right bg-transparent shadow-none"
                             data-testid="input-email"
                           />
                         </FormControl>
@@ -231,7 +231,7 @@ export default function LoginPage() {
                             type={showPassword ? "text" : "password"}
                             autoComplete="off"
                             placeholder="••••••••"
-                            className="border-none p-0 h-6 text-base font-black text-slate-900 dark:text-white text-right focus-visible:ring-0 placeholder:text-gray-200 dark:placeholder:text-slate-700 bg-transparent shadow-none"
+                            className="border-none p-0 h-6 text-base font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                             data-testid="input-password"
                             hidePasswordToggle={true}
                           />

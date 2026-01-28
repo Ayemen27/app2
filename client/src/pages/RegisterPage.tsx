@@ -251,19 +251,27 @@ export default function RegisterPage() {
                   name="password"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
+                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4 overflow-visible">
                         <FormControl>
                           <Input 
                             {...field} 
                             type={showPassword ? "text" : "password"}
                             placeholder="كلمة المرور"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
                           />
                         </FormControl>
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="mr-2">
-                          {showPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                        <button 
+                          type="button" 
+                          onClick={() => setShowPassword(!showPassword)} 
+                          className="mr-2 flex items-center justify-center min-w-[24px]"
+                        >
+                          <div className="relative flex items-center justify-center">
+                            <EyeOff className={`w-5 h-5 transition-all ${showPassword ? 'hidden' : 'text-[#006699]'}`} />
+                            <Eye className={`w-5 h-5 transition-all ${showPassword ? 'text-red-500' : 'hidden'}`} />
+                            {!showPassword && <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />}
+                          </div>
                         </button>
-                        <Lock className="w-4 h-4 text-[#006699] mr-1" />
+                        <Lock className="w-5 h-5 text-[#006699] mr-1" />
                       </div>
                       {form.formState.errors.password && (
                         <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
@@ -278,19 +286,27 @@ export default function RegisterPage() {
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
+                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4 overflow-visible">
                         <FormControl>
                           <Input 
                             {...field} 
                             type={showConfirmPassword ? "text" : "password"}
                             placeholder="تأكيد الكلمة"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
                           />
                         </FormControl>
-                        <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="mr-2">
-                          {showConfirmPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                        <button 
+                          type="button" 
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                          className="mr-2 flex items-center justify-center min-w-[24px]"
+                        >
+                          <div className="relative flex items-center justify-center">
+                            <EyeOff className={`w-5 h-5 transition-all ${showConfirmPassword ? 'hidden' : 'text-[#006699]'}`} />
+                            <Eye className={`w-5 h-5 transition-all ${showConfirmPassword ? 'text-red-500' : 'hidden'}`} />
+                            {!showConfirmPassword && <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />}
+                          </div>
                         </button>
-                        <Lock className="w-4 h-4 text-[#006699] mr-1" />
+                        <Lock className="w-5 h-5 text-[#006699] mr-1" />
                       </div>
                       {form.formState.errors.confirmPassword && (
                         <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">

@@ -58,11 +58,12 @@ export default function LoginPage() {
   const { login } = useAuth();
   const [loginMode, setLoginMode] = useState<'online' | 'offline'>('online');
   const [showPassword, setShowPassword] = useState(false);
+  const [showAccountMessage, setShowAccountMessage] = useState(false);
   
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "example@floosak.com",
+      email: "",
       password: "",
     },
   });
@@ -85,46 +86,46 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-4 pt-safe justify-between">
-        <div className="flex flex-col flex-1 gap-2">
+        <div className="flex flex-col flex-1 gap-1">
           {/* Header - Compact */}
           <div className="flex justify-between items-center mb-1">
-            <Button variant="ghost" size="icon" className="w-10 h-10 rounded-full bg-[#006699] flex items-center justify-center shadow-md active:scale-95 group border-2 border-white">
+            <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full bg-[#006699] flex items-center justify-center shadow-md active:scale-95 group border-2 border-white">
               <div className="flex gap-0.5">
                 <div className="w-1 h-1 bg-white rounded-full" />
                 <div className="w-1 h-1 bg-white rounded-full" />
                 <div className="w-1 h-1 bg-white rounded-full" />
               </div>
             </Button>
-            <h2 className="text-sm font-bold text-gray-500">مرحباً بعودتك</h2>
+            <h2 className="text-xs font-bold text-gray-500">مرحباً بعودتك</h2>
           </div>
 
           {/* Logo Section - Scaled Down */}
-          <div className="flex flex-col items-center justify-center mb-2">
+          <div className="flex flex-col items-center justify-center mb-1">
             <div className="relative mb-1">
-              <div className="w-16 h-16 bg-white rounded-[20px] flex items-center justify-center shadow-md border border-gray-50">
-                <div className="w-13 h-13 bg-[#006699] rounded-[16px] flex items-center justify-center">
-                  <ShieldCheck className="w-8 h-8 text-white" strokeWidth={1.5} />
+              <div className="w-14 h-14 bg-white rounded-[18px] flex items-center justify-center shadow-md border border-gray-50">
+                <div className="w-11 h-11 bg-[#006699] rounded-[14px] flex items-center justify-center">
+                  <ShieldCheck className="w-7 h-7 text-white" strokeWidth={1.5} />
                 </div>
               </div>
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-black text-[#006699] tracking-tighter leading-none">فلوسك</h1>
-              <span className="text-[#C8102E] text-[10px] font-bold tracking-[0.3em] uppercase block mt-0.5">Floosak</span>
+              <h1 className="text-xl font-black text-[#006699] tracking-tighter leading-none">فلوسك</h1>
+              <span className="text-[#C8102E] text-[9px] font-bold tracking-[0.2em] uppercase block">Floosak</span>
             </div>
           </div>
 
           {/* Mode Switcher - Compact */}
-          <div className="grid grid-cols-2 gap-2 mb-2">
+          <div className="grid grid-cols-2 gap-2 mb-1">
             <button 
               type="button"
               onClick={() => setLoginMode('offline')}
-              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-14 shadow-sm ${loginMode === 'offline' ? 'bg-[#EBF5FF] border-[#006699]/20' : 'bg-white border-gray-100'}`}
+              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-12 shadow-sm ${loginMode === 'offline' ? 'bg-[#EBF5FF] border-[#006699]/20' : 'bg-white border-gray-100'}`}
             >
               <div className="flex flex-col items-start leading-none">
-                <span className="text-[9px] text-gray-400 font-bold">الدخول</span>
-                <span className={`text-[11px] font-black ${loginMode === 'offline' ? 'text-[#006699]' : 'text-gray-500'}`}>بدون إنترنت</span>
+                <span className="text-[8px] text-gray-400 font-bold">الدخول</span>
+                <span className={`text-[10px] font-black ${loginMode === 'offline' ? 'text-[#006699]' : 'text-gray-500'}`}>بدون إنترنت</span>
               </div>
-              <div className={`p-1.5 rounded-lg ${loginMode === 'offline' ? 'bg-white text-[#006699] border border-blue-50' : 'bg-gray-50 text-gray-400'}`}>
+              <div className={`p-1 rounded-lg ${loginMode === 'offline' ? 'bg-white text-[#006699] border border-blue-50' : 'bg-gray-50 text-gray-400'}`}>
                 <Scan className="w-4 h-4" />
               </div>
             </button>
@@ -132,13 +133,13 @@ export default function LoginPage() {
             <button 
               type="button"
               onClick={() => setLoginMode('online')}
-              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-14 shadow-sm ${loginMode === 'online' ? 'bg-[#EBF5FF] border-[#006699]/20' : 'bg-white border-gray-100'}`}
+              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-12 shadow-sm ${loginMode === 'online' ? 'bg-[#EBF5FF] border-[#006699]/20' : 'bg-white border-gray-100'}`}
             >
               <div className="flex flex-col items-start leading-none">
-                <span className="text-[9px] text-gray-400 font-bold">الدخول</span>
-                <span className={`text-[11px] font-black ${loginMode === 'online' ? 'text-[#006699]' : 'text-gray-500'}`}>بوضع الإنترنت</span>
+                <span className="text-[8px] text-gray-400 font-bold">الدخول</span>
+                <span className={`text-[10px] font-black ${loginMode === 'online' ? 'text-[#006699]' : 'text-gray-500'}`}>بوضع الإنترنت</span>
               </div>
-              <div className={`p-1.5 rounded-lg ${loginMode === 'online' ? 'bg-white text-[#006699] border border-blue-50' : 'bg-gray-50 text-gray-400'}`}>
+              <div className={`p-1 rounded-lg ${loginMode === 'online' ? 'bg-white text-[#006699] border border-blue-50' : 'bg-gray-50 text-gray-400'}`}>
                 <Smartphone className="w-4 h-4" />
               </div>
             </button>
@@ -146,27 +147,28 @@ export default function LoginPage() {
 
           {/* Form - Slim Fields */}
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-2">
+            <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-1.5">
               <FormField
                 control={form.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-16 flex items-center px-4 group">
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-14 flex items-center px-4 group">
                       <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[10px] text-gray-400 font-bold text-right">أدخل البريد الإلكتروني</span>
+                        <span className="text-[9px] text-gray-400 font-bold text-right">أدخل البريد الإلكتروني</span>
                         <FormControl>
                           <Input 
                             {...field} 
-                            type="email"
-                            placeholder="example@floosak.com"
-                            className="border-none p-0 h-6 text-lg font-bold text-gray-800 focus-visible:ring-0 placeholder:text-gray-200 text-right"
+                            type="text"
+                            autoComplete="off"
+                            placeholder="أدخل رقم الهاتف"
+                            className="border-none p-0 h-5 text-base font-bold text-gray-800 focus-visible:ring-0 placeholder:text-gray-200 text-right bg-transparent"
                           />
                         </FormControl>
                       </div>
-                      <div className="flex items-center justify-center ml-2 text-gray-300">
-                        <Mail className="w-5 h-5" strokeWidth={1.5} />
-                      </div>
+                      <button type="button" onClick={() => setShowAccountMessage(true)} className="flex items-center justify-center ml-2 text-gray-300">
+                        <Users className="w-5 h-5" strokeWidth={1.5} />
+                      </button>
                     </div>
                   </FormItem>
                 )}
@@ -177,15 +179,16 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-16 flex items-center px-4 group">
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-14 flex items-center px-4 group">
                       <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[10px] text-gray-400 font-bold text-right">كلمة المرور</span>
+                        <span className="text-[9px] text-gray-400 font-bold text-right">كلمة المرور</span>
                         <FormControl>
                           <Input 
                             {...field} 
                             type={showPassword ? "text" : "password"}
-                            placeholder="••••••••"
-                            className="border-none p-0 h-6 text-lg font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-200"
+                            autoComplete="off"
+                            placeholder="كلمة المرور"
+                            className="border-none p-0 h-5 text-base font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-200 bg-transparent"
                           />
                         </FormControl>
                       </div>
@@ -194,14 +197,11 @@ export default function LoginPage() {
                         onClick={() => setShowPassword(!showPassword)}
                         className="flex items-center justify-center ml-2 transition-colors"
                       >
-                        {showPassword ? (
-                          <EyeOff className="w-5 h-5 text-red-500" />
-                        ) : (
-                          <div className="relative">
-                            <Eye className="w-5 h-5 text-[#006699]" />
-                            <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white" />
-                          </div>
-                        )}
+                        <div className="relative flex items-center justify-center">
+                          <EyeOff className={`w-5 h-5 ${showPassword ? 'hidden' : 'text-[#006699]'}`} />
+                          <Eye className={`w-5 h-5 ${showPassword ? 'text-red-500' : 'hidden'}`} />
+                          {!showPassword && <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />}
+                        </div>
                       </button>
                     </div>
                   </FormItem>
@@ -209,13 +209,13 @@ export default function LoginPage() {
               />
 
               <div className="flex justify-start px-1">
-                <button type="button" className="text-[11px] font-bold text-gray-400">هل نسيت كلمة المرور؟</button>
+                <button type="button" className="text-[10px] font-bold text-gray-400">هل نسيت كلمة المرور؟</button>
               </div>
 
-              <div className="space-y-2 pt-1">
+              <div className="space-y-1.5 pt-1">
                 <Button 
                   type="submit" 
-                  className="w-full h-12 bg-[#006699] hover:bg-[#005580] text-white text-lg font-bold rounded-xl shadow-md transition-all active:scale-[0.98] border-none"
+                  className="w-full h-11 bg-[#006699] hover:bg-[#005580] text-white text-base font-bold rounded-xl shadow-md transition-all active:scale-[0.98] border-none"
                   disabled={loginMutation.isPending}
                 >
                   {loginMutation.isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "تسجيل الدخول"}
@@ -224,7 +224,7 @@ export default function LoginPage() {
                 <Button 
                   type="button"
                   variant="ghost"
-                  className="w-full h-10 text-[#006699] text-base font-bold rounded-xl hover:bg-transparent"
+                  className="w-full h-9 text-[#006699] text-sm font-bold rounded-xl hover:bg-transparent"
                   onClick={() => navigate('/register')}
                 >
                   إنشاء حساب جديد
@@ -234,32 +234,38 @@ export default function LoginPage() {
           </Form>
         </div>
 
-        <div className="flex flex-col items-center gap-3 pb-2 relative">
-          <button className="relative w-14 h-14 flex items-center justify-center transition-all active:scale-90 bg-white rounded-full shadow-md border border-gray-50">
-             <Fingerprint className="w-10 h-10 text-[#006699]" strokeWidth={1} />
+        {/* Footer - Compact */}
+        <div className="flex flex-col items-center gap-2 pb-2 relative">
+          <button className="relative w-12 h-12 flex items-center justify-center transition-all active:scale-90 bg-white rounded-full shadow-md border border-gray-50">
+             <Fingerprint className="w-8 h-8 text-[#006699]" strokeWidth={1} />
           </button>
 
           <div className="flex gap-4">
             {[Scan, Smartphone, HeadphonesIcon].map((Icon, idx) => (
-              <button key={idx} className="w-11 h-11 bg-white rounded-xl shadow-sm border border-gray-50 flex items-center justify-center text-gray-400">
+              <button key={idx} className="w-10 h-10 bg-white rounded-xl shadow-sm border border-gray-50 flex items-center justify-center text-gray-300">
                 <Icon className="w-5 h-5" />
               </button>
             ))}
           </div>
 
-          <div className="w-full flex justify-center text-gray-400 text-[10px] font-bold">
+          <div className="w-full flex justify-center text-gray-400 text-[9px] font-bold">
             <span>الإصدار: 391</span>
           </div>
 
-          {/* Toast/Notification Overlay - Positioned exactly like original */}
-          <div className="absolute bottom-10 left-0 right-0 px-2 pointer-events-none">
-            <div className="bg-[#01689b] h-11 rounded-md flex items-center justify-between px-4 shadow-xl border border-white/10 pointer-events-auto">
-              <span className="text-white text-xs font-medium">لا توجد لديك حسابات أخرى لتغييرها</span>
-              <button className="w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-sm">
-                <X className="w-4 h-4 text-[#01689b]" strokeWidth={3} />
-              </button>
+          {/* Toast Notification Overlay */}
+          {showAccountMessage && (
+            <div className="absolute bottom-8 left-0 right-0 px-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="bg-[#01689b] h-10 rounded-md flex items-center justify-between px-4 shadow-xl border border-white/10">
+                <span className="text-white text-[11px] font-medium">لا توجد لديك حسابات أخرى لتغييرها</span>
+                <button 
+                  onClick={() => setShowAccountMessage(false)}
+                  className="w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm"
+                >
+                  <X className="w-3 h-3 text-[#01689b]" strokeWidth={3} />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

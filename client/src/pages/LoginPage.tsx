@@ -162,7 +162,7 @@ export default function LoginPage() {
                             type="text"
                             autoComplete="off"
                             placeholder="أدخل رقم الهاتف"
-                            className="border-none p-0 h-5 text-base font-bold text-gray-800 focus-visible:ring-0 placeholder:text-gray-200 text-right bg-transparent"
+                            className="border-none p-0 h-5 text-base font-bold text-gray-800 focus-visible:ring-0 placeholder:text-gray-200 text-right bg-transparent shadow-none ring-0"
                           />
                         </FormControl>
                       </div>
@@ -188,7 +188,7 @@ export default function LoginPage() {
                             type={showPassword ? "text" : "password"}
                             autoComplete="off"
                             placeholder="كلمة المرور"
-                            className="border-none p-0 h-5 text-base font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-200 bg-transparent"
+                            className="border-none p-0 h-5 text-base font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-200 bg-transparent shadow-none ring-0"
                           />
                         </FormControl>
                       </div>

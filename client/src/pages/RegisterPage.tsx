@@ -93,7 +93,7 @@ export default function RegisterPage() {
                         <Input 
                           {...field} 
                           placeholder="اسمك الرباعي"
-                          className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                          className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent shadow-none ring-0"
                         />
                       </FormControl>
                     </div>
@@ -112,7 +112,7 @@ export default function RegisterPage() {
                           {...field} 
                           type="email"
                           placeholder="البريد الإلكتروني"
-                          className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                          className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent shadow-none ring-0"
                         />
                       </FormControl>
                       <Mail className="w-5 h-5 text-[#006699] mr-2" />
@@ -137,7 +137,7 @@ export default function RegisterPage() {
                           <Input 
                             {...field} 
                             placeholder="أدخل رقم الهاتف"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent shadow-none ring-0"
                           />
                         </FormControl>
                         <Smartphone className="w-5 h-5 text-[#006699] mr-2" />
@@ -158,7 +158,7 @@ export default function RegisterPage() {
                           <Input 
                             {...field} 
                             placeholder="مكان الميلاد"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent shadow-none ring-0"
                           />
                         </FormControl>
                       </div>
@@ -175,7 +175,7 @@ export default function RegisterPage() {
                           <Input 
                             {...field} 
                             placeholder="تاريخ الميلاد"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
+                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent shadow-none ring-0"
                           />
                         </FormControl>
                         <Calendar className="w-4 h-4 text-[#006699] mr-2" />

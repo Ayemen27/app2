@@ -115,7 +115,7 @@ export default function Header() {
         </div>
         <div className="flex flex-col justify-center">
           <h1 className="text-sm font-bold leading-tight text-slate-900 dark:text-white">{currentPage.title}</h1>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">مشروعي - إدارة المشاريع</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Orax System</p>
         </div>
       </div>
       

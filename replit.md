@@ -1,5 +1,6 @@
-# Project Overview: Industrial Operations Management System
-## Current State (January 26, 2026)
+# Project Overview: Orax Operations Management System
+## Current State (January 28, 2026)
+- **Brand Identity:** Orax (Unified global identity with premium dark/slate theme).
 - **Backend:** Node.js/Express with Drizzle ORM.
 - **Frontend:** React/Vite with Shadcn UI and Tailwind CSS.
 - **Database:** PostgreSQL (Central DB active, Supabase fallback available).

@@ -106,12 +106,12 @@ export default function RegisterPage() {
 
           {/* Form */}
           <Form {...form}>
-            <form className="space-y-2">
+            <form onSubmit={form.handleSubmit((data) => console.log(data))} className="space-y-2">
               <FormField
                 control={form.control}
                 name="fullName"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-1">
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
                       <FormControl>
                         <Input 
@@ -121,6 +121,11 @@ export default function RegisterPage() {
                         />
                       </FormControl>
                     </div>
+                    {form.formState.errors.fullName && (
+                      <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
+                        {form.formState.errors.fullName.message}
+                      </p>
+                    )}
                   </FormItem>
                 )}
               />
@@ -129,7 +134,7 @@ export default function RegisterPage() {
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-1">
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
                       <FormControl>
                         <Input 
@@ -141,6 +146,11 @@ export default function RegisterPage() {
                       </FormControl>
                       <Mail className="w-5 h-5 text-[#006699] mr-2" />
                     </div>
+                    {form.formState.errors.email && (
+                      <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
+                        {form.formState.errors.email.message}
+                      </p>
+                    )}
                   </FormItem>
                 )}
               />
@@ -189,7 +199,7 @@ export default function RegisterPage() {
                   control={form.control}
                   name="phone"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="space-y-1">
                       <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
                         <FormControl>
                           <Input 
@@ -200,6 +210,11 @@ export default function RegisterPage() {
                         </FormControl>
                         <Smartphone className="w-5 h-5 text-[#006699] mr-2" />
                       </div>
+                      {form.formState.errors.phone && (
+                        <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
+                          {form.formState.errors.phone.message}
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />
@@ -210,7 +225,7 @@ export default function RegisterPage() {
                   control={form.control}
                   name="birthPlace"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="space-y-1">
                       <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
                         <FormControl>
                           <Input 
@@ -220,6 +235,11 @@ export default function RegisterPage() {
                           />
                         </FormControl>
                       </div>
+                      {form.formState.errors.birthPlace && (
+                        <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
+                          {form.formState.errors.birthPlace.message}
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />
@@ -227,7 +247,7 @@ export default function RegisterPage() {
                   control={form.control}
                   name="birthDate"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="space-y-1">
                       <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
                         <FormControl>
                           <Input 
@@ -238,6 +258,11 @@ export default function RegisterPage() {
                         </FormControl>
                         <Calendar className="w-4 h-4 text-[#006699] mr-2" />
                       </div>
+                      {form.formState.errors.birthDate && (
+                        <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
+                          {form.formState.errors.birthDate.message}
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />
@@ -247,7 +272,7 @@ export default function RegisterPage() {
                 control={form.control}
                 name="gender"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-1">
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4 justify-between">
                       <ChevronDown className="w-4 h-4 text-gray-400" />
                       <div className="flex items-center gap-2">
@@ -262,16 +287,37 @@ export default function RegisterPage() {
                 )}
               />
 
-              <div className="flex items-center justify-center gap-2 py-2">
-                <Checkbox id="terms" className="rounded-sm border-gray-300" />
-                <label htmlFor="terms" className="text-[11px] font-bold text-gray-600">
-                  أوافق على <span className="text-[#006699] underline">الشروط والأحكام</span>
-                </label>
+              <div className="flex flex-col items-center py-2">
+                <div className="flex items-center justify-center gap-2">
+                  <FormField
+                    control={form.control}
+                    name="terms"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                        <FormControl>
+                          <Checkbox 
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            className="rounded-sm border-gray-300" 
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <label htmlFor="terms" className="text-[11px] font-bold text-gray-600">
+                    أوافق على <span className="text-[#006699] underline">الشروط والأحكام</span>
+                  </label>
+                </div>
+                {form.formState.errors.terms && (
+                  <p className="text-[10px] font-bold text-[#C8102E] mt-1">
+                    {form.formState.errors.terms.message}
+                  </p>
+                )}
               </div>
 
               <Button 
-                type="button" 
-                className="w-full h-12 bg-[#006699] hover:bg-[#005580] text-white text-lg font-bold rounded-xl shadow-md border-none"
+                type="submit" 
+                className="w-full h-12 bg-[#006699] hover:bg-[#005580] text-white text-lg font-bold rounded-xl shadow-md border-none transition-all active:scale-95"
               >
                 إنشاء حساب
               </Button>

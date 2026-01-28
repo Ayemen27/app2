@@ -52,6 +52,18 @@ const countries = [
   { name: "أذربيجان", code: "+994", flag: "https://flagcdn.com/w20/az.png" },
 ];
 
+const registerSchema = z.object({
+  fullName: z.string().min(1, "الاسم الرباعي مطلوب"),
+  email: z.string().email("البريد الإلكتروني غير صحيح"),
+  phone: z.string().min(9, "رقم الهاتف غير صحيح"),
+  birthDate: z.string().min(1, "تاريخ الميلاد مطلوب"),
+  birthPlace: z.string().min(1, "مكان الميلاد مطلوب"),
+  gender: z.string().min(1, "الجنس مطلوب"),
+  terms: z.boolean().refine(v => v === true, "يجب الموافقة على الشروط"),
+});
+
+type RegisterFormData = z.infer<typeof registerSchema>;
+
 export default function RegisterPage() {
   const [, navigate] = useLocation();
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);

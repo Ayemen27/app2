@@ -231,14 +231,14 @@ export default function RegisterPage() {
                       <img src={selectedCountry.flag} alt={selectedCountry.name} className="w-5 h-auto rounded-sm" />
                     </button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-[400px] w-[95%] p-0 rounded-t-3xl sm:rounded-3xl border-border bg-card shadow-2xl overflow-hidden" dir="rtl">
+                  <DialogContent className="max-w-[400px] w-[95%] p-0 rounded-t-3xl sm:rounded-3xl border-border dark:border-slate-800 bg-card dark:bg-slate-900 shadow-2xl overflow-hidden" dir="rtl">
                     <div className="p-4">
                       <div className="relative mb-4">
                         <Input
                           placeholder="بحث"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full h-12 bg-muted/50 border-none rounded-xl text-right pr-10 pl-4 text-sm font-bold focus-visible:ring-0"
+                          className="w-full h-12 bg-muted/50 dark:bg-slate-800/50 border-none rounded-xl text-right pr-10 pl-4 text-sm font-bold focus-visible:ring-0"
                         />
                         <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40" />
                       </div>
@@ -250,7 +250,7 @@ export default function RegisterPage() {
                               setSelectedCountry(country);
                               setIsDialogOpen(false);
                             }}
-                            className="w-full flex items-center justify-between p-3 hover:bg-muted/50 rounded-xl transition-colors mb-1"
+                            className="w-full flex items-center justify-between p-3 hover:bg-muted/50 dark:hover:bg-slate-800/50 rounded-xl transition-colors mb-1"
                           >
                             <img src={country.flag} alt={country.name} className="w-6 h-auto rounded-sm shadow-sm" />
                             <span className="text-sm font-bold text-foreground flex-1 text-right px-4" dir="ltr">{country.code}</span>
@@ -393,9 +393,9 @@ export default function RegisterPage() {
                             </span>
                           </button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-[350px] w-[95%] p-0 rounded-3xl border-border bg-card shadow-2xl overflow-hidden" dir="rtl">
+                        <DialogContent className="max-w-[350px] w-[95%] p-0 rounded-3xl border-border dark:border-slate-800 bg-card dark:bg-slate-900 shadow-2xl overflow-hidden" dir="rtl">
                           <div className="p-4">
-                            <DialogHeader className="pb-4 border-b border-border">
+                            <DialogHeader className="pb-4 border-b border-border dark:border-slate-800">
                               <DialogTitle className="text-center text-lg font-black text-foreground">تاريخ الميلاد</DialogTitle>
                             </DialogHeader>
                             <div className="grid grid-cols-3 gap-2 py-6">
@@ -407,7 +407,7 @@ export default function RegisterPage() {
                                       key={year}
                                       type="button"
                                       onClick={() => setSelectedYear(year)}
-                                      className={`w-full py-2 text-center font-bold transition-colors \${selectedYear === year ? 'bg-primary text-primary-foreground rounded-lg' : 'text-foreground hover:bg-muted'}`}
+                                      className={`w-full py-2 text-center font-bold transition-colors ${selectedYear === year ? 'bg-primary text-primary-foreground rounded-lg' : 'text-foreground hover:bg-muted dark:hover:bg-slate-800'}`}
                                     >
                                       {year}
                                     </button>
@@ -422,7 +422,7 @@ export default function RegisterPage() {
                                       key={month}
                                       type="button"
                                       onClick={() => setSelectedMonth(idx + 1)}
-                                      className={`w-full py-2 text-center font-bold text-sm transition-colors \${selectedMonth === idx + 1 ? 'bg-primary text-primary-foreground rounded-lg' : 'text-foreground hover:bg-muted'}`}
+                                      className={`w-full py-2 text-center font-bold text-sm transition-colors ${selectedMonth === idx + 1 ? 'bg-primary text-primary-foreground rounded-lg' : 'text-foreground hover:bg-muted dark:hover:bg-slate-800'}`}
                                     >
                                       {month}
                                     </button>
@@ -437,7 +437,7 @@ export default function RegisterPage() {
                                       key={day}
                                       type="button"
                                       onClick={() => setSelectedDay(day)}
-                                      className={`w-full py-2 text-center font-bold transition-colors \${selectedDay === day ? 'bg-primary text-primary-foreground rounded-lg' : 'text-foreground hover:bg-muted'}`}
+                                      className={`w-full py-2 text-center font-bold transition-colors ${selectedDay === day ? 'bg-primary text-primary-foreground rounded-lg' : 'text-foreground hover:bg-muted dark:hover:bg-slate-800'}`}
                                     >
                                       {day}
                                     </button>
@@ -447,9 +447,9 @@ export default function RegisterPage() {
                             </div>
                             <Button
                               type="button"
-                              className="w-full"
+                              className="w-full h-12 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black rounded-xl"
                               onClick={() => {
-                                const formattedDate = `\${selectedYear}-\${String(selectedMonth).padStart(2, '0')}-\${String(selectedDay).padStart(2, '0')}`;
+                                const formattedDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
                                 field.onChange(formattedDate);
                                 setIsDateDialogOpen(false);
                               }}

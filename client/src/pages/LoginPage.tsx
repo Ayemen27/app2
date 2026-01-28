@@ -24,14 +24,11 @@ import {
   HeadphonesIcon,
   HelpCircle,
   Scan,
-  MoreHorizontal,
-  Mail,
-  Users,
-  X
+  MoreHorizontal
 } from "lucide-react";
 
 const loginSchema = z.object({
-  email: z.string().email("البريد الإلكتروني غير صحيح"),
+  phone: z.string().min(9, "رقم الهاتف يجب أن يكون 9 أرقام على الأقل"),
   password: z.string().min(1, "كلمة المرور مطلوبة"),
 });
 
@@ -58,220 +55,202 @@ export default function LoginPage() {
   const { login } = useAuth();
   const [loginMode, setLoginMode] = useState<'online' | 'offline'>('online');
   const [showPassword, setShowPassword] = useState(false);
-  const [showAccountMessage, setShowAccountMessage] = useState(false);
   
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      phone: "772293228",
       password: "",
     },
   });
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
-      return await login(data.email, data.password);
+      return await login(data.phone, data.password);
     },
     onSuccess: () => navigate("/"),
   });
 
   return (
-    <div className="h-screen w-full bg-[#F5F7F9] flex flex-col items-center overflow-hidden font-sans select-none relative" dir="rtl">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-[0.05] pointer-events-none z-0" 
-           style={{ 
-             backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%23006699\' fill-opacity=\'0.1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
-             backgroundSize: '35px 35px' 
-           }}>
+    <div className="h-screen w-full bg-[#F2F5F8] flex flex-col items-center overflow-hidden font-sans select-none relative" dir="rtl">
+      {/* Premium Background Elements */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none z-0" 
+           style={{ backgroundImage: 'radial-gradient(#006699 1px, transparent 1px)', backgroundSize: '30px 30px' }}>
       </div>
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[30%] bg-[#006699]/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[30%] bg-[#C8102E]/5 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-4 pt-safe justify-between">
-        <div className="flex flex-col flex-1 gap-1">
-          {/* Header - Compact */}
-          <div className="flex justify-between items-center mb-1">
-            <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full bg-[#006699] flex items-center justify-center shadow-md active:scale-95 group border-2 border-white">
-              <div className="flex gap-0.5">
-                <div className="w-1 h-1 bg-white rounded-full" />
-                <div className="w-1 h-1 bg-white rounded-full" />
-                <div className="w-1 h-1 bg-white rounded-full" />
-              </div>
-            </Button>
-            <h2 className="text-xs font-bold text-gray-500">مرحباً بعودتك</h2>
+      <div className="w-full max-w-[420px] h-full z-10 flex flex-col p-6 pt-safe">
+        {/* Navigation Header */}
+        <div className="flex justify-between items-center mb-6">
+          <Button variant="ghost" size="icon" className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-100 flex items-center justify-center hover:bg-gray-50 transition-all active:scale-95 group">
+            <MoreHorizontal className="w-6 h-6 text-gray-400 group-hover:text-[#006699]" />
+          </Button>
+          <div className="text-right">
+            <h2 className="text-xl font-black text-gray-800 leading-tight">مرحباً بعودتك</h2>
           </div>
-
-          {/* Logo Section - Scaled Down */}
-          <div className="flex flex-col items-center justify-center mb-1">
-            <div className="relative mb-1">
-              <div className="w-14 h-14 bg-white rounded-[18px] flex items-center justify-center shadow-md border border-gray-50">
-                <div className="w-11 h-11 bg-[#006699] rounded-[14px] flex items-center justify-center">
-                  <ShieldCheck className="w-7 h-7 text-white" strokeWidth={1.5} />
-                </div>
-              </div>
-            </div>
-            <div className="text-center">
-              <h1 className="text-xl font-black text-[#006699] tracking-tighter leading-none">فلوسك</h1>
-              <span className="text-[#C8102E] text-[9px] font-bold tracking-[0.2em] uppercase block">Floosak</span>
-            </div>
-          </div>
-
-          {/* Mode Switcher - Compact */}
-          <div className="grid grid-cols-2 gap-2 mb-1">
-            <button 
-              type="button"
-              onClick={() => setLoginMode('offline')}
-              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-12 shadow-sm ${loginMode === 'offline' ? 'bg-[#EBF5FF] border-[#006699]/20' : 'bg-white border-gray-100'}`}
-            >
-              <div className="flex flex-col items-start leading-none">
-                <span className="text-[8px] text-gray-400 font-bold">الدخول</span>
-                <span className={`text-[10px] font-black ${loginMode === 'offline' ? 'text-[#006699]' : 'text-gray-500'}`}>بدون إنترنت</span>
-              </div>
-              <div className={`p-1 rounded-lg ${loginMode === 'offline' ? 'bg-white text-[#006699] border border-blue-50' : 'bg-gray-50 text-gray-400'}`}>
-                <Scan className="w-4 h-4" />
-              </div>
-            </button>
-
-            <button 
-              type="button"
-              onClick={() => setLoginMode('online')}
-              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-12 shadow-sm ${loginMode === 'online' ? 'bg-[#EBF5FF] border-[#006699]/20' : 'bg-white border-gray-100'}`}
-            >
-              <div className="flex flex-col items-start leading-none">
-                <span className="text-[8px] text-gray-400 font-bold">الدخول</span>
-                <span className={`text-[10px] font-black ${loginMode === 'online' ? 'text-[#006699]' : 'text-gray-500'}`}>بوضع الإنترنت</span>
-              </div>
-              <div className={`p-1 rounded-lg ${loginMode === 'online' ? 'bg-white text-[#006699] border border-blue-50' : 'bg-gray-50 text-gray-400'}`}>
-                <Smartphone className="w-4 h-4" />
-              </div>
-            </button>
-          </div>
-
-          {/* Form - Slim Fields */}
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-1.5">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-14 flex items-center px-4 group">
-                      <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[9px] text-gray-400 font-bold text-right">أدخل البريد الإلكتروني</span>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            type="text"
-                            autoComplete="off"
-                            placeholder="أدخل رقم الهاتف"
-                            className="border-none p-0 h-5 text-base font-bold text-gray-800 focus-visible:ring-0 placeholder:text-gray-200 text-right bg-transparent shadow-none ring-0"
-                          />
-                        </FormControl>
-                      </div>
-                      <button type="button" onClick={() => setShowAccountMessage(true)} className="flex items-center justify-center ml-2 text-gray-300">
-                        <Users className="w-5 h-5" strokeWidth={1.5} />
-                      </button>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-14 flex items-center px-4 group">
-                      <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[9px] text-gray-400 font-bold text-right">كلمة المرور</span>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            type={showPassword ? "text" : "password"}
-                            autoComplete="off"
-                            placeholder="كلمة المرور"
-                            className="border-none p-0 h-5 text-base font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-200 bg-transparent shadow-none ring-0"
-                          />
-                        </FormControl>
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="flex items-center justify-center ml-2 transition-colors"
-                      >
-                        <div className="relative flex items-center justify-center">
-                          <EyeOff className={`w-5 h-5 ${showPassword ? 'hidden' : 'text-[#006699]'}`} />
-                          <Eye className={`w-5 h-5 ${showPassword ? 'text-red-500' : 'hidden'}`} />
-                          {!showPassword && <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />}
-                        </div>
-                      </button>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex justify-start px-1">
-                <button type="button" className="text-[10px] font-bold text-gray-400">هل نسيت كلمة المرور؟</button>
-              </div>
-
-              <div className="space-y-1.5 pt-1">
-                <Button 
-                  type="submit" 
-                  className="w-full h-11 bg-[#006699] hover:bg-[#005580] text-white text-base font-bold rounded-xl shadow-md transition-all active:scale-[0.98] border-none"
-                  disabled={loginMutation.isPending}
-                >
-                  {loginMutation.isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "تسجيل الدخول"}
-                </Button>
-
-                <Button 
-                  type="button"
-                  variant="ghost"
-                  className="w-full h-9 text-[#006699] text-sm font-bold rounded-xl hover:bg-transparent"
-                  onClick={() => navigate('/register')}
-                >
-                  إنشاء حساب جديد
-                </Button>
-              </div>
-            </form>
-          </Form>
         </div>
 
-        {/* Footer - Compact */}
-        <div className="flex flex-col items-center gap-2 pb-2 relative">
-          <button className="relative w-12 h-12 flex items-center justify-center transition-all active:scale-90 bg-white rounded-full shadow-md border border-gray-50">
-             <Fingerprint className="w-8 h-8 text-[#006699]" strokeWidth={1} />
+        {/* Brand Logo */}
+        <AppLogo />
+
+        {/* Connectivity Switcher */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <button 
+            type="button"
+            onClick={() => setLoginMode('online')}
+            className={`flex flex-col items-center justify-center p-3 rounded-[24px] border-2 transition-all h-24 relative overflow-hidden group shadow-sm ${loginMode === 'online' ? 'bg-[#EBF5FF] border-[#006699]/20 ring-4 ring-[#006699]/5' : 'bg-white border-transparent'}`}
+          >
+            <div className={`p-2.5 rounded-2xl mb-1.5 transition-colors ${loginMode === 'online' ? 'bg-[#006699] text-white shadow-lg shadow-blue-900/20' : 'bg-gray-50 text-gray-400'}`}>
+              <Smartphone className="w-6 h-6" />
+            </div>
+            <div className="flex flex-col items-center">
+              <span className={`text-[11px] font-bold ${loginMode === 'online' ? 'text-[#006699]' : 'text-gray-400'}`}>الدخول</span>
+              <span className={`text-xs font-black ${loginMode === 'online' ? 'text-[#006699]' : 'text-gray-500'}`}>بوضع الإنترنت</span>
+            </div>
           </button>
 
-          <div className="flex gap-4">
-            {[Scan, Smartphone, HeadphonesIcon].map((Icon, idx) => (
-              <button key={idx} className="w-10 h-10 bg-white rounded-xl shadow-sm border border-gray-50 flex items-center justify-center text-gray-300">
-                <Icon className="w-5 h-5" />
+          <button 
+            type="button"
+            onClick={() => setLoginMode('offline')}
+            className={`flex flex-col items-center justify-center p-3 rounded-[24px] border-2 transition-all h-24 relative overflow-hidden group shadow-sm ${loginMode === 'offline' ? 'bg-[#EBF5FF] border-[#006699]/20 ring-4 ring-[#006699]/5' : 'bg-white border-transparent'}`}
+          >
+            <div className={`p-2.5 rounded-2xl mb-1.5 transition-colors ${loginMode === 'offline' ? 'bg-[#006699] text-white shadow-lg shadow-blue-900/20' : 'bg-gray-50 text-gray-400'}`}>
+              <Scan className="w-6 h-6" />
+            </div>
+            <div className="flex flex-col items-center">
+              <span className={`text-[11px] font-bold ${loginMode === 'offline' ? 'text-[#006699]' : 'text-gray-400'}`}>الدخول</span>
+              <span className={`text-xs font-black ${loginMode === 'offline' ? 'text-[#006699]' : 'text-gray-500'}`}>بدون إنترنت</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Authentication Form */}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm transition-all focus-within:ring-4 focus-within:ring-[#006699]/5 focus-within:border-[#006699]/30 h-[84px] flex items-center px-6 group">
+                    <div className="flex-1 flex flex-col justify-center">
+                      <span className="text-[11px] text-gray-400 font-bold mb-0.5 text-right">أدخل رقم الهاتف</span>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="77XXXXXXX"
+                          className="border-none p-0 h-auto text-2xl font-black text-gray-800 focus-visible:ring-0 placeholder:text-gray-100 text-center tracking-wider"
+                          style={{ direction: 'ltr' }}
+                        />
+                      </FormControl>
+                    </div>
+                    <div className="flex items-center justify-center w-12 h-12 bg-gray-50 rounded-2xl text-gray-300 group-focus-within:text-[#006699] transition-colors">
+                      <Smartphone className="w-7 h-7" strokeWidth={1.5} />
+                    </div>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm transition-all focus-within:ring-4 focus-within:ring-[#006699]/5 focus-within:border-[#006699]/30 h-[84px] flex items-center px-6 group">
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-300 hover:text-[#006699] focus:outline-none transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
+                    </button>
+                    <div className="flex-1 text-right px-4">
+                      <span className="text-[11px] text-gray-400 font-bold mb-0.5">كلمة المرور</span>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          type={showPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          className="border-none p-0 h-auto text-2xl font-black text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-100"
+                        />
+                      </FormControl>
+                    </div>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-start px-2">
+              <button type="button" className="text-sm font-bold text-[#006699] hover:underline transition-all">هل نسيت كلمة المرور؟</button>
+            </div>
+
+            <div className="space-y-4 pt-2">
+              <Button 
+                type="submit" 
+                className="w-full h-16 bg-[#006699] hover:bg-[#005580] text-white text-xl font-black rounded-[24px] shadow-2xl shadow-blue-900/30 transition-all active:scale-[0.98] border-none"
+                disabled={loginMutation.isPending}
+              >
+                {loginMutation.isPending ? <Loader2 className="animate-spin h-7 w-7" /> : "تسجيل الدخول"}
+              </Button>
+
+              <Button 
+                type="button"
+                variant="ghost"
+                className="w-full h-12 text-[#006699] text-lg font-bold rounded-[24px] hover:bg-white/50 transition-all"
+                onClick={() => navigate('/register')}
+              >
+                إنشاء حساب جديد
+              </Button>
+            </div>
+          </form>
+        </Form>
+
+        {/* Global Standards Footer */}
+        <div className="mt-auto flex flex-col items-center gap-6 pb-4">
+          <div className="relative">
+            <div className="absolute -inset-8 bg-[#006699]/5 rounded-full blur-[40px]" />
+            <button className="relative w-24 h-24 rounded-[32px] bg-white shadow-xl border border-gray-50 flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95 group overflow-hidden">
+               <div className="absolute inset-0 bg-gradient-to-br from-white via-white to-gray-50 group-hover:from-blue-50 transition-colors" />
+               <div className="relative flex flex-col items-center">
+                 <div className="w-14 h-14 rounded-full flex items-center justify-center bg-blue-50/50 mb-1">
+                   <Fingerprint className="w-10 h-10 text-[#006699]" strokeWidth={1.2} />
+                 </div>
+                 <div className="flex gap-0.5">
+                   <div className="w-1.5 h-1.5 bg-[#C8102E] rounded-full" />
+                   <div className="w-1.5 h-1.5 bg-[#006699] rounded-full" />
+                   <div className="w-1.5 h-1.5 bg-[#006699] rounded-full" />
+                 </div>
+               </div>
+            </button>
+          </div>
+
+          <div className="flex gap-6">
+            {[
+              { icon: HeadphonesIcon, label: "دعم" },
+              { icon: Smartphone, label: "تواصل" },
+              { icon: Scan, label: "مسح" }
+            ].map((item, idx) => (
+              <button key={idx} className="flex flex-col items-center gap-2 group">
+                <div className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-gray-50 flex items-center justify-center text-gray-400 group-hover:text-[#006699] group-hover:shadow-md transition-all">
+                  <item.icon className="w-6 h-6" strokeWidth={1.5} />
+                </div>
               </button>
             ))}
           </div>
 
-          <div className="w-full flex justify-center text-gray-400 text-[9px] font-bold">
-            <span>الإصدار: 391</span>
-          </div>
-
-          {/* Toast Notification Overlay */}
-          {showAccountMessage && (
-            <div className="absolute bottom-8 left-0 right-0 px-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="bg-[#01689b] h-10 rounded-md flex items-center justify-between px-4 shadow-xl border border-white/10">
-                <span className="text-white text-[11px] font-medium">لا توجد لديك حسابات أخرى لتغييرها</span>
-                <button 
-                  onClick={() => setShowAccountMessage(false)}
-                  className="w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm"
-                >
-                  <X className="w-3 h-3 text-[#01689b]" strokeWidth={3} />
-                </button>
-              </div>
+          <div className="w-full flex justify-center items-center text-gray-400 text-[11px] font-bold gap-3 pt-2">
+            <span>الإصدار: v3.9.1</span>
+            <div className="w-1 h-1 bg-gray-300 rounded-full" />
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+              <span>متصل</span>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
-
-
 

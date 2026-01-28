@@ -22,6 +22,7 @@ if (typeof window !== 'undefined') {
 import NotFound from "./pages/not-found";
 import Dashboard from "./pages/dashboard";
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import EmailVerificationPage from "./pages/EmailVerificationPage";
 import { useWebSocketSync } from "./hooks/useWebSocketSync";
@@ -315,6 +316,7 @@ function App() {
                     <Route path="/setup" component={SystemCheckPage} />
                     <Route path="/permissions" component={SystemCheckPage} />
                     <Route path="/login" component={LoginPage} />
+                    <Route path="/register" component={RegisterPage} />
                     <Route path="/verify-email" component={EmailVerificationPage} />
                     <Route path="/reset-password" component={ResetPasswordPage} />
                     <Route path="*" component={() => (

@@ -184,6 +184,11 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         refreshToken: tokenPair.refreshToken
       },
       expiresIn: 900,
+      // بيانات المستخدم المسطحة لضمان التوافق مع الأندرويد
+      userId: user.id,
+      email: user.email,
+      name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+      role: user.role || 'user',
       user: {
         id: user.id,
         email: user.email,

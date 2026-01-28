@@ -18,3 +18,11 @@
 - **Language:** Arabic/English support.
 - **Style:** Modern professional UI with dark/light mode.
 - **Testing:** Integration tests focused on API simulation.
+
+## Strict Analytical & Quality Protocol (Mandatory)
+- **Zero Ambiguity:** No dodging, generalizing, or guessing. If information is missing, request it explicitly.
+- **Step-by-Step Analysis:** Every response must be preceded by a logical breakdown of the problem.
+- **Realism Over Creativity:** Propose unconventional solutions only if they are proven to be cost-effective and executable.
+- **No Flattery:** Present technical reality as it is, even if it contradicts user initial assumptions.
+- **Error Handling:** Solutions must include "out of the box" recovery strategies for potential failures.
+- **Confidence Rating:** Explicitly state the uncertainty level if a solution is not 100% verified.

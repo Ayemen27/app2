@@ -145,6 +145,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   strengthIndicator?: boolean;
   fieldType?: string;
   validationContext?: string;
+  hidePasswordToggle?: boolean;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -161,6 +162,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     strengthIndicator = false,
     fieldType,
     validationContext,
+    hidePasswordToggle = false,
     onChange,
     value: controlledValue,
     ...props 
@@ -245,7 +247,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {hasRightIcon && (
             <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
               {/* أيقونة إظهار/إخفاء كلمة المرور */}
-              {type === 'password' && (
+              {type === 'password' && !hidePasswordToggle && (
                 <motion.div
                   whileTap={{ scale: 0.95 }}
                   style={{ 

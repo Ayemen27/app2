@@ -30,7 +30,6 @@ import {
   Mail,
   Search,
   X,
-  Lock,
   Loader2,
   Eye,
   EyeOff
@@ -79,9 +78,9 @@ export default function RegisterPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGenderDialogOpen, setIsGenderDialogOpen] = useState(false);
+  const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
   const [selectedYear, setSelectedYear] = useState(2000);
   const [selectedMonth, setSelectedMonth] = useState(1);
   const [selectedDay, setSelectedDay] = useState(1);
@@ -284,10 +283,8 @@ export default function RegisterPage() {
                           className="flex items-center justify-center transition-colors"
                           data-testid="button-toggle-password"
                         >
-                          <div className="relative flex items-center justify-center">
-                            <EyeOff className={`w-4 h-4 ${showPassword ? 'hidden' : 'text-[#006699]'}`} />
-                            <Eye className={`w-4 h-4 ${showPassword ? 'text-red-500' : 'hidden'}`} />
-                          </div>
+                          <EyeOff className={`w-4 h-4 ${showPassword ? 'hidden' : 'text-[#006699]'}`} />
+                          <Eye className={`w-4 h-4 ${showPassword ? 'text-red-500' : 'hidden'}`} />
                         </button>
                         <FormControl>
                           <Input 
@@ -296,6 +293,7 @@ export default function RegisterPage() {
                             placeholder="كلمة المرور"
                             className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
                             showValidation={false}
+                            hidePasswordToggle={true}
                             data-testid="input-password"
                           />
                         </FormControl>
@@ -320,10 +318,8 @@ export default function RegisterPage() {
                           className="flex items-center justify-center transition-colors"
                           data-testid="button-toggle-confirm-password"
                         >
-                          <div className="relative flex items-center justify-center">
-                            <EyeOff className={`w-4 h-4 ${showConfirmPassword ? 'hidden' : 'text-[#006699]'}`} />
-                            <Eye className={`w-4 h-4 ${showConfirmPassword ? 'text-red-500' : 'hidden'}`} />
-                          </div>
+                          <EyeOff className={`w-4 h-4 ${showConfirmPassword ? 'hidden' : 'text-[#006699]'}`} />
+                          <Eye className={`w-4 h-4 ${showConfirmPassword ? 'text-red-500' : 'hidden'}`} />
                         </button>
                         <FormControl>
                           <Input 
@@ -332,6 +328,7 @@ export default function RegisterPage() {
                             placeholder="تأكيد الكلمة"
                             className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
                             showValidation={false}
+                            hidePasswordToggle={true}
                             data-testid="input-confirm-password"
                           />
                         </FormControl>

@@ -1,0 +1,69 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint", "import"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "rules": {
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["error"],
+    "import/no-restricted-paths": [
+      "error",
+      {
+        "zones": [
+          {
+            "target": "./shared",
+            "from": "./client/web",
+            "message": "Cannot import from web client into shared."
+          },
+          {
+            "target": "./shared",
+            "from": "./client/mobile",
+            "message": "Cannot import from mobile client into shared."
+          },
+          {
+            "target": "./shared",
+            "from": "./server",
+            "message": "Cannot import from server into shared."
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["shared/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["node:*", "express", "react", "framer-motion"],
+                "message": "Shared folder must remain environment-agnostic."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["client/src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@radix-ui/react-slot",
+                "message": "Use unified components from @/components/ui instead of direct Radix primitives."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

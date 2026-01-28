@@ -10,6 +10,7 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormMessage,
 } from "../components/ui/form";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -27,10 +28,8 @@ import {
   Calendar,
   MapPin,
   ChevronDown,
-  User,
   Mail,
   Search,
-  X,
   Loader2,
   Eye,
   EyeOff
@@ -38,22 +37,9 @@ import {
 
 const countries = [
   { name: "اليمن", code: "+967", flag: "https://flagcdn.com/w20/ye.png" },
-  { name: "أفغانستان", code: "+93", flag: "https://flagcdn.com/w20/af.png" },
-  { name: "جزر أولاند", code: "+358", flag: "https://flagcdn.com/w20/ax.png" },
-  { name: "ألبانيا", code: "+355", flag: "https://flagcdn.com/w20/al.png" },
-  { name: "الجزائر", code: "+213", flag: "https://flagcdn.com/w20/dz.png" },
-  { name: "ساموا الأمريكية", code: "+1", flag: "https://flagcdn.com/w20/as.png" },
-  { name: "أندورا", code: "+376", flag: "https://flagcdn.com/w20/ad.png" },
-  { name: "أنغولا", code: "+244", flag: "https://flagcdn.com/w20/ao.png" },
-  { name: "أنغويلا", code: "+1", flag: "https://flagcdn.com/w20/ai.png" },
-  { name: "أنتيغوا وبربودا", code: "+1", flag: "https://flagcdn.com/w20/ag.png" },
-  { name: "الأرجنتين", code: "+54", flag: "https://flagcdn.com/w20/ar.png" },
-  { name: "أرمينيا", code: "+374", flag: "https://flagcdn.com/w20/am.png" },
-  { name: "أروبا", code: "+297", flag: "https://flagcdn.com/w20/aw.png" },
-  { name: "جزيرة أسنسيون", code: "+247", flag: "https://flagcdn.com/w20/sh.png" },
-  { name: "النمسا", code: "+61", flag: "https://flagcdn.com/w20/at.png" },
-  { name: "أستراليا", code: "+43", flag: "https://flagcdn.com/w20/au.png" },
-  { name: "أذربيجان", code: "+994", flag: "https://flagcdn.com/w20/az.png" },
+  { name: "السعودية", code: "+966", flag: "https://flagcdn.com/w20/sa.png" },
+  { name: "الإمارات", code: "+971", flag: "https://flagcdn.com/w20/ae.png" },
+  { name: "مصر", code: "+20", flag: "https://flagcdn.com/w20/eg.png" },
 ];
 
 const registerSchema = z.object({
@@ -79,7 +65,6 @@ export default function RegisterPage() {
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isGenderDialogOpen, setIsGenderDialogOpen] = useState(false);
   const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -124,10 +109,9 @@ export default function RegisterPage() {
         title: "تم إنشاء الحساب بنجاح",
         description: "تم إرسال رمز التحقق إلى بريدك الإلكتروني",
       });
-      // التوجيه إلى صفحة التحقق من البريد الإلكتروني مع المعلومات اللازمة
       const userId = data?.data?.user?.id;
       const email = data?.data?.user?.email || form.getValues('email');
-      navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(email)}`);
+      navigate(`/verify-email?userId=\${userId}&email=\${encodeURIComponent(email)}`);
     },
     onError: (error: Error) => {
       toast({
@@ -139,57 +123,76 @@ export default function RegisterPage() {
   });
 
   return (
-    <div className="h-screen w-full bg-[#F5F7F9] flex flex-col items-center overflow-hidden font-sans select-none relative" dir="rtl">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-[0.05] pointer-events-none z-0" 
+    <div className="h-screen w-full bg-background dark:bg-slate-950 flex flex-col items-center overflow-hidden font-sans select-none relative transition-colors duration-500" dir="rtl">
+      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none z-0" 
            style={{ 
-             backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%23006699\' fill-opacity=\'0.1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
-             backgroundSize: '35px 35px' 
+             backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%230f172a\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
+             backgroundSize: '45px 45px' 
            }}>
       </div>
 
       <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-4 pt-safe justify-between relative">
-        <div className="flex flex-col flex-1 gap-1">
-          {/* Header */}
-          <div className="flex justify-end items-center mb-1">
-            <h2 className="text-sm font-bold text-[#006699]">مساء الخير</h2>
+        <div className="flex flex-col flex-1 gap-1 overflow-y-auto custom-scrollbar px-1">
+          <div className="flex justify-between items-center mb-1 animate-in slide-in-from-top duration-500 fill-mode-both" dir="rtl">
+            <div className="text-right flex flex-col items-end">
+              <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">إنضم إلينا</h2>
+              <span className="text-[8px] text-gray-300 dark:text-slate-600 font-bold">JOIN ORAX</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="w-9 h-9 rounded-full bg-slate-900 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform"
+              onClick={() => navigate('/login')}
+              data-testid="button-back"
+            >
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+              </div>
+            </Button>
           </div>
 
-          {/* Logo Section */}
-          <div className="flex flex-col items-center justify-center mb-2">
+          <div className="flex flex-col items-center justify-center mb-2 animate-in zoom-in duration-700 delay-150 fill-mode-both">
+            <div className="relative mb-2 group cursor-pointer">
+              <div className="w-16 h-16 bg-card dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-border dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
+                <div className="w-13 h-13 bg-slate-900 dark:bg-white rounded-[16px] flex items-center justify-center">
+                  <div className="relative">
+                    <ShieldCheck className="w-8 h-8 text-white dark:text-slate-900" strokeWidth={1.5} />
+                    <div className="absolute inset-0 flex items-center justify-center pt-0.5">
+                      <span className="text-white dark:text-slate-900 font-black text-xs">O</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div className="text-center">
-              <h1 className="text-2xl font-black text-[#006699] tracking-tighter leading-none">فلوسك</h1>
-              <span className="text-[#C8102E] text-[10px] font-bold tracking-[0.2em] uppercase block">Floosak</span>
+              <h1 className="text-2xl font-black text-foreground tracking-tighter leading-none">أوركس</h1>
+              <span className="text-primary text-[10px] font-black tracking-[0.3em] uppercase block mt-1">ORAX SYSTEM</span>
             </div>
           </div>
 
-          <div className="text-center mb-4">
-            <p className="text-sm font-bold text-gray-600">قم بإنشاء حسابك</p>
-          </div>
-
-          {/* Form */}
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-2">
+            <form onSubmit={form.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-2 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both pb-4">
               <FormField
                 control={form.control}
                 name="fullName"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          placeholder="اسمك الرباعي"
-                          className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
-                          data-testid="input-fullname"
-                        />
-                      </FormControl>
+                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                      <div className="flex-1 flex flex-col justify-center">
+                        <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Full Name / الاسم</span>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            placeholder="اسمك الرباعي"
+                            className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                            data-testid="input-fullname"
+                          />
+                        </FormControl>
+                      </div>
                     </div>
-                    {form.formState.errors.fullName && (
-                      <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
-                        {form.formState.errors.fullName.message}
-                      </p>
-                    )}
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -199,23 +202,22 @@ export default function RegisterPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          type="email"
-                          placeholder="البريد الإلكتروني"
-                          className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
-                          data-testid="input-email"
-                        />
-                      </FormControl>
-                      <Mail className="w-5 h-5 text-[#006699] mr-2" />
+                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                      <div className="flex-1 flex flex-col justify-center">
+                        <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Identity / البريد</span>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type="email"
+                            placeholder="username@orax.system"
+                            className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                            data-testid="input-email"
+                          />
+                        </FormControl>
+                      </div>
+                      <Mail className="w-5 h-5 text-muted-foreground/40 ml-2" />
                     </div>
-                    {form.formState.errors.email && (
-                      <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
-                        {form.formState.errors.email.message}
-                      </p>
-                    )}
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -223,22 +225,22 @@ export default function RegisterPage() {
               <div className="grid grid-cols-[100px_1fr] gap-2">
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
-                    <button type="button" className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-2 justify-between hover:bg-gray-50 transition-colors">
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm font-bold text-gray-800" dir="ltr">{selectedCountry.code}</span>
+                    <button type="button" className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-2 justify-between hover:bg-muted/50 transition-colors">
+                      <ChevronDown className="w-4 h-4 text-muted-foreground/40" />
+                      <span className="text-sm font-black text-foreground" dir="ltr">{selectedCountry.code}</span>
                       <img src={selectedCountry.flag} alt={selectedCountry.name} className="w-5 h-auto rounded-sm" />
                     </button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-[400px] w-[95%] p-0 rounded-t-3xl sm:rounded-3xl border-none shadow-2xl overflow-hidden" dir="rtl">
-                    <div className="bg-white p-4">
+                  <DialogContent className="max-w-[400px] w-[95%] p-0 rounded-t-3xl sm:rounded-3xl border-border bg-card shadow-2xl overflow-hidden" dir="rtl">
+                    <div className="p-4">
                       <div className="relative mb-4">
                         <Input
                           placeholder="بحث"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full h-12 bg-gray-50 border-none rounded-xl text-right pr-10 pl-4 text-sm font-bold focus-visible:ring-0"
+                          className="w-full h-12 bg-muted/50 border-none rounded-xl text-right pr-10 pl-4 text-sm font-bold focus-visible:ring-0"
                         />
-                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40" />
                       </div>
                       <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
                         {filteredCountries.map((country) => (
@@ -248,11 +250,11 @@ export default function RegisterPage() {
                               setSelectedCountry(country);
                               setIsDialogOpen(false);
                             }}
-                            className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors mb-1"
+                            className="w-full flex items-center justify-between p-3 hover:bg-muted/50 rounded-xl transition-colors mb-1"
                           >
                             <img src={country.flag} alt={country.name} className="w-6 h-auto rounded-sm shadow-sm" />
-                            <span className="text-sm font-bold text-gray-800 flex-1 text-right px-4" dir="ltr">{country.code}</span>
-                            <span className="text-sm font-bold text-gray-600 min-w-[100px] text-left">{country.name}</span>
+                            <span className="text-sm font-bold text-foreground flex-1 text-right px-4" dir="ltr">{country.code}</span>
+                            <span className="text-sm font-bold text-muted-foreground min-w-[100px] text-left">{country.name}</span>
                           </button>
                         ))}
                       </div>
@@ -265,22 +267,21 @@ export default function RegisterPage() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            placeholder="أدخل رقم الهاتف"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
-                            data-testid="input-phone"
-                          />
-                        </FormControl>
-                        <Smartphone className="w-5 h-5 text-[#006699] mr-2" />
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                        <div className="flex-1 flex flex-col justify-center">
+                          <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Smartphone / الهاتف</span>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="7xxxxxxxx"
+                              className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                              data-testid="input-phone"
+                            />
+                          </FormControl>
+                        </div>
+                        <Smartphone className="w-5 h-5 text-muted-foreground/40 ml-2" />
                       </div>
-                      {form.formState.errors.phone && (
-                        <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
-                          {form.formState.errors.phone.message}
-                        </p>
-                      )}
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -292,33 +293,29 @@ export default function RegisterPage() {
                   name="password"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex flex-row-reverse items-center px-4 overflow-visible gap-2">
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                        <div className="flex-1 flex flex-col justify-center">
+                          <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Security / كلمة المرور</span>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              type={showPassword ? "text" : "password"}
+                              placeholder="••••••••"
+                              className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                              data-testid="input-password"
+                            />
+                          </FormControl>
+                        </div>
                         <button 
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="flex items-center justify-center transition-colors"
-                          data-testid="button-toggle-password"
+                          className="flex items-center justify-center ml-2 transition-colors"
                         >
-                          <EyeOff className={`w-4 h-4 ${showPassword ? 'hidden' : 'text-[#006699]'}`} />
-                          <Eye className={`w-4 h-4 ${showPassword ? 'text-red-500' : 'hidden'}`} />
+                          <EyeOff className={`w-4 h-4 \${showPassword ? 'hidden' : 'text-muted-foreground/40'}`} />
+                          <Eye className={`w-4 h-4 \${showPassword ? 'text-primary' : 'hidden'}`} />
                         </button>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            type={showPassword ? "text" : "password"}
-                            placeholder="كلمة المرور"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
-                            showValidation={false}
-                            hidePasswordToggle={true}
-                            data-testid="input-password"
-                          />
-                        </FormControl>
                       </div>
-                      {form.formState.errors.password && (
-                        <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
-                          {form.formState.errors.password.message}
-                        </p>
-                      )}
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -327,33 +324,29 @@ export default function RegisterPage() {
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex flex-row-reverse items-center px-4 overflow-visible gap-2">
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                        <div className="flex-1 flex flex-col justify-center">
+                          <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Verify / تأكيد</span>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              type={showConfirmPassword ? "text" : "password"}
+                              placeholder="••••••••"
+                              className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                              data-testid="input-confirm-password"
+                            />
+                          </FormControl>
+                        </div>
                         <button 
                           type="button"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="flex items-center justify-center transition-colors"
-                          data-testid="button-toggle-confirm-password"
+                          className="flex items-center justify-center ml-2 transition-colors"
                         >
-                          <EyeOff className={`w-4 h-4 ${showConfirmPassword ? 'hidden' : 'text-[#006699]'}`} />
-                          <Eye className={`w-4 h-4 ${showConfirmPassword ? 'text-red-500' : 'hidden'}`} />
+                          <EyeOff className={`w-4 h-4 \${showConfirmPassword ? 'hidden' : 'text-muted-foreground/40'}`} />
+                          <Eye className={`w-4 h-4 \${showConfirmPassword ? 'text-primary' : 'hidden'}`} />
                         </button>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            type={showConfirmPassword ? "text" : "password"}
-                            placeholder="تأكيد الكلمة"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
-                            showValidation={false}
-                            hidePasswordToggle={true}
-                            data-testid="input-confirm-password"
-                          />
-                        </FormControl>
                       </div>
-                      {form.formState.errors.confirmPassword && (
-                        <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
-                          {form.formState.errors.confirmPassword.message}
-                        </p>
-                      )}
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -365,20 +358,20 @@ export default function RegisterPage() {
                   name="birthPlace"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            placeholder="مكان الميلاد"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
-                          />
-                        </FormControl>
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                        <div className="flex-1 flex flex-col justify-center">
+                          <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Location / مكان الميلاد</span>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="المدينة"
+                              className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                            />
+                          </FormControl>
+                        </div>
+                        <MapPin className="w-5 h-5 text-muted-foreground/40 ml-2" />
                       </div>
-                      {form.formState.errors.birthPlace && (
-                        <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
-                          {form.formState.errors.birthPlace.message}
-                        </p>
-                      )}
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -391,30 +384,30 @@ export default function RegisterPage() {
                         <DialogTrigger asChild>
                           <button 
                             type="button" 
-                            className="w-full bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4 justify-between hover:bg-gray-50 transition-colors"
+                            className="w-full bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 justify-between hover:bg-muted/50 transition-colors"
                             data-testid="button-birth-date"
                           >
-                            <Calendar className="w-4 h-4 text-[#006699]" />
-                            <span className={`text-sm font-bold ${field.value ? 'text-gray-800' : 'text-gray-300'}`}>
+                            <Calendar className="w-4 h-4 text-muted-foreground/40" />
+                            <span className={`text-sm font-black \${field.value ? 'text-foreground' : 'text-muted-foreground/30'}`}>
                               {field.value || "تاريخ الميلاد"}
                             </span>
                           </button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-[350px] w-[95%] p-0 rounded-3xl border-none shadow-2xl overflow-hidden" dir="rtl">
-                          <div className="bg-white p-4">
-                            <DialogHeader className="pb-4 border-b border-gray-100">
-                              <DialogTitle className="text-center text-lg font-bold text-gray-800">تاريخ الميلاد</DialogTitle>
+                        <DialogContent className="max-w-[350px] w-[95%] p-0 rounded-3xl border-border bg-card shadow-2xl overflow-hidden" dir="rtl">
+                          <div className="p-4">
+                            <DialogHeader className="pb-4 border-b border-border">
+                              <DialogTitle className="text-center text-lg font-black text-foreground">تاريخ الميلاد</DialogTitle>
                             </DialogHeader>
                             <div className="grid grid-cols-3 gap-2 py-6">
                               <div className="flex flex-col items-center">
-                                <span className="text-[10px] text-gray-400 mb-2">السنة</span>
+                                <span className="text-[10px] text-muted-foreground mb-2">السنة</span>
                                 <div className="h-40 overflow-y-auto custom-scrollbar w-full">
                                   {Array.from({ length: 80 }, (_, i) => 2025 - i).map((year) => (
                                     <button
                                       key={year}
                                       type="button"
                                       onClick={() => setSelectedYear(year)}
-                                      className={`w-full py-2 text-center font-bold transition-colors ${selectedYear === year ? 'bg-[#006699] text-white rounded-lg' : 'text-gray-600 hover:bg-gray-50'}`}
+                                      className={`w-full py-2 text-center font-bold transition-colors \${selectedYear === year ? 'bg-primary text-primary-foreground rounded-lg' : 'text-foreground hover:bg-muted'}`}
                                     >
                                       {year}
                                     </button>
@@ -422,14 +415,14 @@ export default function RegisterPage() {
                                 </div>
                               </div>
                               <div className="flex flex-col items-center">
-                                <span className="text-[10px] text-gray-400 mb-2">الشهر</span>
+                                <span className="text-[10px] text-muted-foreground mb-2">الشهر</span>
                                 <div className="h-40 overflow-y-auto custom-scrollbar w-full">
                                   {["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"].map((month, idx) => (
                                     <button
                                       key={month}
                                       type="button"
                                       onClick={() => setSelectedMonth(idx + 1)}
-                                      className={`w-full py-2 text-center font-bold text-sm transition-colors ${selectedMonth === idx + 1 ? 'bg-[#006699] text-white rounded-lg' : 'text-gray-600 hover:bg-gray-50'}`}
+                                      className={`w-full py-2 text-center font-bold text-sm transition-colors \${selectedMonth === idx + 1 ? 'bg-primary text-primary-foreground rounded-lg' : 'text-foreground hover:bg-muted'}`}
                                     >
                                       {month}
                                     </button>
@@ -437,14 +430,14 @@ export default function RegisterPage() {
                                 </div>
                               </div>
                               <div className="flex flex-col items-center">
-                                <span className="text-[10px] text-gray-400 mb-2">اليوم</span>
+                                <span className="text-[10px] text-muted-foreground mb-2">اليوم</span>
                                 <div className="h-40 overflow-y-auto custom-scrollbar w-full">
                                   {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                                     <button
                                       key={day}
                                       type="button"
                                       onClick={() => setSelectedDay(day)}
-                                      className={`w-full py-2 text-center font-bold transition-colors ${selectedDay === day ? 'bg-[#006699] text-white rounded-lg' : 'text-gray-600 hover:bg-gray-50'}`}
+                                      className={`w-full py-2 text-center font-bold transition-colors \${selectedDay === day ? 'bg-primary text-primary-foreground rounded-lg' : 'text-foreground hover:bg-muted'}`}
                                     >
                                       {day}
                                     </button>
@@ -454,24 +447,19 @@ export default function RegisterPage() {
                             </div>
                             <Button
                               type="button"
+                              className="w-full"
                               onClick={() => {
-                                const formattedDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+                                const formattedDate = `\${selectedYear}-\${String(selectedMonth).padStart(2, '0')}-\${String(selectedDay).padStart(2, '0')}`;
                                 field.onChange(formattedDate);
                                 setIsDateDialogOpen(false);
                               }}
-                              className="w-full h-12 bg-[#006699] hover:bg-[#005580] text-white text-base font-bold rounded-xl"
-                              data-testid="button-confirm-date"
                             >
-                              تأكيد
+                              تأكيد التاريخ
                             </Button>
                           </div>
                         </DialogContent>
                       </Dialog>
-                      {form.formState.errors.birthDate && (
-                        <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
-                          {form.formState.errors.birthDate.message}
-                        </p>
-                      )}
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -479,98 +467,56 @@ export default function RegisterPage() {
 
               <FormField
                 control={form.control}
-                name="gender"
+                name="terms"
                 render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <Dialog open={isGenderDialogOpen} onOpenChange={setIsGenderDialogOpen}>
-                      <DialogTrigger asChild>
-                        <button type="button" className="w-full bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4 justify-between hover:bg-gray-50 transition-colors">
-                          <ChevronDown className="w-4 h-4 text-gray-400" />
-                          <div className="flex items-center gap-2">
-                            <div className="flex flex-col items-end">
-                               <span className="text-[8px] text-gray-400">الجنس</span>
-                               <span className="text-sm font-bold text-gray-800">{field.value}</span>
-                            </div>
-                            <User className="w-5 h-5 text-[#006699]" />
-                          </div>
-                        </button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-[300px] w-[90%] p-2 rounded-2xl border-none shadow-2xl" dir="rtl">
-                        <div className="flex flex-col gap-1">
-                          {["ذكر", "أنثى"].map((g) => (
-                            <button
-                              key={g}
-                              type="button"
-                              onClick={() => {
-                                field.onChange(g);
-                                setIsGenderDialogOpen(false);
-                              }}
-                              className={`w-full p-4 text-right font-bold rounded-xl transition-colors ${field.value === g ? 'bg-[#EBF5FF] text-[#006699]' : 'hover:bg-gray-50 text-gray-700'}`}
-                            >
-                              {g}
-                            </button>
-                          ))}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                    {form.formState.errors.gender && (
-                      <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
-                        {form.formState.errors.gender.message}
-                      </p>
-                    )}
+                  <FormItem className="flex flex-row items-start space-x-2 space-y-0 px-1 py-1">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        className="rounded-md border-border"
+                      />
+                    </FormControl>
+                    <div className="mr-2 leading-none">
+                      <label className="text-[11px] font-bold text-muted-foreground">
+                        أوافق على <button type="button" className="text-primary hover:underline">شروط الخدمة</button> و <button type="button" className="text-primary hover:underline">سياسة الخصوصية</button>
+                      </label>
+                    </div>
                   </FormItem>
                 )}
               />
 
-              <div className="flex flex-col items-center py-2">
-                <div className="flex items-center justify-center gap-2">
-                  <FormField
-                    control={form.control}
-                    name="terms"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                        <FormControl>
-                          <Checkbox 
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            className="rounded-sm border-gray-300" 
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <label htmlFor="terms" className="text-[11px] font-bold text-gray-600">
-                    أوافق على <span className="text-[#006699] underline">الشروط والأحكام</span>
-                  </label>
-                </div>
-                {form.formState.errors.terms && (
-                  <p className="text-[10px] font-bold text-[#C8102E] mt-1">
-                    {form.formState.errors.terms.message}
-                  </p>
-                )}
-              </div>
-
-              <Button 
-                type="submit" 
-                className="w-full h-12 bg-[#006699] hover:bg-[#005580] text-white text-lg font-bold rounded-xl shadow-md border-none transition-all active:scale-95"
-                disabled={registerMutation.isPending}
-                data-testid="button-register"
-              >
-                {registerMutation.isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "إنشاء حساب"}
-              </Button>
-
-              <div className="text-center pt-2">
-                <button 
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  className="text-xs font-bold text-gray-600"
-                  data-testid="link-login"
+              <div className="space-y-2 pt-2">
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
+                  disabled={registerMutation.isPending}
+                  data-testid="button-register"
                 >
-                  لديك حساب؟ <span className="text-[#C8102E]">تسجيل الدخول</span>
-                </button>
+                  {registerMutation.isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "إنشاء الحساب"}
+                </Button>
+
+                <Button 
+                  type="button"
+                  variant="ghost"
+                  className="w-full h-10 text-muted-foreground text-sm font-bold rounded-xl hover:bg-muted"
+                  onClick={() => navigate('/login')}
+                  data-testid="button-back-to-login"
+                >
+                  لديك حساب بالفعل؟ تسجيل الدخول
+                </Button>
               </div>
             </form>
           </Form>
+        </div>
+
+        <div className="flex flex-col items-center gap-2 pb-4 animate-in fade-in duration-1000 delay-700 fill-mode-both">
+          <div className="flex items-center gap-4 w-full px-4">
+            <div className="flex-1 h-[1px] bg-border opacity-50"></div>
+            <span className="text-[8px] font-black text-muted-foreground/50 tracking-[0.2em] uppercase">Secure Registration</span>
+            <div className="flex-1 h-[1px] bg-border opacity-50"></div>
+          </div>
+          <span className="text-[8px] text-muted-foreground/40">© 2026 ORAX OPERATIONS MANAGEMENT</span>
         </div>
       </div>
     </div>

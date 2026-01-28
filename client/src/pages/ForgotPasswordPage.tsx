@@ -10,6 +10,7 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormMessage,
 } from "../components/ui/form";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -17,8 +18,7 @@ import {
   ShieldCheck,
   Mail,
   Loader2,
-  ArrowRight,
-  CheckCircle
+  CheckCircle,
 } from "lucide-react";
 
 const forgotPasswordSchema = z.object({
@@ -70,29 +70,29 @@ export default function ForgotPasswordPage() {
 
   if (isSuccess) {
     return (
-      <div className="h-screen w-full bg-[#F5F7F9] flex flex-col items-center overflow-hidden font-sans select-none relative" dir="rtl">
-        <div className="absolute inset-0 opacity-[0.05] pointer-events-none z-0" 
+      <div className="h-screen w-full bg-background dark:bg-slate-950 flex flex-col items-center overflow-hidden font-sans select-none relative transition-colors duration-500" dir="rtl">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none z-0" 
              style={{ 
-               backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%23006699\' fill-opacity=\'0.1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
-               backgroundSize: '35px 35px' 
+               backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%230f172a\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
+               backgroundSize: '45px 45px' 
              }}>
         </div>
 
         <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-4 pt-safe justify-center items-center gap-6">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-            <CheckCircle className="w-12 h-12 text-green-600" />
+          <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center">
+            <CheckCircle className="w-12 h-12 text-green-500" />
           </div>
           
           <div className="text-center space-y-2">
-            <h2 className="text-xl font-bold text-gray-800">تم إرسال الرابط بنجاح</h2>
-            <p className="text-sm text-gray-600">
+            <h2 className="text-xl font-black text-foreground">تم إرسال الرابط بنجاح</h2>
+            <p className="text-sm text-muted-foreground">
               تم إرسال رابط استرجاع كلمة المرور إلى بريدك الإلكتروني. يرجى التحقق من صندوق الوارد.
             </p>
           </div>
 
           <Button 
             onClick={() => navigate('/login')}
-            className="w-full h-12 bg-[#006699] hover:bg-[#005580] text-white text-base font-bold rounded-xl shadow-md transition-all active:scale-[0.98] border-none"
+            className="w-full h-12 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
             data-testid="button-back-to-login"
           >
             العودة لتسجيل الدخول
@@ -103,91 +103,91 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="h-screen w-full bg-[#F5F7F9] flex flex-col items-center overflow-hidden font-sans select-none relative" dir="rtl">
-      <div className="absolute inset-0 opacity-[0.05] pointer-events-none z-0" 
+    <div className="h-screen w-full bg-background dark:bg-slate-950 flex flex-col items-center overflow-hidden font-sans select-none relative transition-colors duration-500" dir="rtl">
+      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none z-0" 
            style={{ 
-             backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%23006699\' fill-opacity=\'0.1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
-             backgroundSize: '35px 35px' 
+             backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%230f172a\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
+             backgroundSize: '45px 45px' 
            }}>
       </div>
 
       <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-4 pt-safe justify-between">
         <div className="flex flex-col flex-1 gap-4">
-          <div className="flex justify-start items-center mb-2">
-            <button 
-              type="button"
+          <div className="flex justify-between items-center mb-1 animate-in slide-in-from-top duration-500 fill-mode-both" dir="rtl">
+            <div className="text-right flex flex-col items-end">
+              <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">استعادة الوصول</h2>
+              <span className="text-[8px] text-gray-300 dark:text-slate-600 font-bold">RECOVER ACCESS</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="w-9 h-9 rounded-full bg-slate-900 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform"
               onClick={() => navigate('/login')}
-              className="flex items-center gap-2 text-[#006699] font-bold text-sm"
               data-testid="button-back"
             >
-              <ArrowRight className="w-5 h-5" />
-              <span>رجوع</span>
-            </button>
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+              </div>
+            </Button>
           </div>
 
-          <div className="flex flex-col items-center justify-center mb-4">
-            <div className="relative mb-2">
-              <div className="w-16 h-16 bg-white rounded-[20px] flex items-center justify-center shadow-md border border-gray-50">
-                <div className="w-12 h-12 bg-[#006699] rounded-[14px] flex items-center justify-center">
-                  <ShieldCheck className="w-8 h-8 text-white" strokeWidth={1.5} />
+          <div className="flex flex-col items-center justify-center mb-4 animate-in zoom-in duration-700 delay-150 fill-mode-both">
+            <div className="relative mb-2 group cursor-pointer">
+              <div className="w-16 h-16 bg-card dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-border dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
+                <div className="w-13 h-13 bg-slate-900 dark:bg-white rounded-[16px] flex items-center justify-center">
+                  <div className="relative">
+                    <ShieldCheck className="w-8 h-8 text-white dark:text-slate-900" strokeWidth={1.5} />
+                    <div className="absolute inset-0 flex items-center justify-center pt-0.5">
+                      <span className="text-white dark:text-slate-900 font-black text-xs">O</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-black text-[#006699] tracking-tighter leading-none">فلوسك</h1>
-              <span className="text-[#C8102E] text-[10px] font-bold tracking-[0.2em] uppercase block">Floosak</span>
+              <h1 className="text-2xl font-black text-foreground tracking-tighter leading-none">أوركس</h1>
+              <span className="text-primary text-[10px] font-black tracking-[0.3em] uppercase block mt-1">ORAX SYSTEM</span>
             </div>
           </div>
 
           <div className="text-center mb-4">
-            <h2 className="text-lg font-bold text-gray-800 mb-1">نسيت كلمة المرور؟</h2>
-            <p className="text-sm text-gray-500">أدخل بريدك الإلكتروني وسنرسل لك رابط لاسترجاع كلمة المرور</p>
+            <h2 className="text-lg font-black text-foreground mb-1">نسيت كلمة المرور؟</h2>
+            <p className="text-sm text-muted-foreground">أدخل بريدك الإلكتروني وسنرسل لك رابط لاسترجاع كلمة المرور</p>
           </div>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => forgotPasswordMutation.mutate(data))} className="space-y-4">
+            <form onSubmit={form.handleSubmit((data) => forgotPasswordMutation.mutate(data))} className="space-y-4 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both">
               <FormField
                 control={form.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-14 flex items-center px-4 group">
+                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
                       <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[9px] text-gray-400 font-bold text-right">البريد الإلكتروني</span>
+                        <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Identity / البريد</span>
                         <FormControl>
                           <Input 
                             {...field} 
                             type="email"
                             autoComplete="email"
-                            placeholder="أدخل البريد الإلكتروني"
-                            className="border-none p-0 h-5 text-base font-bold text-gray-800 focus-visible:ring-0 placeholder:text-gray-200 text-right bg-transparent"
+                            placeholder="username@orax.system"
+                            className="border-none p-0 h-5 text-base font-black text-foreground focus-visible:ring-0 placeholder:text-muted-foreground/30 text-right bg-transparent shadow-none"
                             data-testid="input-email"
-                            showValidation={false}
                           />
                         </FormControl>
                       </div>
-                      <Mail className="w-5 h-5 text-[#006699] ml-2" strokeWidth={1.5} />
+                      <Mail className="w-5 h-5 text-muted-foreground/40 ml-2" strokeWidth={1.5} />
                     </div>
-                    {form.formState.errors.email && (
-                      <p className="text-[10px] font-bold text-[#C8102E] text-right px-1 mt-1">
-                        {form.formState.errors.email.message}
-                      </p>
-                    )}
+                    <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {forgotPasswordMutation.isError && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-                  <p className="text-sm text-red-600 font-bold text-right">
-                    {forgotPasswordMutation.error?.message || "حدث خطأ أثناء إرسال الرابط"}
-                  </p>
-                </div>
-              )}
-
               <Button 
                 type="submit" 
-                className="w-full h-12 bg-[#006699] hover:bg-[#005580] text-white text-base font-bold rounded-xl shadow-md transition-all active:scale-[0.98] border-none"
+                className="w-full h-12 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
                 disabled={forgotPasswordMutation.isPending}
                 data-testid="button-submit"
               >
@@ -198,18 +198,23 @@ export default function ForgotPasswordPage() {
                 <button 
                   type="button"
                   onClick={() => navigate('/login')}
-                  className="text-xs font-bold text-gray-600"
+                  className="text-xs font-bold text-muted-foreground"
                   data-testid="link-login"
                 >
-                  تذكرت كلمة المرور؟ <span className="text-[#C8102E]">تسجيل الدخول</span>
+                  تذكرت كلمة المرور؟ <span className="text-primary hover:underline">تسجيل الدخول</span>
                 </button>
               </div>
             </form>
           </Form>
         </div>
 
-        <div className="flex justify-center text-gray-400 text-[9px] font-bold pb-4">
-          <span>© 2025 فلوسك - جميع الحقوق محفوظة</span>
+        <div className="flex flex-col items-center gap-2 pb-4 animate-in fade-in duration-1000 delay-700 fill-mode-both">
+          <div className="flex items-center gap-4 w-full px-4">
+            <div className="flex-1 h-[1px] bg-border opacity-50"></div>
+            <span className="text-[8px] font-black text-muted-foreground/50 tracking-[0.2em] uppercase">Secure Recovery</span>
+            <div className="flex-1 h-[1px] bg-border opacity-50"></div>
+          </div>
+          <span className="text-[8px] text-muted-foreground/40">© 2026 ORAX OPERATIONS MANAGEMENT</span>
         </div>
       </div>
     </div>

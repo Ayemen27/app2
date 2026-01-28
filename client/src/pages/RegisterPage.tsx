@@ -263,12 +263,17 @@ export default function RegisterPage() {
                         <button 
                           type="button" 
                           onClick={() => setShowPassword(!showPassword)} 
-                          className="mr-2 flex items-center justify-center min-w-[24px]"
+                          className="mr-2 flex items-center justify-center min-w-[24px] hover:opacity-80 transition-opacity"
                         >
                           <div className="relative flex items-center justify-center">
-                            <EyeOff className={`w-5 h-5 transition-all ${showPassword ? 'hidden' : 'text-[#006699]'}`} />
-                            <Eye className={`w-5 h-5 transition-all ${showPassword ? 'text-red-500' : 'hidden'}`} />
-                            {!showPassword && <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />}
+                            {showPassword ? (
+                              <Eye className="w-5 h-5 text-red-500" />
+                            ) : (
+                              <div className="relative flex items-center justify-center">
+                                <EyeOff className="w-5 h-5 text-[#006699]" />
+                                <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />
+                              </div>
+                            )}
                           </div>
                         </button>
                         <Lock className="w-5 h-5 text-[#006699] mr-1" />
@@ -298,12 +303,17 @@ export default function RegisterPage() {
                         <button 
                           type="button" 
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
-                          className="mr-2 flex items-center justify-center min-w-[24px]"
+                          className="mr-2 flex items-center justify-center min-w-[24px] hover:opacity-80 transition-opacity"
                         >
                           <div className="relative flex items-center justify-center">
-                            <EyeOff className={`w-5 h-5 transition-all ${showConfirmPassword ? 'hidden' : 'text-[#006699]'}`} />
-                            <Eye className={`w-5 h-5 transition-all ${showConfirmPassword ? 'text-red-500' : 'hidden'}`} />
-                            {!showConfirmPassword && <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />}
+                            {showConfirmPassword ? (
+                              <Eye className="w-5 h-5 text-red-500" />
+                            ) : (
+                              <div className="relative flex items-center justify-center">
+                                <EyeOff className="w-5 h-5 text-[#006699]" />
+                                <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />
+                              </div>
+                            )}
                           </div>
                         </button>
                         <Lock className="w-5 h-5 text-[#006699] mr-1" />

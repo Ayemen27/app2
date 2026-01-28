@@ -35,7 +35,9 @@ import {
   Lock,
   KeyRound,
   Shield,
-  AlertTriangle
+  AlertTriangle,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 // مخطط التحقق من البيانات
@@ -71,6 +73,9 @@ export default function ResetPasswordPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
+
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const form = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
@@ -359,15 +364,27 @@ export default function ResetPasswordPage() {
                         <FormLabel className="text-gray-700 font-medium">كلمة المرور الجديدة</FormLabel>
                         <FormControl>
                           <div className="relative group">
-                            <Lock className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-red-500 transition-colors z-10" />
+                            <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-red-500 transition-colors z-10" />
                             <Input 
                               {...field} 
-                              type="password"
+                              type={showNewPassword ? "text" : "password"}
                               placeholder="أدخل كلمة مرور قوية"
-                              className="pr-10 enhanced-input"
+                              className="pr-10 pl-10 enhanced-input text-right"
                               data-testid="input-new-password"
                               showValidation={false}
                             />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                              className="absolute left-3 top-1/2 -translate-y-1/2 z-10 transition-colors"
+                              data-testid="button-toggle-new-password"
+                            >
+                              {showNewPassword ? (
+                                <Eye className="h-4 w-4 text-red-500" />
+                              ) : (
+                                <EyeOff className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                              )}
+                            </button>
                           </div>
                         </FormControl>
                         <PasswordStrengthIndicator password={field.value} />
@@ -384,15 +401,27 @@ export default function ResetPasswordPage() {
                         <FormLabel className="text-gray-700 font-medium">تأكيد كلمة المرور</FormLabel>
                         <FormControl>
                           <div className="relative group">
-                            <Shield className="absolute right-3 top-3 h-4 w-4 text-gray-400 group-focus-within:text-red-500 transition-colors z-10" />
+                            <Shield className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-red-500 transition-colors z-10" />
                             <Input 
                               {...field} 
-                              type="password"
+                              type={showConfirmPassword ? "text" : "password"}
                               placeholder="أعد إدخال كلمة المرور"
-                              className="pr-10 enhanced-input"
+                              className="pr-10 pl-10 enhanced-input text-right"
                               data-testid="input-confirm-password"
                               showValidation={false}
                             />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              className="absolute left-3 top-1/2 -translate-y-1/2 z-10 transition-colors"
+                              data-testid="button-toggle-confirm-password"
+                            >
+                              {showConfirmPassword ? (
+                                <Eye className="h-4 w-4 text-red-500" />
+                              ) : (
+                                <EyeOff className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                              )}
+                            </button>
                           </div>
                         </FormControl>
                         <FormMessage />

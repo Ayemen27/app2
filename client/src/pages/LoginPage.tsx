@@ -153,7 +153,7 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-14 flex items-center px-4 group">
+                    <div className={`bg-white rounded-xl border shadow-sm h-14 flex items-center px-4 group ${form.formState.errors.email ? 'border-[#C8102E]' : 'border-gray-100'}`}>
                       <div className="flex-1 flex flex-col justify-center">
                         <span className="text-[9px] text-gray-400 font-bold text-right">أدخل البريد الإلكتروني</span>
                         <FormControl>
@@ -161,7 +161,7 @@ export default function LoginPage() {
                             {...field} 
                             type="text"
                             autoComplete="off"
-                            placeholder="أدخل رقم الهاتف"
+                            placeholder="أدخل البريد الإلكتروني"
                             className="border-none p-0 h-5 text-base font-bold text-gray-800 focus-visible:ring-0 placeholder:text-gray-200 text-right bg-transparent"
                             data-testid="input-email"
                           />
@@ -171,6 +171,11 @@ export default function LoginPage() {
                         <Users className="w-5 h-5" strokeWidth={1.5} />
                       </button>
                     </div>
+                    {form.formState.errors.email && (
+                      <p className="text-[10px] font-bold text-[#C8102E] text-right px-1 mt-1">
+                        {form.formState.errors.email.message}
+                      </p>
+                    )}
                   </FormItem>
                 )}
               />
@@ -180,7 +185,7 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-14 flex items-center px-4 group">
+                    <div className={`bg-white rounded-xl border shadow-sm h-14 flex items-center px-4 group ${form.formState.errors.password ? 'border-[#C8102E]' : 'border-gray-100'}`}>
                       <div className="flex-1 flex flex-col justify-center">
                         <span className="text-[9px] text-gray-400 font-bold text-right">كلمة المرور</span>
                         <FormControl>
@@ -207,6 +212,11 @@ export default function LoginPage() {
                         </div>
                       </button>
                     </div>
+                    {form.formState.errors.password && (
+                      <p className="text-[10px] font-bold text-[#C8102E] text-right px-1 mt-1">
+                        {form.formState.errors.password.message}
+                      </p>
+                    )}
                   </FormItem>
                 )}
               />

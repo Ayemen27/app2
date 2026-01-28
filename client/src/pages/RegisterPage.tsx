@@ -31,7 +31,9 @@ import {
   Search,
   X,
   Lock,
-  Loader2
+  Loader2,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 const countries = [
@@ -77,6 +79,12 @@ export default function RegisterPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGenderDialogOpen, setIsGenderDialogOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(2000);
+  const [selectedMonth, setSelectedMonth] = useState(1);
+  const [selectedDay, setSelectedDay] = useState(1);
 
   const filteredCountries = countries.filter(c => 
     c.name.includes(searchQuery) || c.code.includes(searchQuery)
@@ -269,18 +277,28 @@ export default function RegisterPage() {
                   name="password"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4 overflow-visible">
+                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex flex-row-reverse items-center px-4 overflow-visible gap-2">
+                        <button 
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="flex items-center justify-center transition-colors"
+                          data-testid="button-toggle-password"
+                        >
+                          <div className="relative flex items-center justify-center">
+                            <EyeOff className={`w-4 h-4 ${showPassword ? 'hidden' : 'text-[#006699]'}`} />
+                            <Eye className={`w-4 h-4 ${showPassword ? 'text-red-500' : 'hidden'}`} />
+                          </div>
+                        </button>
                         <FormControl>
                           <Input 
                             {...field} 
-                            type="password"
+                            type={showPassword ? "text" : "password"}
                             placeholder="كلمة المرور"
                             className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
                             showValidation={false}
                             data-testid="input-password"
                           />
                         </FormControl>
-                        <Lock className="w-5 h-5 text-[#006699] mr-1" />
                       </div>
                       {form.formState.errors.password && (
                         <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
@@ -295,18 +313,28 @@ export default function RegisterPage() {
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4 overflow-visible">
+                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex flex-row-reverse items-center px-4 overflow-visible gap-2">
+                        <button 
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="flex items-center justify-center transition-colors"
+                          data-testid="button-toggle-confirm-password"
+                        >
+                          <div className="relative flex items-center justify-center">
+                            <EyeOff className={`w-4 h-4 ${showConfirmPassword ? 'hidden' : 'text-[#006699]'}`} />
+                            <Eye className={`w-4 h-4 ${showConfirmPassword ? 'text-red-500' : 'hidden'}`} />
+                          </div>
+                        </button>
                         <FormControl>
                           <Input 
                             {...field} 
-                            type="password"
+                            type={showConfirmPassword ? "text" : "password"}
                             placeholder="تأكيد الكلمة"
                             className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent flex-1"
                             showValidation={false}
                             data-testid="input-confirm-password"
                           />
                         </FormControl>
-                        <Lock className="w-5 h-5 text-[#006699] mr-1" />
                       </div>
                       {form.formState.errors.confirmPassword && (
                         <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
@@ -346,16 +374,86 @@ export default function RegisterPage() {
                   name="birthDate"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4">
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            placeholder="تاريخ الميلاد"
-                            className="border-none p-0 h-full text-sm font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-300 bg-transparent"
-                          />
-                        </FormControl>
-                        <Calendar className="w-4 h-4 text-[#006699] mr-2" />
-                      </div>
+                      <Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
+                        <DialogTrigger asChild>
+                          <button 
+                            type="button" 
+                            className="w-full bg-white rounded-xl border border-gray-100 shadow-sm h-12 flex items-center px-4 justify-between hover:bg-gray-50 transition-colors"
+                            data-testid="button-birth-date"
+                          >
+                            <Calendar className="w-4 h-4 text-[#006699]" />
+                            <span className={`text-sm font-bold ${field.value ? 'text-gray-800' : 'text-gray-300'}`}>
+                              {field.value || "تاريخ الميلاد"}
+                            </span>
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-[350px] w-[95%] p-0 rounded-3xl border-none shadow-2xl overflow-hidden" dir="rtl">
+                          <div className="bg-white p-4">
+                            <DialogHeader className="pb-4 border-b border-gray-100">
+                              <DialogTitle className="text-center text-lg font-bold text-gray-800">تاريخ الميلاد</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid grid-cols-3 gap-2 py-6">
+                              <div className="flex flex-col items-center">
+                                <span className="text-[10px] text-gray-400 mb-2">السنة</span>
+                                <div className="h-40 overflow-y-auto custom-scrollbar w-full">
+                                  {Array.from({ length: 80 }, (_, i) => 2025 - i).map((year) => (
+                                    <button
+                                      key={year}
+                                      type="button"
+                                      onClick={() => setSelectedYear(year)}
+                                      className={`w-full py-2 text-center font-bold transition-colors ${selectedYear === year ? 'bg-[#006699] text-white rounded-lg' : 'text-gray-600 hover:bg-gray-50'}`}
+                                    >
+                                      {year}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-center">
+                                <span className="text-[10px] text-gray-400 mb-2">الشهر</span>
+                                <div className="h-40 overflow-y-auto custom-scrollbar w-full">
+                                  {["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"].map((month, idx) => (
+                                    <button
+                                      key={month}
+                                      type="button"
+                                      onClick={() => setSelectedMonth(idx + 1)}
+                                      className={`w-full py-2 text-center font-bold text-sm transition-colors ${selectedMonth === idx + 1 ? 'bg-[#006699] text-white rounded-lg' : 'text-gray-600 hover:bg-gray-50'}`}
+                                    >
+                                      {month}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-center">
+                                <span className="text-[10px] text-gray-400 mb-2">اليوم</span>
+                                <div className="h-40 overflow-y-auto custom-scrollbar w-full">
+                                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                    <button
+                                      key={day}
+                                      type="button"
+                                      onClick={() => setSelectedDay(day)}
+                                      className={`w-full py-2 text-center font-bold transition-colors ${selectedDay === day ? 'bg-[#006699] text-white rounded-lg' : 'text-gray-600 hover:bg-gray-50'}`}
+                                    >
+                                      {day}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              onClick={() => {
+                                const formattedDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+                                field.onChange(formattedDate);
+                                setIsDateDialogOpen(false);
+                              }}
+                              className="w-full h-12 bg-[#006699] hover:bg-[#005580] text-white text-base font-bold rounded-xl"
+                              data-testid="button-confirm-date"
+                            >
+                              تأكيد
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                       {form.formState.errors.birthDate && (
                         <p className="text-[10px] font-bold text-[#C8102E] text-right px-1">
                           {form.formState.errors.birthDate.message}

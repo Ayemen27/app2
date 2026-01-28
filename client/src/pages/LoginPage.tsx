@@ -123,7 +123,7 @@ export default function LoginPage() {
         <div className="flex flex-col flex-1 gap-1">
           {/* Header - Compact */}
           <div className="flex justify-between items-center mb-1 animate-in slide-in-from-top duration-500 fill-mode-both" dir="ltr">
-            <div className="text-left flex flex-col items-start">
+            <div className="text-left flex flex-col items-start" dir="ltr">
               <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">مرحباً بعودتك</h2>
               <span className="text-[8px] text-gray-300 dark:text-slate-600 font-bold">WELCOME BACK</span>
             </div>

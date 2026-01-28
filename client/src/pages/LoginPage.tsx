@@ -211,6 +211,7 @@ export default function LoginPage() {
                             placeholder="كلمة المرور"
                             className="border-none p-0 h-5 text-base font-bold text-gray-800 text-right focus-visible:ring-0 placeholder:text-gray-200 bg-transparent"
                             data-testid="input-password"
+                            hidePasswordToggle={true}
                           />
                         </FormControl>
                       </div>

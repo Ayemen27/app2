@@ -76,17 +76,19 @@ const getAllowedOrigins = (req?: Request) => {
     'http://localhost:3000',
     `http://127.0.0.1:${PORT}`,
     PRODUCTION_DOMAIN,
-    REPLIT_DOMAIN
+    REPLIT_DOMAIN,
+    'https://app2.binarjoinanelytic.info' // الدومين الأساسي
   ].filter(Boolean) as string[];
+
+  // إضافة الدومين من متغير البيئة إذا وجد
+  if (process.env.DOMAIN) {
+    origins.push(process.env.DOMAIN.replace(/\/$/, ''));
+  }
 
   // في بيئة التطوير، نسمح بالدومين الحالي ديناميكياً
   if (!isProduction && req && req.headers.host) {
     const protocol = req.headers['x-forwarded-proto'] === 'https' || req.secure ? 'https' : 'http';
     origins.push(`${protocol}://${req.headers.host}`);
-  }
-
-  if (process.env.DOMAIN) {
-    origins.push(process.env.DOMAIN.replace(/\/$/, ''));
   }
 
   return origins;

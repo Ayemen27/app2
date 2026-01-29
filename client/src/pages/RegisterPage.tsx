@@ -156,15 +156,28 @@ export default function RegisterPage() {
 
           <div className="flex flex-col items-center justify-center mb-2 animate-in zoom-in duration-700 delay-150 fill-mode-both">
             <div className="relative mb-2 group cursor-pointer">
-              <div className="w-12 h-12 bg-card dark:bg-slate-900 rounded-[18px] flex items-center justify-center shadow-lg border border-border dark:border-slate-800 group-hover:shadow-xl transition-all duration-300">
-                <div className="w-10 h-10 bg-blue-600 rounded-[14px] flex items-center justify-center">
-                  <ShieldCheck className="w-6 h-6 text-white" strokeWidth={1.5} />
+              {/* Outer Glow / Halo */}
+              <div className="absolute -inset-1 bg-gradient-to-tr from-blue-600 to-indigo-400 rounded-[22px] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+              
+              <div className="relative w-14 h-14 bg-white dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-2xl border border-blue-100/50 dark:border-blue-900/30 overflow-hidden">
+                {/* Background Pattern */}
+                <div className="absolute inset-0 opacity-[0.05] dark:opacity-[0.1]" 
+                     style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #2563eb 1px, transparent 0)', backgroundSize: '8px 8px' }}></div>
+                
+                {/* Modern Shield Logo with Gradient */}
+                <div className="w-11 h-11 bg-gradient-to-br from-blue-600 to-blue-700 rounded-[16px] flex items-center justify-center shadow-inner relative overflow-hidden group-hover:scale-105 transition-transform duration-500">
+                  <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-white/20 to-transparent"></div>
+                  <ShieldCheck className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" strokeWidth={2} />
                 </div>
               </div>
             </div>
-            <div className="text-center leading-none">
-              <h1 className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">أوركس بروفيشنال</h1>
-              <span className="text-blue-600/60 dark:text-blue-400/60 text-[8px] font-black tracking-[0.3em] uppercase block mt-1">ORAX OPS SYSTEM</span>
+            <div className="text-center leading-none mt-1">
+              <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500 dark:from-blue-400 dark:to-blue-300 tracking-tighter">ORAX OPS</h1>
+              <div className="flex items-center justify-center gap-1 mt-0.5">
+                <span className="w-4 h-[1px] bg-blue-600/20"></span>
+                <span className="text-blue-600/60 dark:text-blue-400/60 text-[7px] font-black tracking-[0.4em] uppercase">SYSTEM CORE</span>
+                <span className="w-4 h-[1px] bg-blue-600/20"></span>
+              </div>
             </div>
           </div>
 

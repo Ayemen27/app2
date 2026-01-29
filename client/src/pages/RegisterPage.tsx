@@ -40,7 +40,25 @@ const countries = [
   { name: "اليمن", code: "+967", flag: "https://flagcdn.com/w20/ye.png" },
   { name: "السعودية", code: "+966", flag: "https://flagcdn.com/w20/sa.png" },
   { name: "الإمارات", code: "+971", flag: "https://flagcdn.com/w20/ae.png" },
+  { name: "عمان", code: "+968", flag: "https://flagcdn.com/w20/om.png" },
+  { name: "الكويت", code: "+965", flag: "https://flagcdn.com/w20/kw.png" },
+  { name: "قطر", code: "+974", flag: "https://flagcdn.com/w20/qa.png" },
+  { name: "البحرين", code: "+973", flag: "https://flagcdn.com/w20/bh.png" },
   { name: "مصر", code: "+20", flag: "https://flagcdn.com/w20/eg.png" },
+  { name: "الأردن", code: "+962", flag: "https://flagcdn.com/w20/jo.png" },
+  { name: "العراق", code: "+964", flag: "https://flagcdn.com/w20/iq.png" },
+  { name: "سوريا", code: "+963", flag: "https://flagcdn.com/w20/sy.png" },
+  { name: "لبنان", code: "+961", flag: "https://flagcdn.com/w20/lb.png" },
+  { name: "فلسطين", code: "+970", flag: "https://flagcdn.com/w20/ps.png" },
+  { name: "المغرب", code: "+212", flag: "https://flagcdn.com/w20/ma.png" },
+  { name: "الجزائر", code: "+213", flag: "https://flagcdn.com/w20/dz.png" },
+  { name: "تونس", code: "+216", flag: "https://flagcdn.com/w20/tn.png" },
+  { name: "ليبيا", code: "+218", flag: "https://flagcdn.com/w20/ly.png" },
+  { name: "السودان", code: "+249", flag: "https://flagcdn.com/w20/sd.png" },
+  { name: "موريتانيا", code: "+222", flag: "https://flagcdn.com/w20/mr.png" },
+  { name: "تركيا", code: "+90", flag: "https://flagcdn.com/w20/tr.png" },
+  { name: "الولايات المتحدة", code: "+1", flag: "https://flagcdn.com/w20/us.png" },
+  { name: "المملكة المتحدة", code: "+44", flag: "https://flagcdn.com/w20/gb.png" },
 ];
 
 const registerSchema = z.object({
@@ -72,6 +90,37 @@ export default function RegisterPage() {
   const [selectedYear, setSelectedYear] = useState(2000);
   const [selectedMonth, setSelectedMonth] = useState(1);
   const [selectedDay, setSelectedDay] = useState(1);
+
+  useEffect(() => {
+    // محاولة اكتشاف الدولة تلقائياً بناءً على المنطقة الزمنية
+    const detectCountry = () => {
+      try {
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (timezone.includes('Aden') || timezone.includes('Sanaa')) setSelectedCountry(countries.find(c => c.code === '+967') || countries[0]);
+        else if (timezone.includes('Riyadh')) setSelectedCountry(countries.find(c => c.code === '+966') || countries[0]);
+        else if (timezone.includes('Dubai') || timezone.includes('Abu_Dhabi')) setSelectedCountry(countries.find(c => c.code === '+971') || countries[0]);
+        else if (timezone.includes('Cairo')) setSelectedCountry(countries.find(c => c.code === '+20') || countries[0]);
+        else if (timezone.includes('Muscat')) setSelectedCountry(countries.find(c => c.code === '+968') || countries[0]);
+        else if (timezone.includes('Kuwait')) setSelectedCountry(countries.find(c => c.code === '+965') || countries[0]);
+        else if (timezone.includes('Qatar')) setSelectedCountry(countries.find(c => c.code === '+974') || countries[0]);
+        else if (timezone.includes('Bahrain')) setSelectedCountry(countries.find(c => c.code === '+973') || countries[0]);
+        else if (timezone.includes('Amman')) setSelectedCountry(countries.find(c => c.code === '+962') || countries[0]);
+        else if (timezone.includes('Baghdad')) setSelectedCountry(countries.find(c => c.code === '+964') || countries[0]);
+        else if (timezone.includes('Damascus')) setSelectedCountry(countries.find(c => c.code === '+963') || countries[0]);
+        else if (timezone.includes('Beirut')) setSelectedCountry(countries.find(c => c.code === '+961') || countries[0]);
+        else if (timezone.includes('Gaza') || timezone.includes('Hebron')) setSelectedCountry(countries.find(c => c.code === '+970') || countries[0]);
+        else if (timezone.includes('Casablanca')) setSelectedCountry(countries.find(c => c.code === '+212') || countries[0]);
+        else if (timezone.includes('Algiers')) setSelectedCountry(countries.find(c => c.code === '+213') || countries[0]);
+        else if (timezone.includes('Tunis')) setSelectedCountry(countries.find(c => c.code === '+216') || countries[0]);
+        else if (timezone.includes('Tripoli')) setSelectedCountry(countries.find(c => c.code === '+218') || countries[0]);
+        else if (timezone.includes('Khartoum')) setSelectedCountry(countries.find(c => c.code === '+249') || countries[0]);
+        else if (timezone.includes('Istanbul')) setSelectedCountry(countries.find(c => c.code === '+90') || countries[0]);
+      } catch (e) {
+        console.error("Failed to detect country:", e);
+      }
+    };
+    detectCountry();
+  }, []);
 
   const filteredCountries = countries.filter(c => 
     c.name.includes(searchQuery) || c.code.includes(searchQuery)

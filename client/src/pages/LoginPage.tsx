@@ -161,21 +161,15 @@ export default function LoginPage() {
               {/* Outer Glow / Halo */}
               <div className="absolute -inset-1.5 bg-blue-500/10 rounded-[24px] blur-md opacity-0 group-hover:opacity-100 transition duration-500"></div>
               
-              <div className="w-20 h-20 flex items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 relative">
+              <div className="w-24 h-24 flex items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 relative bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-2 border border-white/20">
                 <img 
                   src={appIconLight} 
                   alt="AXION Logo" 
-                  className="w-full h-full object-contain dark:hidden"
+                  className="w-full h-full object-contain"
                   data-testid="img-logo-light"
                 />
-                <img 
-                  src={appIconDark} 
-                  alt="AXION Logo" 
-                  className="w-full h-full object-contain hidden dark:block"
-                  data-testid="img-logo-dark"
-                />
                 {/* Status Indicator / Pulse Point - Matching the Image */}
-                <div className="absolute top-4 right-4 w-3.5 h-3.5 bg-blue-500 rounded-full border-[2.5px] border-white dark:border-[#1a1c1e] shadow-md ring-2 ring-blue-400/20 animate-pulse"></div>
+                <div className="absolute top-2 right-2 w-3.5 h-3.5 bg-blue-500 rounded-full border-[2.5px] border-white dark:border-[#1a1c1e] shadow-md ring-2 ring-blue-400/20 animate-pulse"></div>
               </div>
             </div>
             <div className="text-center relative">
@@ -183,17 +177,11 @@ export default function LoginPage() {
                 <img 
                   src={logoHeaderLight} 
                   alt="AXION | أكسيون" 
-                  className="h-10 object-contain dark:hidden"
+                  className="h-12 object-contain bg-white/30 dark:bg-white/5 backdrop-blur-sm rounded-lg px-4 py-1 border border-white/10"
                   data-testid="img-header-light"
                 />
-                <img 
-                  src={logoHeaderDark} 
-                  alt="AXION | أكسيون" 
-                  className="h-10 object-contain hidden dark:block"
-                  data-testid="img-header-dark"
-                />
               </div>
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center gap-2 mt-2">
                 <span className="h-[1px] w-6 bg-gradient-to-r from-transparent to-blue-200 dark:to-blue-900"></span>
                 <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.5em] uppercase">Real Assets Management</span>
                 <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-blue-200 dark:to-blue-900"></span>

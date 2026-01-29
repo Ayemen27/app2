@@ -1,8 +1,3 @@
-/**
- * صفحة إعادة تعيين كلمة المرور المتقدمة
- * يمكن الوصول إليها عبر رابط البريد الإلكتروني المرسل
- */
-
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -10,37 +5,27 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
-import {
   Form,
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "../components/ui/form";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
-import { Alert, AlertDescription } from "../components/ui/alert";
 import { useToast } from "../hooks/use-toast";
 import { 
   Loader2, 
-  ArrowLeft,
   CheckCircle,
   Lock,
   KeyRound,
   Shield,
   AlertTriangle,
   Eye,
-  EyeOff
+  EyeOff,
+  ShieldCheck
 } from "lucide-react";
 
-// مخطط التحقق من البيانات
 const resetPasswordSchema = z.object({
   newPassword: z.string()
     .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
@@ -57,15 +42,6 @@ interface ResetPasswordResponse {
   success: boolean;
   message: string;
 }
-
-// مكون الخلفية المتحركة
-const AnimatedBackground = () => (
-  <div className="fixed inset-0 overflow-hidden pointer-events-none">
-    <div className="absolute -top-40 -right-32 w-96 h-96 bg-gradient-to-br from-red-400/20 to-pink-600/20 rounded-full blur-3xl animate-blob"></div>
-    <div className="absolute -bottom-32 -left-40 w-96 h-96 bg-gradient-to-tr from-orange-400/20 to-red-600/20 rounded-full blur-3xl animate-blob animation-delay-2000"></div>
-    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-gradient-to-r from-pink-400/20 to-purple-600/20 rounded-full blur-3xl animate-blob animation-delay-4000"></div>
-  </div>
-);
 
 export default function ResetPasswordPage() {
   const [, navigate] = useLocation();
@@ -85,21 +61,18 @@ export default function ResetPasswordPage() {
     },
   });
 
-  // استخراج الرمز من URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tokenParam = urlParams.get('token');
     
     if (tokenParam) {
       setToken(tokenParam);
-      // يمكن إضافة تحقق من صحة الرمز هنا
       setIsTokenValid(true);
     } else {
       setIsTokenValid(false);
     }
   }, []);
 
-  // طفرة إعادة تعيين كلمة المرور
   const resetPasswordMutation = useMutation({
     mutationFn: async (data: ResetPasswordFormData): Promise<ResetPasswordResponse> => {
       if (!token) {
@@ -139,13 +112,12 @@ export default function ResetPasswordPage() {
         });
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "خطأ في إعادة تعيين كلمة المرور",
         description: error.message || "حدث خطأ أثناء المعالجة",
         variant: "destructive",
       });
-      console.error('Reset password error:', error);
     },
   });
 
@@ -153,342 +125,212 @@ export default function ResetPasswordPage() {
     resetPasswordMutation.mutate(data);
   };
 
-  // مكون قوة كلمة المرور
-  const PasswordStrengthIndicator = ({ password }: { password: string }) => {
-    const getStrength = () => {
-      if (!password) return { score: 0, label: "", color: "" };
-      
-      let score = 0;
-      if (password.length >= 8) score++;
-      if (/[A-Z]/.test(password)) score++;
-      if (/[a-z]/.test(password)) score++;
-      if (/\d/.test(password)) score++;
-      if (/[^A-Za-z0-9]/.test(password)) score++;
-      
-      const labels = ["ضعيفة جداً", "ضعيفة", "متوسطة", "قوية", "قوية جداً"];
-      const colors = ["bg-red-500", "bg-orange-500", "bg-yellow-500", "bg-green-500", "bg-emerald-500"];
-      
-      return { score, label: labels[score - 1] || "", color: colors[score - 1] || "" };
-    };
-    
-    const strength = getStrength();
-    
-    if (!password) return null;
-    
-    return (
-      <div className="mt-2">
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-gray-600">قوة كلمة المرور</span>
-          <span className={`text-xs font-medium ${strength.score >= 3 ? 'text-green-600' : 'text-orange-600'}`}>
-            {strength.label}
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className={`h-2 rounded-full transition-all duration-300 ${strength.color}`}
-            style={{ width: `${(strength.score / 5) * 100}%` }}
-          />
-        </div>
-      </div>
-    );
-  };
-
-  // في حالة الرمز غير صالح
   if (isTokenValid === false) {
     return (
-      <div className="min-h-screen relative overflow-hidden" dir="rtl">
-        <AnimatedBackground />
-        <div className="absolute inset-0 bg-gradient-to-br from-red-50/80 dark:from-red-950/40 via-white/90 dark:via-slate-900/90 to-pink-50/80 dark:to-pink-950/40 backdrop-blur-sm"></div>
-        
-        <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
-          <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl max-w-md w-full">
-            <CardHeader className="space-y-1 text-center">
-              <div className="flex justify-center">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-500 rounded-full blur-lg opacity-75 animate-pulse"></div>
-                  <div className="relative bg-gradient-to-r from-red-500 to-pink-500 rounded-full p-4">
-                    <AlertTriangle className="w-12 h-12 text-white" />
-                  </div>
-                </div>
-              </div>
-              <CardTitle className="text-2xl font-bold text-red-700">
-                رابط غير صالح
-              </CardTitle>
-              <CardDescription className="text-gray-600">
-                رابط استرجاع كلمة المرور غير صالح أو منتهي الصلاحية
-              </CardDescription>
-            </CardHeader>
-            
-            <CardContent className="space-y-1">
-              <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                <AlertDescription className="text-red-800 dark:text-red-200">
-                  قد يكون الرابط منتهي الصلاحية أو تم استخدامه مسبقاً. يرجى طلب رابط جديد لاسترجاع كلمة المرور.
-                </AlertDescription>
-              </Alert>
+      <div className="h-screen w-full bg-background dark:bg-slate-950 flex flex-col items-center overflow-hidden font-sans select-none relative transition-colors duration-500" dir="rtl">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none z-0" 
+             style={{ 
+               backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%232563eb\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
+               backgroundSize: '45px 45px' 
+             }}>
+        </div>
 
-              <div className="space-y-1">
-                <Button
-                  onClick={() => navigate("/forgot-password")}
-                  className="w-full enhanced-button"
-                >
-                  <KeyRound className="ml-2 h-4 w-4" />
-                  طلب رابط جديد
-                </Button>
+        <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-4 pt-safe justify-center items-center gap-6">
+          <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-12 h-12 text-red-500" />
+          </div>
+          
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-black text-red-600">رابط غير صالح</h2>
+            <p className="text-sm text-red-600/60 font-bold">
+              رابط استرجاع كلمة المرور غير صالح أو منتهي الصلاحية. يرجى طلب رابط جديد.
+            </p>
+          </div>
 
-                <Button
-                  onClick={() => navigate("/login")}
-                  variant="outline"
-                  className="w-full enhanced-outline-button"
-                >
-                  <ArrowLeft className="ml-2 h-4 w-4" />
-                  العودة لتسجيل الدخول
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="w-full space-y-2">
+            <Button 
+              onClick={() => navigate('/forgot-password')}
+              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
+            >
+              طلب رابط جديد
+            </Button>
+            <Button 
+              variant="ghost"
+              onClick={() => navigate('/login')}
+              className="w-full h-12 text-blue-600 font-bold"
+            >
+              العودة لتسجيل الدخول
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // في حالة نجاح إعادة تعيين كلمة المرور
   if (isSuccess) {
     return (
-      <div className="min-h-screen relative overflow-hidden" dir="rtl">
-        <AnimatedBackground />
-        <div className="absolute inset-0 bg-gradient-to-br from-green-50/80 dark:from-green-950/40 via-white/90 dark:via-slate-900/90 to-emerald-50/80 dark:to-emerald-950/40 backdrop-blur-sm"></div>
-        
-        <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
-          <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl max-w-md w-full">
-            <CardHeader className="space-y-1 text-center">
-              <div className="flex justify-center">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full blur-lg opacity-75 animate-pulse"></div>
-                  <div className="relative bg-gradient-to-r from-green-500 to-emerald-500 rounded-full p-4">
-                    <CheckCircle className="w-12 h-12 text-white" />
-                  </div>
-                </div>
-              </div>
-              <CardTitle className="text-2xl font-bold text-green-700">
-                تمت بنجاح!
-              </CardTitle>
-              <CardDescription className="text-gray-600">
-                تم إعادة تعيين كلمة المرور بنجاح
-              </CardDescription>
-            </CardHeader>
-            
-            <CardContent className="space-y-1">
-              <Alert className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
-                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <AlertDescription className="text-green-800 dark:text-green-200">
-                  تم تحديث كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول باستخدام كلمة المرور الجديدة.
-                </AlertDescription>
-              </Alert>
+      <div className="h-screen w-full bg-background dark:bg-slate-950 flex flex-col items-center overflow-hidden font-sans select-none relative transition-colors duration-500" dir="rtl">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none z-0" 
+             style={{ 
+               backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%232563eb\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
+               backgroundSize: '45px 45px' 
+             }}>
+        </div>
 
-              <Button
-                onClick={() => navigate("/login")}
-                className="w-full enhanced-button"
-              >
-                <ArrowLeft className="ml-2 h-4 w-4" />
-                تسجيل الدخول الآن
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-4 pt-safe justify-center items-center gap-6">
+          <div className="w-20 h-20 bg-blue-600/10 rounded-full flex items-center justify-center">
+            <CheckCircle className="w-12 h-12 text-blue-600" />
+          </div>
+          
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-black text-blue-600 dark:text-blue-400">تمت بنجاح!</h2>
+            <p className="text-sm text-blue-600/60 dark:text-blue-400/60 font-bold">
+              تم إعادة تعيين كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول.
+            </p>
+          </div>
+
+          <Button 
+            onClick={() => navigate('/login')}
+            className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
+          >
+            تسجيل الدخول الآن
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden" dir="rtl">
-      {/* الخلفية المتحركة */}
-      <AnimatedBackground />
-      
-      {/* تأثير التدرج */}
-      <div className="absolute inset-0 bg-gradient-to-br from-red-50/80 dark:from-red-950/40 via-white/90 dark:via-slate-900/90 to-pink-50/80 dark:to-pink-950/40 backdrop-blur-sm"></div>
-      
-      {/* المحتوى الرئيسي */}
-      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-1">
-          
-          {/* العودة للصفحة الرئيسية */}
-          <div className="flex items-center justify-center">
-            <Link href="/login">
-              <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
-                <ArrowLeft className="ml-2 h-4 w-4" />
-                العودة لتسجيل الدخول
-              </Button>
-            </Link>
+    <div className="h-screen w-full bg-background dark:bg-slate-950 flex flex-col items-center overflow-hidden font-sans select-none relative transition-colors duration-500" dir="rtl">
+      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none z-0" 
+           style={{ 
+             backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%232563eb\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
+             backgroundSize: '45px 45px' 
+           }}>
+      </div>
+
+      <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-4 pt-safe justify-between">
+        <div className="flex flex-col flex-1 gap-4">
+          <div className="flex justify-between items-center mb-1 animate-in slide-in-from-top duration-500 fill-mode-both" dir="rtl">
+            <div className="text-right flex flex-col items-end">
+              <h2 className="text-[10px] font-black text-blue-600/50 dark:text-blue-400/50 uppercase tracking-widest leading-none">تأمين الحساب</h2>
+              <span className="text-[8px] text-blue-600/30 dark:text-blue-400/30 font-bold uppercase">SECURE ACCOUNT</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="w-9 h-9 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform"
+              onClick={() => navigate('/login')}
+            >
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 bg-white rounded-full" />
+                <div className="w-1 h-1 bg-white rounded-full" />
+                <div className="w-1 h-1 bg-white rounded-full" />
+              </div>
+            </Button>
           </div>
 
-          {/* شعار إعادة تعيين كلمة المرور */}
-          <div className="flex flex-col items-center space-y-1">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-pink-600 rounded-full blur-lg opacity-75 animate-pulse"></div>
-              <div className="relative bg-gradient-to-r from-red-600 to-pink-600 rounded-full p-4">
-                <KeyRound className="w-12 h-12 text-white" />
+          <div className="flex flex-col items-center justify-center mb-4 animate-in zoom-in duration-700 delay-150 fill-mode-both">
+            <div className="relative mb-2 group cursor-pointer">
+              <div className="w-16 h-16 bg-card dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-border dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300">
+                <div className="w-13 h-13 bg-blue-600 rounded-[16px] flex items-center justify-center">
+                  <ShieldCheck className="w-8 h-8 text-white" strokeWidth={1.5} />
+                </div>
               </div>
             </div>
             <div className="text-center">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
-                إعادة تعيين كلمة المرور
-              </h1>
-              <p className="text-gray-600 mt-2">أدخل كلمة المرور الجديدة</p>
+              <h1 className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tighter leading-none">أوركس بروفيشنال</h1>
+              <span className="text-blue-600/60 dark:text-blue-400/60 text-[10px] font-black tracking-[0.3em] uppercase block mt-1">ORAX OPS SYSTEM</span>
             </div>
           </div>
 
-          {/* البطاقة الرئيسية */}
-          <Card className="glass-morphism border-0 shadow-2xl backdrop-blur-xl">
-            <CardHeader className="space-y-1 text-center">
-              <div className="flex justify-center">
-                <Lock className="w-16 h-16 text-red-500" />
-              </div>
-              <CardTitle className="text-2xl font-bold text-gray-900">
-                كلمة مرور جديدة
-              </CardTitle>
-              <CardDescription className="text-gray-600">
-                اختر كلمة مرور قوية لحماية حسابك
-              </CardDescription>
-            </CardHeader>
-            
-            <CardContent className="space-y-1">
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-1">
-                  
-                  <FormField
-                    control={form.control}
-                    name="newPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-gray-700 font-medium">كلمة المرور الجديدة</FormLabel>
-                        <FormControl>
-                          <div className="relative group">
-                            <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-red-500 transition-colors z-10" />
-                            <Input 
-                              {...field} 
-                              type={showNewPassword ? "text" : "password"}
-                              placeholder="أدخل كلمة مرور قوية"
-                              className="pr-10 pl-10 enhanced-input text-right"
-                              data-testid="input-new-password"
-                              showValidation={false}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowNewPassword(!showNewPassword)}
-                              className="absolute left-3 top-1/2 -translate-y-1/2 z-10 transition-colors"
-                              data-testid="button-toggle-new-password"
-                            >
-                              {showNewPassword ? (
-                                <Eye className="h-4 w-4 text-red-500" />
-                              ) : (
-                                <EyeOff className="h-4 w-4 text-gray-400 hover:text-red-500" />
-                              )}
-                            </button>
-                          </div>
-                        </FormControl>
-                        <PasswordStrengthIndicator password={field.value} />
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-gray-700 font-medium">تأكيد كلمة المرور</FormLabel>
-                        <FormControl>
-                          <div className="relative group">
-                            <Shield className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-red-500 transition-colors z-10" />
-                            <Input 
-                              {...field} 
-                              type={showConfirmPassword ? "text" : "password"}
-                              placeholder="أعد إدخال كلمة المرور"
-                              className="pr-10 pl-10 enhanced-input text-right"
-                              data-testid="input-confirm-password"
-                              showValidation={false}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                              className="absolute left-3 top-1/2 -translate-y-1/2 z-10 transition-colors"
-                              data-testid="button-toggle-confirm-password"
-                            >
-                              {showConfirmPassword ? (
-                                <Eye className="h-4 w-4 text-red-500" />
-                              ) : (
-                                <EyeOff className="h-4 w-4 text-gray-400 hover:text-red-500" />
-                              )}
-                            </button>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button
-                    type="submit"
-                    className="w-full enhanced-button"
-                    disabled={resetPasswordMutation.isPending}
-                    data-testid="button-reset-password"
-                    style={{
-                      background: "linear-gradient(135deg, #dc2626 0%, #ec4899 100%)"
-                    }}
-                  >
-                    {resetPasswordMutation.isPending ? (
-                      <>
-                        <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                        جارِ إعادة التعيين...
-                      </>
-                    ) : (
-                      <>
-                        <KeyRound className="ml-2 h-4 w-4" />
-                        إعادة تعيين كلمة المرور
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </Form>
-
-              <div className="text-center space-y-2 pt-4 border-t border-gray-200">
-                <p className="text-sm text-gray-600">
-                  تذكرت كلمة المرور؟{" "}
-                  <Link href="/login">
-                    <span className="text-red-600 hover:text-red-500 font-medium cursor-pointer">
-                      تسجيل الدخول
-                    </span>
-                  </Link>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* تعليمات الأمان */}
-          <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-            <CardContent className="p-4">
-              <div className="flex items-start space-x-3 rtl:space-x-reverse">
-                <Shield className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-800 dark:text-blue-200">
-                  <p className="font-medium">نصائح الأمان:</p>
-                  <ul className="mt-1 space-y-1 text-blue-700 dark:text-blue-300">
-                    <li>• استخدم كلمة مرور قوية ومعقدة</li>
-                    <li>• تجنب استخدام معلومات شخصية</li>
-                    <li>• احتفظ بكلمة المرور في مكان آمن</li>
-                    <li>• لا تشارك كلمة المرور مع أي شخص</li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Footer */}
-          <div className="text-center text-sm text-gray-500 space-y-1">
-            <p>© 2025 نظام إدارة المشاريع الإنشائية</p>
-            <p>جميع الحقوق محفوظة</p>
+          <div className="text-center mb-4">
+            <h2 className="text-lg font-black text-blue-600 dark:text-blue-400 mb-1">إعادة تعيين كلمة المرور</h2>
+            <p className="text-sm text-blue-600/60 dark:text-blue-400/60 font-bold">أدخل كلمة المرور الجديدة لحماية حسابك</p>
           </div>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both">
+              <FormField
+                control={form.control}
+                name="newPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
+                      <div className="flex-1 flex flex-col justify-center">
+                        <span className="text-[9px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Security / كلمة المرور</span>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type={showNewPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            className="border-none p-0 h-5 text-base font-black text-foreground focus-visible:ring-0 placeholder:text-muted-foreground/30 text-right bg-transparent shadow-none"
+                            hidePasswordToggle={true}
+                          />
+                        </FormControl>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="flex items-center justify-center ml-2 transition-colors"
+                      >
+                        {showNewPassword ? <Eye className="w-5 h-5 text-blue-600" /> : <EyeOff className="w-5 h-5 text-blue-600/30" />}
+                      </button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
+                      <div className="flex-1 flex flex-col justify-center">
+                        <span className="text-[9px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Verify / تأكيد</span>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            className="border-none p-0 h-5 text-base font-black text-foreground focus-visible:ring-0 placeholder:text-muted-foreground/30 text-right bg-transparent shadow-none"
+                            hidePasswordToggle={true}
+                          />
+                        </FormControl>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="flex items-center justify-center ml-2 transition-colors"
+                      >
+                        {showConfirmPassword ? <Eye className="w-5 h-5 text-blue-600" /> : <EyeOff className="w-5 h-5 text-blue-600/30" />}
+                      </button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button 
+                type="submit" 
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
+                disabled={resetPasswordMutation.isPending}
+              >
+                {resetPasswordMutation.isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "إعادة تعيين كلمة المرور"}
+              </Button>
+            </form>
+          </Form>
+        </div>
+
+        <div className="flex flex-col items-center gap-2 pb-4 animate-in fade-in duration-1000 delay-700 fill-mode-both">
+          <div className="flex items-center gap-4 w-full px-4">
+            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30 opacity-50"></div>
+            <span className="text-[8px] font-black text-blue-600/30 dark:text-blue-400/30 tracking-[0.2em] uppercase">Secure System</span>
+            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30 opacity-50"></div>
+          </div>
+          <span className="text-[8px] text-blue-600/20 dark:text-blue-400/20">© 2026 ORAX OPERATIONS MANAGEMENT</span>
         </div>
       </div>
     </div>

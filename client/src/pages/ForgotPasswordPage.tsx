@@ -19,6 +19,7 @@ import {
   Mail,
   Loader2,
   CheckCircle,
+  X
 } from "lucide-react";
 
 const forgotPasswordSchema = z.object({
@@ -73,26 +74,26 @@ export default function ForgotPasswordPage() {
       <div className="h-screen w-full bg-background dark:bg-slate-950 flex flex-col items-center overflow-hidden font-sans select-none relative transition-colors duration-500" dir="rtl">
         <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none z-0" 
              style={{ 
-               backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%230f172a\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
+               backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%232563eb\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
                backgroundSize: '45px 45px' 
              }}>
         </div>
 
         <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-4 pt-safe justify-center items-center gap-6">
-          <div className="w-20 h-20 bg-green-500/10 dark:bg-green-500/20 rounded-full flex items-center justify-center">
-            <CheckCircle className="w-12 h-12 text-green-500" />
+          <div className="w-20 h-20 bg-blue-600/10 rounded-full flex items-center justify-center">
+            <CheckCircle className="w-12 h-12 text-blue-600" />
           </div>
           
           <div className="text-center space-y-2">
-            <h2 className="text-xl font-black text-foreground">تم إرسال الرابط بنجاح</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-xl font-black text-blue-600 dark:text-blue-400">تم إرسال الرابط بنجاح</h2>
+            <p className="text-sm text-blue-600/60 dark:text-blue-400/60 font-bold">
               تم إرسال رابط استرجاع كلمة المرور إلى بريدك الإلكتروني. يرجى التحقق من صندوق الوارد.
             </p>
           </div>
 
           <Button 
             onClick={() => navigate('/login')}
-            className="w-full h-12 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
+            className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
             data-testid="button-back-to-login"
           >
             العودة لتسجيل الدخول
@@ -106,7 +107,7 @@ export default function ForgotPasswordPage() {
     <div className="h-screen w-full bg-background dark:bg-slate-950 flex flex-col items-center overflow-hidden font-sans select-none relative transition-colors duration-500" dir="rtl">
       <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none z-0" 
            style={{ 
-             backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%230f172a\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
+             backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%232563eb\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
              backgroundSize: '45px 45px' 
            }}>
       </div>
@@ -115,46 +116,41 @@ export default function ForgotPasswordPage() {
         <div className="flex flex-col flex-1 gap-4">
           <div className="flex justify-between items-center mb-1 animate-in slide-in-from-top duration-500 fill-mode-both" dir="rtl">
             <div className="text-right flex flex-col items-end">
-              <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">استعادة الوصول</h2>
-              <span className="text-[8px] text-gray-300 dark:text-slate-600 font-bold">RECOVER ACCESS</span>
+              <h2 className="text-[10px] font-black text-blue-600/50 dark:text-blue-400/50 uppercase tracking-widest leading-none">استعادة الوصول</h2>
+              <span className="text-[8px] text-blue-600/30 dark:text-blue-400/30 font-bold uppercase">RECOVER ACCESS</span>
             </div>
             <Button 
               variant="ghost" 
               size="icon" 
-              className="w-9 h-9 rounded-full bg-slate-900 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform"
+              className="w-9 h-9 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform"
               onClick={() => navigate('/login')}
               data-testid="button-back"
             >
               <div className="flex gap-0.5">
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                <div className="w-1 h-1 bg-white rounded-full" />
+                <div className="w-1 h-1 bg-white rounded-full" />
+                <div className="w-1 h-1 bg-white rounded-full" />
               </div>
             </Button>
           </div>
 
           <div className="flex flex-col items-center justify-center mb-4 animate-in zoom-in duration-700 delay-150 fill-mode-both">
             <div className="relative mb-2 group cursor-pointer">
-              <div className="w-16 h-16 bg-card dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-border dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
-                <div className="w-13 h-13 bg-slate-900 dark:bg-white rounded-[16px] flex items-center justify-center">
-                  <div className="relative">
-                    <ShieldCheck className="w-8 h-8 text-white dark:text-slate-900" strokeWidth={1.5} />
-                    <div className="absolute inset-0 flex items-center justify-center pt-0.5">
-                      <span className="text-white dark:text-slate-900 font-black text-xs">O</span>
-                    </div>
-                  </div>
+              <div className="w-16 h-16 bg-card dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-border dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300">
+                <div className="w-13 h-13 bg-blue-600 rounded-[16px] flex items-center justify-center">
+                  <ShieldCheck className="w-8 h-8 text-white" strokeWidth={1.5} />
                 </div>
               </div>
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-black text-foreground tracking-tighter leading-none">أوركس</h1>
-              <span className="text-primary text-[10px] font-black tracking-[0.3em] uppercase block mt-1">ORAX SYSTEM</span>
+              <h1 className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tighter leading-none">أوركس بروفيشنال</h1>
+              <span className="text-blue-600/60 dark:text-blue-400/60 text-[10px] font-black tracking-[0.3em] uppercase block mt-1">ORAX OPS SYSTEM</span>
             </div>
           </div>
 
           <div className="text-center mb-4">
-            <h2 className="text-lg font-black text-foreground mb-1">نسيت كلمة المرور؟</h2>
-            <p className="text-sm text-muted-foreground">أدخل بريدك الإلكتروني وسنرسل لك رابط لاسترجاع كلمة المرور</p>
+            <h2 className="text-lg font-black text-blue-600 dark:text-blue-400 mb-1">نسيت كلمة المرور؟</h2>
+            <p className="text-sm text-blue-600/60 dark:text-blue-400/60 font-bold">أدخل بريدك الإلكتروني وسنرسل لك رابط لاسترجاع كلمة المرور</p>
           </div>
 
           <Form {...form}>
@@ -164,9 +160,9 @@ export default function ForgotPasswordPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                       <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Identity / البريد</span>
+                        <span className="text-[9px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Identity / البريد</span>
                         <FormControl>
                           <Input 
                             {...field} 
@@ -178,7 +174,7 @@ export default function ForgotPasswordPage() {
                           />
                         </FormControl>
                       </div>
-                      <Mail className="w-5 h-5 text-muted-foreground/40 ml-2" strokeWidth={1.5} />
+                      <Mail className="w-5 h-5 text-blue-600/30 dark:text-blue-400/30 ml-2" strokeWidth={1.5} />
                     </div>
                     <FormMessage />
                   </FormItem>
@@ -187,7 +183,7 @@ export default function ForgotPasswordPage() {
 
               <Button 
                 type="submit" 
-                className="w-full h-12 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
                 disabled={forgotPasswordMutation.isPending}
                 data-testid="button-submit"
               >
@@ -198,10 +194,10 @@ export default function ForgotPasswordPage() {
                 <button 
                   type="button"
                   onClick={() => navigate('/login')}
-                  className="text-xs font-bold text-muted-foreground"
+                  className="text-xs font-bold text-blue-600/60 dark:text-blue-400/60"
                   data-testid="link-login"
                 >
-                  تذكرت كلمة المرور؟ <span className="text-primary hover:underline">تسجيل الدخول</span>
+                  تذكرت كلمة المرور؟ <span className="text-blue-600 underline">تسجيل الدخول</span>
                 </button>
               </div>
             </form>
@@ -210,11 +206,11 @@ export default function ForgotPasswordPage() {
 
         <div className="flex flex-col items-center gap-2 pb-4 animate-in fade-in duration-1000 delay-700 fill-mode-both">
           <div className="flex items-center gap-4 w-full px-4">
-            <div className="flex-1 h-[1px] bg-border opacity-50"></div>
-            <span className="text-[8px] font-black text-muted-foreground/50 tracking-[0.2em] uppercase">Secure Recovery</span>
-            <div className="flex-1 h-[1px] bg-border opacity-50"></div>
+            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30 opacity-50"></div>
+            <span className="text-[8px] font-black text-blue-600/30 dark:text-blue-400/30 tracking-[0.2em] uppercase">Secure Recovery</span>
+            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30 opacity-50"></div>
           </div>
-          <span className="text-[8px] text-muted-foreground/40">© 2026 ORAX OPERATIONS MANAGEMENT</span>
+          <span className="text-[8px] text-blue-600/20 dark:text-blue-400/20">© 2026 ORAX OPERATIONS MANAGEMENT</span>
         </div>
       </div>
     </div>

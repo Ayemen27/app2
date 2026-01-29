@@ -65,8 +65,8 @@ export function LayoutShell({
             </main>
             
             {showNav && !hideNav && (
-              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[9999] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-400 h-16 shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center pointer-events-auto overflow-visible">
-                <div className="w-full h-full flex flex-col justify-center">
+              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[9999] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-16 shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center pointer-events-auto overflow-visible">
+                <div className="w-full h-full">
                   <BottomNavigation />
                 </div>
               </div>

@@ -92,12 +92,19 @@ export function AppSidebar() {
     <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l-0 bg-white dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-500">
       <SidebarHeader className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-4 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#3b82f6] dark:bg-white text-white dark:text-[#3b82f6] shadow-lg shadow-blue-600/20 dark:shadow-white/5 transition-colors border border-white/20 dark:border-slate-800">
-            <Activity className="h-6 w-6" strokeWidth={2.5} />
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#3b82f6] dark:bg-[#1a1c1e] text-white shadow-lg shadow-blue-600/20 dark:shadow-black/20 transition-colors border border-white/20 dark:border-slate-800">
+            <div className="relative flex items-center justify-center">
+              <span className="font-black text-lg leading-none">أ</span>
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full border border-white dark:border-slate-800"></div>
+            </div>
           </div>
           <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden text-right">
-            <span className="font-black text-base tracking-tight text-slate-900 dark:text-white uppercase leading-none">AXION <span className="text-[#3b82f6] dark:text-blue-400">| أكسيون</span></span>
-            <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate font-black uppercase tracking-widest mt-1">Enterprise Ops</span>
+            <div className="flex items-center gap-1.5 leading-none">
+              <span className="font-black text-base tracking-tighter text-slate-900 dark:text-white uppercase">AXION</span>
+              <span className="h-3 w-[1px] bg-slate-300 dark:bg-slate-700"></span>
+              <span className="font-black text-sm text-[#3b82f6] dark:text-blue-400">أكسيون</span>
+            </div>
+            <span className="text-[8px] text-slate-400 dark:text-slate-500 truncate font-black uppercase tracking-[0.3em] mt-1.5">Enterprise Operations</span>
           </div>
         </div>
       </SidebarHeader>

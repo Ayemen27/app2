@@ -133,19 +133,35 @@ export default function LoginPage() {
             </Button>
           </div>
 
-          {/* Logo Section - Scaled Down */}
-          <div className="flex flex-col items-center justify-center mb-2 animate-in zoom-in duration-700 delay-150 fill-mode-both">
-            <div className="relative mb-2 group cursor-pointer">
-              <div className="w-16 h-16 bg-[#3b82f6] dark:bg-white rounded-[18px] flex items-center justify-center shadow-xl shadow-blue-600/20 dark:shadow-white/5 transition-all duration-500 hover:scale-105 active:scale-95 border-2 border-white/20 dark:border-slate-800">
+          {/* Logo Section - AXION Bilingual */}
+          <div className="flex flex-col items-center justify-center mb-4 animate-in zoom-in duration-700 delay-150 fill-mode-both">
+            <div className="relative mb-3 group cursor-pointer">
+              {/* Main Logo Container */}
+              <div className="w-20 h-20 bg-[#3b82f6] dark:bg-[#1a1c1e] rounded-[22px] flex items-center justify-center shadow-2xl shadow-blue-600/20 dark:shadow-black/40 transition-all duration-500 hover:scale-105 active:scale-95 border-2 border-white/10 dark:border-slate-800 relative overflow-hidden">
+                {/* Background Accent */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-blue-700/20 to-transparent opacity-50"></div>
+                
                 <div className="relative flex items-center justify-center">
-                  <Activity className="w-8 h-8 text-white dark:text-[#3b82f6]" strokeWidth={2.5} />
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-white dark:bg-[#3b82f6] rounded-full border-2 border-[#3b82f6] dark:border-white animate-pulse" />
+                  <div className="flex items-baseline">
+                    <span className="text-4xl font-black text-white dark:text-white leading-none">أ</span>
+                    <span className="text-2xl font-black text-white/40 dark:text-white/20 ml-[-4px] leading-none tracking-tighter italic">A</span>
+                  </div>
+                  {/* Pulse Indicator */}
+                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-blue-400 dark:bg-blue-500 rounded-full border-2 border-white dark:border-[#1a1c1e] shadow-lg"></div>
                 </div>
               </div>
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none uppercase">AXION <span className="text-[#3b82f6] dark:text-blue-400">| أكسيون</span></h1>
-              <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.4em] uppercase block mt-1.5">Enterprise Operations</span>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase leading-none">AXION</h1>
+                <div className="h-4 w-[1.5px] bg-slate-200 dark:bg-slate-800"></div>
+                <span className="text-2xl font-black text-[#3b82f6] dark:text-blue-400 leading-none">أكسيون</span>
+              </div>
+              <div className="flex items-center justify-center gap-2 opacity-50">
+                <span className="h-[1px] w-4 bg-slate-300 dark:bg-slate-700"></span>
+                <span className="text-slate-500 dark:text-slate-400 text-[10px] font-black tracking-[0.4em] uppercase">Enterprise Operations</span>
+                <span className="h-[1px] w-4 bg-slate-300 dark:bg-slate-700"></span>
+              </div>
             </div>
           </div>
 

@@ -1,9 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.replit.agentforge"
+    namespace = "com.replit.agentforge"
     compileSdk 35
     defaultConfig {
+        multiDexEnabled true
         applicationId "com.replit.agentforge"
         minSdk 23
         targetSdk 35
@@ -33,6 +34,7 @@ repositories {
 }
 
 dependencies {
+    implementation "androidx.multidex:multidex:2.0.1"
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation project(':capacitor-android')

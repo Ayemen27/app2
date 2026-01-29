@@ -181,6 +181,18 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       access_token: tokenPair.accessToken, // التنسيق القياسي لبعض مكتبات الأندرويد
       refreshToken: tokenPair.refreshToken,
       refresh_token: tokenPair.refreshToken, // التنسيق القياسي لبعض مكتبات الأندرويد
+      user: {
+        id: user.id,
+        userId: user.id,
+        email: user.email,
+        name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+        role: user.role || 'user',
+        emailVerified: true
+      },
+      userId: user.id,
+      email: user.email,
+      name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+      role: user.role || 'user',
       tokens: {
         accessToken: tokenPair.accessToken,
         access_token: tokenPair.accessToken,
@@ -190,18 +202,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       expiresIn: 900,
       expires_in: 900,
       token_type: "Bearer",
-      // بيانات المستخدم المسطحة لضمان التوافق مع الأندرويد
-      userId: user.id,
-      email: user.email,
-      name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-      role: user.role || 'user',
-      user: {
-        id: user.id,
-        email: user.email,
-        name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-        role: user.role || 'user',
-        emailVerified: true
-      },
+      emailVerified: true,
       data: {
         token: tokenPair.accessToken,
         accessToken: tokenPair.accessToken,

@@ -147,9 +147,10 @@
   flex-direction: column;
   position: relative;
   width: 100%;
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden !important;
+  /* استخدام h-full من Tailwind بدلاً من تحديد الارتفاع هنا لتجنب التعارض */
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
   background-color: hsl(var(--background));
 }
 
@@ -159,6 +160,11 @@
   z-index: 40;
   background-color: hsl(var(--background));
   border-bottom: 1px solid hsl(var(--border));
+  /* ضمان ظهور الشريط العلوي دائماً */
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: flex !important;
+  min-height: 60px;
 }
 
 .layout-main {

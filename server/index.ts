@@ -474,9 +474,9 @@ app.post("/api/backups/trigger", requireAuth, async (req: Request, res: Response
 });
 
   app.use((req, res, next) => {
-    // تسجيل Origin لطلبات API لتتبع مشاكل الأندرويد
+    // ضمان رد JSON لطلبات API حتى في حالة الأخطاء غير المتوقعة
     if (req.path.startsWith('/api')) {
-      console.log(`🔍 [API Request] Method: ${req.method}, Path: ${req.path}, Origin: ${req.get('origin') || 'No Origin'}`);
+      res.setHeader('Content-Type', 'application/json');
     }
     const start = Date.now();
     const path = req.path;

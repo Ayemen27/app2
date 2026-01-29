@@ -49,12 +49,12 @@ const AppLogo = () => (
           </div>
         </div>
       </div>
-      <div className="absolute -bottom-1 -right-1 w-10 h-10 bg-white dark:bg-slate-900 rounded-2xl shadow-xl flex items-center justify-center ring-2 ring-gray-50 dark:ring-slate-800">
-        <div className="w-6 h-6 bg-blue-600 rounded-lg animate-pulse shadow-inner" />
+      <div className="absolute -bottom-1 -right-1 w-10 h-10 bg-blue-600 dark:bg-slate-900 rounded-2xl shadow-xl flex items-center justify-center ring-2 ring-white/50 dark:ring-slate-800">
+        <div className="w-6 h-6 bg-white dark:bg-blue-400 rounded-lg animate-pulse shadow-inner" />
       </div>
     </div>
     <div className="text-center">
-      <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">أوركس بروفيشنال <span className="text-slate-500 text-2xl font-bold block mt-[-4px]">ORAX PROFESSIONAL</span></h1>
+      <h1 className="text-4xl font-black text-blue-600 dark:text-white tracking-tighter">أوركس بروفيشنال <span className="text-slate-500 text-2xl font-bold block mt-[-4px]">ORAX PROFESSIONAL</span></h1>
     </div>
   </div>
 );
@@ -139,12 +139,12 @@ export default function LoginPage() {
           {/* Logo Section - Scaled Down */}
           <div className="flex flex-col items-center justify-center mb-2 animate-in zoom-in duration-700 delay-150 fill-mode-both">
             <div className="relative mb-2 group cursor-pointer">
-              <div className="w-16 h-16 bg-card dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-border dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
-                <div className="w-13 h-13 bg-blue-600 dark:bg-blue-500 rounded-[16px] flex items-center justify-center">
+              <div className="w-16 h-16 bg-blue-600 dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-blue-600 dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
+                <div className="w-13 h-13 bg-white dark:bg-blue-500 rounded-[16px] flex items-center justify-center">
                   <div className="relative">
-                    <ShieldCheck className="w-8 h-8 text-white" strokeWidth={1.5} />
+                    <ShieldCheck className="w-8 h-8 text-blue-600 dark:text-white" strokeWidth={1.5} />
                     <div className="absolute inset-0 flex items-center justify-center pt-0.5">
-                      <span className="text-white font-black text-xs">O</span>
+                      <span className="text-blue-600 dark:text-white font-black text-xs">O</span>
                     </div>
                   </div>
                 </div>

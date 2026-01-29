@@ -127,7 +127,7 @@ export default function LoginPage() {
               <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">مرحباً بعودتك</h2>
               <span className="text-[8px] text-gray-300 dark:text-slate-600 font-bold">WELCOME BACK</span>
             </div>
-            <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full bg-slate-900 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform">
+            <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full bg-blue-600 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform">
               <div className="flex gap-0.5">
                 <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
                 <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
@@ -161,7 +161,7 @@ export default function LoginPage() {
             <button 
               type="button"
               onClick={() => setLoginMode('offline')}
-              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-14 shadow-sm active:scale-95 ${loginMode === 'offline' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white ring-2 ring-slate-900/10' : 'bg-card dark:bg-slate-900 border-border dark:border-slate-800 text-gray-500'}`}
+              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-14 shadow-sm active:scale-95 ${loginMode === 'offline' ? 'bg-blue-600 dark:bg-white text-white dark:text-slate-900 border-blue-600 dark:border-white ring-2 ring-blue-600/10' : 'bg-card dark:bg-slate-900 border-border dark:border-slate-800 text-gray-500'}`}
             >
               <div className="flex flex-col items-start leading-none text-right w-full">
                 <span className={`text-[8px] font-bold ${loginMode === 'offline' ? 'text-slate-300 dark:text-slate-600' : 'text-gray-400'}`}>الدخول</span>
@@ -175,7 +175,7 @@ export default function LoginPage() {
             <button 
               type="button"
               onClick={() => setLoginMode('online')}
-              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-14 shadow-sm active:scale-95 ${loginMode === 'online' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white ring-2 ring-slate-900/10' : 'bg-card dark:bg-slate-900 border-border dark:border-slate-800 text-gray-500'}`}
+              className={`flex items-center justify-between p-2 rounded-xl border transition-all h-14 shadow-sm active:scale-95 ${loginMode === 'online' ? 'bg-blue-600 dark:bg-white text-white dark:text-slate-900 border-blue-600 dark:border-white ring-2 ring-blue-600/10' : 'bg-card dark:bg-slate-900 border-border dark:border-slate-800 text-gray-500'}`}
             >
               <div className="flex flex-col items-start leading-none text-right w-full">
                 <span className={`text-[8px] font-bold ${loginMode === 'online' ? 'text-slate-300 dark:text-slate-600' : 'text-gray-400'}`}>الدخول</span>
@@ -286,7 +286,7 @@ export default function LoginPage() {
           <div className="flex flex-col items-center gap-3 pb-12 relative animate-in fade-in duration-1000 delay-700 fill-mode-both">
             <div className="flex items-center gap-4 w-full">
               <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30"></div>
-              <span className="text-[8px] font-black text-blue-300 dark:text-blue-700 tracking-[0.2em] uppercase">Orax Security v2.0</span>
+              <span className="text-[8px] font-black text-blue-400 dark:text-blue-700 tracking-[0.2em] uppercase">Orax Security v2.0</span>
               <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30"></div>
             </div>
           
@@ -321,7 +321,7 @@ export default function LoginPage() {
           {/* Notification Overlay */}
           {showAccountMessage && (
             <div className="absolute bottom-16 left-0 right-0 px-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="bg-slate-900 dark:bg-white h-12 rounded-xl flex items-center justify-between px-4 shadow-2xl border border-white/10 dark:border-black/5">
+              <div className="bg-blue-600 dark:bg-white h-12 rounded-xl flex items-center justify-between px-4 shadow-2xl border border-white/10 dark:border-black/5">
                 <span className="text-white dark:text-slate-900 text-[11px] font-medium text-right w-full ml-4">لا توجد لديك حسابات نشطة أخرى حالياً</span>
                 <button 
                   onClick={() => setShowAccountMessage(false)}

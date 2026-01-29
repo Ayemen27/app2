@@ -133,39 +133,48 @@ export default function LoginPage() {
             </Button>
           </div>
 
-          {/* Logo Section - AXION Precise Bilingual Emulation */}
+          {/* Logo Section - AXION Real Assets */}
           <div className="flex flex-col items-center justify-center mb-6 animate-in zoom-in duration-700 delay-150 fill-mode-both">
             <div className="relative mb-4 group cursor-pointer">
               {/* Outer Glow / Halo */}
               <div className="absolute -inset-1.5 bg-blue-500/10 rounded-[24px] blur-md opacity-0 group-hover:opacity-100 transition duration-500"></div>
               
-              <div className="w-20 h-20 bg-[#3b82f6] dark:bg-[#1a1c1e] rounded-[22px] flex items-center justify-center shadow-2xl shadow-blue-600/20 dark:shadow-black/60 transition-all duration-500 hover:scale-105 active:scale-95 border border-white/10 dark:border-slate-800 relative overflow-hidden">
-                {/* Subtle Geometric Background Pattern */}
-                <div className="absolute inset-0 opacity-[0.05] dark:opacity-[0.1]" 
-                     style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #ffffff 1px, transparent 0)', backgroundSize: '8px 8px' }}></div>
-                
-                <div className="relative flex items-center justify-center w-full h-full">
-                  <div className="flex items-center justify-center relative translate-y-[2px]">
-                    {/* The "أ" Symbol */}
-                    <span className="text-[44px] font-black text-white dark:text-white leading-none select-none drop-shadow-sm">أ</span>
-                    {/* The "A" Symbol - Slanted and Integrated */}
-                    <span className="text-[32px] font-black text-white/30 dark:text-white/15 ml-[-6px] leading-none tracking-tighter italic select-none -skew-x-6">A</span>
-                  </div>
-                  {/* Status Indicator / Pulse Point - Matching the Image */}
-                  <div className="absolute top-4 right-4 w-3.5 h-3.5 bg-[#60a5fa] dark:bg-[#3b82f6] rounded-full border-[2.5px] border-white dark:border-[#1a1c1e] shadow-md ring-2 ring-blue-400/20 animate-pulse"></div>
-                </div>
+              <div className="w-20 h-20 flex items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 relative">
+                <img 
+                  src="/assets/app_icon_light.png" 
+                  alt="AXION Logo" 
+                  className="w-full h-full object-contain dark:hidden"
+                  data-testid="img-logo-light"
+                />
+                <img 
+                  src="/assets/app_icon_dark.png" 
+                  alt="AXION Logo" 
+                  className="w-full h-full object-contain hidden dark:block"
+                  data-testid="img-logo-dark"
+                />
+                {/* Status Indicator / Pulse Point - Matching the Image */}
+                <div className="absolute top-4 right-4 w-3.5 h-3.5 bg-blue-500 rounded-full border-[2.5px] border-white dark:border-[#1a1c1e] shadow-md ring-2 ring-blue-400/20 animate-pulse"></div>
               </div>
             </div>
             <div className="text-center relative">
               <div className="flex items-center justify-center gap-3 mb-1.5">
-                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-[-0.05em] uppercase leading-none">AXION</h1>
-                <div className="h-5 w-[2px] bg-slate-200 dark:bg-slate-800 rounded-full"></div>
-                <span className="text-2xl font-black text-[#3b82f6] dark:text-blue-500 leading-none">أكسيون</span>
+                <img 
+                  src="/assets/logo_header_light.png" 
+                  alt="AXION | أكسيون" 
+                  className="h-10 object-contain dark:hidden"
+                  data-testid="img-header-light"
+                />
+                <img 
+                  src="/assets/logo_header_dark.png" 
+                  alt="AXION | أكسيون" 
+                  className="h-10 object-contain hidden dark:block"
+                  data-testid="img-header-dark"
+                />
               </div>
               <div className="flex items-center justify-center gap-2">
-                <span className="h-[1px] w-6 bg-gradient-to-r from-transparent to-slate-200 dark:to-slate-800"></span>
+                <span className="h-[1px] w-6 bg-gradient-to-r from-transparent to-blue-200 dark:to-blue-900"></span>
                 <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.5em] uppercase">Enterprise Operations</span>
-                <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-slate-200 dark:border-slate-800"></span>
+                <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-blue-200 dark:to-blue-900"></span>
               </div>
             </div>
           </div>

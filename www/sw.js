@@ -1,4 +1,4 @@
-const CACHE_NAME = 'binarjoin-v2';
+const CACHE_NAME = 'binarjoin-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -66,13 +66,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static Assets and Pages: Cache First, then Network
+  // Static Assets and Pages: Network First, falling back to cache
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((response) => {
+    fetch(event.request)
+      .then((response) => {
         // Cache successful responses
         if (response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
@@ -81,7 +78,10 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return response;
-      });
-    })
+      })
+      .catch(() => {
+        // Fallback to cache only when network fails (offline mode)
+        return caches.match(event.request);
+      })
   );
 });

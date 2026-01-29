@@ -1,7 +1,7 @@
 {
-  "name": "أكسيون - AXION",
-  "short_name": "أكسيون",
-  "description": "نظام أكسيون الاحترافي لإدارة العمليات والمشاريع",
+  "name": "إدارة المشاريع الإنشائية",
+  "short_name": "مشروعي",
+  "description": "نظام احترافي لإدارة وتحليل المشاريع الإنشائية",
   "start_url": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "minimal-ui"],

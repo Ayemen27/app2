@@ -60,20 +60,20 @@ export function LayoutShell({
             <main className="layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch overscroll-none">
               <div className={isCustomHeaderPage ? "h-full" : "layout-content p-4 md:p-6 max-w-7xl mx-auto w-full"}>
                 {children}
-                {!isCustomHeaderPage && <div className="h-20 w-full" aria-hidden="true" />}
+                {!isCustomHeaderPage && <div className="h-[200px] w-full" aria-hidden="true" />}
               </div>
             </main>
             
             {showNav && !hideNav && (
-              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-16 shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center pointer-events-auto overflow-visible">
-                <div className="w-full h-full">
+              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[9999] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-[72px] shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center pointer-events-auto">
+                <div className="w-full h-full flex flex-col justify-center">
                   <BottomNavigation />
                 </div>
               </div>
             )}
             
             {showFloatingButton && !isCustomHeaderPage && (
-              <div className="fixed bottom-20 right-6 md:bottom-8 md:right-8 z-40">
+              <div className="fixed bottom-24 right-6 md:bottom-8 md:right-8 z-40">
                 <FloatingAddButton />
               </div>
             )}

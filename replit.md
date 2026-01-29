@@ -1,29 +1,28 @@
-# Project Overview
-This is a complex full-stack JavaScript application named **Orax Professional** (ORAX), focused on industrial/resource management (wells, financial ledgers, etc.) with integrated AI capabilities and advanced monitoring.
+# مشروع نظام إدارة المشاريع والمقاولات
 
-# Professional AI Protocol
-The AI Agent operates under strict professional guidelines:
-- **Accuracy over Speed:** No guesswork or unconfirmed information.
-- **Analytical Thinking:** Step-by-step reasoning before execution.
-- **Transparency:** Explicitly stating uncertainty or missing information.
-- **Realistic Solutions:** Favoring applicable and robust solutions over purely creative ones.
-- **No Flattery:** Providing objective reality even if uncomfortable.
+## نظرة عامة
+هذا المشروع عبارة عن نظام متكامل لإدارة المشاريع، العمال، التكاليف المالية، والموردين. مصمم ليعمل بكفاءة في بيئة Replit مع دعم كامل لمزامنة البيانات وإدارة الجلسات المؤمنة.
 
-# Architecture & Structure
-- **Backend:** Express server with Drizzle ORM and PostgreSQL.
-- **Frontend:** React with Vite, Tailwind CSS, and Shadcn UI.
-- **Services:**
-  - AI Agent (Report generation, database actions).
-  - Monitoring (Signoz, Health Monitor, Circuit Breaker).
-  - Financial (Ledgers, Expense tracking).
-  - Infrastructure (Backup, Secrets Manager, Secure Fetching).
+## الهيكلية التقنية
+- **Frontend**: React (Vite) + Tailwind CSS + Shadcn UI.
+- **Backend**: Express.js (Node.js).
+- **Database**: PostgreSQL مع Drizzle ORM.
+- **Validation**: Zod (للمخططات والتحقق من البيانات).
+- **Authentication**: JWT مع دعم Refresh Tokens و Session Management.
 
-# Recent Changes
-- Initial environment analysis and protocol establishment.
-- Identification of core system services and documentation.
-- Unified application branding as "Orax Professional" (ORAX) and modernized visual identity across UI, manifest, and metadata.
+## الميزات الرئيسية
+1. **إدارة المشاريع والآبار**: تتبع حالة المشاريع وتفاصيل الآبار (العمق، المنسوب، المعدات).
+2. **شؤون العمال**: تسجيل الحضور، الأجور اليومية، والحوالات المالية للأهالي.
+3. **المحاسبة المالية**: إدارة الميزانيات، مصروفات النقل، ومشتريات المواد.
+4. **إدارة الموردين**: تتبع المديونيات، الفواتير، والمدفوعات.
+5. **نظام الإكمال التلقائي**: تحسين تجربة المستخدم عبر حفظ واقتراح القيم المتكررة.
 
-# User Preferences
-- Language: Arabic/English (Professional).
-- Strict adherence to the provided professional AI constraints.
-- Identity: Orax Professional (ORAX).
+## إعدادات التطوير
+- المنفذ الأمامي: 5000 (عبر Vite).
+- الاتصال بقاعدة البيانات: يتم عبر `DATABASE_URL`.
+- إعدادات المزامنة: توجد حقول `isLocal` و `synced` لدعم العمل دون اتصال بالإنترنت في المستقبل.
+
+## القرارات التقنية الأخيرة (2026-01-29)
+- تم تفعيل `allowedHosts: true` في إعدادات Vite لضمان عمل المعاينة بشكل صحيح.
+- تم تنظيم المسارات في `server/routes.ts` لتعتمد على وحدات (modules) منفصلة لزيادة قابلية الصيانة.
+- تم اعتماد نظام `Audit Logs` لتتبع جميع الحركات الحساسة في النظام.

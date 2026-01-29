@@ -96,8 +96,8 @@ const getAllowedOrigins = (req?: Request) => {
 
 app.use(cors({
   origin: (origin, callback) => {
-    // طلبات بدون origin (mobile app, Postman)
-    if (!origin) {
+    // طلبات بدون origin (mobile app, Postman) أو طلبات Capacitor
+    if (!origin || origin.startsWith('capacitor://') || origin.startsWith('http://localhost')) {
       callback(null, true);
       return;
     }

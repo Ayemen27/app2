@@ -428,25 +428,34 @@ export class DatabaseStorage implements IStorage {
 
   async createWorker(worker: InsertWorker): Promise<Worker> {
     try {
+      const workerType = (worker.type || 'عامل عام').trim();
+      const workerName = (worker.name || 'عامل جديد').trim();
+      
       // التحقق من وجود نوع العامل وإضافته إذا لم يكن موجوداً
-      await this.ensureWorkerTypeExists(worker.type);
+      await this.ensureWorkerTypeExists(workerType);
       
       const [newWorker] = await db
         .insert(workers)
-        .values({ ...worker, name: worker.name.trim() })
+        .values({ 
+          ...worker, 
+          name: workerName,
+          type: workerType,
+          dailyWage: worker.dailyWage || "0",
+          phone: worker.phone || ""
+        })
         .returning();
       
       if (!newWorker) {
-        throw new Error('فشل في إنشاء العامل');
+        throw new Error('فشل في إنشاء العامل في قاعدة البيانات');
       }
       
       // تحديث عداد الاستخدام لنوع العامل
-      await this.incrementWorkerTypeUsage(worker.type);
+      await this.incrementWorkerTypeUsage(workerType);
       
       return newWorker;
-    } catch (error) {
-      console.error('Error creating worker:', error);
-      throw error;
+    } catch (error: any) {
+      console.error('❌ [Storage] Error creating worker:', error);
+      throw new Error(error.message || 'خطأ داخلي في حفظ بيانات العامل');
     }
   }
 

@@ -159,16 +159,16 @@ export default function RegisterPage() {
               {/* Outer Glow / Halo */}
               <div className="absolute -inset-1 bg-gradient-to-tr from-blue-600 to-indigo-400 rounded-[22px] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
               
-              <div className="relative w-14 h-14 bg-slate-900 dark:bg-white rounded-[20px] flex items-center justify-center shadow-2xl border border-slate-100/50 dark:border-slate-800 overflow-hidden">
+              <div className="relative w-14 h-14 bg-blue-600 dark:bg-white rounded-[20px] flex items-center justify-center shadow-2xl border border-blue-600 dark:border-slate-800 overflow-hidden">
                 {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-[0.05] dark:opacity-[0.1]" 
-                     style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #2563eb 1px, transparent 0)', backgroundSize: '8px 8px' }}></div>
+                     style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #ffffff 1px, transparent 0)', backgroundSize: '8px 8px' }}></div>
                 
                 {/* Modern Shield Logo with Gradient */}
-                <div className="w-11 h-11 bg-slate-900 dark:bg-white rounded-[16px] flex items-center justify-center shadow-inner relative overflow-hidden group-hover:scale-105 transition-transform duration-500">
-                  <ShieldCheck className="w-6 h-6 text-white dark:text-slate-900 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" strokeWidth={2} />
+                <div className="w-11 h-11 bg-white dark:bg-white rounded-[16px] flex items-center justify-center shadow-inner relative overflow-hidden group-hover:scale-105 transition-transform duration-500">
+                  <ShieldCheck className="w-6 h-6 text-blue-600 dark:text-slate-900 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" strokeWidth={2} />
                   <div className="absolute inset-0 flex items-center justify-center pt-0.5">
-                    <span className="text-white dark:text-slate-900 font-black text-[10px]">O</span>
+                    <span className="text-blue-600 dark:text-slate-900 font-black text-[10px]">O</span>
                   </div>
                 </div>
               </div>

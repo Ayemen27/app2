@@ -136,9 +136,14 @@ export default function ForgotPasswordPage() {
 
           <div className="flex flex-col items-center justify-center mb-4 animate-in zoom-in duration-700 delay-150 fill-mode-both">
             <div className="relative mb-2 group cursor-pointer">
-              <div className="w-16 h-16 bg-card dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-border dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300">
-                <div className="w-13 h-13 bg-blue-600 rounded-[16px] flex items-center justify-center">
-                  <ShieldCheck className="w-8 h-8 text-white" strokeWidth={1.5} />
+              <div className="w-16 h-16 bg-blue-600 dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-blue-600 dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300">
+                <div className="w-13 h-13 bg-white dark:bg-blue-500 rounded-[16px] flex items-center justify-center">
+                  <div className="relative">
+                    <ShieldCheck className="w-8 h-8 text-blue-600" strokeWidth={1.5} />
+                    <div className="absolute inset-0 flex items-center justify-center pt-0.5">
+                      <span className="text-blue-600 font-black text-xs">O</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

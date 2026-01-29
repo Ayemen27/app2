@@ -267,10 +267,10 @@ export default function EmailVerificationPage() {
         <AnimatedBackground />
         <Card className="w-full max-w-md shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader className="text-center space-y-1">
-            <div className="mx-auto bg-gradient-to-r from-green-600 to-blue-600 rounded-full p-4 w-20 h-20 flex items-center justify-center">
-              <CheckCircle className="w-10 h-10 text-white" />
+            <div className="mx-auto bg-blue-600 dark:bg-white rounded-full p-4 w-20 h-20 flex items-center justify-center shadow-lg shadow-blue-600/20">
+              <CheckCircle className="w-10 h-10 text-white dark:text-blue-600" />
             </div>
-            <CardTitle className="text-2xl font-bold text-green-600">
+            <CardTitle className="text-2xl font-bold text-blue-600 dark:text-blue-400">
               تم التحقق بنجاح! 🎉
             </CardTitle>
             <CardDescription className="text-lg">
@@ -302,10 +302,10 @@ export default function EmailVerificationPage() {
       
       <Card className="w-full max-w-md shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
         <CardHeader className="text-center space-y-1">
-          <div className="mx-auto bg-gradient-to-r from-blue-600 to-purple-600 rounded-full p-4 w-20 h-20 flex items-center justify-center">
-            <Mail className="w-10 h-10 text-white" />
+          <div className="mx-auto bg-blue-600 dark:bg-white rounded-full p-4 w-20 h-20 flex items-center justify-center shadow-lg shadow-blue-600/20">
+            <Mail className="w-10 h-10 text-white dark:text-blue-600" />
           </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <CardTitle className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             تحقق من بريدك الإلكتروني
           </CardTitle>
           <CardDescription className="text-lg">

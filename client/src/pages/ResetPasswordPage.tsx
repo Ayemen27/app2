@@ -231,18 +231,26 @@ export default function ResetPasswordPage() {
             </Button>
           </div>
 
-          <div className="flex flex-col items-center justify-center mb-4 animate-in zoom-in duration-700 delay-150 fill-mode-both">
-            <div className="relative mb-2 group cursor-pointer">
-              <div className="w-16 h-16 bg-blue-600 dark:bg-white rounded-[18px] flex items-center justify-center shadow-xl shadow-blue-600/20 dark:shadow-white/5 transition-all duration-500 hover:scale-105 active:scale-95 border-2 border-white/20 dark:border-slate-800">
-                <div className="relative flex items-center justify-center">
-                  <Activity className="w-8 h-8 text-white dark:text-blue-600" strokeWidth={2.5} />
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-white dark:bg-blue-600 rounded-full border-2 border-blue-600 dark:border-white animate-pulse" />
+          {/* Logo Section - AXION Precise Bilingual Emulation */}
+          <div className="flex flex-col items-center justify-center mb-6 animate-in zoom-in duration-700 delay-150 fill-mode-both">
+            <div className="relative mb-4 group cursor-pointer">
+              <div className="w-20 h-20 bg-[#3b82f6] dark:bg-[#1a1c1e] rounded-[22px] flex items-center justify-center shadow-2xl shadow-blue-600/20 dark:shadow-black/60 transition-all duration-500 hover:scale-105 active:scale-95 border border-white/10 dark:border-slate-800 relative overflow-hidden">
+                <div className="absolute inset-0 opacity-[0.05] dark:opacity-[0.1]" 
+                     style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #ffffff 1px, transparent 0)', backgroundSize: '8px 8px' }}></div>
+                
+                <div className="relative flex items-center justify-center w-full h-full translate-y-[2px]">
+                  <span className="text-[44px] font-black text-white dark:text-white leading-none">أ</span>
+                  <span className="text-[32px] font-black text-white/30 dark:text-white/15 ml-[-6px] leading-none tracking-tighter italic -skew-x-6">A</span>
+                  <div className="absolute top-4 right-4 w-3.5 h-3.5 bg-[#60a5fa] dark:bg-[#3b82f6] rounded-full border-[2.5px] border-white dark:border-[#1a1c1e] shadow-md animate-pulse"></div>
                 </div>
               </div>
             </div>
-            <div className="text-center">
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none uppercase">OraxOS <span className="text-blue-600 dark:text-blue-400">Pro</span></h1>
-              <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.4em] uppercase block mt-1.5">Enterprise Operations</span>
+            <div className="text-center relative">
+              <div className="flex items-center justify-center gap-3 mb-1.5">
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-[-0.05em] uppercase leading-none">AXION</h1>
+                <div className="h-5 w-[2px] bg-slate-200 dark:bg-slate-800 rounded-full"></div>
+                <span className="text-2xl font-black text-[#3b82f6] dark:text-blue-500 leading-none">أكسيون</span>
+              </div>
             </div>
           </div>
 

@@ -102,7 +102,10 @@ app.use(cors({
 
     // في الإنتاج، نتحقق بصرامة من الدومين المسموح
     if (isProduction) {
-      const allowed = origin === PRODUCTION_DOMAIN || (origin.includes('binarjoinanelytic.info') && !origin.includes('binerjoinanelytic.info'));
+      const allowed = origin === PRODUCTION_DOMAIN || 
+                      (origin.includes('binarjoinanelytic.info')) ||
+                      origin.startsWith('capacitor://') ||
+                      origin.startsWith('http://localhost');
       callback(null, allowed);
       return;
     }

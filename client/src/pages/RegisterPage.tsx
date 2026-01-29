@@ -33,7 +33,8 @@ import {
   Search,
   Loader2,
   Eye,
-  EyeOff
+  EyeOff,
+  Activity
 } from "lucide-react";
 
 const countries = [
@@ -205,30 +206,16 @@ export default function RegisterPage() {
 
           <div className="flex flex-col items-center justify-center mb-2 animate-in zoom-in duration-700 delay-150 fill-mode-both">
             <div className="relative mb-2 group cursor-pointer">
-              {/* Outer Glow / Halo */}
-              <div className="absolute -inset-1 bg-gradient-to-tr from-blue-600 to-indigo-400 rounded-[22px] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
-              
-              <div className="relative w-14 h-14 bg-blue-600 dark:bg-white rounded-[20px] flex items-center justify-center shadow-2xl border border-blue-600 dark:border-slate-800 overflow-hidden">
-                {/* Background Pattern */}
-                <div className="absolute inset-0 opacity-[0.05] dark:opacity-[0.1]" 
-                     style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #ffffff 1px, transparent 0)', backgroundSize: '8px 8px' }}></div>
-                
-                {/* Modern Shield Logo with Gradient */}
-                <div className="w-11 h-11 bg-white dark:bg-white rounded-[16px] flex items-center justify-center shadow-inner relative overflow-hidden group-hover:scale-105 transition-transform duration-500">
-                  <ShieldCheck className="w-6 h-6 text-blue-600 dark:text-slate-900 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" strokeWidth={2} />
-                  <div className="absolute inset-0 flex items-center justify-center pt-0.5">
-                    <span className="text-blue-600 dark:text-slate-900 font-black text-[10px]">O</span>
-                  </div>
+              <div className="w-16 h-16 bg-blue-600 dark:bg-white rounded-[18px] flex items-center justify-center shadow-xl shadow-blue-600/20 dark:shadow-white/5 transition-all duration-500 hover:scale-105 active:scale-95 border-2 border-white/20 dark:border-slate-800">
+                <div className="relative flex items-center justify-center">
+                  <Activity className="w-8 h-8 text-white dark:text-blue-600" strokeWidth={2.5} />
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-white dark:bg-blue-600 rounded-full border-2 border-blue-600 dark:border-white animate-pulse" />
                 </div>
               </div>
             </div>
-            <div className="text-center leading-none mt-1">
-              <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500 dark:from-blue-400 dark:to-blue-300 tracking-tighter">أوركس بروفيشنال</h1>
-              <div className="flex items-center justify-center gap-1 mt-0.5">
-                <span className="w-4 h-[1px] bg-blue-600/20"></span>
-                <span className="text-blue-600/60 dark:text-blue-400/60 text-[7px] font-black tracking-[0.4em] uppercase">ORAX OPS SYSTEM</span>
-                <span className="w-4 h-[1px] bg-blue-600/20"></span>
-              </div>
+            <div className="text-center">
+              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none uppercase">OraxOS <span className="text-blue-600 dark:text-blue-400">Pro</span></h1>
+              <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.4em] uppercase block mt-1.5">Enterprise Operations</span>
             </div>
           </div>
 

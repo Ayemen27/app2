@@ -132,9 +132,9 @@ export default function RegisterPage() {
            }}>
       </div>
 
-      <div className="w-full max-w-[420px] h-full z-10 flex flex-col p-4 pt-safe justify-between relative">
-        <div className="flex flex-col flex-1 gap-4 px-1 overflow-y-auto custom-scrollbar pt-2">
-          <div className="flex justify-between items-center mb-2 animate-in slide-in-from-top duration-500 fill-mode-both" dir="rtl">
+      <div className="w-full max-w-[420px] h-full z-10 flex flex-col p-4 pt-safe justify-center relative">
+        <div className="flex flex-col gap-2 px-1 pt-2">
+          <div className="flex justify-between items-center mb-1 animate-in slide-in-from-top duration-500 fill-mode-both" dir="rtl">
             <div className="text-right flex flex-col items-end">
               <h2 className="text-[10px] font-black text-blue-600/50 dark:text-blue-400/50 uppercase tracking-widest leading-none">إنضم إلينا</h2>
               <span className="text-[8px] text-blue-600/30 dark:text-blue-400/30 font-bold uppercase">JOIN ORAX OPS</span>
@@ -142,47 +142,47 @@ export default function RegisterPage() {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="w-10 h-10 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform"
+              className="w-8 h-8 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform"
               onClick={() => navigate('/login')}
               data-testid="button-back"
             >
               <div className="flex gap-0.5">
-                <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                <div className="w-1 h-1 bg-white rounded-full" />
+                <div className="w-1 h-1 bg-white rounded-full" />
+                <div className="w-1 h-1 bg-white rounded-full" />
               </div>
             </Button>
           </div>
 
-          <div className="flex flex-col items-center justify-center mb-4 animate-in zoom-in duration-700 delay-150 fill-mode-both">
-            <div className="relative mb-3 group cursor-pointer">
-              <div className="w-16 h-16 bg-card dark:bg-slate-900 rounded-[22px] flex items-center justify-center shadow-xl border border-border dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300">
-                <div className="w-14 h-14 bg-blue-600 rounded-[18px] flex items-center justify-center">
-                  <ShieldCheck className="w-8 h-8 text-white" strokeWidth={1.5} />
+          <div className="flex flex-col items-center justify-center mb-2 animate-in zoom-in duration-700 delay-150 fill-mode-both">
+            <div className="relative mb-2 group cursor-pointer">
+              <div className="w-12 h-12 bg-card dark:bg-slate-900 rounded-[18px] flex items-center justify-center shadow-lg border border-border dark:border-slate-800 group-hover:shadow-xl transition-all duration-300">
+                <div className="w-10 h-10 bg-blue-600 rounded-[14px] flex items-center justify-center">
+                  <ShieldCheck className="w-6 h-6 text-white" strokeWidth={1.5} />
                 </div>
               </div>
             </div>
             <div className="text-center leading-none">
-              <h1 className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">أوركس بروفيشنال</h1>
-              <span className="text-blue-600/60 dark:text-blue-400/60 text-[10px] font-black tracking-[0.3em] uppercase block mt-1">ORAX OPS SYSTEM</span>
+              <h1 className="text-xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">أوركس بروفيشنال</h1>
+              <span className="text-blue-600/60 dark:text-blue-400/60 text-[8px] font-black tracking-[0.3em] uppercase block mt-1">ORAX OPS SYSTEM</span>
             </div>
           </div>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-3 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both">
+            <form onSubmit={form.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-2 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both">
               <FormField
                 control={form.control}
                 name="fullName"
                 render={({ field }) => (
                   <FormItem className="space-y-0">
-                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
+                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                       <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[10px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Full Name / الاسم</span>
+                        <span className="text-[9px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Full Name / الاسم</span>
                         <FormControl>
                           <Input 
                             {...field} 
                             placeholder="اسمك الرباعي"
-                            className="border-none p-0 h-6 text-base font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                            className="border-none p-0 h-5 text-sm font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                             data-testid="input-fullname"
                           />
                         </FormControl>
@@ -197,32 +197,32 @@ export default function RegisterPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem className="space-y-0">
-                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
+                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                       <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[10px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Identity / البريد</span>
+                        <span className="text-[9px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Identity / البريد</span>
                         <FormControl>
                           <Input 
                             {...field} 
                             type="email"
                             placeholder="username@orax.system"
-                            className="border-none p-0 h-6 text-base font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                            className="border-none p-0 h-5 text-sm font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                             data-testid="input-email"
                           />
                         </FormControl>
                       </div>
-                      <Mail className="w-5 h-5 text-blue-600/30 dark:text-blue-400/30 ml-2" />
+                      <Mail className="w-4 h-4 text-blue-600/30 dark:text-blue-400/30 ml-2" />
                     </div>
                   </FormItem>
                 )}
               />
 
-              <div className="grid grid-cols-[100px_1fr] gap-2">
+              <div className="grid grid-cols-[80px_1fr] gap-2">
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
-                    <button type="button" className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-3 justify-between hover:bg-muted/50 transition-colors">
-                      <ChevronDown className="w-4 h-4 text-blue-600/30" />
-                      <span className="text-sm font-black text-foreground" dir="ltr">{selectedCountry.code}</span>
-                      <img src={selectedCountry.flag} alt={selectedCountry.name} className="w-5 h-auto rounded-sm" />
+                    <button type="button" className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-2 justify-between hover:bg-muted/50 transition-colors">
+                      <ChevronDown className="w-3 h-3 text-blue-600/30" />
+                      <span className="text-xs font-black text-foreground" dir="ltr">{selectedCountry.code}</span>
+                      <img src={selectedCountry.flag} alt={selectedCountry.name} className="w-4 h-auto rounded-sm" />
                     </button>
                   </DialogTrigger>
                   <DialogContent className="max-w-[400px] w-[95%] p-0 rounded-3xl border-border dark:border-slate-800 bg-card dark:bg-slate-900 shadow-2xl overflow-hidden" dir="rtl">
@@ -236,7 +236,7 @@ export default function RegisterPage() {
                         />
                         <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40" />
                       </div>
-                      <div className="max-h-[50vh] overflow-y-auto custom-scrollbar">
+                      <div className="max-h-[40vh] overflow-y-auto custom-scrollbar">
                         {filteredCountries.map((country) => (
                           <button
                             key={country.name + country.code}
@@ -261,19 +261,19 @@ export default function RegisterPage() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem className="space-y-0">
-                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                         <div className="flex-1 flex flex-col justify-center">
-                          <span className="text-[10px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Smartphone / الهاتف</span>
+                          <span className="text-[9px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Smartphone / الهاتف</span>
                           <FormControl>
                             <Input 
                               {...field} 
                               placeholder="7xxxxxxxx"
-                              className="border-none p-0 h-6 text-base font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                              className="border-none p-0 h-5 text-sm font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                               data-testid="input-phone"
                             />
                           </FormControl>
                         </div>
-                        <Smartphone className="w-5 h-5 text-blue-600/30 dark:text-blue-400/30 ml-2" />
+                        <Smartphone className="w-4 h-4 text-blue-600/30 dark:text-blue-400/30 ml-2" />
                       </div>
                     </FormItem>
                   )}
@@ -286,15 +286,15 @@ export default function RegisterPage() {
                   name="password"
                   render={({ field }) => (
                     <FormItem className="space-y-0">
-                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                         <div className="flex-1 flex flex-col justify-center">
-                          <span className="text-[10px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Security / كلمة المرور</span>
+                          <span className="text-[9px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Security / كلمة المرور</span>
                           <FormControl>
                             <Input 
                               {...field} 
                               type={showPassword ? "text" : "password"}
                               placeholder="••••••••"
-                              className="border-none p-0 h-6 text-base font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                              className="border-none p-0 h-5 text-sm font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                               data-testid="input-password"
                               hidePasswordToggle={true}
                             />
@@ -306,9 +306,9 @@ export default function RegisterPage() {
                           className="flex items-center justify-center ml-1 transition-colors"
                         >
                           {showPassword ? (
-                            <Eye className="w-5 h-5 text-blue-600 dark:text-blue-400" strokeWidth={2} />
+                            <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" strokeWidth={2} />
                           ) : (
-                            <EyeOff className="w-5 h-5 text-slate-400 dark:text-slate-600" strokeWidth={2} />
+                            <EyeOff className="w-4 h-4 text-slate-400 dark:text-slate-600" strokeWidth={2} />
                           )}
                         </button>
                       </div>
@@ -320,15 +320,15 @@ export default function RegisterPage() {
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem className="space-y-0">
-                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                         <div className="flex-1 flex flex-col justify-center">
-                          <span className="text-[10px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Verify / تأكيد</span>
+                          <span className="text-[9px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Verify / تأكيد</span>
                           <FormControl>
                             <Input 
                               {...field} 
                               type={showConfirmPassword ? "text" : "password"}
                               placeholder="••••••••"
-                              className="border-none p-0 h-6 text-base font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                              className="border-none p-0 h-5 text-sm font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                               data-testid="input-confirm-password"
                               hidePasswordToggle={true}
                             />
@@ -340,9 +340,9 @@ export default function RegisterPage() {
                           className="flex items-center justify-center ml-1 transition-colors"
                         >
                           {showConfirmPassword ? (
-                            <Eye className="w-5 h-5 text-blue-600 dark:text-blue-400" strokeWidth={2} />
+                            <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" strokeWidth={2} />
                           ) : (
-                            <EyeOff className="w-5 h-5 text-slate-400 dark:text-slate-600" strokeWidth={2} />
+                            <EyeOff className="w-4 h-4 text-slate-400 dark:text-slate-600" strokeWidth={2} />
                           )}
                         </button>
                       </div>
@@ -357,18 +357,18 @@ export default function RegisterPage() {
                   name="birthPlace"
                   render={({ field }) => (
                     <FormItem className="space-y-0">
-                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                         <div className="flex-1 flex flex-col justify-center">
-                          <span className="text-[10px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Location / مكان الميلاد</span>
+                          <span className="text-[9px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Location / مكان الميلاد</span>
                           <FormControl>
                             <Input 
                               {...field} 
                               placeholder="المدينة"
-                              className="border-none p-0 h-6 text-base font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                              className="border-none p-0 h-5 text-sm font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                             />
                           </FormControl>
                         </div>
-                        <MapPin className="w-5 h-5 text-blue-600/30 dark:text-blue-400/30 ml-2" />
+                        <MapPin className="w-4 h-4 text-blue-600/30 dark:text-blue-400/30 ml-2" />
                       </div>
                     </FormItem>
                   )}
@@ -382,11 +382,11 @@ export default function RegisterPage() {
                         <DialogTrigger asChild>
                           <button 
                             type="button" 
-                            className="w-full bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-14 flex items-center px-4 justify-between hover:bg-muted/50 transition-colors"
+                            className="w-full bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 justify-between hover:bg-muted/50 transition-colors"
                             data-testid="button-birth-date"
                           >
-                            <Calendar className="w-5 h-5 text-blue-600/30" />
-                            <span className={`text-sm font-bold ${field.value ? 'text-foreground' : 'text-muted-foreground/30'}`}>
+                            <Calendar className="w-4 h-4 text-blue-600/30" />
+                            <span className={`text-xs font-bold ${field.value ? 'text-foreground' : 'text-muted-foreground/30'}`}>
                               {field.value || "تاريخ الميلاد"}
                             </span>
                           </button>
@@ -445,8 +445,8 @@ export default function RegisterPage() {
                             </div>
                             <Button 
                               onClick={() => {
-                                const dateStr = `${selectedYear}/${selectedMonth}/${selectedDay}`;
-                                field.onChange(dateStr);
+                                const formattedDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+                                form.setValue("birthDate", formattedDate);
                                 setIsDateDialogOpen(false);
                               }}
                               className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl"
@@ -465,19 +465,18 @@ export default function RegisterPage() {
                 control={form.control}
                 name="terms"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-center space-x-2 space-y-0 py-2">
+                  <FormItem className="flex flex-row items-center justify-center space-x-2 space-y-0 py-1">
                     <FormControl>
                       <Checkbox
                         checked={field.value}
                         onCheckedChange={field.onChange}
-                        className="border-blue-600/30 data-[state=checked]:bg-blue-600"
-                        data-testid="checkbox-terms"
+                        className="rounded-sm border-blue-600/30 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                       />
                     </FormControl>
-                    <div className="leading-none pr-1">
-                      <label className="text-[11px] font-bold text-blue-600/60 dark:text-blue-400/60">
-                        أوافق على <span className="text-blue-600 underline cursor-pointer">شروط الخدمة</span> و <span className="text-blue-600 underline cursor-pointer">سياسة الخصوصية</span>
-                      </label>
+                    <div className="leading-none text-right px-2">
+                      <FormLabel className="text-[10px] font-bold text-muted-foreground">
+                        أوافق على <span className="text-blue-600 dark:text-blue-400">شروط الاستخدام</span> و <span className="text-blue-600 dark:text-blue-400">سياسة الخصوصية</span>
+                      </FormLabel>
                     </div>
                   </FormItem>
                 )}
@@ -485,32 +484,33 @@ export default function RegisterPage() {
 
               <Button 
                 type="submit" 
-                className="w-full h-14 bg-blue-600 dark:bg-blue-400 hover:bg-blue-700 dark:hover:bg-blue-300 text-white dark:text-slate-950 text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none mt-2"
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-xl font-black text-base shadow-lg shadow-blue-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
                 disabled={registerMutation.isPending}
-                data-testid="button-register"
+                data-testid="button-submit"
               >
-                {registerMutation.isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "إنشاء الحساب"}
+                {registerMutation.isPending ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <span>إنشاء الحساب الآن</span>
+                    <ShieldCheck className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                  </>
+                )}
               </Button>
             </form>
           </Form>
 
-          <button 
-            type="button"
-            onClick={() => navigate('/login')}
-            className="text-[14px] font-bold text-blue-600/60 dark:text-blue-400/60 mt-4 pb-8"
-            data-testid="link-login"
-          >
-            لديك حساب بالفعل؟ <span className="text-blue-600 underline">تسجيل الدخول</span>
-          </button>
-        </div>
-
-        <div className="flex flex-col items-center gap-2 pb-6 animate-in fade-in duration-1000 delay-700 fill-mode-both">
-          <div className="flex items-center gap-4 w-full px-4">
-            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30 opacity-50"></div>
-            <span className="text-[8px] font-black text-blue-600/30 dark:text-blue-400/30 tracking-[0.2em] uppercase">Secure Registration</span>
-            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30 opacity-50"></div>
+          <div className="mt-2 text-center pb-2 animate-in fade-in duration-1000 delay-700 fill-mode-both">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              لديك حساب بالفعل؟ 
+              <button 
+                onClick={() => navigate('/login')}
+                className="text-blue-600 dark:text-blue-400 mr-1 hover:underline underline-offset-4"
+              >
+                تسجيل الدخول
+              </button>
+            </p>
           </div>
-          <span className="text-[8px] text-blue-600/20 dark:text-blue-400/20">© 2026 ORAX OPERATIONS MANAGEMENT</span>
         </div>
       </div>
     </div>

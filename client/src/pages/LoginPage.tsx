@@ -139,15 +139,15 @@ export default function LoginPage() {
           {/* Logo Section - Scaled Down */}
           <div className="flex flex-col items-center justify-center mb-2 animate-in zoom-in duration-700 delay-150 fill-mode-both">
             <div className="relative mb-2 group cursor-pointer">
-              <div className="w-16 h-16 bg-blue-600 dark:bg-white rounded-[18px] flex items-center justify-center shadow-xl shadow-blue-600/20 dark:shadow-white/5 transition-all duration-500 hover:scale-105 active:scale-95 border-2 border-white/20 dark:border-slate-800">
+              <div className="w-16 h-16 bg-[#3b82f6] dark:bg-white rounded-[18px] flex items-center justify-center shadow-xl shadow-blue-600/20 dark:shadow-white/5 transition-all duration-500 hover:scale-105 active:scale-95 border-2 border-white/20 dark:border-slate-800">
                 <div className="relative flex items-center justify-center">
-                  <Activity className="w-8 h-8 text-white dark:text-blue-600" strokeWidth={2.5} />
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-white dark:bg-blue-600 rounded-full border-2 border-blue-600 dark:border-white animate-pulse" />
+                  <Activity className="w-8 h-8 text-white dark:text-[#3b82f6]" strokeWidth={2.5} />
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-white dark:bg-[#3b82f6] rounded-full border-2 border-[#3b82f6] dark:border-white animate-pulse" />
                 </div>
               </div>
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none uppercase">OraxOS <span className="text-blue-600 dark:text-blue-400">Pro</span></h1>
+              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none uppercase">AXION <span className="text-[#3b82f6] dark:text-blue-400">| أكسيون</span></h1>
               <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.4em] uppercase block mt-1.5">Enterprise Operations</span>
             </div>
           </div>

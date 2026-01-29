@@ -92,11 +92,11 @@ export function AppSidebar() {
     <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l-0 bg-white dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-500">
       <SidebarHeader className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-4 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 dark:bg-white text-white dark:text-blue-600 shadow-lg shadow-blue-600/20 dark:shadow-white/5 transition-colors border border-white/20 dark:border-slate-800">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#3b82f6] dark:bg-white text-white dark:text-[#3b82f6] shadow-lg shadow-blue-600/20 dark:shadow-white/5 transition-colors border border-white/20 dark:border-slate-800">
             <Activity className="h-6 w-6" strokeWidth={2.5} />
           </div>
           <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden text-right">
-            <span className="font-black text-base tracking-tight text-slate-900 dark:text-white uppercase leading-none">OraxOS <span className="text-blue-600 dark:text-blue-400">Pro</span></span>
+            <span className="font-black text-base tracking-tight text-slate-900 dark:text-white uppercase leading-none">AXION <span className="text-[#3b82f6] dark:text-blue-400">| أكسيون</span></span>
             <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate font-black uppercase tracking-widest mt-1">Enterprise Ops</span>
           </div>
         </div>

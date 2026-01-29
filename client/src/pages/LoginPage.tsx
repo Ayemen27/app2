@@ -39,19 +39,41 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+import logoHeaderLight from "/assets/logo_header_light.png";
+import logoHeaderDark from "/assets/logo_header_dark.png";
+import appIconLight from "/assets/app_icon_light.png";
+import appIconDark from "/assets/app_icon_dark.png";
+
 const AppLogo = () => (
   <div className="flex flex-col items-center justify-center mb-6 animate-in fade-in zoom-in duration-700">
     <div className="relative mb-2 group cursor-pointer">
-      <div className="w-16 h-16 bg-[#3b82f6] dark:bg-white rounded-[18px] flex items-center justify-center shadow-xl shadow-blue-600/20 dark:shadow-white/5 transition-all duration-500 hover:scale-105 active:scale-95 border-2 border-white/20 dark:border-slate-800">
-        <div className="relative flex items-center justify-center">
-          <Activity className="w-8 h-8 text-white dark:text-[#3b82f6]" strokeWidth={2.5} />
-          <div className="absolute -top-1 -right-1 w-3 h-3 bg-white dark:bg-[#3b82f6] rounded-full border-2 border-[#3b82f6] dark:border-white animate-pulse" />
-        </div>
+      <div className="w-16 h-16 bg-[#3b82f6] dark:bg-white rounded-[18px] flex items-center justify-center shadow-xl shadow-blue-600/20 dark:shadow-white/5 transition-all duration-500 hover:scale-105 active:scale-95 border-2 border-white/20 dark:border-slate-800 p-2">
+        <img 
+          src={appIconLight} 
+          alt="AXION Icon" 
+          className="w-full h-full object-contain dark:hidden"
+        />
+        <img 
+          src={appIconDark} 
+          alt="AXION Icon" 
+          className="w-full h-full object-contain hidden dark:block"
+        />
       </div>
     </div>
     <div className="text-center">
-      <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none uppercase">AXION <span className="text-[#3b82f6] dark:text-blue-400">| أكسيون</span></h1>
-      <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.4em] uppercase block mt-1.5">Enterprise Operations</span>
+      <div className="flex items-center justify-center gap-2 mb-1">
+        <img 
+          src={logoHeaderLight} 
+          alt="AXION" 
+          className="h-8 object-contain dark:hidden"
+        />
+        <img 
+          src={logoHeaderDark} 
+          alt="AXION" 
+          className="h-8 object-contain hidden dark:block"
+        />
+      </div>
+      <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.4em] uppercase block">Real Assets Management</span>
     </div>
   </div>
 );
@@ -141,13 +163,13 @@ export default function LoginPage() {
               
               <div className="w-20 h-20 flex items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 relative">
                 <img 
-                  src="/assets/app_icon_light.png" 
+                  src={appIconLight} 
                   alt="AXION Logo" 
                   className="w-full h-full object-contain dark:hidden"
                   data-testid="img-logo-light"
                 />
                 <img 
-                  src="/assets/app_icon_dark.png" 
+                  src={appIconDark} 
                   alt="AXION Logo" 
                   className="w-full h-full object-contain hidden dark:block"
                   data-testid="img-logo-dark"
@@ -159,13 +181,13 @@ export default function LoginPage() {
             <div className="text-center relative">
               <div className="flex items-center justify-center gap-3 mb-1.5">
                 <img 
-                  src="/assets/logo_header_light.png" 
+                  src={logoHeaderLight} 
                   alt="AXION | أكسيون" 
                   className="h-10 object-contain dark:hidden"
                   data-testid="img-header-light"
                 />
                 <img 
-                  src="/assets/logo_header_dark.png" 
+                  src={logoHeaderDark} 
                   alt="AXION | أكسيون" 
                   className="h-10 object-contain hidden dark:block"
                   data-testid="img-header-dark"
@@ -173,7 +195,7 @@ export default function LoginPage() {
               </div>
               <div className="flex items-center justify-center gap-2">
                 <span className="h-[1px] w-6 bg-gradient-to-r from-transparent to-blue-200 dark:to-blue-900"></span>
-                <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.5em] uppercase">Enterprise Operations</span>
+                <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.5em] uppercase">Real Assets Management</span>
                 <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-blue-200 dark:to-blue-900"></span>
               </div>
             </div>

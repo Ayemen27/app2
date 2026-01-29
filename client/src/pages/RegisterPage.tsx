@@ -79,6 +79,50 @@ const registerSchema = z.object({
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
+import logoHeaderLight from "/assets/logo_header_light.png";
+import logoHeaderDark from "/assets/logo_header_dark.png";
+import appIconLight from "/assets/app_icon_light.png";
+import appIconDark from "/assets/app_icon_dark.png";
+
+const RegisterPageHeader = () => (
+  <div className="flex flex-col items-center justify-center mb-4 animate-in zoom-in duration-700 delay-150 fill-mode-both">
+    <div className="relative mb-3 group cursor-pointer">
+      <div className="w-20 h-20 flex items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 relative">
+        <img 
+          src={appIconLight} 
+          alt="AXION Logo" 
+          className="w-full h-full object-contain dark:hidden"
+        />
+        <img 
+          src={appIconDark} 
+          alt="AXION Logo" 
+          className="w-full h-full object-contain hidden dark:block"
+        />
+        <div className="absolute top-4 right-4 w-3.5 h-3.5 bg-blue-500 rounded-full border-[2.5px] border-white dark:border-[#1a1c1e] shadow-md animate-pulse"></div>
+      </div>
+    </div>
+    <div className="text-center relative">
+      <div className="flex items-center justify-center gap-3 mb-1.5">
+        <img 
+          src={logoHeaderLight} 
+          alt="AXION | أكسيون" 
+          className="h-8 object-contain dark:hidden"
+        />
+        <img 
+          src={logoHeaderDark} 
+          alt="AXION | أكسيون" 
+          className="h-8 object-contain hidden dark:block"
+        />
+      </div>
+      <div className="flex items-center justify-center gap-2">
+        <span className="h-[1px] w-6 bg-gradient-to-r from-transparent to-blue-200 dark:to-blue-900"></span>
+        <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.5em] uppercase">Real Assets Management</span>
+        <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-blue-200 dark:to-blue-900"></span>
+      </div>
+    </div>
+  </div>
+);
+
 export default function RegisterPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -205,42 +249,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Logo Section - AXION Real Assets */}
-          <div className="flex flex-col items-center justify-center mb-4 animate-in zoom-in duration-700 delay-150 fill-mode-both">
-            <div className="relative mb-3 group cursor-pointer">
-              <div className="w-20 h-20 flex items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 relative">
-                <img 
-                  src="/assets/app_icon_light.png" 
-                  alt="AXION Logo" 
-                  className="w-full h-full object-contain dark:hidden"
-                />
-                <img 
-                  src="/assets/app_icon_dark.png" 
-                  alt="AXION Logo" 
-                  className="w-full h-full object-contain hidden dark:block"
-                />
-                <div className="absolute top-4 right-4 w-3.5 h-3.5 bg-blue-500 rounded-full border-[2.5px] border-white dark:border-[#1a1c1e] shadow-md animate-pulse"></div>
-              </div>
-            </div>
-            <div className="text-center relative">
-              <div className="flex items-center justify-center gap-3 mb-1.5">
-                <img 
-                  src="/assets/logo_header_light.png" 
-                  alt="AXION | أكسيون" 
-                  className="h-8 object-contain dark:hidden"
-                />
-                <img 
-                  src="/assets/logo_header_dark.png" 
-                  alt="AXION | أكسيون" 
-                  className="h-8 object-contain hidden dark:block"
-                />
-              </div>
-              <div className="flex items-center justify-center gap-2">
-                <span className="h-[1px] w-6 bg-gradient-to-r from-transparent to-blue-200 dark:to-blue-900"></span>
-                <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.5em] uppercase">Enterprise Operations</span>
-                <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-blue-200 dark:to-blue-900"></span>
-              </div>
-            </div>
-          </div>
+          <RegisterPageHeader />
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-2 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both">

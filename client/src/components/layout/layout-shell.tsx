@@ -67,7 +67,7 @@ export function LayoutShell({
             <div className="md:hidden h-[72px] w-full flex-shrink-0" />
             
             {showNav && !hideNav && (
-              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[10000] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-[72px] pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center pointer-events-auto">
+              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[20000] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-[72px] shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center pointer-events-auto">
                 <div className="w-full h-full flex flex-col justify-center">
                   <BottomNavigation />
                 </div>

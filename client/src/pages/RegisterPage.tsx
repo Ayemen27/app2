@@ -484,7 +484,7 @@ export default function RegisterPage() {
 
               <Button 
                 type="submit" 
-                className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none mt-1"
+                className="w-full h-10 bg-blue-600 dark:bg-blue-400 hover:bg-blue-700 dark:hover:bg-blue-300 text-white dark:text-slate-950 text-[14px] font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none mt-1"
                 disabled={registerMutation.isPending}
                 data-testid="button-register"
               >

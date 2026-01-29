@@ -262,7 +262,7 @@ export default function LoginPage() {
               <div className="space-y-2 pt-2">
                 <Button 
                   type="submit" 
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
+                  className="w-full h-12 bg-blue-600 dark:bg-blue-400 hover:bg-blue-700 dark:hover:bg-blue-300 text-white dark:text-slate-950 text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
                   disabled={loginMutation.isPending}
                   data-testid="button-login"
                 >

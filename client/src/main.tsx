@@ -10,13 +10,38 @@ const startApp = async () => {
   if (!rootElement) return;
 
   try {
-    // محاولة تنظيف الكاش إذا كان هناك تحديث جديد
+    // تنظيف الكاش وإجبار التحديث عند وجود نسخة جديدة
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(registrations => {
         for (let registration of registrations) {
           registration.update();
+          // الاستماع لتحديثات Service Worker الجديدة
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // يوجد تحديث جديد، إعادة تحميل الصفحة
+                  console.log('🔄 تم اكتشاف تحديث جديد، جاري التحديث...');
+                  window.location.reload();
+                }
+              });
+            }
+          });
         }
       });
+      
+      // مسح الكاش القديم عند بدء التطبيق
+      if ('caches' in window) {
+        caches.keys().then(cacheNames => {
+          cacheNames.forEach(cacheName => {
+            if (cacheName.includes('binarjoin-v') && !cacheName.includes('binarjoin-v3')) {
+              caches.delete(cacheName);
+              console.log('🗑️ تم حذف كاش قديم:', cacheName);
+            }
+          });
+        });
+      }
     }
 
     // تهيئة قاعدة البيانات في الخلفية لتجنب حجب الواجهة

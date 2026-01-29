@@ -41,7 +41,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 const AppLogo = () => (
   <div className="flex flex-col items-center justify-center mb-6 animate-in fade-in zoom-in duration-700">
     <div className="relative mb-4">
-      <div className="w-24 h-24 bg-slate-900 dark:bg-white rounded-[28px] rotate-6 flex items-center justify-center shadow-2xl shadow-slate-900/40 ring-4 ring-white/50">
+      <div className="w-24 h-24 bg-blue-600 dark:bg-white rounded-[28px] rotate-6 flex items-center justify-center shadow-2xl shadow-blue-600/40 ring-4 ring-white/50">
         <div className="relative w-14 h-14 -rotate-6 flex items-center justify-center">
           <ShieldCheck className="w-14 h-14 text-white dark:text-slate-900 drop-shadow-lg" strokeWidth={1.2} />
           <div className="absolute inset-0 flex items-center justify-center pt-1">

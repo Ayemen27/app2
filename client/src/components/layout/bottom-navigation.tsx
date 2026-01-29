@@ -211,7 +211,7 @@ export default function BottomNavigation() {
           </SheetTrigger>
           <SheetContent 
             side="bottom" 
-            className="h-[90vh] rounded-t-[28px] px-0 border-none shadow-[0_-15px_50px_rgba(0,0,0,0.15)] bg-white dark:bg-slate-950 backdrop-blur-2xl"
+            className="h-[90vh] rounded-t-[28px] px-0 border-none shadow-[0_-15px_50px_rgba(0,0,0,0.15)] bg-white dark:bg-slate-950 backdrop-blur-2xl z-[20002]"
             onPointerDownOutside={() => setIsMenuOpen(false)}
             onInteractOutside={() => setIsMenuOpen(false)}
           >

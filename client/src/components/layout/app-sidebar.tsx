@@ -92,7 +92,7 @@ export function AppSidebar() {
     <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l-0 bg-white dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-500">
       <SidebarHeader className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-4 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg shadow-slate-900/20 dark:shadow-white/10 transition-colors">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 dark:bg-white text-white dark:text-slate-900 shadow-lg shadow-blue-600/20 dark:shadow-white/10 transition-colors">
             <div className="relative flex items-center justify-center">
               <ShieldCheck className="h-7 w-7" strokeWidth={1.5} />
               <div className="absolute inset-0 flex items-center justify-center pt-0.5">
@@ -125,7 +125,7 @@ export function AppSidebar() {
                         <SidebarMenuButton 
                           asChild 
                           isActive={location === item.url}
-                          className="h-10 px-4 mx-2 w-[calc(100%-16px)] rounded-lg transition-all duration-200 data-[active=true]:bg-slate-900 dark:data-[active=true]:bg-white data-[active=true]:text-white dark:data-[active=true]:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
+                          className="h-10 px-4 mx-2 w-[calc(100%-16px)] rounded-lg transition-all duration-200 data-[active=true]:bg-blue-600 dark:data-[active=true]:bg-white data-[active=true]:text-white dark:data-[active=true]:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
                         >
                           <a 
                             href={item.url} 
@@ -152,7 +152,7 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2 flex-shrink-0">
         <div className="px-4 py-3 flex items-center gap-3 group-data-[collapsible=icon]:hidden border-b border-slate-200/50 dark:border-slate-800 mb-2">
-          <div className="h-9 w-9 rounded-full bg-slate-900 dark:bg-white flex items-center justify-center text-white dark:text-slate-900 font-bold text-sm uppercase border border-white/10 shadow-sm transition-colors">
+          <div className="h-9 w-9 rounded-full bg-blue-600 dark:bg-white flex items-center justify-center text-white dark:text-slate-900 font-bold text-sm uppercase border border-white/10 shadow-sm transition-colors">
             {user?.name?.charAt(0) || "U"}
           </div>
           <div className="flex flex-col overflow-hidden text-right">

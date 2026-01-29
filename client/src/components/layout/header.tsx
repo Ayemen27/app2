@@ -99,7 +99,7 @@ export default function Header() {
     },
   });
 
-  const currentPage = pageInfo[location] || { title: 'إدارة المشاريع الإنشائية', icon: HardHat };
+  const currentPage = pageInfo[location] || { title: 'أوركس بروفيشنال', icon: HardHat };
   const PageIcon = currentPage.icon;
 
   const handleProjectSelect = (projectId: string, projectName: string) => {

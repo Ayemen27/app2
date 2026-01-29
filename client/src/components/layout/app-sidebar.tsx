@@ -101,8 +101,8 @@ export function AppSidebar() {
             </div>
           </div>
           <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden text-right">
-            <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white uppercase">Orax</span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-medium uppercase tracking-wider">Operations Management</span>
+            <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white uppercase">Orax Professional</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-medium uppercase tracking-wider">Ops Management System</span>
           </div>
         </div>
       </SidebarHeader>

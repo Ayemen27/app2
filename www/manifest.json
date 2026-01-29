@@ -1,7 +1,7 @@
 {
-  "name": "إدارة المشاريع الإنشائية",
-  "short_name": "مشروعي",
-  "description": "نظام احترافي لإدارة وتحليل المشاريع الإنشائية",
+  "name": "أوركس - ORAX",
+  "short_name": "أوركس",
+  "description": "نظام أوركس الاحترافي لإدارة العمليات والمشاريع",
   "start_url": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "minimal-ui"],

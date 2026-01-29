@@ -41,20 +41,20 @@ type LoginFormData = z.infer<typeof loginSchema>;
 const AppLogo = () => (
   <div className="flex flex-col items-center justify-center mb-6 animate-in fade-in zoom-in duration-700">
     <div className="relative mb-4">
-      <div className="w-24 h-24 bg-gradient-to-br from-[#0f172a] to-[#334155] rounded-[28px] rotate-6 flex items-center justify-center shadow-2xl shadow-slate-900/40 ring-4 ring-white/50">
+      <div className="w-24 h-24 bg-slate-900 dark:bg-white rounded-[28px] rotate-6 flex items-center justify-center shadow-2xl shadow-slate-900/40 ring-4 ring-white/50">
         <div className="relative w-14 h-14 -rotate-6 flex items-center justify-center">
-          <ShieldCheck className="w-14 h-14 text-white drop-shadow-lg" strokeWidth={1.2} />
+          <ShieldCheck className="w-14 h-14 text-white dark:text-slate-900 drop-shadow-lg" strokeWidth={1.2} />
           <div className="absolute inset-0 flex items-center justify-center pt-1">
-            <span className="text-white font-black text-xl tracking-tighter">O</span>
+            <span className="text-white dark:text-slate-900 font-black text-xl tracking-tighter">O</span>
           </div>
         </div>
       </div>
-      <div className="absolute -bottom-1 -right-1 w-10 h-10 bg-white rounded-2xl shadow-xl flex items-center justify-center ring-2 ring-gray-50">
+      <div className="absolute -bottom-1 -right-1 w-10 h-10 bg-white dark:bg-slate-900 rounded-2xl shadow-xl flex items-center justify-center ring-2 ring-gray-50 dark:ring-slate-800">
         <div className="w-6 h-6 bg-blue-600 rounded-lg animate-pulse shadow-inner" />
       </div>
     </div>
     <div className="text-center">
-      <h1 className="text-4xl font-black text-[#1A1A1A] tracking-tighter">أوركس <span className="text-slate-800 text-2xl font-bold block mt-[-4px]">ORAX</span></h1>
+      <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">أوركس <span className="text-slate-500 text-2xl font-bold block mt-[-4px]">ORAX</span></h1>
     </div>
   </div>
 );

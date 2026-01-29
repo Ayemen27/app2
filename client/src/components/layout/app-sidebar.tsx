@@ -92,11 +92,12 @@ export function AppSidebar() {
     <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l-0 bg-white dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-500">
       <SidebarHeader className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-4 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#3b82f6] dark:bg-[#1a1c1e] text-white shadow-lg shadow-blue-600/20 dark:shadow-black/20 transition-colors border border-white/20 dark:border-slate-800">
-            <div className="relative flex items-center justify-center">
-              <span className="font-black text-lg leading-none">أ</span>
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full border border-white dark:border-slate-800"></div>
-            </div>
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#3b82f6] dark:bg-[#1a1c1e] shadow-lg shadow-blue-600/20 dark:shadow-black/20 transition-colors border border-white/20 dark:border-slate-800 overflow-hidden">
+             {/* Fallback for now, will use extracted image later */}
+             <div className="relative flex items-center justify-center w-full h-full">
+               <span className="font-black text-lg leading-none text-white">أ</span>
+               <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full border border-white dark:border-slate-800"></div>
+             </div>
           </div>
           <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden text-right">
             <div className="flex items-center gap-1.5 leading-none">

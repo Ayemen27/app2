@@ -101,7 +101,7 @@ export default function LoginPage() {
     onSuccess: () => {
       toast({
         title: "تم تسجيل الدخول",
-        description: "مرحباً بك في نظام أوركس",
+        description: "مرحباً بك في نظام أكسيون",
       });
       navigate("/");
     },
@@ -236,7 +236,7 @@ export default function LoginPage() {
                             {...field} 
                             type="text"
                             autoComplete="off"
-                            placeholder="username@orax.system"
+                            placeholder="username@axion.system"
                             className="border-none p-0 h-6 text-base font-black text-foreground focus-visible:ring-0 placeholder:text-muted-foreground/30 text-right bg-transparent shadow-none"
                             data-testid="input-email"
                           />
@@ -319,7 +319,7 @@ export default function LoginPage() {
           <div className="flex flex-col items-center gap-3 pb-12 relative animate-in fade-in duration-1000 delay-700 fill-mode-both">
             <div className="flex items-center gap-4 w-full">
               <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30"></div>
-              <span className="text-[8px] font-black text-blue-400 dark:text-blue-700 tracking-[0.2em] uppercase">Orax Security v2.0</span>
+              <span className="text-[8px] font-black text-blue-400 dark:text-blue-700 tracking-[0.2em] uppercase">Axion Security v2.0</span>
               <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30"></div>
             </div>
           
@@ -333,7 +333,7 @@ export default function LoginPage() {
                 key={idx} 
                 type="button"
                 onClick={() => {
-                  alert(`${label} feature coming soon on Orax Mobile.`);
+                  alert(`${label} feature coming soon on Axion Mobile.`);
                 }}
                 className="w-12 h-12 bg-card dark:bg-slate-900 rounded-2xl shadow-sm border border-border dark:border-slate-800 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:shadow-md transition-all active:scale-90"
                 data-testid={testId}
@@ -346,9 +346,9 @@ export default function LoginPage() {
           <div className="w-full flex flex-col items-center gap-1">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-[9px] font-black text-slate-400 dark:text-slate-600 tracking-wider">ORAX CORE v3.9.1 - SECURE</span>
+              <span className="text-[9px] font-black text-slate-400 dark:text-slate-600 tracking-wider">AXION CORE v3.9.1 - SECURE</span>
             </div>
-            <span className="text-[8px] text-gray-300 dark:text-slate-700">© 2026 ORAX OPERATIONS MANAGEMENT</span>
+            <span className="text-[8px] text-gray-300 dark:text-slate-700">© 2026 AXION OPERATIONS MANAGEMENT</span>
           </div>
 
           {/* Notification Overlay */}

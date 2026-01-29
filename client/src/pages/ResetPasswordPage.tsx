@@ -350,7 +350,7 @@ export default function ResetPasswordPage() {
             <span className="text-[8px] font-black text-blue-600/30 dark:text-blue-400/30 tracking-[0.2em] uppercase">Secure System</span>
             <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30 opacity-50"></div>
           </div>
-          <span className="text-[8px] text-blue-600/20 dark:text-blue-400/20">© 2026 ORAX OPERATIONS MANAGEMENT</span>
+          <span className="text-[8px] text-blue-600/20 dark:text-blue-400/20">© 2026 AXION OPERATIONS MANAGEMENT</span>
         </div>
       </div>
     </div>

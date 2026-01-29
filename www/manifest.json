@@ -1,7 +1,7 @@
 {
-  "name": "أوركس - ORAX",
-  "short_name": "أوركس",
-  "description": "نظام أوركس الاحترافي لإدارة العمليات والمشاريع",
+  "name": "أكسيون - AXION",
+  "short_name": "أكسيون",
+  "description": "نظام أكسيون الاحترافي لإدارة العمليات والمشاريع",
   "start_url": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "minimal-ui"],

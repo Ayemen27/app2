@@ -231,7 +231,7 @@ export default function RegisterPage() {
           <div className="flex justify-between items-center mb-1 animate-in slide-in-from-top duration-500 fill-mode-both" dir="rtl">
             <div className="text-right flex flex-col items-end">
               <h2 className="text-[10px] font-black text-blue-600/50 dark:text-blue-400/50 uppercase tracking-widest leading-none">إنضم إلينا</h2>
-              <span className="text-[8px] text-blue-600/30 dark:text-blue-400/30 font-bold uppercase">JOIN ORAX OPS</span>
+              <span className="text-[8px] text-blue-600/30 dark:text-blue-400/30 font-bold uppercase">JOIN AXION OPS</span>
             </div>
             <Button 
               variant="ghost" 
@@ -287,7 +287,7 @@ export default function RegisterPage() {
                           <Input 
                             {...field} 
                             type="email"
-                            placeholder="username@orax.system"
+                            placeholder="username@axion.system"
                             className="border-none p-0 h-5 text-sm font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                             data-testid="input-email"
                           />

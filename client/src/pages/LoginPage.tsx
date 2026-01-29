@@ -140,19 +140,19 @@ export default function LoginPage() {
           <div className="flex flex-col items-center justify-center mb-2 animate-in zoom-in duration-700 delay-150 fill-mode-both">
             <div className="relative mb-2 group cursor-pointer">
               <div className="w-16 h-16 bg-card dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-border dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
-                <div className="w-13 h-13 bg-slate-900 dark:bg-white rounded-[16px] flex items-center justify-center">
+                <div className="w-13 h-13 bg-blue-600 dark:bg-blue-500 rounded-[16px] flex items-center justify-center">
                   <div className="relative">
-                    <ShieldCheck className="w-8 h-8 text-white dark:text-slate-900" strokeWidth={1.5} />
+                    <ShieldCheck className="w-8 h-8 text-white" strokeWidth={1.5} />
                     <div className="absolute inset-0 flex items-center justify-center pt-0.5">
-                      <span className="text-white dark:text-slate-900 font-black text-xs">O</span>
+                      <span className="text-white font-black text-xs">O</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-black text-foreground tracking-tighter leading-none">أوركس</h1>
-              <span className="text-primary text-[10px] font-black tracking-[0.3em] uppercase block mt-1">ORAX SYSTEM</span>
+              <h1 className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tighter leading-none">أوركس بروفيشنال</h1>
+              <span className="text-blue-600 dark:text-blue-400 text-[10px] font-black tracking-[0.3em] uppercase block mt-1">ORAX OPS SYSTEM</span>
             </div>
           </div>
 
@@ -243,10 +243,11 @@ export default function LoginPage() {
                         className="flex items-center justify-center ml-2 transition-colors"
                         data-testid="button-toggle-password"
                       >
-                        <div className="relative flex items-center justify-center">
-                          <EyeOff className={`w-5 h-5 transition-transform duration-200 ${showPassword ? 'hidden scale-0' : 'text-slate-400 dark:text-slate-600 scale-100'}`} />
-                          <Eye className={`w-5 h-5 transition-transform duration-200 ${showPassword ? 'text-blue-600 dark:text-blue-400 scale-100' : 'hidden scale-0'}`} />
-                        </div>
+                        {showPassword ? (
+                          <Eye className="w-5 h-5 text-blue-600 dark:text-blue-400" strokeWidth={2} />
+                        ) : (
+                          <EyeOff className="w-5 h-5 text-slate-400 dark:text-slate-600" strokeWidth={2} />
+                        )}
                       </button>
                     </div>
                   </FormItem>
@@ -261,7 +262,7 @@ export default function LoginPage() {
               <div className="space-y-2 pt-2">
                 <Button 
                   type="submit" 
-                  className="w-full h-12 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
                   disabled={loginMutation.isPending}
                   data-testid="button-login"
                 >
@@ -271,7 +272,7 @@ export default function LoginPage() {
                 <Button 
                   type="button"
                   variant="ghost"
-                  className="w-full h-10 text-slate-500 dark:text-slate-400 text-sm font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900"
+                  className="w-full h-10 text-blue-600/70 dark:text-blue-400/70 text-sm font-bold rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20"
                   onClick={() => navigate('/register')}
                   data-testid="button-create-account"
                 >
@@ -283,14 +284,14 @@ export default function LoginPage() {
         </div>
 
         {/* Footer - Global Tech Style */}
-        <div className="flex flex-col items-center gap-3 pb-4 relative animate-in fade-in duration-1000 delay-700 fill-mode-both">
+        <div className="flex flex-col items-center gap-3 pb-12 relative animate-in fade-in duration-1000 delay-700 fill-mode-both">
           <div className="flex items-center gap-4 w-full">
-            <div className="flex-1 h-[1px] bg-gray-100 dark:bg-slate-800"></div>
-            <span className="text-[8px] font-black text-gray-300 dark:text-slate-700 tracking-[0.2em] uppercase">Security Layer 2.0</span>
-            <div className="flex-1 h-[1px] bg-gray-100 dark:bg-slate-800"></div>
+            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30"></div>
+            <span className="text-[8px] font-black text-blue-300 dark:text-blue-700 tracking-[0.2em] uppercase">Security Layer 2.0</span>
+            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30"></div>
           </div>
           
-          <div className="flex gap-4">
+          <div className="flex gap-4 mb-4">
             {[
               { Icon: Fingerprint, label: 'Biometric', testId: 'button-fingerprint' },
               { Icon: Scan, label: 'QR Scan', testId: 'button-scan-qr' },
@@ -302,7 +303,7 @@ export default function LoginPage() {
                 onClick={() => {
                   alert(`${label} feature coming soon on Orax Mobile.`);
                 }}
-                className="w-12 h-12 bg-card dark:bg-slate-900 rounded-2xl shadow-sm border border-border dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-600 hover:text-slate-900 dark:hover:text-white hover:shadow-md transition-all active:scale-90"
+                className="w-12 h-12 bg-card dark:bg-slate-900 rounded-2xl shadow-sm border border-border dark:border-slate-800 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:shadow-md transition-all active:scale-90"
                 data-testid={testId}
               >
                 <Icon className="w-5 h-5" strokeWidth={1.5} />

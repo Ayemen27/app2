@@ -111,7 +111,7 @@ export default function RegisterPage() {
       });
       const userId = data?.data?.user?.id;
       const email = data?.data?.user?.email || form.getValues('email');
-      navigate(`/verify-email?userId=\${userId}&email=\${encodeURIComponent(email)}`);
+      navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(email)}`);
     },
     onError: (error: Error) => {
       toast({
@@ -126,73 +126,67 @@ export default function RegisterPage() {
     <div className="h-screen w-full bg-background dark:bg-slate-950 flex flex-col items-center overflow-hidden font-sans select-none relative transition-colors duration-500" dir="rtl">
       <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none z-0" 
            style={{ 
-             backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%230f172a\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
+             backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0l30 30-30 30-30-30z\' fill=\'%232563eb\' fill-opacity=\'1\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
              backgroundSize: '45px 45px' 
            }}>
       </div>
 
-      <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-4 pt-safe justify-between relative">
-        <div className="flex flex-col flex-1 gap-1 overflow-y-auto custom-scrollbar px-1">
-          <div className="flex justify-between items-center mb-1 animate-in slide-in-from-top duration-500 fill-mode-both" dir="rtl">
+      <div className="w-full max-w-[400px] h-full z-10 flex flex-col p-3 pt-safe justify-between relative">
+        <div className="flex flex-col flex-1 gap-0.5 px-1 overflow-y-auto custom-scrollbar">
+          <div className="flex justify-between items-center mb-0.5 animate-in slide-in-from-top duration-500 fill-mode-both" dir="rtl">
             <div className="text-right flex flex-col items-end">
-              <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">إنضم إلينا</h2>
-              <span className="text-[8px] text-gray-300 dark:text-slate-600 font-bold">JOIN ORAX</span>
+              <h2 className="text-[9px] font-black text-blue-600/50 dark:text-blue-400/50 uppercase tracking-widest leading-none">إنضم إلينا</h2>
+              <span className="text-[7px] text-blue-600/30 dark:text-blue-400/30 font-bold uppercase">JOIN ORAX OPS</span>
             </div>
             <Button 
               variant="ghost" 
               size="icon" 
-              className="w-9 h-9 rounded-full bg-slate-900 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform"
+              className="w-8 h-8 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform"
               onClick={() => navigate('/login')}
               data-testid="button-back"
             >
               <div className="flex gap-0.5">
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                <div className="w-1 h-1 bg-white rounded-full" />
+                <div className="w-1 h-1 bg-white rounded-full" />
+                <div className="w-1 h-1 bg-white rounded-full" />
               </div>
             </Button>
           </div>
 
-          <div className="flex flex-col items-center justify-center mb-2 animate-in zoom-in duration-700 delay-150 fill-mode-both">
-            <div className="relative mb-2 group cursor-pointer">
-              <div className="w-16 h-16 bg-card dark:bg-slate-900 rounded-[20px] flex items-center justify-center shadow-xl border border-border dark:border-slate-800 group-hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
-                <div className="w-13 h-13 bg-slate-900 dark:bg-white rounded-[16px] flex items-center justify-center">
-                  <div className="relative">
-                    <ShieldCheck className="w-8 h-8 text-white dark:text-slate-900" strokeWidth={1.5} />
-                    <div className="absolute inset-0 flex items-center justify-center pt-0.5">
-                      <span className="text-white dark:text-slate-900 font-black text-xs">O</span>
-                    </div>
-                  </div>
+          <div className="flex flex-col items-center justify-center mb-1 animate-in zoom-in duration-700 delay-150 fill-mode-both">
+            <div className="relative mb-1 group cursor-pointer">
+              <div className="w-12 h-12 bg-card dark:bg-slate-900 rounded-[16px] flex items-center justify-center shadow-lg border border-border dark:border-slate-800 group-hover:shadow-xl transition-all duration-300">
+                <div className="w-10 h-10 bg-blue-600 rounded-[14px] flex items-center justify-center">
+                  <ShieldCheck className="w-6 h-6 text-white" strokeWidth={1.5} />
                 </div>
               </div>
             </div>
-            <div className="text-center">
-              <h1 className="text-2xl font-black text-foreground tracking-tighter leading-none">أوركس</h1>
-              <span className="text-primary text-[10px] font-black tracking-[0.3em] uppercase block mt-1">ORAX SYSTEM</span>
+            <div className="text-center leading-none">
+              <h1 className="text-lg font-black text-blue-600 dark:text-blue-400 tracking-tighter">أوركس بروفيشنال</h1>
+              <span className="text-blue-600/60 dark:text-blue-400/60 text-[7px] font-black tracking-[0.3em] uppercase block">ORAX OPS SYSTEM</span>
             </div>
           </div>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-2 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both pb-4">
+            <form onSubmit={form.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-1 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both">
               <FormField
                 control={form.control}
                 name="fullName"
                 render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                  <FormItem className="space-y-0">
+                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-9 flex items-center px-3 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                       <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Full Name / الاسم</span>
+                        <span className="text-[7px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Full Name / الاسم</span>
                         <FormControl>
                           <Input 
                             {...field} 
                             placeholder="اسمك الرباعي"
-                            className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                            className="border-none p-0 h-4 text-[12px] font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                             data-testid="input-fullname"
                           />
                         </FormControl>
                       </div>
                     </div>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -201,37 +195,36 @@ export default function RegisterPage() {
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                  <FormItem className="space-y-0">
+                    <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-9 flex items-center px-3 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                       <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Identity / البريد</span>
+                        <span className="text-[7px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Identity / البريد</span>
                         <FormControl>
                           <Input 
                             {...field} 
                             type="email"
                             placeholder="username@orax.system"
-                            className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                            className="border-none p-0 h-4 text-[12px] font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                             data-testid="input-email"
                           />
                         </FormControl>
                       </div>
-                      <Mail className="w-5 h-5 text-muted-foreground/40 ml-2" />
+                      <Mail className="w-3.5 h-3.5 text-blue-600/30 dark:text-blue-400/30 ml-2" />
                     </div>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="grid grid-cols-[100px_1fr] gap-2">
+              <div className="grid grid-cols-[80px_1fr] gap-1">
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
-                    <button type="button" className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-2 justify-between hover:bg-muted/50 transition-colors">
-                      <ChevronDown className="w-4 h-4 text-muted-foreground/40" />
-                      <span className="text-sm font-black text-foreground" dir="ltr">{selectedCountry.code}</span>
-                      <img src={selectedCountry.flag} alt={selectedCountry.name} className="w-5 h-auto rounded-sm" />
+                    <button type="button" className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-9 flex items-center px-2 justify-between hover:bg-muted/50 transition-colors">
+                      <ChevronDown className="w-3 h-3 text-blue-600/30" />
+                      <span className="text-[11px] font-black text-foreground" dir="ltr">{selectedCountry.code}</span>
+                      <img src={selectedCountry.flag} alt={selectedCountry.name} className="w-4 h-auto rounded-sm" />
                     </button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-[400px] w-[95%] p-0 rounded-t-3xl sm:rounded-3xl border-border dark:border-slate-800 bg-card dark:bg-slate-900 shadow-2xl overflow-hidden" dir="rtl">
+                  <DialogContent className="max-w-[400px] w-[95%] p-0 rounded-3xl border-border dark:border-slate-800 bg-card dark:bg-slate-900 shadow-2xl overflow-hidden" dir="rtl">
                     <div className="p-4">
                       <div className="relative mb-4">
                         <Input
@@ -242,7 +235,7 @@ export default function RegisterPage() {
                         />
                         <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/40" />
                       </div>
-                      <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+                      <div className="max-h-[50vh] overflow-y-auto custom-scrollbar">
                         {filteredCountries.map((country) => (
                           <button
                             key={country.name + country.code}
@@ -266,56 +259,58 @@ export default function RegisterPage() {
                   control={form.control}
                   name="phone"
                   render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                    <FormItem className="space-y-0">
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-9 flex items-center px-3 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                         <div className="flex-1 flex flex-col justify-center">
-                          <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Smartphone / الهاتف</span>
+                          <span className="text-[7px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Smartphone / الهاتف</span>
                           <FormControl>
                             <Input 
                               {...field} 
                               placeholder="7xxxxxxxx"
-                              className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                              className="border-none p-0 h-4 text-[12px] font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                               data-testid="input-phone"
                             />
                           </FormControl>
                         </div>
-                        <Smartphone className="w-5 h-5 text-muted-foreground/40 ml-2" />
+                        <Smartphone className="w-3.5 h-3.5 text-blue-600/30 dark:text-blue-400/30 ml-2" />
                       </div>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1">
                 <FormField
                   control={form.control}
                   name="password"
                   render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                    <FormItem className="space-y-0">
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-9 flex items-center px-3 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                         <div className="flex-1 flex flex-col justify-center">
-                          <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Security / كلمة المرور</span>
+                          <span className="text-[7px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Security / كلمة المرور</span>
                           <FormControl>
                             <Input 
                               {...field} 
                               type={showPassword ? "text" : "password"}
                               placeholder="••••••••"
-                              className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                              className="border-none p-0 h-4 text-[12px] font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                               data-testid="input-password"
+                              hidePasswordToggle={true}
                             />
                           </FormControl>
                         </div>
                         <button 
-                          type="button"
+                          type="button" 
                           onClick={() => setShowPassword(!showPassword)}
-                          className="flex items-center justify-center ml-2 transition-colors"
+                          className="flex items-center justify-center ml-1 transition-colors"
                         >
-                          <EyeOff className={`w-4 h-4 \${showPassword ? 'hidden' : 'text-muted-foreground/40'}`} />
-                          <Eye className={`w-4 h-4 \${showPassword ? 'text-primary' : 'hidden'}`} />
+                          {showPassword ? (
+                            <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" strokeWidth={2} />
+                          ) : (
+                            <EyeOff className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600" strokeWidth={2} />
+                          )}
                         </button>
                       </div>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -323,55 +318,57 @@ export default function RegisterPage() {
                   control={form.control}
                   name="confirmPassword"
                   render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                    <FormItem className="space-y-0">
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-9 flex items-center px-3 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                         <div className="flex-1 flex flex-col justify-center">
-                          <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Verify / تأكيد</span>
+                          <span className="text-[7px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Verify / تأكيد</span>
                           <FormControl>
                             <Input 
                               {...field} 
                               type={showConfirmPassword ? "text" : "password"}
                               placeholder="••••••••"
-                              className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                              className="border-none p-0 h-4 text-[12px] font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                               data-testid="input-confirm-password"
+                              hidePasswordToggle={true}
                             />
                           </FormControl>
                         </div>
                         <button 
-                          type="button"
+                          type="button" 
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="flex items-center justify-center ml-2 transition-colors"
+                          className="flex items-center justify-center ml-1 transition-colors"
                         >
-                          <EyeOff className={`w-4 h-4 \${showConfirmPassword ? 'hidden' : 'text-muted-foreground/40'}`} />
-                          <Eye className={`w-4 h-4 \${showConfirmPassword ? 'text-primary' : 'hidden'}`} />
+                          {showConfirmPassword ? (
+                            <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" strokeWidth={2} />
+                          ) : (
+                            <EyeOff className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600" strokeWidth={2} />
+                          )}
                         </button>
                       </div>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1">
                 <FormField
                   control={form.control}
                   name="birthPlace"
                   render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5">
+                    <FormItem className="space-y-0">
+                      <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-9 flex items-center px-3 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
                         <div className="flex-1 flex flex-col justify-center">
-                          <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Location / مكان الميلاد</span>
+                          <span className="text-[7px] text-blue-600/50 dark:text-blue-400/50 font-black text-right uppercase tracking-tighter">Location / مكان الميلاد</span>
                           <FormControl>
                             <Input 
                               {...field} 
                               placeholder="المدينة"
-                              className="border-none p-0 h-6 text-sm font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
+                              className="border-none p-0 h-4 text-[12px] font-bold text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                             />
                           </FormControl>
                         </div>
-                        <MapPin className="w-5 h-5 text-muted-foreground/40 ml-2" />
+                        <MapPin className="w-3.5 h-3.5 text-blue-600/30 dark:text-blue-400/30 ml-2" />
                       </div>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -379,16 +376,16 @@ export default function RegisterPage() {
                   control={form.control}
                   name="birthDate"
                   render={({ field }) => (
-                    <FormItem className="space-y-1">
+                    <FormItem className="space-y-0">
                       <Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
                         <DialogTrigger asChild>
                           <button 
                             type="button" 
-                            className="w-full bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 justify-between hover:bg-muted/50 transition-colors"
+                            className="w-full bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-9 flex items-center px-3 justify-between hover:bg-muted/50 transition-colors"
                             data-testid="button-birth-date"
                           >
-                            <Calendar className="w-4 h-4 text-muted-foreground/40" />
-                            <span className={`text-sm font-black \${field.value ? 'text-foreground' : 'text-muted-foreground/30'}`}>
+                            <Calendar className="w-3.5 h-3.5 text-blue-600/30" />
+                            <span className={`text-[11px] font-black ${field.value ? 'text-foreground' : 'text-muted-foreground/30'}`}>
                               {field.value || "تاريخ الميلاد"}
                             </span>
                           </button>
@@ -447,7 +444,7 @@ export default function RegisterPage() {
                             </div>
                             <Button
                               type="button"
-                              className="w-full h-12 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black rounded-xl"
+                              className="w-full h-12 bg-blue-600 text-white font-black rounded-xl"
                               onClick={() => {
                                 const formattedDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
                                 field.onChange(formattedDate);
@@ -459,7 +456,6 @@ export default function RegisterPage() {
                           </div>
                         </DialogContent>
                       </Dialog>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -469,54 +465,50 @@ export default function RegisterPage() {
                 control={form.control}
                 name="terms"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-2 space-y-0 px-1 py-1">
+                  <FormItem className="flex flex-row items-center space-x-2 space-y-0 px-1">
                     <FormControl>
                       <Checkbox
                         checked={field.value}
                         onCheckedChange={field.onChange}
-                        className="rounded-md border-border"
+                        className="w-3.5 h-3.5 rounded-sm border-blue-600/30"
                       />
                     </FormControl>
-                    <div className="mr-2 leading-none">
-                      <label className="text-[11px] font-bold text-muted-foreground">
-                        أوافق على <button type="button" className="text-primary hover:underline">شروط الخدمة</button> و <button type="button" className="text-primary hover:underline">سياسة الخصوصية</button>
-                      </label>
+                    <div className="leading-none mr-2">
+                      <FormLabel className="text-[9px] font-bold text-blue-600/60 dark:text-blue-400/60">
+                        أوافق على <span className="text-blue-600 hover:underline cursor-pointer">شروط الخدمة</span> و <span className="text-blue-600 hover:underline cursor-pointer">سياسة الخصوصية</span>
+                      </FormLabel>
                     </div>
                   </FormItem>
                 )}
               />
 
-              <div className="space-y-2 pt-2">
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 text-base font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none"
-                  disabled={registerMutation.isPending}
-                  data-testid="button-register"
-                >
-                  {registerMutation.isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "إنشاء الحساب"}
-                </Button>
-
-                <Button 
-                  type="button"
-                  variant="ghost"
-                  className="w-full h-10 text-muted-foreground text-sm font-bold rounded-xl hover:bg-muted"
-                  onClick={() => navigate('/login')}
-                  data-testid="button-back-to-login"
-                >
-                  لديك حساب بالفعل؟ تسجيل الدخول
-                </Button>
-              </div>
+              <Button 
+                type="submit" 
+                className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-black rounded-xl shadow-lg transition-all active:scale-[0.98] border-none mt-1"
+                disabled={registerMutation.isPending}
+                data-testid="button-register"
+              >
+                {registerMutation.isPending ? <Loader2 className="animate-spin h-4 w-4" /> : "إنشاء الحساب"}
+              </Button>
             </form>
           </Form>
+
+          <button 
+            type="button"
+            className="w-full text-center text-[10px] font-bold text-blue-600/60 dark:text-blue-400/60 mt-2"
+            onClick={() => navigate('/login')}
+          >
+            لديك حساب بالفعل؟ <span className="text-blue-600 underline">تسجيل الدخول</span>
+          </button>
         </div>
 
-        <div className="flex flex-col items-center gap-2 pb-4 animate-in fade-in duration-1000 delay-700 fill-mode-both">
+        <div className="flex flex-col items-center gap-1 pb-2 animate-in fade-in duration-1000 delay-700 fill-mode-both">
           <div className="flex items-center gap-4 w-full px-4">
-            <div className="flex-1 h-[1px] bg-border opacity-50"></div>
-            <span className="text-[8px] font-black text-muted-foreground/50 tracking-[0.2em] uppercase">Secure Registration</span>
-            <div className="flex-1 h-[1px] bg-border opacity-50"></div>
+            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30 opacity-50"></div>
+            <span className="text-[7px] font-black text-blue-600/30 dark:text-blue-400/30 tracking-[0.2em] uppercase">Secure Registration</span>
+            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30 opacity-50"></div>
           </div>
-          <span className="text-[8px] text-muted-foreground/40">© 2026 ORAX OPERATIONS MANAGEMENT</span>
+          <span className="text-[7px] text-blue-600/20 dark:text-blue-400/20">© 2026 ORAX OPERATIONS MANAGEMENT</span>
         </div>
       </div>
     </div>

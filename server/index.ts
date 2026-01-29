@@ -477,6 +477,14 @@ app.post("/api/backups/trigger", requireAuth, async (req: Request, res: Response
     // ضمان رد JSON لطلبات API حتى في حالة الأخطاء غير المتوقعة
     if (req.path.startsWith('/api')) {
       res.setHeader('Content-Type', 'application/json');
+      // منع إعادة التوجيه التلقائي لطلبات API
+      const oldRedirect = res.redirect;
+      res.redirect = function(url: string) {
+        if (typeof url === 'number') {
+          return res.status(url).json({ success: false, message: 'Redirect blocked for API' });
+        }
+        return res.status(302).json({ success: false, message: 'Redirect blocked for API', target: url });
+      } as any;
     }
     const start = Date.now();
     const path = req.path;

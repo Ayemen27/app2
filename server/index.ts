@@ -105,7 +105,12 @@ app.use(cors({
       const allowed = origin === PRODUCTION_DOMAIN || 
                       (origin.includes('binarjoinanelytic.info')) ||
                       origin.startsWith('capacitor://') ||
-                      origin.startsWith('http://localhost');
+                      origin.startsWith('http://localhost') ||
+                      origin.startsWith('https://localhost');
+      
+      if (!allowed) {
+        console.log(`⚠️ [CORS Blocked] Origin: ${origin}`);
+      }
       callback(null, allowed);
       return;
     }
@@ -130,7 +135,9 @@ app.use(cors({
     'Accept',
     'Origin',
     'x-device-type',
-    'x-device-name'
+    'x-device-name',
+    'X-Requested-With',
+    'x-requested-with'
   ],
   exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
   optionsSuccessStatus: 200,
@@ -465,6 +472,10 @@ app.post("/api/backups/trigger", requireAuth, async (req: Request, res: Response
 });
 
   app.use((req, res, next) => {
+    // تسجيل Origin لطلبات API لتتبع مشاكل الأندرويد
+    if (req.path.startsWith('/api')) {
+      console.log(`🔍 [API Request] Method: ${req.method}, Path: ${req.path}, Origin: ${req.get('origin') || 'No Origin'}`);
+    }
     const start = Date.now();
     const path = req.path;
     let resBody: any;

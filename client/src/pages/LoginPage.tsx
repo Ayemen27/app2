@@ -28,7 +28,8 @@ import {
   MoreHorizontal,
   Mail,
   Users,
-  X
+  X,
+  Activity
 } from "lucide-react";
 
 const loginSchema = z.object({

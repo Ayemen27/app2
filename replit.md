@@ -1,5 +1,5 @@
 # Project Overview
-This is a complex full-stack JavaScript application focused on industrial/resource management (wells, financial ledgers, etc.) with integrated AI capabilities and advanced monitoring.
+This is a complex full-stack JavaScript application named **Orax Professional** (ORAX), focused on industrial/resource management (wells, financial ledgers, etc.) with integrated AI capabilities and advanced monitoring.
 
 # Professional AI Protocol
 The AI Agent operates under strict professional guidelines:
@@ -21,7 +21,9 @@ The AI Agent operates under strict professional guidelines:
 # Recent Changes
 - Initial environment analysis and protocol establishment.
 - Identification of core system services and documentation.
+- Unified application branding as "Orax Professional" (ORAX) and modernized visual identity across UI, manifest, and metadata.
 
 # User Preferences
 - Language: Arabic/English (Professional).
 - Strict adherence to the provided professional AI constraints.
+- Identity: Orax Professional (ORAX).

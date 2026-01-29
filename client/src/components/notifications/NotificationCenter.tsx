@@ -122,7 +122,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
             id: 'system-welcome',
             type: 'system',
             title: 'مرحباً بك',
-            message: 'مرحباً بك في نظام إدارة المشاريع الإنشائية',
+            message: 'مرحباً بك في نظام أوركس بروفيشنال',
             priority: 3,
             createdAt: new Date().toISOString(),
             isRead: false,

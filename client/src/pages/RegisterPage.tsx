@@ -174,10 +174,10 @@ export default function RegisterPage() {
               </div>
             </div>
             <div className="text-center leading-none mt-1">
-              <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500 dark:from-blue-400 dark:to-blue-300 tracking-tighter">ORAX OPS</h1>
+              <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500 dark:from-blue-400 dark:to-blue-300 tracking-tighter">أوركس بروفيشنال</h1>
               <div className="flex items-center justify-center gap-1 mt-0.5">
                 <span className="w-4 h-[1px] bg-blue-600/20"></span>
-                <span className="text-blue-600/60 dark:text-blue-400/60 text-[7px] font-black tracking-[0.4em] uppercase">SYSTEM CORE</span>
+                <span className="text-blue-600/60 dark:text-blue-400/60 text-[7px] font-black tracking-[0.4em] uppercase">ORAX OPS SYSTEM</span>
                 <span className="w-4 h-[1px] bg-blue-600/20"></span>
               </div>
             </div>

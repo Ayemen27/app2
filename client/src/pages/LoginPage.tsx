@@ -54,7 +54,7 @@ const AppLogo = () => (
       </div>
     </div>
     <div className="text-center">
-      <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">أوركس <span className="text-slate-500 text-2xl font-bold block mt-[-4px]">ORAX</span></h1>
+      <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">أوركس بروفيشنال <span className="text-slate-500 text-2xl font-bold block mt-[-4px]">ORAX PROFESSIONAL</span></h1>
     </div>
   </div>
 );
@@ -283,13 +283,12 @@ export default function LoginPage() {
           </Form>
         </div>
 
-        {/* Footer - Global Tech Style */}
-        <div className="flex flex-col items-center gap-3 pb-12 relative animate-in fade-in duration-1000 delay-700 fill-mode-both">
-          <div className="flex items-center gap-4 w-full">
-            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30"></div>
-            <span className="text-[8px] font-black text-blue-300 dark:text-blue-700 tracking-[0.2em] uppercase">Security Layer 2.0</span>
-            <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30"></div>
-          </div>
+          <div className="flex flex-col items-center gap-3 pb-12 relative animate-in fade-in duration-1000 delay-700 fill-mode-both">
+            <div className="flex items-center gap-4 w-full">
+              <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30"></div>
+              <span className="text-[8px] font-black text-blue-300 dark:text-blue-700 tracking-[0.2em] uppercase">Orax Security v2.0</span>
+              <div className="flex-1 h-[1px] bg-blue-100 dark:bg-blue-900/30"></div>
+            </div>
           
           <div className="flex gap-4 mb-4">
             {[

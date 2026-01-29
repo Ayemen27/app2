@@ -90,22 +90,23 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l-0 bg-white dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-500">
-      <SidebarHeader className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-4 flex-shrink-0">
+      <SidebarHeader className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-5 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#3b82f6] dark:bg-[#1a1c1e] shadow-lg shadow-blue-600/20 dark:shadow-black/20 transition-colors border border-white/20 dark:border-slate-800 overflow-hidden">
-             {/* Fallback for now, will use extracted image later */}
-             <div className="relative flex items-center justify-center w-full h-full">
-               <span className="font-black text-lg leading-none text-white">أ</span>
-               <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full border border-white dark:border-slate-800"></div>
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#3b82f6] dark:bg-[#1a1c1e] shadow-xl shadow-blue-600/20 dark:shadow-black/40 transition-all border border-white/10 dark:border-slate-800 overflow-hidden relative group/logo">
+             <div className="relative flex items-center justify-center w-full h-full translate-y-[1px]">
+               <span className="font-black text-2xl leading-none text-white drop-shadow-sm">أ</span>
+               <span className="font-black text-xs leading-none text-white/30 ml-[-2px] italic -skew-x-6">A</span>
+               {/* Image Marker Point */}
+               <div className="absolute top-2 right-2 w-2 h-2 bg-blue-400 rounded-full border border-white dark:border-[#1a1c1e] shadow-sm"></div>
              </div>
           </div>
           <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden text-right">
-            <div className="flex items-center gap-1.5 leading-none">
-              <span className="font-black text-base tracking-tighter text-slate-900 dark:text-white uppercase">AXION</span>
-              <span className="h-3 w-[1px] bg-slate-300 dark:bg-slate-700"></span>
-              <span className="font-black text-sm text-[#3b82f6] dark:text-blue-400">أكسيون</span>
+            <div className="flex items-center gap-2 leading-none">
+              <span className="font-black text-lg tracking-[-0.05em] text-slate-900 dark:text-white uppercase">AXION</span>
+              <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800"></div>
+              <span className="font-black text-sm text-[#3b82f6] dark:text-blue-500">أكسيون</span>
             </div>
-            <span className="text-[8px] text-slate-400 dark:text-slate-500 truncate font-black uppercase tracking-[0.3em] mt-1.5">Enterprise Operations</span>
+            <span className="text-[8px] text-slate-400 dark:text-slate-500 truncate font-black uppercase tracking-[0.4em] mt-1.5 opacity-80">Enterprise Operations</span>
           </div>
         </div>
       </SidebarHeader>

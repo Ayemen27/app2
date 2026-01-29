@@ -133,34 +133,39 @@ export default function LoginPage() {
             </Button>
           </div>
 
-          {/* Logo Section - AXION Bilingual */}
-          <div className="flex flex-col items-center justify-center mb-4 animate-in zoom-in duration-700 delay-150 fill-mode-both">
-            <div className="relative mb-3 group cursor-pointer">
-              {/* Main Logo Container */}
-              <div className="w-20 h-20 bg-[#3b82f6] dark:bg-[#1a1c1e] rounded-[22px] flex items-center justify-center shadow-2xl shadow-blue-600/20 dark:shadow-black/40 transition-all duration-500 hover:scale-105 active:scale-95 border-2 border-white/10 dark:border-slate-800 relative overflow-hidden">
-                {/* Background Accent */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-blue-700/20 to-transparent opacity-50"></div>
+          {/* Logo Section - AXION Precise Bilingual Emulation */}
+          <div className="flex flex-col items-center justify-center mb-6 animate-in zoom-in duration-700 delay-150 fill-mode-both">
+            <div className="relative mb-4 group cursor-pointer">
+              {/* Outer Glow / Halo */}
+              <div className="absolute -inset-1.5 bg-blue-500/10 rounded-[24px] blur-md opacity-0 group-hover:opacity-100 transition duration-500"></div>
+              
+              <div className="w-20 h-20 bg-[#3b82f6] dark:bg-[#1a1c1e] rounded-[22px] flex items-center justify-center shadow-2xl shadow-blue-600/20 dark:shadow-black/60 transition-all duration-500 hover:scale-105 active:scale-95 border border-white/10 dark:border-slate-800 relative overflow-hidden">
+                {/* Subtle Geometric Background Pattern */}
+                <div className="absolute inset-0 opacity-[0.05] dark:opacity-[0.1]" 
+                     style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #ffffff 1px, transparent 0)', backgroundSize: '8px 8px' }}></div>
                 
-                <div className="relative flex items-center justify-center">
-                  <div className="flex items-baseline">
-                    <span className="text-4xl font-black text-white dark:text-white leading-none">أ</span>
-                    <span className="text-2xl font-black text-white/40 dark:text-white/20 ml-[-4px] leading-none tracking-tighter italic">A</span>
+                <div className="relative flex items-center justify-center w-full h-full">
+                  <div className="flex items-center justify-center relative translate-y-[2px]">
+                    {/* The "أ" Symbol */}
+                    <span className="text-[44px] font-black text-white dark:text-white leading-none select-none drop-shadow-sm">أ</span>
+                    {/* The "A" Symbol - Slanted and Integrated */}
+                    <span className="text-[32px] font-black text-white/30 dark:text-white/15 ml-[-6px] leading-none tracking-tighter italic select-none -skew-x-6">A</span>
                   </div>
-                  {/* Pulse Indicator */}
-                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-blue-400 dark:bg-blue-500 rounded-full border-2 border-white dark:border-[#1a1c1e] shadow-lg"></div>
+                  {/* Status Indicator / Pulse Point - Matching the Image */}
+                  <div className="absolute top-4 right-4 w-3.5 h-3.5 bg-[#60a5fa] dark:bg-[#3b82f6] rounded-full border-[2.5px] border-white dark:border-[#1a1c1e] shadow-md ring-2 ring-blue-400/20 animate-pulse"></div>
                 </div>
               </div>
             </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase leading-none">AXION</h1>
-                <div className="h-4 w-[1.5px] bg-slate-200 dark:bg-slate-800"></div>
-                <span className="text-2xl font-black text-[#3b82f6] dark:text-blue-400 leading-none">أكسيون</span>
+            <div className="text-center relative">
+              <div className="flex items-center justify-center gap-3 mb-1.5">
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-[-0.05em] uppercase leading-none">AXION</h1>
+                <div className="h-5 w-[2px] bg-slate-200 dark:bg-slate-800 rounded-full"></div>
+                <span className="text-2xl font-black text-[#3b82f6] dark:text-blue-500 leading-none">أكسيون</span>
               </div>
-              <div className="flex items-center justify-center gap-2 opacity-50">
-                <span className="h-[1px] w-4 bg-slate-300 dark:bg-slate-700"></span>
-                <span className="text-slate-500 dark:text-slate-400 text-[10px] font-black tracking-[0.4em] uppercase">Enterprise Operations</span>
-                <span className="h-[1px] w-4 bg-slate-300 dark:bg-slate-700"></span>
+              <div className="flex items-center justify-center gap-2">
+                <span className="h-[1px] w-6 bg-gradient-to-r from-transparent to-slate-200 dark:to-slate-800"></span>
+                <span className="text-slate-400 dark:text-slate-500 text-[9px] font-black tracking-[0.5em] uppercase">Enterprise Operations</span>
+                <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-slate-200 dark:border-slate-800"></span>
               </div>
             </div>
           </div>

@@ -499,9 +499,11 @@ projectRouter.get('/:id', async (req: Request, res: Response) => {
     console.log('🔍 [API] طلب جلب مشروع محدد من المستخدم:', req.user?.email);
     console.log('📋 [API] معرف المشروع:', id);
 
-    // Support for 'all' projects daily summary
-    if (id === 'all') {
+    // Support for 'all' or 'all-projects-total' daily summary
+    if (id === 'all' || id === 'all-projects-total') {
       const { date } = req.query;
+      
+      console.log(`📊 [API] جلب ملخص شامل لجميع المشاريع (ID: ${id})`);
       
       // جلب إحصائيات جميع المشاريع لهذا اليوم
       const projectsList = await db.select().from(projects);

@@ -32,7 +32,7 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
     const { projectId, date, dateFrom, dateTo } = req.query;
     
     // تنظيف المدخلات لمنع أرسال سلاسل نصية فارغة
-    const cleanProjectId = projectId && projectId !== "" ? projectId as string : "all";
+    const cleanProjectId = projectId && projectId !== "" && projectId !== "all-projects-total" ? projectId as string : "all";
     const cleanDate = date && date !== "" ? date as string : undefined;
     const cleanDateFrom = dateFrom && dateFrom !== "" ? dateFrom as string : undefined;
     const cleanDateTo = dateTo && dateTo !== "" ? dateTo as string : undefined;

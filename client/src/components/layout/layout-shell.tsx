@@ -36,12 +36,12 @@ export function LayoutShell({
     "--sidebar-width-icon": "4rem",
   };
 
-  return (
+    return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
       <SyncProgressTracker />
-      <div className="flex min-h-svh w-full bg-background" dir="rtl">
+      <div className="flex h-screen w-full bg-background overflow-hidden" dir="rtl">
         <AppSidebar />
-        <SidebarInset className="flex flex-col flex-1 h-screen overflow-hidden">
+        <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden relative">
           <div className="layout-shell flex flex-col h-full overflow-hidden relative">
             {showHeader && !isCustomHeaderPage && (
               <header className="layout-header flex-shrink-0 w-full border-b bg-white dark:bg-slate-900 shadow-sm relative z-30">
@@ -57,18 +57,15 @@ export function LayoutShell({
               </header>
             )}
             
-            <main className="layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch overscroll-none">
+            <main className="layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch overscroll-none pb-[80px]">
               <div className={isCustomHeaderPage ? "h-full" : "layout-content p-4 md:p-6 max-w-7xl mx-auto w-full"}>
                 {children}
-                {!isCustomHeaderPage && <div className="h-[120px] w-full" aria-hidden="true" />}
               </div>
             </main>
             
-            <div className="md:hidden h-[72px] w-full flex-shrink-0" />
-            
             {showNav && !hideNav && (
-              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[10000] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-[72px] shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center pointer-events-auto">
-                <div className="w-full h-full flex flex-col justify-center">
+              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 h-[72px] shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center safe-area-bottom">
+                <div className="w-full h-full flex items-center justify-center">
                   <BottomNavigation />
                 </div>
               </div>

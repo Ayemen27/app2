@@ -9,7 +9,7 @@ export {
   ALFATIHI_COLORS, 
   EXCEL_STYLES,
   addReportHeader
-} from '@/utils/professional-export';
+} from '@/utils/axion-export';
 
 import { downloadExcelFile } from '@/utils/webview-download';
 
@@ -41,7 +41,7 @@ export async function exportToExcel(
   sheetName: string,
   columns: Array<{ key: string; header: string; width?: number }>
 ): Promise<void> {
-  const { COMPANY_INFO, EXCEL_STYLES } = await import('@/utils/professional-export');
+  const { COMPANY_INFO, EXCEL_STYLES } = await import('@/utils/axion-export');
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = COMPANY_INFO.name;

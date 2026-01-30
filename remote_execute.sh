@@ -1,23 +1,41 @@
 #!/bin/bash
 set -e
 
-echo "--- سحب التحديثات من GitHub ---"
-cd ~/App2 || { echo "المجلد App2 غير موجود"; exit 1; }
-git pull origin main
+# البحث عن المجلد App2
+TARGET_DIR=$(find ~ -maxdepth 2 -name "App2" -type d | head -n 1)
 
-echo "--- بناء تطبيق الويب ---"
-# افتراض وجود npm وتحميل الاعتمادات
-if [ -f "package.json" ]; then
-  npm install
-  npm run build
+if [ -z "$TARGET_DIR" ]; then
+    echo "❌ خطأ: المجلد App2 غير موجود في مسار المستخدم."
+    echo "المجلدات المتاحة:"
+    ls -F ~
+    exit 1
 fi
 
-echo "--- بناء تطبيق الأندرويد ---"
-# استخدام السكربت المطور المذكور في الطلب
-if [ -f "scripts/build-android.sh" ]; then
-  chmod +x scripts/build-android.sh
-  ./scripts/build-android.sh
+cd "$TARGET_DIR"
+echo "✅ تم الدخول إلى المجلد: $PWD"
+
+echo "--- 📥 سحب التحديثات من GitHub ---"
+git pull origin main || echo "⚠️ تنبيه: فشل git pull (قد لا يكون مستودع git)، سأستمر..."
+
+echo "--- 🌐 بناء تطبيق الويب ---"
+if [ -f "package.json" ]; then
+    echo "📦 تثبيت الاعتمادات..."
+    npm install --quiet
+    echo "🏗️ تشغيل بناء الويب..."
+    npm run build
 else
-  echo "سكربت بناء الأندرويد غير موجود في scripts/build-android.sh، سأبحث في المجلد الرئيسي..."
-  find . -name "*android*" -type f
+    echo "ℹ️ لا يوجد package.json، تخطي بناء الويب."
+fi
+
+echo "--- 📱 بناء تطبيق الأندرويد ---"
+# البحث عن سكربت الأندرويد داخل المجلد
+ANDROID_SCRIPT=$(find . -name "build-android.sh" | head -n 1)
+
+if [ -n "$ANDROID_SCRIPT" ]; then
+    echo "🚀 تنفيذ سكربت الأندرويد: $ANDROID_SCRIPT"
+    chmod +x "$ANDROID_SCRIPT"
+    ./"$ANDROID_SCRIPT"
+else
+    echo "❌ خطأ: لم يتم العثور على سكربت بناء الأندرويد."
+    exit 1
 fi

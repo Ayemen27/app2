@@ -312,6 +312,33 @@ healthRouter.get('/schema-check', requireAuth, requireRole('admin'), async (req:
 });
 
 
+/**
+ * GET /api/health/stats
+ * جلب إحصائيات النظام لمحاكاة بيانات SigNoz/Prometheus
+ */
+healthRouter.get('/stats', async (_req: Request, res: Response) => {
+  try {
+    // محاكاة بيانات المراقبة - في الإنتاج سيتم جلبها من SigNoz API
+    const stats = {
+      cpuUsage: Math.floor(Math.random() * 30) + 10, // 10-40%
+      memoryUsage: Math.floor(Math.random() * 40) + 20, // 20-60%
+      activeRequests: Math.floor(Math.random() * 50) + 5,
+      errorRate: (Math.random() * 2).toFixed(2), // 0-2%
+      uptime: process.uptime()
+    };
+
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'فشل في جلب إحصائيات النظام'
+    });
+  }
+});
+
 console.log('🏥 [HealthRouter] تم تهيئة مسارات الصحة والمراقبة');
 
 export default healthRouter;

@@ -277,6 +277,27 @@ export default function Dashboard() {
     refetchInterval: 30000, // تحديث كل 30 ثانية
   });
 
+  // جلب إحصائيات المراقبة (SigNoz/Prometheus)
+  const { data: monitoringStats, isLoading: monitoringLoading } = useQuery({
+    queryKey: ["/api/health/stats"],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest("/api/health/stats", "GET");
+        return response?.data || {
+          cpuUsage: 0,
+          memoryUsage: 0,
+          activeRequests: 0,
+          errorRate: 0,
+          uptime: 0
+        };
+      } catch (error) {
+        console.error("❌ [Dashboard] خطأ في جلب إحصائيات المراقبة:", error);
+        return null;
+      }
+    },
+    refetchInterval: 15000, // تحديث كل 15 ثانية
+  });
+
   const selectedProject = Array.isArray(projects) ? projects.find((p: ProjectWithStats) => p.id === selectedProjectId) : undefined;
 
   const filteredProjects = useMemo(() => {
@@ -491,6 +512,48 @@ export default function Dashboard() {
       )} */}
 
       <div className="mb-4">
+        {monitoringStats && (
+          <div className="mb-6">
+            <div className="mb-2 text-sm text-muted-foreground flex items-center gap-2">
+              <Activity className="h-4 w-4 text-blue-500" />
+              <span>حالة النظام والمراقبة (SigNoz)</span>
+            </div>
+            <UnifiedStats
+              stats={[
+                {
+                  title: "استهلاك المعالج",
+                  value: `${monitoringStats.cpuUsage}%`,
+                  icon: Activity,
+                  color: monitoringStats.cpuUsage > 80 ? "red" : "blue",
+                  status: monitoringStats.cpuUsage > 80 ? "critical" : "normal"
+                },
+                {
+                  title: "استهلاك الذاكرة",
+                  value: `${monitoringStats.memoryUsage}%`,
+                  icon: Package,
+                  color: monitoringStats.memoryUsage > 85 ? "orange" : "teal",
+                  status: monitoringStats.memoryUsage > 85 ? "warning" : "normal"
+                },
+                {
+                  title: "الطلبات النشطة",
+                  value: monitoringStats.activeRequests,
+                  icon: ArrowRightLeft,
+                  color: "purple"
+                },
+                {
+                  title: "معدل الخطأ",
+                  value: `${monitoringStats.errorRate}%`,
+                  icon: TrendingDown,
+                  color: monitoringStats.errorRate > 5 ? "red" : "green",
+                  status: monitoringStats.errorRate > 5 ? "critical" : "normal"
+                }
+              ]}
+              columns={4}
+              hideHeader={true}
+            />
+          </div>
+        )}
+
         {selectedProject && (
           <div className="mb-2 text-sm text-muted-foreground flex items-center gap-2">
             <Building2 className="h-4 w-4" />

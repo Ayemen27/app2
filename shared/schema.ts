@@ -146,6 +146,7 @@ export const projectTypes = pgTable("project_types", {
   description: text("description"),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  ...syncFields,
 });
 
 // Projects table
@@ -168,6 +169,7 @@ export const projects = pgTable("projects", {
   isActive: boolean("is_active").default(true).notNull(), // إعادة إضافة الحالة النشطة
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(), // إعادة إضافة تحديث الوقت
+  ...syncFields,
 });
 
 // Workers table
@@ -180,6 +182,7 @@ export const workers = pgTable("workers", {
   hireDate: text("hire_date"), // تاريخ التوظيف (YYYY-MM-DD)
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  ...syncFields,
 });
 
 // Wells table (جدول الآبار) - يجب تعريفه بعد workers وقبل workerAttendance
@@ -207,6 +210,7 @@ export const wells = pgTable("wells", {
   createdBy: varchar("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  ...syncFields,
 });
 
 // Fund transfers (تحويلات العهدة)

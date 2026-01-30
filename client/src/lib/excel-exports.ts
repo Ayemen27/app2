@@ -43,7 +43,7 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
   // 2. تذييل الترويسة (Subtitle/Timestamp)
   worksheet.mergeCells('A2:I2');
   const subTitle = worksheet.getCell('A2');
-  subTitle.value = `تاريخ الاستخراج: ${format(new Date(), 'yyyy/MM/dd HH:mm')} | الفتيني للمقاولات والاستشاة الهندسية`;
+  subTitle.value = `تاريخ الاستخراج: ${format(new Date(), 'yyyy/MM/dd HH:mm')} | الفتيني للمقاولات العامة والاستشارات الهندسية`;
   subTitle.font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
   subTitle.alignment = centerAlign;
   worksheet.getRow(2).height = 20;

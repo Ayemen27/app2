@@ -527,7 +527,7 @@ export function EquipmentManagement() {
           </head>
           <body>
             <div class="company-header">
-              <div class="company-name">أكسيون AXION للمقاولات والاستشارات الهندسية</div>
+              <div class="company-name">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
             </div>
             <div class="report-header">
               <div class="report-title">كشف المعدات التفصيلي - ${pdfProjectName}</div>

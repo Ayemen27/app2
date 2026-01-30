@@ -8,7 +8,7 @@ import { formatCurrency } from '@/lib/utils';
 import { downloadExcelFile } from '@/utils/webview-download';
 
 export const COMPANY_INFO = {
-  name: 'شركة الفتيني للمقاولات والاستشارات الهندسية',
+  name: 'الفتيني للمقاولات العامة والاستشارات الهندسية',
   subtitle: 'Al-Fatihi Contracting & Engineering Consultancy',
   address: 'المملكة العربية السعودية',
   phone: '+966 XX XXXX XXX',

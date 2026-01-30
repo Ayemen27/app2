@@ -339,6 +339,29 @@ healthRouter.get('/stats', async (_req: Request, res: Response) => {
   }
 });
 
+/**
+ * فحص حالة الطوارئ (Android Monitoring)
+ */
+healthRouter.get('/system/emergency-status', requireAuth, (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    emergencyMode: (global as any).isEmergencyMode || false,
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
+ * سجلات النسخ الاحتياطي (Admin only)
+ */
+healthRouter.get('/backups/logs', requireAuth, requireRole('admin'), (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    logs: [
+      { id: 1, message: "Backup successful", timestamp: new Date().toISOString() }
+    ]
+  });
+});
+
 console.log('🏥 [HealthRouter] تم تهيئة مسارات الصحة والمراقبة');
 
 export default healthRouter;

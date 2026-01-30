@@ -1,13 +1,11 @@
 #!/bin/bash
 set -e
 
-# البحث عن المجلد App2
-TARGET_DIR=$(find ~ -maxdepth 2 -name "App2" -type d | head -n 1)
+# المجلد الذي وجدناه في ls هو app2 (بالحروف الصغيرة)
+TARGET_DIR="$HOME/app2"
 
-if [ -z "$TARGET_DIR" ]; then
-    echo "❌ خطأ: المجلد App2 غير موجود في مسار المستخدم."
-    echo "المجلدات المتاحة:"
-    ls -F ~
+if [ ! -d "$TARGET_DIR" ]; then
+    echo "❌ خطأ: المجلد $TARGET_DIR غير موجود."
     exit 1
 fi
 
@@ -15,7 +13,7 @@ cd "$TARGET_DIR"
 echo "✅ تم الدخول إلى المجلد: $PWD"
 
 echo "--- 📥 سحب التحديثات من GitHub ---"
-git pull origin main || echo "⚠️ تنبيه: فشل git pull (قد لا يكون مستودع git)، سأستمر..."
+git pull origin main || echo "⚠️ تنبيه: فشل git pull، سأستمر..."
 
 echo "--- 🌐 بناء تطبيق الويب ---"
 if [ -f "package.json" ]; then
@@ -23,12 +21,10 @@ if [ -f "package.json" ]; then
     npm install --quiet
     echo "🏗️ تشغيل بناء الويب..."
     npm run build
-else
-    echo "ℹ️ لا يوجد package.json، تخطي بناء الويب."
 fi
 
 echo "--- 📱 بناء تطبيق الأندرويد ---"
-# البحث عن سكربت الأندرويد داخل المجلد
+# البحث عن السكربت المطور في app2
 ANDROID_SCRIPT=$(find . -name "build-android.sh" | head -n 1)
 
 if [ -n "$ANDROID_SCRIPT" ]; then
@@ -36,6 +32,14 @@ if [ -n "$ANDROID_SCRIPT" ]; then
     chmod +x "$ANDROID_SCRIPT"
     ./"$ANDROID_SCRIPT"
 else
-    echo "❌ خطأ: لم يتم العثور على سكربت بناء الأندرويد."
-    exit 1
+    echo "⚠️ لم يتم العثور على build-android.sh، سأبحث عن أي سكربت بناء أندرويد..."
+    ALT_SCRIPT=$(find . -name "*android*" -name "*.sh" | head -n 1)
+    if [ -n "$ALT_SCRIPT" ]; then
+        echo "🚀 تنفيذ السكربت البديل: $ALT_SCRIPT"
+        chmod +x "$ALT_SCRIPT"
+        ./"$ALT_SCRIPT"
+    else
+        echo "❌ خطأ: لم يتم العثور على أي سكربت لبناء الأندرويد."
+        exit 1
+    fi
 fi

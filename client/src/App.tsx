@@ -121,7 +121,11 @@ function Router() {
             console.log('🔄 [Sync] انتهت المزامنة بنجاح - إعادة تحميل البيانات...');
             // تحديث جميع الكاش لإعادة تحميل البيانات مع تجنب التكرار غير الضروري
             requestAnimationFrame(() => {
-              queryClient.invalidateQueries();
+              try {
+                queryClient.invalidateQueries();
+              } catch (err) {
+                console.error('❌ خطأ في تحديث البيانات:', err);
+              }
             });
           }
         });

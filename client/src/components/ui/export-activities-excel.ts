@@ -8,7 +8,7 @@ import {
   COMPANY_INFO, 
   EXCEL_STYLES, 
   addReportHeader 
-} from '@/utils/professional-export';
+} from '@/utils/axion-export';
 
 interface ActivityItem {
   id?: number;

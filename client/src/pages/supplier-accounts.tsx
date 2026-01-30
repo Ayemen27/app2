@@ -290,7 +290,7 @@ export default function SupplierAccountsPage() {
 
     worksheet.mergeCells(`A${currentRow}:L${currentRow}`);
     const titleCell = worksheet.getCell(`A${currentRow}`);
-    titleCell.value = 'شركة الفتيني للمقاولات والاستشارات الهندسية';
+    titleCell.value = 'أكسيون AXION للمقاولات والاستشارات الهندسية';
     titleCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFF' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1f4e79' } };

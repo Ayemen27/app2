@@ -63,7 +63,7 @@ const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 
-export default function ProfessionalReports() {
+export default function AxionReports() {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [workerSearch, setWorkerSearch] = useState("");
@@ -167,7 +167,7 @@ export default function ProfessionalReports() {
     }
   });
 
-  const exportToProfessionalExcel = async () => {
+  const exportToAxionExcel = async () => {
     if (selectedWorkerId && !workerStatement) {
       toast({
         title: "تنبيه",
@@ -381,7 +381,7 @@ export default function ProfessionalReports() {
               key: "export",
               label: "تصدير (Excel) مطابق للصور",
               icon: Download,
-              onClick: exportToProfessionalExcel,
+              onClick: exportToAxionExcel,
               variant: "default"
             }
           ]}

@@ -7,7 +7,7 @@
 import { ReactNode } from "react";
 import { Redirect } from "wouter";
 import { useAuth } from "./AuthProvider";
-import ProfessionalLoader from "./ui/professional-loader";
+import AxionLoader from "./ui/axion-loader";
 
 interface EmailVerificationGuardProps {
   children: ReactNode;
@@ -19,7 +19,7 @@ export default function EmailVerificationGuard({ children }: EmailVerificationGu
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <ProfessionalLoader isLoading={true} message="جاري التحقق من البريد الإلكتروني..." />
+        <AxionLoader isLoading={true} message="جاري التحقق من البريد الإلكتروني..." />
       </div>
     );
   }

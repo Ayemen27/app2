@@ -71,7 +71,7 @@ const EquipmentManagement = lazy(() => import("./pages/equipment-management").th
 const AdminNotificationsPage = lazy(() => import("./pages/admin-notifications"));
 const SmartErrorsPage = lazy(() => import("./pages/SmartErrorsPage"));
 const SecurityPoliciesPage = lazy(() => import("./pages/SecurityPoliciesPage").then(m => ({ default: m.SecurityPoliciesPage })));
-const Reports = lazy(() => import("./pages/professional-reports"));
+const Reports = lazy(() => import("./pages/axion-reports"));
 const SettingsPage = lazy(() => import("./pages/settings"));
 const UsersManagementPage = lazy(() => import("./pages/users-management"));
 const AIChatPage = lazy(() => import("./pages/ai-chat"));
@@ -245,7 +245,7 @@ function Router() {
           <Reports />
         </Suspense>
       </Route>
-      <Route path="/professional-reports">
+      <Route path="/axion-reports">
         <Suspense fallback={<PageLoader />}>
           <Reports />
         </Suspense>

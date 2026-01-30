@@ -4,7 +4,7 @@
 
 import { ReactNode } from "react";
 import { useAuth } from "./AuthProvider";
-import { ProfessionalLoader } from "./ui/professional-loader";
+import { AxionLoader } from "./ui/axion-loader";
 import { Redirect } from "wouter";
 import { Alert, AlertDescription } from "./ui/alert";
 import { ShieldX } from "lucide-react";
@@ -21,7 +21,7 @@ export function AdminRoute({ children, requiredRole = "admin" }: AdminRouteProps
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <ProfessionalLoader />
+        <AxionLoader />
       </div>
     );
   }

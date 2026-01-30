@@ -13,7 +13,7 @@ export interface LoadingStep {
   startTime?: number;
 }
 
-export interface ProfessionalLoaderProps {
+export interface AxionLoaderProps {
   isLoading: boolean;
   steps?: LoadingStep[];
   message?: string;
@@ -160,7 +160,7 @@ const ProgressRing = ({ progress, size }: { progress: number; size: number }) =>
   );
 };
 
-export const ProfessionalLoader: React.FC<ProfessionalLoaderProps> = ({
+export const AxionLoader: React.FC<AxionLoaderProps> = ({
   isLoading,
   steps = [],
   message = "جاري التحميل...",
@@ -291,4 +291,4 @@ export const ProfessionalLoader: React.FC<ProfessionalLoaderProps> = ({
   );
 };
 
-export default ProfessionalLoader;
+export default AxionLoader;

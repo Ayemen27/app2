@@ -26,7 +26,7 @@ import {
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import ProfessionalLoader from "../components/ui/professional-loader";
+import AxionLoader from "../components/ui/axion-loader";
 import { useToast } from "../hooks/use-toast";
 import { 
   Mail, 

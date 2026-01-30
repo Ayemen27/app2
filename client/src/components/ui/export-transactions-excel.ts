@@ -7,7 +7,7 @@ import { downloadExcelFile } from '@/utils/webview-download';
 import { 
   COMPANY_INFO, 
   EXCEL_STYLES
-} from '@/utils/professional-export';
+} from '@/utils/axion-export';
 
 interface Transaction {
   id: string;

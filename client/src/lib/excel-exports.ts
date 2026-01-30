@@ -43,7 +43,7 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
   // 2. تذييل الترويسة (Subtitle/Timestamp)
   worksheet.mergeCells('A2:I2');
   const subTitle = worksheet.getCell('A2');
-  subTitle.value = `تاريخ الاستخراج: ${format(new Date(), 'yyyy/MM/dd HH:mm')} | شركة الفتيني للمقاولات العامة`;
+  subTitle.value = `تاريخ الاستخراج: ${format(new Date(), 'yyyy/MM/dd HH:mm')} | أكسيون AXION للمقاولات العامة`;
   subTitle.font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
   subTitle.alignment = centerAlign;
   worksheet.getRow(2).height = 20;
@@ -229,7 +229,7 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
   currentRow += metrics.length + 1;
   worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
   const footer = worksheet.getCell(`A${currentRow}`);
-  footer.value = 'تم توليد هذا التقرير آلياً عبر نظام إدارة شركة الفتيني - Al-Fatihi Construction Management System. أي كشط أو تعديل يدوي يلغي صحة التقرير.';
+  footer.value = 'تم توليد هذا التقرير آلياً عبر نظام إدارة أكسيون AXION. أي كشط أو تعديل يدوي يلغي صحة التقرير.';
   footer.font = { name: 'Calibri', size: 8, italic: true, color: { argb: 'FF94A3B8' } };
   footer.alignment = centerAlign;
 

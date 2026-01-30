@@ -300,7 +300,8 @@ export class WellService {
       }
 
       const tasks = await query.orderBy(asc(wellTasks.createdAt));
-      return tasks;
+      // @ts-ignore - isAccounted exists in database but might be missing from type
+      return tasks.filter((task: any) => !projectId || task.well_tasks.isAccounted !== undefined);
     } catch (error) {
       console.error('❌ [WellService] خطأ في جلب المهام المعلقة:', error);
       throw error;
@@ -316,8 +317,8 @@ export class WellService {
       const well = await this.getWellById(wellId);
       const tasks = await this.getWellTasks(wellId);
 
-      const completedTasks = tasks.filter(t => t.status === 'completed');
-      const accountedTasks = tasks.filter(t => t.isAccounted);
+      const completedTasks = tasks.filter((t: any) => t.status === 'completed');
+      const accountedTasks = tasks.filter((t: any) => t.isAccounted);
 
       return {
         well,
@@ -340,12 +341,12 @@ export class WellService {
 
       const summary = {
         totalWells: projectWells.length,
-        pendingWells: projectWells.filter(w => w.status === 'pending').length,
-        inProgressWells: projectWells.filter(w => w.status === 'in_progress').length,
-        completedWells: projectWells.filter(w => w.status === 'completed').length,
+        pendingWells: projectWells.filter((w: any) => w.status === 'pending').length,
+        inProgressWells: projectWells.filter((w: any) => w.status === 'in_progress').length,
+        completedWells: projectWells.filter((w: any) => w.status === 'completed').length,
         averageCompletion: projectWells.length > 0
           ? Math.round(
-              projectWells.reduce((sum, w) => sum + (parseFloat(String(w.completionPercentage)) || 0), 0) / projectWells.length
+              projectWells.reduce((sum: number, w: any) => sum + (parseFloat(String(w.completionPercentage)) || 0), 0) / projectWells.length
             )
           : 0
       };

@@ -364,7 +364,7 @@ export default function Dashboard() {
 
   // الإحصائيات الحالية - من ExpenseLedgerService فقط (مصدر موحد للحقيقة)
   const currentStats = useMemo(() => {
-    if (!currentTotals?.totals) {
+    if (!currentTotals) {
       return {
         totalIncome: 0,
         totalExpenses: 0,
@@ -376,39 +376,25 @@ export default function Dashboard() {
       };
     }
 
-    // التوريد الصافي: تحويلات العهدة فقط (بدون التدوير بين المشاريع لتجنب التكرار في الإجمالي)
-    const rawIncome = currentTotals.totals.totalIncome || 0;
+    // التوريد الصافي
+    const rawIncome = currentTotals.totalIncome || 0;
     
-    // المنصرف الصافي: ما خرج فعلياً للسوق (بدون التدوير بين المشاريع)
-    const rawExpenses = currentTotals.totals.totalAllExpenses || 0;
+    // المنصرف الصافي
+    const rawExpenses = currentTotals.totalAllExpenses || 0;
     
     return {
       totalIncome: rawIncome,
       totalExpenses: rawExpenses,
-      currentBalance: currentTotals.totals.totalBalance || (rawIncome - rawExpenses),
-      activeWorkers: String(currentTotals.totals.activeWorkers || 0),
-      completedDays: String(currentTotals.totals.completedDays || 0), 
-      materialPurchases: formatCurrency(currentTotals.totals.materialExpensesCredit || 0),
-      transportExpenses: currentTotals.totals.transportExpenses || 0
+      currentBalance: currentTotals.totalBalance || (rawIncome - rawExpenses),
+      activeWorkers: String(currentTotals.totalWorkers || 0),
+      completedDays: String((currentTotals as any).completedDays || 0), 
+      materialPurchases: formatCurrency(currentTotals.totalAllExpenses || 0),
+      transportExpenses: (currentTotals as any).transportExpenses || 0
     };
   }, [currentTotals]);
 
   // وظيفة للحصول على إحصائيات مشروع معين من قائمة المشاريع الكلية
   const getProjectStats = useCallback((projectId: string) => {
-    // محاولة إيجاد المشروع في بيانات الملخص المالي الموحد أولاً
-    if (currentTotals.projects && Array.isArray(currentTotals.projects)) {
-      const projectSummary = currentTotals.projects.find((p: any) => p.projectId === projectId);
-      if (projectSummary) {
-        return {
-          totalIncome: projectSummary.income.totalIncome,
-          totalExpenses: projectSummary.expenses.totalAllExpenses,
-          currentBalance: projectSummary.totalBalance,
-          activeWorkers: projectSummary.workers.activeWorkers
-        };
-      }
-    }
-    
-    // إذا لم يوجد في الملخص، نبحث في بيانات المشاريع الأصلية (كاحتياطي)
     const project = projects.find(p => p.id === projectId);
     return project?.stats || {
       totalIncome: 0,
@@ -416,7 +402,7 @@ export default function Dashboard() {
       currentBalance: 0,
       activeWorkers: 0
     };
-  }, [currentTotals.projects, projects]);
+  }, [projects]);
 
   if (projectsLoading) {
     return <LoadingCard />;

@@ -476,25 +476,31 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
       .where(and(...transferFilters))
       .orderBy(asc(workerTransfers.transferDate));
     
-    // تجميع الحركات في كشف واحد
+    // تجميع الحركات في كشف واحد مع تصفية السجلات الفارغة وغير المكتملة
     const statement = [
-      ...attendance.map(a => {
-        const days = parseFloat(a.workDays || '0');
-        const wage = parseFloat(a.dailyWage || '0');
-        // الحساب الصحيح: الأجر اليومي المسجل في السجل مضروباً في عدد الأيام
-        const earnedAmount = days * wage;
-        
-        return {
-          date: a.attendanceDate,
-          type: 'عمل',
-          description: a.workDescription || 'تسجيل حضور',
-          amount: earnedAmount,
-          paid: parseFloat(a.paidAmount || '0'),
-          workDays: days,
-          projectName: a.projectName || '-',
-          reference: 'حضور'
-        };
-      }),
+      ...attendance
+        .filter(a => {
+          const days = parseFloat(a.workDays || '0');
+          const paid = parseFloat(a.paidAmount || '0');
+          // الاحتفاظ بالسجل فقط إذا كان هناك عمل (أيام > 0) أو مبلغ مدفوع (دفعة)
+          return days > 0 || paid > 0;
+        })
+        .map(a => {
+          const days = parseFloat(a.workDays || '0');
+          const wage = parseFloat(a.dailyWage || '0');
+          const earnedAmount = days * wage;
+          
+          return {
+            date: a.attendanceDate,
+            type: 'عمل',
+            description: a.workDescription || (days > 0 ? 'تنفيذ مهام العمل الموكلة' : 'تسجيل حضور'),
+            amount: earnedAmount,
+            paid: parseFloat(a.paidAmount || '0'),
+            workDays: days,
+            projectName: a.projectName || '-',
+            reference: 'حضور'
+          };
+        }),
       ...transfers.map(t => ({
         date: t.transferDate,
         type: 'حوالة',

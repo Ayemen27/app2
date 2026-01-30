@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["@radix-ui/*"],
+            "message": "Direct Radix use is discouraged. Use the unified Shadcn components in @/components/ui instead to maintain design consistency."
+          }
+        ]
+      }
+    ]
+  }
+}

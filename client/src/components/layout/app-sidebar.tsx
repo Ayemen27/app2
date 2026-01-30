@@ -1,0 +1,199 @@
+import { 
+  Home, Building2, Users, Package, Truck, 
+  UserCheck, Calculator, Settings, LogOut,
+  ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare, Activity
+} from "lucide-react";
+import { 
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { useLocation } from "wouter";
+import { useAuth } from "@/components/AuthProvider";
+import { 
+  Collapsible, 
+  CollapsibleContent, 
+  CollapsibleTrigger 
+} from "@/components/ui/collapsible";
+
+const sections = [
+  {
+    title: "الرئيسية",
+    icon: Home,
+    items: [
+      { title: "لوحة التحكم", url: "/", icon: Home },
+      { title: "إدارة المشاريع", url: "/projects", icon: Building2 },
+    ]
+  },
+  {
+    title: "القوى العاملة",
+    icon: Users,
+    items: [
+      { title: "إدارة العمال", url: "/workers", icon: Users },
+      { title: "حضور العمال", url: "/worker-attendance", icon: UserCheck },
+      { title: "حسابات العمال", url: "/worker-accounts", icon: Wallet },
+    ]
+  },
+  {
+    title: "المواد والعمليات",
+    icon: Package,
+    items: [
+      { title: "شراء المواد", url: "/material-purchase", icon: Package },
+      { title: "الموردين", url: "/suppliers-pro", icon: Truck },
+      { title: "إدارة النقل", url: "/transport-management", icon: Truck },
+      { title: "الزبائن", url: "/customers", icon: Users },
+      { title: "إدارة المعدات", icon: Wrench, url: "/equipment" },
+    ]
+  },
+  {
+    title: "المالية والتقارير",
+    icon: Calculator,
+    items: [
+      { title: "المصاريف اليومية", url: "/daily-expenses", icon: Calculator },
+      { title: "محاسبة الآبار", url: "/well-accounting", icon: Calculator },
+      { title: "تقرير التكلفة", url: "/well-cost-report", icon: BarChart3 },
+      { title: "تقارير احترافية", url: "/professional-reports", icon: BarChart3 },
+    ]
+  },
+  {
+    title: "الإدارة والأمان",
+    icon: ShieldCheck,
+    items: [
+      { title: "المساعد الذكي", icon: MessageSquare, url: "/ai-chat" },
+      { title: "سياسات الأمان", icon: ShieldCheck, url: "/security-policies" },
+      { title: "صحة البيانات", icon: Activity, url: "/admin/data-health" },
+      { title: "النسخ الاحتياطي", icon: ShieldCheck, url: "/admin/backups" },
+      { title: "قاعدة البيانات", icon: Database, url: "/local-db" },
+    ]
+  }
+];
+
+export function AppSidebar() {
+  const [location, setLocation] = useLocation();
+  const { logout, user } = useAuth();
+  const { setOpenMobile, isMobile } = useSidebar();
+
+  const handleNavigation = (url: string) => {
+    setLocation(url);
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
+  return (
+    <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l-0 bg-white dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-500">
+      <SidebarHeader className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-5 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#3b82f6] dark:bg-[#1a1c1e] shadow-xl shadow-blue-600/20 dark:shadow-black/40 transition-all border border-white/10 dark:border-slate-800 overflow-hidden relative group/logo">
+             <div className="relative flex items-center justify-center w-full h-full translate-y-[1px]">
+               <span className="font-black text-2xl leading-none text-white drop-shadow-sm">أ</span>
+               <span className="font-black text-xs leading-none text-white/30 ml-[-2px] italic -skew-x-6">A</span>
+               {/* Image Marker Point */}
+               <div className="absolute top-2 right-2 w-2 h-2 bg-blue-400 rounded-full border border-white dark:border-[#1a1c1e] shadow-sm"></div>
+             </div>
+          </div>
+          <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden text-right">
+            <div className="flex items-center gap-2 leading-none">
+              <span className="font-black text-lg tracking-[-0.05em] text-slate-900 dark:text-white uppercase">AXION</span>
+              <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800"></div>
+              <span className="font-black text-sm text-[#3b82f6] dark:text-blue-500">أكسيون</span>
+            </div>
+            <span className="text-[8px] text-slate-400 dark:text-slate-500 truncate font-black uppercase tracking-[0.4em] mt-1.5 opacity-80">AXION Operations Management</span>
+          </div>
+        </div>
+      </SidebarHeader>
+
+      <SidebarContent className="bg-white dark:bg-slate-950 gap-0 pt-2 custom-scrollbar overflow-y-auto overflow-x-hidden flex-1 scrolling-touch">
+        {sections.map((section) => (
+          <Collapsible key={section.title} defaultOpen className="group/collapsible">
+            <SidebarGroup>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors group-data-[collapsible=icon]:hidden">
+                  <span className="text-[11px] font-bold uppercase tracking-wider">{section.title}</span>
+                  <ChevronDown className="h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {section.items.map((item) => (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton 
+                          asChild 
+                          isActive={location === item.url}
+                          className="h-10 px-4 mx-2 w-[calc(100%-16px)] rounded-lg transition-all duration-200 data-[active=true]:bg-blue-600 dark:data-[active=true]:bg-white data-[active=true]:text-white dark:data-[active=true]:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
+                        >
+                          <a 
+                            href={item.url} 
+                            onClick={(e) => { 
+                              e.preventDefault(); 
+                              handleNavigation(item.url);
+                            }}
+                          >
+                            <item.icon className="h-5 w-5" />
+                            <span className="font-medium text-sm">{item.title}</span>
+                          </a>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        ))}
+        {/* مساحة إضافية لضمان وصول التمرير لآخر عنصر */}
+        <div className="h-24 w-full" aria-hidden="true" />
+      </SidebarContent>
+
+      <SidebarFooter className="border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2 flex-shrink-0">
+        <div className="px-4 py-3 flex items-center gap-3 group-data-[collapsible=icon]:hidden border-b border-slate-200/50 dark:border-slate-800 mb-2">
+          <div className="h-9 w-9 rounded-full bg-blue-600 dark:bg-white flex items-center justify-center text-white dark:text-slate-900 font-bold text-sm uppercase border border-white/10 shadow-sm transition-colors">
+            {user?.name?.charAt(0) || "U"}
+          </div>
+          <div className="flex flex-col overflow-hidden text-right">
+            <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.name || "المستخدم"}</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</span>
+          </div>
+        </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              className="h-10 px-4 mx-2 w-[calc(100%-16px)] rounded-lg hover:bg-slate-200 dark:hover:bg-slate-900 transition-colors text-slate-700 dark:text-slate-300"
+              onClick={() => handleNavigation("/settings")}
+            >
+              <Settings className="h-5 w-5 opacity-60" />
+              <span className="text-sm font-medium">الإعدادات</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              className="h-10 px-4 mx-2 w-[calc(100%-16px)] rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-400 transition-colors"
+              onClick={() => {
+                logout();
+                if (isMobile) setOpenMobile(false);
+              }}
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="text-sm font-medium">تسجيل الخروج</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        {/* إضافة معلومات البيئة في الأسفل */}
+        <div className="px-4 py-2 group-data-[collapsible=icon]:hidden">
+           <div className="text-[10px] text-slate-500 dark:text-slate-500 text-center border border-slate-200 dark:border-slate-800 rounded py-1 bg-slate-100 dark:bg-slate-900/50">
+             البيئة: {process.env.NODE_ENV === 'production' ? 'الإنتاج' : 'التطوير'}
+           </div>
+        </div>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}

@@ -1,0 +1,6 @@
+{
+  "appId": "com.axion.management",
+  "appName": "AXION",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}

@@ -1,0 +1,12 @@
+appId: com.axion.app
+---
+- launchApp
+- assertVisible: "Login"
+- takeScreenshot: "launch_screen"
+- tapOn: "Username"
+- inputText: "test_user"
+- tapOn: "Password"
+- inputText: "test_pass"
+- tapOn: "Sign In"
+- assertVisible: "Dashboard"
+- takeScreenshot: "dashboard_screen"

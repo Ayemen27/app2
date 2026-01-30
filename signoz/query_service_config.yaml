@@ -1,0 +1,10 @@
+query-service:
+  clickhouse:
+    url: tcp://clickhouse:9000
+    database: signoz_traces
+  alertmanager:
+    url: http://alertmanager:9030
+
+telemetry:
+  metrics:
+    address: 0.0.0.0:8081

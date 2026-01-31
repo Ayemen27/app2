@@ -11,26 +11,27 @@ repair_gradle_version() {
     log "Checking Gradle version and Java compatibility..."
     local GRADLE_WRAPPER_PROPERTIES="$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.properties"
     if [ -f "$GRADLE_WRAPPER_PROPERTIES" ]; then
-        log "Upgrading Gradle wrapper to 8.5 for Java 21 compatibility..."
-        # Force correct URL and version
-        echo "distributionBase=GRADLE_USER_HOME" > "$GRADLE_WRAPPER_PROPERTIES"
-        echo "distributionPath=wrapper/dists" >> "$GRADLE_WRAPPER_PROPERTIES"
-        echo "zipStoreBase=GRADLE_USER_HOME" >> "$GRADLE_WRAPPER_PROPERTIES"
-        echo "zipStorePath=wrapper/dists" >> "$GRADLE_WRAPPER_PROPERTIES"
-        echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip" >> "$GRADLE_WRAPPER_PROPERTIES"
+        log "Force-upgrading Gradle wrapper to 8.5 (Bypassing 4.4.1)..."
+        # Create a fresh wrapper properties file to ensure no 4.4.1 residue
+        cat <<EOF > "$GRADLE_WRAPPER_PROPERTIES"
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip
+EOF
         
-        log "Updating Gradle build tools in build.gradle..."
+        log "Verifying build.gradle files..."
         local PROJECT_GRADLE="$ANDROID_ROOT/build.gradle"
         if [ -f "$PROJECT_GRADLE" ]; then
-            # Use sed to update or replace the classpath for the Android Gradle Plugin
-            if grep -q "com.android.tools.build:gradle" "$PROJECT_GRADLE"; then
-                sed -i "s/classpath ['\"]com.android.tools.build:gradle:[0-9.]*['\"]/classpath 'com.android.tools.build:gradle:8.2.2'/g" "$PROJECT_GRADLE"
-            else
-                # If not found, it might be in a different format, we'll try to add it to the dependencies block if possible
-                # But for standard Capacitor projects, it's usually there.
-                log "Warning: Could not find android build tools classpath in $PROJECT_GRADLE"
-            fi
+            sed -i "s/classpath ['\"]com.android.tools.build:gradle:[0-9.]*['\"]/classpath 'com.android.tools.build:gradle:8.2.2'/g" "$PROJECT_GRADLE"
         fi
+
+        # CRITICAL: If the system has an old global gradle, we MUST use the wrapper explicitly
+        chmod +x "$ANDROID_ROOT/gradlew"
+        
+        # Download wrapper if missing or corrupted
+        cd "$ANDROID_ROOT" && ./gradlew wrapper --gradle-version 8.5
     fi
 }
 

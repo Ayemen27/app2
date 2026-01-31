@@ -22,3 +22,4 @@ SERVICE_ACCOUNT_KEY.json
 google-services.json
 .env.backup
 .env.backup
+update_and_test.py

@@ -231,7 +231,7 @@ export const fundTransfers = pgTable("fund_transfers", {
   senderName: text("sender_name"), // اسم المرسل
   transferNumber: text("transfer_number").unique(), // رقم الحولة - فريد
   transferType: text("transfer_type").notNull(), // حولة، تسليم يدوي، صراف
-  transferDate: timestamp("transfer_date").notNull(),
+  transferDate: text("transfer_date").notNull(), // YYYY-MM-DD format
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

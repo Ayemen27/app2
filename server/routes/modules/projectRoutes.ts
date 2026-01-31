@@ -1802,9 +1802,15 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
       });
     }
 
+    // تحويل صيغة ISO إلى YYYY-MM-DD
+    let normalizedDate = date;
+    if (/^\d{4}-\d{2}-\d{2}T/.test(date)) {
+      normalizedDate = date.split('T')[0];
+    }
+    
     // التحقق من صحة تنسيق التاريخ (YYYY-MM-DD)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(date)) {
+    if (!dateRegex.test(normalizedDate)) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] تنسيق التاريخ غير صحيح:', date);
       return res.status(400).json({
@@ -1814,6 +1820,9 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
         processingTime: duration
       });
     }
+    
+    // استخدام التاريخ المحول
+    date = normalizedDate;
 
     // التحقق من وجود المشروع أولاً
     console.log('🔍 [API] التحقق من وجود المشروع...');
@@ -2016,9 +2025,15 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
       });
     }
 
+    // تحويل صيغة ISO إلى YYYY-MM-DD
+    let normalizedDate = date;
+    if (/^\d{4}-\d{2}-\d{2}T/.test(date)) {
+      normalizedDate = date.split('T')[0];
+    }
+    
     // التحقق من تنسيق التاريخ
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(date)) {
+    if (!dateRegex.test(normalizedDate)) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
         success: false,
@@ -2027,6 +2042,9 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
         processingTime: duration
       });
     }
+    
+    // استخدام التاريخ المحول
+    date = normalizedDate;
 
     // جلب جميع البيانات المطلوبة
     const [
@@ -2453,9 +2471,15 @@ projectRouter.get('/:projectId/previous-balance/:date', async (req: Request, res
       });
     }
 
+    // تحويل صيغة ISO إلى YYYY-MM-DD
+    let normalizedDate = date;
+    if (/^\d{4}-\d{2}-\d{2}T/.test(date)) {
+      normalizedDate = date.split('T')[0];
+    }
+    
     // التحقق من تنسيق التاريخ
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(date)) {
+    if (!dateRegex.test(normalizedDate)) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
         success: false,
@@ -2464,6 +2488,9 @@ projectRouter.get('/:projectId/previous-balance/:date', async (req: Request, res
         processingTime: duration
       });
     }
+    
+    // استخدام التاريخ المحول
+    date = normalizedDate;
 
     // حساب التاريخ السابق
     const currentDate = new Date(date);

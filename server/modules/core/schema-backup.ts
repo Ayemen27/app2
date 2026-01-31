@@ -39,8 +39,18 @@ export const emergencyUsers = pgTable("emergency_users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// 1. Helper for Date Validation
-const dateStringSchema = z.string().min(1, "التاريخ مطلوب").regex(/^\d{4}-\d{2}-\d{2}$/, "تنسيق التاريخ يجب أن يكون YYYY-MM-DD");
+// 1. Helper for Date Validation - يقبل صيغة YYYY-MM-DD أو ISO ويحولها تلقائياً
+const dateStringSchema = z.string().min(1, "التاريخ مطلوب").transform((val) => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+    return val;
+  }
+  if (/^\d{4}-\d{2}-\d{2}T/.test(val)) {
+    return val.split('T')[0];
+  }
+  return val;
+}).refine((val) => /^\d{4}-\d{2}-\d{2}$/.test(val), {
+  message: "تنسيق التاريخ يجب أن يكون YYYY-MM-DD"
+});
 
 export const insertEmergencyUserSchema = createInsertSchema(emergencyUsers);
 export type EmergencyUser = typeof emergencyUsers.$inferSelect;

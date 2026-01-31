@@ -31,7 +31,8 @@ EOF
         chmod +x "$ANDROID_ROOT/gradlew"
         
         # Download wrapper if missing or corrupted
-        cd "$ANDROID_ROOT" && ./gradlew wrapper --gradle-version 8.5
+        log "Attempting to force Gradle wrapper update..."
+        cd "$ANDROID_ROOT" && (./gradlew wrapper --gradle-version 8.5 || true)
     fi
 }
 
@@ -40,7 +41,11 @@ ANDROID_ROOT="/home/administrator/app2/android"
 APP_GRADLE="$ANDROID_ROOT/app/build.gradle"
 MANIFEST="$ANDROID_ROOT/app/src/main/AndroidManifest.xml"
 
+# Force fix for the 'Evaluating project :app' error caused by Gradle version mismatch
 repair_gradle_version
+
+# Ensure we use the wrapper, not the system gradle
+GRADLE_EXEC="./gradlew"
 log "Repairing Project Files for SDK 35 compatibility..."
 # Resetting build.gradle to a clean state with SDK 35
 sed -i 's/minSdk [0-9]*/minSdk 23/g' "$APP_GRADLE"
@@ -66,9 +71,9 @@ find /home/administrator/app2/node_modules -name "build.gradle" -exec sed -i '/a
 
 log "Starting Professional Build with SDK 35..."
 cd "$ANDROID_ROOT" && chmod +x gradlew
-./gradlew clean assembleDebug >> "$LOG_FILE" 2>&1 || {
+$GRADLE_EXEC clean assembleDebug >> "$LOG_FILE" 2>&1 || {
     log "Retrying with skip-lint..."
-    ./gradlew assembleDebug -x lint >> "$LOG_FILE" 2>&1 || error_exit "Build failed. Check $LOG_FILE"
+    $GRADLE_EXEC assembleDebug -x lint >> "$LOG_FILE" 2>&1 || error_exit "Build failed. Check $LOG_FILE"
 }
 
 APK_FILE=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)

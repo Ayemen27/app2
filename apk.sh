@@ -22,7 +22,14 @@ repair_gradle_version() {
         log "Updating Gradle build tools in build.gradle..."
         local PROJECT_GRADLE="$ANDROID_ROOT/build.gradle"
         if [ -f "$PROJECT_GRADLE" ]; then
-            sed -i "s/classpath 'com.android.tools.build:gradle:[0-9.]*'/classpath 'com.android.tools.build:gradle:8.2.2'/g" "$PROJECT_GRADLE"
+            # Use sed to update or replace the classpath for the Android Gradle Plugin
+            if grep -q "com.android.tools.build:gradle" "$PROJECT_GRADLE"; then
+                sed -i "s/classpath ['\"]com.android.tools.build:gradle:[0-9.]*['\"]/classpath 'com.android.tools.build:gradle:8.2.2'/g" "$PROJECT_GRADLE"
+            else
+                # If not found, it might be in a different format, we'll try to add it to the dependencies block if possible
+                # But for standard Capacitor projects, it's usually there.
+                log "Warning: Could not find android build tools classpath in $PROJECT_GRADLE"
+            fi
         fi
     fi
 }

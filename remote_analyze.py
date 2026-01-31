@@ -13,16 +13,13 @@ try:
     
     # Comparing Firebase configurations and analyzing the crash
     commands = [
-        "echo '--- Project google-services.json ---'",
-        "cat /home/administrator/app2/google-services.json",
-        "echo '--- Service Account Key ---'",
-        "cat /home/administrator/app2/SERVICE_ACCOUNT_KEY.json",
-        "echo '--- Capacitor Config ---'",
-        "cat /home/administrator/app2/capacitor.config.json",
-        "echo '--- Checking APK metadata if possible (aapt) ---'",
-        "aapt dump badging /home/administrator/app2/output_apks/AXION_FINAL_1769860938.apk | grep -E 'package|sdkVersion' || echo 'aapt not found'",
-        "echo '--- Checking for recent system logs (dmesg/journalctl) ---'",
-        "journalctl -t app2 --since '1 hour ago' || tail -n 100 /var/log/syslog | grep -i 'app2' || echo 'No system logs accessible'"
+        "echo '--- Running AXION Analysis on APK ---'",
+        "cd /home/administrator/app2/tools/axion-test-engine && bash axion-test.sh /home/administrator/app2/output_apks/AXION_FINAL_1769860938.apk",
+        "echo '--- Checking for error logs in reports ---'",
+        "find /home/administrator/app2/tools/axion-test-engine/reports -type f -exec grep -lEi 'error|crash|failed|exception' {} + | xargs cat | head -n 50",
+        "echo '--- Verification of Firebase Project IDs ---'",
+        "grep -r 'app2-eb4df' /home/administrator/app2/google-services.json",
+        "grep -r 'pelagic-quanta' /home/administrator/app2/SERVICE_ACCOUNT_KEY.json"
     ]
     
     for cmd in commands:
